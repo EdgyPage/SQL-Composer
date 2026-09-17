@@ -59,6 +59,30 @@ written table back to its true upstream Sources, and each refusal triggered on p
 you can read the messages. Everything it prints comes from the **invented fixture** in
 `declarations/` - see the limitations below.
 
+## From a scheduled script or notebook
+
+This is the deployment shape: the scheduler runs a script or a notebook, that script imports
+the library and defines its own variables locally, and the finished string goes to the query
+API. Nothing is substituted into the SQL text by anything outside this library.
+
+```python
+import datetime
+from declarations import REGISTRY
+from sqlcomposer import compile_case
+
+RUN_DATE = datetime.date(2026, 9, 17)      # defined HERE, in the script
+compiled = compile_case(REGISTRY, REGISTRY.case("accountable_by_day"), run_date=RUN_DATE)
+
+submit(compiled.sql)                        # your API; the library never executes anything
+```
+
+Two properties matter here and both are tested. A Case whose Filters are relative to the run
+date is **deferred**: compiling it without a `run_date` raises `UnboundRunDate` rather than
+quietly substituting today, so a misconfigured job fails instead of silently reporting the
+wrong week. And because every value reaches SQL as a typed literal, a hostile or malformed
+local variable is either refused by type or contained inside its literal - it cannot become
+syntax. Neither property depends on the caller being careful.
+
 ---
 
 ## Adding a Case
@@ -234,7 +258,16 @@ reads is indistinguishable from success.
 
 ## Limitations, honestly
 
-### Four assumptions that were recorded, not supplied
+### One assumption since answered
+
+**The scheduler does not itself substitute values into SQL text.** Confirmed. The scheduler
+runs a script or notebook that imports this library and defines its variables locally. Values
+therefore begin life as Python objects and reach SQL only through the typed literal rendering
+above, so the escaping guarantee holds end to end with nothing sitting outside it. The
+`run_date` a deferred Case needs is bound by that script; omitting it raises `UnboundRunDate`
+rather than defaulting to today. See **From a scheduled script or notebook** above.
+
+### Three assumptions that were recorded, not supplied
 
 These were not facts anyone gave us. They are load-bearing and they are written down here so
 that the day one turns out to be false, the blast radius is visible rather than discovered:
@@ -244,22 +277,21 @@ that the day one turns out to be false, the blast radius is visible rather than 
    because there is nowhere else for them to go. `Runner.run(sql)` has no `params`
    argument, deliberately - growing one would deepen this dependency without anyone
    deciding to.
-2. **The scheduler does not itself substitute values into SQL text.** If it does, every
-   guarantee about escaping ends at the moment this library hands the string over.
-3. **"Failure to deliver" is a Filter over a shared delivery Source, not a Metric.** The
+2. **"Failure to deliver" is a Filter over a shared delivery Source, not a Metric.** The
    fixture declares it that way (`FAILURE_TO_DELIVER`). If it is really several different
    conditions on several Sources, that shape is wrong and the Cases built on it are wrong
    with it.
-4. **Contributors want loud build-time refusals regardless of who they are.** There is no
+3. **Contributors want loud build-time refusals regardless of who they are.** There is no
    permissive mode, no `--force`, no warning level. A team that disagrees will route around
    the library rather than configure it.
 
 ### The example Declarations are invented
 
 `declarations/deliveries.py` is a **fixture**. Every table, column, type, Cardinality and
-business rule in it was made up to exercise the library. The user was asked for a real table
-to declare against, declined, and asked for the library to be built anyway. Nothing in it
-describes anyone's warehouse.
+business rule in it was made up to exercise the library. A real table to declare against was
+asked for; inventing one was explicitly authorised instead. Nothing in it describes anyone's
+warehouse, and the day a real Declaration exists this fixture should stop being the example
+the README teaches from.
 
 ### Where a wrong number can still get through
 
