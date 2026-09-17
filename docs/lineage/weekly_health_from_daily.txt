@@ -1,0 +1,87 @@
+case: weekly_health_from_daily
+grain: (dt_day_week, carrier)
+spine: mart.delivery_health_daily
+sources: mart.delivery_health_daily
+join path: (direct)
+metrics: weekly_delivery_attempts, weekly_failed_deliveries, weekly_failure_rate, weekly_fees_charged
+filters: last_7_written_days
+traces through: mart.delivery_health_daily (written by accountable_by_day)
+note: Reads the table accountable_by_day writes. Every Metric here rolls up by SUM or is re-derived from two that do; the stored COUNT(DISTINCT) is not in this family, and asking for it raises UnsafeReAggregation.
+
+as read:
+weekly_health_from_daily
+  dt_day_week  [dimension]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.dt_day  [dimension]
+  carrier  [dimension]
+    mart.delivery_health_daily.carrier  [dimension]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+  weekly_delivery_attempts  [metric rule=SUM from=(dt_day, carrier)]
+    mart.delivery_health_daily.delivery_attempts  [metric weekly_delivery_attempts]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+  weekly_failed_deliveries  [metric rule=SUM from=(dt_day, carrier)]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.failed_deliveries  [metric weekly_failed_deliveries]
+  weekly_failure_rate  [metric rule=REDERIVE from=(dt_day, carrier)]
+    mart.delivery_health_daily.delivery_attempts  [metric weekly_failure_rate]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.failed_deliveries  [metric weekly_failure_rate]
+  weekly_fees_charged  [metric rule=SUM from=(dt_day, carrier)]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.fees_charged  [metric weekly_fees_charged]
+  join path: (direct)
+
+traced to source:
+weekly_health_from_daily
+  dt_day_week  [dimension]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.dt_day  [dimension]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [dimension]
+  carrier  [dimension]
+    mart.delivery_health_daily.carrier  [dimension]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.carrier_name  [dimension]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+  weekly_delivery_attempts  [metric rule=SUM from=(dt_day, carrier)]
+    mart.delivery_health_daily.delivery_attempts  [metric weekly_delivery_attempts]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+  weekly_failed_deliveries  [metric rule=SUM from=(dt_day, carrier)]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.failed_deliveries  [metric weekly_failed_deliveries]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [filter last_7_delivery_days]
+      mart.deliveries.failure_reason  [filter failure_to_deliver]
+  weekly_failure_rate  [metric rule=REDERIVE from=(dt_day, carrier)]
+    mart.delivery_health_daily.delivery_attempts  [metric weekly_failure_rate]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.failed_deliveries  [metric weekly_failure_rate]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [filter last_7_delivery_days]
+      mart.deliveries.failure_reason  [filter failure_to_deliver]
+  weekly_fees_charged  [metric rule=SUM from=(dt_day, carrier)]
+    mart.delivery_health_daily.dt  [filter last_7_written_days]
+    mart.delivery_health_daily.fees_charged  [metric weekly_fees_charged]
+      mart.carriers.carrier_id  [join_key]
+      mart.carriers.is_test  [filter live_carriers]
+      mart.deliveries.carrier_id  [join_key]
+      mart.deliveries.dt  [filter last_7_delivery_days]
+      mart.deliveries.fee_amount  [metric fees_charged]
+  join path: (direct)
