@@ -1,0 +1,53 @@
+case: accountable_by_day
+grain: (dt_day, carrier)
+spine: mart.deliveries
+sources: mart.deliveries, mart.carriers
+join path: carrier_deliveries
+metrics: active_couriers, delivery_attempts, failed_deliveries, failure_rate, fees_charged
+filters: last_7_delivery_days, live_carriers
+writes: mart.delivery_health_daily
+note: The daily table every weekly question is built on.
+
+as read:
+accountable_by_day
+  dt_day  [dimension]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [dimension]
+  carrier  [dimension]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.carrier_name  [dimension]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+  active_couriers  [metric rule=NONE from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.courier_id  [metric active_couriers]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+  delivery_attempts  [metric rule=SUM from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+  failed_deliveries  [metric rule=SUM from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.failure_reason  [filter failure_to_deliver]
+  failure_rate  [metric rule=REDERIVE from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.failure_reason  [filter failure_to_deliver]
+  fees_charged  [metric rule=SUM from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.fee_amount  [metric fees_charged]
+  join path: carrier_deliveries

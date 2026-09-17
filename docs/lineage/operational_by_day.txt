@@ -1,0 +1,58 @@
+case: operational_by_day
+grain: (dt_day, carrier)
+spine: mart.deliveries
+sources: mart.deliveries, mart.carriers
+join path: carrier_deliveries
+metrics: delivery_attempts, first_promised_at, last_delivered_at, late_deliveries, late_rate, scan_events
+filters: last_7_delivery_days, live_carriers
+note: Differs from accountable_by_day ONLY by Tag family.
+
+as read:
+operational_by_day
+  dt_day  [dimension]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [dimension]
+  carrier  [dimension]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.carrier_name  [dimension]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+  delivery_attempts  [metric rule=SUM from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+  first_promised_at  [metric rule=MIN from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.promised_at  [metric first_promised_at]
+  last_delivered_at  [metric rule=MAX from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.delivered_at  [metric last_delivered_at]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+  late_deliveries  [metric rule=SUM from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.late_flag  [filter delivered_late]
+  late_rate  [metric rule=REDERIVE from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.late_flag  [filter delivered_late]
+  scan_events  [metric rule=SUM from=atomic rows]
+    mart.carriers.carrier_id  [join_key]
+    mart.carriers.is_test  [filter live_carriers]
+    mart.deliveries.carrier_id  [join_key]
+    mart.deliveries.dt  [filter last_7_delivery_days]
+    mart.deliveries.scan_count  [metric scan_events]
+  join path: carrier_deliveries
