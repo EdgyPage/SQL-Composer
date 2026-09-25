@@ -1,7 +1,7 @@
 # What goes in a Table reference, and is it written or generated?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: 01, 02
 
 ## Question
@@ -60,3 +60,95 @@ Table reference, with two extra demands. Every column must have a type, because
 ORC` from it and refuses untyped columns. Its column order is the order the table is written in,
 because `INSERT_OVERWRITE(t)` lines the `SELECT` up by name into that order. Decide here whether a
 Saved table's Table reference is written by hand or generated from the Statement that writes it.
+
+## Answer
+
+**One `Table(...)` call per file, generated once from `DESCRIBE` and then owned by the user.**
+
+```python
+"""ops.job_runs - one row per job run."""
+from sql_composer import Table, not_equals
+
+job_runs = Table(
+    "ops.job_runs",
+    columns={
+        "run_id": "bigint",           # unique run identifier
+        "status": "string",           # SUCCESS / FAILED / TEST
+        "avg_retry_secs": "double",
+        "started_at": "timestamp",
+        "dt": "string",
+    },
+    date_partition="dt",
+    key=["run_id"],
+    does_not_add_up=["avg_retry_secs"],
+)
+
+
+def real_runs():
+    """Filter: leave out test runs."""
+    return not_equals(job_runs.status, "TEST")
+
+
+key_columns = [job_runs.run_id, job_runs.status, job_runs.started_at]
+SITES = ["LON", "PAR", "NYC"]
+```
+
+**What a Table reference carries:**
+
+- **Columns, one line each, with their Hive types** as Hive prints them (`"bigint"`,
+  `"decimal(10,2)"`, `"array<string>"`). `None` means "don't know", and that column falls back to
+  the plain rules from the guardrails ticket. The type-checking Guards skip complex types.
+- **`date_partition` is required.** A table with no Date partition says `date_partition=None`
+  out loud, so forgetting it can't silently switch off the both-ends date bound.
+- **`key` is optional** and defaults to none. With no key, a `JOIN` onto the table refuses unless
+  it carries `many_matches=True`.
+- **`does_not_add_up`** lists the columns that the unsafe re-grouping Guard treats like a distinct
+  count or an average.
+- **`date_format`** appears only when the partition's dates aren't `'YYYY-MM-DD'`, for example
+  `date_format="%Y%m%d"`. The time zone isn't an argument, and the docstring notes it.
+- **No `alias`.** In the SQL the table is called by its short name (`job_runs`).
+- **The one-line description is the file's docstring.**
+- **`Table(...)` checks itself when it's imported.** It refuses, naming the offender, if
+  `date_partition`, `key` or a `does_not_add_up` entry isn't one of its columns, or if
+  `date_format` isn't a valid pattern.
+
+**Below the call:** filters that concern that table alone, as plain functions (anything involving
+two tables is a Building block), and plain Python lists the user keeps by hand, such as columns of
+interest or site codes. `SELECT` and `any_of` accept a list as well as separate arguments. There
+are no per-file standard queries. The "first look" is a Toolbox function, `first_look(t)`, that
+works on any Table reference: all columns, the last day, 20 rows. "Latest partition" means "the
+last N days", because `MAX(dt)` may scan the whole table.
+
+**Generated once, then yours:** `write_table_reference("ops.job_runs", send=run_query)`
+
+- sends `DESCRIBE` and `SHOW PARTITIONS` through the user's own `send`. Both read metadata, not
+  rows, and the user confirmed both are fine to send at work. `DESCRIBE` returns a DataFrame of
+  `col_name`, `data_type`, `comment`, including the partition rows;
+- writes `job_runs.py` next to the notebook, with a variable named after the short table name,
+  Hive's column comments as line comments, and TODOs for the docstring, `key` and
+  `does_not_add_up`;
+- **refuses if the file exists** and writes nothing. It is never regenerated, so there are no
+  generated sections and no second file to import;
+- **picks the Date partition as follows.** No partition columns: `None`. Otherwise it takes the
+  first (outermost) partition column, with a `# TODO check: also partitioned by ...` comment when
+  there are several. If that column's newest value doesn't parse as a date, it writes `None` with
+  a TODO naming the partition columns. The newest value also sets `date_format` when needed;
+- **never guesses a key.** Counting rows against distinct values is a real query against a
+  multi-million-row table, and a column unique for one day can repeat across days.
+
+The user's proposed name `RECORD(table)` was dropped, because upper case is kept for clause
+functions.
+
+**A Saved table's Table reference is written by hand**, in the same shape with every column typed.
+Generating it from the Statement that writes it is circular (`INSERT_OVERWRITE(t)` needs `t` to
+exist) and would have to guess the types of calculations. The line-up Guard and `create_table`'s
+refusal of untyped columns cover the risks.
+
+Handed on:
+
+- **"What's in the Toolbox?"** It gets `Table`, `write_table_reference`, `first_look`, list
+  arguments for `SELECT` and `any_of`, a candidate `check_key(t, send=...)` that confirms a
+  declared key over one bounded day, and a way to name a table twice in one Statement (self-joins,
+  and two tables with the same short name such as `ops.jobs` and `mart.jobs`).
+- **The schema-drift fog** is sharp enough to ticket: see "Does the Toolbox check a Table reference
+  against the warehouse?".
