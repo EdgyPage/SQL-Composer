@@ -1,7 +1,7 @@
 """Every file path the standing docs name exists, so a doc can't point at something gone.
 
-The standing docs are `CLAUDE.md` and everything in `docs/agents/`. When the README template
-exists, it joins `STANDING_DOCS`. A path counts when it's written in backticks or as a
+The standing docs are `CLAUDE.md`, everything in `docs/agents/`, and the Clean branch's README
+template, `docs/clean-branch-readme.md`. A path counts when it's written in backticks or as a
 Markdown link target and ends in a known file extension or in `/` (a folder). It may be
 relative to the repo root or to the doc's own folder. Anything with a placeholder
 (`<effort>`), a space, a wildcard or a leading `/` (a slash command) is skipped.
@@ -15,7 +15,11 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-STANDING_DOCS = sorted([ROOT / "CLAUDE.md", *(ROOT / "docs" / "agents").glob("*.md")])
+STANDING_DOCS = sorted([
+    ROOT / "CLAUDE.md",
+    ROOT / "docs" / "clean-branch-readme.md",
+    *(ROOT / "docs" / "agents").glob("*.md"),
+])
 
 IN_BACKTICKS = re.compile(r"`([^`\n]+)`")
 LINK_TARGET = re.compile(r"\]\(([^)\s]+)\)")
