@@ -223,3 +223,8 @@ Handed on:
 - **New task tickets:** "Build the Clean-branch export" and "Build the Example gallery".
 - **"What does the example database demonstrate, and where does it run?"** gets the Levels folder
   names and the standalone worked examples.
+
+**Changed by "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
+The Levels test covers `worked_examples/building_blocks/` and `worked_examples/statements/`. There
+is no `table_references/` folder, because the Example database's Table references ship inside the
+Toolbox as `example_database`.

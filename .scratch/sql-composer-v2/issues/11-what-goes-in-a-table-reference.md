@@ -152,3 +152,7 @@ Handed on:
   and two tables with the same short name such as `ops.jobs` and `mart.jobs`).
 - **The schema-drift fog** is sharp enough to ticket: see "Does the Toolbox check a Table reference
   against the warehouse?".
+
+**Changed by "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
+A `JOIN` onto a table with no key now warns instead of refusing. The warning says to declare
+`key=[...]`, and `many_matches=True` still silences it.

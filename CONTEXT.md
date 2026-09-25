@@ -59,6 +59,13 @@ silently give a wrong result, unless the call that made the mistake carries the 
 Guards protect the answer. Load limits protect the cluster, and are not Guards.
 _Avoid_: guardrail, check, validation, rule
 
+**Warning**:
+A check the Toolbox runs while a Statement is composed, which lets the Statement through but says
+at the offending call why a number may come out wrong, unless that call carries the Warning's
+opt-out. Used where the risky Statement is often the one the user meant, such as a join off the
+joined table's key.
+_Avoid_: soft guard, lint, notice, advisory
+
 **Derived table**:
 A Statement given a name so another Statement can read from it, with its output columns checked
 like a Table reference's. It lives only inside the Statement that reads it, and is never stored.
@@ -93,7 +100,8 @@ _Avoid_: guard, quota, throttle, safety check
 
 **Example database**:
 A small set of made-up tables, with their Table references, on which Worked examples run and each
-Guard is shown catching a wrong number.
+Guard and Warning is shown catching a wrong number. It ships inside the Toolbox, so Statements can
+be practised on it at work without touching the warehouse.
 _Avoid_: fixture, sample data, demo database, test tables
 
 **Worked example**:
