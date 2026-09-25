@@ -6,8 +6,10 @@ Blocked by: 02
 
 ## Question
 
-Once the work environment's sqlglot version is known, establish which of the APIs the Toolbox
-needs exist and behave identically on that version and on the version pinned on `dev`: the
+The work environment's sqlglot version won't be probed (see "What does the work environment
+actually have?"), so choose a supported version range instead, and the check the Toolbox runs on
+import to refuse anything outside it. Establish which of the APIs the Toolbox needs exist and
+behave identically across that range and on the version pinned on `dev`: the
 builder functions, `exp.convert` and string-literal escaping for Hive, `qualify` and the errors it
 raises, `lineage`, and the Hive generator's output for `INSERT OVERWRITE ... PARTITION`.
 

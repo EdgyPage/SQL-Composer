@@ -59,6 +59,10 @@ at work without touching the user's own scripts.
   clause functions in SQL order (`statement(SELECT(...), FROM(runs), WHERE(equals(...)))`, then
   `to_hive(...)`), with columns as Table reference attributes and conditions as named functions,
   not operators; every calculation is named and sub-query columns stay checked.
+- [What does the work environment actually have?](issues/02-what-does-the-work-environment-have.md):
+  no probing at work, to prevent data leakage; JupyterLab 4 on a Linux VM with generous but
+  unknown limits, so the Toolbox checks its own library versions on import and every lineage
+  export gets a script-free Markdown twin.
 
 ## Not yet specified
 

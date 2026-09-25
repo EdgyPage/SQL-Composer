@@ -1,7 +1,7 @@
 # What does the work environment actually have?
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: -
 Probe: branch `task/work-environment-probe` (commit `611f381`), `tasks/work-environment/work_environment_probe.py`
 
@@ -64,3 +64,33 @@ What the probe can't read, to answer by hand:
   limit exist and are generous within reason. Cell 2's 200,000-row probe gives a floor.
 
 Still to come: the Cell 1, 2 and 3 reports and the HTML test results.
+
+## Answer
+
+**No probes run on the work machine.** The user declined to run the probe there to prevent data
+leakage, so the Toolbox is designed around what is known and never depends on what isn't.
+
+Known, from the user:
+
+- **Notebook:** JupyterLab 4, in a managed workspace. The kernel runs on a Linux VM the user can't
+  reach directly, so any file the Toolbox writes lands on that VM and is opened through
+  JupyterLab.
+- **Query API limits:** a timeout and row limit are believed to exist and to be generous within
+  reason; neither is documented to the user.
+
+Unknown, and designed around:
+
+- **Whether scripts run in the lineage HTML.** Every lineage export therefore also writes a
+  Markdown file of the same graph that needs no script, with a report section on derived columns
+  (the user's requirement). Prototyped under "What does exploring a Statement's lineage look
+  like?".
+- **Library versions, sqlglot above all.** The Toolbox checks the versions it needs when it is
+  imported and stops with a plain message naming what it found, instead of relying on a probe.
+  "Which sqlglot APIs can the Toolbox use at work?" now picks a supported version range rather
+  than matching a known version.
+- **What the query API returns, and the cluster's `SET` and strict-mode settings.** The user
+  knows how their own API call behaves from daily use, so the load-safety and Table-reference
+  grillings ask them directly. The Hive research already has the Toolbox enforce its own
+  load-safety defaults whatever the cluster does, so the cluster's settings aren't needed.
+
+The unused probe stays on `task/work-environment-probe` for the record.
