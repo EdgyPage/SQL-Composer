@@ -16,3 +16,17 @@ the function list:
 
 Every function ships with a worked example in its docstring. Keep the count small enough to read
 in one sitting, and note anything the user could just as well write in plain Python.
+
+## Comments
+
+**From "How does a composed Statement read?"** The vocabulary is fixed:
+
+- clause functions `SELECT`, `AS`, `FROM`, `JOIN(table, ON=...)`, `WHERE`, `GROUP_BY`, `WITH`,
+  assembled by `statement(...)` and emitted by `to_hive(...)`;
+- conditions `equals`, `not_equals`, `any_of`;
+- `derived(name, statement)` for sub-queries;
+- calculations `count_rows`, `week_start`, `last_n_days`, `row_number(PARTITION_BY=, ORDER_BY=)`,
+  `newest_first`.
+
+Style B's prototype Toolbox (branch `prototype/statement-styles`, `b_clause_functions/toolbox.py`)
+is the starting point.
