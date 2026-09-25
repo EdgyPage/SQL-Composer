@@ -1,7 +1,7 @@
 # What's in the Toolbox?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01, 08, 09, 10
 
 ## Question
