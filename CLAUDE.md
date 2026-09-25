@@ -1,15 +1,54 @@
 # CLAUDE.md - dev branch
 
-This is the **Dev branch** of SQL Composer. `main` is the **Clean branch**: it is generated from
-this branch by an export script and is never edited or committed to by hand. Until that export
-exists, `main` still holds the v1 draft - leave it alone.
+This is the **Dev branch** of SQL Composer, where all work happens. `main` is the **Clean
+branch**: it holds only the Toolbox, is generated from this branch by the export script, and is
+never edited or committed to by hand. A hook refuses commits and file edits while `main` is
+checked out. Until the export exists, `main` still holds the v1 draft; leave it alone.
 
-v2 is being charted and built through the wayfinder map at `.scratch/sql-composer-v2/map.md`.
-Read its Notes before working any ticket. The v1 code in this tree is a superseded first draft;
-do not build on it or on its vocabulary.
+v2 is charted and built through the wayfinder map at `.scratch/sql-composer-v2/map.md`. Read its
+Notes before working any ticket.
 
-The rest of this file - the principles, checks and maintainer agents - is decided by the ticket
-"What does `dev` enforce, and which maintainer agents does it carry?".
+## Checks
+
+`pytest` holds every principle a test can hold, so run `python -m pytest` before you commit. CI
+runs it on Python 3.11 at both ends of the supported sqlglot range. Set up with
+`pip install -r requirements-dev.txt`.
+
+What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
+
+## Drift
+
+After a commit that touches the Toolbox, `docs/`, `CONTEXT.md`, `CLAUDE.md` or
+`requirements-dev.txt`, the drift reviewer looks for anything the commit made untrue and adds one
+open item per finding to `.scratch/drift.md`. It edits nothing else.
+
+- Fix open items as your next commits. Each fix marks its item `[x]` with the fixing commit.
+- A false alarm closes with a `No-drift: <item> - <why>` line in a commit message. The reviewer
+  accepts it only if the reason holds.
+- Never raise the Toolbox version yourself. When a version item opens, ask the user.
+- You can't end a turn while an item from your own commits is open, and the export to `main`
+  refuses while any item is open.
+
+## Definition of done
+
+A `task` ticket that changes code is done when:
+
+1. `pytest` passes;
+2. the `code-review` skill has run with the ticket as its spec, and its findings are fixed or
+   answered in the ticket;
+3. the ticket leaves no open item in `.scratch/drift.md`;
+4. if anything a beginner sees has changed (a public name, a docstring, a refusal message, the
+   README template or a Worked example), the beginner reader has run and its report is linked
+   from the ticket.
+
+## Maintainer agents
+
+- **Code reviewer:** the `code-review` skill, pointed at the ticket and
+  `docs/agents/standards.md`.
+- **Beginner reader:** `.claude/agents/beginner-reader.md`. It only advises; the user decides
+  what changes.
+
+Tests are written with the `tdd` skill, and the glossary is kept with `domain-modeling`.
 
 ## Agent skills
 
