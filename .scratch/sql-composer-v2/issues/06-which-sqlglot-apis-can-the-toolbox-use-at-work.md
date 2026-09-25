@@ -14,3 +14,10 @@ raises, `lineage`, and the Hive generator's output for `INSERT OVERWRITE ... PAR
 Recommend the version `dev` should pin so that tests there predict behaviour at work. Notes from
 v1: `exp.Expr` is the base class only in recent versions, and minor releases are
 backwards-incompatible by policy.
+
+If the example database runs on sqlglot's executor (see "Can sqlglot's own executor run an
+example database?"), the executor has its own version floor. `COUNT(DISTINCT)` silently returns
+the row count on 30.18.0 and is fixed in 30.19.0; outer-join and NULL handling were fixed in
+30.15.0. The current `dev` pin of 30.18.0 is therefore wrong for the example database even if it
+is fine for generating SQL. Decide whether the pin moves, and what the example database does if
+work has an older version.
