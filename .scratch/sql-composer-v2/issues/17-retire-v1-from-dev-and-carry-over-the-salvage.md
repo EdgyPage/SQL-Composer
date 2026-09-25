@@ -95,3 +95,27 @@ The hook design, for whoever finishes it:
 
 For "Build the Clean-branch export": the README template's path joins the drift reviewer's
 watched paths and the pointer test's `STANDING_DOCS`.
+
+**Progress (2026-09-25), second session, not yet resolved.** Taken over from the first session,
+whose claim had gone stale.
+
+Done and committed on `dev`:
+
+- **The hooks,** wired in a tracked `.claude/settings.json`: `protect_main.py` (PreToolUse),
+  `drift_review.py` (PostToolUse after a commit-making git command on `dev`), `drift_stop.py`
+  (Stop), all sharing `drift_list.py`, with the reviewer's brief at
+  `.claude/hooks/drift-reviewer.md`. The `if: "Bash(git *)"` filter from the design was left out:
+  each script filters for itself, so the hooks don't depend on that field. `tests/test_hooks.py`
+  checks their decisions (10 tests).
+- **The new `CLAUDE.md`.**
+- **The drift loop ran for real:** the reviewer opened D4 on the hooks commit (`CLAUDE.md`
+  overstated the stop hook, which blocks once), fixed in 25b4bb8 and reviewed clean.
+
+Still waiting on the user, because auto mode refused it again even with the user's go-ahead:
+
+- **Removing v1.** The user runs:
+
+      git rm -r -q sqlcomposer declarations tools docs/design docs/lineage README.md requirements.txt tests/conftest.py tests/test_compile_gate.py tests/test_compile_golden.py tests/test_declaration.py tests/test_escaping.py tests/test_grain.py tests/test_joins.py tests/test_lineage.py tests/test_model.py tests/test_registry.py tests/test_semantic_diff.py tests/test_values_duckdb.py tests/test_verify.py tests/test_write.py
+
+  Then the next session commits it, checks `python -m pytest` passes on what's left, records the
+  list of what went under an `## Answer`, and resolves this ticket.
