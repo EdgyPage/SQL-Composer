@@ -28,3 +28,14 @@ let the user react. Decide:
 **From "Which sqlglot APIs can the Toolbox use at work?" (2026-09-25).** The executor needs sqlglot
 30.19.0 or newer. On an older version, the demonstrations stop with a plain message and can show
 their pandas reference numbers instead, labelled as such.
+
+**From "Which guardrails on how a Statement is written earn their place?" (2026-09-25).** The Guards that can give a visibly wrong number, so each needs a demonstration:
+
+- repeated rows from a join off the key, inflating a `SUM`;
+- re-grouping a distinct count or an average from days to weeks;
+- `LEFT_JOIN` followed by `WHERE` on its table, silently dropping unmatched rows;
+- `None` in `equals` matching nothing;
+- NaN becoming NULL.
+
+It should also show one behaviour that isn't guarded, only documented: `not_equals` dropping NULL
+rows that pandas `!=` would keep.

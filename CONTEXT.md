@@ -52,6 +52,13 @@ A Toolbox function named after one SQL clause - `SELECT`, `FROM`, `WHERE`, `GROU
 written in SQL order. A Statement is a list of them.
 _Avoid_: builder, chain, method
 
+**Guard**:
+A check the Toolbox runs while a Statement is composed, which refuses a Statement that would
+silently give a wrong result, unless the call that made the mistake carries the Guard's opt-out.
+Guards protect the answer. Limits on how much a Statement reads or returns protect the cluster,
+and are not Guards.
+_Avoid_: guardrail, check, validation, rule
+
 **Derived table**:
 A Statement given a name so another Statement can read from it, with its output columns checked
 like a Table reference's.

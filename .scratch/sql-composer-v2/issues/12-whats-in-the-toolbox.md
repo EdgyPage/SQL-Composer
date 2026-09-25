@@ -36,3 +36,14 @@ Toolbox is a flat package folder, `sql_composer/`, with a few modules and no sub
 import only from its top level. Deciding what goes in the Toolbox also decides how it splits into
 modules: fewer files make a text paste cheaper, and each module should be named for what a beginner
 would go looking for.
+
+**From "Which guardrails on how a Statement is written earn their place?" (2026-09-25).** The Guards add these to the Toolbox:
+
+- `is_null`, `is_not_null`, `LEFT_JOIN` and `CROSS_JOIN`;
+- `hive_function(name, *args)`, a generic call that escapes its arguments. It replaces any raw-SQL
+  entry point, which the Toolbox doesn't have;
+- one exception type, `GuardRefused`;
+- the round-trip self-check inside `to_hive`.
+
+`JOIN` requires `ON`. The opt-out keywords are `many_matches=True` (`JOIN`), `adds_up=True`
+(`SUM`/`AVG`) and `keeps_only_matches=True` (`LEFT_JOIN`).
