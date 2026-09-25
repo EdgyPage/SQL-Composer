@@ -12,6 +12,11 @@ strings, and traced back to the table columns they read.
 The set of Python functions that compose Hive SQL - the only thing copied to work.
 _Avoid_: library, package, framework, SQL module
 
+**Toolbox version**:
+The feature number of the Toolbox (`3.1`), raised only when a big feature lands. Two copies of the
+same Toolbox version are told apart by when they were exported.
+_Avoid_: release, build, hash
+
 **Clean branch**:
 The branch holding only the Toolbox, generated from the Dev branch and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch

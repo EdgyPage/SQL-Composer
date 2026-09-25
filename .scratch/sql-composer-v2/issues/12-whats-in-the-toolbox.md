@@ -30,3 +30,9 @@ in one sitting, and note anything the user could just as well write in plain Pyt
 
 Style B's prototype Toolbox (branch `prototype/statement-styles`, `b_clause_functions/toolbox.py`)
 is the starting point.
+
+**From "How does the Toolbox survive being pasted over an existing directory?" (2026-09-25).** The
+Toolbox is a flat package folder, `sql_composer/`, with a few modules and no subfolders. Users
+import only from its top level. Deciding what goes in the Toolbox also decides how it splits into
+modules: fewer files make a text paste cheaper, and each module should be named for what a beginner
+would go looking for.
