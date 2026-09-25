@@ -1,7 +1,7 @@
 # How do pieces combine across Levels - CTE, subquery, or saved table?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01
 
 ## Question
