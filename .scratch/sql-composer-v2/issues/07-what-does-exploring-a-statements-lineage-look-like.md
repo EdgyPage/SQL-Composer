@@ -51,3 +51,16 @@ Found while building:
 For the user to react to: graph or report (A, B or C); what a box shows; whether conditions
 belong in the graph; how CTEs appear; whether the Markdown report reads well enough as the
 fallback; and where the two files are written.
+
+**User's reaction (2026-09-25).**
+
+- **View A, every step visible.** CTEs and other intermediate data are where mistakes happen,
+  especially when joining tables built on different assumptions, so intermediate columns must
+  stay on screen, not be hidden (B) or reduced to a report (C).
+- **The Markdown twin looks good** as it stands, derived-columns report included.
+- **Everything is generated.** Every output and artifact (the HTML, the Markdown, their labels
+  and report) must be built from the Statement by code, never written or edited by hand.
+
+Still open for the resolution: what a box shows beyond name and expression, whether Building
+block names replace sqlglot's rewritten formulas, and what the two files are called and where
+they are written.
