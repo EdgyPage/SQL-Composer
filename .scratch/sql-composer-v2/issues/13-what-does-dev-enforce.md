@@ -16,3 +16,13 @@ The user wants their principles enforced without having to repeat them. Decide:
   Clean-branch exporter, others) and what each one is told.
 
 A principle that has to be repeated in prose is one a check should replace.
+
+## Comments
+
+**From "How does the Toolbox survive being pasted over an existing directory?" (2026-09-25).**
+Checks for `dev` to carry:
+
+- a test that every Toolbox file declares the same `TOOLBOX_VERSION`;
+- the export script stamping line 1 of each file, writing the file list into `__init__.py`, and
+  placing the README at `.github/README.md`;
+- `main`'s allowlist is now the `sql_composer/` folder plus `.github/README.md`.

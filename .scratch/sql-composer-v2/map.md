@@ -69,6 +69,10 @@ at work without touching the user's own scripts.
   support sqlglot 25.24.2 up to (not including) 31 and pin `dev` to 30.19.0; on import, refuse an out-of-range
   version plus three behaviour checks; the example database needs 30.19.0 and falls back to
   labelled pandas numbers.
+- [How does the Toolbox survive being pasted over an existing directory?](issues/05-how-does-the-toolbox-survive-an-overwrite-install.md):
+  a flat package folder `sql_composer/`, imported only from its top level and replaced whole on
+  update, which stops on import if it finds extra or missing files or mixed versions; a hand-raised
+  feature number plus an export stamp, with the README at `.github/README.md`.
 
 ## Not yet specified
 
@@ -80,7 +84,6 @@ at work without touching the user's own scripts.
   Hangs on what the API returns and on the load-safety decision.
 - **Schema drift.** Whether a Table reference going stale against the warehouse matters enough to
   check, for a seven-month tool.
-- **Knowing which Toolbox version is pasted at work.**
 - **Lineage for SQL the Toolbox didn't build.** sqlglot can parse a pasted query cheaply; whether
   that is worth supporting.
 - **A worked walkthrough** from Table reference to submitted Statement, for the user.
