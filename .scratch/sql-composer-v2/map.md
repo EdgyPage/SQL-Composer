@@ -65,6 +65,10 @@ at work without touching the user's own scripts.
   no probing at work, to prevent data leakage; JupyterLab 4 on a Linux VM with generous but
   unknown limits, so the Toolbox checks its own library versions on import and every lineage
   export gets a script-free Markdown twin.
+- [Which sqlglot APIs can the Toolbox use at work?](issues/06-which-sqlglot-apis-can-the-toolbox-use-at-work.md):
+  support sqlglot 25.24.2 up to (not including) 31 and pin `dev` to 30.19.0; on import, refuse an out-of-range
+  version plus three behaviour checks; the example database needs 30.19.0 and falls back to
+  labelled pandas numbers.
 
 ## Not yet specified
 

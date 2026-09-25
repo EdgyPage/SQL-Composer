@@ -22,3 +22,9 @@ let the user react. Decide:
 - the engine it runs on, from the executor research;
 - whether it ships to work alongside the Toolbox (as a learning aid) or stays on `dev` (as a test
   fixture), and whether it doubles as the fixture the test suite uses.
+
+## Comments
+
+**From "Which sqlglot APIs can the Toolbox use at work?" (2026-09-25).** The executor needs sqlglot
+30.19.0 or newer. On an older version, the demonstrations stop with a plain message and can show
+their pandas reference numbers instead, labelled as such.
