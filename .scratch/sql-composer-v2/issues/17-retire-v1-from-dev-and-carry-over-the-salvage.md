@@ -1,7 +1,7 @@
 # Retire v1 from `dev` and carry over the salvage
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 13
 
 ## Question
