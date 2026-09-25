@@ -96,8 +96,15 @@ def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path
     running = text.split("### `running.py`\n", 1)[1].split("###", 1)[0]
     assert "Running: turn a Statement into Hive, send it, split it by day" in running
     assert "- `to_hive` - The Hive string for a Statement, ready to send.\n" in running
-    assert "- `TOOLBOX_VERSION` = `'2.0'`\n" in text.split("### `__init__.py`\n", 1)[1]
+    constants = text.split("### `__init__.py`\n", 1)[1]
+    assert ("- `TOOLBOX_VERSION` = `'2.0'` - the feature number, raised only when a big feature "
+            "lands.\n") in constants
     assert text.index("### `tables.py`") < text.index("### `clauses.py`")
+
+
+def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) -> None:
+    section = readme(clean).split("### `example_database.py`\n", 1)[1]
+    assert section.count("The Example database: three made-up tables") == 1
 
 
 def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
@@ -143,6 +150,11 @@ DRIFT_TEXT = """\
 def test_only_open_items_under_the_items_heading_count() -> None:
     assert export_clean.open_drift_items(DRIFT_TEXT) == ["D5"]
     assert export_clean.open_drift_items(DRIFT_TEXT.replace("- [ ] D5", "- [x] D5")) == []
+
+
+def test_a_drift_list_without_its_items_heading_is_refused() -> None:
+    with pytest.raises(export_clean.ExportRefused, match="## Items"):
+        export_clean.open_drift_items(DRIFT_TEXT.replace("## Items", "## Open"))
 
 
 def git(repo: Path, *args: str) -> str:
@@ -249,3 +261,42 @@ def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
     (source / "sql_composer" / "old_module.py").write_text('TOOLBOX_VERSION = "1.9"\n')
     with pytest.raises(export_clean.ExportRefused, match="old_module.py is from 1.9"):
         export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    (source / "sql_composer" / "notes.txt").write_text("scratch\n")
+    with pytest.raises(export_clean.ExportRefused, match="notes.txt"):
+        export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def test_a_readme_template_without_its_markers_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    template = source / export_clean.README_TEMPLATE
+    template.write_text(template.read_text(encoding="utf-8").replace("<!-- CHEAT SHEET -->", ""),
+                        encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match="CHEAT SHEET"):
+        export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def test_the_export_ships_what_dev_committed_not_ignored_leftovers(repo: Path) -> None:
+    (repo / ".gitignore").write_text("*.log\n")
+    git(repo, "add", ".gitignore")
+    git(repo, "commit", "-q", "-m", "ignore logs")
+    (repo / "sql_composer" / "run.log").write_text("left behind\n")
+    export_clean.export(repo, WHEN)
+    assert "sql_composer/run.log" not in git(repo, "ls-tree", "-r", "--name-only", "main")
+
+
+def test_the_export_refuses_while_main_is_checked_out_in_a_worktree(repo: Path) -> None:
+    git(repo, "worktree", "add", "-q", str(repo.parent / "elsewhere"), "main")
+    with pytest.raises(export_clean.ExportRefused, match="worktree"):
+        export_clean.export(repo, WHEN)
+
+
+def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys) -> None:
+    main_before = git(ROOT, "rev-parse", "main")
+    assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
+    assert (tmp_path / "preview" / ".github" / "README.md").is_file()
+    assert "Nothing was committed" in capsys.readouterr().out
+    assert git(ROOT, "rev-parse", "main") == main_before

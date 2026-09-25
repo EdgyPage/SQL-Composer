@@ -101,6 +101,14 @@ def test_moving_main_by_hand_is_refused() -> None:
         "git update-ref refs/heads/main 1a2b3c4",
         "python tools/export_clean.py; git update-ref refs/heads/main HEAD",
         "git branch -f main dev",
+        "git branch main -f",
+        "git fetch . dev:main",
+        "git push . HEAD:refs/heads/main",
     ):
         assert refusal("Bash", {"command": command}, str(ROOT)), command
-    assert refusal("Bash", {"command": "git update-ref refs/heads/dev 1a2b3c4"}, str(ROOT)) is None
+    for command in (
+        "git update-ref refs/heads/dev 1a2b3c4",
+        "git update-ref refs/heads/dev main",
+        "git branch -f main-old dev",
+    ):
+        assert refusal("Bash", {"command": command}, str(ROOT)) is None, command

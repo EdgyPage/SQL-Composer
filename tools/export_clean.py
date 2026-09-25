@@ -4,7 +4,7 @@ Run it with `dev` checked out and nothing uncommitted:
 
     python tools/export_clean.py
 
-It builds the Clean tree in a temporary folder:
+It builds the Clean tree in a temporary folder, from what `dev` has committed:
 
 - it copies the `sql_composer/` folder and stamps line 1 of every file in it, for example
   `# SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit`;
@@ -30,11 +30,13 @@ from __future__ import annotations
 import ast
 import datetime
 import inspect
+import io
 import json
 import os
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -46,7 +48,7 @@ README_TEMPLATE = "docs/clean-branch-readme.md"
 VERSION_MARKER = "<!-- VERSION -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
 # What the Toolbox may import besides the standard library and itself: all that work has.
-WORK_HAS = frozenset({"pandas", "numpy", "sqlglot", "__future__"})
+WORK_HAS = frozenset({"pandas", "numpy", "sqlglot"})
 
 
 class ExportRefused(Exception):
@@ -99,8 +101,12 @@ def describe_toolbox() -> dict:
     for name in sql_composer.__all__:
         value = getattr(sql_composer, name)
         if isinstance(value, str):
-            # The two constants: their docstring is the Toolbox's own, so show the value.
+            # The two constants: their docstring is the Toolbox's own, so show the value and
+            # the sentence of that docstring which says what the constant is.
             module, line = sql_composer, f"= `{value!r}`"
+            said = re.search(rf"\b{name} is (.+?\.)(\s|$)", " ".join(sql_composer.__doc__.split()))
+            if said:
+                line += " - " + said.group(1)
         else:
             module = value if inspect.ismodule(value) else sys.modules[value.__module__]
             line = "- " + first_line(inspect.getdoc(value))
@@ -130,7 +136,7 @@ def import_stamped(into: Path) -> dict:
     if done.returncode != 0:
         raise ExportRefused(
             f"The stamped copy of the Toolbox doesn't import, so nothing was exported:\n"
-            f"{done.stderr.strip().splitlines()[-1]}"
+            f"{(done.stderr.strip() or 'Python gave no message').splitlines()[-1]}"
         )
     described = json.loads(done.stdout.strip().splitlines()[-1])
     if Path(described["folder"]).resolve() != (into / TOOLBOX).resolve():
@@ -143,8 +149,19 @@ def open_drift_items(drift_text: str) -> list[str]:
 
     The indented lines above that heading show the format and are not items.
     """
-    items = drift_text.split("\n## Items\n", 1)[-1].split("\n## ", 1)[0]
+    if "\n## Items\n" not in "\n" + drift_text:
+        raise ExportRefused(
+            f"{DRIFT_LIST} has no `## Items` heading, so the export can't tell whether a drift "
+            "item is open. Put the heading back."
+        )
+    items = ("\n" + drift_text).split("\n## Items\n", 1)[1].split("\n## ", 1)[0]
     return re.findall(r"^- \[ \] (D\d+) ", items, re.MULTILINE)
+
+
+def files_in(folder: Path) -> list[str]:
+    """Every file under `folder`, as sorted paths relative to it, such as ".github/README.md"."""
+    return sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*")
+                  if path.is_file())
 
 
 def outside_allowlist(paths: list[str]) -> list[str]:
@@ -179,7 +196,10 @@ def cheat_sheet(groups: list[dict]) -> str:
     """One Markdown section per Toolbox file, with one line per public name in it."""
     sections = []
     for group in groups:
-        lines = [f"### `{group['file']}`", "", group["about"], ""]
+        lines = [f"### `{group['file']}`", ""]
+        # A file line that only repeats a name's own line (example_database.py) is left out.
+        if f"- {group['about']}" not in [line for _, line in group["names"]]:
+            lines += [group["about"], ""]
         lines += [f"- `{name}` {line}" for name, line in group["names"]]
         sections.append("\n".join(lines))
     return "\n\n".join(sections)
@@ -229,8 +249,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     (into / README).write_text(
         readme_text(template, described, stamp), encoding="utf-8", newline="\n"
     )
-    held = sorted(path.relative_to(into).as_posix() for path in into.rglob("*") if path.is_file())
-    outside = outside_allowlist(held)
+    outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
     return described["version"]
@@ -272,11 +291,28 @@ def tree_of(repo: Path, into: Path, index: Path) -> str:
     where = ["--git-dir", git_dir, "--work-tree", str(into)]
     git(into, *where, "add", "--all", env=environment)
     tree = git(into, *where, "write-tree", env=environment)
-    built = sorted(path.relative_to(into).as_posix() for path in into.rglob("*") if path.is_file())
+    built = files_in(into)
     stored = git(repo, "ls-tree", "-r", "--name-only", tree).splitlines()
     if stored != built or outside_allowlist(stored):
         raise ExportRefused(f"git stored {stored}, but the export built {built}.")
     return tree
+
+
+def committed_files(repo: Path, commit: str, into: Path) -> Path:
+    """Write what `commit` holds of the Toolbox and the README template into `into`.
+
+    The build reads these rather than the checkout, so a file git ignores (a stray log, say)
+    can never reach `main`.
+    """
+    archive = subprocess.run(
+        ["git", "-C", str(repo), "archive", "--format=tar", commit, TOOLBOX, README_TEMPLATE],
+        capture_output=True,
+    )
+    if archive.returncode != 0:
+        raise ExportRefused(f"`git archive` failed: {archive.stderr.decode(errors='replace')}")
+    with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as files:
+        files.extractall(into, filter="data")
+    return into
 
 
 def export(repo: Path, when: datetime.datetime) -> str:
@@ -290,7 +326,8 @@ def export(repo: Path, when: datetime.datetime) -> str:
         capture_output=True, text=True, encoding="utf-8",
     ).stdout.strip()
     with tempfile.TemporaryDirectory() as temporary:
-        version = build(repo, Path(temporary) / "clean", when)
+        committed = committed_files(repo, dev, Path(temporary) / "dev")
+        version = build(committed, Path(temporary) / "clean", when)
         tree = tree_of(repo, Path(temporary) / "clean", Path(temporary) / "index")
     message = (f"{version}\n\nGenerated from dev {dev} by tools/export_clean.py. "
                "Never edit this branch by hand.")
