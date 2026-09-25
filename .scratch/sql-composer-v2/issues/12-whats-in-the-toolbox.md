@@ -47,3 +47,16 @@ would go looking for.
 
 `JOIN` requires `ON`. The opt-out keywords are `many_matches=True` (`JOIN`), `adds_up=True`
 (`SUM`/`AVG`) and `keeps_only_matches=True` (`LEFT_JOIN`).
+
+**From "How much may a Statement touch and return by default?" (2026-09-25).** Load limits add these
+to the Toolbox:
+
+- `run(s, send=...)`, where `send` is the user's function from string to DataFrame, and
+  `by_day(s)`, which returns single-day Statements;
+- `all_columns(t)`, `LIMIT(n)` and `ORDER_BY(...)`;
+- a second exception type, `LoadRefused`;
+- two constants that ship unset: an automatic row `LIMIT` and a cap on dates per query.
+
+The opt-out keywords are `reads_all_partitions=True` (`FROM`/`JOIN`), `sorts_everything=True`
+(`ORDER_BY`) and `returns_all_rows=True` (`statement`). There's no `OFFSET`, no `*` and no preview
+function.

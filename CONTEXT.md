@@ -55,8 +55,7 @@ _Avoid_: builder, chain, method
 **Guard**:
 A check the Toolbox runs while a Statement is composed, which refuses a Statement that would
 silently give a wrong result, unless the call that made the mistake carries the Guard's opt-out.
-Guards protect the answer. Limits on how much a Statement reads or returns protect the cluster,
-and are not Guards.
+Guards protect the answer. Load limits protect the cluster, and are not Guards.
 _Avoid_: guardrail, check, validation, rule
 
 **Derived table**:
@@ -73,3 +72,8 @@ _Avoid_: provenance, trace, data flow
 **Partition**:
 A slice of a table that a Statement should constrain rather than read whole.
 _Avoid_: shard, bucket, segment
+
+**Load limit**:
+A check that refuses a Statement that would read or return more than the cluster or the notebook
+can take, unless the call that reads or returns too much carries the limit's opt-out.
+_Avoid_: guard, quota, throttle, safety check

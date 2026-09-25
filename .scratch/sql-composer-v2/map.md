@@ -77,6 +77,10 @@ at work without touching the user's own scripts.
   every Guard refuses at the offending call, with a four-part message and an opt-out keyword on
   that call; ten Guards stay, including repeated rows off the key and unsafe re-grouping, and there
   is no raw-SQL entry point.
+- [How much may a Statement touch and return by default?](issues/09-how-much-may-a-statement-touch-and-return.md):
+  a date partition bounded at both ends, no `ORDER BY` without `LIMIT`, and no `OFFSET` or `*`
+  (`all_columns(t)` instead); an automatic `LIMIT` and a date cap are seams that ship off; the
+  API is reached only through `run(s, send=...)`, and `by_day(s)` chunks reads and backfills.
 
 ## Not yet specified
 
@@ -84,8 +88,9 @@ at work without touching the user's own scripts.
   first probably retires v1 code from `dev` while carrying over the salvage list.
 - **Testing on `dev`.** Whether value-level tests against a local engine return (v1 used duckdb,
   which is fine on `dev` though not at work), and what the escaping matrix becomes.
-- **The run loop at work.** How a notebook previews, submits and receives a Statement end to end.
-  Hangs on what the API returns and on the load-safety decision.
+- **The real limits at work.** The API's row cap and timeout, and how big a DataFrame the notebook
+  takes comfortably. The user measures these at work, then the automatic `LIMIT` and the
+  dates-per-query cap (both unset) may get values.
 - **Schema drift.** Whether a Table reference going stale against the warehouse matters enough to
   check, for a seven-month tool.
 - **Lineage for SQL the Toolbox didn't build.** sqlglot can parse a pasted query cheaply; whether
