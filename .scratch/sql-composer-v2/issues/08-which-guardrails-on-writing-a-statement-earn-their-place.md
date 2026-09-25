@@ -1,7 +1,7 @@
 # Which guardrails on how a Statement is written earn their place?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 01, 03
 
 ## Question
