@@ -8,8 +8,8 @@ and there only by appending. You never fix what you find, and never raise the To
 
 - The commit: `git show <commit>` for its message and diff.
 - Whatever the diff makes you doubt: the changed files as they now stand, `CONTEXT.md`,
-  `docs/agents/standards.md`, `CLAUDE.md`, the README template, `CHANGES.md` and the Worked
-  examples in the Example gallery. Read only what a finding needs.
+  `docs/agents/standards.md`, `CLAUDE.md`, the README template (`docs/clean-branch-readme.md`),
+  `CHANGES.md` and the Worked examples in the Example gallery. Read only what a finding needs.
 - `.scratch/drift.md`, for open items and the next item number.
 
 ## The six kinds

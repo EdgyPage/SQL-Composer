@@ -1,9 +1,11 @@
 """PreToolUse hook: no commits and no file edits while `main` is checked out.
 
 `main` is the Clean branch, written only by the export script. This refuses Claude's Edit,
-Write and NotebookEdit on a file in a checkout of `main`, and any git command that would
-make a commit there. A command that runs `tools/export_clean.py` always goes through. The
-user's own edits are theirs to make; this only stops agents.
+Write and NotebookEdit on a file in a checkout of `main`, any git command that would make a
+commit there, and moving `main` by hand with `git update-ref` or `git branch -f`, which is how
+the export writes it. A command that only runs `tools/export_clean.py` goes through; naming the
+script in a longer command excuses nothing. The user's own edits are theirs to make; this only
+stops agents.
 """
 
 from __future__ import annotations
@@ -15,7 +17,16 @@ from pathlib import Path
 from drift_list import MAKES_A_COMMIT, git, read_hook_input
 
 CLEAN_BRANCH = "main"
-EXPORT_SCRIPT = "tools/export_clean.py"
+# The export script run alone, as `python tools/export_clean.py` with any path and arguments.
+RUNS_THE_EXPORT = re.compile(
+    r"""^\s*(python3?|py)(\.exe)?\s+["']?([^\s"';&|]*[/\\])?tools[/\\]export_clean\.py["']?"""
+    r"""(\s+[^;&|<>`$\n]*)?$"""
+)
+# Moving `main` without checking it out, the way the export writes it.
+MOVES_MAIN = re.compile(
+    r"\bgit\b[^;&|\n]*\b(update-ref\b[^;&|\n]*\b(refs/heads/)?main"
+    r"|branch\s+(-f|--force|-M|-C)\s+main)\b"
+)
 FILE_TOOLS = frozenset({"Edit", "Write", "NotebookEdit"})
 SWITCHES_TO_MAIN = re.compile(r"\bgit\b[^;&|\n]*\b(checkout|switch)\s+main\b")
 
@@ -35,7 +46,11 @@ def refusal(tool: str, tool_input: dict, cwd: str) -> str | None:
             return f"{target} is in a checkout of `main`, which only the export script writes."
         return None
     command = tool_input.get("command", "")
-    if EXPORT_SCRIPT in command or not MAKES_A_COMMIT.search(command):
+    if RUNS_THE_EXPORT.match(command):
+        return None
+    if MOVES_MAIN.search(command):
+        return "`main` is only moved by the export script: run `python tools/export_clean.py`."
+    if not MAKES_A_COMMIT.search(command):
         return None
     if branch_at(Path(cwd)) == CLEAN_BRANCH or SWITCHES_TO_MAIN.search(command):
         return "`main` is only committed to by the export script. Commit on `dev` instead."

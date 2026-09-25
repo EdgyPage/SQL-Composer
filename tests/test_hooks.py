@@ -81,6 +81,26 @@ def test_switching_to_main_to_commit_is_refused_but_reading_is_not() -> None:
     assert refusal("Bash", {"command": "git log main"}, str(ROOT)) is None
 
 
-def test_the_export_script_may_commit_to_main() -> None:
+def test_the_export_script_run_alone_goes_through() -> None:
+    for command in (
+        "python tools/export_clean.py",
+        "python tools\\export_clean.py",
+        f'python "{ROOT.as_posix()}/tools/export_clean.py"',
+        "python tools/export_clean.py --preview clean",
+    ):
+        assert refusal("Bash", {"command": command}, str(ROOT)) is None, command
+
+
+def test_naming_the_export_script_does_not_excuse_a_commit_by_hand() -> None:
     command = "git checkout main && python tools/export_clean.py && git commit -m export"
-    assert refusal("Bash", {"command": command}, str(ROOT)) is None
+    assert refusal("Bash", {"command": command}, str(ROOT))
+
+
+def test_moving_main_by_hand_is_refused() -> None:
+    for command in (
+        "git update-ref refs/heads/main 1a2b3c4",
+        "python tools/export_clean.py; git update-ref refs/heads/main HEAD",
+        "git branch -f main dev",
+    ):
+        assert refusal("Bash", {"command": command}, str(ROOT)), command
+    assert refusal("Bash", {"command": "git update-ref refs/heads/dev 1a2b3c4"}, str(ROOT)) is None
