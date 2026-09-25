@@ -25,7 +25,8 @@ at work without touching the user's own scripts.
 - **Branches.** All work lands on `dev`. `main` is the Clean branch: generated from `dev` by an
   export script that copies an allowlist (the Toolbox plus a short README), never edited by hand.
   A check fails if `main` holds anything outside the allowlist, or if the Toolbox imports anything
-  beyond stdlib, pandas, numpy and sqlglot. Until the export exists, `main` still holds v1.
+  beyond stdlib, pandas, numpy and sqlglot. `python tools/export_clean.py` writes it; its first
+  run replaced v1, which stays in `main`'s history.
 - **Install at work.** The user pastes files over an existing directory, overwriting on a name
   clash. Their own scripts sit beside the Toolbox and import it laterally, never from inside it. A
   Toolbox update must never touch them.
@@ -118,6 +119,10 @@ at work without touching the user's own scripts.
   the 61 names in eight flat modules, every one with a doctest on the Example database; 609
   tests pass; `TOOLBOX_VERSION = "2.0"` and the 59th name being `TOOLBOX_VERSION` wait for the
   user to confirm.
+- [Build the Clean-branch export](issues/19-build-the-clean-branch-export.md):
+  `python tools/export_clean.py` builds the stamped Toolbox and a README with a generated cheat
+  sheet from the `dev` commit, checks and imports it, and commits it to `main` locally, refusing
+  while a drift item is open; the first export replaced v1, and pushing is the user's step.
 
 ## Not yet specified
 
