@@ -172,3 +172,7 @@ Handed on:
   signature.
 - **The map:** `UNION_ALL` joins the fog. The core build graduates into "Retire v1 from `dev`
   and carry over the salvage" and "Build the Toolbox core".
+
+**Changed by "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
+A 60th public name, `example_database`, ships the Example database inside the Toolbox as a
+sandbox. The repeated-rows check became a Warning; its category isn't a public name.

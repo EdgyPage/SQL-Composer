@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 15, 18
+Blocked by: 15, 18, 21
 
 ## Question
 
@@ -26,9 +26,23 @@ decided in "What does `dev` enforce, and which maintainer agents does it carry?"
   it. It sits inside `sql_composer/`, so it ships and is on the self-check's file list.
 
 "What does the Example database demonstrate, and where does it run?" decides the tables, the
-engine and where the scripts sit. Building the Example database itself is still in the map's Not
-yet specified, and it must exist before the result tables can be shown.
+engine and where the scripts sit. The Example database itself is built in "Build the Toolbox
+core", and its demonstrations in "Build the Example database's demonstrations".
 
 Done when the `dev` checks pass and the gallery holds every docstring example plus the first
 standalone Worked examples, among them the latest-per-key and top-N-per-group patterns that
 `row_number`'s docstring points to.
+
+## Comments
+
+**From "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
+
+- **The standalone Worked examples** are the seven demonstrations from "Build the Example
+  database's demonstrations", in `worked_examples/statements/`.
+- **A demonstration's entry** puts its `careless()` and `fixed()` Statements side by side. Each
+  side shows its Hive and its result, with the Guard's refusal or the Warning's message under the
+  careless one. The prototype's `demo.html`, tab A, on `prototype/example-database`, is the rough
+  shape.
+- **The `row_number` and `week_start` entries** show a pandas result labelled "computed in pandas,
+  not by running this Hive".
+- **On the sqlglot 25.24.2 CI run,** the regenerate-and-compare test skips with a reason.

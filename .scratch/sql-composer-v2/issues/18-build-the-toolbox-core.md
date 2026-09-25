@@ -50,3 +50,24 @@ checks this build adds as it goes:
 The Toolbox's Python floor is 3.11, and the import self-check says so. The ticket's definition of
 done applies: `pytest` passes, `code-review` has run against this ticket, there are no open drift
 items, and the beginner reader has reported.
+
+**From "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
+
+- **A 60th public name, `example_database`:** the module `sql_composer/example_database.py`. It
+  holds the three Table references `jobs`, `job_runs` and `run_alerts`, their rows (from the
+  prototype's `example_database/rows.py` on `prototype/example-database`), and a `send` that runs
+  Hive on sqlglot's executor and returns a DataFrame. Below sqlglot 30.19.0 that `send` stops
+  with a plain message naming the version. The doctests take `job_runs` and `jobs` from it, and
+  the name-list test lists 60 names, so this build ships 59 of them.
+- **Repeated rows is a Warning, not a Guard.** When `JOIN(T, ON=...)` doesn't pin down T's whole
+  key, or T declares no key, the Statement builds and runs. A Python warning at the user's `JOIN`
+  line gives the four-part message, and `many_matches=True` silences it. With no key, the message
+  also says to declare `key=[...]`.
+  - The warning category lives in `refusals.py` and isn't a public name.
+  - It must show on every `JOIN` that earns it, not once per line, which is Python's default.
+  - Refusal coverage covers it: a test shows it firing, and one shows `many_matches=True`
+    silencing it.
+- **A Derived table's key is its `GROUP_BY` columns,** so joining a grouped Derived table on them
+  raises no Warning.
+- **A date bound in `ON` counts.** After `LEFT_JOIN(T)`, the Load limit accepts T's Date
+  partition bound inside `ON`, since the `LEFT JOIN` then `WHERE` Guard refuses it in `WHERE`.

@@ -106,3 +106,8 @@ Handed on:
 - **"What does the example database demonstrate, and where does it run?"** One demonstration per
   Guard that can give a wrong number: repeated rows, re-grouping, `LEFT JOIN` + `WHERE`, `None`
   and NaN. Plus `not_equals` dropping NULLs.
+
+**Changed by "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
+The repeated-rows Guard became a **Warning**. A join off the key now builds and runs with a
+warning, and `many_matches=True` silences it, because many joins the user means to make aren't
+on the key. Every other Guard still refuses.
