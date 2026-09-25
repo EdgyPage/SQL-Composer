@@ -28,7 +28,8 @@ import pandas as pd
 import sqlglot
 from sqlglot import exp
 
-from .tables import Table
+from .refusals import four_part_message
+from .tables import Table, hive_text
 
 TOOLBOX_VERSION = "2.0"
 
@@ -69,14 +70,14 @@ run_alerts = Table(
 )
 
 # Hive's column comments, which DESCRIBE returns.
-COMMENTS = {
+_COMMENTS = {
     ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
     ("run_alerts", "severity"): "low / high",
 }
 
 # --- The rows: small enough to read by eye, so every wrong number is visibly wrong ----------
 
-JOBS = [
+_JOBS = [
     # job_id, job_name,       team,      region
     (1, "nightly_load", "data", "LON"),
     (2, "invoice_sync", "finance", "PAR"),
@@ -84,7 +85,7 @@ JOBS = [
     (4, "cache_warm", "web", "LON"),  # never runs: shows what LEFT_JOIN keeps
 ]
 
-JOB_RUNS = [
+_JOB_RUNS = [
     # run_id, job_id, status,  duration_mins, avg_retry_secs, dt
     (95, 1, "SUCCESS", 12, 2.0, "2026-09-23"),
     (96, 2, "SUCCESS", 18, 0.0, "2026-09-23"),
@@ -97,7 +98,7 @@ JOB_RUNS = [
     (104, 1, "SUCCESS", 40, 3.0, "2026-09-24"),
 ]
 
-RUN_ALERTS = [
+_RUN_ALERTS = [
     # alert_id, run_id, severity, dt
     (1, 97, "high", "2026-09-23"),
     (2, 97, "low", "2026-09-23"),
@@ -110,26 +111,28 @@ RUN_ALERTS = [
     (9, 104, "low", "2026-09-24"),
 ]
 
-TABLES = {"jobs": (jobs, JOBS), "job_runs": (job_runs, JOB_RUNS),
-          "run_alerts": (run_alerts, RUN_ALERTS)}
+_TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
+          "run_alerts": (run_alerts, _RUN_ALERTS)}
 
-EXECUTOR_NEEDS = (30, 19, 0)
+_EXECUTOR_NEEDS = (30, 19, 0)
 
 
 def _table(name: str) -> tuple[Table, list]:
     short = name.strip().strip("`").split(".")[-1].strip("`")
-    if short not in TABLES:
-        raise ValueError(
-            f"The Example database has no table {name!r}. Its tables are ops.jobs, "
-            "ops.job_runs and ops.run_alerts."
-        )
-    return TABLES[short]
+    if short not in _TABLES:
+        raise ValueError(four_part_message(
+            what=f"The Example database has no table {name!r}.",
+            why="It holds only three made-up tables.",
+            fix="Use ops.jobs, ops.job_runs or ops.run_alerts.",
+            opt_out=None,
+        ))
+    return _TABLES[short]
 
 
 def _describe(name: str) -> pd.DataFrame:
     """What Hive's DESCRIBE prints: the columns, then the partition columns again."""
     table, _ = _table(name)
-    rows = [(column, kind, COMMENTS.get((table._alias, column), ""))
+    rows = [(column, kind, _COMMENTS.get((table._alias, column), ""))
             for column, kind in table._columns.items()]
     if table._date_partition is not None:
         rows += [
@@ -158,16 +161,81 @@ def _executor_ready() -> None:
     version = tuple(int(n) for n in numbers.groups()) if numbers else (0, 0, 0)
     from sqlglot.executor import execute
 
-    if version >= EXECUTOR_NEEDS:
+    if version >= _EXECUTOR_NEEDS:
         check = execute("SELECT COUNT(DISTINCT x) AS n FROM t", dialect="hive",
                         tables={"t": [{"x": "a"}, {"x": "a"}, {"x": "b"}, {"x": None}]})
         if check.rows == [(2,)]:
             return
-    raise RuntimeError(
-        f"The Example database runs queries on sqlglot's own executor, which needs sqlglot "
-        f"30.19.0 or newer to count correctly. This Python has sqlglot {found}. The rest of "
-        "the Toolbox works as usual; only running queries on the Example database stops."
-    )
+    raise RuntimeError(four_part_message(
+        what="The Example database runs queries on sqlglot's own executor, which needs "
+        f"sqlglot 30.19.0 or newer to count correctly. This Python has sqlglot {found}.",
+        why="An older executor counts COUNT(DISTINCT ...) wrong, and says nothing.",
+        fix="The rest of the Toolbox works as usual: to_hive(...) still shows a Statement's "
+        "Hive. Only running queries on the Example database stops.",
+        opt_out=None,
+    ))
+
+
+def _like_spelled_out(tree: exp.Expression) -> exp.Expression:
+    """Rewrite each escaped LIKE, since sqlglot's executor ignores LIKE's backslash.
+
+    starts_with and contains put a backslash before % and _ so they match themselves. Hive
+    reads them that way, but the executor would still take _ for any one character.
+    """
+    for like in list(tree.find_all(exp.Like)):
+        pattern = like.expression
+        if isinstance(pattern, exp.Literal) and pattern.is_string and "\\" in pattern.this:
+            like.replace(_matching_text(like.this, pattern.this))
+    return tree
+
+
+def _matching_text(column: exp.Expression, pattern: str) -> exp.Expression:
+    """The same test as `column LIKE pattern`, for a pattern of text between optional %."""
+    parts, i = [], 0
+    while i < len(pattern):
+        if pattern[i] == "\\" and i + 1 < len(pattern):
+            parts.append(("text", pattern[i + 1]))
+            i += 2
+        else:
+            parts.append(("wild" if pattern[i] in "%_" else "text", pattern[i]))
+            i += 1
+    leading = parts[:1] == [("wild", "%")]
+    trailing = len(parts) > leading and parts[-1] == ("wild", "%")
+    middle = parts[leading:len(parts) - trailing]
+    if any(kind == "wild" for kind, _ in middle):
+        _cant_run(f"LIKE with a % or _ in the middle ({pattern!r})")
+    text = "".join(char for _, char in middle)
+    found = exp.Literal.string(text)
+    size = exp.Literal.number(len(text))
+    if leading and trailing:
+        return exp.GT(this=exp.StrPosition(this=column, substr=found),
+                      expression=exp.Literal.number(0))
+    if leading:
+        return exp.EQ(this=exp.Right(this=column, expression=size), expression=found)
+    if trailing:
+        return exp.EQ(this=exp.Left(this=column, expression=size), expression=found)
+    return exp.EQ(this=column, expression=found)
+
+
+def _missing_function(tree: exp.Expression, error: str) -> str:
+    """The Hive name of the function the executor didn't know, from its error."""
+    found = re.search(r"name '(\w+)' is not defined", error)
+    if found is not None:
+        for function in tree.find_all(exp.Func):
+            if function.key.upper() == found.group(1):
+                return hive_text(function).split("(")[0]
+    return f"what this needs ({error})"
+
+
+def _cant_run(missing: str, error: Exception | None = None) -> None:
+    raise RuntimeError(four_part_message(
+        what=f"The Example database can't run this Hive: its executor has no {missing}.",
+        why="The Example database runs Hive on sqlglot's own small executor, which knows only "
+        "part of Hive. Hive at work knows all of it.",
+        fix="See the Hive with to_hive(...), and run it at work with your own send; or try "
+        "the Statement here without that part.",
+        opt_out=None,
+    )) from error
 
 
 def send(hive):
@@ -188,15 +256,24 @@ def send(hive):
         return _show_partitions(words[-1])
     tree = sqlglot.parse_one(text, read="hive")
     if not isinstance(tree, exp.Select):
-        raise ValueError(
-            "The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it "
-            "can't be written to. A write's Hive can still be shown with to_hive(...)."
-        )
+        raise ValueError(four_part_message(
+            what="The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it "
+            "can't be written to.",
+            why="Its tables are made up and fixed, so every Worked example gives the same "
+            "numbers.",
+            fix="A write's Hive can still be shown with to_hive(...).",
+            opt_out=None,
+        ))
     _executor_ready()
     from sqlglot.executor import execute
 
-    schema = {"ops": {name: dict(table._columns) for name, (table, _) in TABLES.items()}}
+    schema = {"ops": {name: dict(table._columns) for name, (table, _) in _TABLES.items()}}
     tables = {"ops": {name: [dict(zip(table._columns, row)) for row in rows]
-                      for name, (table, rows) in TABLES.items()}}
-    result = execute(text, schema=schema, tables=tables, dialect="hive")
+                      for name, (table, rows) in _TABLES.items()}}
+    if tree.find(exp.Window):
+        _cant_run("window functions such as row_number")
+    try:
+        result = execute(_like_spelled_out(tree), schema=schema, tables=tables, dialect="hive")
+    except sqlglot.errors.ExecuteError as error:
+        _cant_run(_missing_function(tree, str(error)), error)
     return pd.DataFrame(result.rows, columns=result.columns)

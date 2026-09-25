@@ -2,8 +2,15 @@
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
 that would read or return more than the cluster or the notebook can take. A Warning lets the
-Statement through but says why a number may come out wrong. Each one stops at the call that
-made the mistake, and its opt-out is a keyword on that same call.
+Statement through but says why a number may come out wrong.
+
+Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a calculation with
+no name or None in a comparison, stops at that call. One that needs the whole Statement, like
+a GROUP_BY that leaves a column out or a Date partition with no bound, stops at
+statement(...). The dates cap and a write that covers more than one day stop at to_hive, the
+row limit stops at run once the rows are back, and a grouping by_day can't split stops at
+by_day. A Warning shows at your own JOIN or LEFT_JOIN line. Every opt-out is a keyword on one
+of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
 code to paste. `four_part_message` builds all of them, so they all read the same way.
@@ -136,8 +143,8 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
             why="Averages, ratios and distinct counts don't add up: the average of daily "
             "averages is not the weekly average, and a user seen on two days would be "
             "counted twice.",
-            fix="Keep the parts it was made from (the sum and the count) and recompute it "
-            "at the level you need.",
+            fix="Keep the parts it was made from (the sum and the count), add those up, and "
+            "divide after your own GROUP_BY.",
             opt_out=f"{call[:-1]}, adds_up=True)",
         )
     )
@@ -232,15 +239,15 @@ def guard_one_day_per_write(table: str, days: int) -> None:
     )
 
 
-def guard_by_day_grouping(where: str, date_column: str) -> None:
+def guard_by_day_grouping(step: str, date_partition: str) -> None:
     """by_day can't split a Statement that groups across days. No opt-out."""
     raise GuardRefused(
         four_part_message(
-            what=f"by_day can't split this Statement: {where} groups rows without keeping "
-            f"the Date partition {date_column}.",
+            what=f"by_day can't split this Statement: {step} groups rows without keeping "
+            f"the Date partition {date_partition}.",
             why="Each day's Statement would give partial groups, and those can't always be "
             "added back up (a distinct count, for one, can't).",
-            fix=f"Add {date_column} to that GROUP_BY or PARTITION_BY, or run the Statement "
+            fix=f"Add {date_partition} to that GROUP_BY or PARTITION_BY, or run the Statement "
             "whole with run(...).",
             opt_out=None,
         )
@@ -336,7 +343,9 @@ def load_limit_order_by(sorts_everything: bool) -> None:
             "which is slow on a big result.",
             fix="Sort in pandas after run(...), with df.sort_values(...). For a top N, add "
             "LIMIT(n).",
-            opt_out="ORDER_BY(..., sorts_everything=True)",
+            opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
+            "to derived(...): Hive ignores the order of rows there, so it can't be switched "
+            "off.",
         )
     )
 
@@ -359,14 +368,14 @@ def load_limit_rows(rows: int, limit: int) -> None:
 
 def load_limit_dates(call: str, full_name: str, days: int, cap: int,
                      reads_all_partitions: bool) -> None:
-    """With a dates cap set, one query may read at most that many days of a table."""
+    """With a dates cap set, one Statement may read at most that many days of a table."""
     if reads_all_partitions or days <= cap:
         return
     raise LoadRefused(
         four_part_message(
             what=f"{call} reads {days} days of {full_name}, more than the {cap} set by "
             "set_load_limits(dates=...).",
-            why="One query over many days can run for a long time and stall the cluster.",
+            why="One Statement over many days can run for a long time and stall the cluster.",
             fix="Send one day at a time: for day in by_day(s): run(day, send=...).",
             opt_out=f"{call[:-1]}, reads_all_partitions=True)",
         )

@@ -18,6 +18,7 @@ from sql_composer import (
     SELECT,
     WHERE,
     GuardRefused,
+    Table,
     count_rows,
     derived,
     descending,
@@ -41,7 +42,11 @@ def failed_runs():
 
 
 def active_jobs():
-    """Filter: jobs outside the web team (the prototype's is_active and sandbox filter)."""
+    """Filter: jobs outside the web team and NYC.
+
+    The Example database has no boolean column, so this stands in for the prototype's
+    is_active and sandbox filter; test_the_prototypes_own_columns writes that one as it was.
+    """
     return [not_equals(jobs.team, "web"), not_equals(jobs.region, "NYC")]
 
 
@@ -164,3 +169,37 @@ def test_the_pitfall_now_stops_at_select() -> None:
             WHERE(failed_runs(), last_n_days(runs.dt, 7)),
             GROUP_BY(jobs.region),
         )
+
+
+def test_the_prototypes_own_columns() -> None:
+    """The prototype's boolean is_active and timestamp started_at, on its own Table references."""
+    jobs_then = Table("ops.jobs", date_partition=None, key=["job_id"], columns={
+        "job_id": "bigint", "job_name": "string", "owner_team": "string", "is_active": "boolean"})
+    runs_then = Table("ops.job_runs", date_partition="dt", key=["run_id"], columns={
+        "run_id": "bigint", "job_id": "bigint", "dt": "string", "status": "string",
+        "region": "string", "started_at": "timestamp"})
+    ranked = derived("ranked", statement(
+        SELECT(runs_then.job_id, runs_then.status, runs_then.started_at,
+               AS(row_number(PARTITION_BY=runs_then.job_id,
+                             ORDER_BY=descending(runs_then.started_at)), "rn")),
+        FROM(runs_then),
+        WHERE(last_n_days(runs_then.dt, 7)),
+    ))
+    latest = derived("latest", statement(
+        SELECT(ranked.job_id, ranked.status, ranked.started_at),
+        FROM(ranked),
+        WHERE(equals(ranked.rn, 1)),
+    ))
+    currently_failing = statement(
+        SELECT(latest.job_id, jobs_then.job_name, latest.started_at),
+        FROM(latest),
+        JOIN(jobs_then, ON=equals(latest.job_id, jobs_then.job_id)),
+        WHERE(equals(latest.status, "FAILED"), equals(jobs_then.is_active, True),
+              not_equals(jobs_then.owner_team, "sandbox")),
+    )
+    hive = to_hive(currently_failing)
+    assert "ORDER BY job_runs.started_at DESC) AS rn" in hive
+    assert hive.endswith("""WHERE
+  latest.status = 'FAILED'
+  AND jobs.is_active = TRUE
+  AND jobs.owner_team <> 'sandbox'""")

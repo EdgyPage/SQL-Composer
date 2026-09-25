@@ -30,9 +30,9 @@ TOOLBOX_VERSION = "2.0"
 _FILES = None
 
 _PYTHON_NEEDED = (3, 11)
-SQLGLOT_LOWEST = (25, 24, 2)
-SQLGLOT_BELOW = (31, 0, 0)
-SQLGLOT_NEWEST_TESTED = (30, 19, 0)
+_SQLGLOT_LOWEST = (25, 24, 2)
+_SQLGLOT_BELOW = (31, 0, 0)
+_SQLGLOT_NEWEST_TESTED = (30, 19, 0)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -90,6 +90,10 @@ def _check_files():
               "whole folder again from one download.")
 
 
+def _dotted(numbers):
+    return ".".join(str(n) for n in numbers)
+
+
 def _numbers(text):
     found = re.match(r"(\d+)\.(\d+)\.(\d+)", text)
     return tuple(int(n) for n in found.groups()) if found else None
@@ -103,16 +107,16 @@ def _check_sqlglot():
         _stop("it needs the sqlglot library, and this Python can't import it.")
     found = getattr(sqlglot, "__version__", "unknown")
     version = _numbers(found)
-    if version is None or not SQLGLOT_LOWEST <= version < SQLGLOT_BELOW:
-        _stop("it needs sqlglot 25.24.2 or newer, below 31.0.0, and this Python has sqlglot "
-              f"{found}.")
+    if version is None or not _SQLGLOT_LOWEST <= version < _SQLGLOT_BELOW:
+        _stop(f"it needs sqlglot {_dotted(_SQLGLOT_LOWEST)} or newer, below "
+              f"{_dotted(_SQLGLOT_BELOW)}, and this Python has sqlglot {found}.")
     problems = _sqlglot_behaviour()
     if problems:
         _stop(f"sqlglot {found} is in the supported range but behaves differently: "
               + "; ".join(problems) + ". Nothing has been built or sent.")
-    if version > SQLGLOT_NEWEST_TESTED:
+    if version > _SQLGLOT_NEWEST_TESTED:
         print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
-              "(30.19.0). Its behaviour checks passed.")
+              f"({_dotted(_SQLGLOT_NEWEST_TESTED)}). Its behaviour checks passed.")
 
 
 def _sqlglot_behaviour():

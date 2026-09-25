@@ -604,7 +604,7 @@ def all_columns(t):
 
 
 def first_look(t):
-    """A first look at a table: all its columns, its last day, 20 rows.
+    """A first look at a table: all its columns, and 20 of yesterday's rows.
 
     It is an ordinary Statement, bounded to the day before today like any other, so it is
     safe to run on a big table. Send it with run(first_look(t), send=...).
@@ -683,7 +683,7 @@ def _newest_partition_value(name: str, column: str, send) -> str | None:
     return max(values) if values else None
 
 
-def _parse_day(value: str | None) -> str | None:
+def _day_format_of(value: str | None) -> str | None:
     """The date_format a partition value is written in, or None when it isn't a day."""
     for pattern in (DEFAULT_DATE_FORMAT, "%Y%m%d", "%Y/%m/%d"):
         try:
@@ -754,7 +754,7 @@ def _date_partition_lines(name: str, partitions: list[str], send) -> list[str]:
     first = partitions[0]
     also = f"  # TODO check: also partitioned by {', '.join(partitions[1:])}" if len(
         partitions) > 1 else ""
-    pattern = _parse_day(_newest_partition_value(name, first, send))
+    pattern = _day_format_of(_newest_partition_value(name, first, send))
     if pattern is None:
         return [f"    date_partition=None,  # TODO: partitioned by {', '.join(partitions)}; "
                 "name the date one if there is one"]
@@ -865,8 +865,9 @@ def check_table_reference(t, send):
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send`, and lists problems (which make
     Statements wrong) and notes (which may not matter), each with the line to change in the
-    Table reference file. It never edits the file and never refuses anything. Comments, the
-    key and does_not_add_up aren't compared.
+    Table reference file. It never edits the file and never refuses anything: a table Hive
+    can't describe, or a send that fails, is reported too. Comments, the key and
+    does_not_add_up aren't compared.
 
     >>> check_table_reference(job_runs, send=example_database.send)
     ops.job_runs matches its Table reference.
@@ -881,18 +882,13 @@ def check_table_reference(t, send):
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
     """
     t = _real_table(t, "check_table_reference(...)")
-    columns, _, partitions = _describe(t._name, send)
-    problems, notes = [], []
-    for column, kind in t._columns.items():
-        if column not in columns:
-            problems.append(f"{column} isn't in the table: remove its line, or correct its name.")
-        elif kind is not None and not _same_type(kind, columns[column]):
-            problems.append(f"{column} is {columns[column]} in the table: change its line to "
-                            f"{json.dumps(column)}: {json.dumps(columns[column])},")
-    for column, kind in columns.items():
-        if column not in t._columns:
-            notes.append(f"{column} is in the table but not in the Table reference: add "
-                         f"{json.dumps(column)}: {json.dumps(kind)}, if you want it.")
+    try:
+        columns, _, partitions = _describe(t._name, send)
+    except Exception as error:  # it reports, and never raises: see the docstring
+        return Verdict(False, [f"{t._name}: DESCRIBE failed, so nothing was compared. Check "
+                               "the table's name, and that send works. It said:",
+                               *_said(error)])
+    problems, notes = _column_differences(t, columns)
     problems += _date_partition_problems(t, partitions, send)
     notes += _partition_notes(t, partitions)
     shared = [column for column in columns if column in t._columns]
@@ -909,6 +905,22 @@ def check_table_reference(t, send):
     return Verdict(not problems, lines)
 
 
+def _column_differences(t: Table, columns: dict) -> tuple[list[str], list[str]]:
+    """The problems and notes from comparing the columns and their types."""
+    problems, notes = [], []
+    for column, kind in t._columns.items():
+        if column not in columns:
+            problems.append(f"{column} isn't in the table: remove its line, or correct its name.")
+        elif kind is not None and not _same_type(kind, columns[column]):
+            problems.append(f"{column} is {columns[column]} in the table: change its line to "
+                            f"{json.dumps(column)}: {json.dumps(columns[column])},")
+    for column, kind in columns.items():
+        if column not in t._columns:
+            notes.append(f"{column} is in the table but not in the Table reference: add "
+                         f"{json.dumps(column)}: {json.dumps(kind)}, if you want it.")
+    return problems, notes
+
+
 def _date_partition_problems(t: Table, partitions: list[str], send) -> list[str]:
     if t._date_partition is None:
         return []
@@ -916,15 +928,30 @@ def _date_partition_problems(t: Table, partitions: list[str], send) -> list[str]
         now = f'"{partitions[0]}"' if partitions else "None"
         return [f"{t._date_partition} is no longer a partition column: change the line to "
                 f"date_partition={now},"]
-    newest = _newest_partition_value(t._name, t._date_partition, send)
+    try:
+        newest = _newest_partition_value(t._name, t._date_partition, send)
+    except Exception as error:  # check_table_reference reports, and never raises
+        return [f"SHOW PARTITIONS failed, so {t._date_partition}'s days weren't checked. It "
+                "said: " + " ".join(_said(error)).strip()]
     try:
         datetime.datetime.strptime(newest or "", t._date_format)
     except ValueError:
-        pattern = _parse_day(newest)
-        line = f'date_format="{pattern}",' if pattern else "date_partition=None,"
+        pattern = _day_format_of(newest)
+        if pattern == DEFAULT_DATE_FORMAT:
+            fix = "remove the date_format line, since that is the usual way to write a day."
+        elif pattern:
+            fix = f'change the line to date_format="{pattern}",'
+        else:
+            fix = "change the line to date_partition=None,"
         return [f"the newest {t._date_partition}, {newest!r}, isn't written like "
-                f"{t._date_format!r}: change the line to {line}"]
+                f"{t._date_format!r}: {fix}"]
     return []
+
+
+def _said(error: Exception) -> list[str]:
+    """What an error said, as indented lines for a Verdict."""
+    text = str(error).strip() or "(no message)"
+    return [f"    {type(error).__name__}:"] + [f"    {line.strip()}" for line in text.splitlines()]
 
 
 def _partition_notes(t: Table, partitions: list[str]) -> list[str]:

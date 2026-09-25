@@ -20,8 +20,9 @@ The first version of the new Toolbox. Everything is new:
   keyword that lets it through. A join off the joined table's key gives a **Warning** instead.
 - **Running.** `run(s, send=...)` sends a Statement through your own `send`, `by_day(s)` splits
   one into single days, and `set_load_limits(...)` switches on an automatic `LIMIT` and a cap
-  on days per query, both off to start with.
+  on days per Statement, both off to start with.
 - **Saved tables.** `INSERT_OVERWRITE(t)` writes one day of a Saved table, and
   `create_table(t)` creates it.
 - **The Example database.** `example_database` holds three made-up tables and a `send` that
-  runs Statements on them, to practise without touching the warehouse.
+  runs Statements on them, to practise without touching the warehouse. What its small
+  executor can't run, such as `row_number` or `week_start`, it says plainly.

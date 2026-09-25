@@ -263,6 +263,12 @@ def test_load_limit_order_by_refuses() -> None:
         statement(SELECT(jobs.job_name), FROM(jobs), ORDER_BY(jobs.job_name))
 
 
+def test_load_limit_order_by_says_its_opt_out_isnt_for_a_derived_table() -> None:
+    with pytest.raises(LoadRefused) as refused:
+        statement(SELECT(jobs.job_name), FROM(jobs), ORDER_BY(jobs.job_name))
+    assert "Opt-out:        ORDER_BY(..., sorts_everything=True), but not in a Statement you "         "pass to derived(...)" in str(refused.value)
+
+
 def test_load_limit_order_by_opt_out() -> None:
     statement(SELECT(jobs.job_name), FROM(jobs), ORDER_BY(descending(jobs.job_name),
                                                           sorts_everything=True))

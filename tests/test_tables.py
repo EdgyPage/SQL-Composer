@@ -130,6 +130,34 @@ def test_a_different_column_order_is_only_a_note() -> None:
     assert "only if a Statement writes to this table" in repr(verdict)
 
 
+def test_a_table_hive_cant_describe_is_reported_not_raised() -> None:
+    t = Table("ops.gone", columns={"run_id": "bigint"}, date_partition=None)
+    verdict = check_table_reference(t, send=example_database.send)
+    assert not verdict.ok
+    assert repr(verdict).startswith("ops.gone: DESCRIBE failed, so nothing was compared.")
+    assert "no table 'ops.gone'" in repr(verdict)
+
+
+def test_a_send_that_fails_is_reported_not_raised() -> None:
+    def broken(hive: str):
+        raise ConnectionError("the query API is down")
+
+    verdict = check_table_reference(job_runs, send=broken)
+    assert not verdict.ok
+    assert "the query API is down" in repr(verdict)
+
+
+def test_a_date_format_back_to_the_usual_one_says_to_remove_the_line() -> None:
+    send = describing([("run_id", "bigint"), ("dt", "string")], partitions=["dt"],
+                      days=["dt=2026-09-24"])
+    t = Table("ops.t", columns={"run_id": "bigint", "dt": "string"}, date_partition="dt",
+              date_format="%Y%m%d")
+    verdict = check_table_reference(t, send=send)
+    assert not verdict.ok
+    assert "remove the date_format line" in repr(verdict)
+    assert 'date_format="%Y-%m-%d"' not in repr(verdict)
+
+
 def test_a_derived_table_cant_be_checked() -> None:
     from sql_composer import FROM, SELECT, derived, statement
 

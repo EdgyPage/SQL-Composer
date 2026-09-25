@@ -780,10 +780,10 @@ def _derived_key(s: Statement) -> list[str] | None:
 def derived(name, statement):
     """Name a Statement so another Statement can read it like a table.
 
-    Its output columns are checked attributes, like a Table reference's. In the Hive it
-    becomes a WITH part at the top, written by the Toolbox. Hive works it out again for
-    each Statement part that reads it, so if one gets expensive, save it as a Saved table.
-    Its key is its GROUP_BY columns.
+    You then use its output columns like a Table reference's, as runs_per_job.runs, and a
+    typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as
+    WITH runs_per_job AS (...). Hive works it out again each time the Statement reads it,
+    so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.
 
     >>> runs_per_job = derived("runs_per_job", statement(
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),

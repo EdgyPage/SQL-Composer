@@ -14,15 +14,21 @@ from sql_composer import (
     SELECT,
     WHERE,
     all_of,
+    contains,
     count_distinct,
     count_rows,
+    descending,
     equals,
     example_database,
     last_n_days,
+    month_start,
+    row_number,
     run,
+    starts_with,
     statement,
     sum_of,
     to_hive,
+    week_start,
 )
 from conftest import needs_executor
 from sql_composer.example_database import job_runs, jobs, run_alerts
@@ -90,3 +96,41 @@ def test_count_distinct_is_right_on_the_executor() -> None:
                   WHERE(last_n_days(job_runs.dt, 2)))
     assert run(s, send=example_database.send).statuses[0] == 3
     assert "COUNT(DISTINCT job_runs.status)" in to_hive(s)
+
+
+@needs_executor
+@pytest.mark.parametrize(
+    ("condition", "names"),
+    [
+        (starts_with(jobs.job_name, "invoice_"), ["invoice_sync"]),
+        (contains(jobs.job_name, "_sync"), ["invoice_sync"]),
+        (contains(jobs.job_name, "_"), ["nightly_load", "invoice_sync", "report_build",
+                                        "cache_warm"]),
+        (contains(jobs.job_name, "t_"), ["report_build"]),
+        (starts_with(jobs.job_name, "invoice%"), []),
+    ],
+)
+def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None:
+    s = statement(SELECT(jobs.job_name), FROM(jobs), WHERE(condition))
+    assert list(run(s, send=example_database.send).job_name) == names
+
+
+@needs_executor
+@pytest.mark.parametrize(
+    ("calculation", "missing"),
+    [
+        (row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)),
+         "window functions such as row_number"),
+        (week_start(job_runs.dt), "NEXT_DAY"),
+        (month_start(job_runs.dt), "TRUNC"),
+    ],
+)
+def test_it_says_plainly_what_its_executor_cant_run(calculation, missing) -> None:
+    s = statement(SELECT(job_runs.run_id, AS(calculation, "x")), FROM(job_runs),
+                  WHERE(last_n_days(job_runs.dt, 2)))
+    with pytest.raises(RuntimeError) as refused:
+        run(s, send=example_database.send)
+    message = str(refused.value)
+    assert f"The Example database can't run this Hive: its executor has no {missing}." in message
+    assert "Usual fix:" in message
+    assert "to_hive(...)" in message
