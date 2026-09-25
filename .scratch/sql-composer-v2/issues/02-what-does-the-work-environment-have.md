@@ -19,6 +19,11 @@ checklist for the user to run at work; record each result in the Answer.
   fetched in pages?
 - **Network** - can the machine that opens an HTML file load anything from the internet, or is it
   offline?
+- **The Hive cluster** - its Hive version (`SELECT version()` if the API allows it, or ask the
+  platform team), whether any `hive.strict.checks.*` are switched on, and whether the API accepts
+  a `SET ...;` statement ahead of a query. The Hive research found strict mode unreliable, so the
+  Toolbox enforces its own defaults either way; these facts decide whether they duplicate the
+  cluster's checks or stand alone.
 - **Files** - can a notebook write a file (the lineage HTML) somewhere the user can then open in a
   browser?
 - **Inline scripts** - does the work browser run JavaScript in a local HTML file? Open
