@@ -1,7 +1,7 @@
 # How much may a Statement touch and return by default?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 02, 03
 
 ## Question
