@@ -1,7 +1,7 @@
 # What does the example database demonstrate, and where does it run?
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: 08, 14
 
 ## Question
