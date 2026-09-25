@@ -88,3 +88,20 @@ _Avoid_: dt, partition key, date column
 A check that refuses a Statement that would read or return more than the cluster or the notebook
 can take, unless the call that reads or returns too much carries the limit's opt-out.
 _Avoid_: guard, quota, throttle, safety check
+
+### Learning the Toolbox
+
+**Example database**:
+A small set of made-up tables, with their Table references, on which Worked examples run and each
+Guard is shown catching a wrong number.
+_Avoid_: fixture, sample data, demo database, test tables
+
+**Worked example**:
+A Statement on the Example database's tables, shown with the Python that builds it and the Hive it
+emits. It sits either in a Toolbox function's docstring or on its own.
+_Avoid_: case, sample, recipe, demo
+
+**Example gallery**:
+The one searchable page holding every Worked example, generated from them and shipped with the
+Toolbox.
+_Avoid_: cookbook, docs site, examples page

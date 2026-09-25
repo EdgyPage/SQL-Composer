@@ -93,17 +93,24 @@ at work without touching the user's own scripts.
   each with a doctest-ready example and a generated cheat sheet; SQL-echoing lower-case aggregates
   (`sum_of`), named comparisons, arithmetic by operators, `AS` for a second copy of a table, no
   pattern functions, and `set_load_limits` defaulting to no limit.
+- [What does `dev` enforce, and which maintainer agents does it carry?](issues/13-what-does-dev-enforce.md):
+  `pytest` holds every mechanical check and CI runs it on Python 3.11 against both ends of the
+  sqlglot range; a drift reviewer runs after each commit and its findings become the next commits,
+  which the export refuses to skip; two agents, a code reviewer and an advisory beginner reader;
+  and a generated, searchable Example gallery ships in `sql_composer/`.
 
 ## Not yet specified
 
-- **The rest of the build sequence.** The core has graduated into two task tickets. Still to
-  come: the `lineage.py` build, once the lineage prototype closes; the Clean-branch export script;
-  and building the example database.
+- **The rest of the build sequence.** The core, the Clean-branch export and the Example gallery
+  have graduated into task tickets. Still to come: the `lineage.py` build, once the lineage
+  prototype closes; and building the example database.
 - **`UNION_ALL`.** Stacking two Statements is left out until a real Statement needs it. From Hive
   3.1, an ACID table refuses `INSERT OVERWRITE` combined with `UNION ALL`, so it's more than a
   one-line clause.
-- **Testing on `dev`.** Whether value-level tests against a local engine return (v1 used duckdb,
-  which is fine on `dev` though not at work), and what the escaping matrix becomes.
+- **Value-level tests on `dev`.** The test harness and CI are decided, and the committed Example
+  gallery works as golden-output testing. Still open: whether tests check numbers against an
+  engine (the example database's executor, or duckdb again), and how the escaping matrix becomes
+  cases on the Toolbox's conditions.
 - **The real limits at work.** The API's row cap and timeout, and how big a DataFrame the notebook
   takes comfortably. The user measures these at work, then the automatic `LIMIT` and the
   dates-per-query cap (both unset) may get values. Also the Hive version, the engine (Tez or MR),
