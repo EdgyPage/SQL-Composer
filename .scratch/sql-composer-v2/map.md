@@ -19,7 +19,7 @@ at work without touching the user's own scripts.
   complication may stay, but no abstraction that has to be studied before it can be used.
 - **v1 is a superseded first draft.** Its code and its Metric / Dimension / Grain / Tag / Case
   model are out; do not build on either. Salvage knowledge only: the escaping test matrix
-  (`tests/test_escaping.py`), the sqlglot ground truth, and
+  (now `tests/escaping_cases.py`), the sqlglot ground truth, and
   `docs/adr/0001-sqlglot-over-sqlalchemy.md`, which still stands. `CONTEXT.md` was rewritten for
   v2 during charting.
 - **Branches.** All work lands on `dev`. `main` is the Clean branch: generated from `dev` by an
@@ -110,16 +110,16 @@ at work without touching the user's own scripts.
   one graph with every step on screen, controls to expand, collapse or hide each table and CTE,
   and a Grouped flowchart view; `export_lineage(*statements, to=None)` writes it and a Markdown
   twin under a generated name in `lineage/`, joining Statements across Saved tables.
+- [Retire v1 from `dev` and carry over the salvage](issues/17-retire-v1-from-dev-and-carry-over-the-salvage.md):
+  v1 is gone; the escaping matrix lives on as `tests/escaping_cases.py`; the dev files, CI, the
+  three hooks, the drift list, the standards, the beginner reader and the new `CLAUDE.md` are in
+  place, and the suite passes.
 
 ## Not yet specified
 
 - **`UNION_ALL`.** Stacking two Statements is left out until a real Statement needs it. From Hive
   3.1, an ACID table refuses `INSERT OVERWRITE` combined with `UNION ALL`, so it's more than a
   one-line clause.
-- **Value-level tests on `dev`.** The test harness and CI are decided, and the committed Example
-  gallery works as golden-output testing, and each demonstration's test checks its numbers on the
-  Example database's executor against pandas. Still open: how the escaping matrix becomes cases on
-  the Toolbox's conditions.
 - **The real limits at work.** The API's row cap and timeout, and how big a DataFrame the notebook
   takes comfortably. The user measures these at work, then the automatic `LIMIT` and the
   dates-per-query cap (both unset) may get values. Also the Hive version, the engine (Tez or MR),

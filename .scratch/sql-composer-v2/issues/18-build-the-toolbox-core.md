@@ -83,3 +83,11 @@ items, and the beginner reader has reported.
 - **`example_database.send` answers `DESCRIBE` and `SHOW PARTITIONS`** itself, from its own Table
   references and rows, since sqlglot's executor can't. The doctests of `write_table_reference`,
   `check_key` and `check_table_reference` run on it.
+
+**From "Retire v1 from `dev` and carry over the salvage" (2026-09-25).** `dev` now holds no v1
+code. The escaping matrix waits in `tests/escaping_cases.py`. Its docstring says how to adopt
+it: push every case through each way a value reaches a Statement (each comparison function, both
+ends of a range, each item of a list, a Date partition bound, the PARTITION of an
+`INSERT_OVERWRITE`), and test the two properties the cases can't: `.sql()` is called in exactly
+one function with `unsupported_level=ErrorLevel.RAISE` and SQL text is never built with an
+f-string, and a number is formatted by the Toolbox (`SNEAKY_NUMBERS`, `NON_FINITE_NUMBERS`).

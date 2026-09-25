@@ -1,7 +1,7 @@
 # Retire v1 from `dev` and carry over the salvage
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 13
 
 ## Question
@@ -119,3 +119,28 @@ Still waiting on the user, because auto mode refused it again even with the user
 
   Then the next session commits it, checks `python -m pytest` passes on what's left, records the
   list of what went under an `## Answer`, and resolves this ticket.
+
+## Answer
+
+**v1 is gone from `dev`, the salvage is in place, and every check from "What does `dev` enforce,
+and which maintainer agents does it carry?" runs.** "Build the Toolbox core" starts from this
+state (commit 74edd9e and before):
+
+- **Went** (74edd9e, run by the user, since auto mode refused it): `sqlcomposer/`,
+  `declarations/`, `tools/`, `docs/design/`, `docs/lineage/`, v1's `README.md` and
+  `requirements.txt`, `tests/conftest.py` and the twelve test files that imported v1, including
+  `tests/test_escaping.py`. Ignored `__pycache__` folders may linger in `sqlcomposer/` and
+  `declarations/` on disk; they hold nothing tracked.
+- **Salvage now lives at:** `tests/escaping_cases.py` (the escaping matrix as plain cases, with
+  notes on the two properties that are about the Toolbox's own code), checked against sqlglot
+  alone by `tests/test_escaping_cases.py`; `docs/adr/0001-sqlglot-over-sqlalchemy.md`;
+  `CONTEXT.md`; `docs/agents/`.
+- **Checks in place:**
+  - `pyproject.toml` (pytest and ruff only) and `requirements-dev.txt`;
+  - CI in `.github/workflows/dev.yml` on Python 3.11 with sqlglot 25.24.2 and 30.19.0;
+  - the three hooks in `.claude/settings.json` (guarding `main`, asking for a drift review,
+    holding a session's end), with the reviewer's brief at `.claude/hooks/drift-reviewer.md`;
+  - `.scratch/drift.md`, whose first item (D4) was opened and closed;
+  - `docs/agents/standards.md`, `.claude/agents/beginner-reader.md` and the new `CLAUDE.md`;
+  - the pointer test and the hook tests.
+- **The suite:** 65 tests, all passing, and ruff clean on the hooks.
