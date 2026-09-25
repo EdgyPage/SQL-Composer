@@ -42,7 +42,8 @@ an existing line.
 
 ## What to write
 
-Append each finding under `## Items`, numbered on from the highest `D<n>` in the file:
+Append each finding under `## Items`, numbered on from the highest `D<n>` under that heading
+(the indented example lines above it don't count; start at `D1`):
 
     - [ ] D<n> | <commit, 7 characters> | <kind> | <what is untrue, and the line to change>
 
