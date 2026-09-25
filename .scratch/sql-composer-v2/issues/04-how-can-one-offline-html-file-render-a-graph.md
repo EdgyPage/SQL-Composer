@@ -48,3 +48,8 @@ added to "What does the work environment actually have?".
 Findings: branch `research/offline-graph-html` (commit `7d88423`), file
 `research/offline-graph-html.md`, with the probe, the prototype and its HTML output under
 `research/offline-graph-html/`.
+
+**Changed by "What does exploring a Statement's lineage look like?" (2026-09-25).** The layout
+moved from Python into the page's inline script, because the view's controls (expand, collapse,
+hide, switch view) need a fresh layout for any combination. It is still inline SVG with no
+dependency.

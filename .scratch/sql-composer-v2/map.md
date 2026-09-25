@@ -102,12 +102,13 @@ at work without touching the user's own scripts.
   three made-up tables (`jobs`, `job_runs`, `run_alerts`) shipped inside the Toolbox as
   `example_database`, a sandbox with its own `send`; seven demonstrations, each shown in the
   gallery and checked by a test; and a join off the key now warns and runs rather than refusing.
+- [What does exploring a Statement's lineage look like?](issues/07-what-does-exploring-a-statements-lineage-look-like.md):
+  one graph with every step on screen, controls to expand, collapse or hide each table and CTE,
+  and a Grouped flowchart view; `export_lineage(*statements, to=None)` writes it and a Markdown
+  twin under a generated name in `lineage/`, joining Statements across Saved tables.
 
 ## Not yet specified
 
-- **The rest of the build sequence.** The core, the Clean-branch export, the Example gallery and
-  the Example database's demonstrations have graduated into task tickets. Still to come: the
-  `lineage.py` build, once the lineage prototype closes.
 - **`UNION_ALL`.** Stacking two Statements is left out until a real Statement needs it. From Hive
   3.1, an ACID table refuses `INSERT OVERWRITE` combined with `UNION ALL`, so it's more than a
   one-line clause.

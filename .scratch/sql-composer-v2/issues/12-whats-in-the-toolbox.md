@@ -176,3 +176,8 @@ Handed on:
 **Changed by "What does the Example database demonstrate, and where does it run?" (2026-09-25).**
 A 60th public name, `example_database`, ships the Example database inside the Toolbox as a
 sandbox. The repeated-rows check became a Warning; its category isn't a public name.
+
+**Changed by "What does exploring a Statement's lineage look like?" (2026-09-25).** The export is
+`export_lineage(*statements, to=None)`. By default it writes a generated, timestamped name into a
+`lineage/` folder beside the calling file, rather than overwriting `lineage.html`. Both files'
+footers show the Toolbox version; the file name carries the user's own scripts' commit.
