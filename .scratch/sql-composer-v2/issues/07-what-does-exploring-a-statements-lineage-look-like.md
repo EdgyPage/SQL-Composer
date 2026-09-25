@@ -111,3 +111,10 @@ URL state (`view=flow`) work in both views. The page draws the flowchart itself,
 "filters on final query") in both files rather than in one shared group. The shared group formed a
 loop (the join reads `recent` and also filters the query that reads it), and per-query groups
 read more clearly. The user likes everything else as it stands.
+
+**From "How do pieces combine across Levels - CTE, subquery, or saved table?" (2026-09-25).** The lineage export
+takes several Statements. Where one writes a Saved table (`INSERT_OVERWRITE(t)`) and another
+reads `t`, the graph continues through it. How that joined graph looks is this ticket's call.
+Facts from `research/hive-writes-and-ctes`: sqlglot's `lineage()` accepts an `INSERT` and
+traces CTEs and sub-queries equally, but names columns by the `SELECT`'s output, not the target
+table's. Running `optimize()` first merges CTEs away and drops them from the chain.

@@ -52,3 +52,11 @@ partition levels stay optional. The user's tables are partitioned by one date co
 Suggested: a "first look" standard query, meaning all columns of the latest day capped at a few
 rows (`all_columns(t)`, `last_n_days(t.dt, 1)`, `LIMIT(20)`), since the Toolbox has no preview
 function. A key-guessing row count is an ordinary bounded Statement, which the load defaults allow.
+
+**From "How do pieces combine across Levels - CTE, subquery, or saved table?" (2026-09-25).** A Saved table
+(one a Statement writes on the server, then read back like any table) is described by an ordinary
+Table reference, with two extra demands. Every column must have a type, because
+`create_table(t)` generates `CREATE TABLE IF NOT EXISTS ... PARTITIONED BY (dt STRING) STORED AS
+ORC` from it and refuses untyped columns. Its column order is the order the table is written in,
+because `INSERT_OVERWRITE(t)` lines the `SELECT` up by name into that order. Decide here whether a
+Saved table's Table reference is written by hand or generated from the Statement that writes it.

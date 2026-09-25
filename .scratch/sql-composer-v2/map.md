@@ -81,6 +81,10 @@ at work without touching the user's own scripts.
   a date partition bounded at both ends, no `ORDER BY` without `LIMIT`, and no `OFFSET` or `*`
   (`all_columns(t)` instead); an automatic `LIMIT` and a date cap are seams that ship off; the
   API is reached only through `run(s, send=...)`, and `by_day(s)` chunks reads and backfills.
+- [How do pieces combine across Levels - CTE, subquery, or saved table?](issues/10-how-do-pieces-combine-across-levels.md):
+  a Derived table always becomes a CTE the Toolbox writes, even when kept in a Building block; a
+  Saved table is written explicitly by an `INSERT_OVERWRITE(t)` Statement one day at a time,
+  created from its typed Table reference, and lineage joins Statements across it.
 
 ## Not yet specified
 
@@ -90,9 +94,12 @@ at work without touching the user's own scripts.
   which is fine on `dev` though not at work), and what the escaping matrix becomes.
 - **The real limits at work.** The API's row cap and timeout, and how big a DataFrame the notebook
   takes comfortably. The user measures these at work, then the automatic `LIMIT` and the
-  dates-per-query cap (both unset) may get values.
+  dates-per-query cap (both unset) may get values. Also the Hive version, the engine (Tez or MR),
+  and whether managed tables are ACID, which decide how a Saved table's write behaves.
 - **Schema drift.** Whether a Table reference going stale against the warehouse matters enough to
-  check, for a seven-month tool.
+  check, for a seven-month tool. Saved tables sharpen it: `create_table` uses `IF NOT EXISTS`, so
+  a table that already exists with different columns is left alone, and writes line up against
+  the Table reference rather than the real table.
 - **Lineage for SQL the Toolbox didn't build.** sqlglot can parse a pasted query cheaply; whether
   that is worth supporting.
 - **A worked walkthrough** from Table reference to submitted Statement, for the user.
