@@ -37,6 +37,8 @@ at work without touching the user's own scripts.
   `select *` must not pull a whole table; find where this matters and get ahead of it by default.
 - **Allowed at work:** Python stdlib, pandas, numpy, sqlglot. Output is a Hive SQL string for an
   API that accepts only strings.
+- **Everything is generated.** Every output and artifact the Toolbox produces (SQL, lineage
+  HTML, Markdown reports) is built from the Statement by code, never written or edited by hand.
 - **Skills.** Grilling tickets call `grilling` and `domain-modeling`; prototype tickets call
   `prototype`; research tickets call `research`. `CONTEXT.md` is the glossary.
 
