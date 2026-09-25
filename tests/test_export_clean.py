@@ -102,6 +102,14 @@ def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path
     assert text.index("### `tables.py`") < text.index("### `clauses.py`")
 
 
+def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> None:
+    init = (clean / "sql_composer" / "__init__.py").read_text(encoding="utf-8")
+    examples = doctest.DocTestParser().get_examples(ast.get_docstring(ast.parse(init)))
+    shown = next(example.want for example in examples if example.source.strip() == "VERSION")
+    exported = repr("SQL Composer 2.0, exported 2026-10-02 14:05") + "\n"
+    assert doctest.OutputChecker().check_output(shown, exported, doctest.ELLIPSIS), shown
+
+
 def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) -> None:
     section = readme(clean).split("### `example_database.py`\n", 1)[1]
     assert section.count("The Example database: three made-up tables") == 1

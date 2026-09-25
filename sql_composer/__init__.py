@@ -14,7 +14,7 @@ full text, which also says when this copy was exported.
 >>> TOOLBOX_VERSION
 '2.0'
 >>> VERSION
-'SQL Composer 2.0, not exported (dev)'
+'SQL Composer 2.0, ...'
 """
 
 from __future__ import annotations

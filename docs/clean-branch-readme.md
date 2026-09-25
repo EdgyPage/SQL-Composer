@@ -67,8 +67,14 @@ sqlglot 30.19.0 or newer):
 3     104  SUCCESS
 ```
 
-Every name in the cheat sheet has a Worked example like this in its docstring, which
-`help(to_hive)` shows.
+Every function and class in the cheat sheet has a Worked example like this in its docstring:
+`help(to_hive)` shows the one for `to_hive`. The examples use every Toolbox name and the Example
+database's `jobs` and `job_runs`, so run this first to paste one into a notebook:
+
+```python
+>>> from sql_composer import *
+>>> jobs, job_runs = example_database.jobs, example_database.job_runs
+```
 
 ## Cheat sheet
 
