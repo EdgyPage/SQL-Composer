@@ -73,6 +73,10 @@ at work without touching the user's own scripts.
   a flat package folder `sql_composer/`, imported only from its top level and replaced whole on
   update, which stops on import if it finds extra or missing files or mixed versions; a hand-raised
   feature number plus an export stamp, with the README at `.github/README.md`.
+- [Which guardrails on how a Statement is written earn their place?](issues/08-which-guardrails-on-writing-a-statement-earn-their-place.md):
+  every Guard refuses at the offending call, with a four-part message and an opt-out keyword on
+  that call; ten Guards stay, including repeated rows off the key and unsafe re-grouping, and there
+  is no raw-SQL entry point.
 
 ## Not yet specified
 
