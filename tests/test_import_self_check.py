@@ -103,3 +103,23 @@ def test_an_older_python_stops_the_import(monkeypatch) -> None:
     monkeypatch.setattr(sys, "version_info", (3, 9, 7, "final", 0))
     with pytest.raises(ImportError, match="needs Python 3.11 or newer, and this is Python 3.9.7"):
         sql_composer._check_python()
+
+
+def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> None:
+    from sqlglot import exp
+
+    real = exp.convert
+    monkeypatch.setattr(exp, "convert",
+                        lambda value, *args, **kw: exp.Literal.string("changed")
+                        if value == "O'Brien\\" else real(value, *args, **kw))
+    with pytest.raises(ImportError, match="behaves differently: Hive string escaping has "
+                                          "changed. Nothing has been built or sent."):
+        sql_composer._check_sqlglot()
+
+
+def test_a_newer_sqlglot_in_range_prints_a_note(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(sqlglot, "__version__", "30.20.1")
+    sql_composer._check_sqlglot()
+    assert capsys.readouterr().out == (
+        "Note: sqlglot 30.20.1 is newer than any version SQL Composer was tested on "
+        "(30.19.0). Its behaviour checks passed.\n")

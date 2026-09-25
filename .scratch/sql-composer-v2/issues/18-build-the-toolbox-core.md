@@ -152,3 +152,81 @@ beginner-readable option; the user may overturn any of them.
 fails on sqlglot 25.24.2 for the two backtick cases (its parser can't read a doubled backtick
 back), so CI's 25.24.2 run was already red on `dev`. The Toolbox writes such names correctly on
 both ends, but on 25.24.2 its self-check would stop a Statement that uses one.
+
+**Code review (2026-09-25), `code-review` over `d0cf695..HEAD`,** with this ticket and the
+tickets it names as the spec and `docs/agents/standards.md` as the standards. What was fixed,
+and what is answered here instead:
+
+- **Fixed, Standards:**
+  - `date_column` (an _Avoid_ word for Date partition) renamed to `date_partition` in
+    `guard_by_day_grouping` and `by_day`'s checks.
+  - "level", which the glossary keeps for the tiers of the user's scripts, no longer names a
+    Derived table's depth in `running.py`, nor appears in the re-grouping fix ("divide after
+    your own `GROUP_BY`").
+  - "query" became Statement in `set_load_limits`, the dates cap's message and `CHANGES.md`.
+  - The `derived` docstring no longer says "checked attributes", "WITH part" or "Statement
+    part".
+  - `first_look`'s first line says yesterday, as the code does.
+  - `average_of` now names its `adds_up=True` opt-out, as `sum_of` does.
+  - Names no ticket decided are private: `_SQLGLOT_LOWEST`, `_SQLGLOT_BELOW`,
+    `_SQLGLOT_NEWEST_TESTED`, and `example_database`'s `_COMMENTS`, `_JOBS`, `_JOB_RUNS`,
+    `_RUN_ALERTS`, `_TABLES` and `_EXECUTOR_NEEDS`. The import messages build the sqlglot
+    range from the constants.
+  - Cheap smells: `_parse_day` is `_day_format_of`, `running.py`'s `_join` is `_join_tree`,
+    `Ordering` no longer stores a flag it never reads, and `_aggregate` takes `distinct=True`,
+    not `kind="distinct"`.
+- **Fixed, Spec:**
+  - `check_table_reference` never raises on the warehouse's side any more. A table `DESCRIBE`
+    can't find, or a `send` that fails, comes back as a failed verdict that quotes the error.
+    A `SHOW PARTITIONS` that fails comes back as a problem.
+  - A `date_format` that is back to the usual days now says to remove the `date_format` line.
+    Before, it said to write `date_format="%Y-%m-%d"`.
+  - `ORDER_BY`'s Load limit offers `sorts_everything=True` "but not in a Statement you pass to
+    `derived(...)`". Before, pasting that opt-out inside a Derived table led only to a second
+    refusal.
+  - `example_database.send`'s own messages have the four parts. When sqlglot's executor
+    can't run something, it stops with a plain message naming it: window functions such as
+    `row_number`, or `NEXT_DAY` and `TRUNC` from `week_start` and `month_start`. Before, it
+    raised a raw `ExecuteError`. Ticket 15 already decided that those demonstrations show
+    pandas results.
+  - `example_database.send` now matches `starts_with` and `contains` correctly. The
+    executor ignores `LIKE`'s backslash, so `starts_with(jobs.job_name, "invoice_")` found no
+    rows. `send` now spells an escaped `LIKE` out as `LEFT`, `RIGHT` or `STRPOSITION`. This
+    was found by the beginner reader.
+  - The import check's behaviour-check refusal and the newer-sqlglot note now have tests.
+  - The Style B test now also writes the prototype's own boolean `is_active` and timestamp
+    `started_at` Statement, on the prototype's own Table references.
+  - The review also noted `refusals.py`'s docstring (it now says where each check stops) and
+    `row_number`'s claim about the Example database. That docstring now shows the latest run
+    per job itself, through `to_hive`, since the executor has no window functions.
+- **Answered, not changed:**
+  - **`ORDER_BY` without `LIMIT` inside a Derived table is a `GuardRefused`,** though ticket
+    09 lists it with the Load limits. What it protects is the answer: Hive silently drops the
+    order, and the cluster isn't at risk. The glossary says a check that protects the answer
+    is a Guard. An `ORDER_BY` with a `LIMIT` inside a Derived table is allowed, since ticket
+    09's rule is "no `ORDER BY` without a `LIMIT`" and Hive keeps that order. **The user may
+    overturn this.**
+  - **`hive_function("regexp_extract", col, pattern, 1)` comes out without the `1`.**
+    sqlglot's generator drops the group when it is 1, Hive's default, so the Hive means the
+    same. Fighting the generator would break the `to_hive` self-check. The docstring now says
+    so.
+  - **Misuse errors print "Opt-out: none".** "Build decisions" gives every misuse check the
+    four-part message, and ticket 08 says every message has four parts, so the line stays.
+  - **`check_table_reference` still raises `TypeError` for a non-Table or a Derived table.**
+    That is calling it wrong. Ticket 16's "never raises" is about what it finds in the
+    warehouse.
+  - **`sum_of(..., adds_up=False)` in the signature** can read as "doesn't add up". Tickets
+    08 and 12 fixed the keyword, and every opt-out defaults to `False`. Each docstring says
+    to pass `adds_up=True` if the column really does add up.
+  - **Smells left, since standards.md prefers plain repetition to cleverer machinery:**
+    - `_need_column` is written twice, `_conditions` twice, and version parsing twice;
+    - the "db.table" split is written three times;
+    - opt-out text is built by slicing `call[:-1]`;
+    - several functions branch on `Clause._name` and on whether `_statement` or `_ddl` is set;
+    - `derived` sets a `Table`'s private fields;
+    - `_select_tree` reads a Statement's parts;
+    - `tables.py` has in-function imports that avoid a circular import.
+
+    None of these shows through a public name, and each one is small.
+  - **`more_than` and `less_than` count as a date bound at both ends,** where ticket 09 lists
+    only `>=` with `<=`. Either pair bounds the partition, so it stays.

@@ -107,8 +107,8 @@ def _version(text: str) -> tuple[int, ...]:
 def test_the_sqlglot_pin_is_inside_the_supported_range() -> None:
     requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
     pin = _version(re.search(r"^sqlglot==([\d.]+)$", requirements, re.MULTILINE).group(1))
-    assert sql_composer.SQLGLOT_LOWEST <= pin < sql_composer.SQLGLOT_BELOW
-    assert pin == sql_composer.SQLGLOT_NEWEST_TESTED
+    assert sql_composer._SQLGLOT_LOWEST <= pin < sql_composer._SQLGLOT_BELOW
+    assert pin == sql_composer._SQLGLOT_NEWEST_TESTED
 
 
 def test_ci_runs_the_bottom_of_the_range_and_the_pin() -> None:
@@ -117,5 +117,5 @@ def test_ci_runs_the_bottom_of_the_range_and_the_pin() -> None:
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
     requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
     pin = _version(re.search(r"^sqlglot==([\d.]+)$", requirements, re.MULTILINE).group(1))
-    assert versions == {sql_composer.SQLGLOT_LOWEST, pin}
+    assert versions == {sql_composer._SQLGLOT_LOWEST, pin}
     assert 'python-version: "3.11"' in workflow

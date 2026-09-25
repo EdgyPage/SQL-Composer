@@ -58,10 +58,11 @@ def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expres
     return exp.Case(ifs=[exp.If(this=where._tree.copy(), true=then or tree)])
 
 
-def _aggregate(node, column, where, call, *, adds_up=True, because=None, kind=None) -> Column:
+def _aggregate(node, column, where, call, *, adds_up=True, because=None,
+               distinct=False) -> Column:
     column = _need_column(column, call)
     inner = _only_where(column._tree.copy(), where, call)
-    tree = node(this=exp.Distinct(expressions=[inner])) if kind == "distinct" else node(this=inner)
+    tree = node(this=exp.Distinct(expressions=[inner])) if distinct else node(this=inner)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
 
 
@@ -87,7 +88,7 @@ def count_distinct(column, where=None):
     COUNT(DISTINCT job_runs.job_id)
     """
     return _aggregate(exp.Count, column, where, f"count_distinct({column!r})", adds_up=False,
-                      because="a distinct count", kind="distinct")
+                      because="a distinct count", distinct=True)
 
 
 def sum_of(column, where=None, adds_up=False):
@@ -112,7 +113,8 @@ def average_of(column, where=None, adds_up=False):
     """The average of a column; it refuses to average something that doesn't add up.
 
     An average itself doesn't add up: the average of two daily averages isn't the average
-    over both days. Keep the sum and the count, and divide at the level you need.
+    over both days. Keep the sum and the count, and divide after your own GROUP_BY. Like
+    sum_of, it refuses a column that doesn't add up; pass adds_up=True if it really does.
 
     >>> average_of(job_runs.duration_mins)
     AVG(job_runs.duration_mins)
@@ -235,9 +237,8 @@ def month_start(column):
 class Ordering:
     """A column to sort by, and which way. Made by descending(...)."""
 
-    def __init__(self, target, descending: bool):
+    def __init__(self, target):
         self._target = target
-        self._descending = descending
 
     def __repr__(self) -> str:
         return f"descending({self._target!r})"
@@ -253,7 +254,7 @@ def descending(column):
     """
     if not isinstance(column, (Column, str)):
         _need_column(column, "descending(...)")
-    return Ordering(column, descending=True)
+    return Ordering(column)
 
 
 def ordered(item, call: str) -> exp.Ordered:
@@ -277,11 +278,39 @@ def row_number(*, PARTITION_BY, ORDER_BY):
     """Number the rows within each group from 1, in the order you give.
 
     Keeping the rows numbered 1 gives the latest row per key; keeping those up to N gives
-    the top N per group. Both are two derived(...) tables: one numbers the rows, the next
-    keeps the ones you want. The Example database shows both.
+    the top N per group. Hive can't filter on a row number in the SELECT that makes it, so
+    number the rows in a derived(...) table and keep the ones you want in the Statement that
+    reads it. Here is the latest run of each job:
 
-    >>> row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
-    ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
+    >>> numbered = derived("numbered", statement(
+    ...     SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
+    ...            AS(row_number(PARTITION_BY=job_runs.job_id,
+    ...                          ORDER_BY=descending(job_runs.run_id)), "newest_first")),
+    ...     FROM(job_runs),
+    ...     WHERE(last_n_days(job_runs.dt, 2)),
+    ... ))
+    >>> print(to_hive(statement(
+    ...     SELECT(numbered.job_id, numbered.run_id, numbered.status),
+    ...     FROM(numbered),
+    ...     WHERE(equals(numbered.newest_first, 1)),
+    ... )))
+    WITH numbered AS (
+      SELECT
+        job_runs.job_id,
+        job_runs.run_id,
+        job_runs.status,
+        ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC) AS newest_first
+      FROM ops.job_runs AS job_runs
+      WHERE
+        job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    )
+    SELECT
+      numbered.job_id,
+      numbered.run_id,
+      numbered.status
+    FROM numbered
+    WHERE
+      numbered.newest_first = 1
     """
     call = "row_number(...)"
     groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
@@ -293,7 +322,9 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
 
-    sqlglot may write a function under Hive's other name for it: nvl comes out as COALESCE.
+    sqlglot may write a function under Hive's other name for it, or leave out an argument
+    that Hive fills in anyway: nvl comes out as COALESCE, and regexp_extract(col, pattern, 1)
+    without the 1, since group 1 is what Hive takes when none is given.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')

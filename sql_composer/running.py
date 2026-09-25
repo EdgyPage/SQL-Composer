@@ -36,12 +36,12 @@ _limits = {"rows": None, "dates": None}
 
 
 def set_load_limits(rows=None, dates=None):
-    """Switch on an automatic row LIMIT and a cap on days per query; both start off.
+    """Switch on an automatic LIMIT and a cap on days per Statement; both start off.
 
     Call it from your own notebook, since the Toolbox folder is replaced on each update.
     `rows` adds LIMIT rows to every Statement that has no LIMIT of its own, and run(...)
     refuses a result that fills it, since it was probably cut short. `dates` refuses a
-    query that reads more days than that from one table. An argument left out means no
+    Statement that reads more days than that from one table. An argument left out means no
     limit, so set_load_limits() switches both off. It returns the limits now in force.
 
     >>> set_load_limits(rows=100000, dates=31)
@@ -83,7 +83,7 @@ def _output(column, name: str) -> exp.Expression:
     return exp.alias_(column._tree.copy(), identifier(name))
 
 
-def _join(read) -> exp.Join:
+def _join_tree(read) -> exp.Join:
     parts = {"this": source(read.table)}
     if read.on is not None:
         parts["on"] = read.on._tree.copy()
@@ -104,7 +104,7 @@ def _select_tree(s: Statement) -> exp.Select:
         tree.set("distinct", exp.Distinct())
     _set(tree, "from", exp.From(this=source(s._reads[0].table)))
     if len(s._reads) > 1:
-        tree.set("joins", [_join(read) for read in s._reads[1:]])
+        tree.set("joins", [_join_tree(read) for read in s._reads[1:]])
     if s._where:
         tree.set("where", exp.Where(this=exp.and_(*[c._tree.copy() for c in s._where])))
     if s._group_by:
@@ -137,7 +137,7 @@ def automatic_limit(s: Statement) -> int | None:
 
 
 def _days_read(s: Statement) -> list:
-    """Each read of a partitioned table, at every level, with the days it reads."""
+    """Each read of a partitioned table, at every step, with the days it reads."""
     found = read_spans(s)
     for table in derived_tables(s):
         found += read_spans(table._statement)
@@ -176,11 +176,11 @@ def _written_day(s: Statement):
 
 def _bottom_read(s: Statement):
     """The real table under FROM, following Derived tables down, and its date bound."""
-    level = s
-    while level._reads[0].table._statement is not None:
-        level = level._reads[0].table._statement
-    read = level._reads[0]
-    span = next((found for r, found in read_spans(level) if r is read), None)
+    step = s
+    while step._reads[0].table._statement is not None:
+        step = step._reads[0].table._statement
+    read = step._reads[0]
+    span = next((found for r, found in read_spans(step) if r is read), None)
     return read.table, span
 
 
@@ -291,8 +291,8 @@ def run(s, send):
 # --- by_day ----------------------------------------------------------------------------------
 
 
-def _check_splittable(s: Statement, date_column: str, where: str) -> None:
-    """A level may aggregate or pick rows only if it keeps the date in its grouping."""
+def _check_splittable(s: Statement, date_partition: str, step: str) -> None:
+    """A step may aggregate or pick rows only if it keeps the date in its grouping."""
     outputs = [column for column, _ in s._outputs]
     grouping = None
     if s._distinct:
@@ -301,43 +301,43 @@ def _check_splittable(s: Statement, date_column: str, where: str) -> None:
         grouping = [c._name for c in s._group_by if c._name is not None]
     elif any(column._aggregate for column in outputs):
         grouping = []
-    if grouping is not None and date_column not in grouping:
-        guard_by_day_grouping(where, date_column)
+    if grouping is not None and date_partition not in grouping:
+        guard_by_day_grouping(step, date_partition)
     for column in outputs:
         for window in column._tree.find_all(exp.Window):
             names = [c.name for c in window.args.get("partition_by") or []
                      if isinstance(c, exp.Column)]
-            if date_column not in names:
-                guard_by_day_grouping(where, date_column)
+            if date_partition not in names:
+                guard_by_day_grouping(step, date_partition)
 
 
-def _levels(s: Statement) -> list[tuple[Statement, str]]:
+def _steps(s: Statement) -> list[tuple[Statement, str]]:
     """The Statement and each Derived table below it through FROM, top first."""
-    levels = [(s, "the outer Statement")]
-    while levels[-1][0]._reads[0].table._statement is not None:
-        table = levels[-1][0]._reads[0].table
-        levels.append((table._statement, f"derived({table._name!r}, ...)"))
-    return levels
+    steps = [(s, "the outer Statement")]
+    while steps[-1][0]._reads[0].table._statement is not None:
+        table = steps[-1][0]._reads[0].table
+        steps.append((table._statement, f"derived({table._name!r}, ...)"))
+    return steps
 
 
-def _one_day(level: Statement, day, new_from=None) -> Statement:
-    """A copy of `level` reading one day, or reading `new_from` in place of its FROM table."""
-    clauses = list(level._clauses)
-    first = level._reads[0]
+def _one_day(step: Statement, day, new_from=None) -> Statement:
+    """A copy of `step` reading one day, or reading `new_from` in place of its FROM table."""
+    clauses = list(step._clauses)
+    first = step._reads[0]
     index = clauses.index(first)
     if new_from is not None:
         clauses[index] = FROM(new_from, reads_all_partitions=first.reads_all_partitions)
-        return statement(*clauses, returns_all_rows=level._returns_all_rows)
+        return statement(*clauses, returns_all_rows=step._returns_all_rows)
     table = first.table
     key = (table._alias, table._date_partition)
-    kept = [c for c in level._where if c._only_bounds != key]
+    kept = [c for c in step._where if c._only_bounds != key]
     where = WHERE(*kept, equals(getattr(table, table._date_partition), day))
     old = next((c for c in clauses if c._name == "WHERE"), None)
     if old is not None:
         clauses[clauses.index(old)] = where
     else:
-        clauses.insert(index + len(level._reads), where)
-    return statement(*clauses, returns_all_rows=level._returns_all_rows)
+        clauses.insert(index + len(step._reads), where)
+    return statement(*clauses, returns_all_rows=step._returns_all_rows)
 
 
 def by_day(s):
@@ -390,7 +390,7 @@ def by_day(s):
                 opt_out=None,
             )
         )
-    levels = _levels(s)
+    steps = _steps(s)
     table, span = _bottom_read(s)
     if table._date_partition is None or span is None or not span.is_bounded():
         raise ValueError(
@@ -404,19 +404,19 @@ def by_day(s):
                 opt_out=None,
             )
         )
-    for level, where in levels:
-        _check_splittable(level, table._date_partition, where)
-    return [_split(levels, day) for day in span.dates()]
+    for step, described in steps:
+        _check_splittable(step, table._date_partition, described)
+    return [_split(steps, day) for day in span.dates()]
 
 
-def _split(levels, day) -> Statement:
-    bottom = _one_day(levels[-1][0], day)
-    for level, _ in reversed(levels[:-1]):
-        old = level._reads[0].table
+def _split(steps, day) -> Statement:
+    bottom = _one_day(steps[-1][0], day)
+    for step, _ in reversed(steps[:-1]):
+        old = step._reads[0].table
         new = derived(old._name, bottom)
         if old._alias != old._name:
             new = aliased(new, old._alias)
-        bottom = _one_day(level, day, new_from=new)
+        bottom = _one_day(step, day, new_from=new)
     return bottom
 
 
