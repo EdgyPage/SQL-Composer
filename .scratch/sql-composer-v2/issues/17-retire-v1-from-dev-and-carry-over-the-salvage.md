@@ -51,3 +51,47 @@ ticket sets up everything `dev` enforces that doesn't need the Toolbox:
   - the new `CLAUDE.md`, with the definition of done.
 - **The pointer test:** every file path named in `CLAUDE.md`, `docs/agents/` and the README
   template exists.
+
+**Progress (2026-09-25), not yet resolved.**
+
+Done and committed on `dev`:
+
+- `pyproject.toml` holds only pytest and ruff settings; `requirements-dev.txt` pins sqlglot
+  30.19.0, pandas, numpy, pytest and ruff; `.gitignore` ignores `.claude/worktrees/` and
+  `.claude/settings.local.json`.
+- CI: `.github/workflows/dev.yml` runs `pytest` on Python 3.11 with sqlglot 25.24.2 and 30.19.0.
+- The escaping matrix is salvaged as plain cases in `tests/escaping_cases.py` (no v1 import),
+  and `tests/test_escaping_cases.py` checks them against sqlglot alone (49 tests). The cases
+  that are about the Toolbox's own code (sneaky numbers, non-finite numbers, one place that
+  generates SQL) are kept as cases and notes for the core build to adopt.
+- `docs/agents/standards.md`, `.claude/agents/beginner-reader.md`, `tests/test_pointers.py`
+  and an empty `.scratch/drift.md`.
+
+Waiting on the user, because the agent's auto mode refused them:
+
+- **Removing v1** (`sqlcomposer/`, `declarations/`, `tools/`, `docs/design/`, `docs/lineage/`,
+  the v1 tests, `README.md`, `requirements.txt`): refused as local destruction.
+- **The drift-review and session-end hooks**, and so `.claude/settings.json`: refused as the
+  agent modifying its own controls. `.claude/hooks/protect_main.py` and
+  `.claude/hooks/drift_list.py` are written but uncommitted; `drift_review.py`, `drift_stop.py`,
+  the reviewer's brief and `settings.json` are not written.
+- **The new `CLAUDE.md`** is written but uncommitted, since it describes the hooks as in place.
+
+The hook design, for whoever finishes it:
+
+- **Protecting `main`:** PreToolUse on `Edit|Write|NotebookEdit` and on `Bash|PowerShell` with
+  `if: "Bash(git *)"` / `"PowerShell(git *)"`; denies a file edit in a checkout of `main`, and a
+  commit-making git command there (or one that switches to `main` and commits); a command running
+  `tools/export_clean.py` always passes.
+- **Drift reviewer:** PostToolUse after `git *`. If the new commit touches the watched paths, or
+  carries `No-drift:`, it records `<commit> <session id>` in a file inside `.git` and adds
+  context telling the session to start a subagent on the reviewer's brief. The review happens in
+  that subagent, so `.claude/agents/` keeps only the beginner reader. The reviewer appends item
+  lines (`- [ ] D3 | <commit> | <kind> | <finding>`) and one "Reviewed commits" line to
+  `.scratch/drift.md`.
+- **Session end:** a Stop hook blocks once while this session's requested reviews are unrun or
+  its items are open. It lets a second stop through (`stop_hook_active`) so the session can ask
+  the user, for example whether to raise the Toolbox version.
+
+For "Build the Clean-branch export": the README template's path joins the drift reviewer's
+watched paths and the pointer test's `STANDING_DOCS`.
