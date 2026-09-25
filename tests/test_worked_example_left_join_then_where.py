@@ -30,6 +30,10 @@ def test_the_guard_refuses_a_where_on_the_left_joined_table() -> None:
     assert "keeps_only_matches=True" in message
 
 
+def test_keeps_only_matches_lets_the_careless_statement_through() -> None:
+    example.careless(keeps_only_matches=True)
+
+
 @needs_executor
 def test_the_careless_statement_loses_the_job_that_never_ran() -> None:
     right = pandas_check()

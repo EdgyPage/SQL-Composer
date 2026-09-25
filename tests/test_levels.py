@@ -23,6 +23,12 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKED_EXAMPLES = ROOT / "worked_examples"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
 WORK_HAS = {"pandas", "numpy", "sqlglot"}
+# The seven demonstrations decided in "What does the Example database demonstrate?".
+DEMONSTRATIONS = [
+    "repeated_rows", "regrouping", "left_join_then_where", "none_in_equals", "nan_in_a_list",
+    "not_equals_drops_null", "latest_and_top_n",
+]
+PANDAS_LABEL = "computed in pandas, not by running this Hive"
 
 
 def scripts(folder: str) -> list[Path]:
@@ -70,7 +76,8 @@ def level_problems(source: str, level: int) -> list[str]:
 
 def test_the_worked_examples_have_building_blocks_and_statements() -> None:
     assert scripts("building_blocks"), "worked_examples/building_blocks/ has no script"
-    assert len(scripts("statements")) == 7, [path.name for path in scripts("statements")]
+    names = {path.stem for path in scripts("statements")}
+    assert set(DEMONSTRATIONS) <= names, set(DEMONSTRATIONS) - names
 
 
 @pytest.mark.parametrize("path", every_script(), ids=lambda p: f"{p.parent.name}/{p.name}")
@@ -118,3 +125,12 @@ def test_a_statement_script_gives_a_title_and_why(path: Path) -> None:
     assert sentence.endswith(".") and ". " not in sentence.rstrip("."), (
         f"{path.name}: the why is more than one sentence"
     )
+
+
+@pytest.mark.parametrize("path", scripts("statements"), ids=lambda p: p.name)
+def test_a_pandas_result_says_so_in_its_first_line(path: Path) -> None:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for function in tree.body:
+        if isinstance(function, ast.FunctionDef) and function.name.endswith("_in_pandas"):
+            first = (ast.get_docstring(function) or "").splitlines()[:1]
+            assert first and PANDAS_LABEL in first[0], f"{path.name}: {function.name}"

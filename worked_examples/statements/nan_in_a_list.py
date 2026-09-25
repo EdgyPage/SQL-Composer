@@ -1,7 +1,7 @@
 """NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.
 
 Why: pandas writes a blank cell as NaN, Hive can only read it as NULL, and a NULL in
-`NOT IN (...)` makes the test match no rows at all.
+`NOT IN (...)` makes it match no rows at all.
 """
 
 import pandas as pd
