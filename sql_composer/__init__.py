@@ -112,7 +112,7 @@ def _check_sqlglot():
               + "; ".join(problems) + ". Nothing has been built or sent.")
     if version > SQLGLOT_NEWEST_TESTED:
         print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
-              "(30.19.0). Its safety checks passed.")
+              "(30.19.0). Its behaviour checks passed.")
 
 
 def _sqlglot_behaviour():
