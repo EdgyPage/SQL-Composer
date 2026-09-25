@@ -3,7 +3,7 @@
 Type: prototype
 Status: claimed
 Blocked by: 04
-Prototype: branch `prototype/lineage-view` (commit `ccb0265`), `prototypes/lineage_view/lineage_view.py` and its outputs `lineage_view.html`, `lineage_view.md`
+Prototype: branch `prototype/lineage-view` (commit `5156469`), `prototypes/lineage_view/lineage_view.py`, outputs under `prototypes/lineage_view/lineage/`
 
 ## Question
 
@@ -64,3 +64,27 @@ fallback; and where the two files are written.
 Still open for the resolution: what a box shows beyond name and expression, whether Building
 block names replace sqlglot's rewritten formulas, and what the two files are called and where
 they are written.
+
+**User's answers to the open points (2026-09-25), built into the prototype.**
+
+- **What a box shows:** nothing more for now, but through a seam. Nothing is hard-coded that
+  needn't be, since the project expects a lot of iteration. `BOX_LINES` is a list of one-line
+  functions, and every view (HTML, Mermaid, report) reads it.
+- **Building block names:** yes. A block tags its sqlglot expression with `meta["block"]`, which
+  survives `copy()` and `qualify`, so a box reads `week_start(dt)` and the report gives both the
+  call and the SQL it became.
+- **Naming:** `{timestamp}_{git version hash}_lineage_{calling file}_{statement variable}.{html|md}`.
+  `trace(statement)` reads the calling file from its caller's frame (in a notebook, from
+  `JPY_SESSION_NAME`, which JupyterLab sets) and the variable name by identity in the caller's
+  variables. For the version, the prototype assumes the Toolbox's own commit: stamped by the export
+  script, else `git rev-parse` on `dev`, else `unversioned`. Files go to a `lineage/` folder beside
+  the calling file, as a default no one has confirmed yet.
+- **Views as options, not variants:** view A is the only view. Controls expand, collapse (one box
+  per group) or hide each table and CTE, per kind or group by group, and switch the conditions and
+  the report on or off. The state rides in the URL. The layout moved into the page's script,
+  because any combination of controls needs a fresh layout; that's a change from the offline graph
+  research, which laid out in Python. Without scripts the page shows the report and points at the
+  Markdown twin.
+
+Checked in a browser: every control, reload restoring state, click tracing, and the Markdown's
+Mermaid (22 boxes in 5 groups, no error).
