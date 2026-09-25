@@ -26,7 +26,8 @@ open item per finding to `.scratch/drift.md`. It edits nothing else.
 - A false alarm closes with a `No-drift: <item> - <why>` line in a commit message. The reviewer
   accepts it only if the reason holds.
 - Never raise the Toolbox version yourself. When a version item opens, ask the user.
-- You can't end a turn while an item from your own commits is open, and the export to `main`
+- A stop hook blocks the first try to end a turn while your own commits have an unrun review or
+  an open item, then lets a second try through so you can ask the user. The export to `main`
   refuses while any item is open.
 
 ## Definition of done
