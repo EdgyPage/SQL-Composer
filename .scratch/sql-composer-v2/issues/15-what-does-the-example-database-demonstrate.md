@@ -44,3 +44,15 @@ rows that pandas `!=` would keep.
 example database's Table references `job_runs` and `jobs`, so those two must exist under those
 names. `row_number`'s docstring points here for the latest-per-key and top-N-per-group pattern,
 two `derived` calls around `row_number`, so the example database should show it working.
+
+**From "What does `dev` enforce, and which maintainer agents does it carry?" (2026-09-25).**
+
+- **Levels layout:** the example database's scripts sit in folders named after the glossary terms,
+  `table_references/`, `building_blocks/` and `statements/`. A `dev` test checks that imports
+  between them point only downward. Where those folders sit is still this ticket's to decide.
+- **Standalone Worked examples:** each is one short Statement script in `statements/`, with a
+  title and a sentence on why in its module docstring.
+- **The Example gallery:** `sql_composer/examples.html` collects them with every docstring
+  example, showing each one's result table on the example database where the executor can run it.
+  It is built in "Build the Example gallery", which waits on this ticket, and it ships to work.
+  Whether the example database *itself* ships is still this ticket's call.

@@ -30,3 +30,23 @@ The governing decisions, each in its own ticket:
 
 Done when the checks `dev` enforces pass and the Style B prototype Statements
 (`prototype/statement-styles`) can be rewritten against the real Toolbox.
+
+## Comments
+
+**From "What does `dev` enforce, and which maintainer agents does it carry?" (2026-09-25).** The
+checks this build adds as it goes:
+
+- **Import allowlist:** only the standard library, pandas, numpy, sqlglot and other Toolbox
+  modules.
+- **Versions:** `TOOLBOX_VERSION` agrees across files, and `CHANGES.md` has a section for it.
+- **Doctests:** every docstring example runs as a doctest, with `job_runs` and `jobs` supplied by
+  the test setup, and a test fails if a public name has no docstring or no `>>>` example.
+- **Readability limits:** the list of 59 public names, each docstring's first line at most 80
+  characters, and ruff's C901 at most 10.
+- **Refusal coverage:** every Guard and Load limit has one test showing it refuse and one showing
+  its opt-out working. One helper builds the four-part message.
+- **Pin in range:** the sqlglot pin falls inside the supported range.
+
+The Toolbox's Python floor is 3.11, and the import self-check says so. The ticket's definition of
+done applies: `pytest` passes, `code-review` has run against this ticket, there are no open drift
+items, and the beginner reader has reported.
