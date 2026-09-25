@@ -1,7 +1,7 @@
 # How does the Toolbox survive being pasted over an existing directory?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: -
 
 ## Question
