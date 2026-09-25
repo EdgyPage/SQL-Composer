@@ -85,6 +85,10 @@ at work without touching the user's own scripts.
   a Derived table always becomes a CTE the Toolbox writes, even when kept in a Building block; a
   Saved table is written explicitly by an `INSERT_OVERWRITE(t)` Statement one day at a time,
   created from its typed Table reference, and lineage joins Statements across it.
+- [What goes in a Table reference, and is it written or generated?](issues/11-what-goes-in-a-table-reference.md):
+  one `Table(...)` call with typed columns, a required `date_partition`, and an optional `key` and
+  `does_not_add_up`, followed by filters about that table alone; `write_table_reference` writes it
+  once from `DESCRIBE` and never overwrites it, and a Saved table's is written by hand.
 
 ## Not yet specified
 
@@ -96,10 +100,6 @@ at work without touching the user's own scripts.
   takes comfortably. The user measures these at work, then the automatic `LIMIT` and the
   dates-per-query cap (both unset) may get values. Also the Hive version, the engine (Tez or MR),
   and whether managed tables are ACID, which decide how a Saved table's write behaves.
-- **Schema drift.** Whether a Table reference going stale against the warehouse matters enough to
-  check, for a seven-month tool. Saved tables sharpen it: `create_table` uses `IF NOT EXISTS`, so
-  a table that already exists with different columns is left alone, and writes line up against
-  the Table reference rather than the real table.
 - **Lineage for SQL the Toolbox didn't build.** sqlglot can parse a pasted query cheaply; whether
   that is worth supporting.
 - **A worked walkthrough** from Table reference to submitted Statement, for the user.

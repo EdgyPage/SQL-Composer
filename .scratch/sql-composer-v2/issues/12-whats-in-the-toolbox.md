@@ -68,3 +68,21 @@ function.
 - `create_table(table_ref)`, run once per Saved table;
 - a lineage export that takes several Statements and joins them where one writes a table another
   reads.
+
+**From "What goes in a Table reference, and is it written or generated?" (2026-09-25).** Table
+references add:
+
+- `Table(name, columns={...}, date_partition=..., key=None, does_not_add_up=[], date_format=None)`,
+  which checks itself when it's imported;
+- `write_table_reference(name, send=...)`, which writes a new Table reference file from `DESCRIBE`
+  and `SHOW PARTITIONS` and refuses to overwrite;
+- `first_look(t)`, a Statement of all columns, the last day and 20 rows. It is an ordinary
+  bounded Statement, not a preview function;
+- `SELECT` and `any_of` accept a list as well as separate arguments.
+
+Still to decide here:
+
+- **naming a table twice in one Statement.** The SQL calls a table by its short name, so a
+  self-join, or `ops.jobs` with `mart.jobs`, needs a second name;
+- **whether `check_key(t, send=...)` earns its place.** It would confirm a declared key over one
+  bounded day.

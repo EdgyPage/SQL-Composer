@@ -33,8 +33,9 @@ Toolbox, never from a higher or equal Level.
 _Avoid_: layer, tier, stage
 
 **Table reference**:
-A Level 0 script describing one table: its columns, and the standard queries against it.
-_Avoid_: table config, schema file, declaration, model
+A Level 0 script describing one table: its columns and their types, its Date partition and key,
+and the filters that concern that table alone.
+_Avoid_: table config, schema file, declaration, model, standard query
 
 **Building block**:
 A Level 1 piece of a Statement - a filter, a join or a sub-query - reused across Statements.
@@ -77,6 +78,11 @@ _Avoid_: provenance, trace, data flow
 **Partition**:
 A slice of a table that a Statement should constrain rather than read whole.
 _Avoid_: shard, bucket, segment
+
+**Date partition**:
+The one date column a table is partitioned by, which every Statement reading the table must bound
+at both ends.
+_Avoid_: dt, partition key, date column
 
 **Load limit**:
 A check that refuses a Statement that would read or return more than the cluster or the notebook
