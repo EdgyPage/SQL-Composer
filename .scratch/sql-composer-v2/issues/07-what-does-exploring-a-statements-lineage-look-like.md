@@ -3,7 +3,7 @@
 Type: prototype
 Status: claimed
 Blocked by: 04
-Prototype: branch `prototype/lineage-view` (commit `47ce9c2`), `prototypes/lineage_view/lineage_view.py`, outputs under `prototypes/lineage_view/lineage/`
+Prototype: branch `prototype/lineage-view` (commit `5f5d4a1`), `prototypes/lineage_view/lineage_view.py`, outputs under `prototypes/lineage_view/lineage/`
 
 ## Question
 
@@ -101,3 +101,13 @@ Mermaid (22 boxes in 5 groups, no error).
   in the notebook's folder), created if it doesn't exist.
 
 Every open point on this ticket now has an answer. What remains is to record the resolution.
+
+**User's request (2026-09-25): the grouped flowchart in the HTML too.** The HTML now has a View
+control: **Graph** (the default) or **Grouped flowchart**, which draws like the Markdown's Mermaid
+chart. Each table, CTE, query and set of filters sits in its own labelled container, and each
+condition points once at the container it filters. All the other controls, click tracing and the
+URL state (`view=flow`) work in both views. The page draws the flowchart itself, since Mermaid
+(about 5.6 MB) is ruled out. Conditions are now grouped per query ("filters on recent",
+"filters on final query") in both files rather than in one shared group. The shared group formed a
+loop (the join reads `recent` and also filters the query that reads it), and per-query groups
+read more clearly. The user likes everything else as it stands.
