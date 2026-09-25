@@ -80,6 +80,45 @@ def identifier(name: str) -> exp.Identifier:
     return exp.to_identifier(name, quoted=not plain)
 
 
+# --- The call that made a calculation or condition, for the lineage -------------------------
+
+
+def made_by(tree: exp.Expression, name: str, *args, **keywords) -> exp.Expression:
+    """Note on `tree` the Toolbox call that made it, such as week_start(job_runs.dt).
+
+    The note leaves the Hive unchanged. The lineage shows it, since it reads the way the
+    Statement was written, where sqlglot may have rewritten the Hive.
+    """
+    parts = [_argument_text(arg) for arg in args]
+    parts += [f"{key}={_argument_text(value)}" for key, value in keywords.items()
+              if value is not None]
+    tree.meta["call"] = f"{name}({', '.join(parts)})"
+    return tree
+
+
+def _argument_text(value) -> str:
+    if hasattr(value, "_tree"):
+        return readable(value._tree)
+    if hasattr(value, "_target"):
+        return f"descending({_argument_text(value._target)})"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(_argument_text(item) for item in value) + "]"
+    return repr(value)
+
+
+def readable(tree: exp.Expression) -> str:
+    """A calculation or condition as it was written: its Toolbox calls, else its Hive."""
+    if "call" in tree.meta:
+        return tree.meta["call"]
+    copied = tree.copy()
+    for node in list(copied.find_all(exp.Expression)):
+        if node is not copied and "call" in node.meta:
+            node.replace(exp.Var(this=node.meta["call"]))
+    return hive_text(copied)
+
+
 # --- Columns and calculations --------------------------------------------------------------
 
 
