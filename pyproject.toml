@@ -5,7 +5,7 @@
 [tool.pytest.ini_options]
 minversion = "9.0"
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "worked_examples"]
 addopts = "-q --strict-markers --strict-config"
 filterwarnings = [
     # A warning nobody reads is indistinguishable from success, so the suite fails on one.

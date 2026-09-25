@@ -11,11 +11,12 @@ from __future__ import annotations
 import datetime
 import re
 
+import pandas as pd
 import pytest
 import sqlglot
 
 import sql_composer
-from sql_composer import conditions
+from sql_composer import conditions, example_database
 
 TODAY = datetime.date(2026, 9, 25)
 
@@ -27,6 +28,16 @@ needs_executor = pytest.mark.skipif(
     not EXECUTOR_READY,
     reason="the Example database runs queries only on sqlglot 30.19.0 or newer",
 )
+
+
+def example_rows(table: str) -> pd.DataFrame:
+    """One Example database table as a DataFrame, for the Worked examples' pandas checks.
+
+    It reads the rows the Example database holds directly, not through its send, so a pandas
+    check doesn't rely on sqlglot's executor, the thing it checks.
+    """
+    reference, rows = example_database._TABLES[table]
+    return pd.DataFrame(rows, columns=list(reference._columns))
 
 
 @pytest.fixture(autouse=True)

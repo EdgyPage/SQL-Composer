@@ -91,7 +91,8 @@ def test_changes_has_a_section_for_the_version() -> None:
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "sql_composer", "tests", "tools"],
+        [sys.executable, "-m", "ruff", "check", "sql_composer", "tests", "tools",
+         "worked_examples"],
         cwd=ROOT, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
