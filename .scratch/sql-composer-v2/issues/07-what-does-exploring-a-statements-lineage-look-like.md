@@ -3,7 +3,7 @@
 Type: prototype
 Status: claimed
 Blocked by: 04
-Prototype: branch `prototype/lineage-view` (commit `5156469`), `prototypes/lineage_view/lineage_view.py`, outputs under `prototypes/lineage_view/lineage/`
+Prototype: branch `prototype/lineage-view` (commit `47ce9c2`), `prototypes/lineage_view/lineage_view.py`, outputs under `prototypes/lineage_view/lineage/`
 
 ## Question
 
@@ -88,3 +88,16 @@ they are written.
 
 Checked in a browser: every control, reload restoring state, click tracing, and the Markdown's
 Mermaid (22 boxes in 5 groups, no error).
+
+**User's answers on the two assumptions (2026-09-25), built into the prototype.**
+
+- **The version in the name is the user's own scripts' commit**, not the Toolbox's.
+  `scripts_version(folder)` finds the git repo holding the calling file and reads the checked-out
+  commit straight from `.git` (HEAD, loose refs, `packed-refs`, and a worktree's `.git` file), so it
+  needs no `git` program on the work VM. It gives `nogit` outside a repo. Uncommitted edits don't
+  show in the hash. Checked against `git rev-parse` in a worktree, a plain repo, a repo with packed
+  refs, and a folder outside any repo.
+- **Files go in a `lineage/` subfolder** of the calling file's folder (a notebook's kernel starts
+  in the notebook's folder), created if it doesn't exist.
+
+Every open point on this ticket now has an answer. What remains is to record the resolution.
