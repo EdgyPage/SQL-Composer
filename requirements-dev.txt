@@ -1,0 +1,14 @@
+# The development environment on `dev`: `pip install -r requirements-dev.txt`.
+#
+# The Toolbox itself needs only the standard library, pandas, numpy and sqlglot, which work
+# already has. pytest and ruff are for `dev` only.
+
+# The pin. The Toolbox supports sqlglot 25.24.2 up to (not including) 31; CI also runs the
+# suite on 25.24.2, the bottom of that range.
+sqlglot==30.19.0
+
+pandas==2.0.3
+numpy==1.25.2
+
+pytest==9.0.2
+ruff==0.15.17
