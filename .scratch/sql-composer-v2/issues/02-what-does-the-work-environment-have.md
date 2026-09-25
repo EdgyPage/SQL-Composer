@@ -3,7 +3,7 @@
 Type: task
 Status: claimed
 Blocked by: -
-Probe: branch `task/work-environment-probe` (commit `f5d3ce6`), `tasks/work-environment/work_environment_probe.py`
+Probe: branch `task/work-environment-probe` (commit `611f381`), `tasks/work-environment/work_environment_probe.py`
 
 ## Question
 
@@ -52,3 +52,15 @@ What the probe can't read, to answer by hand:
   `lineage_prototype.html` highlights its path.
 - The query API's documented timeout, row limit and paging, if any. The probe only sees what one
   call returns.
+
+**Answered by hand (2026-09-25).**
+
+- **Notebook:** JupyterLab 4.
+- **Where it runs:** a managed workspace. The kernel runs on a Linux VM the user has no direct
+  access to, so files the notebook writes land on the VM. The HTML test is therefore opened through
+  JupyterLab (its HTML viewer sandboxes scripts until "Trust HTML" is clicked), and a Cell 3 was
+  added to the probe that renders the lineage prototype inline in the notebook output.
+- **Query API limits:** undocumented as far as the user knows; they believe a timeout and row
+  limit exist and are generous within reason. Cell 2's 200,000-row probe gives a floor.
+
+Still to come: the Cell 1, 2 and 3 reports and the HTML test results.
