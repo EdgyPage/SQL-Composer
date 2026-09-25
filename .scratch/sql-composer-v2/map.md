@@ -52,6 +52,9 @@ at work without touching the user's own scripts.
   yes for joins, grouping, CTEs and three of four demonstrations; but `COUNT(DISTINCT)` is
   silently wrong before 30.19.0, there are no window functions, and date buckets should be stored
   as plain columns.
+- [Which Hive query shapes choke a cluster, and what does strict mode already refuse?](issues/03-which-hive-query-shapes-choke-a-cluster.md):
+  strict mode is off by default and overridable, and a plain `SELECT *` streams the whole table
+  through HiveServer2, so the Toolbox enforces six defaults of its own, each with a named opt-out.
 
 ## Not yet specified
 
