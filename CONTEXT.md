@@ -18,7 +18,8 @@ same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox, generated from the Dev branch and never edited by hand.
+The branch holding only the Toolbox and its README, generated from the Dev branch and never
+edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:

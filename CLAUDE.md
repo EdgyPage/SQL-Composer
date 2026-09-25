@@ -1,10 +1,11 @@
 # CLAUDE.md - dev branch
 
 This is the **Dev branch** of SQL Composer, where all work happens. `main` is the **Clean
-branch**: it holds only the Toolbox and its README, is generated from this branch by
-`python tools/export_clean.py`, and is never edited or committed to by hand. The export commits
-to `main` locally and never pushes; pushing `main` is the user's step. A hook refuses commits
-and file edits while `main` is checked out.
+branch**: the Toolbox and its README, generated from this branch by
+`python tools/export_clean.py` and never edited or committed to by hand. Each export commits to
+`main` locally, replacing whatever it held (before the first export, the v1 draft), and never
+pushes; pushing `main` is the user's step. A hook refuses commits and file edits while `main`
+is checked out.
 
 v2 is charted and built through the wayfinder map at `.scratch/sql-composer-v2/map.md`. Read its
 Notes before working any ticket.
