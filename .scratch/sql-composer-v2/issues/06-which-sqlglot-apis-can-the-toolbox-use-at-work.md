@@ -1,7 +1,7 @@
 # Which sqlglot APIs can the Toolbox use at work?
 
 Type: research
-Status: open
+Status: claimed
 Blocked by: 02
 
 ## Question
