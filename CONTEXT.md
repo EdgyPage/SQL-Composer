@@ -60,8 +60,13 @@ _Avoid_: guardrail, check, validation, rule
 
 **Derived table**:
 A Statement given a name so another Statement can read from it, with its output columns checked
-like a Table reference's.
-_Avoid_: view, temp table, CTE (a CTE is only one way it can land in the string)
+like a Table reference's. It lives only inside the Statement that reads it, and is never stored.
+_Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what it is)
+
+**Saved table**:
+A real table that a Statement writes into on the server, which other Statements then read through
+its own Table reference, like any other table.
+_Avoid_: materialized view, cache, temp table, output table
 
 ### Reading and loading
 

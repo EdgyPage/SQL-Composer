@@ -60,3 +60,11 @@ to the Toolbox:
 The opt-out keywords are `reads_all_partitions=True` (`FROM`/`JOIN`), `sorts_everything=True`
 (`ORDER_BY`) and `returns_all_rows=True` (`statement`). There's no `OFFSET`, no `*` and no preview
 function.
+
+**From "How do pieces combine across Levels - CTE, subquery, or saved table?" (2026-09-25).** Combining pieces adds:
+
+- `derived(name, statement)`: always emitted as a CTE the Toolbox writes, never a `WITH` clause;
+- `INSERT_OVERWRITE(table_ref)` as a first clause, one day per write, with no `INSERT_INTO`;
+- `create_table(table_ref)`, run once per Saved table;
+- a lineage export that takes several Statements and joins them where one writes a table another
+  reads.
