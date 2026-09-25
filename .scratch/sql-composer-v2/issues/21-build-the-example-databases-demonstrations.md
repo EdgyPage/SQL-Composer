@@ -129,3 +129,25 @@ Answered, not changed:
 - **`every_run()` is written twice, and `first_day, last_day` travel together,** which
   standards.md's preference for plain repetition over machinery allows.
 - **`top_runs_per_job(n=2)` keeps `n`,** since "top N" is what the ticket names.
+
+**Beginner reader (2026-09-25).** Report:
+[reports/21-beginner-reader.md](../reports/21-beginner-reader.md). Its advice is for the user.
+It found every docstring number right, and one outright bug, fixed in the commit after
+`ba67839`: `repeated_rows.py`'s `fixed()` joined the alerts with a plain `JOIN`, so a run that
+raised no alert lost its minutes. It was right on 2026-09-24 only because every run that day
+raised one; on 2026-09-23 it gave 30 minutes, not 80. It is now a `LEFT_JOIN`, and a test
+runs it on 2026-09-23 too.
+
+Its costliest stops, for the user to weigh:
+
+- **The re-grouping Guard's "Usual fix"** says to keep the sum and the count and divide, which
+  doesn't fit a distinct count, where the fix is to count again over the longer span. The
+  message is `sql_composer/refusals.py`'s, so changing it is a Toolbox change.
+- **A script can't be run on its own:** `python worked_examples/statements/repeated_rows.py`
+  can't import `building_blocks`, and nothing prints. The gallery is where they are meant to be
+  read.
+- **`count_rows(where=is_not_null(job_runs.run_id))`** in `left_join_then_where.py` is what makes
+  `cache_warm` show 0 rather than 1, and nothing says so.
+
+Also noted, not changed: `top_runs_per_job(n=1)` would pick one of job 3's two 30-minute runs
+at random, since nothing breaks the tie (with the default `n=2` both are kept).
