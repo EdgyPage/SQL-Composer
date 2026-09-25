@@ -1,0 +1,27 @@
+# Runs pytest on every push to `dev`, on Python 3.11, once at each end of the sqlglot range
+# the Toolbox supports: 25.24.2 (the bottom) and 30.19.0 (the pin in requirements-dev.txt).
+# `main` has no CI: a workflow file there would sit outside its allowlist.
+name: dev
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sqlglot: ["25.24.2", "30.19.0"]
+    name: pytest (sqlglot ${{ matrix.sqlglot }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements-dev.txt
+      - run: pip install "sqlglot==${{ matrix.sqlglot }}"
+      - run: python -m pytest
