@@ -22,10 +22,15 @@ RUNS_THE_EXPORT = re.compile(
     r"""^\s*(python3?|py)(\.exe)?\s+["']?([^\s"';&|]*[/\\])?tools[/\\]export_clean\.py["']?"""
     r"""(\s+[^;&|<>`$\n]*)?$"""
 )
-# Moving `main` without checking it out, the way the export writes it.
+# Moving `main` without checking it out, the way the export writes it: update-ref, a forced
+# branch, or fetching or pushing into it from this repo (`.`).
+MAIN = r"(refs/heads/)?main(?![\w./-])"
 MOVES_MAIN = re.compile(
-    r"\bgit\b[^;&|\n]*\b(update-ref\b[^;&|\n]*\b(refs/heads/)?main"
-    r"|branch\s+(-f|--force|-M|-C)\s+main)\b"
+    r"\bgit\b[^;&|\n]*\b("
+    rf"update-ref\s+(-d\s+|--no-deref\s+|-m\s+\S+\s+)*{MAIN}"
+    rf"|branch\s+((-f|--force|-M|-C)\s+{MAIN}|{MAIN}\s+(-f|--force))"
+    rf"|(fetch|push)\s+\.\s+\S*:{MAIN}"
+    r")"
 )
 FILE_TOOLS = frozenset({"Edit", "Write", "NotebookEdit"})
 SWITCHES_TO_MAIN = re.compile(r"\bgit\b[^;&|\n]*\b(checkout|switch)\s+main\b")
