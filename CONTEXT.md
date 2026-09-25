@@ -40,6 +40,18 @@ A Level 2 query, assembled from Table references and Building blocks, that becom
 string.
 _Avoid_: report, case, output script
 
+### Writing a Statement
+
+**Clause function**:
+A Toolbox function named after one SQL clause - `SELECT`, `FROM`, `WHERE`, `GROUP_BY` - and
+written in SQL order. A Statement is a list of them.
+_Avoid_: builder, chain, method
+
+**Derived table**:
+A Statement given a name so another Statement can read from it, with its output columns checked
+like a Table reference's.
+_Avoid_: view, temp table, CTE (a CTE is only one way it can land in the string)
+
 ### Reading and loading
 
 **Lineage**:

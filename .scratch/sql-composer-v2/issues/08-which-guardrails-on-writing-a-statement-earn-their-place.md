@@ -24,3 +24,19 @@ syntax, decide which guards stay and how each announces itself:
 For each guard: refuse or warn, how to opt out, what the message says, and the smallest function
 that expresses it - no Metric/Dimension vocabulary. This ticket is about the *shape* of a
 Statement; how much it reads and returns belongs to the load-safety ticket.
+
+## Comments
+
+**From "How does a composed Statement read?"** The syntax is clause functions, with conditions as
+named functions (`equals(col, value)`). The prototype's probe of value conversion found four traps
+this ticket should rule on, since every literal goes through `sqlglot.exp.convert`:
+
+- `equals(col, None)` emits `col = NULL`, which matches nothing. Refuse it, or emit `IS NULL`?
+- `float("nan")`, common in values taken from a DataFrame, silently becomes `NULL`.
+- A numpy `True` (`np.bool_`) crashes with `Cannot convert True`. numpy int and float convert fine.
+- `pd.Timestamp` / `datetime.date` become `CAST('...' AS TIMESTAMP/DATE)`. Compared against a
+  string partition column like `dt`, this may defeat partition pruning.
+
+The Statement ticket already settled one guard: `SELECT` refuses an unnamed calculation, which
+would otherwise reach pandas as `_c1`. Strings are escaped by construction (`O'Brien` becomes
+`'O\'Brien'`).

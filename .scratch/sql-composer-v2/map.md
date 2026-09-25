@@ -55,6 +55,10 @@ at work without touching the user's own scripts.
 - [Which Hive query shapes choke a cluster, and what does strict mode already refuse?](issues/03-which-hive-query-shapes-choke-a-cluster.md):
   strict mode is off by default and overridable, and a plain `SELECT *` streams the whole table
   through HiveServer2, so the Toolbox enforces six defaults of its own, each with a named opt-out.
+- [How does a composed Statement read?](issues/01-how-does-a-composed-statement-read.md):
+  clause functions in SQL order (`statement(SELECT(...), FROM(runs), WHERE(equals(...)))`, then
+  `to_hive(...)`), with columns as Table reference attributes and conditions as named functions,
+  not operators; every calculation is named and sub-query columns stay checked.
 
 ## Not yet specified
 
