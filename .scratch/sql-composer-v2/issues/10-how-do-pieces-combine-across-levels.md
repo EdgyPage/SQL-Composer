@@ -24,3 +24,10 @@ prototype (branch `prototype/statement-styles`) tried two ways of placing it: an
 `WITH(latest)` clause, and a derived table inlined as a sub-query when `WITH` doesn't name it. A
 third variant, where the Toolbox adds the `WITH` automatically, was tried in the ruled-out pandas
 style. This ticket picks among them.
+
+**From "How much may a Statement touch and return by default?" (2026-09-25).** The query API can
+write tables, and one call carries one full SQL string. Backfills are a loop over `by_day(s)`,
+which returns one single-day Statement per date. Each pass sends a write, so a saved table's write
+statement must accept a single-day Statement and write only that day's partition. What that write
+looks like (`INSERT OVERWRITE ... PARTITION`, `CREATE TABLE AS`) is decided here. An automatic
+`LIMIT`, if it's ever turned on, never applies to a write.

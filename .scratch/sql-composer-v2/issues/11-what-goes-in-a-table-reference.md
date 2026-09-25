@@ -44,3 +44,11 @@ locations". The user doubts that those can be inferred from column names. Points
 - **It depends on what the query API returns** for a `DESCRIBE`, which the user knows from daily
   use. It reads metadata, not rows, which fits the "no probing at work" rule, but the user should
   confirm.
+
+**From "How much may a Statement touch and return by default?" (2026-09-25).** A Table reference names
+its **date partition column**. Every Statement that reads the table must bound that column at both
+ends unless the read carries `reads_all_partitions=True`, and `by_day` splits on it. Other
+partition levels stay optional. The user's tables are partitioned by one date column, UTC or local.
+Suggested: a "first look" standard query, meaning all columns of the latest day capped at a few
+rows (`all_columns(t)`, `last_n_days(t.dt, 1)`, `LIMIT(20)`), since the Toolbox has no preview
+function. A key-guessing row count is an ordinary bounded Statement, which the load defaults allow.
