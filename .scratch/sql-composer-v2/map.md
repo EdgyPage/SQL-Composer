@@ -89,11 +89,19 @@ at work without touching the user's own scripts.
   one `Table(...)` call with typed columns, a required `date_partition`, and an optional `key` and
   `does_not_add_up`, followed by filters about that table alone; `write_table_reference` writes it
   once from `DESCRIBE` and never overwrites it, and a Saved table's is written by hand.
+- [What's in the Toolbox?](issues/12-whats-in-the-toolbox.md): 59 names in eight flat modules,
+  each with a doctest-ready example and a generated cheat sheet; SQL-echoing lower-case aggregates
+  (`sum_of`), named comparisons, arithmetic by operators, `AS` for a second copy of a table, no
+  pattern functions, and `set_load_limits` defaulting to no limit.
 
 ## Not yet specified
 
-- **The build sequence.** Which build tasks, in what order, once the design tickets close. The
-  first probably retires v1 code from `dev` while carrying over the salvage list.
+- **The rest of the build sequence.** The core has graduated into two task tickets. Still to
+  come: the `lineage.py` build, once the lineage prototype closes; the Clean-branch export script;
+  and building the example database.
+- **`UNION_ALL`.** Stacking two Statements is left out until a real Statement needs it. From Hive
+  3.1, an ACID table refuses `INSERT OVERWRITE` combined with `UNION ALL`, so it's more than a
+  one-line clause.
 - **Testing on `dev`.** Whether value-level tests against a local engine return (v1 used duckdb,
   which is fine on `dev` though not at work), and what the escaping matrix becomes.
 - **The real limits at work.** The API's row cap and timeout, and how big a DataFrame the notebook

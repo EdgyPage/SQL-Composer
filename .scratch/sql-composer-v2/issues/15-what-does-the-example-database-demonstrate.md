@@ -39,3 +39,8 @@ their pandas reference numbers instead, labelled as such.
 
 It should also show one behaviour that isn't guarded, only documented: `not_equals` dropping NULL
 rows that pandas `!=` would keep.
+
+**From "What's in the Toolbox?" (2026-09-25).** Every Toolbox docstring's worked example uses the
+example database's Table references `job_runs` and `jobs`, so those two must exist under those
+names. `row_number`'s docstring points here for the latest-per-key and top-N-per-group pattern,
+two `derived` calls around `row_number`, so the example database should show it working.
