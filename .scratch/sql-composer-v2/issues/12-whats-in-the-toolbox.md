@@ -1,7 +1,7 @@
 # What's in the Toolbox?
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: 01, 08, 09, 10
 
 ## Question
@@ -86,3 +86,89 @@ Still to decide here:
   self-join, or `ops.jobs` with `mart.jobs`, needs a second name;
 - **whether `check_key(t, send=...)` earns its place.** It would confirm a declared key over one
   bounded day.
+
+## Answer
+
+**59 public names in eight flat modules.** Every name is imported from the top
+(`from sql_composer import ...`), so the module split exists only for reading.
+
+| module | holds |
+| --- | --- |
+| `__init__.py` | re-exports, `VERSION`, the file-list and version self-check, the sqlglot version check |
+| `tables.py` | `Table`, `write_table_reference`, `first_look`, `check_key`, `create_table`, `all_columns` |
+| `clauses.py` | `SELECT`, `SELECT_DISTINCT`, `AS`, `FROM`, `JOIN`, `LEFT_JOIN`, `CROSS_JOIN`, `WHERE`, `GROUP_BY`, `HAVING`, `ORDER_BY`, `LIMIT`, `INSERT_OVERWRITE`, `statement`, `derived` |
+| `conditions.py` | `equals`, `not_equals`, `is_null`, `is_not_null`, `at_least`, `at_most`, `more_than`, `less_than`, `between`, `last_n_days`, `is_in`, `is_not_in`, `contains`, `starts_with`, `any_of`, `all_of` |
+| `calculations.py` | `count_rows`, `count_distinct`, `sum_of`, `average_of`, `min_of`, `max_of`, `if_else`, `fill_null`, `week_start`, `month_start`, `row_number`, `descending`, `hive_function` |
+| `running.py` | `to_hive`, `run`, `by_day`, `set_load_limits` |
+| `refusals.py` | every Guard and Load limit in one file, with `GuardRefused` and `LoadRefused` |
+| `lineage.py` | `export_lineage` and the graph layout |
+
+**Decided here:**
+
+- **Naming a table twice:** `AS(job_runs, "earlier")` returns a checked copy called `earlier` in
+  the SQL, as in `FROM job_runs AS earlier`. Two tables with the same short name in one Statement
+  refuse at `statement(...)`, and the message names this fix. The copy counts as its own table for
+  the Load limits, so its date partition must be bounded too.
+- **`check_key(t, send=...)` stays.** It runs one bounded day (`GROUP BY key HAVING COUNT(*) > 1
+  LIMIT 20`) and returns a verdict: "key holds on 2026-09-24", or the duplicates. It protects the
+  premise of the repeated-rows Guard.
+- **Conditions:** `at_least`, `at_most`, `more_than`, `less_than`; `all_of` for AND inside an
+  `any_of`; `is_in(col, values)` / `is_not_in(col, values)` for `IN`, with `NOT IN`'s NULL trap
+  closed by the `None` Guard; `contains` and `starts_with` for `LIKE`, escaping `%` and `_`. There
+  is no `not_(...)`, since every condition comes with its own opposite.
+- **Aggregates:** `sum_of`, `average_of`, `min_of`, `max_of`, `count_distinct` and `count_rows`,
+  lower case and suffixed so they never shadow Python's `sum`/`min`/`max`. Conditional counts are a
+  keyword, not a function: `count_rows(where=...)`, `sum_of(col, where=...)`. The `adds_up=True`
+  opt-out sits on `sum_of` and `average_of`.
+- **Row-level calculations:**
+  - Arithmetic uses Python's `+ - * /` on columns, since Python's precedence matches SQL's and the
+    tree comes out bracketed. `==`, `<`, `&` and the like on a column **raise immediately** and
+    point to `equals(...)`, which catches Style A's silent `WHERE FALSE` at the call.
+  - There is no `safe_divide`: Hive's `/` returns `NULL` on a zero divisor and never divides
+    integers, and the docstring says so. A division already counts as "does not add up".
+  - `if_else(condition, then, otherwise)` gives `CASE WHEN`, and `fill_null(col, value)` gives
+    `COALESCE`.
+  - `week_start` (Monday) and `month_start` are the only date buckets. Anything else goes through
+    `hive_function`.
+- **`newest_first` is renamed `descending`,** which reads right on any type.
+- **New clauses:** `HAVING` and `SELECT_DISTINCT`. `UNION_ALL` goes to the fog.
+- **No pattern functions.** Latest row per key and top N per group are two `derived` calls around
+  `row_number`, shown in `row_number`'s docstring and in the example database.
+- **`export_lineage(*statements, to="lineage.html")`** writes the HTML and its script-free
+  Markdown twin side by side, both stamped with `VERSION`, joining Statements across Saved tables.
+- **`set_load_limits(rows=None, dates=None)`** switches the two seams on from the user's own
+  notebook, because a constant edited inside `sql_composer/` would be undone by the next update.
+  An argument left out means no limit, so `set_load_limits()` switches both off. It returns the
+  values in force and refuses nonsense such as `rows=-1`.
+- **Other mistakes use Python's own exceptions.** A typo'd column raises `AttributeError` (so
+  `hasattr` behaves normally), and misuse raises `TypeError`/`ValueError` with the four-part
+  message. The `to_hive` self-check raises `RuntimeError` and says it is a Toolbox bug, not the
+  user's. `GuardRefused` and `LoadRefused` stay the only Toolbox exceptions.
+
+**Docs:**
+
+- **Every docstring carries one worked example:** a `>>>` call on the example database's Table
+  references (`job_runs`, `jobs`) and the exact Hive it emits, ready to run as a doctest.
+- **The Clean branch README gets a cheat sheet:** one line per name, grouped by module, generated
+  from each docstring's first line. This is the one-sitting read. No name was cut, because each
+  candidate would come back as a `hive_function` call or a workaround.
+
+**What the user could just as well write in plain Python or plain Toolbox calls:**
+
+- latest-per-key and top N per group, as two `derived` calls around `row_number`;
+- `first_look(t)`, which is an ordinary bounded Statement;
+- lists of columns of interest and site codes, which are plain Python lists;
+- the `by_day` loop, which is a plain `for` loop;
+- sorting a result, which is done in pandas after `run`, not in `ORDER_BY`.
+
+Handed on:
+
+- **"What does `dev` enforce, and which maintainer agents does it carry?"** It decides whether
+  the docstring examples run as doctests, and adds a check that the generated cheat sheet is up to
+  date.
+- **"What does the example database demonstrate, and where does it run?"** The docstrings use
+  its `job_runs` and `jobs` Table references, so those two tables must exist under those names.
+- **"What does exploring a Statement's lineage look like?"** It gets the `export_lineage`
+  signature.
+- **The map:** `UNION_ALL` joins the fog. The core build graduates into "Retire v1 from `dev`
+  and carry over the salvage" and "Build the Toolbox core".

@@ -26,3 +26,12 @@ Checks for `dev` to carry:
 - the export script stamping line 1 of each file, writing the file list into `__init__.py`, and
   placing the README at `.github/README.md`;
 - `main`'s allowlist is now the `sql_composer/` folder plus `.github/README.md`.
+
+**From "What's in the Toolbox?" (2026-09-25).** Two candidate checks:
+
+- every Toolbox docstring carries one `>>>` worked example on the example database's Table
+  references, showing the Hive it emits. Decide whether `dev` runs these as doctests;
+- the Clean branch README has a cheat sheet generated from each docstring's first line, so a check
+  should fail when it is stale.
+
+"Retire v1 from `dev` and carry over the salvage" waits on this ticket.

@@ -118,3 +118,8 @@ reads `t`, the graph continues through it. How that joined graph looks is this t
 Facts from `research/hive-writes-and-ctes`: sqlglot's `lineage()` accepts an `INSERT` and
 traces CTEs and sub-queries equally, but names columns by the `SELECT`'s output, not the target
 table's. Running `optimize()` first merges CTEs away and drops them from the chain.
+
+**From "What's in the Toolbox?" (2026-09-25).** The export's call is fixed:
+`export_lineage(*statements, to="lineage.html")`. It writes the HTML and its script-free Markdown
+twin side by side, both stamped with `VERSION`, and joins Statements across Saved tables. It lives
+in `lineage.py`, the Toolbox's only lineage module.
