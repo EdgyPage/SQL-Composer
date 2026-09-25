@@ -12,6 +12,7 @@ any item is open.
 
 - [x] D4 | 7646714 | standing-docs | CLAUDE.md's Drift section says "You can't end a turn while an item from your own commits is open", but `drift_stop.py` blocks only the first stop and lets a second (`stop_hook_active`) through, which is how the session ends a turn to ask the user about a version item as the line above it tells it to; change that line to say the stop hook blocks once, then lets the turn end - closed by 25b4bb8
 - [x] D5 | 0089c86 | glossary | the import note in `sql_composer/__init__.py` (`_check_sqlglot`, line 115) ends "Its safety checks passed.", but "safety check" is on CONTEXT.md's _Avoid_ list (under Load limit), so a beginner could take it for the Load limits; name what passed instead, e.g. "sqlglot's behaviour checks passed." - closed by d3eb535
+- [ ] D6 | 3ea25aa | standing-docs | CLAUDE.md line 6 says "Until the export exists, `main` still holds the v1 draft; leave it alone.", but this commit adds the export (`tools/export_clean.py`, which line 4 calls "the export script") while `main` still holds v1 until the script is first run, so the condition no longer marks anything; change it to say `main` holds the v1 draft until the export first runs (or drop the sentence once it has)
 
 ## Reviewed commits
 
@@ -22,3 +23,4 @@ any item is open.
 - 0089c86: D5
 - d3eb535: clean
 - 30a2af0: clean
+- 3ea25aa: D6
