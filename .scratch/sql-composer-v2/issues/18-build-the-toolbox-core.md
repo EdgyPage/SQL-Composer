@@ -1,7 +1,7 @@
 # Build the Toolbox core
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 16, 17
 
 ## Question
@@ -230,3 +230,54 @@ and what is answered here instead:
     None of these shows through a public name, and each one is small.
   - **`more_than` and `less_than` count as a date bound at both ends,** where ticket 09 lists
     only `>=` with `<=`. Either pair bounds the partition, so it stays.
+
+## Answer
+
+**The Toolbox core is built: `sql_composer/` ships 60 of the 61 public names, everything but
+`export_lineage`, which "Build `lineage.py`" adds.** Commits 0089c86, d3eb535, e9bbfc7 and
+30a2af0.
+
+- **Modules**, flat in `sql_composer/`, each declaring `TOOLBOX_VERSION = "2.0"`:
+  - `__init__.py`: `TOOLBOX_VERSION`, `VERSION` and the import self-check. The self-check
+    covers the Python floor 3.11, sqlglot from 25.24.2 up to (not including) 31 with three
+    behaviour checks, mixed versions and export stamps, and missing or extra files once the
+    export writes `_FILES`.
+  - `tables.py`: `Table`, `write_table_reference`, `first_look`, `check_key`,
+    `check_table_reference`, `create_table` and `all_columns`.
+  - `clauses.py`: the clause functions, `statement` and `derived`.
+  - `conditions.py`: the named comparisons, `last_n_days`, `any_of` and `all_of`.
+  - `calculations.py`: the `_of` aggregates, `if_else`, `fill_null`, `week_start`,
+    `month_start`, `row_number`, `descending` and `hive_function`.
+  - `running.py`: `to_hive` with its self-check, `run`, `by_day` and `set_load_limits`.
+  - `refusals.py`: every Guard, Load limit and the repeated-rows Warning, with `GuardRefused`,
+    `LoadRefused` and the one four-part message.
+  - `example_database.py`: `jobs`, `job_runs`, `run_alerts` and a `send` on sqlglot's
+    executor.
+  - `CHANGES.md`: the 2.0 section.
+- **Tests:** 609, all passing on sqlglot 30.19.0. They check:
+  - every docstring as a doctest, with a short first line;
+  - the 61-name list and the import allowlist;
+  - `TOOLBOX_VERSION` across files and in `CHANGES.md`;
+  - ruff with C901 at most 10, and the sqlglot pin in range;
+  - a refusal and an opt-out for every Guard, Load limit and the Warning;
+  - the escaping matrix through every way a value reaches a Statement;
+  - the import self-check, Table references, whole Statements and the Example database;
+  - the Style B prototype's Statements, rewritten.
+
+  On sqlglot 25.24.2, the two backtick cases of `test_escaping_cases.py` still fail. They
+  failed before this build, which is noted above.
+- **Decisions:** "Build decisions" above records where the tickets left a choice open. Two of
+  them are **for the user to confirm**:
+  - the 59th name is read as `TOOLBOX_VERSION`;
+  - `TOOLBOX_VERSION` is `"2.0"`.
+
+  The code review above records what was fixed and what was answered. One of the answers is
+  also the user's to overturn: `ORDER_BY` without `LIMIT` inside a Derived table is a
+  `GuardRefused`, not a `LoadRefused`.
+- **Drift:** D5 opened and closed, and nothing is open.
+
+Beginner reader: .scratch/sql-composer-v2/reports/18-beginner-reader.md
+
+The report is advice for the user. The code review fixed its two bugs:
+- `LIKE` escapes on the Example database;
+- raw executor errors for `row_number` and `week_start`.

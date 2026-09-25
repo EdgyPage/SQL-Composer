@@ -114,6 +114,10 @@ at work without touching the user's own scripts.
   v1 is gone; the escaping matrix lives on as `tests/escaping_cases.py`; the dev files, CI, the
   three hooks, the drift list, the standards, the beginner reader and the new `CLAUDE.md` are in
   place, and the suite passes.
+- [Build the Toolbox core](issues/18-build-the-toolbox-core.md): `sql_composer/` ships 60 of
+  the 61 names in eight flat modules, every one with a doctest on the Example database; 609
+  tests pass; `TOOLBOX_VERSION = "2.0"` and the 59th name being `TOOLBOX_VERSION` wait for the
+  user to confirm.
 
 ## Not yet specified
 
