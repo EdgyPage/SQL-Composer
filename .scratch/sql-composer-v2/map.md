@@ -48,6 +48,10 @@ at work without touching the user's own scripts.
   draw it ourselves as inline SVG with a Python-computed layered layout and about 20 lines of JS
   (6 KB, no dependency); sqlglot's per-column trees must be merged on `db.table.column` and given
   the filter and join-key edges it omits.
+- [Can sqlglot's own executor run an example database?](issues/14-can-sqlglots-executor-run-an-example-database.md):
+  yes for joins, grouping, CTEs and three of four demonstrations; but `COUNT(DISTINCT)` is
+  silently wrong before 30.19.0, there are no window functions, and date buckets should be stored
+  as plain columns.
 
 ## Not yet specified
 
