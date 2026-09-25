@@ -1,7 +1,7 @@
 # What does `dev` enforce, and which maintainer agents does it carry?
 
 Type: grilling
-Status: open
+Status: claimed
 Blocked by: 05
 
 ## Question
