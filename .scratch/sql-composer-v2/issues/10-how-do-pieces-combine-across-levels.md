@@ -124,3 +124,7 @@ Handed on:
   table with different columns alone. The real limits at work add the Hive version, the engine and
   whether managed tables are ACID. From Hive 3.1 an ACID table refuses `INSERT OVERWRITE` combined
   with `UNION ALL`.
+
+**Changed by "Does the Toolbox check a Table reference against the warehouse?" (2026-09-25).**
+`create_table(t)` emits a plain `CREATE TABLE`, which Hive refuses when the table exists;
+`create_table(t, may_exist=True)` restores `IF NOT EXISTS`.
