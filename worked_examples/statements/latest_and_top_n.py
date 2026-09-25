@@ -1,11 +1,10 @@
 """Latest run per job, and top N per group, with row_number.
 
-Why: max_of on each column picks each column's largest value on its own, so the status shown
-can come from a different run than the newest one.
+Why: to keep whole rows, since max_of on each column can take the status from a different
+run than the newest one.
 
-The Example database can't run row_number (its executor has no window functions), so the
-results of fixed() and top_runs_per_job() below are computed in pandas, not by running
-their Hive.
+The Example database can't run row_number, so the results of fixed() and top_runs_per_job()
+below are computed in pandas, not by running this Hive.
 """
 
 from sql_composer import (
@@ -77,16 +76,16 @@ def every_run():
 
 
 def fixed_in_pandas():
-    """fixed()'s result, computed in pandas, not by running its Hive."""
+    """fixed()'s result, computed in pandas, not by running this Hive."""
     newest_first = every_run().sort_values("run_id", ascending=False)
     latest = newest_first.groupby("job_id").head(1)
     return latest[["job_id", "run_id", "status"]].sort_values("job_id").reset_index(drop=True)
 
 
 def top_runs_per_job_in_pandas(n=2):
-    """top_runs_per_job(n)'s result, computed in pandas, not by running its Hive."""
+    """top_runs_per_job(n)'s result, computed in pandas, not by running this Hive."""
     longest_first = every_run().sort_values("duration_mins", ascending=False)
     top = longest_first.groupby("job_id").head(n)
-    columns = ["job_id", "run_id", "duration_mins"]
-    return top[columns].sort_values(["job_id", "duration_mins"], ascending=[True, False]) \
-        .reset_index(drop=True)
+    top = top[["job_id", "run_id", "duration_mins"]]
+    top = top.sort_values(["job_id", "duration_mins"], ascending=[True, False])
+    return top.reset_index(drop=True)

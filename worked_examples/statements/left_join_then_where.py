@@ -1,4 +1,4 @@
-"""LEFT_JOIN then WHERE: a report of runs per job loses the job that never ran.
+"""LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.
 
 Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE on job_runs
 then throws that row away again.

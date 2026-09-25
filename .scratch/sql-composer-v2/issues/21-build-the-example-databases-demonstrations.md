@@ -85,3 +85,47 @@ beginner-readable option; the user may overturn any of them.
   numpy or sqlglot, and nothing else. It also checks that each Statement script's docstring
   has a title of at most 80 characters and a one-sentence "Why: " paragraph, the shape the
   gallery reads. ruff now checks `worked_examples/` too.
+- **`with_week(runs)`** in `regrouping.py` adds pandas' own week column, the Monday that
+  starts each day's week, the way `week_start` does, so both pandas results read the same.
+
+**Code review (2026-09-25), `code-review` over `11e9257..HEAD`,** with this ticket and tickets
+15, 08, 10, 13, 14, 18 and 20 as the spec and `docs/agents/standards.md` as the standards. The
+spec reviewer checked every number the docstrings claim against the Example database's rows and
+found none wrong. Fixed in the commit after `6ed7571`:
+
+- **Standards:**
+  - "report", on the glossary's _Avoid_ list, left `left_join_then_where.py`'s title.
+  - The module docstrings no longer name the executor, window functions or `NEXT_DAY`: they say
+    the Example database can't run `week_start` or `row_number`.
+  - `nan_in_a_list.py`'s why says `NOT IN` matches no rows, not "the test".
+  - `top_runs_per_job_in_pandas()` has no backslash continuation.
+- **Spec:**
+  - Every pandas result's first line now says "computed in pandas, not by running this Hive",
+    the label tickets 15 and 20 give, and a test in `tests/test_levels.py` holds it.
+  - `careless(keeps_only_matches=True)` is shown building without the executor, so the
+    sqlglot 25.24.2 run shows that opt-out working too.
+  - The latest-run example's careless statuses are checked against pandas (each job's
+    largest status on its own), not a typed-in list.
+  - The Levels test checks that the seven named demonstrations exist, not that there are
+    exactly seven Statement scripts, so the gallery's later Worked examples can join them.
+  - `latest_and_top_n.py`'s why now says why you'd write it (to keep whole rows).
+
+Answered, not changed:
+
+- **The pandas results need sqlglot 30.19.0 too,** since `every_run()` reads the rows with a
+  Statement on the Example database's `send`. Ticket 15 says an older version "can show their
+  pandas reference numbers instead". The rows could be read without the executor only through
+  the Example database's private names, which a Worked example must not use. The Example
+  gallery is generated on `dev`, pinned to 30.19.0, and ships as HTML, so it shows the pandas
+  numbers at work whatever sqlglot is there. The scripts themselves stay on `dev`.
+- **The careless numbers of None in `equals` and of NaN are checked by running Hive, not
+  pandas.** pandas can't give them: its `isin` treats NaN as a value, and `== None` is its own
+  quirk. The test sends the careless Hive to the Example database, whose executor follows
+  SQL's NULL rules, and the fixed numbers are checked against pandas.
+- **"Why" explains what goes wrong,** as the prototype's model script does, since what goes
+  wrong is why you'd write the fixed Statement.
+- **`tests/conftest.py`'s `example_rows` reads `example_database._TABLES`,** a private name,
+  so the pandas checks don't go through the executor they check. It is `dev`-only.
+- **`every_run()` is written twice, and `first_day, last_day` travel together,** which
+  standards.md's preference for plain repetition over machinery allows.
+- **`top_runs_per_job(n=2)` keeps `n`,** since "top N" is what the ticket names.

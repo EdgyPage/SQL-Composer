@@ -2,8 +2,8 @@
 
 Why: a job that ran on two days is in both days' counts, so adding them up counts it twice.
 
-The Example database can't run week_start (its executor has no NEXT_DAY), so the results
-below are computed in pandas, not by running this Hive.
+The Example database can't run week_start, so the results below are computed in pandas,
+not by running this Hive.
 """
 
 import pandas as pd
@@ -63,7 +63,7 @@ def with_week(runs):
 
 
 def careless_in_pandas():
-    """careless(adds_up=True)'s result, computed in pandas, not by running its Hive."""
+    """careless(adds_up=True)'s result, computed in pandas, not by running this Hive."""
     runs = with_week(every_run())
     daily = runs.groupby(["week", "dt"], as_index=False).job_id.nunique()
     weekly = daily.groupby("week", as_index=False).job_id.sum()
@@ -71,7 +71,7 @@ def careless_in_pandas():
 
 
 def fixed_in_pandas():
-    """fixed()'s result, computed in pandas, not by running its Hive."""
+    """fixed()'s result, computed in pandas, not by running this Hive."""
     runs = with_week(every_run())
     weekly = runs.groupby("week", as_index=False).job_id.nunique()
     return weekly.rename(columns={"job_id": "jobs_that_ran"})

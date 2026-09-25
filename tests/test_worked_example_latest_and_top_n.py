@@ -26,6 +26,11 @@ def latest_check() -> list[dict]:
     return latest[["job_id", "run_id", "status"]].to_dict("records")
 
 
+def largest_per_column_check() -> list[str]:
+    """Each job's largest status on its own, as max_of takes it (NULL left out), in pandas."""
+    return list(runs_on_both_days().dropna(subset=["status"]).groupby("job_id").status.max())
+
+
 def top_two_check() -> dict[int, set[int]]:
     """Each job's two longest runs, in pandas."""
     runs = runs_on_both_days().set_index("run_id")
@@ -47,7 +52,8 @@ def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
     careless = run(example.careless(), send=example_database.send).to_dict("records")
     right = latest_check()
     assert [row["run_id"] for row in careless] == [row["run_id"] for row in right]
-    assert [row["status"] for row in careless] == ["TEST", "SUCCESS", "SUCCESS"]
+    assert [row["status"] for row in careless] == largest_per_column_check()
+    assert largest_per_column_check() == ["TEST", "SUCCESS", "SUCCESS"]
     assert [row["status"] for row in right] == ["SUCCESS", "FAILED", "SUCCESS"]
 
 
