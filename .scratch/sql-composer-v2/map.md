@@ -102,6 +102,10 @@ at work without touching the user's own scripts.
   three made-up tables (`jobs`, `job_runs`, `run_alerts`) shipped inside the Toolbox as
   `example_database`, a sandbox with its own `send`; seven demonstrations, each shown in the
   gallery and checked by a test; and a join off the key now warns and runs rather than refusing.
+- [Does the Toolbox check a Table reference against the warehouse?](issues/16-does-the-toolbox-check-a-table-reference-against-the-warehouse.md):
+  an on-demand `check_table_reference(t, send=...)` that reports problems and notes, each with the
+  line to change, and never refuses; `create_table` becomes strict, with `may_exist=True` for
+  `IF NOT EXISTS`; nothing runs automatically before a write.
 - [What does exploring a Statement's lineage look like?](issues/07-what-does-exploring-a-statements-lineage-look-like.md):
   one graph with every step on screen, controls to expand, collapse or hide each table and CTE,
   and a Grouped flowchart view; `export_lineage(*statements, to=None)` writes it and a Markdown

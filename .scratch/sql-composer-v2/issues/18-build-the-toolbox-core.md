@@ -71,3 +71,15 @@ items, and the beginner reader has reported.
   raises no Warning.
 - **A date bound in `ON` counts.** After `LEFT_JOIN(T)`, the Load limit accepts T's Date
   partition bound inside `ON`, since the `LEFT JOIN` then `WHERE` Guard refuses it in `WHERE`.
+
+**From "Does the Toolbox check a Table reference against the warehouse?" (2026-09-25).**
+
+- **A 61st public name, `check_table_reference(t, send=...)`,** in `tables.py`. It sends
+  `DESCRIBE` and `SHOW PARTITIONS` through `send`, reusing `write_table_reference`'s parsing, and
+  returns a printable verdict of problems and notes, each with the line to change. It never raises
+  and never edits the file. The name-list test lists 61 names; this build ships 60 of them.
+- **`create_table(t)` is strict:** plain `CREATE TABLE`, with `may_exist=True` for
+  `IF NOT EXISTS`. Its docstring explains Hive's `AlreadyExistsException`.
+- **`example_database.send` answers `DESCRIBE` and `SHOW PARTITIONS`** itself, from its own Table
+  references and rows, since sqlglot's executor can't. The doctests of `write_table_reference`,
+  `check_key` and `check_table_reference` run on it.
