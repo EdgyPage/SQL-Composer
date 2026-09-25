@@ -21,6 +21,10 @@ checklist for the user to run at work; record each result in the Answer.
   offline?
 - **Files** - can a notebook write a file (the lineage HTML) somewhere the user can then open in a
   browser?
+- **Inline scripts** - does the work browser run JavaScript in a local HTML file? Open
+  `research/offline-graph-html/lineage_prototype.html` (from the `research/offline-graph-html`
+  branch) from disk and see whether clicking a node highlights its path. If scripts are blocked,
+  the lineage view falls back to a script-free tree.
 
 The sqlglot version gates "Which sqlglot APIs can the Toolbox use at work?"; the API's behaviour
 gates the load-safety and Table-reference tickets.

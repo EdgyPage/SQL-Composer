@@ -44,6 +44,11 @@ at work without touching the user's own scripts.
 
 <!-- one line per closed ticket: [ticket name](issues/NN-slug.md): one-line gist -->
 
+- [How can one offline HTML file render an explorable graph?](issues/04-how-can-one-offline-html-file-render-a-graph.md):
+  draw it ourselves as inline SVG with a Python-computed layered layout and about 20 lines of JS
+  (6 KB, no dependency); sqlglot's per-column trees must be merged on `db.table.column` and given
+  the filter and join-key edges it omits.
+
 ## Not yet specified
 
 - **The build sequence.** Which build tasks, in what order, once the design tickets close. The
