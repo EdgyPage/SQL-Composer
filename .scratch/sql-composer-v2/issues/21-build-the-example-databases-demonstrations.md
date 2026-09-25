@@ -1,7 +1,7 @@
 # Build the Example database's demonstrations
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 18
 
 ## Question
@@ -91,7 +91,7 @@ beginner-readable option; the user may overturn any of them.
 **Code review (2026-09-25), `code-review` over `11e9257..HEAD`,** with this ticket and tickets
 15, 08, 10, 13, 14, 18 and 20 as the spec and `docs/agents/standards.md` as the standards. The
 spec reviewer checked every number the docstrings claim against the Example database's rows and
-found none wrong. Fixed in the commit after `6ed7571`:
+found none wrong. Fixed in `ba67839`:
 
 - **Standards:**
   - "report", on the glossary's _Avoid_ list, left `left_join_then_where.py`'s title.
@@ -132,8 +132,8 @@ Answered, not changed:
 
 **Beginner reader (2026-09-25).** Report:
 [reports/21-beginner-reader.md](../reports/21-beginner-reader.md). Its advice is for the user.
-It found every docstring number right, and one outright bug, fixed in the commit after
-`ba67839`: `repeated_rows.py`'s `fixed()` joined the alerts with a plain `JOIN`, so a run that
+It found every docstring number right, and one outright bug, fixed in `e97a969`:
+`repeated_rows.py`'s `fixed()` joined the alerts with a plain `JOIN`, so a run that
 raised no alert lost its minutes. It was right on 2026-09-24 only because every run that day
 raised one; on 2026-09-23 it gave 30 minutes, not 80. It is now a `LEFT_JOIN`, and a test
 runs it on 2026-09-23 too.
@@ -151,3 +151,49 @@ Its costliest stops, for the user to weigh:
 
 Also noted, not changed: `top_runs_per_job(n=1)` would pick one of job 3's two 30-minute runs
 at random, since nothing breaks the tie (with the default `n=2` both are kept).
+
+## Answer
+
+**The Example database's seven demonstrations are built, each a Statement script with a test,
+and the Levels test covers `worked_examples/`.** Commits acd3bc9, 6ed7571, ba67839 and
+e97a969.
+
+- **Statement scripts** in `worked_examples/statements/`, each with a title and a one-sentence
+  "Why:" in its module docstring:
+  - `repeated_rows.py`: the Warning; 150 minutes careless, 100 fixed;
+  - `regrouping.py`: adding up daily distinct counts by the week; 6 jobs careless, 3 fixed;
+  - `left_join_then_where.py`: `cache_warm` lost careless, kept with 0 runs fixed;
+  - `none_in_equals.py`: refused; Hive would count 0, `is_null` finds 1;
+  - `nan_in_a_list.py`: a NaN from a DataFrame in `is_not_in`, refused; Hive would count 0,
+    `dropna()` gives 3;
+  - `not_equals_drops_null.py`: not guarded; 3 careless, 4 fixed, as pandas' `!=`;
+  - `latest_and_top_n.py`: `max_of` on each column takes statuses from the wrong runs;
+    `fixed()` is the latest run per job and `top_runs_per_job(n=2)` the top N per group, both
+    with `row_number`.
+- **`careless()` and `fixed()`** in each; `careless(<opt-out>=True)` pastes the Guard's or
+  Warning's opt-out and shows the wrong number.
+- **Building blocks** in `worked_examples/building_blocks/`: `alerts_per_run.py` and
+  `jobs_per_day.py`.
+- **Pandas results** for the two the executor can't run: `careless_in_pandas()` and
+  `fixed_in_pandas()` in `regrouping.py`, and `fixed_in_pandas()` and
+  `top_runs_per_job_in_pandas()` in `latest_and_top_n.py`. Each first line says "computed in
+  pandas, not by running this Hive", for the gallery to show.
+- **Tests:** one file per script, `tests/test_worked_example_<script>.py`. Each checks both
+  numbers against pandas, reading the Example database's rows directly, and shows the Guard
+  refusing or the Warning firing and the opt-out working. The executor-backed tests skip with a
+  reason below sqlglot 30.19.0. The re-grouping test teaches the executor `NEXT_DAY` for that
+  test only, so the week's Hive is shown to give the pandas numbers.
+- **`tests/test_levels.py`** checks that every import in `building_blocks/` and `statements/`
+  points only downward, reaches the Toolbox only from its top level, and needs only what work
+  has. It also checks each Statement script's title and "Why:", and each pandas result's label.
+  ruff now checks `worked_examples/`, and `worked_examples/` is on pytest's path.
+- **Checks:** 717 tests pass on sqlglot 30.19.0. On 25.24.2, the new tests give 42 passed and
+  19 skipped with the reason.
+- **Code review:** see the Comments above for what was fixed and what was answered.
+- **Drift:** no commit touched a watched path, so there was no review and no item.
+- **The Toolbox is unchanged.** No public name moved, and `TOOLBOX_VERSION` stays `"2.0"`.
+
+Beginner reader: .scratch/sql-composer-v2/reports/21-beginner-reader.md
+
+The report is advice for the user. Its one outright bug, runs with no alert losing their
+minutes in `repeated_rows.py`'s fix, is fixed in e97a969.

@@ -123,6 +123,10 @@ at work without touching the user's own scripts.
   `python tools/export_clean.py` builds the stamped Toolbox and a README with a generated cheat
   sheet from the `dev` commit, checks and imports it, and commits it to `main` locally, refusing
   while a drift item is open; the first export replaced v1, and pushing is the user's step.
+- [Build the Example database's demonstrations](issues/21-build-the-example-databases-demonstrations.md):
+  seven Statement scripts in `worked_examples/statements/`, each with `careless()` and `fixed()`
+  and a test checking both numbers against pandas; `week_start` and `row_number` give labelled
+  pandas results, and `tests/test_levels.py` holds the Levels over `worked_examples/`.
 
 ## Not yet specified
 
