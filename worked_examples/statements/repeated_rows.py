@@ -6,8 +6,8 @@ times.
 
 from building_blocks.alerts_per_run import alerts_per_run
 from sql_composer import (
-    AS, FROM, JOIN, SELECT, WHERE, between, count_rows, equals, example_database, statement,
-    sum_of,
+    AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,
+    statement, sum_of,
 )
 
 job_runs = example_database.job_runs
@@ -33,11 +33,14 @@ def careless(many_matches=False):
 
 
 def fixed():
-    """Count the alerts per run first, then join: one row per run, so minutes count once."""
+    """Count the alerts per run first, then join: one row per run, so minutes count once.
+
+    It is a LEFT_JOIN, so a run that raised no alert keeps its minutes too.
+    """
     alerts = alerts_per_run(DAY, DAY)
     return statement(
         SELECT(AS(sum_of(job_runs.duration_mins), "minutes"), AS(sum_of(alerts.alerts), "alerts")),
         FROM(job_runs),
-        JOIN(alerts, ON=equals(alerts.run_id, job_runs.run_id)),
+        LEFT_JOIN(alerts, ON=equals(alerts.run_id, job_runs.run_id)),
         WHERE(between(job_runs.dt, DAY, DAY)),
     )
