@@ -40,3 +40,7 @@ this ticket should rule on, since every literal goes through `sqlglot.exp.conver
 The Statement ticket already settled one guard: `SELECT` refuses an unnamed calculation, which
 would otherwise reach pandas as `_c1`. Strings are escaped by construction (`O'Brien` becomes
 `'O\'Brien'`).
+
+**From "Which sqlglot APIs can the Toolbox use at work?" (2026-09-25).** Two more candidates:
+`exp.convert(float("inf"))` emits a bare `inf`, and hand-built arithmetic nodes get no brackets
+(`SUM(a) / b + 1` for what should be `SUM(a) / (b + 1)`).
