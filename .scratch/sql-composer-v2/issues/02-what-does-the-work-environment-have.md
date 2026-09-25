@@ -1,7 +1,7 @@
 # What does the work environment actually have?
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: -
 
 ## Question
