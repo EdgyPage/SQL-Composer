@@ -10,6 +10,10 @@ any item is open.
 
 ## Items
 
+- [x] D4 | 7646714 | standing-docs | CLAUDE.md's Drift section says "You can't end a turn while an item from your own commits is open", but `drift_stop.py` blocks only the first stop and lets a second (`stop_hook_active`) through, which is how the session ends a turn to ask the user about a version item as the line above it tells it to; change that line to say the stop hook blocks once, then lets the turn end - closed by 25b4bb8
+
 ## Reviewed commits
 
 <!-- one line per review: `- <commit>: <items opened>` or `- <commit>: clean` -->
+- 7646714: D4
+- 25b4bb8: clean
