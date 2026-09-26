@@ -527,8 +527,9 @@ table.result th,table.result td{{border:1px solid #ddd;padding:2px 8px;text-alig
 <h1>SQL Composer {version}: Example gallery</h1>
 <p>Every Worked example in the Toolbox on one page: {worked_count} Worked examples on their
 own, and the {docstring_count} examples from the docstrings. Each shows its Python, the Hive it
-emits, and its result on the Example database, the three made-up tables that ship inside the
-Toolbox. Press Ctrl+F to search the page.</p>
+emits and, where there is one, its result: from the Example database, the three made-up tables
+that ship inside the Toolbox, or computed in pandas where the Example database can't run it.
+Press Ctrl+F to search the page.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's two days, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. To paste one into a
 notebook, first run <code>from sql_composer import *</code> and
