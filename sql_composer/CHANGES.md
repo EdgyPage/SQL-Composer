@@ -32,3 +32,8 @@ The first version of the new Toolbox. Everything is new:
 - **The Example database.** `example_database` holds three made-up tables and a `send` that
   runs Statements on them, to practise without touching the warehouse. What its small
   executor can't run, such as `row_number` or `week_start`, it says plainly.
+- **The Example gallery.** `sql_composer/examples.html` holds every Worked example on one
+  page: each docstring's example, and the Worked examples on their own, each showing a
+  Statement that gives a wrong number beside its fix. Each shows its Python, its Hive and its
+  result on the Example database. Open it in a browser; a box filters it by any word, and
+  Ctrl+F searches it without the box.
