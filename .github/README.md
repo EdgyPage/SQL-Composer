@@ -1,7 +1,7 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 18:15 - generated from dev, do not edit -->
+<!-- SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit -->
 # SQL Composer
 
-This is SQL Composer 2.0, exported 2026-09-25 18:15.
+This is SQL Composer 2.0, exported 2026-09-25 20:11.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -77,6 +77,13 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 >>> jobs, job_runs = example_database.jobs, example_database.job_runs
 ```
 
+`sql_composer/examples.html` is the Example gallery: every Worked example on one page, its
+Python and, for each Statement it builds, the Hive and any result, from the Example database
+or, where the Example database can't run it, computed in pandas. It holds the docstrings'
+examples and the Worked examples on their own, each of which shows a Statement that gives a
+wrong number beside its fix. Open it in your browser. It needs nothing else: a box at the top
+keeps only the examples holding every word you type, and Ctrl+F searches it too.
+
 ## Cheat sheet
 
 Everything the Toolbox offers, one line each, grouped by the file it lives in. Import every name
@@ -87,7 +94,7 @@ from `sql_composer` itself, never from one of its files.
 SQL Composer: write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'2.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 18:15'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 20:11'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -175,6 +182,12 @@ Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefus
 
 - `GuardRefused` - A Guard stopped a Statement that would silently give a wrong answer.
 - `LoadRefused` - A Load limit stopped a Statement that would read or return too much.
+
+### `lineage.py`
+
+Lineage: draw where each column comes from, as an HTML page and as Markdown.
+
+- `export_lineage` - Write where each column comes from, as an HTML page and a Markdown twin.
 
 ### `example_database.py`
 
