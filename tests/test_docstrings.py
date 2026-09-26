@@ -68,3 +68,10 @@ def test_the_worked_example_runs(name: str, tmp_path, monkeypatch) -> None:
     report = []
     runner.run(test, out=report.append)
     assert runner.failures == 0, "".join(report)
+
+
+def test_cross_join_says_what_it_opts_out_of() -> None:
+    """Its name is an opt-out, so its docstring names the Guard it lets through."""
+    paragraphs = docstring_of("CROSS_JOIN").split("\n\n")
+    opt_out = next(" ".join(p.split()) for p in paragraphs if "opt-out" in p)
+    assert "JOIN" in opt_out.replace("CROSS_JOIN", "") and "ON=" in opt_out
