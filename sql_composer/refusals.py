@@ -157,6 +157,7 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
             "averages is not the weekly average, and a user seen on two days would be "
             "counted twice.",
             fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
+            # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
             opt_out=f"{call[:-1]}, adds_up=True)",
         )
     )

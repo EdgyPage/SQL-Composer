@@ -97,6 +97,9 @@ def made_by(tree: exp.Expression, name: str, *args, **keywords) -> exp.Expressio
 
 
 def _argument_text(value) -> str:
+    """One argument of a Toolbox call, written back as Python, for the lineage boxes."""
+    # A column, condition or descending(...) is spotted by what it holds, not by its class,
+    # since those classes live in files that import this one.
     if hasattr(value, "_tree"):
         return readable(value._tree)
     if hasattr(value, "_target"):
@@ -155,6 +158,8 @@ class Column:
     def __repr__(self) -> str:
         return hive_text(self._tree)
 
+    # Defining __eq__ below would make Python drop hashing; keep it, so a column can still
+    # be a dict key or go in a set.
     __hash__ = object.__hash__
 
     def __eq__(self, other):
@@ -296,7 +301,8 @@ def _python_family(value) -> str:
     return "date"
 
 
-ACCEPTS = {
+# For each column type family, the kinds of Python value it may be compared with.
+COMPARABLE_VALUES = {
     "number": {"number"},
     "string": {"string", "date", "timestamp"},
     "date": {"date", "string", "timestamp"},
@@ -307,7 +313,7 @@ ACCEPTS = {
 
 def _check_type(value, column: Column | None, call: str) -> None:
     family = type_family(column._type) if column is not None else None
-    if family is None or _python_family(value) in ACCEPTS[family]:
+    if family is None or _python_family(value) in COMPARABLE_VALUES[family]:
         return
     raise TypeError(
         four_part_message(
@@ -332,13 +338,13 @@ def _example_of(family: str) -> str:
 
 def date_format_of(column: Column | None) -> str:
     """The date pattern for values compared with this column."""
-    table = column._table if column is not None else None
-    if table is not None and table._date_partition == column._name:
-        return table._date_format
+    if is_date_partition(column):
+        return column._table._date_format
     return DEFAULT_DATE_FORMAT
 
 
 def is_date_partition(column: Column | None) -> bool:
+    """Whether the column is its table's Date partition."""
     table = column._table if column is not None else None
     return table is not None and table._date_partition is not None and (
         table._date_partition == column._name)
@@ -370,6 +376,8 @@ def as_date(value, column: Column, call: str) -> datetime.date:
 
 def _number_text(value) -> str | None:
     """A number's Hive text, written by the Toolbox rather than by the value's own str()."""
+    # int.__repr__(value), not repr(value): a subclass of int could change its own repr,
+    # and so change the Hive. The same goes for float, Decimal and, in literal(), str.
     if isinstance(value, int):
         return int.__repr__(value)
     if isinstance(value, float):
@@ -383,7 +391,7 @@ def _number_text(value) -> str | None:
 SINGLE_VALUES = (bool, int, float, decimal.Decimal, str, datetime.date)
 
 
-def _plain(value):
+def _python_value(value):
     """A numpy or pandas value as the plain Python value it stands for."""
     if isinstance(value, np.datetime64):
         return pd.Timestamp(value)
@@ -399,7 +407,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
         return value._tree.copy()
-    value = _plain(value)
+    value = _python_value(value)
     if value is None:
         if in_condition:
             guard_none_in_condition(call)
@@ -1030,7 +1038,7 @@ def create_table(t, may_exist=False):
     )
     STORED AS ORC
     """
-    from .clauses import Statement
+    from .clauses import Statement  # here, not at the top: clauses.py imports this file
 
     t = _real_table(t, "create_table(...)")
     untyped = [column for column, kind in t._columns.items() if not kind]
@@ -1065,7 +1073,7 @@ def drop_table(t):
     >>> print(to_hive(drop_table(daily_runs)))
     DROP TABLE IF EXISTS mart.daily_runs
     """
-    from .clauses import Statement
+    from .clauses import Statement  # here, not at the top: clauses.py imports this file
 
     t = _real_table(t, "drop_table(...)")
     table = hive_table(t._name)

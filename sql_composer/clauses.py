@@ -42,11 +42,32 @@ def _misuse(what: str, why: str, fix: str, error=TypeError):
 
 
 class Clause:
-    """One clause of a Statement, made by a clause function such as SELECT(...)."""
+    """One clause of a Statement, made by a clause function such as SELECT(...).
 
-    def __init__(self, name: str, **parts):
-        self._name = name
-        self.__dict__.update(parts)
+    Each clause function fills in only the parts its clause has; the rest keep their
+    defaults. statement(...) reads them back to build the Statement.
+    """
+
+    def __init__(self, name: str, *, outputs=None, distinct=False, table=None, on=None,
+                 reads_all_partitions=False, many_matches=False, keeps_only_matches=False,
+                 conditions=None, items=None, trees=None, sorts_everything=False, n=None):
+        self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
+        # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
+        self.outputs = outputs
+        self.distinct = distinct
+        # FROM, the joins and the writes: the table, a join's ON= condition, and opt-outs.
+        self.table = table
+        self.on = on
+        self.reads_all_partitions = reads_all_partitions
+        self.many_matches = many_matches
+        self.keeps_only_matches = keeps_only_matches
+        # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
+        self.conditions = conditions
+        self.items = items
+        # ORDER_BY: the sqlglot trees to sort by, and its opt-out. LIMIT: the row count.
+        self.trees = trees
+        self.sorts_everything = sorts_everything
+        self.n = n
 
     def _place(self) -> str:
         """This clause's place in ORDER: INSERT_INTO sits at INSERT, LEFT_JOIN at JOIN."""
@@ -58,7 +79,7 @@ class Clause:
 
     def _call(self) -> str:
         """How this clause was written, for messages: FROM(job_runs), JOIN(jobs, ON=...)."""
-        on = ", ON=..." if getattr(self, "on", None) is not None else ""
+        on = ", ON=..." if self.on is not None else ""
         return f"{self._name}({self.table._alias}{on})"
 
     def __repr__(self) -> str:
@@ -79,7 +100,23 @@ class Named:
 class Statement:
     """A query, assembled by statement(...). to_hive(s) gives its Hive string."""
 
-    _ddl = None
+    def __init__(self):
+        # Filled in by statement(...), from the clauses it was given:
+        self._clauses = ()  # the clauses, in the order written
+        self._returns_all_rows = False  # the opt-out of the automatic LIMIT
+        self._write = None  # the Saved table an INSERT_OVERWRITE or INSERT_INTO writes
+        self._write_call = None  # how that write was called, for messages
+        self._outputs = []  # SELECT's (column, output name) pairs
+        self._distinct = False  # whether it is SELECT_DISTINCT
+        self._reads = []  # the FROM clause, then each join clause
+        self._where = []  # WHERE's conditions
+        self._having = []  # HAVING's conditions
+        self._group_by = []  # GROUP_BY's columns, with output names looked up
+        self._order_by = []  # ORDER_BY's sqlglot trees
+        self._limit = None  # LIMIT's row count
+        # Set instead by create_table and drop_table, whose Statement is a sqlglot tree ready
+        # to write, with none of the parts above.
+        self._ddl = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:
@@ -748,7 +785,7 @@ def _run_guards(s: Statement) -> None:
         if read._name != "LEFT_JOIN":
             continue
         for condition in s._where:
-            if read.table._alias in condition._tables() and condition._kind != "is_null":
+            if read.table._alias in condition._tables() and not condition._tests_for_null:
                 guard_left_join_then_where(read.table._alias, repr(condition),
                                            read.keeps_only_matches)
     if s._write is not None:

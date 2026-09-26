@@ -159,6 +159,7 @@ def _executor_ready() -> None:
     found = sqlglot.__version__
     numbers = re.match(r"(\d+)\.(\d+)\.(\d+)", found)
     version = tuple(int(n) for n in numbers.groups()) if numbers else (0, 0, 0)
+    # Imported only when a query runs: the rest of the Toolbox never needs the executor.
     from sqlglot.executor import execute
 
     if version >= _EXECUTOR_NEEDS:
@@ -199,9 +200,11 @@ def _matching_text(column: exp.Expression, pattern: str) -> exp.Expression:
         else:
             parts.append(("wild" if pattern[i] in "%_" else "text", pattern[i]))
             i += 1
-    leading = parts[:1] == [("wild", "%")]
-    trailing = len(parts) > leading and parts[-1] == ("wild", "%")
-    middle = parts[leading:len(parts) - trailing]
+    # Take a % off each end; what is left in the middle must be plain text.
+    leading = bool(parts) and parts[0] == ("wild", "%")
+    middle = parts[1:] if leading else parts
+    trailing = bool(middle) and middle[-1] == ("wild", "%")
+    middle = middle[:-1] if trailing else middle
     if any(kind == "wild" for kind, _ in middle):
         _cant_run(f"LIKE with a % or _ in the middle ({pattern!r})")
     text = "".join(char for _, char in middle)
@@ -265,7 +268,7 @@ def send(hive):
             opt_out=None,
         ))
     _executor_ready()
-    from sqlglot.executor import execute
+    from sqlglot.executor import execute  # only when a query runs, as in _executor_ready
 
     schema = {"ops": {name: dict(table._columns) for name, (table, _) in _TABLES.items()}}
     tables = {"ops": {name: [dict(zip(table._columns, row)) for row in rows]
