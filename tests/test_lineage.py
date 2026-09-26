@@ -297,9 +297,9 @@ def test_a_box_shows_the_call_it_was_written_with(tmp_path) -> None:
     entry = section(markdown, "#### `week`")
     assert ("Calculated in **weekly** as `week_start(job_runs.dt)`, which is "
             "`NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`") in entry
-    assert "One value per group of" not in entry
+    assert "One value for each different" not in entry
     runs = section(markdown, "#### `runs`")
-    assert "One value per group of: `week_start(job_runs.dt)`" in runs
+    assert "One value for each different `week_start(job_runs.dt)`." in runs
 
 
 def test_arithmetic_between_calls_reads_as_written(tmp_path) -> None:
@@ -325,7 +325,7 @@ def test_the_report_traces_each_calculated_column_back_to_the_tables(tmp_path) -
     assert ("- JOIN ON in team: `equals(jobs.job_id, job_runs.job_id)`, which is "
             "`jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)"
             ) in runs
-    assert "One value per group of: `jobs.team`" in runs
+    assert "One value for each different `jobs.team`." in runs
     copied = section(markdown, "### Copied columns")
     assert "| `team` | ops.jobs.team |" in copied
 
@@ -385,6 +385,31 @@ def test_having_and_limit_are_drawn_as_conditions(tmp_path) -> None:
     assert boxes["LIMIT in busy"] == "filters on busy"
     assert "- HAVING in busy: `at_least(count_rows(), 2)`, which is `COUNT(*) >= 2`" in markdown
     assert "- LIMIT in busy: `ORDER BY runs DESC LIMIT 3`" in markdown
+
+
+def test_a_statement_named_like_a_derived_table_keeps_its_own_group(tmp_path) -> None:
+    recent = derived("recent", statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(last_n_days(job_runs.dt, 2)),
+        GROUP_BY(job_runs.job_id),
+    ))
+    top = statement(SELECT(recent.job_id, recent.runs), FROM(recent))
+    recent = top  # the Statement is now held in a variable named like its Derived table
+    markdown, page = read(export_lineage(recent, to=tmp_path / "lineage.html"))
+    boxes = chart(markdown)["boxes"]
+    assert boxes["runs"] == "recent"
+    assert boxes["recent in recent.runs"] == "recent in recent"
+    data = json.loads(re.search(r"const G=(\{.*?\}), W=", page).group(1))
+    kinds = {group["name"]: group["kind"] for group in data["groups"]}
+    assert kinds["recent"] == "output"
+    assert kinds["recent in recent"] == "derived"
+
+
+def test_several_statements_group_the_same_table_once(tmp_path) -> None:
+    team, weekly = runs_per_team(), runs_by_team()
+    markdown, _ = read(export_lineage(team, weekly, to=tmp_path / "lineage.html"))
+    assert markdown.count('["ops.jobs"]') == 1
 
 
 def test_a_column_nothing_uses_is_left_out(tmp_path) -> None:
@@ -495,6 +520,23 @@ def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:
     assert re.search(r"Opt-out: +none", message)
 
 
+def test_the_loop_refusal_names_only_the_statements_in_the_loop() -> None:
+    other = Table("mart.other_runs", date_partition="dt",
+                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    one = statement(INSERT_OVERWRITE(other), SELECT(daily_runs.job_id, daily_runs.runs),
+                    FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
+    two = statement(INSERT_OVERWRITE(daily_runs), SELECT(other.job_id, other.runs),
+                    FROM(other), WHERE(equals(other.dt, "2026-09-24")))
+    three = statement(SELECT(other.job_id), FROM(other), WHERE(equals(other.dt, "2026-09-24")))
+    four = statement(SELECT(other.job_id), FROM(other), WHERE(equals(other.dt, "2026-09-24")))
+    with pytest.raises(ValueError) as refused:
+        export_lineage(three, one, two, four)
+    message = str(refused.value)
+    assert "one writes mart.other_runs, which two reads;" in message
+    assert "two writes mart.daily_runs, which one reads." in message
+    assert "three" not in message and "four" not in message
+
+
 def test_a_statement_reading_the_saved_table_it_writes_is_a_loop() -> None:
     again = statement(INSERT_OVERWRITE(daily_runs), SELECT(daily_runs.job_id, daily_runs.runs),
                       FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
@@ -555,6 +597,18 @@ def test_the_page_draws_from_the_same_boxes_and_arrows(tmp_path) -> None:
     kinds = {group["name"]: group["kind"] for group in data["groups"]}
     assert kinds == {"ops.job_runs": "table", "fill": "output", "mart.daily_runs": "table",
                      "ops.jobs": "table", "weekly": "output"}
+
+
+def test_text_that_looks_like_the_pages_own_markers_stays_as_written(tmp_path) -> None:
+    odd = statement(
+        SELECT(jobs.job_id),
+        FROM(jobs),
+        WHERE(equals(jobs.job_name, "__DATA__ __REPORT__")),
+    )
+    _, page = read(export_lineage(odd, to=tmp_path / "__MD__.html"))
+    assert page.count("const G=") == 1
+    assert "jobs.job_name = &#x27;__DATA__ __REPORT__&#x27;" in page
+    assert "<code>__MD__.md</code>" in page
 
 
 def test_text_in_the_graph_data_cant_end_the_script(tmp_path) -> None:

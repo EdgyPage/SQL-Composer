@@ -85,3 +85,47 @@ beginner-readable option; the user may overturn any of them.
   feed their Saved table, sit before it.
 - **Footers** say when the files were made, the scripts commit, and `VERSION` (the Toolbox
   version with its export stamp).
+
+**Code review (2026-09-25), `code-review` over `0899616..HEAD`,** with this ticket and tickets
+07, 04, 10, 12, 02 and 13 as the spec and `docs/agents/standards.md` as the standards. The
+spec reviewer ran the page's layout script under node in every expand, collapse, hide,
+conditions and view combination, and nothing threw. Fixed in the commit after this note:
+
+- **Spec:**
+  - Text in a Statement or in `to=` that looked like one of the page's own markers
+    (`__DATA__`, `__REPORT__`) was filled in again, splicing the graph into the report. The
+    page is now filled in one pass.
+  - A Statement held in a variable named like a Derived table it reads merged into that
+    Derived table's group. A Derived table's group now gets "in <Statement>" whenever its
+    name is taken by a Statement, a table or another passed Statement's Derived table.
+  - The loop refusal named a Statement that only waited on the loop ("which reader and wy
+    reads"). It now names only the Statements in the loop, with "read" for several.
+  - The VS Code notebook fallback no decision asked for is gone; a notebook is named from
+    `JPY_SESSION_NAME` only.
+- **Standards:**
+  - "One value per group of:" used "group" for GROUP BY on a page whose controls call a set
+    of boxes a group. It now reads "One value for each different `jobs.team`."
+  - `_add_step`'s `where` dict, which has nothing to do with WHERE, is `place`; `_mermaid`
+    (escaping) and `mermaid` (the chart) are `_mermaid_text` and `mermaid_chart`.
+  - `_aggregate` took its name from the message text (`call.split("(")[0]`); it now takes
+    the name.
+
+Answered, not changed:
+
+- **"report"** is on the glossary's _Avoid_ list as a name for a Statement. Here it names the
+  Markdown section and the page's "Report" switch, the user's own word for them in ticket 07
+  ("the Markdown file must have a report section"); it never names a Statement.
+- **"Markdown twin", "Grouped flowchart", "calculated column", "copied column"** aren't in
+  `CONTEXT.md`. They describe the two files and the page's view in plain words and name no
+  new domain concept, so the glossary is left as it is. The user may want "Markdown twin"
+  added.
+- **Smells left, since standards.md prefers plain repetition to machinery:** boxes are
+  plain dicts with string keys and a `kind`, tested with `==` in several functions; the
+  Markdown and HTML reports are built by two parallel functions; `_how` and `_how_html`
+  share a shape; the page's script has a `depth` in each layout; `lineage.py` reads the
+  Statements' private parts, as `running.py` does; `made_by` is called by hand in each
+  calculation and condition function, and one that forgets it shows its Hive in the lineage,
+  which is still right; `made_by` and `readable` sit in `tables.py` beside `hive_text`,
+  since the conditions and calculations already import from there.
+- **`BOX_LINES` has two lines and no third user.** It is the seam ticket 07 decided on.
+- **The beginner reader** runs after this review, as the definition of done orders it.

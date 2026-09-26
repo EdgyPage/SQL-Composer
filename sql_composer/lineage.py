@@ -127,33 +127,33 @@ def _condition_text(tree: exp.Expression, then: str) -> tuple[str, str]:
                  for text in (hive_text(tree), readable(tree)))
 
 
-def _add_step(graph: Graph, step: Statement, where: dict) -> None:
+def _add_step(graph: Graph, step: Statement, place: dict) -> None:
     """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions."""
-    resolve = _resolver(graph, step, where["index"])
+    resolve = _resolver(graph, step, place["index"])
     made = []
     for column, name in step._outputs:
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all(exp.Column)]
-        if where["kind"] == "output":
-            key, shown = f"output:{where['index']}:{name}", name
+        if place["kind"] == "output":
+            key, shown = f"output:{place['index']}:{name}", name
         else:
-            key, shown = f"derived:{where['index']}:{where['table']}.{name}", f"{where['group']}.{name}"
-        graph.add(key, kind=where["kind"], group=where["group"], name=shown,
-                  full=f"{where['group']}.{name}", type=column._type, sql=hive_text(tree),
+            key, shown = f"derived:{place['index']}:{place['table']}.{name}", f"{place['group']}.{name}"
+        graph.add(key, kind=place["kind"], group=place["group"], name=shown,
+                  full=f"{place['group']}.{name}", type=column._type, sql=hive_text(tree),
                   formula=readable(tree), calculated=not isinstance(tree, exp.Column),
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
-                  else [], statement=where["index"])
+                  else [], statement=place["index"])
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
     for number, (clause, condition, tree, then) in enumerate(_conditions_of(step)):
         sql, formula = _condition_text(tree, then)
-        key = graph.add(f"condition:{where['index']}:{where['group']}:{number}",
-                        kind="condition", group=where["group"],
-                        name=f"{clause} in {where['group']}",
-                        full=f"{clause} in {where['group']}", type=None, sql=sql,
-                        formula=formula, calculated=False, statement=where["index"])
-        where["conditions"][(id(step), id(condition))] = key
+        key = graph.add(f"condition:{place['index']}:{place['group']}:{number}",
+                        kind="condition", group=place["group"],
+                        name=f"{clause} in {place['group']}",
+                        full=f"{clause} in {place['group']}", type=None, sql=sql,
+                        formula=formula, calculated=False, statement=place["index"])
+        place["conditions"][(id(step), id(condition))] = key
         for used in tree.find_all(exp.Column):
             graph.arrow(resolve(used), key, "rows")
         for target in made:
@@ -210,12 +210,15 @@ def build_graph(ordered: list[tuple[Statement, str]]) -> Graph:
 
 
 def _derived_group_names(ordered) -> dict:
-    """Each Derived table's group name: its own, plus "in <Statement>" when two share it."""
-    names = {}
+    """Each Derived table's group name: its own, plus "in <Statement>" when that name is
+    taken by another passed Statement's Derived table, by a Statement or by a table."""
+    names, taken = {}, {name for _, name in ordered}
     for index, (s, _) in enumerate(ordered):
+        taken |= _tables_read(s)
         for table in derived_tables(s):
             names.setdefault(table._name, []).append(index)
-    return {(index, name): name if len(indexes) == 1 else f"{name} in {ordered[index][1]}"
+    return {(index, name): name if len(indexes) == 1 and name not in taken
+            else f"{name} in {ordered[index][1]}"
             for name, indexes in names.items() for index in indexes}
 
 
@@ -238,9 +241,20 @@ def in_order(named: list[tuple[Statement, str]]) -> list[tuple[Statement, str]]:
         ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)
                  and i not in needs[i]]
         if not ready:
-            _refuse_loop(named, reads, [i for i in range(len(named)) if i not in placed])
+            _refuse_loop(named, reads, _in_the_loop(needs, placed))
         placed.append(ready[0])
     return [named[i] for i in placed]
+
+
+def _in_the_loop(needs: list[set], placed: list[int]) -> list[int]:
+    """The Statements left unplaced that are part of a loop, not just waiting on one."""
+    stuck = [i for i in range(len(needs)) if i not in placed]
+    while True:
+        needed = {j for i in stuck for j in needs[i]}
+        kept = [i for i in stuck if i in needed]
+        if kept == stuck:
+            return stuck
+        stuck = kept
 
 
 def _refuse_loop(named, reads, stuck: list[int]) -> None:
@@ -250,7 +264,8 @@ def _refuse_loop(named, reads, stuck: list[int]) -> None:
         if s._write is None:
             continue
         readers = [named[j][1] for j in stuck if s._write._name in reads[j]]
-        links.append(f"{name} writes {s._write._name}, which {' and '.join(readers)} reads")
+        verb = "reads" if len(readers) == 1 else "read"
+        links.append(f"{name} writes {s._write._name}, which {' and '.join(readers)} {verb}")
     raise ValueError(
         four_part_message(
             what="export_lineage can't draw these Statements, because they go round in a "
@@ -372,7 +387,7 @@ def _submitted(s: Statement) -> tuple[str, str]:
 # --- The Markdown twin -----------------------------------------------------------------------
 
 
-def _mermaid(text: str) -> str:
+def _mermaid_text(text: str) -> str:
     """Text for inside a Mermaid label, with the characters Mermaid reads spelled out."""
     for character, code in (("#", "#35;"), ('"', "#quot;"), ("<", "#lt;"), (">", "#gt;"),
                             ("`", "#96;")):
@@ -389,7 +404,7 @@ def group_of(box: dict) -> str:
     return f"filters on {box['group']}" if box["kind"] == "condition" else box["group"]
 
 
-def mermaid(graph: Graph) -> list[str]:
+def mermaid_chart(graph: Graph) -> list[str]:
     ids = {key: f"n{number}" for number, key in enumerate(graph.boxes)}
     groups = {}
     for key, box in graph.boxes.items():
@@ -397,11 +412,11 @@ def mermaid(graph: Graph) -> list[str]:
     group_ids = {group: f"g{number}" for number, group in enumerate(groups)}
     lines = ["```mermaid", "flowchart LR"]
     for group, keys in groups.items():
-        lines.append(f'  subgraph {group_ids[group]}["{_mermaid(group)}"]')
+        lines.append(f'  subgraph {group_ids[group]}["{_mermaid_text(group)}"]')
         for key in keys:
             shown = box_lines(graph.boxes[key])
-            text = "<br/>".join([_mermaid(shown[0])]
-                                + [f"<small>{_mermaid(_short(x, 44))}</small>" for x in shown[1:]])
+            text = "<br/>".join([_mermaid_text(shown[0])]
+                                + [f"<small>{_mermaid_text(_short(x, 44))}</small>" for x in shown[1:]])
             ends = ('{{"', '"}}') if graph.boxes[key]["kind"] == "condition" else ('["', '"]')
             lines.append(f"    {ids[key]}{ends[0]}{text}{ends[1]}")
         lines.append("  end")
@@ -437,8 +452,8 @@ def _section_markdown(section: dict) -> list[str]:
                       for c, reads in entry["conditions"]]
             lines.append("")
         if box["group_by"]:
-            lines += ["One value per group of: "
-                      + ", ".join(_code(g) for g in box["group_by"]), ""]
+            lines += ["One value for each different "
+                      + " and ".join(_code(g) for g in box["group_by"]) + ".", ""]
     if not section["calculated"]:
         lines += ["None: every column is copied.", ""]
     if section["copied"]:
@@ -457,7 +472,7 @@ def to_markdown(graph: Graph, sections: list[dict], title: str, footer: str) -> 
              "goes: a solid arrow carries a value, a dotted one decides which rows count, and "
              "a dotted one labelled \"day written\" decides which day of a Saved table is "
              "written.", "", "## Graph", ""]
-    lines += mermaid(graph) + [""]
+    lines += mermaid_chart(graph) + [""]
     for section in sections:
         lines += _section_markdown(section)
     return "\n".join(lines + ["---", "", footer, ""])
@@ -489,8 +504,8 @@ def _entry_html(entry: dict) -> str:
             for c, reads in entry["conditions"])
         parts.append(f"<p>Rows that count:</p><ul>{items}</ul>")
     if box["group_by"]:
-        parts.append("<p>One value per group of: "
-                     + ", ".join(_inline_code(g) for g in box["group_by"]) + "</p>")
+        parts.append("<p>One value for each different "
+                     + " and ".join(_inline_code(g) for g in box["group_by"]) + ".</p>")
     return "".join(parts) + "</details>"
 
 
@@ -540,11 +555,11 @@ def _script_safe(data: dict) -> str:
 
 def to_html(graph: Graph, sections: list[dict], title: str, markdown_name: str,
             footer: str) -> str:
-    return (PAGE.replace("__TITLE__", html.escape(title))
-            .replace("__MD__", html.escape(markdown_name))
-            .replace("__FOOTER__", html.escape(footer))
-            .replace("__REPORT__", report_html(sections))
-            .replace("__DATA__", _script_safe(graph_data(graph))))
+    filled = {"TITLE": html.escape(title), "MD": html.escape(markdown_name),
+              "FOOTER": html.escape(footer), "REPORT": report_html(sections),
+              "DATA": _script_safe(graph_data(graph))}
+    # One pass, so text that happens to look like a marker is never filled in itself.
+    return re.sub(r"__(TITLE|MD|FOOTER|REPORT|DATA)__", lambda found: filled[found[1]], PAGE)
 
 
 # --- Naming and placing the files ------------------------------------------------------------
@@ -592,8 +607,7 @@ def calling_file(frame) -> Path | None:
     """The script or notebook that called export_lineage, if it can be told."""
     filename = frame.f_code.co_filename
     if filename.startswith("<") or "ipykernel" in filename:
-        notebook = os.environ.get("JPY_SESSION_NAME") or frame.f_globals.get(
-            "__vsc_ipynb_file__")
+        notebook = os.environ.get("JPY_SESSION_NAME")
         return Path(notebook) if notebook else None
     return Path(filename)
 
