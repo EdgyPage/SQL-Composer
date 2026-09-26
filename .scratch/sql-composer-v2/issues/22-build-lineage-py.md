@@ -208,7 +208,8 @@ d3d562d.
   was answered.
 - **Drift:** D8 and D9 opened on 7ffea6a and closed in 48e5666. No item is open.
 - **For the user:**
-  - **`TOOLBOX_VERSION` stays `"2.0"`.** The version is the user's to confirm.
+  - **`TOOLBOX_VERSION` stays `"2.0"`.** The user confirmed it on 2026-09-25 (see "Build
+    the Toolbox core").
     `export_lineage` is a new public name in 2.0, and CHANGES.md lists Lineage under 2.0.
     The local `main` already holds a 2.0 export without it (14b0b6a, unpushed; `origin/main`
     is still v1). No drift item asked for a raise.
