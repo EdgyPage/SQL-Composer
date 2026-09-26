@@ -151,3 +151,38 @@ Answered, not changed:
 `.py` files, so an `examples.html` (like `CHANGES.md`) pasted from another export isn't caught.
 The page changes only with the code, so a stale page means a stale folder, which the `.py`
 stamps already catch unless the page alone was copied.
+
+**Drift (2026-09-25).** 83132c9 and 7df509c-before reviews: D10 opened on b147888 (the README
+promised every entry's result on the Example database) and closed in 802ea13; D11 opened on
+802ea13 (it promised every entry's Hive) and closed in 75c8e2f. No item is open.
+
+**Beginner reader (2026-09-25).** Report:
+[reports/20-beginner-reader.md](../reports/20-beginner-reader.md), run over the page, the
+README paragraph and the CHANGES.md line. Its advice is for the user. It checked every number,
+Hive and label on the page against the Example database's rows and found none wrong, and every
+entry present. It found these outright bugs, fixed in the commit after this note:
+
+- **The Worked examples on their own pointed at files a Toolbox user doesn't have.** The page
+  said they were "in the Toolbox", labelled each one "worked_examples/statements/...", and its
+  paste instructions would fail on `from building_blocks ...`. The page now says the scripts
+  are kept where the Toolbox is written, that each entry shows all their Python, and how to
+  paste one with its Building block; a test holds that no `worked_examples/` path shows.
+- **A pasted example uses your own today,** so `last_n_days` reads other days and, from
+  2026-09-26 on, finds no rows in the Example database. The page now says so and gives the
+  `between(...)` to write instead; a test checks that it reads the same days.
+- **"filters by any word"** in the README and CHANGES.md read as OR; the box keeps the entries
+  holding every word, and both now say so.
+
+Its costliest stops, for the user to weigh:
+
+- **Why `count_rows(where=is_not_null(job_runs.run_id))`** in the LEFT_JOIN examples: nothing
+  says that `COUNT(*)` would count a job with no runs as 1.
+- **The re-grouping Guard's "Usual fix"** fits an average, not a distinct count (also found by
+  ticket 21's reader); it is `refusals.py`'s message, so changing it is a Toolbox change.
+- **`by_day`'s docstring snippet** overwrites `df` each day, so only the last day survives if
+  pasted as is; also a Toolbox docstring.
+
+Also noted, not changed: `run`'s entry shows its result twice (as pandas prints it, then as a
+table); names that every Worked example uses get no "Worked examples that use it" line, and
+the page doesn't say why; `GROUP_BY`'s entry has no result, while `week_start`'s has a pandas
+one.

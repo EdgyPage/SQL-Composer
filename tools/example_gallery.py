@@ -438,7 +438,7 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
     names = names_in("\n".join([top] + [text for _, text in blocks]
                                + [inspect.getsource(function) for function in functions]))
     body = [f'<p class="why">{inline(why)}</p>', *(f"<p>{inline(note)}</p>" for note in notes),
-            label(f"The top of worked_examples/statements/{entry_id}.py"), code_html(top)]
+            label(f"The top of its script, statements/{entry_id}.py"), code_html(top)]
     for name, text in blocks:
         body += [label(f"The Building block it imports, building_blocks/{name}"), code_html(text)]
     body += [pair, more, names_html(names)]
@@ -525,16 +525,22 @@ table.result th,table.result td{{border:1px solid #ddd;padding:2px 8px;text-alig
 </style></head><body>
 <header>
 <h1>SQL Composer {version}: Example gallery</h1>
-<p>Every Worked example in the Toolbox on one page: {worked_count} Worked examples on their
-own, and the {docstring_count} examples from the docstrings. Each shows its Python and, for each
+<p>Every Worked example on one page: {worked_count} Worked examples on their own, and the
+{docstring_count} examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up
 tables that ship inside the Toolbox, or computed in pandas where the Example database can't
-run it.
-Press Ctrl+F to search the page.</p>
+run it. Press Ctrl+F to search the page.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's two days, so
-<code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. To paste one into a
-notebook, first run <code>from sql_composer import *</code> and
-<code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>.</p>
+<code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
+notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
+no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
+to get the results shown.</p>
+<p>To paste a docstring's example, first run <code>from sql_composer import *</code> and
+<code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
+examples on their own are scripts kept where the Toolbox is written, not in the
+<code>sql_composer</code> folder, and each entry shows all of their Python. To try one, paste
+the top of its script, with the Building block it imports pasted in place of its
+<code>from building_blocks ...</code> line, then the functions.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>
