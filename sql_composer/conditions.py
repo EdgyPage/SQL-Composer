@@ -137,7 +137,7 @@ def _need_column(column, call: str) -> Column:
     )
 
 
-def _date_partition_key(column: Column) -> tuple[str, str]:
+def _spans_key(column: Column) -> tuple[str, str]:
     """(table alias, column name): how a condition's spans name the Date partition they bound."""
     return (column._table._alias, column._name)
 
@@ -153,7 +153,7 @@ def _compare(name: str, node, column, value, span_of) -> Condition:
     if not is_date_partition(column) or isinstance(value, Column):
         return Condition(tree)
     span = span_of(as_date(value, column, call))
-    key = _date_partition_key(column)
+    key = _spans_key(column)
     return Condition(tree, spans={key: span}, only_bounds=key)
 
 
@@ -252,7 +252,7 @@ def between(column, low, high):
                 opt_out=None,
             )
         )
-    key = _date_partition_key(column)
+    key = _spans_key(column)
     return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
 
 
@@ -295,7 +295,7 @@ def last_n_days(column, n):
     made_by(tree, "last_n_days", column, n)
     if not is_date_partition(column):
         return Condition(tree)
-    key = _date_partition_key(column)
+    key = _spans_key(column)
     return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
 
 
@@ -342,7 +342,7 @@ def _in(name: str, column, values, negated: bool) -> Condition:
         return Condition(tree)
     days = frozenset(as_date(value, column, call) for value in values)
     span = Span(min(days), max(days), days)
-    key = _date_partition_key(column)
+    key = _spans_key(column)
     return Condition(tree, spans={key: span}, only_bounds=key)
 
 
