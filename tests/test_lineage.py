@@ -95,6 +95,11 @@ def read(files) -> tuple[str, str]:
     return markdown_file.read_text(encoding="utf-8"), html_file.read_text(encoding="utf-8")
 
 
+def page_data(page: str) -> dict:
+    """The boxes, arrows and groups the HTML page's script draws from."""
+    return json.loads(re.search(r"const graph = (\{.*\});\n", page).group(1))
+
+
 def chart(markdown: str) -> dict:
     """The Mermaid chart as {"boxes": {label: group}, "arrows": {(from, to, label)}}.
 
@@ -401,7 +406,7 @@ def test_a_statement_named_like_a_derived_table_keeps_its_own_group(tmp_path) ->
     boxes = chart(markdown)["boxes"]
     assert boxes["runs"] == "recent"
     assert boxes["recent in recent.runs"] == "recent in recent"
-    data = json.loads(re.search(r"const G=(\{.*?\}), W=", page).group(1))
+    data = page_data(page)
     kinds = {group["name"]: group["kind"] for group in data["groups"]}
     assert kinds["recent"] == "output"
     assert kinds["recent in recent"] == "derived"
@@ -429,7 +434,7 @@ def test_box_lines_decides_what_every_view_shows(tmp_path, monkeypatch) -> None:
     team = runs_per_team()
     markdown, page = read(export_lineage(team, to=tmp_path / "lineage.html"))
     assert "<small>kind: table</small>" in markdown
-    data = json.loads(re.search(r"const G=(\{.*?\}), W=", page).group(1))
+    data = page_data(page)
     assert ["ops.jobs.team", "string", "kind: table"] in [b["lines"] for b in data["boxes"]]
 
 
@@ -611,7 +616,7 @@ def test_without_scripts_the_page_shows_the_report_and_points_at_the_markdown(tm
 def test_the_page_draws_from_the_same_boxes_and_arrows(tmp_path) -> None:
     fill, weekly = fill_daily_runs(), runs_by_team()
     _, page = read(export_lineage(fill, weekly, to=tmp_path / "lineage.html"))
-    data = json.loads(re.search(r"const G=(\{.*?\}), W=", page).group(1))
+    data = page_data(page)
     names = {box["id"]: box["lines"][0] for box in data["boxes"]}
     arrows = {(names[a], names[b], kind) for a, b, kind in data["arrows"]}
     assert ("WHERE in fill", "mart.daily_runs.dt", "day") in arrows
@@ -628,7 +633,7 @@ def test_text_that_looks_like_the_pages_own_markers_stays_as_written(tmp_path) -
         WHERE(equals(jobs.job_name, "__DATA__ __REPORT__")),
     )
     _, page = read(export_lineage(odd, to=tmp_path / "__MD__.html"))
-    assert page.count("const G=") == 1
+    assert page.count("const graph = ") == 1
     assert "jobs.job_name = &#x27;__DATA__ __REPORT__&#x27;" in page
     assert "<code>__MD__.md</code>" in page
 

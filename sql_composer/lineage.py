@@ -753,6 +753,8 @@ def _footer(when: datetime.datetime, commit: str) -> str:
             f"{commit}, with {VERSION}.")
 
 
+# The HTML page. to_html fills in each __NAME__ marker; the script at the end draws the lineage.
+# This is an ordinary Python string, so a backslash in the script is written twice.
 PAGE = """<!doctype html>
 <html><head><meta charset="utf-8"><title>Lineage: __TITLE__</title><style>
 body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
@@ -801,184 +803,762 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 </main>
 <footer>__FOOTER__</footer>
 <script>
-const G=__DATA__, W=250, GX=80, GY=14, LINE=15;
-const MODES={table:['expanded','collapsed','hidden'],derived:['expanded','collapsed','hidden'],output:['expanded','collapsed']};
-const state={view:'graph',group:{},conditions:true,report:true};
-G.groups.forEach(g=>state.group[g.name]='expanded');
-const q=new URLSearchParams(location.search);
-G.groups.forEach(g=>{const v=q.get('g:'+g.name); if(MODES[g.kind].includes(v))state.group[g.name]=v;});
-if(q.get('view')==='flow')state.view='flow';
-if(q.get('conditions')==='off')state.conditions=false;
-if(q.get('report')==='off')state.report=false;
-const byId=Object.fromEntries(G.boxes.map(b=>[b.id,b]));
-const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const short=(s,n)=>s.length<=n?s:s.slice(0,n-1)+'\\u2026';
-const joined=(k,k2)=>k==='value'&&k2==='value'?'value':(k==='day'||k2==='day')?'day':'rows';
+// This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
+// It is plain JavaScript that any browser runs, with nothing to install or download.
 
-// Which box stands for a box now: itself, its collapsed group, 'skip' (hidden) or null (off).
-function rep(b){ if(b.kind==='condition')return state.conditions?b.id:null;
-  const m=state.group[b.group]; return m==='expanded'?b.id:m==='collapsed'?'group:'+b.group:'skip'; }
-function visibleGraph(){
-  const up={}; G.arrows.forEach(([a,b,k])=>(up[b]=up[b]||[]).push([a,k]));
-  const ends=(id,k,seen=new Set())=>{ if(seen.has(id))return[]; seen.add(id);  // through hidden boxes
-    const r=rep(byId[id]); if(r!=='skip')return [[id,k]];
-    return (up[id]||[]).flatMap(([p,k2])=>ends(p,joined(k,k2),seen)); };
-  const boxes={}, arrows=new Map();
-  G.boxes.forEach(b=>{const r=rep(b); if(!r||r==='skip')return;
-    if(r===b.id)boxes[r]={id:r,kind:b.kind,group:b.kind==='condition'?'filters on '+b.group:b.group,
-      base:b.group,lines:b.lines,title:b.title};
-    else{const n=G.boxes.filter(x=>x.group===b.group&&x.kind!=='condition').length;
-      boxes[r]=boxes[r]||{id:r,kind:b.kind+' collapsed',group:b.group,base:b.group,
-        lines:[b.group,n+' columns, collapsed'],title:b.group};}});
-  G.arrows.forEach(([a,b,k])=>{const rb=rep(byId[b]); if(!rb||rb==='skip')return;
-    ends(a,k).forEach(([src,k2])=>{const ra=rep(byId[src]); if(!ra||ra==='skip'||ra===rb)return;
-      const key=ra+'>'+rb; if(!arrows.has(key)||k2==='value')arrows.set(key,[ra,rb,k2]);});});
-  return {boxes:Object.values(boxes), arrows:[...arrows.values()]};
+// Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
+// the boxes sit in (a table, a Derived table or a Statement's outputs).
+const graph = __DATA__;
+
+// Sizes in the drawing, in pixels.
+const BOX_WIDTH = 250;
+const COLUMN_GAP = 80;  // between two columns of boxes
+const BOX_GAP = 14;  // between two boxes in one column
+const LINE_HEIGHT = 15;  // one line of text in a box
+const GROUP_PADDING = 12;  // around the boxes inside a group, in the Grouped flowchart
+const GROUP_HEADING = 26;  // room for a group's name above its boxes
+const GROUP_GAP = 24;  // between two groups in one column
+
+// How each kind of group can be shown. Outputs can be collapsed, but not hidden.
+const MODES_BY_KIND = {
+  table: ['expanded', 'collapsed', 'hidden'],
+  derived: ['expanded', 'collapsed', 'hidden'],
+  output: ['expanded', 'collapsed'],
+};
+
+// What the reader has chosen: the Graph or the Grouped flowchart ('graph' or 'flow'), each
+// group's mode, and whether the conditions and the report show.
+const state = {view: 'graph', groupMode: {}, conditions: true, report: true};
+
+// An object holding each item under the key that keyFor(item) gives, to look items up by key.
+function indexBy(items, keyFor) {
+  const index = {};
+  items.forEach(item => {
+    index[keyFor(item)] = item;
+  });
+  return index;
 }
 
-// Layered layout: each box one column right of its furthest source. An output that feeds
-// nothing sits in the last column.
-function layout(V){
-  const preds={},succs={}; V.boxes.forEach(b=>{preds[b.id]=[];succs[b.id]=[];});
-  V.arrows.forEach(([a,b])=>{preds[b].push(a);succs[a].push(b);});
-  const layer={}, busy=new Set();
-  const depth=id=>{if(id in layer)return layer[id]; if(busy.has(id))return 0; busy.add(id);
-    const d=1+Math.max(-1,...preds[id].map(depth)); busy.delete(id); return layer[id]=d;};
-  V.boxes.forEach(b=>depth(b.id)); const last=Math.max(0,...Object.values(layer));
-  V.boxes.forEach(b=>{if(b.kind.startsWith('output')&&!succs[b.id].length)layer[b.id]=last;});
-  const cols=[...Array(last+1)].map((_,i)=>V.boxes.filter(b=>layer[b.id]===i).map(b=>b.id));
-  for(let s=0;s<8;s++){const order={}; cols.forEach(c=>c.forEach((id,i)=>order[id]=i));
-    const fwd=s%2===0, idx=fwd?[...cols.keys()].slice(1):[...cols.keys()].reverse().slice(1);
-    idx.forEach(i=>{const near=fwd?preds:succs;
-      const centre=id=>near[id].length?near[id].reduce((t,n)=>t+order[n],0)/near[id].length:order[id];
-      cols[i].sort((a,b)=>centre(a)-centre(b)); cols[i].forEach((id,j)=>order[id]=j);});}
-  const h=Object.fromEntries(V.boxes.map(b=>[b.id,10+LINE*b.lines.length])), pos={};
-  cols.forEach((c,ci)=>{let y=0; c.forEach(id=>{pos[id]=[ci*(W+GX),y]; y+=h[id]+GY;});});
-  const height=Math.max(0,...cols.map(c=>c.reduce((t,id)=>t+h[id]+GY,0)));
-  return {pos,h,width:cols.length*(W+GX)-GX,height};
+// Each box, looked up by its id.
+const boxById = indexBy(graph.boxes, box => box.id);
+
+// Text made safe to put inside the page's markup: & < > and " become their HTML codes.
+function escapeHtml(text) {
+  const codes = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'};
+  return text.replace(/[&<>"]/g, character => codes[character]);
 }
 
-// Grouped flowchart: each table, Derived table, Statement and its filters is a labelled
-// container, laid out by how the groups feed each other; a condition points once at the
-// group it filters.
-const PAD=12, HEAD=26, GGAP=24;
-function flowLayout(V){
-  const byBox=Object.fromEntries(V.boxes.map(b=>[b.id,b])), h=id=>10+LINE*byBox[id].lines.length;
-  const groups={}; V.boxes.forEach(b=>(groups[b.group]=groups[b.group]||{name:b.group,kind:b.kind.split(' ')[0],boxes:[]}).boxes.push(b.id));
-  const into={}, out={}, preds={}, succs={}; Object.keys(groups).forEach(g=>{into[g]=new Set();out[g]=new Set();});
-  V.boxes.forEach(b=>{preds[b.id]=[];succs[b.id]=[];});
-  V.arrows.forEach(([a,b])=>{preds[b].push(a);succs[a].push(b);
-    if(byBox[a].group!==byBox[b].group){into[byBox[b].group].add(byBox[a].group);out[byBox[a].group].add(byBox[b].group);}});
-  const layer={}, busy=new Set();
-  const depth=g=>{if(g in layer)return layer[g]; if(busy.has(g))return 0; busy.add(g);
-    const d=1+Math.max(-1,...[...into[g]].map(depth)); busy.delete(g); return layer[g]=d;};
-  Object.keys(groups).forEach(depth); const last=Math.max(0,...Object.values(layer));
-  Object.values(groups).forEach(g=>{if(g.kind==='output'&&!out[g.name].size)layer[g.name]=last;});
-  const mean=(ids,y)=>{const v=ids.map(i=>y[i]).filter(x=>x!==undefined); return v.length?v.reduce((s,x)=>s+x,0)/v.length:1e9;};
-  const place=()=>{const y={}, pos={}, boxes=[];
-    for(let i=0;i<=last;i++){
-      const gs=Object.values(groups).filter(g=>layer[g.name]===i);
-      gs.forEach(g=>{g.boxes.sort((a,b)=>mean(preds[a],y)-mean(preds[b],y)); g.key=mean(g.boxes.flatMap(id=>preds[id]),y);});
-      gs.sort((a,b)=>a.key-b.key);
-      let top=0; const x=i*(W+2*PAD+GX);
-      gs.forEach(g=>{let iy=top+HEAD;
-        g.boxes.forEach(id=>{pos[id]=[x+PAD,iy]; y[id]=iy+h(id)/2; iy+=h(id)+GY;});
-        boxes.push({name:g.name,kind:g.kind,x,y:top,w:W+2*PAD,h:iy-GY+PAD-top}); top=iy-GY+PAD+GGAP;});}
-    return {pos,boxes,y};};
-  let P=place();  // then order the first column by what it feeds, and place again
-  Object.values(groups).filter(g=>layer[g.name]===0).forEach(g=>g.boxes.sort((a,b)=>mean(succs[a],P.y)-mean(succs[b],P.y)));
-  P=place();
-  const width=(last+1)*(W+2*PAD+GX)-GX, height=Math.max(0,...P.boxes.map(g=>g.y+g.h));
-  return {pos:P.pos,groups:P.boxes,h,width,height};
+// Text cut to at most maxLength characters, ending in an ellipsis when it was cut, so it fits
+// in a box.
+function shortened(text, maxLength) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  // The ellipsis character. Its backslash is written twice only in the Python file.
+  return text.slice(0, maxLength - 1) + '\\u2026';
 }
 
-const boxSvg=(b,x,y,h)=>`<g class="n ${b.kind}" id="${b.id}" transform="translate(${x},${y})"><rect width="${W}" height="${h}" rx="4"/>`
-  +b.lines.map((t,i)=>`<text x="8" y="${17+i*LINE}"${i?'':' class="l"'}>${esc(short(t,i?38:34))}</text>`).join('')
-  +`<title>${esc(b.title)}</title></g>`;
-const curve=(sx,sy,tx,ty)=>{const mx=(sx+tx)/2; return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;};
-const dayLabel=(sx,sy,tx,ty)=>`<text class="flabel" x="${(sx+tx)/2-28}" y="${(sy+ty)/2-4}">day written</text>`;
-
-function renderGraph(V){
-  const L=layout(V), parts=[];
-  V.arrows.forEach(([a,b,k])=>{const [x1,y1]=L.pos[a],[x2,y2]=L.pos[b];
-    const sx=x1+W, sy=y1+L.h[a]/2, tx=x2, ty=y2+L.h[b]/2;
-    parts.push(`<path class="e ${k}" data-a="${a}" data-b="${b}" d="${curve(sx,sy,tx,ty)}"/>`+(k==='day'?dayLabel(sx,sy,tx,ty):''));});
-  V.boxes.forEach(b=>{const [x,y]=L.pos[b.id]; parts.push(boxSvg(b,x,y,L.h[b.id]));});
-  return {parts,width:L.width,height:L.height};
+// Start from the settings saved in the page's address (after the ?), so a link opens the page
+// as it was left. Any group the address doesn't mention starts expanded.
+function readSettingsFromAddress() {
+  graph.groups.forEach(group => {
+    state.groupMode[group.name] = 'expanded';
+  });
+  const settings = new URLSearchParams(location.search);
+  graph.groups.forEach(group => {
+    const mode = settings.get('g:' + group.name);
+    if (MODES_BY_KIND[group.kind].includes(mode)) {
+      state.groupMode[group.name] = mode;
+    }
+  });
+  if (settings.get('view') === 'flow') {
+    state.view = 'flow';
+  }
+  if (settings.get('conditions') === 'off') {
+    state.conditions = false;
+  }
+  if (settings.get('report') === 'off') {
+    state.report = false;
+  }
 }
 
-function renderFlow(V){
-  const F=flowLayout(V), byBox=Object.fromEntries(V.boxes.map(b=>[b.id,b])), parts=[], seen=new Set();
-  F.groups.forEach(g=>parts.push(`<g class="grp ${g.kind}"><rect x="${g.x}" y="${g.y}" width="${g.w}" height="${g.h}" rx="8"/><text x="${g.x+10}" y="${g.y+17}">${esc(g.name)}</text></g>`));
-  const box=Object.fromEntries(F.groups.map(g=>[g.name,g]));
-  V.arrows.forEach(([a,b,k])=>{const [x1,y1]=F.pos[a], sx=x1+W, sy=y1+F.h(a)/2;
-    if(byBox[a].kind==='condition'&&k!=='day'){const g=box[byBox[b].group], key=a+'>'+g.name; if(seen.has(key))return; seen.add(key);
-      const ty=g.y+g.h/2;
-      parts.push(`<path class="e rows filters" data-a="${a}" data-g="${esc(g.name)}" d="${curve(sx,sy,g.x,ty)}"/>`
-        +`<text class="flabel" x="${g.x-44}" y="${ty-4}">filters</text>`); return;}
-    const [x2,y2]=F.pos[b], ty=y2+F.h(b)/2;
-    parts.push(`<path class="e ${k}" data-a="${a}" data-b="${b}" d="${curve(sx,sy,x2,ty)}"/>`+(k==='day'?dayLabel(sx,sy,x2,ty):''));});
-  V.boxes.forEach(b=>{const [x,y]=F.pos[b.id]; parts.push(boxSvg(b,x,y,F.h(b.id)));});
-  return {parts,width:F.width,height:F.height};
+// Save the settings in the page's address, so reloading the page or sharing its link keeps
+// them. Only settings that differ from where the page starts are written.
+function saveSettingsInAddress() {
+  const settings = new URLSearchParams();
+  if (state.view !== 'graph') {
+    settings.set('view', state.view);
+  }
+  Object.entries(state.groupMode).forEach(([name, mode]) => {
+    if (mode !== 'expanded') {
+      settings.set('g:' + name, mode);
+    }
+  });
+  if (!state.conditions) {
+    settings.set('conditions', 'off');
+  }
+  if (!state.report) {
+    settings.set('report', 'off');
+  }
+  try {
+    const address = settings.toString() ? '?' + settings.toString() : location.pathname;
+    history.replaceState(null, '', address);
+  } catch (error) {
+    // A browser may refuse to change the address, as for some pages opened from a file. The
+    // drawing still works; only the settings aren't kept.
+  }
 }
 
-let links=[], members={};
-function draw(){
-  const V=visibleGraph(), R=state.view==='flow'?renderFlow(V):renderGraph(V);
-  document.getElementById('graph').innerHTML=`<svg viewBox="-10 -10 ${R.width+20} ${R.height+20}" style="min-width:${Math.round(R.width*.8)}px;aspect-ratio:${R.width+20}/${R.height+20}">${R.parts.join('')}</svg>`;
-  links=V.arrows; members={}; V.boxes.forEach(b=>(members[b.group]=members[b.group]||[]).push(b.id));
-  wire(document.querySelector('#graph svg'));
-  document.getElementById('report').style.display=state.report?'':'none';
-  const p=new URLSearchParams(); if(state.view!=='graph')p.set('view',state.view);
-  Object.entries(state.group).forEach(([g,m])=>{if(m!=='expanded')p.set('g:'+g,m);});
-  if(!state.conditions)p.set('conditions','off'); if(!state.report)p.set('report','off');
-  try{history.replaceState(null,'',p.toString()?'?'+p:location.pathname);}catch(e){}
+// --- Which boxes and arrows to draw -------------------------------------------------------
+
+// The id of the box drawn in a box's place: its own id; its group's id when the group is
+// collapsed; 'skip' when the group is hidden; or null for a condition while conditions are off.
+function drawnAs(box) {
+  if (box.kind === 'condition') {
+    return state.conditions ? box.id : null;
+  }
+  const mode = state.groupMode[box.group];
+  if (mode === 'expanded') {
+    return box.id;
+  }
+  if (mode === 'collapsed') {
+    return 'group:' + box.group;
+  }
+  return 'skip';
+}
+
+// The kind of the one arrow drawn for two arrows in a row, when the box between them is
+// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
+// otherwise 'rows'.
+function joinedArrowKind(first, second) {
+  if (first === 'value' && second === 'value') {
+    return 'value';
+  }
+  if (first === 'day' || second === 'day') {
+    return 'day';
+  }
+  return 'rows';
+}
+
+// The boxes and arrows to draw now, after collapsing, hiding and switching off conditions. A
+// collapsed group is drawn as one box, and arrows through a hidden box are joined around it.
+function visibleGraph() {
+  // For each box, the arrows coming into it, as [source id, arrow kind].
+  const arrowsInto = {};
+  graph.arrows.forEach(([source, target, kind]) => {
+    if (!arrowsInto[target]) {
+      arrowsInto[target] = [];
+    }
+    arrowsInto[target].push([source, kind]);
+  });
+
+  // Where an arrow really starts, as a list of [box id, arrow kind]. When the box it starts
+  // from is hidden, it goes on back through the arrows into that box, joining their kinds.
+  // `visited` holds the boxes already passed, so a loop of arrows can't go round forever.
+  function drawnStarts(id, kind, visited) {
+    if (visited.has(id)) {
+      return [];
+    }
+    visited.add(id);
+    if (drawnAs(boxById[id]) !== 'skip') {
+      return [[id, kind]];
+    }
+    let starts = [];
+    (arrowsInto[id] || []).forEach(([source, sourceKind]) => {
+      starts = starts.concat(drawnStarts(source, joinedArrowKind(kind, sourceKind), visited));
+    });
+    return starts;
+  }
+
+  const drawnBoxes = {};
+  graph.boxes.forEach(box => {
+    const drawnId = drawnAs(box);
+    if (!drawnId || drawnId === 'skip') {
+      return;
+    }
+    if (drawnId === box.id) {
+      drawnBoxes[drawnId] = {
+        id: drawnId,
+        kind: box.kind,
+        group: box.kind === 'condition' ? 'filters on ' + box.group : box.group,
+        lines: box.lines,
+        title: box.title,
+      };
+    } else if (!drawnBoxes[drawnId]) {
+      // The first box met in a collapsed group makes the one box that stands for the group.
+      const columnCount = graph.boxes.filter(
+        other => other.group === box.group && other.kind !== 'condition').length;
+      drawnBoxes[drawnId] = {
+        id: drawnId,
+        kind: box.kind + ' collapsed',
+        group: box.group,
+        lines: [box.group, columnCount + ' columns, collapsed'],
+        title: box.group,
+      };
+    }
+  });
+
+  // One arrow for each pair of drawn boxes: the first one found, unless a later one carries a
+  // value, which takes its place.
+  const drawnArrows = new Map();
+  graph.arrows.forEach(([source, target, kind]) => {
+    const drawnTarget = drawnAs(boxById[target]);
+    if (!drawnTarget || drawnTarget === 'skip') {
+      return;
+    }
+    drawnStarts(source, kind, new Set()).forEach(([start, startKind]) => {
+      const drawnSource = drawnAs(boxById[start]);
+      if (!drawnSource || drawnSource === 'skip' || drawnSource === drawnTarget) {
+        return;
+      }
+      const pair = drawnSource + '>' + drawnTarget;
+      if (!drawnArrows.has(pair) || startKind === 'value') {
+        drawnArrows.set(pair, [drawnSource, drawnTarget, startKind]);
+      }
+    });
+  });
+  return {boxes: Object.values(drawnBoxes), arrows: Array.from(drawnArrows.values())};
+}
+
+// --- Where each box goes ------------------------------------------------------------------
+
+// A box's height: room for each of its lines of text.
+function boxHeight(box) {
+  return 10 + LINE_HEIGHT * box.lines.length;
+}
+
+// Each drawn box's height, looked up by its id.
+function boxHeights(boxes) {
+  const heights = {};
+  boxes.forEach(box => {
+    heights[box.id] = boxHeight(box);
+  });
+  return heights;
+}
+
+// For each drawn box, the ids of the boxes with an arrow into it (its sources) and the ids of
+// the boxes it has an arrow into (its targets).
+function neighboursOf(visible) {
+  const sources = {};
+  const targets = {};
+  visible.boxes.forEach(box => {
+    sources[box.id] = [];
+    targets[box.id] = [];
+  });
+  visible.arrows.forEach(([source, target]) => {
+    sources[target].push(source);
+    targets[source].push(target);
+  });
+  return {sources: sources, targets: targets};
+}
+
+// The column each item goes in, counting from 0: one column right of its furthest source.
+// sourcesOf(id) lists an item's sources. When sources go round in a loop, the item met again
+// counts as column 0, so the loop ends.
+function columnNumbers(ids, sourcesOf) {
+  const columnOf = {};
+  const working = new Set();  // the items whose column is still being worked out
+  function columnFor(id) {
+    if (id in columnOf) {
+      return columnOf[id];
+    }
+    if (working.has(id)) {
+      return 0;
+    }
+    working.add(id);
+    const column = 1 + Math.max(-1, ...sourcesOf(id).map(source => columnFor(source)));
+    working.delete(id);
+    columnOf[id] = column;
+    return column;
+  }
+  ids.forEach(id => columnFor(id));
+  return columnOf;
+}
+
+// Where each box goes in the Graph. Each box sits one column right of its furthest source,
+// and an output that feeds nothing sits in the last column. Then the boxes in each column are
+// reordered, to sit level with the boxes they are linked to, so fewer arrows cross.
+function graphLayout(visible) {
+  const neighbours = neighboursOf(visible);
+  const boxIds = visible.boxes.map(box => box.id);
+  const columnOf = columnNumbers(boxIds, id => neighbours.sources[id]);
+  const lastColumn = Math.max(0, ...Object.values(columnOf));
+  visible.boxes.forEach(box => {
+    if (box.kind.startsWith('output') && !neighbours.targets[box.id].length) {
+      columnOf[box.id] = lastColumn;
+    }
+  });
+
+  // The ids in each column, from top to bottom.
+  const columns = [];
+  for (let number = 0; number <= lastColumn; number++) {
+    columns.push(visible.boxes.filter(box => columnOf[box.id] === number).map(box => box.id));
+  }
+
+  // Reorder the columns 8 times, sweeping right, then left, and so on. Sweeping right, each
+  // box moves to the average place of its sources; sweeping left, of its targets.
+  for (let sweep = 0; sweep < 8; sweep++) {
+    const sweepingRight = sweep % 2 === 0;
+    const linked = sweepingRight ? neighbours.sources : neighbours.targets;
+    const place = {};  // each box's place in its column, 0 at the top
+    columns.forEach(ids => {
+      ids.forEach((id, number) => {
+        place[id] = number;
+      });
+    });
+    // The average place of the boxes linked to a box, or its own place if there are none.
+    const averagePlace = id => {
+      if (!linked[id].length) {
+        return place[id];
+      }
+      return linked[id].reduce((total, other) => total + place[other], 0) / linked[id].length;
+    };
+    const reorder = number => {
+      columns[number].sort((a, b) => averagePlace(a) - averagePlace(b));
+      columns[number].forEach((id, newPlace) => {
+        place[id] = newPlace;
+      });
+    };
+    if (sweepingRight) {
+      for (let number = 1; number < columns.length; number++) {
+        reorder(number);
+      }
+    } else {
+      for (let number = columns.length - 2; number >= 0; number--) {
+        reorder(number);
+      }
+    }
+  }
+
+  const heights = boxHeights(visible.boxes);
+  const positions = {};  // each box's top-left corner, as [x, y]
+  columns.forEach((ids, number) => {
+    let y = 0;
+    ids.forEach(id => {
+      positions[id] = [number * (BOX_WIDTH + COLUMN_GAP), y];
+      y += heights[id] + BOX_GAP;
+    });
+  });
+  const columnHeights = columns.map(
+    inColumn => inColumn.reduce((total, id) => total + heights[id] + BOX_GAP, 0));
+  return {
+    positions: positions,
+    heights: heights,
+    width: columns.length * (BOX_WIDTH + COLUMN_GAP) - COLUMN_GAP,
+    height: Math.max(0, ...columnHeights),
+  };
+}
+
+// Where each group and box goes in the Grouped flowchart. Each table, Derived table, Statement
+// and its filters is a labelled group. A group sits one column right of the furthest group
+// feeding it, and an output group that feeds nothing sits in the last column.
+function flowchartLayout(visible) {
+  const visibleBoxById = indexBy(visible.boxes, box => box.id);
+  const heights = boxHeights(visible.boxes);
+  const neighbours = neighboursOf(visible);
+
+  // Each group, with the ids of its boxes.
+  const groups = {};
+  visible.boxes.forEach(box => {
+    if (!groups[box.group]) {
+      groups[box.group] = {name: box.group, kind: box.kind.split(' ')[0], boxes: []};
+    }
+    groups[box.group].boxes.push(box.id);
+  });
+
+  // For each group, the groups with an arrow into it, and the groups it has an arrow into.
+  const groupsFeeding = {};
+  const groupsFed = {};
+  Object.keys(groups).forEach(name => {
+    groupsFeeding[name] = new Set();
+    groupsFed[name] = new Set();
+  });
+  visible.arrows.forEach(([source, target]) => {
+    const sourceGroup = visibleBoxById[source].group;
+    const targetGroup = visibleBoxById[target].group;
+    if (sourceGroup !== targetGroup) {
+      groupsFeeding[targetGroup].add(sourceGroup);
+      groupsFed[sourceGroup].add(targetGroup);
+    }
+  });
+
+  const columnOf = columnNumbers(Object.keys(groups), name => Array.from(groupsFeeding[name]));
+  const lastColumn = Math.max(0, ...Object.values(columnOf));
+  Object.values(groups).forEach(group => {
+    if (group.kind === 'output' && !groupsFed[group.name].size) {
+      columnOf[group.name] = lastColumn;
+    }
+  });
+
+  // The average height of the middles of the boxes in `ids` placed so far. When none is
+  // placed yet it is far below everything (1e9), so those boxes sort last.
+  function averageMiddle(ids, middles) {
+    const placed = ids.map(id => middles[id]).filter(middle => middle !== undefined);
+    if (!placed.length) {
+      return 1e9;
+    }
+    return placed.reduce((total, middle) => total + middle, 0) / placed.length;
+  }
+
+  // Place every group and its boxes, column by column. In each column, a group's boxes are
+  // sorted by where their sources sit, and the groups by where all their boxes' sources sit,
+  // so each sits level with what feeds it. It returns each box's top-left corner, each
+  // group's frame, and the middle height of each box.
+  function placeGroups() {
+    const middles = {};
+    const positions = {};
+    const frames = [];
+    for (let number = 0; number <= lastColumn; number++) {
+      const inColumn = Object.values(groups).filter(group => columnOf[group.name] === number);
+      inColumn.forEach(group => {
+        group.boxes.sort((a, b) => averageMiddle(neighbours.sources[a], middles)
+          - averageMiddle(neighbours.sources[b], middles));
+        let allSources = [];
+        group.boxes.forEach(id => {
+          allSources = allSources.concat(neighbours.sources[id]);
+        });
+        group.sortKey = averageMiddle(allSources, middles);
+      });
+      inColumn.sort((a, b) => a.sortKey - b.sortKey);
+      const x = number * (BOX_WIDTH + 2 * GROUP_PADDING + COLUMN_GAP);
+      let top = 0;
+      inColumn.forEach(group => {
+        let y = top + GROUP_HEADING;
+        group.boxes.forEach(id => {
+          positions[id] = [x + GROUP_PADDING, y];
+          middles[id] = y + heights[id] / 2;
+          y += heights[id] + BOX_GAP;
+        });
+        frames.push({
+          name: group.name,
+          kind: group.kind,
+          x: x,
+          y: top,
+          width: BOX_WIDTH + 2 * GROUP_PADDING,
+          height: y - BOX_GAP + GROUP_PADDING - top,
+        });
+        top = y - BOX_GAP + GROUP_PADDING + GROUP_GAP;
+      });
+    }
+    return {positions: positions, frames: frames, middles: middles};
+  }
+
+  let placed = placeGroups();
+  // The first column has no sources to sort by, so sort its boxes by the boxes they feed, now
+  // those are placed, and place everything again.
+  Object.values(groups).filter(group => columnOf[group.name] === 0).forEach(group => {
+    group.boxes.sort((a, b) => averageMiddle(neighbours.targets[a], placed.middles)
+      - averageMiddle(neighbours.targets[b], placed.middles));
+  });
+  placed = placeGroups();
+  return {
+    positions: placed.positions,
+    frames: placed.frames,
+    heights: heights,
+    width: (lastColumn + 1) * (BOX_WIDTH + 2 * GROUP_PADDING + COLUMN_GAP) - COLUMN_GAP,
+    height: Math.max(0, ...placed.frames.map(frame => frame.y + frame.height)),
+  };
+}
+
+// --- The SVG ------------------------------------------------------------------------------
+
+// The SVG for one box: its rectangle, its lines of text (the first in bold), and a tooltip
+// with its full name and its Hive or type.
+function boxSvg(box, x, y, height) {
+  const lines = box.lines.map((line, number) => {
+    const bold = number ? '' : ' class="l"';
+    const text = escapeHtml(shortened(line, number ? 38 : 34));
+    return `<text x="8" y="${17 + number * LINE_HEIGHT}"${bold}>${text}</text>`;
+  });
+  return `<g class="n ${box.kind}" id="${box.id}" transform="translate(${x},${y})">`
+    + `<rect width="${BOX_WIDTH}" height="${height}" rx="4"/>`
+    + lines.join('')
+    + `<title>${escapeHtml(box.title)}</title></g>`;
+}
+
+// An SVG path from (startX, startY) to (endX, endY) that bends smoothly, leaving and arriving
+// level.
+function curve(startX, startY, endX, endY) {
+  const middleX = (startX + endX) / 2;
+  return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
+}
+
+// The "day written" label, just above the middle of its arrow.
+function dayWrittenLabel(startX, startY, endX, endY) {
+  const x = (startX + endX) / 2 - 28;
+  const y = (startY + endY) / 2 - 4;
+  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
+}
+
+// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
+// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+function arrowSvg(source, target, kind, startX, startY, endX, endY) {
+  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+    + `d="${curve(startX, startY, endX, endY)}"/>`;
+  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
+}
+
+// The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
+// and arrives at the middle of the next box's left side.
+function renderGraph(visible) {
+  const layout = graphLayout(visible);
+  const parts = [];
+  visible.arrows.forEach(([source, target, kind]) => {
+    const [sourceX, sourceY] = layout.positions[source];
+    const [targetX, targetY] = layout.positions[target];
+    const startX = sourceX + BOX_WIDTH;
+    const startY = sourceY + layout.heights[source] / 2;
+    const endY = targetY + layout.heights[target] / 2;
+    parts.push(arrowSvg(source, target, kind, startX, startY, targetX, endY));
+  });
+  visible.boxes.forEach(box => {
+    const [x, y] = layout.positions[box.id];
+    parts.push(boxSvg(box, x, y, layout.heights[box.id]));
+  });
+  return {parts: parts, width: layout.width, height: layout.height};
+}
+
+// The SVG pieces of the Grouped flowchart, and its size. A condition's arrow points once at
+// the group it filters, not at each box in it.
+function renderFlowchart(visible) {
+  const layout = flowchartLayout(visible);
+  const visibleBoxById = indexBy(visible.boxes, box => box.id);
+  const parts = [];
+  layout.frames.forEach(frame => {
+    parts.push(`<g class="grp ${frame.kind}">`
+      + `<rect x="${frame.x}" y="${frame.y}" `
+      + `width="${frame.width}" height="${frame.height}" rx="8"/>`
+      + `<text x="${frame.x + 10}" y="${frame.y + 17}">${escapeHtml(frame.name)}</text></g>`);
+  });
+  const frameByName = indexBy(layout.frames, frame => frame.name);
+  const filterArrowsDrawn = new Set();  // "condition>group" for each filters arrow drawn
+  visible.arrows.forEach(([source, target, kind]) => {
+    const [sourceX, sourceY] = layout.positions[source];
+    const startX = sourceX + BOX_WIDTH;
+    const startY = sourceY + layout.heights[source] / 2;
+    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+      const frame = frameByName[visibleBoxById[target].group];
+      const drawnKey = source + '>' + frame.name;
+      if (!filterArrowsDrawn.has(drawnKey)) {
+        filterArrowsDrawn.add(drawnKey);
+        const endY = frame.y + frame.height / 2;
+        // data-g names the group at the arrow's end, for lighting up a path.
+        const groupName = escapeHtml(frame.name);
+        parts.push(`<path class="e rows filters" data-a="${source}" data-g="${groupName}" `
+          + `d="${curve(startX, startY, frame.x, endY)}"/>`
+          + `<text class="flabel" x="${frame.x - 44}" y="${endY - 4}">filters</text>`);
+      }
+    } else {
+      const [targetX, targetY] = layout.positions[target];
+      const endY = targetY + layout.heights[target] / 2;
+      parts.push(arrowSvg(source, target, kind, startX, startY, targetX, endY));
+    }
+  });
+  visible.boxes.forEach(box => {
+    const [x, y] = layout.positions[box.id];
+    parts.push(boxSvg(box, x, y, layout.heights[box.id]));
+  });
+  return {parts: parts, width: layout.width, height: layout.height};
+}
+
+// --- Drawing, and what the mouse does -----------------------------------------------------
+
+// Draw the page again from `state`: the picture, the report shown or not, the address and
+// the controls. Every control calls this after it changes `state`.
+function draw() {
+  const visible = visibleGraph();
+  const drawing = state.view === 'flow' ? renderFlowchart(visible) : renderGraph(visible);
+  const viewBox = `-10 -10 ${drawing.width + 20} ${drawing.height + 20}`;
+  const size = `min-width:${Math.round(drawing.width * 0.8)}px;`
+    + `aspect-ratio:${drawing.width + 20}/${drawing.height + 20}`;
+  document.getElementById('graph').innerHTML = `<svg viewBox="${viewBox}" style="${size}">`
+    + `${drawing.parts.join('')}</svg>`;
+  addMouseHandlers(document.querySelector('#graph svg'), visible);
+  document.getElementById('report').style.display = state.report ? '' : 'none';
+  saveSettingsInAddress();
   syncControls();
 }
 
-function wire(svg){
-  const up={},down={}; links.forEach(([a,b])=>{(up[b]=up[b]||[]).push(a);(down[a]=down[a]||[]).push(b);});
-  const walk=(id,next,seen)=>{(next[id]||[]).forEach(n=>{if(!seen.has(n)){seen.add(n);walk(n,next,seen);}});return seen;};
-  let vb=svg.getAttribute('viewBox').split(' ').map(Number), drag=null;
-  const set=()=>svg.setAttribute('viewBox',vb.join(' '));
-  svg.addEventListener('wheel',ev=>{ev.preventDefault(); const r=svg.getBoundingClientRect(), f=ev.deltaY>0?1.15:1/1.15;
-    const px=vb[0]+(ev.clientX-r.left)/r.width*vb[2], py=vb[1]+(ev.clientY-r.top)/r.height*vb[3];
-    vb=[px-(px-vb[0])*f,py-(py-vb[1])*f,vb[2]*f,vb[3]*f]; set();},{passive:false});
-  svg.addEventListener('pointerdown',ev=>{drag={x:ev.clientX,y:ev.clientY,vb:vb.slice(),moved:false};});
-  svg.addEventListener('pointermove',ev=>{if(!drag)return; const r=svg.getBoundingClientRect();
-    const dx=(ev.clientX-drag.x)/r.width*vb[2], dy=(ev.clientY-drag.y)/r.height*vb[3];
-    if(Math.abs(dx)+Math.abs(dy)>1)drag.moved=true; vb=[drag.vb[0]-dx,drag.vb[1]-dy,vb[2],vb[3]]; set();});
-  svg.addEventListener('pointerup',()=>setTimeout(()=>drag=null));
-  svg.addEventListener('click',ev=>{if(drag&&drag.moved)return;
-    svg.querySelectorAll('.n,.e').forEach(el=>el.classList.remove('dim','hit'));
-    const g=ev.target.closest('.n'); if(!g)return;
-    const keep=walk(g.id,up,new Set([g.id])); walk(g.id,down,keep);
-    svg.querySelectorAll('.n').forEach(n=>n.classList.add(keep.has(n.id)?'hit':'dim'));
-    svg.querySelectorAll('.e').forEach(e=>{const to=e.dataset.g?members[e.dataset.g]:[e.dataset.b];
-      e.classList.add(keep.has(e.dataset.a)&&to.some(id=>keep.has(id))?'hit':'dim');});});
+// Every box reachable from box `id` by following `next` (sources, or targets) again and
+// again. Each is added to the set `found`, which is returned.
+function collectReachable(id, next, found) {
+  (next[id] || []).forEach(other => {
+    if (!found.has(other)) {
+      found.add(other);
+      collectReachable(other, next, found);
+    }
+  });
+  return found;
 }
 
-// Controls: one select per kind sets all its groups; "Each group" sets one at a time.
-const opts=kind=>MODES[kind].map(m=>`<option value="${m}">${m}</option>`).join('');
-document.querySelectorAll('#controls select[data-kind]').forEach(s=>{const kind=s.dataset.kind;
-  if(!G.groups.some(g=>g.kind===kind)){s.parentElement.style.display='none';return;}
-  s.innerHTML='<option value="mixed" disabled>mixed</option>'+opts(kind);
-  s.onchange=()=>{G.groups.filter(g=>g.kind===kind).forEach(g=>state.group[g.name]=s.value); draw();};});
-document.getElementById('groups').innerHTML=G.groups.map(g=>`<div><span>${esc(g.name)}</span><select data-group="${esc(g.name)}">${opts(g.kind)}</select></div>`).join('');
-document.querySelectorAll('#groups select').forEach(s=>s.onchange=()=>{state.group[s.dataset.group]=s.value; draw();});
-document.getElementById('view').onchange=e=>{state.view=e.target.value; draw();};
-document.getElementById('conditions').onchange=e=>{state.conditions=e.target.checked; draw();};
-document.getElementById('showReport').onchange=e=>{state.report=e.target.checked; draw();};
-function syncControls(){
-  document.querySelectorAll('#controls select[data-kind]').forEach(s=>{
-    const ms=new Set(G.groups.filter(g=>g.kind===s.dataset.kind).map(g=>state.group[g.name]));
-    s.value=ms.size===1?[...ms][0]:'mixed';});
-  document.querySelectorAll('#groups select').forEach(s=>s.value=state.group[s.dataset.group]);
-  document.getElementById('view').value=state.view;
-  document.getElementById('conditions').checked=state.conditions;
-  document.getElementById('showReport').checked=state.report;
+// Make the picture answer the mouse: the wheel zooms, dragging pans, and clicking a box
+// lights up its path (everything that feeds it and everything it feeds) and dims the rest.
+function addMouseHandlers(svg, visible) {
+  const neighbours = neighboursOf(visible);
+  const boxIdsByGroup = {};
+  visible.boxes.forEach(box => {
+    if (!boxIdsByGroup[box.group]) {
+      boxIdsByGroup[box.group] = [];
+    }
+    boxIdsByGroup[box.group].push(box.id);
+  });
+
+  // The part of the picture in sight, as [left, top, width, height]. Zooming and panning
+  // change it.
+  let viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+  // Where a drag started, kept from the mouse button going down until just after it comes up.
+  let drag = null;
+
+  function showViewBox() {
+    svg.setAttribute('viewBox', viewBox.join(' '));
+  }
+
+  // Zoom in or out, keeping the point under the mouse where it is.
+  function zoom(event) {
+    event.preventDefault();  // stop the page itself from scrolling
+    const bounds = svg.getBoundingClientRect();
+    const factor = event.deltaY > 0 ? 1.15 : 1 / 1.15;
+    const pointX = viewBox[0] + (event.clientX - bounds.left) / bounds.width * viewBox[2];
+    const pointY = viewBox[1] + (event.clientY - bounds.top) / bounds.height * viewBox[3];
+    viewBox = [
+      pointX - (pointX - viewBox[0]) * factor,
+      pointY - (pointY - viewBox[1]) * factor,
+      viewBox[2] * factor,
+      viewBox[3] * factor,
+    ];
+    showViewBox();
+  }
+
+  function startDrag(event) {
+    drag = {x: event.clientX, y: event.clientY, viewBox: viewBox.slice(), moved: false};
+  }
+
+  // Pan the picture with the mouse, while the button is down.
+  function moveDrag(event) {
+    if (!drag) {
+      return;
+    }
+    const bounds = svg.getBoundingClientRect();
+    const moveX = (event.clientX - drag.x) / bounds.width * viewBox[2];
+    const moveY = (event.clientY - drag.y) / bounds.height * viewBox[3];
+    if (Math.abs(moveX) + Math.abs(moveY) > 1) {
+      drag.moved = true;
+    }
+    viewBox = [drag.viewBox[0] - moveX, drag.viewBox[1] - moveY, viewBox[2], viewBox[3]];
+    showViewBox();
+  }
+
+  // Forget the drag only after the click that the browser sends when the button comes up,
+  // so that click can tell it ended a drag.
+  function endDrag() {
+    setTimeout(() => {
+      drag = null;
+    });
+  }
+
+  // Light up the clicked box's path and dim everything else. A click off every box clears
+  // the lighting; the click that ends a drag does nothing.
+  function lightUpPath(event) {
+    if (drag && drag.moved) {
+      return;
+    }
+    svg.querySelectorAll('.n,.e').forEach(element => element.classList.remove('dim', 'hit'));
+    const clicked = event.target.closest('.n');
+    if (!clicked) {
+      return;
+    }
+    const onPath = collectReachable(clicked.id, neighbours.sources, new Set([clicked.id]));
+    collectReachable(clicked.id, neighbours.targets, onPath);
+    svg.querySelectorAll('.n').forEach(box => {
+      box.classList.add(onPath.has(box.id) ? 'hit' : 'dim');
+    });
+    svg.querySelectorAll('.e').forEach(arrow => {
+      // A filters arrow ends at a group (data-g), so it is on the path if any box in the
+      // group is.
+      const ends = arrow.dataset.g ? boxIdsByGroup[arrow.dataset.g] : [arrow.dataset.b];
+      const lit = onPath.has(arrow.dataset.a) && ends.some(id => onPath.has(id));
+      arrow.classList.add(lit ? 'hit' : 'dim');
+    });
+  }
+
+  // passive: false lets zoom() stop the page from scrolling.
+  svg.addEventListener('wheel', zoom, {passive: false});
+  svg.addEventListener('pointerdown', startDrag);
+  svg.addEventListener('pointermove', moveDrag);
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('click', lightUpPath);
 }
-document.getElementById('controls').style.display='flex';
+
+// --- The controls -------------------------------------------------------------------------
+
+// The choices of a menu that sets how a group of this kind is shown.
+function modeOptions(kind) {
+  return MODES_BY_KIND[kind].map(mode => `<option value="${mode}">${mode}</option>`).join('');
+}
+
+// Fill in the controls, and say what each does when it changes. The Tables, Derived tables
+// and Outputs menus set every group of their kind at once; "Each group" sets one at a time.
+function setUpControls() {
+  document.querySelectorAll('#controls select[data-kind]').forEach(menu => {
+    const kind = menu.dataset.kind;
+    if (!graph.groups.some(group => group.kind === kind)) {
+      menu.parentElement.style.display = 'none';  // no group of this kind to set
+    } else {
+      // "mixed" shows when the groups of this kind are set differently; it can't be picked.
+      menu.innerHTML = '<option value="mixed" disabled>mixed</option>' + modeOptions(kind);
+      menu.onchange = () => {
+        graph.groups.filter(group => group.kind === kind).forEach(group => {
+          state.groupMode[group.name] = menu.value;
+        });
+        draw();
+      };
+    }
+  });
+  document.getElementById('groups').innerHTML = graph.groups.map(group => {
+    const name = escapeHtml(group.name);
+    const menu = `<select data-group="${name}">${modeOptions(group.kind)}</select>`;
+    return `<div><span>${name}</span>${menu}</div>`;
+  }).join('');
+  document.querySelectorAll('#groups select').forEach(menu => {
+    menu.onchange = () => {
+      state.groupMode[menu.dataset.group] = menu.value;
+      draw();
+    };
+  });
+  document.getElementById('view').onchange = event => {
+    state.view = event.target.value;
+    draw();
+  };
+  document.getElementById('conditions').onchange = event => {
+    state.conditions = event.target.checked;
+    draw();
+  };
+  document.getElementById('showReport').onchange = event => {
+    state.report = event.target.checked;
+    draw();
+  };
+}
+
+// Make every control show the current settings.
+function syncControls() {
+  document.querySelectorAll('#controls select[data-kind]').forEach(menu => {
+    const ofKind = graph.groups.filter(group => group.kind === menu.dataset.kind);
+    const modes = new Set(ofKind.map(group => state.groupMode[group.name]));
+    menu.value = modes.size === 1 ? Array.from(modes)[0] : 'mixed';
+  });
+  document.querySelectorAll('#groups select').forEach(menu => {
+    menu.value = state.groupMode[menu.dataset.group];
+  });
+  document.getElementById('view').value = state.view;
+  document.getElementById('conditions').checked = state.conditions;
+  document.getElementById('showReport').checked = state.report;
+}
+
+// Start: read the settings, set up the controls, show them (they stay hidden when scripts
+// are off), and draw.
+readSettingsFromAddress();
+setUpControls();
+document.getElementById('controls').style.display = 'flex';
 draw();
 </script></body></html>
 """
