@@ -59,12 +59,13 @@ def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expres
     return exp.Case(ifs=[exp.If(this=where._tree.copy(), true=then or tree)])
 
 
-def _aggregate(node, column, where, call, *, adds_up=True, because=None,
+def _aggregate(name, node, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
+    call = f"{name}({column!r})"
     column = _need_column(column, call)
     inner = _only_where(column._tree.copy(), where, call)
     tree = node(this=exp.Distinct(expressions=[inner])) if distinct else node(this=inner)
-    made_by(tree, call.split("(")[0], column, where=where)
+    made_by(tree, name, column, where=where)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
 
 
@@ -90,7 +91,7 @@ def count_distinct(column, where=None):
     >>> count_distinct(job_runs.job_id)
     COUNT(DISTINCT job_runs.job_id)
     """
-    return _aggregate(exp.Count, column, where, f"count_distinct({column!r})", adds_up=False,
+    return _aggregate("count_distinct", exp.Count, column, where, adds_up=False,
                       because="a distinct count", distinct=True)
 
 
@@ -109,7 +110,7 @@ def sum_of(column, where=None, adds_up=False):
     call = f"sum_of({column!r})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate(exp.Sum, column, where, call)
+    return _aggregate("sum_of", exp.Sum, column, where)
 
 
 def average_of(column, where=None, adds_up=False):
@@ -125,7 +126,8 @@ def average_of(column, where=None, adds_up=False):
     call = f"average_of({column!r})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate(exp.Avg, column, where, call, adds_up=False, because="an average")
+    return _aggregate("average_of", exp.Avg, column, where, adds_up=False,
+                      because="an average")
 
 
 def min_of(column, where=None):
@@ -134,7 +136,7 @@ def min_of(column, where=None):
     >>> min_of(job_runs.duration_mins)
     MIN(job_runs.duration_mins)
     """
-    return _aggregate(exp.Min, column, where, f"min_of({column!r})")
+    return _aggregate("min_of", exp.Min, column, where)
 
 
 def max_of(column, where=None):
@@ -143,7 +145,7 @@ def max_of(column, where=None):
     >>> max_of(job_runs.duration_mins)
     MAX(job_runs.duration_mins)
     """
-    return _aggregate(exp.Max, column, where, f"max_of({column!r})")
+    return _aggregate("max_of", exp.Max, column, where)
 
 
 def _as_column(value, call: str) -> Column:
