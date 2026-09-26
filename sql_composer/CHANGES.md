@@ -23,6 +23,12 @@ The first version of the new Toolbox. Everything is new:
   on days per Statement, both off to start with.
 - **Saved tables.** `INSERT_OVERWRITE(t)` writes one day of a Saved table, and
   `create_table(t)` creates it.
+- **Lineage.** `export_lineage(s)` writes where each column comes from, as an HTML page and
+  a Markdown twin that needs no script, in a `lineage/` folder beside your script or
+  notebook. Every step stays on screen, from the table columns through each Derived table to
+  the outputs, with controls to expand, collapse or hide each group. Pass several Statements
+  and the drawing follows each Saved table from the Statement that writes it to the ones that
+  read it.
 - **The Example database.** `example_database` holds three made-up tables and a `send` that
   runs Statements on them, to practise without touching the warehouse. What its small
   executor can't run, such as `row_number` or `week_start`, it says plainly.
