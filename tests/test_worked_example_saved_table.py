@@ -46,11 +46,13 @@ def test_the_two_writes_fill_the_day_with_the_runs_to_review() -> None:
     assert set(added.run_id) == alerted
 
 
-def test_backfill_writes_one_day_per_statement_oldest_first() -> None:
-    firsts = [to_hive(day).splitlines()[0] for day in example.backfill()]
+def test_backfill_writes_each_day_as_steps_2_and_3_do_oldest_first() -> None:
+    firsts = [to_hive(s).splitlines()[0] for s in example.backfill()]
     assert firsts == [
         "INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = '2026-09-23')",
+        "INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-23')",
         "INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = '2026-09-24')",
+        "INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-24')",
     ]
 
 

@@ -163,7 +163,8 @@ def _written_day(s: Statement):
     table, span = _bottom_read(s)
     if table._date_partition is None:
         raise _day_unknown(s, f"reads {table._name}, which has no Date partition",
-                     "Read a table with a Date partition in FROM, bounded to one day in WHERE.")
+                     "A Saved table is filled one day at a time from a table with days: "
+                     "read one with a Date partition in FROM, bounded to one day in WHERE.")
     if span is None or not span.is_bounded():
         raise _day_unknown(s, f"reads {table._name} without a bound on its Date partition",
                      f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "

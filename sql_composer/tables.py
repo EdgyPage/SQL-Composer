@@ -1025,9 +1025,10 @@ def create_table(t, may_exist=False):
     """The CREATE TABLE Statement for a Saved table, from its Table reference.
 
     Send it once with run(create_table(t), send=...). Every column needs a type. If the
-    table already exists, Hive refuses with AlreadyExistsException, so editing the Table
-    reference and sending this again can't quietly look like it changed the table: drop it
-    first with drop_table(t), or compare them with check_table_reference(t, send=...).
+    table already exists, Hive refuses with AlreadyExistsException. Without that refusal,
+    you could edit the Table reference, send this again, and think the table had changed when
+    it hadn't. Compare the two with check_table_reference(t, send=...), or, to start the
+    table again, drop it with drop_table(t), which deletes every day it holds.
     may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -1065,9 +1066,11 @@ def create_table(t, may_exist=False):
 
 
 def drop_table(t):
-    """The DROP TABLE IF EXISTS Statement for a table, from its Table reference.
+    """The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
 
-    It deletes the whole table, every day of it, and can't be undone from here. The usual
+    It deletes the whole table, every day of it, and the Toolbox can't bring it back. Use it
+    only for a Saved table you made: it takes any Table reference, so given a source table's,
+    such as job_runs, it would drop that table too, if your account is allowed to. The usual
     reason is changing a Saved table's columns: create_table refuses while the old table
     exists, so drop it, create it again, and write its days again. IF EXISTS means that
     sending it for a table that isn't there does nothing, rather than failing.

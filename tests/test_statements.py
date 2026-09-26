@@ -417,7 +417,7 @@ def test_insert_into_keeps_every_rule_of_a_write() -> None:
 
 
 def test_a_statement_has_one_write_at_most() -> None:
-    with pytest.raises(ValueError, match="one clause twice"):
+    with pytest.raises(ValueError, match="has INSERT_OVERWRITE and INSERT_INTO, but a Statement has only one INSERT clause"):
         statement(INSERT_OVERWRITE(daily_runs), INSERT_INTO(daily_runs),
                   SELECT(job_runs.job_id), FROM(job_runs), WHERE(DAYS))
 

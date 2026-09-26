@@ -79,3 +79,24 @@ Behaviour-neutral readability refactors landed in 63ebaaa.
   - Scope beyond the ticket's one example is recorded above.
   - `export_lineage` refuses a `drop_table` Statement as it refuses `create_table`'s, which is
     fine.
+
+**Beginner reader (2026-09-26):** [reports/23-beginner-reader.md](../reports/23-beginner-reader.md).
+Answered, since each is a bug against the scripts or a wording fix with one plain answer:
+
+- A1: `saved_table.backfill()` wrote only the failed runs, wiping step 3's rows. It now sends
+  each day's step 2 then step 3, and says what backfilling is for. `by_day` can't split
+  `alerted_runs`, whose DISTINCT would have to keep `dt`, which a write can't select.
+- A2: `INSERT_INTO`'s example adds a second table's rows (runs with a high alert) and says to
+  send `INSERT_OVERWRITE` first; its first line warns that sending it twice adds twice.
+- A3: `drop_table` is for a Saved table you made, and says it would drop a source table too.
+  `create_table` offers `check_table_reference` first, and says the drop deletes every day.
+- A4: a clause twice now names it: "has INSERT_OVERWRITE and INSERT_INTO, but a Statement has
+  only one INSERT clause".
+- A5, B7, B8, B10, B11, B16, B17, B18 and B25: "two jobs"; "Build a Saved table"; why `dt` isn't
+  selected; why WHERE may test a total from a step; the create_table negatives unstacked; the
+  no-Date-partition fix says a Saved table is filled from a table with days; "one day's
+  Partition" gone; `run_query` explained; the TEST run left out of the outcome counts.
+
+Left for the user to decide: B5 (what to advise about HIVE-18702 needs the work cluster's Hive
+version and engine, still in the map's "Not yet specified"); B9, B12, B13, B19 to B24, B26 to
+B30, each a one-line wording choice in older docstrings or the gallery header.

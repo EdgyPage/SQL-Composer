@@ -53,7 +53,7 @@ functions.</p>
 <li><a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a></li>
 <li><a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></li>
 <li><a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></li>
-<li><a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></li>
+<li><a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></li>
 <li><a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a></li>
 </ul>
 <p><b>Worked examples of a wrong number,</b> each showing a Statement that gives a wrong
@@ -305,7 +305,7 @@ WHERE
 
     count_rows(where=...) counts only the rows where its condition holds, so each column
     counts one kind of run. A run still going is counted with is_null, since equals can&#x27;t
-    find NULL.
+    find NULL. A TEST run is in none of the three columns, so they needn&#x27;t add up to the runs.
     &quot;&quot;&quot;
     return statement(
         SELECT(
@@ -336,7 +336,7 @@ GROUP BY
 </section>
 <section class="entry" id="lists_and_text">
 <h3>Keep rows by a list of values, by either of two conditions, or by text.</h3>
-<p class="why">Why: filters like &quot;these three jobs&quot;, &quot;failed or still running&quot; and &quot;names starting with&quot; come up in almost every Statement, and each has one trap worth knowing.</p>
+<p class="why">Why: filters like &quot;these two jobs&quot;, &quot;failed or still running&quot; and &quot;names starting with&quot; come up in almost every Statement, and each has one trap worth knowing.</p>
 <p class="label">The top of its script, statements/lists_and_text.py</p>
 <pre class="python">from sql_composer import (
     FROM, SELECT, WHERE, any_of, between, contains, equals, example_database, is_in,
@@ -435,13 +435,13 @@ WHERE
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>is_in</code>, <code>is_not_in</code>, <code>contains</code>, <code>starts_with</code>, <code>any_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="saved_table">
-<h3>Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</h3>
+<h3>Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</h3>
 <p class="why">Why: a result that is slow to work out, or read by many notebooks, is cheaper to work out once a day and save than to work out again every time someone reads it.</p>
-<p>A Saved table is written one day at a time, and each function below is one step. The Example database can&#x27;t be written to, so the steps show their Hive but no result. At work, send each one with run(step(), send=run_query), or loop over the ones that return a list.</p>
+<p>A Saved table is written one day at a time, and each function below is one step. The Example database can&#x27;t be written to, so the steps show their Hive but no result. At work, send each one with run(step(), send=run_query), run_query being your own send function, and loop over the ones that return a list.</p>
 <p class="label">The top of its script, statements/saved_table.py</p>
 <pre class="python">from sql_composer import (
-    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, between, by_day,
-    create_table, drop_table, equals, example_database, statement,
+    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, create_table,
+    drop_table, equals, example_database, statement,
 )
 from table_references.runs_to_review import runs_to_review
 
@@ -503,6 +503,7 @@ STORED AS ORC</pre><p class="note">No result here. The Example database only ans
     &quot;&quot;&quot;
     return statement(
         INSERT_OVERWRITE(runs_to_review),
+        # dt isn&#x27;t selected: PARTITION(dt = ...) in the Hive fills it with the day read.
         SELECT(job_runs.run_id, job_runs.job_id),
         FROM(job_runs),
         WHERE(equals(job_runs.dt, day), equals(job_runs.status, &quot;FAILED&quot;)),
@@ -515,8 +516,9 @@ WHERE
   job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day=LAST_DAY):
     &quot;&quot;&quot;Step 3: add that day&#x27;s runs that succeeded but raised a high alert.
 
-    INSERT_INTO keeps the failed runs step 2 wrote, and adds these beside them: a second
-    source for the same day. Send it once, after step 2. Sent twice, these runs would be in
+    INSERT_INTO keeps the failed runs step 2 wrote, and adds these beside them. They come
+    from a second table, run_alerts, which is why they are a second Statement rather than
+    another condition in step 2. Send it once, after step 2. Sent twice, these runs would be in
     the day twice; to redo a day, send step 2 again first, which clears it.
     &quot;&quot;&quot;
     return statement(
@@ -542,33 +544,52 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><h4><code>backfill()</code></h4><pre class="python">def backfill():
-    &quot;&quot;&quot;Step 4: write several days, one Statement per day, oldest first.
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days=(FIRST_DAY, LAST_DAY)):
+    &quot;&quot;&quot;Step 4: write past days, oldest first, each the way steps 2 and 3 write one.
 
-    A write fills one day at a time, so by_day splits a Statement that reads several days
-    into one Statement per day. Send them in a loop:
+    To backfill is to write days that have already happened: a new table&#x27;s past days, every
+    day again after rebuild(), or a day again after fixing a mistake in a step. Each day
+    gets step 2 then step 3, in that order, so it starts clean and keeps both sources. A
+    day filled by one Statement alone can be split into days with by_day(s) instead.
 
-        for day in backfill():
-            run(day, send=run_query)
+        for s in backfill():
+            run(s, send=run_query)
     &quot;&quot;&quot;
-    return by_day(statement(
-        INSERT_OVERWRITE(runs_to_review),
-        SELECT(job_runs.run_id, job_runs.job_id),
-        FROM(job_runs),
-        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY), equals(job_runs.status, &quot;FAILED&quot;)),
-    ))</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
+    return [s for day in days for s in (failed_runs(day), alerted_runs(day))]</pre><p class="label">Hive of Statement 1 of 4</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
 SELECT
   job_runs.run_id,
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt = &#x27;2026-09-23&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+  job_runs.dt = &#x27;2026-09-23&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><p class="label">Hive of Statement 2 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
+SELECT DISTINCT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.run_alerts AS run_alerts
+JOIN ops.job_runs AS job_runs
+  ON job_runs.run_id = run_alerts.run_id
+WHERE
+  run_alerts.dt = &#x27;2026-09-23&#x27;
+  AND job_runs.dt = &#x27;2026-09-23&#x27;
+  AND run_alerts.severity = &#x27;high&#x27;
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><p class="label">Hive of Statement 3 of 4</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
 SELECT
   job_runs.run_id,
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt = &#x27;2026-09-24&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><p class="label">Hive of Statement 4 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT DISTINCT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.run_alerts AS run_alerts
+JOIN ops.job_runs AS job_runs
+  ON job_runs.run_id = run_alerts.run_id
+WHERE
+  run_alerts.dt = &#x27;2026-09-24&#x27;
+  AND job_runs.dt = &#x27;2026-09-24&#x27;
+  AND run_alerts.severity = &#x27;high&#x27;
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
     &quot;&quot;&quot;Step 5, rarely: after changing the table&#x27;s columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.
@@ -583,7 +604,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p>
-<p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>drop_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>by_day</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>drop_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="step_by_step">
 <h3>Build a long Statement from named steps, each one reading the step before it.</h3>
@@ -663,6 +684,7 @@ GROUP BY
     return statement(
         SELECT(per_team.team, per_team.minutes),
         FROM(per_team),
+        # A total from step 2 is a plain column here, one per row, so WHERE can test it.
         WHERE(at_least(per_team.minutes, 100)),
     )</pre><p class="label">Hive</p><pre class="hive">WITH per_job AS (
   SELECT
@@ -1286,7 +1308,7 @@ WHERE
 ...
 AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;status&#x27;? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.</pre>
 <p class="names">Toolbox names used: <code>Table</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
@@ -1378,7 +1400,7 @@ Notes:
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE TABLE Statement for a Saved table, from its Table reference.</p>
-<p>Send it once with run(create_table(t), send=...). Every column needs a type. If the table already exists, Hive refuses with AlreadyExistsException, so editing the Table reference and sending this again can&#x27;t quietly look like it changed the table: drop it first with drop_table(t), or compare them with check_table_reference(t, send=...). may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
+<p>Send it once with run(create_table(t), send=...). Every column needs a type. If the table already exists, Hive refuses with AlreadyExistsException. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(create_table(daily_runs)))</pre>
@@ -1393,12 +1415,12 @@ PARTITIONED BY (
 STORED AS ORC</pre>
 <p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p>
 <p class="names">Toolbox names used: <code>create_table</code>, <code>Table</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="drop_table">
 <h3><code>drop_table</code></h3>
-<p class="why">The DROP TABLE IF EXISTS Statement for a table, from its Table reference.</p>
-<p>It deletes the whole table, every day of it, and can&#x27;t be undone from here. The usual reason is changing a Saved table&#x27;s columns: create_table refuses while the old table exists, so drop it, create it again, and write its days again. IF EXISTS means that sending it for a table that isn&#x27;t there does nothing, rather than failing.</p>
+<p class="why">The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.</p>
+<p>It deletes the whole table, every day of it, and the Toolbox can&#x27;t bring it back. Use it only for a Saved table you made: it takes any Table reference, so given a source table&#x27;s, such as job_runs, it would drop that table too, if your account is allowed to. The usual reason is changing a Saved table&#x27;s columns: create_table refuses while the old table exists, so drop it, create it again, and write its days again. IF EXISTS means that sending it for a table that isn&#x27;t there does nothing, rather than failing.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(drop_table(daily_runs)))</pre>
@@ -1406,7 +1428,7 @@ STORED AS ORC</pre>
 <pre class="output">DROP TABLE IF EXISTS mart.daily_runs</pre>
 <p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p>
 <p class="names">Toolbox names used: <code>drop_table</code>, <code>Table</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="all_columns">
 <h3><code>all_columns</code></h3>
@@ -1477,7 +1499,7 @@ FROM ops.jobs AS jobs</pre>
 <tr><td>web</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>statement</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="AS">
 <h3><code>AS</code></h3>
@@ -1554,7 +1576,7 @@ WHERE
 <tr><td>103</td><td>finance</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>JOIN</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="LEFT_JOIN">
 <h3><code>LEFT_JOIN</code></h3>
@@ -1774,35 +1796,31 @@ GROUP BY
   job_runs.job_id</pre>
 <p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p>
 <p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="INSERT_INTO">
 <h3><code>INSERT_INTO</code></h3>
-<p class="why">Add rows to one day of a Saved table, keeping the rows already there.</p>
-<p>It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the Statement reads, and its columns are matched by name. The difference is what happens to the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and adds more. Use it when a day is filled by more than one Statement, such as one for each source. Sending the same Statement twice adds its rows twice, so the day&#x27;s counts and sums double; if a send may be repeated, use INSERT_OVERWRITE.</p>
-<pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
-    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
+<p class="why">Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.</p>
+<p>It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the Statement reads, and its columns are matched by name. The difference is what happens to the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and adds more. Use it when a day&#x27;s rows come from more than one table: send INSERT_OVERWRITE for the day first, from the first table, then INSERT_INTO from each other table. Sending the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its INSERT_OVERWRITE. Below, a day of failed runs gets the runs with a high alert added.</p>
+<pre class="python">run_alerts = example_database.run_alerts</pre>
+<pre class="python">runs_to_review = Table(&quot;mart.runs_to_review&quot;, date_partition=&quot;dt&quot;,
+    columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(
-    INSERT_INTO(daily_runs),
-    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
-    FROM(job_runs),
-    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
-    GROUP_BY(job_runs.dt, job_runs.job_id),
+    INSERT_INTO(runs_to_review),
+    SELECT_DISTINCT(run_alerts.run_id),
+    FROM(run_alerts),
+    WHERE(equals(run_alerts.dt, &quot;2026-09-24&quot;), equals(run_alerts.severity, &quot;high&quot;)),
 )))</pre>
 <p class="label">Hive</p>
-<pre class="output">INSERT INTO mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;)
-SELECT
-  job_runs.job_id,
-  COUNT(*) AS runs
-FROM ops.job_runs AS job_runs
+<pre class="output">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT DISTINCT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27;
-GROUP BY
-  job_runs.dt,
-  job_runs.job_id</pre>
+  run_alerts.dt = &#x27;2026-09-24&#x27; AND run_alerts.severity = &#x27;high&#x27;</pre>
 <p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p>
-<p class="names">Toolbox names used: <code>INSERT_INTO</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Toolbox names used: <code>INSERT_INTO</code>, <code>Table</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code>, <code>example_database</code></p>
+<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="statement">
 <h3><code>statement</code></h3>
@@ -1886,7 +1904,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.status = &#x27;O\&#x27;Brien&#x27;</pre>
 <p class="names">Toolbox names used: <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="not_equals">
 <h3><code>not_equals</code></h3>
@@ -1959,7 +1977,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.dt BETWEEN &#x27;2026-09-01&#x27; AND &#x27;2026-09-24&#x27;</pre>
 <p class="names">Toolbox names used: <code>between</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="last_n_days">
 <h3><code>last_n_days</code></h3>
@@ -2292,7 +2310,6 @@ GROUP BY
 <tr><td>2026-09-24</td><td>SUCCESS</td><td>3</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>by_day</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Keep a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="set_load_limits">
 <h3><code>set_load_limits</code></h3>

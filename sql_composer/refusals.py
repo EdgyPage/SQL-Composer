@@ -248,7 +248,7 @@ def guard_one_day_per_write(call: str, days: int) -> None:
         four_part_message(
             what=f"{call} covers {days} days.",
             why="A write fills one day of the Saved table at a time, so every day's rows "
-            "would land in one day's Partition.",
+            "would land in that one day.",
             fix="Send one Statement per day: for day in by_day(s): run(day, send=...).",
             opt_out=None,
         )
