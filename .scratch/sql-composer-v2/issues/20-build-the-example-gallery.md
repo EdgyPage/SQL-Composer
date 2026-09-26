@@ -1,7 +1,7 @@
 # Build the Example gallery
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 15, 18, 21
 
 ## Question
@@ -46,3 +46,56 @@ standalone Worked examples, among them the latest-per-key and top-N-per-group pa
 - **The `row_number` and `week_start` entries** show a pandas result labelled "computed in pandas,
   not by running this Hive".
 - **On the sqlglot 25.24.2 CI run,** the regenerate-and-compare test skips with a reason.
+
+**Build decisions (2026-09-25), where the tickets left something open.** Each picks the most
+beginner-readable option; the user may overturn any of them.
+
+- **Where the scripts sit:** the ticket says the Example database's `statements/` folder;
+  "Build the Example database's demonstrations" put them in `worked_examples/statements/`, so the
+  gallery reads every Statement script there, in file-name order. A later script joins the
+  gallery by being added to that folder.
+- **The generator is `tools/example_gallery.py`,** beside `tools/export_clean.py`: a `dev`-only
+  script that never ships, since the export copies only `sql_composer/`.
+  `python tools/example_gallery.py` rewrites `sql_composer/examples.html`. It needs sqlglot
+  30.19.0, the `dev` pin, since it runs the Example database.
+- **The seams under test:** the committed `sql_composer/examples.html`, read as text (what
+  ships); `example_gallery.gallery_page()`, which returns the page, compared with the committed
+  copy; the export's `build(...)`, which must stamp the page and list it in `_FILES`; and the
+  import self-check, which must stop when the page is missing.
+- **Order:** the Worked examples on their own come first, since they show what goes wrong; then
+  every docstring's example, in the cheat sheet's order (`__all__`). The two constants share
+  the Toolbox's own docstring, so they are one entry. `example_database.send`'s docstring has an
+  example too, so it gets an entry after `example_database`.
+- **A docstring entry** shows the name as its title and its first line (its cheat-sheet line)
+  as the why, then the rest of the docstring's prose. The example is shown step by step, like a
+  notebook: each step's Python without the `>>>` prompts, so it pastes into a notebook, and under
+  it what the docstring shows, labelled "Hive" when it is Hive. The shown output is the
+  docstring's own, which the doctests check, so `help(name)` and the gallery agree.
+- **Hive and results for a docstring:** each Statement the example hands to `to_hive(...)` is
+  run on the Example database, and its result table is shown. Each Statement it hands to
+  `run(...)` gets its Hive shown, since the docstring shows only the result. Where the Example
+  database can't run a Statement, the entry says so in one line, from its own message. Where
+  a Worked example builds the same Hive and has a pandas result, that result is shown instead,
+  labelled "computed in pandas, not by running this Hive": that is how `row_number`'s entry
+  gets its latest run per job. `week_start`'s example builds no Statement, so its entry shows
+  each day of the Example database with its week, computed in pandas by the re-grouping Worked
+  example's own `with_week`, with the same label.
+- **A Worked example's entry** shows its title, its why, and the rest of its module docstring;
+  the top of the script (imports and the days it reads) and every Building block it imports, so
+  the Python is complete; then `careless()` and `fixed()` side by side, each with its Python,
+  its Hive and its result. Under the careless side is the Guard's refusal or the Warning's
+  message. Where the Guard has an opt-out, the careless side also shows the Statement with the
+  opt-out pasted, its Hive and its wrong result, which is what Hive would give. Any other
+  Statement function in the script (`top_runs_per_job`) is shown below the pair the same way.
+- **Result tables** are plain HTML tables with no index column, as Hive returns them, and a
+  missing value reads `NULL`, the word the Worked examples use.
+- **Toolbox names used** are the public names read from the Python shown (plus the entry's own
+  name for a docstring), in the cheat sheet's order. A docstring entry also links to the Worked
+  examples that use its name.
+- **Today is 2026-09-25 on the page,** as in the doctests, so `last_n_days(job_runs.dt, 2)`
+  reads both of the Example database's days. The page says so at the top.
+- **The page:** light colours and system fonts like the lineage page; one `<style>`, and one
+  short `<script>` that shows a filter box (hidden without scripts) and hides the entries that
+  don't hold every word typed. Everything else is plain HTML, so Ctrl+F finds any word.
+- **The README template** gains one sentence pointing at `sql_composer/examples.html`, and
+  `CHANGES.md` a line under 2.0, since a user who doesn't know the page exists can't open it.
