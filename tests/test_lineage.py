@@ -96,7 +96,10 @@ def read(files) -> tuple[str, str]:
 
 
 def page_data(page: str) -> dict:
-    """The boxes, arrows and groups the HTML page's script draws from."""
+    """The boxes, arrows and groups the HTML page's script draws from.
+
+    The page writes them as JSON on the one line after `const graph = `.
+    """
     return json.loads(re.search(r"const graph = (\{.*\});\n", page).group(1))
 
 
