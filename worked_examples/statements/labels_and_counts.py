@@ -37,7 +37,7 @@ def outcomes_per_job():
 
     count_rows(where=...) counts only the rows where its condition holds, so each column
     counts one kind of run. A run still going is counted with is_null, since equals can't
-    find NULL.
+    find NULL. A TEST run is in none of the three columns, so they needn't add up to the runs.
     """
     return statement(
         SELECT(

@@ -52,6 +52,7 @@ def busy_teams():
     return statement(
         SELECT(per_team.team, per_team.minutes),
         FROM(per_team),
+        # A total from step 2 is a plain column here, one per row, so WHERE can test it.
         WHERE(at_least(per_team.minutes, 100)),
     )
 

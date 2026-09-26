@@ -12,7 +12,7 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   send with `run`. It deletes every day of the table, and is for rebuilding a Saved table
   after changing its columns: drop it, create it again, and write its days again.
 - **More Worked examples.** The Example gallery now starts with common jobs, each built in
-  steps that say why: keeping a Saved table (create it, write a day, add to a day,
+  steps that say why: building a Saved table (create it, write a day, add to a day,
   backfill, drop and rebuild it), jobs with no runs, labels and counts by condition, counts
   per group with `HAVING` and the top N, filters by a list or by text, and a long Statement
   built from named steps. The Statements that give a wrong number beside their fix follow.

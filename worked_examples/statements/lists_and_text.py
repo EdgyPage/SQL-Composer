@@ -1,6 +1,6 @@
 """Keep rows by a list of values, by either of two conditions, or by text.
 
-Why: filters like "these three jobs", "failed or still running" and "names starting with"
+Why: filters like "these two jobs", "failed or still running" and "names starting with"
 come up in almost every Statement, and each has one trap worth knowing.
 """
 

@@ -81,7 +81,7 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 Python and, for each Statement it builds, the Hive and any result, from the Example database
 or, where the Example database can't run it, computed in pandas. It holds the docstrings'
 examples and the Worked examples on their own: common jobs built in steps that each say why,
-such as keeping a Saved table or finding rows with no match, and Statements that give a wrong
+such as building a Saved table or finding rows with no match, and Statements that give a wrong
 number shown beside their fix. Open it in your browser. It needs nothing else: a box at the top
 keeps only the examples holding every word you type, and Ctrl+F searches it too.
 

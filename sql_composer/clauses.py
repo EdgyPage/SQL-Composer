@@ -594,34 +594,31 @@ def INSERT_OVERWRITE(table):
 
 
 def INSERT_INTO(table):
-    """Add rows to one day of a Saved table, keeping the rows already there.
+    """Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
 
     It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
     Statement reads, and its columns are matched by name. The difference is what happens to
     the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and
-    adds more. Use it when a day is filled by more than one Statement, such as one for each
-    source. Sending the same Statement twice adds its rows twice, so the day's counts and
-    sums double; if a send may be repeated, use INSERT_OVERWRITE.
+    adds more. Use it when a day's rows come from more than one table: send INSERT_OVERWRITE
+    for the day first, from the first table, then INSERT_INTO from each other table. Sending
+    the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its
+    INSERT_OVERWRITE. Below, a day of failed runs gets the runs with a high alert added.
 
-    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    >>> run_alerts = example_database.run_alerts
+    >>> runs_to_review = Table("mart.runs_to_review", date_partition="dt",
+    ...     columns={"run_id": "bigint", "dt": "string"})
     >>> print(to_hive(statement(
-    ...     INSERT_INTO(daily_runs),
-    ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
-    ...     FROM(job_runs),
-    ...     WHERE(equals(job_runs.dt, "2026-09-24")),
-    ...     GROUP_BY(job_runs.dt, job_runs.job_id),
+    ...     INSERT_INTO(runs_to_review),
+    ...     SELECT_DISTINCT(run_alerts.run_id),
+    ...     FROM(run_alerts),
+    ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )))
-    INSERT INTO mart.daily_runs PARTITION(dt = '2026-09-24')
-    SELECT
-      job_runs.job_id,
-      COUNT(*) AS runs
-    FROM ops.job_runs AS job_runs
+    INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-24')
+    SELECT DISTINCT
+      run_alerts.run_id
+    FROM ops.run_alerts AS run_alerts
     WHERE
-      job_runs.dt = '2026-09-24'
-    GROUP BY
-      job_runs.dt,
-      job_runs.job_id
+      run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
     """
     return _write_clause("INSERT_INTO", table)
 
@@ -640,11 +637,22 @@ def _check_order(clauses) -> None:
             )
     places = [clause._place() for clause in clauses]
     ranks = [ORDER.index(place) for place in places]
-    # Only a join may come more than once. This also refuses two writes, or two SELECTs.
-    twice = [place for place in set(places) if place != "JOIN" and places.count(place) > 1]
-    if ranks != sorted(ranks) or twice:
+    # Only a join may come more than once: not two writes, nor SELECT with SELECT_DISTINCT.
+    for place in ORDER:
+        found = [clause._name for clause in clauses if clause._place() == place]
+        if place != "JOIN" and len(found) > 1:
+            _misuse(
+                what=f"statement(...) has {' and '.join(found)}, but a Statement has only one "
+                f"{place} clause.",
+                why="A Statement is one query, so it has one of each clause (only JOINs may "
+                "repeat), and it writes at most once.",
+                fix="Keep one of them. Put all conditions in one WHERE, and send a second "
+                "write as a Statement of its own.",
+                error=ValueError,
+            )
+    if ranks != sorted(ranks):
         _misuse(
-            what="statement(...) has its clauses out of SQL order, or one clause twice: "
+            what="statement(...) has its clauses out of SQL order: "
             + ", ".join(clause._name for clause in clauses) + ".",
             why="A Statement reads in SQL order, one clause each.",
             fix="Order them as INSERT_OVERWRITE or INSERT_INTO, SELECT, FROM, JOIN..., WHERE, "
