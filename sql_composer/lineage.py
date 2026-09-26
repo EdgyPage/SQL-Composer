@@ -19,6 +19,7 @@ from pathlib import Path
 
 from sqlglot import exp
 
+from . import VERSION
 from .clauses import Statement, derived_tables
 from .refusals import GuardRefused, four_part_message
 from .running import by_day, to_hive
@@ -747,8 +748,6 @@ def export_lineage(*statements, to=None):
 
 
 def _footer(when: datetime.datetime, commit: str) -> str:
-    from . import VERSION
-
     return (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
             f"{commit}, with {VERSION}.")
 
