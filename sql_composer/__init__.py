@@ -57,9 +57,13 @@ def _version_of(path):
 
 
 def _stamp_of(path):
-    with open(path, encoding="utf-8") as file:
+    """The export stamp on line 1, from a `# ...` or `<!-- ... -->` comment, or None."""
+    with open(path, encoding="utf-8", errors="replace") as file:
         first = file.readline().strip()
-    return first if first.startswith("# SQL Composer") else None
+    for start, end in (("# ", ""), ("<!-- ", " -->")):
+        if first.startswith(start + "SQL Composer") and first.endswith(end):
+            return first[len(start):len(first) - len(end)]
+    return None
 
 
 def _check_files():
@@ -83,11 +87,22 @@ def _check_files():
         if version != TOOLBOX_VERSION:
             _stop(f"sql_composer {TOOLBOX_VERSION}: {name} is from {version or 'another version'}"
                   f" - paste it again from the {TOOLBOX_VERSION} download.")
-    stamps = {name: _stamp_of(os.path.join(_HERE, name)) for name in python_files}
+    stamps = {
+        name: _stamp_of(os.path.join(_HERE, name))
+        for name in present if os.path.isfile(os.path.join(_HERE, name))
+    }
     if len(set(stamps.values())) > 1:
+        from .refusals import four_part_message
+
         odd = sorted(name for name, stamp in stamps.items() if stamp != stamps["__init__.py"])
-        _stop(f"{', '.join(odd)} came from a different export than __init__.py - paste the "
-              "whole folder again from one download.")
+        _stop(four_part_message(
+            what=f"{', '.join(odd)} came from a different export than __init__.py.",
+            why="Two exports of the same version can differ, so the code, the Example gallery "
+            "and the change notes in this folder may not match each other.",
+            fix="Delete the sql_composer folder and copy in the new one whole, from one "
+            "download.",
+            opt_out=None,
+        ))
 
 
 def _dotted(numbers):
@@ -145,7 +160,7 @@ def _version_text():
     stamp = _stamp_of(os.path.join(_HERE, "__init__.py"))
     if stamp is None:
         return f"SQL Composer {TOOLBOX_VERSION}, not exported (dev)"
-    return stamp[2:].split(" - ")[0]
+    return stamp.split(" - ")[0]
 
 
 _check_python()
