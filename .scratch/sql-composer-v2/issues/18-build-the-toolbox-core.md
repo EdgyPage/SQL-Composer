@@ -361,8 +361,9 @@ checking the whole message. What was done:
     `__init__.py` itself;
   - **two exports:** unchanged, except its heading no longer ends in a stray space;
   - **no sqlglot**, **a sqlglot outside the range** and **one that behaves differently**:
-    fix, a `pip install` line with the range (or the tested 30.19.0), then restart the kernel.
-    A sqlglot that can't be imported had no test before; it has one now.
+    fix, a `%pip install` line to run in a notebook cell with the range (or, reinstalling, the
+    tested 30.19.0), then restart the kernel, or ask whoever looks after your environment. A
+    sqlglot that can't be imported had no test before; it has one now.
 - **Import order.** The self-check needs the four-part function before any other file can be
   trusted, or even found. It lived in `refusals.py`, so a missing or older `refusals.py`
   would have crashed the missing-file or version stop with a raw `ImportError` about
@@ -379,6 +380,76 @@ checking the whole message. What was done:
   an opt-out.
 - **`CHANGES.md`'s 2.0 self-check line** now says each stop has the four parts and none can be
   switched off (ac2d38a). `TOOLBOX_VERSION` stays "2.0".
+
+**Code review of the decision (2026-09-25), `code-review` over `f4a0e03..HEAD`,** with the
+user's brief as the spec and `docs/agents/standards.md` as the standards. Fixed in 811a525,
+tests first:
+
+- **Standards:** the extra and missing stops read the same for one file or several (the
+  plural was handled two ways, with cryptic `is_`/`isnt` locals); the extra stop's why now
+  names the case its fix treats first, your own script inside the folder; "the sqlglot
+  library" is just sqlglot; "Nothing has been built or sent" moves from why to what happened.
+- **Spec:** a bare `pip install` in a notebook can reach another Python than the kernel's, so
+  the sqlglot fixes say `%pip install` in a notebook cell, and add whom to ask when you can't
+  install packages, as the Python stop does. The Toolbox docstring and the README template
+  now name every kind of stop, not only missing, extra and other-version files. The Example
+  gallery is regenerated.
+
+Answered, not changed:
+
+- **An `__init__.py` from an export before ac2d38a, next to a `refusals.py` from after it,
+  stops with a raw error.** Such an `__init__.py` imports `four_part_message` from
+  `refusals.py` for its two-exports stop, and the new `refusals.py` imports it back from
+  `__init__.py`, which the old one doesn't have. The import still stops, but the message is
+  Python's "cannot import name '_four_part_message' from partially initialized module".
+  `main` and `origin/main` hold three such exports of 2.0 (14b0b6a, a3c7355, c847494). It
+  needs a single file pasted from a newer export over one of those, against the documented
+  update, and goes away once the folder is replaced whole. Keeping a second copy of the
+  function in `refusals.py` to cover it would break "one helper"; the user may weigh it.
+- **The fix "Delete the sql_composer folder, then copy the whole folder in again" is written
+  out four times** in `_check_files`. standards.md prefers plain repetition to a constant a
+  reader has to look up.
+- **`refusals.py` re-exports a private name of `__init__.py`.** The comment there says why,
+  and none of the six modules that import `four_part_message` from `refusals.py` changes.
+- **`_stop` and `clauses.py`'s `_misuse` have the same shape.** They raise different errors
+  at different moments, and each is two lines.
+- **"SQL Composer 2.0" and "Toolbox version 1.9" sit side by side.** The version stop needs
+  the glossary word to say which part differs; the others name the Toolbox by name, as the
+  export stamp does.
+- **On `dev`, where the file list is unset, a script of your own put inside the folder
+  reaches the version stop,** whose fix doesn't say to move it out first. An exported copy
+  reaches the extra-file stop first, which does.
+
+**Beginner reader (2026-09-25).** Report:
+[reports/import-stops-beginner-reader.md](../reports/import-stops-beginner-reader.md), run
+over only the eight import stops (each provoked in a scratch copy), the `GuardRefused`
+docstring and the self-check sentence. Its advice is for the user. Its outright bugs, fixed in
+7b719b6, test first where a test can hold them:
+
+- the behaves-differently stop, on a sqlglot that already says 30.19.0 (a patched build), told
+  you to install 30.19.0, which pip skips as already satisfied. It now says
+  `%pip install --force-reinstall "sqlglot==30.19.0"`;
+- the missing-file stop's why ("would make a part of it fail later") was false for
+  `examples.html` and `CHANGES.md`. It now says what a missing `.py` file does and what a
+  missing page or notes file costs;
+- the README template's Update section said "None of your own files are inside the folder, so
+  deleting it is safe" as a fact, and the extra-file check runs only after the folder is
+  deleted. It now says to keep your own files beside the folder, which is what makes deleting
+  it safe.
+
+Not a bug, so left for the user: stop 4's "from one download" doesn't say to take the newest
+(the advice is right either way). Its costliest stops, for the user to weigh: the
+behaves-differently stop names the same version it tells you to install; "export" has no
+glossary entry, so the two-exports stop ("two exports of the same Toolbox version can
+differ") held it up; and "Toolbox version" next to "SQL Composer 2.0" took a reread. It also
+found "25.24.2 or newer, below 31.0.0" awkward.
+
+**Drift.** Every commit that touched a watched path was reviewed: ac2d38a, 4757cc0, 811a525
+and 7b719b6. All were clean, so no item opened and none is open.
+
+**Checks at the end:** on sqlglot 30.19.0, all 945 tests pass. On 25.24.2, in a throwaway
+environment, 900 pass and 45 skip with their reasons (the two backtick round trips, and the
+tests that need the Example database's executor), with no failures.
 
 ## Answer
 
@@ -433,3 +504,5 @@ The report is advice for the user. The code review fixed its two bugs:
 - raw executor errors for `row_number` and `week_start`.
 
 Beginner reader (the user's decisions): .scratch/sql-composer-v2/reports/decisions-beginner-reader.md
+
+Beginner reader (import stops): .scratch/sql-composer-v2/reports/import-stops-beginner-reader.md
