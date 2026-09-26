@@ -62,17 +62,21 @@ class Graph:
         self.arrows = []
 
     def add(self, key: str, **facts) -> str:
+        """Add a box and return its key. A box already added keeps its first facts."""
         self.boxes.setdefault(key, facts)
         return key
 
     def arrow(self, source: str | None, target: str, kind: str) -> None:
+        """Add an arrow once. A source of None (a column that names no box) adds nothing."""
         if source is not None and (source, target, kind) not in self.arrows:
             self.arrows.append((source, target, kind))
 
     def parents(self, key: str, kind: str | None = None) -> list[str]:
+        """The boxes with an arrow into `key`: only arrows of `kind`, unless it is None."""
         return [a for a, b, k in self.arrows if b == key and kind in (None, k)]
 
     def upstream(self, key: str, kind: str | None = None) -> list[str]:
+        """Every box with a path of arrows into `key`: only arrows of `kind`, unless it is None."""
         seen, todo = [], [key]
         while todo:
             for parent in self.parents(todo.pop(), kind):
@@ -89,6 +93,7 @@ def _box_key(kind: str, *parts) -> str:
 
 
 def _table_box(graph: Graph, table, column: str) -> str:
+    """The key of a table column's box, which is added the first time the column is read."""
     return graph.add(_box_key("table", f"{table._name}.{column}"), kind="table",
                      group=table._name, name=f"{table._name}.{column}",
                      full=f"{table._name}.{column}",
@@ -236,6 +241,7 @@ def _derived_group_names(ordered) -> dict:
 
 
 def _tables_read(s: Statement) -> set[str]:
+    """The names of the real tables a Statement reads, itself or through its Derived tables."""
     steps = [s] + [table._statement for table in derived_tables(s)]
     return {read.table._name for step in steps for read in step._reads
             if read.table._statement is None}
@@ -268,6 +274,7 @@ def _in_the_loop(needs: list[set], placed: list[int]) -> list[int]:
 
 
 def _refuse_loop(named, reads, stuck: list[int]) -> None:
+    """Refuse Statements that go round in a loop, naming each write and who reads it."""
     links = []
     for i in stuck:
         s, name = named[i]
@@ -358,6 +365,7 @@ def _tables_read_by(graph: Graph, condition: str) -> list[str]:
 
 
 def _copied_from(graph: Graph, key: str) -> list[str]:
+    """The boxes a copied column comes from, each the first one feeding the one before."""
     chain, at = [], key
     while graph.parents(at, "value"):
         at = graph.parents(at, "value")[0]
@@ -435,6 +443,8 @@ def group_of(box: dict) -> str:
 
 
 def mermaid_chart(graph: Graph) -> list[str]:
+    """The Markdown's Mermaid chart, as lines: a subgraph for each group, then the arrows, with
+    one "filters" arrow from each condition to each group whose rows it decides."""
     ids = {key: f"n{number}" for number, key in enumerate(graph.boxes)}
     groups = {}
     for key, box in graph.boxes.items():
@@ -518,12 +528,14 @@ def _inline_code(text: str) -> str:
 
 
 def _how_html(box: dict) -> str:
+    """_how for the HTML page: how a calculation was written, then the Hive it became."""
     if box["formula"] != box["sql"]:
         return f"{_inline_code(box['formula'])}, which is {_inline_code(box['sql'])}"
     return _inline_code(box["sql"])
 
 
 def _entry_html(entry: dict) -> str:
+    """One calculated column in the HTML report: its tree, rows that count, GROUP BY."""
     box, e = entry["box"], html.escape
     parts = [f'<details open><summary>{_inline_code(box["name"])} '
              f'<span class="muted">in {e(box["group"])}</span></summary>'
@@ -614,6 +626,7 @@ def scripts_commit(folder: Path) -> str:
 
 
 def _checked_out(place: Path, dot: Path) -> str:
+    """The short commit checked out in the repository at `place`, whose .git is `dot`."""
     gitdir = dot
     if dot.is_file():  # a worktree or submodule: .git names the real folder
         gitdir = (place / dot.read_text(encoding="utf-8").split(":", 1)[1].strip()).resolve()
@@ -657,6 +670,7 @@ def statement_names(statements, frame) -> list[str]:
 
 
 def _plain(text: str) -> str:
+    """Text for a file name: each character but a letter, digit, _ or - becomes _."""
     return re.sub(r"[^A-Za-z0-9_-]", "_", text)
 
 
@@ -675,6 +689,8 @@ def caller_folder(caller: Path | None) -> Path:
 
 
 def _check_statements(statements) -> list:
+    """The Statements passed, each once; anything that isn't a Statement reading a table is
+    refused."""
     if not statements:
         raise TypeError(four_part_message(
             what="export_lineage() was given no Statement.",
@@ -697,6 +713,7 @@ def _check_statements(statements) -> list:
 
 
 def _html_path(to) -> Path:
+    """The to= path, refused unless it names an .html file."""
     path = Path(to)
     if path.suffix.lower() != ".html":
         raise ValueError(four_part_message(
