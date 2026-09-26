@@ -34,7 +34,7 @@ The first version of the new Toolbox. Everything is new:
   executor can't run, such as `row_number` or `week_start`, it says plainly.
 - **The Example gallery.** `sql_composer/examples.html` holds every Worked example on one
   page: each docstring's example, and the Worked examples on their own, each showing a
-  Statement that gives a wrong number beside its fix. Each shows its Python, its Hive and,
-  where there is one, its result: from the Example database, or computed in pandas where the
-  Example database can't run it. Open it in a browser; a box filters it by any word, and
-  Ctrl+F searches it without the box.
+  Statement that gives a wrong number beside its fix. Each shows its Python and, for each
+  Statement it builds, the Hive and any result: from the Example database, or computed in
+  pandas where the Example database can't run it. Open it in a browser; a box filters it by
+  any word, and Ctrl+F searches it without the box.
