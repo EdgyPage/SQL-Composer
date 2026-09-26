@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 18:15 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own
@@ -23,6 +23,7 @@ from .tables import (
     identifier,
     is_date_partition,
     literal,
+    made_by,
 )
 
 TOOLBOX_VERSION = "2.0"
@@ -59,11 +60,13 @@ def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expres
     return exp.Case(ifs=[exp.If(this=where._tree.copy(), true=then or tree)])
 
 
-def _aggregate(node, column, where, call, *, adds_up=True, because=None,
+def _aggregate(name, node, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
+    call = f"{name}({column!r})"
     column = _need_column(column, call)
     inner = _only_where(column._tree.copy(), where, call)
     tree = node(this=exp.Distinct(expressions=[inner])) if distinct else node(this=inner)
+    made_by(tree, name, column, where=where)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
 
 
@@ -76,7 +79,8 @@ def count_rows(where=None):
     COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END)
     """
     tree = _only_where(exp.Star(), where, "count_rows(...)", then=exp.Literal.number(1))
-    return Column(exp.Count(this=tree), type="bigint", aggregate=True)
+    return Column(made_by(exp.Count(this=tree), "count_rows", where=where), type="bigint",
+                  aggregate=True)
 
 
 def count_distinct(column, where=None):
@@ -88,7 +92,7 @@ def count_distinct(column, where=None):
     >>> count_distinct(job_runs.job_id)
     COUNT(DISTINCT job_runs.job_id)
     """
-    return _aggregate(exp.Count, column, where, f"count_distinct({column!r})", adds_up=False,
+    return _aggregate("count_distinct", exp.Count, column, where, adds_up=False,
                       because="a distinct count", distinct=True)
 
 
@@ -107,7 +111,7 @@ def sum_of(column, where=None, adds_up=False):
     call = f"sum_of({column!r})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate(exp.Sum, column, where, call)
+    return _aggregate("sum_of", exp.Sum, column, where)
 
 
 def average_of(column, where=None, adds_up=False):
@@ -123,7 +127,8 @@ def average_of(column, where=None, adds_up=False):
     call = f"average_of({column!r})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate(exp.Avg, column, where, call, adds_up=False, because="an average")
+    return _aggregate("average_of", exp.Avg, column, where, adds_up=False,
+                      because="an average")
 
 
 def min_of(column, where=None):
@@ -132,7 +137,7 @@ def min_of(column, where=None):
     >>> min_of(job_runs.duration_mins)
     MIN(job_runs.duration_mins)
     """
-    return _aggregate(exp.Min, column, where, f"min_of({column!r})")
+    return _aggregate("min_of", exp.Min, column, where)
 
 
 def max_of(column, where=None):
@@ -141,7 +146,7 @@ def max_of(column, where=None):
     >>> max_of(job_runs.duration_mins)
     MAX(job_runs.duration_mins)
     """
-    return _aggregate(exp.Max, column, where, f"max_of({column!r})")
+    return _aggregate("max_of", exp.Max, column, where)
 
 
 def _as_column(value, call: str) -> Column:
@@ -172,6 +177,7 @@ def if_else(condition, then, otherwise):
         ifs=[exp.If(this=condition._tree.copy(), true=first._tree.copy())],
         default=second._tree.copy(),
     )
+    made_by(tree, "if_else", condition, then, otherwise)
     adds_up = first._adds_up and second._adds_up
     because = first._not_adding_up_because or second._not_adding_up_because
     return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because,
@@ -188,7 +194,8 @@ def fill_null(column, value):
     column = _need_column(column, call)
     other = _as_column(value, call)
     return Column(
-        exp.Coalesce(this=column._tree.copy(), expressions=[other._tree.copy()]),
+        made_by(exp.Coalesce(this=column._tree.copy(), expressions=[other._tree.copy()]),
+                "fill_null", column, value),
         type=column._type,
         adds_up=column._adds_up,
         not_adding_up_because=column._not_adding_up_because,
@@ -220,8 +227,8 @@ def week_start(column):
     """
     column = _need_column(column, "week_start(...)")
     week_ago = exp.func("date_sub", _as_day(column), exp.Literal.number(7), dialect="hive")
-    return Column(exp.func("next_day", week_ago, exp.Literal.string("MO"), dialect="hive"),
-                  type="string")
+    tree = exp.func("next_day", week_ago, exp.Literal.string("MO"), dialect="hive")
+    return Column(made_by(tree, "week_start", column), type="string")
 
 
 def month_start(column):
@@ -231,8 +238,8 @@ def month_start(column):
     TRUNC(job_runs.dt, 'MM')
     """
     column = _need_column(column, "month_start(...)")
-    return Column(exp.func("trunc", _as_day(column), exp.Literal.string("MM"), dialect="hive"),
-                  type="string")
+    tree = exp.func("trunc", _as_day(column), exp.Literal.string("MM"), dialect="hive")
+    return Column(made_by(tree, "month_start", column), type="string")
 
 
 class Ordering:
@@ -317,6 +324,7 @@ def row_number(*, PARTITION_BY, ORDER_BY):
     groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
     order = exp.Order(expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
     tree = exp.Window(this=exp.RowNumber(), partition_by=groups, order=order)
+    made_by(tree, "row_number", PARTITION_BY=PARTITION_BY, ORDER_BY=ORDER_BY)
     return Column(tree, type="int", window=True)
 
 
@@ -360,6 +368,7 @@ def hive_function(name, *args):
                 opt_out=None,
             )
         ) from error
+    made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)
     return Column(tree, aggregate=has_aggregate(tree), window=any(p._window for p in parts),

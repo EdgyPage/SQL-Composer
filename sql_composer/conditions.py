@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 18:15 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
 """Conditions: the tests that go in WHERE, HAVING and JOIN's ON=.
 
 Each condition is a named function, never a Python operator: `equals(job_runs.status,
@@ -20,6 +20,7 @@ from .tables import (
     hive_text,
     is_date_partition,
     literal,
+    made_by,
     type_family,
 )
 
@@ -147,6 +148,7 @@ def _compare(name: str, node, column, value, span_of) -> Condition:
     if value is None:
         guard_none_in_condition(f"{name}({column!r}, None)")
     tree = node(this=column._tree.copy(), expression=literal(value, call=call, column=column))
+    made_by(tree, name, column, value)
     if not is_date_partition(column) or isinstance(value, Column):
         return Condition(tree)
     span = span_of(as_date(value, column, call))
@@ -234,6 +236,7 @@ def between(column, low, high):
         low=literal(low, call=call, column=column, position="the low end"),
         high=literal(high, call=call, column=column, position="the high end"),
     )
+    made_by(tree, "between", column, low, high)
     if not is_date_partition(column) or isinstance(low, Column) or isinstance(high, Column):
         return Condition(tree)
     first, last = as_date(low, column, call), as_date(high, column, call)
@@ -286,6 +289,7 @@ def last_n_days(column, n):
             low=literal(first, call=call, column=column),
             high=literal(last, call=call, column=column),
         )
+    made_by(tree, "last_n_days", column, n)
     if not is_date_partition(column):
         return Condition(tree)
     return Condition(tree, spans={_key(column): Span(first, last)}, only_bounds=_key(column))
@@ -328,7 +332,8 @@ def _in(name: str, column, values, negated: bool) -> Condition:
     ]
     tree = exp.In(this=column._tree.copy(), expressions=items)
     if negated:
-        return Condition(exp.Not(this=tree))
+        return Condition(made_by(exp.Not(this=tree), name, column, values))
+    made_by(tree, name, column, values)
     if not is_date_partition(column):
         return Condition(tree)
     days = frozenset(as_date(value, column, call) for value in values)
@@ -363,7 +368,8 @@ def is_null(column):
     job_runs.status IS NULL
     """
     column = _need_column(column, "is_null(...)")
-    return Condition(exp.Is(this=column._tree.copy(), expression=exp.Null()), kind="is_null")
+    tree = exp.Is(this=column._tree.copy(), expression=exp.Null())
+    return Condition(made_by(tree, "is_null", column), kind="is_null")
 
 
 def is_not_null(column):
@@ -373,7 +379,8 @@ def is_not_null(column):
     NOT job_runs.status IS NULL
     """
     column = _need_column(column, "is_not_null(...)")
-    return Condition(exp.Not(this=exp.Is(this=column._tree.copy(), expression=exp.Null())))
+    tree = exp.Not(this=exp.Is(this=column._tree.copy(), expression=exp.Null()))
+    return Condition(made_by(tree, "is_not_null", column))
 
 
 def _like(name: str, column, text: str, pattern) -> Condition:
@@ -389,8 +396,8 @@ def _like(name: str, column, text: str, pattern) -> Condition:
             )
         )
     escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return Condition(exp.Like(this=column._tree.copy(),
-                              expression=literal(pattern(escaped), call=call)))
+    tree = exp.Like(this=column._tree.copy(), expression=literal(pattern(escaped), call=call))
+    return Condition(made_by(tree, name, column, text))
 
 
 def contains(column, text):
@@ -450,7 +457,8 @@ def any_of(*conditions):
     for condition in found[1:]:
         spans = {key: either(span, condition._spans[key])
                  for key, span in spans.items() if key in condition._spans}
-    return Condition(exp.or_(*[c._tree.copy() for c in found]), spans=spans)
+    return Condition(made_by(exp.or_(*[c._tree.copy() for c in found]), "any_of", *found),
+                     spans=spans)
 
 
 def all_of(*conditions):
@@ -464,7 +472,8 @@ def all_of(*conditions):
     (jobs.team = 'finance' AND jobs.region = 'PAR') OR jobs.team = 'data'
     """
     found = _conditions(conditions, "all_of(...)")
-    return Condition(exp.and_(*[c._tree.copy() for c in found]), spans=combined_spans(found))
+    tree = made_by(exp.and_(*[c._tree.copy() for c in found]), "all_of", *found)
+    return Condition(tree, spans=combined_spans(found))
 
 
 def combined_spans(conditions: list[Condition]) -> dict:
