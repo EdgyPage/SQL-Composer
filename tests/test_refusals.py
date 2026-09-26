@@ -114,11 +114,22 @@ def test_guard_unsafe_regrouping_fix_for_a_distinct_count_counts_again() -> None
     assert "sum" not in fix and "divide" not in fix
 
 
+def test_guard_unsafe_regrouping_fix_for_a_distinct_count_says_when_it_applies() -> None:
+    """Averaging daily counts may be what was meant, so the fix says which question it answers."""
+    with pytest.raises(GuardRefused) as refused:
+        average_of(daily(count_distinct(job_runs.job_id)).per_day)
+    fix = usual_fix(refused)
+    assert fix.startswith("For a count over the whole span")
+    assert "adding up" not in fix
+
+
 def test_guard_unsafe_regrouping_fix_for_an_average_keeps_the_sum_and_the_count() -> None:
     with pytest.raises(GuardRefused) as refused:
         sum_of(daily(average_of(job_runs.duration_mins)).per_day)
-    assert "the sum and the count" in usual_fix(refused)
-    assert "divide" in usual_fix(refused)
+    fix = usual_fix(refused)
+    assert "sum_of(...)" in fix and "divide" in fix
+    # AVG leaves out NULL, so the count to divide by is of the values that aren't NULL.
+    assert "count_rows(where=is_not_null(...))" in fix
 
 
 def test_guard_unsafe_regrouping_fix_for_a_ratio_keeps_both_sides() -> None:
@@ -136,6 +147,8 @@ def test_guard_unsafe_regrouping_fix_for_a_listed_column_covers_each_kind() -> N
     fix = usual_fix(refused)
     assert "an average or a ratio" in fix and "divide" in fix
     assert "a distinct count" in fix and "count_distinct(...)" in fix
+    # Its parts aren't in the table, so the fix goes back to where it was made.
+    assert "the table it was made from" in fix
 
 
 def test_guard_unsafe_regrouping_opt_out() -> None:
