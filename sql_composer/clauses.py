@@ -329,7 +329,11 @@ def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
 
 
 def CROSS_JOIN(table, reads_all_partitions=False):
-    """Pair every row with every row of another table; its name is the opt-out.
+    """Pair every row with every row of another table, with no ON=.
+
+    JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row
+    multiplies the rows and every sum and count over them. CROSS_JOIN is the opt-out of that
+    refusal: its name says you mean every row with every row, so it takes no ON=.
 
     Joining a table to itself needs a second name for it, given with AS:
 

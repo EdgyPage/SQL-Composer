@@ -941,7 +941,8 @@ GROUP BY
 </section>
 <section class="entry" id="CROSS_JOIN">
 <h3><code>CROSS_JOIN</code></h3>
-<p class="why">Pair every row with every row of another table; its name is the opt-out.</p>
+<p class="why">Pair every row with every row of another table, with no ON=.</p>
+<p>JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row multiplies the rows and every sum and count over them. CROSS_JOIN is the opt-out of that refusal: its name says you mean every row with every row, so it takes no ON=.</p>
 <p>Joining a table to itself needs a second name for it, given with AS:</p>
 <pre class="python">other = AS(jobs, &quot;other&quot;)</pre>
 <pre class="python">print(to_hive(statement(
