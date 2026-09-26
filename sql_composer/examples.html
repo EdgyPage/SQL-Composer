@@ -473,7 +473,7 @@ def jobs_per_day(first_day, last_day):
 <pre class="refusal">GuardRefused:
   What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which is a distinct count.
   Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
-  Usual fix:      Count again from the rows it was counted from, with count_distinct(...) under your own GROUP_BY, rather than adding up the smaller counts: a week&#x27;s count comes from the week&#x27;s rows, not from each day&#x27;s count.
+  Usual fix:      For a count over the whole span, count again with count_distinct(...) from the rows it was counted from, under your own GROUP_BY: a week&#x27;s count comes from the week&#x27;s rows, not from each day&#x27;s count.
   Opt-out:        sum_of(jobs_per_day.jobs_that_ran, adds_up=True)</pre>
 <p class="note">With the opt-out added, as <code>careless(adds_up=True)</code>, it builds, and gives the wrong result:</p><p class="label">Hive</p><pre class="hive">WITH jobs_per_day AS (
   SELECT
