@@ -136,6 +136,10 @@ at work without touching the user's own scripts.
   writes `sql_composer/examples.html`, one script-optional page with all 68 Worked examples,
   each with its Python, Hive, result (or a labelled pandas result) and the Toolbox names it
   uses, careless and fixed side by side; a test fails when the committed page is stale.
+- [Add `INSERT_INTO` and `drop_table`](issues/23-add-insert-into-and-drop-table.md): at the
+  user's request, a day of a Saved table can now be added to as well as replaced, and a table
+  dropped, reversing ticket 10's "replace, never append"; the first write of a day stays
+  `INSERT_OVERWRITE`. 63 names, `TOOLBOX_VERSION` "2.1", and six Worked examples of common jobs.
 
 ## Not yet specified
 
