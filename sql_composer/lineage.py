@@ -703,8 +703,8 @@ def export_lineage(*statements, to=None):
     the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box to light
     up its whole path; controls expand, collapse or hide each table, and switch to a grouped
     flowchart. The Markdown file needs no script: a Mermaid chart, a report on each
-    calculated column, and the Hive. Pass several Statements and the drawing follows each Saved table from the
-    Statement that writes it to the ones that read it.
+    calculated column, and the Hive. Pass several Statements and the drawing follows each
+    Saved table from the Statement that writes it to the ones that read it.
 
     The files go in a lineage/ folder beside your script or notebook, named by the time,
     your scripts' git commit, the file and the Statement's variable, such as
