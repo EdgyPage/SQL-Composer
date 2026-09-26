@@ -27,9 +27,10 @@ from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
 3. Restart the kernel, which still holds the old code.
 
 None of your own files are inside the folder, so deleting it is safe. When it is imported, the
-folder checks itself, and stops with a plain message if a file is missing, extra, or from
-another version. `sql_composer.VERSION` says which copy you have, and `sql_composer/CHANGES.md`
-says what changed in each version.
+folder checks itself. If a file is missing, extra, or from another version or export, or if
+this Python or its sqlglot won't work with it, it stops and says what happened, why it matters
+and the usual fix. `sql_composer.VERSION` says which copy you have, and
+`sql_composer/CHANGES.md` says what changed in each version.
 
 ## A first Statement
 

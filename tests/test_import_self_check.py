@@ -62,12 +62,13 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
 
     assert import_copy(tmp_path, extra).endswith(stopped(
-        what="my_notes.py is in the sql_composer folder, but isn't part of SQL Composer 2.0.",
+        what="my_notes.py is in the sql_composer folder, but not part of SQL Composer 2.0.",
         why="A file left over from an earlier Toolbox version can still be imported, and would "
-        "quietly run old code.",
-        fix="If it is one of your own scripts, move it out: your scripts sit beside the "
-        "sql_composer folder, never inside it. Otherwise delete the sql_composer folder, then "
-        "copy the whole folder in again from the 2.0 download.",
+        "quietly run old code. A script of your own inside the folder would be deleted with it "
+        "at the next update.",
+        fix="Move any of your own scripts out first: they sit beside the sql_composer folder, "
+        "never inside it. Then delete the sql_composer folder, and copy the whole folder in "
+        "again from the 2.0 download.",
     ) + "\n")
 
 
@@ -89,8 +90,8 @@ def test_a_missing_file_stops_the_import(tmp_path) -> None:
 
     assert import_copy(tmp_path, missing).endswith(stopped(
         what="CHANGES.md is missing from the sql_composer folder.",
-        why="It was probably left out of the copy, and every file of SQL Composer 2.0 is "
-        "needed, so a part of it would fail later, far from the cause.",
+        why="Every file of SQL Composer 2.0 is needed, and one left out of the copy would make "
+        "a part of it fail later, far from the cause.",
         fix="Delete the sql_composer folder, then copy the whole folder in again from the 2.0 "
         "download.",
     ) + "\n")
@@ -181,11 +182,12 @@ def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
     with pytest.raises(ImportError) as error:
         sql_composer._check_sqlglot()
     assert f"ImportError: {error.value}" == stopped(
-        what="SQL Composer needs the sqlglot library, and this Python can't import it.",
+        what="SQL Composer needs sqlglot, and this Python can't import it.",
         why="SQL Composer writes every Statement as Hive through sqlglot, and reads the Hive "
         "back to check it, so it can't build anything without it.",
-        fix='Install sqlglot in this Python, as in pip install "sqlglot>=25.24.2,<31.0.0", '
-        "then restart the kernel.",
+        fix='Install sqlglot from a notebook cell with %pip install "sqlglot>=25.24.2,<31.0.0", '
+        "then restart the kernel. If you can't install packages, ask whoever looks after your "
+        "environment.",
     )
 
 
@@ -199,8 +201,10 @@ def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch, version) -> N
         f"sqlglot {version}.",
         why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can write "
         "Hive differently, so a Statement could come out wrong without anything saying so.",
-        fix='Install a sqlglot in the range, as in pip install "sqlglot>=25.24.2,<31.0.0", '
-        "then restart the kernel.",
+        fix="Install a sqlglot in that range from a notebook cell with %pip install "
+        '"sqlglot>=25.24.2,<31.0.0", then restart the kernel. '
+        "If you can't install packages, "
+        "ask whoever looks after your environment.",
     )
 
 
@@ -228,11 +232,13 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
         sql_composer._check_sqlglot()
     assert f"ImportError: {error.value}" == stopped(
         what=f"sqlglot {sqlglot.__version__} is in the supported range, but behaves "
-        "differently: Hive string escaping has changed.",
+        "differently: Hive string escaping has changed. Nothing has been built or sent.",
         why="SQL Composer relies on this behaviour to write Hive safely, so a Statement could "
-        "come out wrong. Nothing has been built or sent.",
-        fix='Install the sqlglot SQL Composer is tested on, as in pip install '
-        '"sqlglot==30.19.0", then restart the kernel.',
+        "come out wrong.",
+        fix="Install the sqlglot SQL Composer is tested on from a notebook cell with %pip "
+        'install "sqlglot==30.19.0", then restart the kernel. '
+        "If you can't install packages, "
+        "ask whoever looks after your environment.",
     )
 
 

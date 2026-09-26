@@ -5,8 +5,9 @@ Import everything from here, never from a file inside the folder:
     from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
 To update, delete the `sql_composer` folder, copy in the new one and restart the kernel. The
-folder checks itself when imported, and stops with a plain message if a file is missing,
-extra, or from another version.
+folder checks itself when imported. If a file is missing, extra, or from another version or
+export, or if this Python or its sqlglot won't work with it, it stops and says what happened,
+why it matters and the usual fix.
 
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
 full text, which also says when this copy was exported.
@@ -102,23 +103,22 @@ def _check_files():
         extra = [name for name in present if name not in _FILES]
         missing = [name for name in _FILES if name not in present]
         if extra:
-            is_, isnt = ("is", "isn't") if len(extra) == 1 else ("are", "aren't")
             _stop(
-                what=f"{', '.join(extra)} {is_} in the sql_composer folder, but {isnt} part of "
-                f"SQL Composer {TOOLBOX_VERSION}.",
+                what=f"{', '.join(extra)} {'is' if len(extra) == 1 else 'are'} in the "
+                f"sql_composer folder, but not part of SQL Composer {TOOLBOX_VERSION}.",
                 why="A file left over from an earlier Toolbox version can still be imported, "
-                "and would quietly run old code.",
-                fix="If it is one of your own scripts, move it out: your scripts sit beside the "
-                "sql_composer folder, never inside it. Otherwise delete the sql_composer folder, "
-                f"then copy the whole folder in again from the {TOOLBOX_VERSION} download.",
+                "and would quietly run old code. A script of your own inside the folder would "
+                "be deleted with it at the next update.",
+                fix="Move any of your own scripts out first: they sit beside the sql_composer "
+                "folder, never inside it. Then delete the sql_composer folder, and copy the "
+                f"whole folder in again from the {TOOLBOX_VERSION} download.",
             )
         if missing:
             _stop(
                 what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
                 "from the sql_composer folder.",
-                why="It was probably left out of the copy, and every file of SQL Composer "
-                f"{TOOLBOX_VERSION} is needed, so a part of it would fail later, far from the "
-                "cause.",
+                why=f"Every file of SQL Composer {TOOLBOX_VERSION} is needed, and one left out "
+                "of the copy would make a part of it fail later, far from the cause.",
                 fix="Delete the sql_composer folder, then copy the whole folder in again from "
                 f"the {TOOLBOX_VERSION} download.",
             )
@@ -159,7 +159,8 @@ def _numbers(text):
     return tuple(int(n) for n in found.groups()) if found else None
 
 
-_PIP_INSTALL = f'pip install "sqlglot>={_dotted(_SQLGLOT_LOWEST)},<{_dotted(_SQLGLOT_BELOW)}"'
+_IN_RANGE = f'"sqlglot>={_dotted(_SQLGLOT_LOWEST)},<{_dotted(_SQLGLOT_BELOW)}"'
+_NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
 
 
 def _check_sqlglot():
@@ -168,10 +169,11 @@ def _check_sqlglot():
         import sqlglot
     except ImportError:
         _stop(
-            what="SQL Composer needs the sqlglot library, and this Python can't import it.",
+            what="SQL Composer needs sqlglot, and this Python can't import it.",
             why="SQL Composer writes every Statement as Hive through sqlglot, and reads the "
             "Hive back to check it, so it can't build anything without it.",
-            fix=f"Install sqlglot in this Python, as in {_PIP_INSTALL}, then restart the kernel.",
+            fix=f"Install sqlglot from a notebook cell with %pip install {_IN_RANGE}, then "
+            f"restart the kernel. {_NO_INSTALLING}",
         )
     found = getattr(sqlglot, "__version__", "unknown")
     version = _numbers(found)
@@ -182,17 +184,19 @@ def _check_sqlglot():
             why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can "
             "write Hive differently, so a Statement could come out wrong without anything "
             "saying so.",
-            fix=f"Install a sqlglot in the range, as in {_PIP_INSTALL}, then restart the kernel.",
+            fix="Install a sqlglot in that range from a notebook cell with %pip install "
+            f"{_IN_RANGE}, then restart the kernel. {_NO_INSTALLING}",
         )
     problems = _sqlglot_behaviour()
     if problems:
         _stop(
             what=f"sqlglot {found} is in the supported range, but behaves differently: "
-            + "; ".join(problems) + ".",
+            + "; ".join(problems) + ". Nothing has been built or sent.",
             why="SQL Composer relies on this behaviour to write Hive safely, so a Statement "
-            "could come out wrong. Nothing has been built or sent.",
-            fix="Install the sqlglot SQL Composer is tested on, as in pip install "
-            f'"sqlglot=={_dotted(_SQLGLOT_NEWEST_TESTED)}", then restart the kernel.',
+            "could come out wrong.",
+            fix="Install the sqlglot SQL Composer is tested on from a notebook cell with %pip "
+            f'install "sqlglot=={_dotted(_SQLGLOT_NEWEST_TESTED)}", then restart the kernel. '
+            f"{_NO_INSTALLING}",
         )
     if version > _SQLGLOT_NEWEST_TESTED:
         print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
