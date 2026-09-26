@@ -129,3 +129,32 @@ Answered, not changed:
   since the conditions and calculations already import from there.
 - **`BOX_LINES` has two lines and no third user.** It is the seam ticket 07 decided on.
 - **The beginner reader** runs after this review, as the definition of done orders it.
+
+**Beginner reader (2026-09-25).** Report:
+[reports/22-beginner-reader.md](../reports/22-beginner-reader.md), run over `export_lineage`'s
+docstring and the files it wrote for the docstring's own example and for a Saved-table chain.
+Its advice is for the user. It checked every date, count and arrow against the Statements, and
+found these outright bugs, fixed in the commit after this note:
+
+- **A write's date bound was listed under "Rows that count" for the Statements reading its
+  Saved table** (A1). It decides which day is written, not which of the Saved table's days a
+  later Statement reads, so it now shows only in the write's own section. The write's other
+  conditions (such as `not_equals(job_runs.status, "TEST")`) still show downstream, since
+  every day's write applies them.
+- **A condition's "reads" list went on through a Saved table** into tables its own Hive never
+  touches (A2). It now stops at the first table, and still goes through Derived tables.
+- **"by_day(...) sends one Statement per day" was wrong** (A3): `by_day` splits, `run` sends.
+  The note now reads "send it with `for day in by_day(fill): run(day, send=...)`".
+- **The arrow legend didn't cover every arrow drawn** (stop 2): the dotted arrows from a
+  column into a condition, and the "filters" arrows. Both files' legends now say what each
+  arrow means, and the Markdown's names Mermaid.
+- **The docstring said only WHERE and JOIN conditions are drawn** (A6); it now lists HAVING and
+  LIMIT too. "Calculated in ... as ..." gained its full stop.
+
+Its costliest stops left for the user to weigh: "at commit nogit" in the footer and file name
+reads like a failure; a derived-from-calculated column shows under "Copied columns" as
+"(calculated)"; the Saved table's Date partition column has no copied row saying it is the
+day written; box text is cut before the end date of a `between`; the docstring's example
+shows `notebook` in the name, which a JupyterLab user won't see; the title lists Statements
+writers first while the file name keeps the order passed; and "Hive as submitted", when
+nothing was sent.
