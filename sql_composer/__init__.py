@@ -205,6 +205,7 @@ from .conditions import (  # noqa: E402
     not_equals,
     starts_with,
 )
+from .lineage import export_lineage  # noqa: E402
 from .refusals import GuardRefused, LoadRefused  # noqa: E402
 from .running import by_day, run, set_load_limits, to_hive  # noqa: E402
 from .tables import (  # noqa: E402
@@ -285,6 +286,8 @@ __all__ = [
     # refusals.py
     "GuardRefused",
     "LoadRefused",
+    # lineage.py
+    "export_lineage",
     # example_database.py
     "example_database",
 ]

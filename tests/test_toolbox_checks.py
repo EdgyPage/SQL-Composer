@@ -42,8 +42,6 @@ PUBLIC_NAMES = [
     "export_lineage",
     "example_database",
 ]
-# Decided, but built by a later ticket: "Build lineage.py".
-NOT_BUILT_YET = {"export_lineage"}
 
 
 def toolbox_files() -> list[Path]:
@@ -53,7 +51,7 @@ def toolbox_files() -> list[Path]:
 def test_the_public_names_are_the_decided_ones() -> None:
     assert len(PUBLIC_NAMES) == 61
     assert len(set(PUBLIC_NAMES)) == 61
-    assert sorted(sql_composer.__all__) == sorted(set(PUBLIC_NAMES) - NOT_BUILT_YET)
+    assert sorted(sql_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sql_composer.__all__:
         assert hasattr(sql_composer, name), name
 
