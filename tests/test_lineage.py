@@ -427,10 +427,12 @@ def test_a_column_nothing_uses_is_left_out(tmp_path) -> None:
 def test_box_lines_decides_what_every_view_shows(tmp_path, monkeypatch) -> None:
     from sql_composer import lineage
 
-    def kind_line(box):
-        return f"kind: {box['kind']}"
+    shown = lineage.box_lines
 
-    monkeypatch.setattr(lineage, "BOX_LINES", [*lineage.BOX_LINES, kind_line])
+    def with_kind_line(box):
+        return [*shown(box), f"kind: {box['kind']}"]
+
+    monkeypatch.setattr(lineage, "box_lines", with_kind_line)
     team = runs_per_team()
     markdown, page = read(export_lineage(team, to=tmp_path / "lineage.html"))
     assert "<small>kind: table</small>" in markdown
