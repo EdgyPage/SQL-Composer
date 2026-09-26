@@ -31,7 +31,7 @@ from sqlglot import exp
 from .refusals import four_part_message
 from .tables import Table, hive_text
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 # --- The Table references -----------------------------------------------------------------
 

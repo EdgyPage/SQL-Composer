@@ -25,7 +25,7 @@ from .tables import (
     made_by,
 )
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 

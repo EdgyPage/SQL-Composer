@@ -29,7 +29,7 @@ from .refusals import (
 )
 from .tables import aliased, hive_table, hive_text, identifier, source
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}

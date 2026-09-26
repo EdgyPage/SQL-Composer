@@ -29,7 +29,7 @@ from .refusals import (
 )
 from .tables import SIMPLE_NAME, Column, Table, aliased, hive_text, identifier
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]

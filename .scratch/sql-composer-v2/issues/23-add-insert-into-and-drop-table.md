@@ -42,3 +42,7 @@ again, each step saying why.
   30, `tables=[...]` from 30), so `drop_table` sets whichever the installed sqlglot has, and the
   import self-check refuses a sqlglot whose `DROP TABLE` drops its table name.
 - The refusals that named `INSERT_OVERWRITE(t)` now name whichever write the Statement has.
+
+**The user's decision on the version (2026-09-26).** 2.0 was already exported with 61 names,
+so the user raised `TOOLBOX_VERSION` to "2.1" (drift item D12), and `CHANGES.md` has a 2.1
+section for the two names.

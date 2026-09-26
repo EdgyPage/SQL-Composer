@@ -13,9 +13,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'2.0'
+'2.1'
 >>> VERSION
-'SQL Composer 2.0, ...'
+'SQL Composer 2.1, ...'
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import os
 import re
 import sys
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 # The export script writes the Toolbox's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.

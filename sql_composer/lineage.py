@@ -24,7 +24,7 @@ from .refusals import GuardRefused, four_part_message
 from .running import by_day, to_hive
 from .tables import hive_text, readable
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------
@@ -399,7 +399,7 @@ def _submitted(s: Statement, name: str) -> tuple[str, str]:
             raise
     days = by_day(s)
     return to_hive(days[0]), (
-        f"This write covers {len(days)} days, and a write replaces one day at a time: send "
+        f"This write covers {len(days)} days, and a write fills one day at a time: send "
         f"it with `for day in by_day({name}): run(day, send=...)`. This is the first day's "
         "Hive.")
 
