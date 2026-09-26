@@ -1380,7 +1380,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="average_of">
 <h3><code>average_of</code></h3>
 <p class="why">The average of a column; it refuses to average something that doesn&#x27;t add up.</p>
-<p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep the sum and the count, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
+<p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column, since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
 <pre class="python">average_of(job_runs.duration_mins)</pre>
 <p class="label">Hive</p>
 <pre class="output">AVG(job_runs.duration_mins)</pre>

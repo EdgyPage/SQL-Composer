@@ -117,8 +117,9 @@ def average_of(column, where=None, adds_up=False):
     """The average of a column; it refuses to average something that doesn't add up.
 
     An average itself doesn't add up: the average of two daily averages isn't the average
-    over both days. Keep the sum and the count, and divide after your own GROUP_BY. Like
-    sum_of, it refuses a column that doesn't add up; pass adds_up=True if it really does.
+    over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column,
+    since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a
+    column that doesn't add up; pass adds_up=True if it really does.
 
     >>> average_of(job_runs.duration_mins)
     AVG(job_runs.duration_mins)
