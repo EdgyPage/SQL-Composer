@@ -448,7 +448,7 @@ def ORDER_BY(*columns, sorts_everything=False):
     Hive sorts everything on one machine: sort in pandas after run(...), or pass
     sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without
     LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there,
-    so any order you rely on later would not be there.
+    so a Statement that reads it can't rely on that order.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),

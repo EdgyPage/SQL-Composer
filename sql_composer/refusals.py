@@ -132,8 +132,8 @@ def guard_time_of_day(call: str, value: object) -> None:
 
 _REGROUPING_FIXES = {
     "a distinct count": "Count again from the rows it was counted from, with "
-    "count_distinct(...) under your own GROUP_BY (a week's jobs from the week's runs), "
-    "rather than adding up the smaller counts.",
+    "count_distinct(...) under your own GROUP_BY, rather than adding up the smaller counts: "
+    "a week's count comes from the week's rows, not from each day's count.",
     "an average": "Keep the parts it was made from (the sum and the count), add those up, "
     "and divide after your own GROUP_BY.",
     "a division": "Keep both sides of the division as their own columns, add up each "
@@ -141,9 +141,9 @@ _REGROUPING_FIXES = {
 }
 # A column listed in does_not_add_up could be any of the three.
 _REGROUPING_FIX_FOR_A_LISTED_COLUMN = (
-    "Go back to what it was made from. For an average or a ratio, keep its two parts, add up "
-    "each one, and divide after your own GROUP_BY. For a distinct count, count again with "
-    "count_distinct(...) from the rows it was counted from."
+    "It could be an average, a ratio or a distinct count. For an average or a ratio, keep the "
+    "two parts it was made from, add up each one, and divide after your own GROUP_BY. For a "
+    "distinct count, count again with count_distinct(...) from the rows it was counted from."
 )
 
 
@@ -176,8 +176,8 @@ def guard_missing_group_by(columns: list[str]) -> None:
             why="Each output row is one group, so a column that isn't grouped has no single "
             "value to show. Hive would refuse the Statement.",
             fix=f"Add {listed} to GROUP_BY. To keep one whole row per group instead, such as "
-            "each job's latest run, number the rows with row_number(...) in a derived(...) "
-            "table and keep row 1.",
+            "each job's latest run, number the rows with row_number(...) inside derived(...), "
+            "then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.",
             opt_out=None,
         )
     )

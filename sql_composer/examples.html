@@ -473,7 +473,7 @@ def jobs_per_day(first_day, last_day):
 <pre class="refusal">GuardRefused:
   What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which is a distinct count.
   Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
-  Usual fix:      Count again from the rows it was counted from, with count_distinct(...) under your own GROUP_BY (a week&#x27;s jobs from the week&#x27;s runs), rather than adding up the smaller counts.
+  Usual fix:      Count again from the rows it was counted from, with count_distinct(...) under your own GROUP_BY, rather than adding up the smaller counts: a week&#x27;s count comes from the week&#x27;s rows, not from each day&#x27;s count.
   Opt-out:        sum_of(jobs_per_day.jobs_that_ran, adds_up=True)</pre>
 <p class="note">With the opt-out added, as <code>careless(adds_up=True)</code>, it builds, and gives the wrong result:</p><p class="label">Hive</p><pre class="hive">WITH jobs_per_day AS (
   SELECT
@@ -1052,7 +1052,7 @@ HAVING
 <section class="entry" id="ORDER_BY">
 <h3><code>ORDER_BY</code></h3>
 <p class="why">Sort the result; it needs a LIMIT, and sorting in pandas is usually better.</p>
-<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since Hive sorts everything on one machine: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there, so any order you rely on later would not be there.</p>
+<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since Hive sorts everything on one machine: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there, so a Statement that reads it can&#x27;t rely on that order.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
     FROM(job_runs),
