@@ -258,3 +258,16 @@ def test_a_pandas_result_does_not_claim_to_come_from_the_example_database() -> N
 def test_a_statement_given_to_run_also_shows_its_result_as_a_table() -> None:
     # The two FAILED runs, as run's own docstring shows them, without pandas' index.
     assert cells(entry_section("run")) == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
+
+
+def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days() -> None:
+    from sql_composer import between, example_database, last_n_days
+
+    shown = page_text(GALLERY.read_text(encoding="utf-8"))
+    assert 'write between(job_runs.dt, "2026-09-23", "2026-09-24") in its place' in shown
+    runs = example_database.job_runs
+    assert repr(between(runs.dt, "2026-09-23", "2026-09-24")) == repr(last_n_days(runs.dt, 2))
+
+
+def test_the_page_names_no_folder_a_toolbox_user_does_not_have() -> None:
+    assert "worked_examples/" not in GALLERY.read_text(encoding="utf-8")

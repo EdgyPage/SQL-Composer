@@ -24,16 +24,22 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 </style></head><body>
 <header>
 <h1>SQL Composer 2.0: Example gallery</h1>
-<p>Every Worked example in the Toolbox on one page: 7 Worked examples on their
-own, and the 61 examples from the docstrings. Each shows its Python and, for each
+<p>Every Worked example on one page: 7 Worked examples on their own, and the
+61 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up
 tables that ship inside the Toolbox, or computed in pandas where the Example database can't
-run it.
-Press Ctrl+F to search the page.</p>
+run it. Press Ctrl+F to search the page.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's two days, so
-<code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. To paste one into a
-notebook, first run <code>from sql_composer import *</code> and
-<code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>.</p>
+<code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
+notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
+no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
+to get the results shown.</p>
+<p>To paste a docstring's example, first run <code>from sql_composer import *</code> and
+<code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
+examples on their own are scripts kept where the Toolbox is written, not in the
+<code>sql_composer</code> folder, and each entry shows all of their Python. To try one, paste
+the top of its script, with the Building block it imports pasted in place of its
+<code>from building_blocks ...</code> line, then the functions.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>
@@ -56,7 +62,7 @@ and its fix:</p>
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
 <p>The Example database can&#x27;t run row_number, so the results of fixed() and top_runs_per_job() below are computed in pandas, not by running this Hive.</p>
-<p class="label">The top of worked_examples/statements/latest_and_top_n.py</p>
+<p class="label">The top of its script, statements/latest_and_top_n.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
     equals, example_database, max_of, row_number, run, statement,
@@ -174,7 +180,7 @@ WHERE
 <section class="entry" id="left_join_then_where">
 <h3>LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</h3>
 <p class="why">Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE on job_runs then throws that row away again.</p>
-<p class="label">The top of worked_examples/statements/left_join_then_where.py</p>
+<p class="label">The top of its script, statements/left_join_then_where.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, equals,
     example_database, is_not_null, statement,
@@ -254,7 +260,7 @@ GROUP BY
 <section class="entry" id="nan_in_a_list">
 <h3>NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</h3>
 <p class="why">Why: pandas writes a blank cell as NaN, Hive can only read it as NULL, and a NULL in <code>NOT IN (...)</code> makes it match no rows at all.</p>
-<p class="label">The top of worked_examples/statements/nan_in_a_list.py</p>
+<p class="label">The top of its script, statements/nan_in_a_list.py</p>
 <pre class="python">import pandas as pd
 
 from sql_composer import (
@@ -309,7 +315,7 @@ WHERE
 <section class="entry" id="none_in_equals">
 <h3>None in equals: a search for a missing status finds nothing.</h3>
 <p class="why">Why: in SQL nothing equals NULL, not even NULL, so <code>status = NULL</code> matches no rows at all.</p>
-<p class="label">The top of worked_examples/statements/none_in_equals.py</p>
+<p class="label">The top of its script, statements/none_in_equals.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_null, statement,
 )
@@ -358,7 +364,7 @@ WHERE
 <h3>not_equals: leaving out TEST runs also leaves out the run still going.</h3>
 <p class="why">Why: SQL&#x27;s <code>&lt;&gt;</code> drops the rows where the column is NULL, while pandas&#x27; <code>!=</code> keeps them.</p>
 <p>No Guard catches this, since the Toolbox can&#x27;t know which columns may be NULL; not_equals&#x27; docstring says so instead.</p>
-<p class="label">The top of worked_examples/statements/not_equals_drops_null.py</p>
+<p class="label">The top of its script, statements/not_equals_drops_null.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, SELECT, WHERE, any_of, count_rows, equals, example_database, is_null,
     not_equals, statement,
@@ -412,7 +418,7 @@ WHERE
 <h3>Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</h3>
 <p class="why">Why: a job that ran on two days is in both days&#x27; counts, so adding them up counts it twice.</p>
 <p>The Example database can&#x27;t run week_start, so the results below are computed in pandas, not by running this Hive.</p>
-<p class="label">The top of worked_examples/statements/regrouping.py</p>
+<p class="label">The top of its script, statements/regrouping.py</p>
 <pre class="python">import pandas as pd
 
 from building_blocks.jobs_per_day import jobs_per_day
@@ -513,7 +519,7 @@ GROUP BY
 <section class="entry" id="repeated_rows">
 <h3>Repeated rows: joining alerts onto runs makes the minutes come out too big.</h3>
 <p class="why">Why: a run that raised three alerts is joined to three rows, so its minutes are added three times.</p>
-<p class="label">The top of worked_examples/statements/repeated_rows.py</p>
+<p class="label">The top of its script, statements/repeated_rows.py</p>
 <pre class="python">from building_blocks.alerts_per_run import alerts_per_run
 from sql_composer import (
     AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,

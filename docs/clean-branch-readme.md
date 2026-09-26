@@ -81,7 +81,7 @@ Python and, for each Statement it builds, the Hive and any result, from the Exam
 or, where the Example database can't run it, computed in pandas. It holds the docstrings'
 examples and the Worked examples on their own, each of which shows a Statement that gives a
 wrong number beside its fix. Open it in your browser. It needs nothing else: a box at the top
-filters the examples by any word, and Ctrl+F searches it too.
+keeps only the examples holding every word you type, and Ctrl+F searches it too.
 
 ## Cheat sheet
 
