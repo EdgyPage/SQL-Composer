@@ -30,6 +30,7 @@ from sql_composer import (
     GuardRefused,
     LoadRefused,
     Table,
+    average_of,
     between,
     by_day,
     count_distinct,
@@ -90,6 +91,53 @@ def test_guard_unsafe_regrouping_refuses() -> None:
         sum_of(job_runs.avg_retry_secs)
 
 
+def daily(calculation) -> Table:
+    """A Derived table with one row per day, holding `calculation` as `per_day`."""
+    return derived("daily", statement(
+        SELECT(job_runs.dt, AS(calculation, "per_day")),
+        FROM(job_runs),
+        WHERE(DAYS),
+        GROUP_BY(job_runs.dt),
+    ))
+
+
+def usual_fix(refused: pytest.ExceptionInfo) -> str:
+    """The "Usual fix" line of a refusal."""
+    return str(refused.value).split("Usual fix:")[1].split("\n")[0].strip()
+
+
+def test_guard_unsafe_regrouping_fix_for_a_distinct_count_counts_again() -> None:
+    with pytest.raises(GuardRefused) as refused:
+        sum_of(daily(count_distinct(job_runs.job_id)).per_day)
+    fix = usual_fix(refused)
+    assert "count_distinct(...)" in fix
+    assert "sum" not in fix and "divide" not in fix
+
+
+def test_guard_unsafe_regrouping_fix_for_an_average_keeps_the_sum_and_the_count() -> None:
+    with pytest.raises(GuardRefused) as refused:
+        sum_of(daily(average_of(job_runs.duration_mins)).per_day)
+    assert "the sum and the count" in usual_fix(refused)
+    assert "divide" in usual_fix(refused)
+
+
+def test_guard_unsafe_regrouping_fix_for_a_ratio_keeps_both_sides() -> None:
+    with pytest.raises(GuardRefused) as refused:
+        sum_of(daily(sum_of(job_runs.duration_mins) / count_rows()).per_day)
+    fix = usual_fix(refused)
+    assert "both sides of the division" in fix
+    assert "count_distinct" not in fix
+
+
+def test_guard_unsafe_regrouping_fix_for_a_listed_column_covers_each_kind() -> None:
+    """A column in does_not_add_up could be any of the three, so the fix names each."""
+    with pytest.raises(GuardRefused) as refused:
+        sum_of(job_runs.avg_retry_secs)
+    fix = usual_fix(refused)
+    assert "an average or a ratio" in fix and "divide" in fix
+    assert "a distinct count" in fix and "count_distinct(...)" in fix
+
+
 def test_guard_unsafe_regrouping_opt_out() -> None:
     assert repr(sum_of(job_runs.avg_retry_secs, adds_up=True)) == "SUM(job_runs.avg_retry_secs)"
 
@@ -102,6 +150,21 @@ def test_guard_missing_group_by_refuses() -> None:
             WHERE(DAYS),
             GROUP_BY(job_runs.status),
         )
+
+
+def test_guard_missing_group_by_fix_keeps_whole_rows() -> None:
+    """max_of on each column would take each value from a different row, so it isn't offered."""
+    with pytest.raises(GuardRefused) as refused:
+        statement(
+            SELECT(job_runs.job_id, job_runs.status, AS(count_rows(), "runs")),
+            FROM(job_runs),
+            WHERE(DAYS),
+            GROUP_BY(job_runs.job_id),
+        )
+    fix = usual_fix(refused)
+    assert "Add job_runs.status to GROUP_BY" in fix
+    assert "row_number(...)" in fix and "derived(...)" in fix
+    assert "max_of" not in fix
 
 
 def test_guard_left_join_then_where_refuses() -> None:
