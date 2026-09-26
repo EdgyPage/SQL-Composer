@@ -90,8 +90,9 @@ def test_a_missing_file_stops_the_import(tmp_path) -> None:
 
     assert import_copy(tmp_path, missing).endswith(stopped(
         what="CHANGES.md is missing from the sql_composer folder.",
-        why="Every file of SQL Composer 2.0 is needed, and one left out of the copy would make "
-        "a part of it fail later, far from the cause.",
+        why="Every file of SQL Composer 2.0 is needed: a missing .py file would make a part "
+        "of it fail later, far from the cause, and a missing examples.html or CHANGES.md "
+        "leaves you without the Example gallery or the change notes.",
         fix="Delete the sql_composer folder, then copy the whole folder in again from the 2.0 "
         "download.",
     ) + "\n")
@@ -235,8 +236,8 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
         "differently: Hive string escaping has changed. Nothing has been built or sent.",
         why="SQL Composer relies on this behaviour to write Hive safely, so a Statement could "
         "come out wrong.",
-        fix="Install the sqlglot SQL Composer is tested on from a notebook cell with %pip "
-        'install "sqlglot==30.19.0", then restart the kernel. '
+        fix="Install again the sqlglot SQL Composer is tested on, from a notebook cell with "
+        '%pip install --force-reinstall "sqlglot==30.19.0", then restart the kernel. '
         "If you can't install packages, "
         "ask whoever looks after your environment.",
     )
