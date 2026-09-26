@@ -448,6 +448,7 @@ def is_demonstration(module) -> bool:
 
 
 def function_html(heading: str, function, module, name: str) -> str:
+    """One Statement function of a script: a heading, its source, then its Hive and result."""
     return (f"<h4>{heading}<code>{name}()</code></h4>" + code_html(inspect.getsource(function))
             + statement_html(function(), module, name))
 
@@ -515,21 +516,20 @@ def gallery_page() -> str:
     pandas_results = pandas_results_by_hive(scripts)
     # Common jobs first, then the wrong numbers and their fixes; each list in file-name order.
     scripts = sorted(scripts, key=is_demonstration)
-    worked, used_by = [], {}
+    common, fixes, used_by = [], [], {}
     for module in scripts:
         entry_id, title, names, entry = script_entry(module)
-        worked.append((is_demonstration(module), entry_id, title, entry))
+        # Each entry travels as (its id, its title, its HTML).
+        (fixes if is_demonstration(module) else common).append((entry_id, title, entry))
         for name in names:
             used_by.setdefault(name, []).append((entry_id, title))
     # A name every Worked example uses (SELECT, statement) gets no links: they'd say nothing.
     used_by = {name: found for name, found in used_by.items() if len(found) < len(scripts)}
     documented = [(names, docstring_entry(names, doc, pandas_results, used_by))
                   for names, doc in docstrings()]
-    common = [(i, t, entry) for fixes, i, t, entry in worked if not fixes]
-    fixes = [(i, t, entry) for fixes, i, t, entry in worked if fixes]
     return PAGE.format(
         version=escape(sql_composer.TOOLBOX_VERSION),
-        worked_count=len(worked),
+        worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
         common_contents=contents_html(common),
         fixes_contents=contents_html(fixes),
@@ -542,8 +542,10 @@ def gallery_page() -> str:
     )
 
 
-def contents_html(worked: list[tuple[str, str, str]]) -> str:
-    return "\n".join(f'<li><a href="#{escape(i)}">{inline(t)}</a></li>' for i, t, _ in worked)
+def contents_html(entries: list[tuple[str, str, str]]) -> str:
+    """The list of links to entries, each shown by its title."""
+    return "\n".join(f'<li><a href="#{escape(entry_id)}">{inline(title)}</a></li>'
+                     for entry_id, title, _ in entries)
 
 
 PAGE = """<!doctype html>

@@ -50,7 +50,8 @@ class Clause:
 
     def __init__(self, name: str, *, outputs=None, distinct=False, table=None, on=None,
                  reads_all_partitions=False, many_matches=False, keeps_only_matches=False,
-                 conditions=None, items=None, trees=None, sorts_everything=False, n=None):
+                 conditions=None, group_columns=None, sort_keys=None, sorts_everything=False,
+                 n=None):
         self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
         # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
         self.outputs = outputs
@@ -63,9 +64,9 @@ class Clause:
         self.keeps_only_matches = keeps_only_matches
         # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
         self.conditions = conditions
-        self.items = items
+        self.group_columns = group_columns
         # ORDER_BY: the sqlglot trees to sort by, and its opt-out. LIMIT: the row count.
-        self.trees = trees
+        self.sort_keys = sort_keys
         self.sorts_everything = sorts_everything
         self.n = n
 
@@ -106,6 +107,7 @@ class Statement:
         self._returns_all_rows = False  # the opt-out of the automatic LIMIT
         self._write = None  # the Saved table an INSERT_OVERWRITE or INSERT_INTO writes
         self._write_call = None  # how that write was called, for messages
+        self._replaces_day = False  # True for INSERT_OVERWRITE, False for INSERT_INTO
         self._outputs = []  # SELECT's (column, output name) pairs
         self._distinct = False  # whether it is SELECT_DISTINCT
         self._reads = []  # the FROM clause, then each join clause
@@ -457,7 +459,7 @@ def GROUP_BY(*columns):
                 why="It groups by columns, or by the name of a calculation in SELECT.",
                 fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").',
             )
-    return Clause("GROUP_BY", items=items)
+    return Clause("GROUP_BY", group_columns=items)
 
 
 def HAVING(*conditions):
@@ -524,7 +526,7 @@ def ORDER_BY(*columns, sorts_everything=False):
                     why="It sorts by columns or output names.",
                     fix="Pass a column, an output name, or descending(...).")
     trees = [ordered(item, "ORDER_BY(...)") for item in items]
-    return Clause("ORDER_BY", trees=trees, sorts_everything=sorts_everything)
+    return Clause("ORDER_BY", sort_keys=trees, sorts_everything=sorts_everything)
 
 
 def LIMIT(n):
@@ -543,7 +545,7 @@ def LIMIT(n):
     return Clause("LIMIT", n=n)
 
 
-def _write(call: str, table) -> Clause:
+def _write_clause(call: str, table) -> Clause:
     """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
     table = _need_table(table, f"{call}(...)")
     if table._statement is not None or table._date_partition is None:
@@ -588,7 +590,7 @@ def INSERT_OVERWRITE(table):
       job_runs.dt,
       job_runs.job_id
     """
-    return _write("INSERT_OVERWRITE", table)
+    return _write_clause("INSERT_OVERWRITE", table)
 
 
 def INSERT_INTO(table):
@@ -621,7 +623,7 @@ def INSERT_INTO(table):
       job_runs.dt,
       job_runs.job_id
     """
-    return _write("INSERT_INTO", table)
+    return _write_clause("INSERT_INTO", table)
 
 
 # --- statement(...) ------------------------------------------------------------------------
@@ -683,14 +685,15 @@ def statement(*clauses, returns_all_rows=False):
     s._write = write.table if write else None
     # How the write was called, for messages: INSERT_INTO(daily_runs).
     s._write_call = f"{write._name}({write.table._alias})" if write else None
+    s._replaces_day = write is not None and write._name == "INSERT_OVERWRITE"
     select = next(c for c in clauses if c._name.startswith("SELECT"))
     s._outputs, s._distinct = select.outputs, select.distinct
     s._reads = [c for c in clauses if c._name == "FROM" or c._name in JOINS]
     s._where = _clause_part(clauses, "WHERE", "conditions")
     s._having = _clause_part(clauses, "HAVING", "conditions")
-    s._group_by = _resolve_group_by(s, _clause_part(clauses, "GROUP_BY", "items"))
+    s._group_by = _resolve_group_by(s, _clause_part(clauses, "GROUP_BY", "group_columns"))
     order = next((c for c in clauses if c._name == "ORDER_BY"), None)
-    s._order_by = order.trees if order else []
+    s._order_by = order.sort_keys if order else []
     s._limit = next((c.n for c in clauses if c._name == "LIMIT"), None)
     _check_tables(s)
     _run_guards(s)

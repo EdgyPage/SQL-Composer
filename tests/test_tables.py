@@ -163,7 +163,7 @@ def test_a_derived_table_cant_be_checked() -> None:
     from sql_composer import FROM, SELECT, derived, statement
 
     teams = derived("teams", statement(SELECT(jobs.team), FROM(jobs)))
-    with pytest.raises(TypeError, match="not on a Derived table"):
+    with pytest.raises(TypeError, match="not on a table.s name as text"):
         check_table_reference(teams, send=example_database.send)
 
 
@@ -213,5 +213,5 @@ def test_drop_table_drops_only_if_it_exists() -> None:
 
 
 def test_drop_table_needs_a_real_tables_reference() -> None:
-    with pytest.raises(TypeError, match="not on a Derived table"):
+    with pytest.raises(TypeError, match="not on a table.s name as text"):
         drop_table("mart.daily_runs")

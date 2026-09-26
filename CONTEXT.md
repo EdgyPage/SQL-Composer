@@ -106,8 +106,8 @@ be practised on it at work without touching the warehouse.
 _Avoid_: fixture, sample data, demo database, test tables
 
 **Worked example**:
-A Statement that reads the Example database's tables, shown with the Python that builds it and the
-Hive it emits. It sits either in a Toolbox function's docstring or on its own.
+A Statement written for the Example database's tables, or for a Saved table made from them, shown
+with the Python that builds it and the Hive it emits. It sits either in a Toolbox function's docstring or on its own.
 _Avoid_: case, sample, recipe, demo
 
 **Example gallery**:

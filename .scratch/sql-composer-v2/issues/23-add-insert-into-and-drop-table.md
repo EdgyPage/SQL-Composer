@@ -46,3 +46,36 @@ again, each step saying why.
 **The user's decision on the version (2026-09-26).** 2.0 was already exported with 61 names,
 so the user raised `TOOLBOX_VERSION` to "2.1" (drift item D12), and `CHANGES.md` has a 2.1
 section for the two names.
+
+**Also done under this ticket, at the user's request of 2026-09-26.** The user asked for the
+example library to be built out with common SQL jobs, each saying why, and for the internals
+to read plainly to an intermediate Python user. So beside the Saved-table example
+(`saved_table.py`), five more Worked examples of common jobs landed: `jobs_that_never_ran`,
+`labels_and_counts`, `groups_and_top_n`, `lists_and_text` and `step_by_step`. The gallery now
+shows a script without `careless()`/`fixed()` as its steps in turn, common jobs first.
+Behaviour-neutral readability refactors landed in 63ebaaa.
+
+**Code review (2026-09-26), `d5bcd93...HEAD`.**
+
+- *Standards:* no hard violations. Fixed:
+  - Overwrite versus append is decided by a bool, `s._replaces_day`, not by reading the
+    message text.
+  - `_write` is renamed `_write_clause`; a Clause's `items` and `trees` become `group_columns`
+    and `sort_keys`; `_partition_of` becomes `_date_partition_key`, and its long lines are
+    wrapped.
+  - `_day_unknown` returns its error, and the caller raises it.
+  - `hive_table` takes a plain `partition=` argument.
+  - The gallery's entry lists are tidied.
+  - The glossary's Worked example allows a Saved table made from the Example tables.
+- *Standards, kept as they are:*
+  - `__init__`'s DROP check repeats `drop_table`'s branch on purpose, so it tests what
+    `drop_table` builds.
+  - `for day in backfill()` keeps the Toolbox's own `by_day` wording.
+  - A Clause still has one set of fields for every clause kind. That reads better than a
+    class per clause, under "No abstraction to study first".
+- *Spec:* nothing implemented wrongly; every edge case tried held.
+  - Fixed: `drop_table("mart.x")`, given a name as text, now says so instead of calling it a
+    Derived table.
+  - Scope beyond the ticket's one example is recorded above.
+  - `export_lineage` refuses a `drop_table` Statement as it refuses `create_table`'s, which is
+    fine.
