@@ -10,9 +10,10 @@ on the Example database, so it needs sqlglot 30.19.0, the pin in requirements-de
 
 The page holds two kinds of Worked example:
 
-- each Statement script in `worked_examples/statements/`, with its `careless()` and `fixed()`
-  Statements side by side: each one's Python, Hive and result, with the Guard's refusal or the
-  Warning's message under the careless one;
+- each Statement script in `worked_examples/statements/`. A script with `careless()` and
+  `fixed()` shows the two side by side: each one's Python, Hive and result, with the Guard's
+  refusal or the Warning's message under the careless one. Any other script shows each of its
+  Statement functions in turn, as the steps of a common job;
 - every docstring's `>>>` example, in the cheat sheet's order, step by step as the docstring
   shows it, then the Hive and the result of each Statement it hands to `to_hive(...)`,
   `run(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
@@ -343,12 +344,22 @@ def script_top(module) -> str:
     return "\n".join(source.splitlines()[start:end - 1]).strip("\n")
 
 
-def building_blocks_of(module) -> list[Path]:
+# The lower Levels a Statement script may import, and how the page names each one.
+LOWER_LEVELS = {"table_references": "The Table reference", "building_blocks": "The Building block"}
+
+
+def lower_levels_of(module) -> list[tuple[str, Path]]:
+    """The Table references and Building blocks a script imports: how each is named, its file."""
     tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
-    return [WORKED_EXAMPLES / Path(*node.module.split(".")).with_suffix(".py")
-            for node in tree.body
-            if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(
-                "building_blocks.")]
+    found = []
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom) or node.module is None:
+            continue
+        folder = node.module.split(".")[0]
+        if folder in LOWER_LEVELS:
+            path = WORKED_EXAMPLES / Path(*node.module.split(".")).with_suffix(".py")
+            found.append((LOWER_LEVELS[folder], path))
+    return found
 
 
 def built_by(function, **options):
@@ -381,9 +392,17 @@ def opt_out_of(function) -> str | None:
     return keywords[0] if keywords else None
 
 
-def statement_html(s, module, name: str) -> str:
-    return (label("Hive") + code_html(sql_composer.to_hive(s), "hive")
-            + result_html(s, getattr(module, f"{name}_in_pandas", None)))
+def statement_html(built, module, name: str) -> str:
+    """The Hive and result of what a function built: one Statement, or a list of them."""
+    if isinstance(built, Statement):
+        return (label("Hive") + code_html(sql_composer.to_hive(built), "hive")
+                + result_html(built, getattr(module, f"{name}_in_pandas", None)))
+    parts = []
+    for number, s in enumerate(built, 1):
+        which = f" of Statement {number} of {len(built)}"
+        parts += [label(f"Hive{which}"), code_html(sql_composer.to_hive(s), "hive"),
+                  result_html(s, which=which)]
+    return "".join(parts)
 
 
 def careless_html(module) -> str:
@@ -403,6 +422,13 @@ def careless_html(module) -> str:
     return "\n".join(body) + statement_html(s, module, "careless")
 
 
+def builds_statements(value) -> bool:
+    """Whether a function's value is a Statement, or a list of them such as by_day(...) gives."""
+    if isinstance(value, list):
+        return bool(value) and all(isinstance(item, Statement) for item in value)
+    return isinstance(value, Statement)
+
+
 def other_statements(module) -> list[tuple[str, object]]:
     """The script's other Statement functions besides careless() and fixed(), in file order."""
     found = []
@@ -411,10 +437,19 @@ def other_statements(module) -> list[tuple[str, object]]:
                 or name.endswith("_in_pandas")):
             continue
         if all(p.default is not p.empty for p in inspect.signature(function).parameters.values()):
-            value = function()
-            if isinstance(value, Statement):
+            if builds_statements(function()):
                 found.append((name, function))
     return sorted(found, key=lambda pair: pair[1].__code__.co_firstlineno)
+
+
+def is_demonstration(module) -> bool:
+    """Whether a script shows a wrong number and its fix, with careless() and fixed()."""
+    return hasattr(module, "careless") and hasattr(module, "fixed")
+
+
+def function_html(heading: str, function, module, name: str) -> str:
+    return (f"<h4>{heading}<code>{name}()</code></h4>" + code_html(inspect.getsource(function))
+            + statement_html(function(), module, name))
 
 
 def script_entry(module) -> tuple[str, str, list[str], str]:
@@ -422,26 +457,29 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
     title, why, notes = script_parts(module)
     entry_id = module.__name__.split(".")[-1]
     top = script_top(module)
-    blocks = [(path.name, path.read_text(encoding="utf-8")) for path in building_blocks_of(module)]
+    lower = [(kind, path.name, path.parent.name, path.read_text(encoding="utf-8"))
+             for kind, path in lower_levels_of(module)]
     others = other_statements(module)
     with example_setting():
-        pair = ('<div class="pair">\n<div>' + careless_html(module) + "</div>\n<div>"
-                + "<h4>Fixed</h4>" + code_html(inspect.getsource(module.fixed))
-                + statement_html(module.fixed(), module, "fixed") + "</div>\n</div>")
-        more = "".join(
-            f"<h4>Also in this script: <code>{name}()</code></h4>"
-            + code_html(inspect.getsource(function))
-            + statement_html(function(), module, name)
-            for name, function in others
-        )
-    functions = [module.careless, module.fixed] + [function for _, function in others]
-    names = names_in("\n".join([top] + [text for _, text in blocks]
+        if is_demonstration(module):
+            steps = ('<div class="pair">\n<div>' + careless_html(module) + "</div>\n<div>"
+                     + "<h4>Fixed</h4>" + code_html(inspect.getsource(module.fixed))
+                     + statement_html(module.fixed(), module, "fixed") + "</div>\n</div>")
+            steps += "".join(function_html("Also in this script: ", function, module, name)
+                             for name, function in others)
+        else:
+            steps = "".join(function_html("", function, module, name)
+                            for name, function in others)
+    functions = [function for _, function in others]
+    if is_demonstration(module):
+        functions = [module.careless, module.fixed] + functions
+    names = names_in("\n".join([top] + [text for *_, text in lower]
                                + [inspect.getsource(function) for function in functions]))
     body = [f'<p class="why">{inline(why)}</p>', *(f"<p>{inline(note)}</p>" for note in notes),
             label(f"The top of its script, statements/{entry_id}.py"), code_html(top)]
-    for name, text in blocks:
-        body += [label(f"The Building block it imports, building_blocks/{name}"), code_html(text)]
-    body += [pair, more, names_html(names)]
+    for kind, name, folder, text in lower:
+        body += [label(f"{kind} it imports, {folder}/{name}"), code_html(text)]
+    body += [steps, names_html(names)]
     return entry_id, title, names, entry_html(entry_id, inline(title), "\n".join(body))
 
 
@@ -475,28 +513,37 @@ def gallery_page() -> str:
                            f"30.19.0 or newer; this is {sqlglot.__version__}.")
     scripts = statement_scripts()
     pandas_results = pandas_results_by_hive(scripts)
+    # Common jobs first, then the wrong numbers and their fixes; each list in file-name order.
+    scripts = sorted(scripts, key=is_demonstration)
     worked, used_by = [], {}
     for module in scripts:
         entry_id, title, names, entry = script_entry(module)
-        worked.append((entry_id, title, entry))
+        worked.append((is_demonstration(module), entry_id, title, entry))
         for name in names:
             used_by.setdefault(name, []).append((entry_id, title))
     # A name every Worked example uses (SELECT, statement) gets no links: they'd say nothing.
     used_by = {name: found for name, found in used_by.items() if len(found) < len(scripts)}
     documented = [(names, docstring_entry(names, doc, pandas_results, used_by))
                   for names, doc in docstrings()]
+    common = [(i, t, entry) for fixes, i, t, entry in worked if not fixes]
+    fixes = [(i, t, entry) for fixes, i, t, entry in worked if fixes]
     return PAGE.format(
         version=escape(sql_composer.TOOLBOX_VERSION),
         worked_count=len(worked),
         docstring_count=len(documented),
-        worked_contents="\n".join(f'<li><a href="#{escape(i)}">{inline(t)}</a></li>'
-                                  for i, t, _ in worked),
+        common_contents=contents_html(common),
+        fixes_contents=contents_html(fixes),
         docstring_contents=", ".join(f'<a href="#{escape(names[0])}"><code>'
                                      f'{" and ".join(names)}</code></a>'
                                      for names, _ in documented),
-        worked="\n".join(entry for _, _, entry in worked),
+        common="\n".join(entry for _, _, entry in common),
+        fixes="\n".join(entry for _, _, entry in fixes),
         documented="\n".join(entry for _, entry in documented),
     )
+
+
+def contents_html(worked: list[tuple[str, str, str]]) -> str:
+    return "\n".join(f'<li><a href="#{escape(i)}">{inline(t)}</a></li>' for i, t, _ in worked)
 
 
 PAGE = """<!doctype html>
@@ -540,21 +587,28 @@ to get the results shown.</p>
 examples on their own are scripts kept where the Toolbox is written, not in the
 <code>sql_composer</code> folder. Each entry shows the Python that builds its Statements, but not
 the pandas that computes a result the Example database can't run. To try one, paste the top of
-its script, with the Building block it imports pasted in place of its
-<code>from building_blocks ...</code> line, then the functions.</p>
+its script, with the Table reference or Building block it imports pasted in place of its
+<code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the
+functions.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>
 <span id="count"></span></p>
 <main>
-<p><b>Worked examples on their own,</b> each showing a Statement that gives a wrong number
-and its fix:</p>
+<p><b>Worked examples of common jobs,</b> each built in steps that say why:</p>
 <ul>
-{worked_contents}
+{common_contents}
+</ul>
+<p><b>Worked examples of a wrong number,</b> each showing a Statement that gives a wrong
+number beside its fix:</p>
+<ul>
+{fixes_contents}
 </ul>
 <p><b>Examples from the docstrings:</b> {docstring_contents}</p>
-<h2 id="worked-examples">Worked examples on their own</h2>
-{worked}
+<h2 id="common-jobs">Worked examples of common jobs</h2>
+{common}
+<h2 id="wrong-numbers">Worked examples of a wrong number and its fix</h2>
+{fixes}
 <h2 id="docstrings">Examples from the docstrings</h2>
 {documented}
 </main>

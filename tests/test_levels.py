@@ -2,8 +2,8 @@
 
 A script imports only from lower Levels and from the Toolbox, never from a higher or equal
 Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
-The Worked examples have no `table_references/` folder: their Table references are the
-Example database's, inside the Toolbox. Besides the Levels, a script may import the standard
+Most Worked examples read the Example database's Table references, inside the Toolbox;
+`table_references/` holds the Table reference of the Saved table they write. Besides the Levels, a script may import the standard
 library and what work has (pandas, numpy, sqlglot), and the Toolbox only from its top level,
 as `from sql_composer import ...`.
 
