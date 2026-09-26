@@ -14,7 +14,8 @@ The page holds two kinds of Worked example:
   Statements side by side: each one's Python, Hive and result, with the Guard's refusal or the
   Warning's message under the careless one;
 - every docstring's `>>>` example, in the cheat sheet's order, step by step as the docstring
-  shows it, with the result of each Statement it hands to `to_hive(...)`.
+  shows it, then the Hive and the result of each Statement it hands to `to_hive(...)`,
+  `run(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
 Statement, a pandas result from the Worked example that builds the same Hive stands in,
@@ -128,17 +129,19 @@ def what_happened(error: Exception) -> str:
     return found.group(1).strip() if found else str(error).strip().splitlines()[0]
 
 
-def result_html(s, pandas_result=None, heading: str = "Result on the Example database") -> str:
+def result_html(s, pandas_result=None, which: str = "") -> str:
     """The result of running `s` on the Example database, or why the Example database can't.
 
     `pandas_result`, a function computing the same result in pandas, stands in when the
-    Example database can't run the Statement.
+    Example database can't run the Statement. `which` says which Statement, when there are
+    several, such as " of Statement 1 of 2".
     """
     try:
-        return label(heading) + table_html(sql_composer.run(s, send=example_database.send))
+        return (label(f"Result{which} on the Example database")
+                + table_html(sql_composer.run(s, send=example_database.send)))
     except (RuntimeError, ValueError) as error:
         if pandas_result is not None:
-            return label(f"{heading}, {PANDAS_LABEL}") + table_html(pandas_result())
+            return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
         return f'<p class="note">No result here. {inline(what_happened(error))}</p>'
 
 
@@ -178,13 +181,15 @@ def prose_html(text: str) -> str:
     blocks = []
     for paragraph in re.split(r"\n\s*\n", text.strip("\n")):
         lines = paragraph.splitlines()
+        if not paragraph.strip():
+            continue
         if all(line.startswith("    ") for line in lines):
             blocks.append(code_html(textwrap.dedent(paragraph)))
         elif lines[0].startswith("- "):
             items = re.split(r"\n(?=- )", paragraph)
             blocks.append("<ul>" + "".join(f"<li>{inline(item[2:])}</li>" for item in items)
                           + "</ul>")
-        elif paragraph.strip():
+        else:
             blocks.append(f"<p>{inline(paragraph)}</p>")
     return "\n".join(blocks)
 
@@ -223,12 +228,10 @@ def output_label(source: str, value) -> str:
     if isinstance(value, REFUSALS):
         return "Refused"
     if isinstance(value, Exception):
-        return "It stops"
+        return "Python stops with an error"
     if "to_hive(" in source or type(value).__name__ in {"Condition", "Column", "Named"}:
         return "Hive"
-    if isinstance(value, pd.DataFrame):
-        return "Result on the Example database"
-    return "It shows"
+    return "Python shows"
 
 
 # The Toolbox functions a docstring's example hands a Statement to, which note each one.
@@ -272,35 +275,31 @@ def steps_html(parts: list, scope: dict) -> tuple[list[str], list[str]]:
     return body, sources
 
 
-def handed_html(handed: list, twins: dict) -> list[str]:
-    """Each Statement's Hive, unless the docstring prints it, and its result, unless it shows it."""
+def handed_html(handed: list, pandas_results: dict) -> list[str]:
+    """Each Statement's Hive, unless the docstring prints it, and its result."""
     body = []
-    results = [s for name, s in handed if name != "run"]
-    for name, s in handed:
+    for number, (name, s) in enumerate(handed, 1):
         hive = sql_composer.to_hive(s)
         if name != "to_hive":
             body += [label(f"The Hive of the Statement given to {name}(...)"),
                      code_html(hive, "hive")]
-        if name != "run":
-            number = results.index(s) + 1
-            heading = (f"Result of Statement {number} of {len(results)} on the Example database"
-                       if len(results) > 1 else "Result on the Example database")
-            body.append(result_html(s, twins.get(hive), heading))
+        which = f" of Statement {number} of {len(handed)}" if len(handed) > 1 else ""
+        body.append(result_html(s, pandas_results.get(hive), which))
     return body
 
 
-def docstring_entry(names: list[str], doc: str, twins: dict, users: dict) -> str:
+def docstring_entry(names: list[str], doc: str, pandas_results: dict, used_by: dict) -> str:
     first, _, rest = doc.partition("\n")
     handed = []
     scope = example_scope(handed)
     with example_setting():
         steps, sources = steps_html(doctest.DocTestParser().parse(rest), scope)
-        body = [f'<p class="why">{inline(first)}</p>', *steps, *handed_html(handed, twins),
+        body = [f'<p class="why">{inline(first)}</p>', *steps, *handed_html(handed, pandas_results),
                 extra_pandas_result(names)]
     used = [name for name in PUBLIC if name in names] + [
         name for name in names_in("\n".join(sources)) if name not in names]
     body.append(names_html(used))
-    body.append(users_html([users.get(name, []) for name in names]))
+    body.append(used_by_html([used_by.get(name, []) for name in names]))
     title = " and ".join(f"<code>{escape(name)}</code>" for name in names)
     return entry_html(names[0], title, "\n".join(block for block in body if block))
 
@@ -316,7 +315,7 @@ def extra_pandas_result(names: list[str]) -> str:
             + table_html(weeks.rename(columns={"week": "week_start(dt)"})))
 
 
-def users_html(found: list[list[tuple[str, str]]]) -> str:
+def used_by_html(found: list[list[tuple[str, str]]]) -> str:
     links = [f'<a href="#{escape(entry_id)}">{inline(title)}</a>'
              for per_name in found for entry_id, title in per_name]
     if not links:
@@ -353,15 +352,26 @@ def building_blocks_of(module) -> list[Path]:
 
 
 def built_by(function, **options):
-    """What calling `function` gives: the Statement or None, and any refusal or Warning."""
+    """What calling `function` gives: the Statement (None if refused), and what it said.
+
+    What it said is a heading and the message, both empty when it built quietly.
+    """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         try:
             s = function(**options)
-        except REFUSALS as refusal:
-            return None, f"{type(refusal).__name__}:{refusal}"
-    shown = [f"{w.category.__name__}: {w.message}" for w in caught]
-    return s, "\n".join(shown)
+        except sql_composer.GuardRefused as refusal:
+            return None, "A Guard refuses it", message_text(refusal)
+        except sql_composer.LoadRefused as refusal:
+            return None, "A Load limit refuses it", message_text(refusal)
+    if caught:
+        return s, "It builds, with a Warning", message_text(caught[0].message)
+    return s, "", ""
+
+
+def message_text(message) -> str:
+    """A refusal or Warning as Python prints it: its kind, then its four lines."""
+    return f"{type(message).__name__}:\n" + str(message).strip("\n")
 
 
 def opt_out_of(function) -> str | None:
@@ -377,21 +387,19 @@ def statement_html(s, module, name: str) -> str:
 
 
 def careless_html(module) -> str:
-    s, message = built_by(module.careless)
+    s, heading, message = built_by(module.careless)
     body = ['<h4>Careless: what most people write first</h4>',
             code_html(inspect.getsource(module.careless))]
+    if message:
+        body += [label(heading), code_html(message, "refusal")]
     if s is None:
-        guard = "A Guard" if message.startswith("GuardRefused") else "A Load limit"
-        body += [label(f"{guard} refuses it"), code_html(message, "refusal")]
         opt_out = opt_out_of(module.careless)
         if opt_out is None:
             return "\n".join(body + ['<p class="note">It has no opt-out, so there is no Hive '
                                      "to run.</p>"])
-        s, _ = built_by(module.careless, **{opt_out: True})
-        body.append(f'<p class="note">With the opt-out pasted, as <code>careless({opt_out}=True)'
+        s, _, _ = built_by(module.careless, **{opt_out: True})
+        body.append(f'<p class="note">With the opt-out added, as <code>careless({opt_out}=True)'
                     "</code>, it builds, and gives the wrong result:</p>")
-    elif message:
-        body += [label("It builds, with a Warning"), code_html(message, "refusal")]
     return "\n".join(body) + statement_html(s, module, "careless")
 
 
@@ -440,38 +448,42 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
 # --- The page ---------------------------------------------------------------------------------
 
 
-def pandas_twins(scripts: list) -> dict:
-    """Each Worked example Statement with a pandas result, by its Hive: for docstrings to use."""
-    twins = {}
+def pandas_results_by_hive(scripts: list) -> dict:
+    """The pandas result of each Worked example Statement that has one, by the Statement's Hive.
+
+    A docstring's Statement with the same Hive, which the Example database can't run, shows
+    that result instead.
+    """
+    found = {}
     with example_setting():
         for module in scripts:
             for name, function in inspect.getmembers(module, inspect.isfunction):
-                twin = getattr(module, f"{name}_in_pandas", None)
-                if twin is None:
+                pandas_result = getattr(module, f"{name}_in_pandas", None)
+                if pandas_result is None:
                     continue
-                s, _ = built_by(function)
+                s, _, _ = built_by(function)
                 if s is not None:
-                    twins[sql_composer.to_hive(s)] = twin
-    return twins
+                    found[sql_composer.to_hive(s)] = pandas_result
+    return found
 
 
 def gallery_page() -> str:
     """The whole page, as one HTML string."""
-    found = re.match(r"(\d+)\.(\d+)", sqlglot.__version__)
-    if tuple(int(n) for n in found.groups()) < (30, 19):
+    version = re.match(r"(\d+)\.(\d+)", sqlglot.__version__)
+    if tuple(int(n) for n in version.groups()) < (30, 19):
         raise RuntimeError("The Example gallery runs the Example database, which needs sqlglot "
                            f"30.19.0 or newer; this is {sqlglot.__version__}.")
     scripts = statement_scripts()
-    twins = pandas_twins(scripts)
-    worked, users = [], {}
+    pandas_results = pandas_results_by_hive(scripts)
+    worked, used_by = [], {}
     for module in scripts:
         entry_id, title, names, entry = script_entry(module)
         worked.append((entry_id, title, entry))
         for name in names:
-            users.setdefault(name, []).append((entry_id, title))
+            used_by.setdefault(name, []).append((entry_id, title))
     # A name every Worked example uses (SELECT, statement) gets no links: they'd say nothing.
-    users = {name: found for name, found in users.items() if len(found) < len(scripts)}
-    documented = [(names, docstring_entry(names, doc, twins, users))
+    used_by = {name: found for name, found in used_by.items() if len(found) < len(scripts)}
+    documented = [(names, docstring_entry(names, doc, pandas_results, used_by))
                   for names, doc in docstrings()]
     return PAGE.format(
         version=escape(sql_composer.TOOLBOX_VERSION),

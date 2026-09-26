@@ -81,7 +81,7 @@ def test_every_docstring_example_is_on_the_page(docstring: doctest.DocTest) -> N
         assert " ".join(want.split()) in shown, example.want
 
 
-def entry_html(entry_id: str) -> str:
+def entry_section(entry_id: str) -> str:
     found = re.search(rf'<section class="entry" id="{re.escape(entry_id)}">(.*?)</section>',
                       GALLERY.read_text(encoding="utf-8"), re.DOTALL)
     assert found, f"no entry {entry_id}"
@@ -90,7 +90,7 @@ def entry_html(entry_id: str) -> str:
 
 def sides(entry_id: str) -> tuple[str, str]:
     """A Worked example's careless side and its fixed side, as HTML."""
-    pair = entry_html(entry_id).split('<div class="pair">', 1)[1]
+    pair = entry_section(entry_id).split('<div class="pair">', 1)[1]
     careless, fixed = pair.split("<h4>Fixed</h4>", 1)
     assert "<h4>Careless" in careless
     return careless, fixed
@@ -170,13 +170,13 @@ def test_results_the_example_database_cannot_run_come_from_pandas_labelled(
 
 
 def test_row_number_shows_the_latest_run_of_each_job() -> None:
-    assert cells(entry_html("row_number")) == ["1", "104", "SUCCESS", "2", "102", "FAILED",
+    assert cells(entry_section("row_number")) == ["1", "104", "SUCCESS", "2", "102", "FAILED",
                                                "3", "103", "SUCCESS"]
 
 
 def test_a_docstring_statement_shows_its_result_on_the_example_database() -> None:
     # The two FAILED runs, as run's own docstring shows them.
-    assert cells(entry_html("WHERE")) == ["97", "102"]
+    assert cells(entry_section("WHERE")) == ["97", "102"]
 
 
 def test_a_statement_the_example_database_cannot_run_says_why() -> None:
@@ -202,7 +202,7 @@ def test_a_statement_given_to_run_shows_its_hive() -> None:
 def test_each_entry_lists_the_toolbox_names_its_python_uses(
     entry_id: str, names: list[str]
 ) -> None:
-    listed = re.search(r'<p class="names">Toolbox names used: (.*?)</p>', entry_html(entry_id))
+    listed = re.search(r'<p class="names">Toolbox names used: (.*?)</p>', entry_section(entry_id))
     assert sorted(re.findall(r"<code>(\w+)</code>", listed.group(1))) == sorted(names)
 
 
@@ -244,3 +244,17 @@ def test_every_tag_on_the_page_is_closed() -> None:
     parser = TagCounter()
     parser.feed(GALLERY.read_text(encoding="utf-8"))
     assert parser.problems == [] and parser.open == []
+
+
+def test_no_box_on_the_page_is_empty() -> None:
+    assert not re.search(r"<pre[^>]*></pre>", GALLERY.read_text(encoding="utf-8"))
+
+
+def test_a_pandas_result_does_not_claim_to_come_from_the_example_database() -> None:
+    assert "on the Example database, computed in pandas" not in GALLERY.read_text(
+        encoding="utf-8")
+
+
+def test_a_statement_given_to_run_also_shows_its_result_as_a_table() -> None:
+    # The two FAILED runs, as run's own docstring shows them, without pandas' index.
+    assert cells(entry_section("run")) == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
