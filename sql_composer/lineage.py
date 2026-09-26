@@ -2,7 +2,7 @@
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,
 from the table columns through each Derived table to the Statement's outputs, with controls
-to expand, collapse or hide each group. The Markdown twin needs no script: a Mermaid chart,
+to expand, collapse or hide each table. The Markdown twin needs no script: a Mermaid chart,
 then a report on each calculated column, and the Hive as submitted. Pass several Statements
 and the drawing continues through each Saved table one writes and another reads.
 """
@@ -128,7 +128,7 @@ def _condition_text(tree: exp.Expression, then: str) -> tuple[str, str]:
 
 
 def _add_step(graph: Graph, step: Statement, where: dict) -> None:
-    """The boxes one query makes: its outputs, then its conditions."""
+    """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions."""
     resolve = _resolver(graph, step, where["index"])
     made = []
     for column, name in step._outputs:
@@ -746,7 +746,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
-<span>solid arrow: carries a value · dotted: decides which rows count · "day written": decides which day of a Saved table is written · click a box to trace it · scroll zooms, drag pans</span>
+<span>solid arrow: carries a value · dotted: decides which rows count · "day written": decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
