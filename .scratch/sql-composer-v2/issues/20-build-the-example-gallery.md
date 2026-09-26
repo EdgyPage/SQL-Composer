@@ -1,7 +1,7 @@
 # Build the Example gallery
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 15, 18, 21
 
 ## Question
@@ -152,9 +152,9 @@ Answered, not changed:
 The page changes only with the code, so a stale page means a stale folder, which the `.py`
 stamps already catch unless the page alone was copied.
 
-**Drift (2026-09-25).** 83132c9 and 7df509c-before reviews: D10 opened on b147888 (the README
-promised every entry's result on the Example database) and closed in 802ea13; D11 opened on
-802ea13 (it promised every entry's Hive) and closed in 75c8e2f. No item is open.
+**Drift (2026-09-25).** 83132c9 was clean. D10 opened on b147888 (the README promised every
+entry's result on the Example database) and closed in 802ea13; D11 opened on 802ea13 (it
+promised every entry's Hive) and closed in 75c8e2f. No item is open.
 
 **Beginner reader (2026-09-25).** Report:
 [reports/20-beginner-reader.md](../reports/20-beginner-reader.md), run over the page, the
@@ -186,3 +186,55 @@ Also noted, not changed: `run`'s entry shows its result twice (as pandas prints 
 table); names that every Worked example uses get no "Worked examples that use it" line, and
 the page doesn't say why; `GROUP_BY`'s entry has no result, while `week_start`'s has a pandas
 one.
+
+## Answer
+
+**The Example gallery is built: `sql_composer/examples.html` ships with the Toolbox and holds
+all 68 Worked examples, the 7 on their own and the 61 docstring examples.** Commits 48998bf,
+83132c9, b147888, 802ea13, 75c8e2f, 7df509c, 954dcb9 and 487ce45.
+
+- **The generator** is `tools/example_gallery.py`, `dev`-only beside the export:
+  `python tools/example_gallery.py` rewrites the page. It needs sqlglot 30.19.0 and stops with
+  a plain message below it. It pins today to 2026-09-25, as the doctests do, and runs every
+  example in a temporary folder.
+- **The page** is one file of about 100 KB with no dependency:
+  - an introduction, a filter box that only a short script shows, and a contents list;
+  - **the Worked examples on their own**, every Statement script in
+    `worked_examples/statements/`: title, why, the rest of the module docstring, the top of
+    the script and each Building block it imports, then `careless()` and `fixed()` side by
+    side. Each side shows its Python, Hive and result. The Guard's refusal or the Warning sits
+    under the careless side, and where a Guard has an opt-out, the Statement with it added and
+    its wrong result follow. `top_runs_per_job()` follows the pair;
+  - **every docstring's example,** in the cheat sheet's order plus `example_database.send`:
+    the name, its first line and prose, then each step's Python and what the docstring shows,
+    labelled "Hive" where it is Hive. Each Statement the example hands to `to_hive`, `run`
+    or `export_lineage` shows its Hive (unless the docstring prints it) and its result;
+  - **results** are plain tables from the Example database. Where it can't run a Statement, a
+    Worked example's pandas result with the same Hive stands in, labelled "computed in pandas,
+    not by running this Hive" (`row_number`, the latest-per-key and top-N examples,
+    re-grouping); `week_start`'s entry shows each day's week from the re-grouping example's
+    own pandas. Otherwise the entry says in one line why there is no result;
+  - **Toolbox names used,** read from the Python shown, and, on a docstring entry, links to
+    the Worked examples that use the name.
+- **Tests:** `tests/test_example_gallery.py` reads the committed page. It checks every public
+  name and every docstring example, each Statement script's title and why, both sides of each
+  demonstration with the numbers from "Build the Example database's demonstrations", the
+  refusals and Warning under the careless side, the pandas labels, the names used, no outside
+  file, one short script, every tag closed, and no empty box. One test regenerates the page
+  and fails if it differs, and skips with its reason below sqlglot 30.19.0.
+  `tests/test_import_self_check.py` shows a missing `examples.html` stopping the import. The
+  export's existing tests now cover the page's HTML stamp and its place in `_FILES`.
+  - **Counts:** 931 tests pass on sqlglot 30.19.0. On 25.24.2, 886 pass and 43 skip; the
+    only failures are the two backtick cases that failed before this ticket.
+- **Export:** unchanged. It already stamped `.html` with an HTML comment, and it lists every
+  file in `_FILES`. `--preview` builds with the stamped page. The export itself was not run.
+- **Docs:** the README template points at the page, and `CHANGES.md` has an Example gallery
+  line under 2.0.
+- **Code review, drift and beginner reader:** see the Comments above for what was fixed and
+  what was answered. D10 and D11 opened and closed, and no item is open.
+- **The Toolbox's code is unchanged.** No public name moved, and `TOOLBOX_VERSION` stays
+  `"2.0"`. No drift item asked for a raise.
+- **For the user:** the build decisions above are the user's to overturn, as are the beginner
+  reader's costliest stops, which the Comments list.
+
+Beginner reader: .scratch/sql-composer-v2/reports/20-beginner-reader.md
