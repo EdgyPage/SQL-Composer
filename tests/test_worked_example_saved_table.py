@@ -1,4 +1,4 @@
-"""Worked example: keeping a Saved table, from create_table to drop_table.
+"""Worked example: building a Saved table, from create_table to drop_table.
 
 The Example database can't be written to, so these check each step's Hive, and check what
 each write would put in its day by sending the write's SELECT on its own and comparing it

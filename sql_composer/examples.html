@@ -1420,7 +1420,7 @@ STORED AS ORC</pre>
 <section class="entry" id="drop_table">
 <h3><code>drop_table</code></h3>
 <p class="why">The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.</p>
-<p>It deletes the whole table, every day of it, and the Toolbox can&#x27;t bring it back. Use it only for a Saved table you made: it takes any Table reference, so given a source table&#x27;s, such as job_runs, it would drop that table too, if your account is allowed to. The usual reason is changing a Saved table&#x27;s columns: create_table refuses while the old table exists, so drop it, create it again, and write its days again. IF EXISTS means that sending it for a table that isn&#x27;t there does nothing, rather than failing.</p>
+<p>It deletes the whole table, every day of it, and the Toolbox can&#x27;t bring it back. Use it only for a Saved table you made: it takes any Table reference, so given the reference of a table others fill, such as job_runs, it would drop that table too, if your account is allowed to. The usual reason is changing a Saved table&#x27;s columns: create_table refuses while the old table exists, so drop it, create it again, and write its days again. IF EXISTS means that sending it for a table that isn&#x27;t there does nothing, rather than failing.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(drop_table(daily_runs)))</pre>
