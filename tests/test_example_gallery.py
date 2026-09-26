@@ -155,6 +155,24 @@ def test_the_refusal_or_warning_shows_under_the_careless_statement(
     assert "What happened" not in page_text(fixed)
 
 
+def test_a_common_job_shows_each_step_with_its_hive_and_no_careless_side() -> None:
+    section = entry_section("saved_table")
+    assert '<div class="pair">' not in section
+    text = page_text(section)
+    assert "The Table reference it imports, table_references/runs_to_review.py" in text
+    steps = ["create()", "create_if_missing()", "failed_runs()", "alerted_runs()",
+             "backfill()", "rebuild()"]
+    assert [text.index(step) for step in steps] == sorted(text.index(step) for step in steps)
+    assert "Hive of Statement 1 of 2 DROP TABLE IF EXISTS mart.runs_to_review" in text
+    assert "INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-24')" in text
+
+
+def test_common_jobs_come_before_the_wrong_numbers() -> None:
+    page = GALLERY.read_text(encoding="utf-8")
+    assert page.index('id="common-jobs"') < page.index('id="saved_table"') < page.index(
+        'id="wrong-numbers"') < page.index('id="repeated_rows"')
+
+
 def test_an_opt_out_shows_the_wrong_result_hive_would_give() -> None:
     careless, _ = sides("left_join_then_where")
     assert "careless(keeps_only_matches=True)" in page_text(careless)

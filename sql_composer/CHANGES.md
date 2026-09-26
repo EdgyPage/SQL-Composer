@@ -11,7 +11,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Dropping a table.** `drop_table(t)` writes `DROP TABLE IF EXISTS` for a table, to
   send with `run`. It deletes every day of the table, and is for rebuilding a Saved table
   after changing its columns: drop it, create it again, and write its days again.
-- A Statement with two writes, or with both `SELECT` and `SELECT_DISTINCT`, is now refused.
+- **More Worked examples.** The Example gallery now starts with common jobs, each built in
+  steps that say why: keeping a Saved table (create it, write a day, add to a day,
+  backfill, drop and rebuild it), jobs with no runs, labels and counts by condition, counts
+  per group with `HAVING` and the top N, filters by a list or by text, and a long Statement
+  built from named steps. The Statements that give a wrong number beside their fix follow.
+- A Statement with both `INSERT_OVERWRITE` and `INSERT_INTO`, or with both `SELECT` and
+  `SELECT_DISTINCT`, is now refused.
 - A write that reads a table with no Date partition now says so plainly.
 
 ## 2.0
