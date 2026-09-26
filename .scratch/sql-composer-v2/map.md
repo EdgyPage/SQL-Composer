@@ -132,6 +132,10 @@ at work without touching the user's own scripts.
   Markdown twin to a generated name in `lineage/`, and joins Statements across Saved tables.
   Boxes show the Toolbox call each calculation was written with; `TOOLBOX_VERSION` stays
   "2.0" for the user to confirm.
+- [Build the Example gallery](issues/20-build-the-example-gallery.md): `tools/example_gallery.py`
+  writes `sql_composer/examples.html`, one script-optional page with all 68 Worked examples,
+  each with its Python, Hive, result (or a labelled pandas result) and the Toolbox names it
+  uses, careless and fixed side by side; a test fails when the committed page is stale.
 
 ## Not yet specified
 
