@@ -22,6 +22,7 @@ any item is open.
 - [x] D13 | b55bc47 | change-notes | `sql_composer/CHANGES.md` has no line for `INSERT_INTO` or `drop_table`: its Saved tables bullet (line 29-30) still says only "`INSERT_OVERWRITE(t)` writes one day of a Saved table, and `create_table(t)` creates it."; add, under whichever version D12 settles on, that `INSERT_INTO(t)` adds rows to one day and keeps the rows already there, and `drop_table(t)` deletes the whole table - closed by bbf9f13
 - [x] D14 | b55bc47 | docstring | the note on the lineage page for a write over several days (`sql_composer/lineage.py` line 402, in `_submitted`) says "a write replaces one day at a time", but a write can now be `INSERT_INTO`, which keeps the day's rows and adds to them; the commit changed the same words to "fills" in `guard_one_day_per_write` and `_day_unknown` but not here, so say "a write fills one day at a time" as they do - closed by bbf9f13
 - [x] D15 | 76b5b30 | glossary | the commit renames `_partition_of` to `_date_partition_key` (`sql_composer/conditions.py` line 140, and its four calls at lines 156, 255, 298 and 345), but "partition key" is on CONTEXT.md's _Avoid_ list under Date partition (line 93), and standards.md's "Glossary words" holds code to it; a reader of the internals, whom 63ebaaa and this commit write for, can take it as the Date partition's "partition key" rather than the dict key a condition's spans use for it. Name it without the avoided words, e.g. `_spans_key` or `_bound_name`, keeping the docstring "how a condition's spans name the Date partition they bound" - closed by bb2b975
+- [x] D16 | 0c7d3be | docstring | the new docstring of `_table_box` (`sql_composer/lineage.py` line 96) says the box "is added the first time the column is read", but `_add_write` (lines 194 and 197) also calls `_table_box` for each column a write fills and for its Date partition, and `build_graph` adds the Statements writers first, so a Saved table's column boxes are usually added when the column is written, before any Statement reads it; say "the first time the column is read or written" - closed by 4074d93
 
 ## Reviewed commits
 
@@ -70,3 +71,8 @@ any item is open.
 - bb2b975: clean
 - 576504d: clean
 - 95f2261: clean
+- de28375: clean
+- 83a39dd: clean
+- f2f51c2: clean
+- 0e81d84: clean
+- 0c7d3be: D16
