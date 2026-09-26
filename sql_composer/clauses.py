@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:
@@ -330,7 +330,11 @@ def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
 
 
 def CROSS_JOIN(table, reads_all_partitions=False):
-    """Pair every row with every row of another table; its name is the opt-out.
+    """Pair every row with every row of another table, with no ON=.
+
+    JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row
+    multiplies the rows and every sum and count over them. CROSS_JOIN is the opt-out of that
+    refusal: its name says you mean every row with every row, so it takes no ON=.
 
     Joining a table to itself needs a second name for it, given with AS:
 
@@ -443,7 +447,9 @@ def ORDER_BY(*columns, sorts_everything=False):
 
     Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
     Hive sorts everything on one machine: sort in pandas after run(...), or pass
-    sorts_everything=True.
+    sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without
+    LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there,
+    so a Statement that reads it can't rely on that order.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),

@@ -1,4 +1,4 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit -->
+<!-- SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit -->
 # Changes
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
@@ -10,20 +10,30 @@ The first version of the new Toolbox. Everything is new:
 - **Table references.** `Table(...)` describes one table: its columns and their types, its
   Date partition, its key, and the columns that don't add up. `write_table_reference` writes one
   from Hive's own description, `check_table_reference` compares one with the table as it is now,
-  and `check_key` checks a declared key on the newest day.
+  and `check_key` checks a declared key on the newest day. `first_look(t)` shows a table's
+  columns and 20 of yesterday's rows.
 - **Statements.** Clause functions in SQL order (`SELECT`, `FROM`, `JOIN`, `WHERE`,
   `GROUP_BY`, ...) are assembled by `statement(...)` and written as Hive by `to_hive(...)`.
-  `derived(name, statement)` names a Statement so another can read it.
+  `derived(name, statement)` names a Statement so another can read it. There is no `*`:
+  `all_columns(t)` lists a table's columns instead.
 - **Conditions and calculations** are named functions, such as `equals`, `between`,
-  `count_rows` and `sum_of`. Arithmetic uses Python's `+ - * /`.
+  `count_rows` and `sum_of`. Arithmetic uses Python's `+ - * /`. `week_start` and
+  `month_start` group days into weeks and months, `row_number` keeps the latest row or the top
+  N per group, and `hive_function` calls any other Hive function.
 - **Guards** refuse a Statement that would give a wrong number, and **Load limits** refuse one
-  that would read or return too much. Each says what happened, why, the usual fix, and the
-  keyword that lets it through. A join off the joined table's key gives a **Warning** instead.
+  that would read or return too much. Each raises `GuardRefused` or `LoadRefused` and says
+  what happened, why, the usual fix, and the keyword that lets it through where there is one.
+  A join off the joined table's key gives a **Warning** instead.
 - **Running.** `run(s, send=...)` sends a Statement through your own `send`, `by_day(s)` splits
   one into single days, and `set_load_limits(...)` switches on an automatic `LIMIT` and a cap
   on days per Statement, both off to start with.
 - **Saved tables.** `INSERT_OVERWRITE(t)` writes one day of a Saved table, and
   `create_table(t)` creates it.
+- **The folder checks itself.** On import, `sql_composer` stops with a plain message if a
+  file is missing or extra, or if its files come from different versions or different
+  exports. It also stops on a Python older than 3.11, and on a sqlglot outside 25.24.2 up to
+  (not including) 31 or one that behaves differently.
+  `TOOLBOX_VERSION` is the feature number, and `VERSION` also says when this copy was exported.
 - **Lineage.** `export_lineage(s)` writes where each column comes from, as an HTML page and
   a Markdown twin that needs no script, in a `lineage/` folder beside your script or
   notebook. Every step stays on screen, from the table columns through each Derived table to

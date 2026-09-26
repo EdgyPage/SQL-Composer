@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
 """Lineage: draw where each column comes from, as an HTML page and as Markdown.
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,

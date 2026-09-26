@@ -1,4 +1,4 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit -->
+<!-- SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -474,7 +474,7 @@ def jobs_per_day(first_day, last_day):
 <pre class="refusal">GuardRefused:
   What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which is a distinct count.
   Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
-  Usual fix:      Keep the parts it was made from (the sum and the count), add those up, and divide after your own GROUP_BY.
+  Usual fix:      For a count over the whole span, count again with count_distinct(...) from the rows it was counted from, under your own GROUP_BY: a week&#x27;s count comes from the week&#x27;s rows, not from each day&#x27;s count.
   Opt-out:        sum_of(jobs_per_day.jobs_that_ran, adds_up=True)</pre>
 <p class="note">With the opt-out added, as <code>careless(adds_up=True)</code>, it builds, and gives the wrong result:</p><p class="label">Hive</p><pre class="hive">WITH jobs_per_day AS (
   SELECT
@@ -942,7 +942,8 @@ GROUP BY
 </section>
 <section class="entry" id="CROSS_JOIN">
 <h3><code>CROSS_JOIN</code></h3>
-<p class="why">Pair every row with every row of another table; its name is the opt-out.</p>
+<p class="why">Pair every row with every row of another table, with no ON=.</p>
+<p>JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row multiplies the rows and every sum and count over them. CROSS_JOIN is the opt-out of that refusal: its name says you mean every row with every row, so it takes no ON=.</p>
 <p>Joining a table to itself needs a second name for it, given with AS:</p>
 <pre class="python">other = AS(jobs, &quot;other&quot;)</pre>
 <pre class="python">print(to_hive(statement(
@@ -1052,7 +1053,7 @@ HAVING
 <section class="entry" id="ORDER_BY">
 <h3><code>ORDER_BY</code></h3>
 <p class="why">Sort the result; it needs a LIMIT, and sorting in pandas is usually better.</p>
-<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since Hive sorts everything on one machine: sort in pandas after run(...), or pass sorts_everything=True.</p>
+<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since Hive sorts everything on one machine: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there, so a Statement that reads it can&#x27;t rely on that order.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
     FROM(job_runs),
@@ -1380,7 +1381,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="average_of">
 <h3><code>average_of</code></h3>
 <p class="why">The average of a column; it refuses to average something that doesn&#x27;t add up.</p>
-<p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep the sum and the count, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
+<p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column, since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
 <pre class="python">average_of(job_runs.duration_mins)</pre>
 <p class="label">Hive</p>
 <pre class="output">AVG(job_runs.duration_mins)</pre>

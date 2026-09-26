@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
 """Conditions: the tests that go in WHERE, HAVING and JOIN's ON=.
 
 Each condition is a named function, never a Python operator: `equals(job_runs.status,
