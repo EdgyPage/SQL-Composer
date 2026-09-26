@@ -53,7 +53,7 @@ class Span:
         return (self.low is None or day >= self.low) and (self.high is None or day <= self.high)
 
 
-def both(first: Span, second: Span) -> Span:
+def days_in_both(first: Span, second: Span) -> Span:
     """The days two conditions joined with AND both let through."""
     low = max((s.low for s in (first, second) if s.low is not None), default=None)
     high = min((s.high for s in (first, second) if s.high is not None), default=None)
@@ -62,7 +62,7 @@ def both(first: Span, second: Span) -> Span:
     return Span(low, high, days)
 
 
-def either(first: Span, second: Span) -> Span:
+def days_in_either(first: Span, second: Span) -> Span:
     """The days two conditions joined with OR let through between them."""
     low = None if None in (first.low, second.low) else min(first.low, second.low)
     high = None if None in (first.high, second.high) else max(first.high, second.high)
@@ -78,13 +78,14 @@ def either(first: Span, second: Span) -> Span:
 class Condition:
     """A test on rows, for WHERE, HAVING or ON=. Combine several with all_of or any_of."""
 
-    def __init__(self, tree, *, spans=None, only_bounds=None, kind=None):
+    def __init__(self, tree, *, spans=None, only_bounds=None, tests_for_null=False):
         self._tree = tree
         # {(table alias, column): Span} for each Date partition this condition bounds.
         self._spans = spans or {}
         # The (alias, column) this condition does nothing but bound, so by_day can replace it.
         self._only_bounds = only_bounds
-        self._kind = kind
+        # True for is_null(...), which LEFT_JOIN allows in WHERE: it keeps the rows with no match.
+        self._tests_for_null = tests_for_null
         self._aggregate = has_aggregate(tree)
 
     def __repr__(self) -> str:
@@ -136,7 +137,8 @@ def _need_column(column, call: str) -> Column:
     )
 
 
-def _key(column: Column) -> tuple[str, str]:
+def _partition_of(column: Column) -> tuple[str, str]:
+    """(table alias, column name): how a condition's spans name the Date partition they bound."""
     return (column._table._alias, column._name)
 
 
@@ -151,7 +153,7 @@ def _compare(name: str, node, column, value, span_of) -> Condition:
     if not is_date_partition(column) or isinstance(value, Column):
         return Condition(tree)
     span = span_of(as_date(value, column, call))
-    return Condition(tree, spans={_key(column): span}, only_bounds=_key(column))
+    return Condition(tree, spans={_partition_of(column): span}, only_bounds=_partition_of(column))
 
 
 def equals(column, value):
@@ -249,7 +251,7 @@ def between(column, low, high):
                 opt_out=None,
             )
         )
-    return Condition(tree, spans={_key(column): Span(first, last)}, only_bounds=_key(column))
+    return Condition(tree, spans={_partition_of(column): Span(first, last)}, only_bounds=_partition_of(column))
 
 
 def last_n_days(column, n):
@@ -291,7 +293,7 @@ def last_n_days(column, n):
     made_by(tree, "last_n_days", column, n)
     if not is_date_partition(column):
         return Condition(tree)
-    return Condition(tree, spans={_key(column): Span(first, last)}, only_bounds=_key(column))
+    return Condition(tree, spans={_partition_of(column): Span(first, last)}, only_bounds=_partition_of(column))
 
 
 def _values(values, call: str) -> list:
@@ -337,7 +339,7 @@ def _in(name: str, column, values, negated: bool) -> Condition:
         return Condition(tree)
     days = frozenset(as_date(value, column, call) for value in values)
     span = Span(min(days), max(days), days)
-    return Condition(tree, spans={_key(column): span}, only_bounds=_key(column))
+    return Condition(tree, spans={_partition_of(column): span}, only_bounds=_partition_of(column))
 
 
 def is_in(column, values):
@@ -368,7 +370,7 @@ def is_null(column):
     """
     column = _need_column(column, "is_null(...)")
     tree = exp.Is(this=column._tree.copy(), expression=exp.Null())
-    return Condition(made_by(tree, "is_null", column), kind="is_null")
+    return Condition(made_by(tree, "is_null", column), tests_for_null=True)
 
 
 def is_not_null(column):
@@ -454,7 +456,7 @@ def any_of(*conditions):
     found = _conditions(conditions, "any_of(...)")
     spans = dict(found[0]._spans)
     for condition in found[1:]:
-        spans = {key: either(span, condition._spans[key])
+        spans = {key: days_in_either(span, condition._spans[key])
                  for key, span in spans.items() if key in condition._spans}
     return Condition(made_by(exp.or_(*[c._tree.copy() for c in found]), "any_of", *found),
                      spans=spans)
@@ -480,7 +482,7 @@ def combined_spans(conditions: list[Condition]) -> dict:
     spans = {}
     for condition in conditions:
         for key, span in condition._spans.items():
-            spans[key] = both(spans[key], span) if key in spans else span
+            spans[key] = days_in_both(spans[key], span) if key in spans else span
     return spans
 
 
