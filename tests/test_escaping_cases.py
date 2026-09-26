@@ -11,6 +11,8 @@ agree, not that Hive agrees with either; nothing on `dev` can ask Hive.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 import sqlglot
 from sqlglot import exp
@@ -29,6 +31,23 @@ HIVE = "hive"
 
 STRING_IDS = [label for label, _value, _expected in STRING_CASES]
 IDENTIFIER_IDS = [label for label, _name, _expected in IDENTIFIER_CASES]
+# sqlglot writes a doubled backtick from 25.24.2 on, but reads one back only from 25.28.0.
+READS_A_DOUBLED_BACKTICK = (25, 28, 0)
+_found = re.match(r"(\d+)\.(\d+)\.(\d+)", sqlglot.__version__)
+SQLGLOT = tuple(int(n) for n in _found.groups()) if _found else (0, 0, 0)
+BACKTICK_LABELS = frozenset({"embedded_backtick", "hostile_name"})
+ROUND_TRIP_CASES = [
+    pytest.param(
+        *case,
+        id=case[0],
+        marks=pytest.mark.skipif(
+            case[0] in BACKTICK_LABELS and SQLGLOT < READS_A_DOUBLED_BACKTICK,
+            reason="sqlglot reads a doubled backtick back only from 25.28.0",
+        ),
+    )
+    for case in IDENTIFIER_CASES
+]
+
 CONTROL_CHARACTER_VALUES = [
     value
     for label, value, _expected in sorted(STRING_CASES)
@@ -106,7 +125,7 @@ def test_an_identifier_is_quoted_exactly_like_this(
     assert exp.to_identifier(name, quoted=True).sql(dialect=HIVE) == expected
 
 
-@pytest.mark.parametrize(("_label", "name", "expected"), IDENTIFIER_CASES, ids=IDENTIFIER_IDS)
+@pytest.mark.parametrize(("_label", "name", "expected"), ROUND_TRIP_CASES)
 def test_a_quoted_identifier_stays_one_name(_label: str, name: str, expected: str) -> None:
     column = exp.Column(this=exp.to_identifier(name, quoted=True))
     written = exp.select(column).from_("mart.deliveries").sql(dialect=HIVE)
