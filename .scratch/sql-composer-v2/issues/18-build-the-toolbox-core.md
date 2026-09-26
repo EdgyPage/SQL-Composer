@@ -269,15 +269,79 @@ with your recommendations". What that settled, and the commits that applied it o
   **25.28.0**. That was found by trying every 25.x release from 25.24.2 up, and a sample of
   releases above it, in a throwaway environment. The `embedded_backtick` and `hostile_name`
   round trips now skip below 25.28.0, with a reason naming that version. The pin and the range
-  are unchanged. On sqlglot 25.24.2 the suite gives 892 passed and 45 skipped, with no failures.
-  On 30.19.0, all 937 tests pass. The Toolbox's own `to_hive` self-check still stops a Statement
-  that names a column with a backtick in it on sqlglot below 25.28.0. That is left for the user.
+  are unchanged. The Toolbox's own `to_hive` self-check reads its Hive back the same way, so on
+  sqlglot 25.24.2 it still stops a Statement that names a column with a backtick in it (and,
+  going by the round trip, on anything below 25.28.0). That is left for the user.
 - **The import self-check compares the export stamp of every file** (4efbc8b), not only the
-  `.py` files. It reads a `# ...` or `<!-- ... -->` line 1, the two styles the export writes. An
+  `.py` files. It reads line 1 the way the export writes it: a `# ...` comment in a `.py` file,
+  and `<!-- ... -->` in any other (b1169c3), so a Markdown heading isn't taken for a stamp. An
   `examples.html` or `CHANGES.md` from another export stops the import, and so does one
   regenerated on `dev` and pasted into an exported folder. The stop message has the four parts,
   built by `four_part_message`. The other self-check stops keep ticket 05's one-line shape. An
   unstamped `dev` folder and the export's `--preview` build still import.
+- **Checks at the end:** on sqlglot 30.19.0, all 943 tests pass. On 25.24.2, 898 pass and 45 skip
+  with their reasons (the two backtick round trips, and the tests that need the Example
+  database's executor), with no failures.
+
+**Code review of the decisions (2026-09-25), `code-review` over `12f0c3f..HEAD`,** with the
+user's brief above as the spec and `docs/agents/standards.md` as the standards. Fixed:
+
+- **Spec:**
+  - The stamp reader took either comment style in any file, so a Markdown heading such as
+    `# SQL Composer changes` on line 1 of `CHANGES.md` would have read as a stamp and stopped a
+    `dev` import. Each file's stamp is now read only in the style the export writes for it, and
+    a test holds it (b1169c3).
+  - The distinct-count fix named the Example database's jobs in a refusal about the user's own
+    tables. It now says it generally: a week's count comes from the week's rows (c502537).
+  - The Answer below still said the backtick cases fail on 25.24.2. It now says they skip.
+- **Standards:**
+  - The import stop's fix said "copy in the new one", and its why said "version" where the
+    glossary word is Toolbox version. Both are reworded (b1169c3).
+  - A listed column's fix opened "Go back to what it was made from", which was vague. The
+    missing-`GROUP_BY` fix didn't say how to keep row 1. `ORDER_BY`'s new sentence said "there"
+    twice. `CHANGES.md`'s self-check line was one run-on sentence. All four are reworded
+    (c502537).
+
+Answered, not changed:
+
+- **The import stop for two exports is the only one with four parts.** The brief asked for the
+  four-part style for this message. The other stops (a missing or extra file, a file from
+  another version, Python and sqlglot) keep ticket 05's one-line shape, which that ticket
+  decided. The four-part stop also ends "Opt-out: none", which the beginner reader found odd on
+  an import stop. Giving every import stop the four parts, or none of them, is the user's call.
+- **The re-grouping reasons are plain strings,** written in `calculations.py` and `tables.py`
+  and read again as keys in `refusals.py`, so a typo on one side would fall back to the fix for
+  a listed column. The tests go through `sum_of` and `average_of` for each reason, a distinct
+  count, an average, a division and a listed column, so a renamed reason fails a test. An enum
+  would be machinery that standards.md prefers not to add.
+- **The fix for a listed column repeats the three others in its own words.** standards.md
+  prefers repetition to machinery.
+- **`average_of` on a distinct count is still refused** (the reader wanted "average jobs per
+  day"). That Guard is ticket 08's and isn't changed here. Its fix now says which question it
+  answers, "For a count over the whole span", and the opt-out line covers the other.
+- **A `sqlglot.__version__` the test can't read counts as 0.0.0,** so the two backtick cases
+  would skip. `tests/conftest.py` reads the version the same way.
+
+**Beginner reader (2026-09-25).** Report:
+[reports/decisions-beginner-reader.md](../reports/decisions-beginner-reader.md), run over only
+the changed texts. Its advice is for the user. Its three outright bugs were all in the
+re-grouping Guard's usual fix, and are fixed in 553510e:
+
+- the distinct-count fix, shown under `average_of` too, told someone who wanted the average
+  per day to count over the week. It now opens "For a count over the whole span";
+- the average fix said "the sum and the count", and `count_rows()` counts the NULLs that AVG
+  leaves out. It now names `sum_of(...)` and `count_rows(where=is_not_null(...))`, and so does
+  `average_of`'s docstring (084f384);
+- a listed column usually has no parts in its own table, so the fix now says to work it out
+  again from the table it was made from.
+
+Its costliest stops, for the user to weigh: the `row_number` route in the missing-`GROUP_BY`
+fix doesn't say it drops the grouped count; `help(row_number)` is where that is shown. And
+`CROSS_JOIN`'s example (a table paired with itself) gives no reason why anyone would do it.
+
+**Drift.** Every commit that touched a watched path was reviewed: 60ecbb6, 2b3f026, 4efbc8b,
+18cc3c0, e7e244d, b1169c3, c502537, 553510e and 084f384. All were clean, so no item opened and
+none is open.
 
 ## Answer
 
@@ -312,8 +376,9 @@ with your recommendations". What that settled, and the commits that applied it o
   - the import self-check, Table references, whole Statements and the Example database;
   - the Style B prototype's Statements, rewritten.
 
-  On sqlglot 25.24.2, the two backtick cases of `test_escaping_cases.py` still fail. They
-  failed before this build, which is noted above.
+  On sqlglot 25.24.2, the two backtick cases of `test_escaping_cases.py` failed. They had
+  failed before this build, which is noted above. Since 3c3d459 they skip below 25.28.0 (see
+  "The user's decisions").
 - **Decisions:** "Build decisions" above records where the tickets left a choice open. The
   user confirmed the two that waited for them (2026-09-25; see "The user's decisions" above):
   - the 59th name is read as `TOOLBOX_VERSION`;
@@ -329,3 +394,5 @@ Beginner reader: .scratch/sql-composer-v2/reports/18-beginner-reader.md
 The report is advice for the user. The code review fixed its two bugs:
 - `LIKE` escapes on the Example database;
 - raw executor errors for `row_number` and `week_start`.
+
+Beginner reader (the user's decisions): .scratch/sql-composer-v2/reports/decisions-beginner-reader.md
