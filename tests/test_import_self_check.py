@@ -110,6 +110,16 @@ def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None
                                                                       exported_but_one)
 
 
+def test_a_markdown_heading_is_not_read_as_a_stamp(tmp_path) -> None:
+    """In Markdown the export writes an HTML comment, so a `# ...` line 1 there is a heading."""
+    def heading(copy: Path) -> None:
+        changes = copy / "CHANGES.md"
+        text = changes.read_text(encoding="utf-8").replace("# Changes", "# SQL Composer changes", 1)
+        changes.write_text(text, encoding="utf-8")
+
+    assert import_copy(tmp_path, heading) == ""
+
+
 def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
     def stamped(copy: Path) -> None:
         stamp_every_file(copy)
