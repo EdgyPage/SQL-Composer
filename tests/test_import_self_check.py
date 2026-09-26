@@ -67,6 +67,14 @@ def test_a_missing_file_stops_the_import(tmp_path) -> None:
     assert "CHANGES.md is missing" in import_copy(tmp_path, missing)
 
 
+def test_a_missing_example_gallery_stops_the_import(tmp_path) -> None:
+    def missing(copy: Path) -> None:
+        with_file_list(copy)
+        (copy / "examples.html").unlink()
+
+    assert "examples.html is missing" in import_copy(tmp_path, missing)
+
+
 def test_files_from_two_exports_stop_the_import(tmp_path) -> None:
     def stamped(copy: Path) -> None:
         for path in copy.glob("*.py"):

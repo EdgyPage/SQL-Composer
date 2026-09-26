@@ -76,6 +76,11 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 >>> jobs, job_runs = example_database.jobs, example_database.job_runs
 ```
 
+`sql_composer/examples.html` is the Example gallery: every one of those examples on one page,
+with its result on the Example database, and the Worked examples on their own, each showing a
+Statement that gives a wrong number beside its fix. Open it in your browser. It needs nothing
+else, a box at the top filters the examples by any word, and Ctrl+F searches it too.
+
 ## Cheat sheet
 
 Everything the Toolbox offers, one line each, grouped by the file it lives in. Import every name
