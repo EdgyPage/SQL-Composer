@@ -40,6 +40,7 @@ from sql_composer import (
     example_database,
     export_lineage,
     last_n_days,
+    not_equals,
     row_number,
     statement,
     sum_of,
@@ -474,14 +475,35 @@ def test_the_report_continues_through_a_saved_table(tmp_path) -> None:
     runs = section(section(markdown, "## weekly"), "#### `runs`")
     assert ("weekly.runs = sum_of(daily_runs.runs)\n└─ mart.daily_runs.runs  (bigint)\n"
             "   └─ fill.runs = count_rows()\n") in runs
-    assert "- WHERE in fill: `between(job_runs.dt, \"2026-09-24\", \"2026-09-24\")`" in runs
+    assert ("- JOIN ON in weekly: `equals(jobs.job_id, daily_runs.job_id)`, which is "
+            "`jobs.job_id = daily_runs.job_id` (reads mart.daily_runs.job_id, ops.jobs.job_id)"
+            ) in runs
+
+
+def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(tmp_path) -> None:
+    fill = statement(
+        INSERT_OVERWRITE(daily_runs),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, "2026-09-24"), not_equals(job_runs.status, "TEST")),
+        GROUP_BY(job_runs.dt, job_runs.job_id),
+    )
+    weekly = runs_by_team()
+    markdown, _ = read(export_lineage(fill, weekly, to=tmp_path / "lineage.html"))
+    in_fill = section(section(markdown, "## fill"), "#### `runs`")
+    assert '- WHERE in fill: `equals(job_runs.dt, "2026-09-24")`' in in_fill
+    in_weekly = section(section(markdown, "## weekly"), "#### `runs`")
+    assert '- WHERE in fill: `not_equals(job_runs.status, "TEST")`' in in_weekly
+    assert "equals(job_runs.dt" not in in_weekly
 
 
 def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path) -> None:
     fill = fill_daily_runs("2026-09-23", "2026-09-24")
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     hive = section(markdown, "### Hive as submitted")
-    assert "This write covers 2 days, and by_day(...) sends one Statement per day." in hive
+    assert ("This write covers 2 days, and a write replaces one day at a time: send it with "
+            "`for day in by_day(fill): run(day, send=...)`. This is the first day's Hive."
+            ) in hive
     assert "PARTITION(dt = '2026-09-23')" in hive
 
 

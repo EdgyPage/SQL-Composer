@@ -316,18 +316,35 @@ def tree_lines(graph: Graph, key: str, prefix: str = "", last: bool = True,
 
 
 def _rows_that_count(graph: Graph, key: str) -> list[tuple[dict, list[str]]]:
-    """Each condition upstream of a box, with the table columns it reads."""
+    """Each condition upstream of a box, with the table columns it reads.
+
+    A write's date bound decides which day of its Saved table is written, not which of
+    those days a later Statement reads, so it counts only in the write's own section.
+    """
     found, upstream = [], graph.upstream(key)
+    day_bounds = {a for a, _, kind in graph.arrows if kind == "day"}
     for condition in [k for k in graph.boxes if k in upstream]:
-        if graph.boxes[condition]["kind"] != "condition":
+        box = graph.boxes[condition]
+        if box["kind"] != "condition" or (
+                condition in day_bounds and box["statement"] != graph.boxes[key]["statement"]):
             continue
-        inputs = set(graph.parents(condition))
-        for parent in list(inputs):
-            inputs.update(graph.upstream(parent, "value"))
-        reads = sorted(graph.boxes[k]["name"] for k in inputs
-                       if graph.boxes[k]["kind"] == "table")
-        found.append((graph.boxes[condition], reads))
+        found.append((box, _tables_read_by(graph, condition)))
     return found
+
+
+def _tables_read_by(graph: Graph, condition: str) -> list[str]:
+    """The table columns a condition reads, through Derived tables but not past a table."""
+    found, todo, seen = [], list(graph.parents(condition)), set()
+    while todo:
+        key = todo.pop()
+        if key in seen:
+            continue
+        seen.add(key)
+        if graph.boxes[key]["kind"] == "table":
+            found.append(graph.boxes[key]["name"])
+        else:
+            todo += graph.parents(key, "value")
+    return sorted(found)
 
 
 def _copied_from(graph: Graph, key: str) -> list[str]:
@@ -352,7 +369,7 @@ def report(graph: Graph, ordered) -> list[dict]:
         ]
         copied = [(graph.boxes[k]["name"], _copied_from(graph, k)) for k in mine
                   if graph.boxes[k]["kind"] == "output" and not graph.boxes[k]["calculated"]]
-        sql, note = _submitted(s)
+        sql, note = _submitted(s, name)
         sections.append({"name": name, "about": _about(s, index, ordered),
                          "calculated": calculated, "copied": copied, "sql": sql, "note": note})
     return sections
@@ -372,7 +389,7 @@ def _about(s: Statement, index: int, ordered) -> str:
     return " ".join(parts)
 
 
-def _submitted(s: Statement) -> tuple[str, str]:
+def _submitted(s: Statement, name: str) -> tuple[str, str]:
     """The Hive as submitted; for a write over several days, the first day's."""
     try:
         return to_hive(s), ""
@@ -380,8 +397,10 @@ def _submitted(s: Statement) -> tuple[str, str]:
         if s._write is None:
             raise
     days = by_day(s)
-    return to_hive(days[0]), (f"This write covers {len(days)} days, and by_day(...) sends one "
-                               "Statement per day. This is the first day's.")
+    return to_hive(days[0]), (
+        f"This write covers {len(days)} days, and a write replaces one day at a time: send "
+        f"it with `for day in by_day({name}): run(day, send=...)`. This is the first day's "
+        "Hive.")
 
 
 # --- The Markdown twin -----------------------------------------------------------------------
@@ -443,7 +462,7 @@ def _section_markdown(section: dict) -> list[str]:
     for entry in section["calculated"]:
         box = entry["box"]
         lines += [f"#### {_code(box['name'])}", "",
-                  f"Calculated in **{box['group']}** as {_how(box)}", "",
+                  f"Calculated in **{box['group']}** as {_how(box)}.", "",
                   "```text", entry["tree"], "```", ""]
         if entry["conditions"]:
             lines.append("Rows that count:")
@@ -468,10 +487,12 @@ def _section_markdown(section: dict) -> list[str]:
 
 def to_markdown(graph: Graph, sections: list[dict], title: str, footer: str) -> str:
     lines = [f"# Lineage: {title}", "",
-             "Made by `export_lineage`. Arrows run from where a value comes from to where it "
-             "goes: a solid arrow carries a value, a dotted one decides which rows count, and "
-             "a dotted one labelled \"day written\" decides which day of a Saved table is "
-             "written.", "", "## Graph", ""]
+             "Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab "
+             "draws. Arrows run from where a value comes from to where it goes. A solid "
+             "arrow carries a value. A dotted arrow carries a column into a condition, or "
+             "runs from a condition to the step whose rows it decides (labelled \"filters\")."
+             " A dotted arrow labelled \"day written\" runs from a write's date bound to the "
+             "day of the Saved table it writes.", "", "## Graph", ""]
     lines += mermaid_chart(graph) + [""]
     for section in sections:
         lines += _section_markdown(section)
@@ -495,7 +516,7 @@ def _entry_html(entry: dict) -> str:
     box, e = entry["box"], html.escape
     parts = [f'<details open><summary>{_inline_code(box["name"])} '
              f'<span class="muted">in {e(box["group"])}</span></summary>'
-             f"<p>Calculated as {_how_html(box)}</p><pre>{e(entry['tree'])}</pre>"]
+             f"<p>Calculated as {_how_html(box)}.</p><pre>{e(entry['tree'])}</pre>"]
     if entry["conditions"]:
         items = "".join(
             f"<li>{e(c['name'])}: {_how_html(c)}"
@@ -679,10 +700,10 @@ def export_lineage(*statements, to=None):
     """Write where each column comes from, as an HTML page and a Markdown twin.
 
     The HTML draws every step: the table columns, each Derived table and the outputs, with
-    WHERE and JOIN conditions as dashed boxes. Click a box to light up its whole path;
-    controls expand, collapse or hide each table, and switch to a grouped flowchart. The
-    Markdown file needs no script: a chart, a report on each calculated column, and the
-    Hive. Pass several Statements and the drawing follows each Saved table from the
+    the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box to light
+    up its whole path; controls expand, collapse or hide each table, and switch to a grouped
+    flowchart. The Markdown file needs no script: a Mermaid chart, a report on each
+    calculated column, and the Hive. Pass several Statements and the drawing follows each Saved table from the
     Statement that writes it to the ones that read it.
 
     The files go in a lineage/ folder beside your script or notebook, named by the time,
@@ -760,7 +781,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
-<span>solid arrow: carries a value · dotted: decides which rows count · "day written": decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
