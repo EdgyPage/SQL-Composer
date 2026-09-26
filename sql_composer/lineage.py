@@ -385,7 +385,8 @@ def _about(s: Statement, index: int, ordered) -> str:
             parts.append(f"It reads the Saved table {table}, written by "
                          f"{' and '.join(writers)} above.")
     if s._write is not None:
-        parts.append(f"It writes the Saved table {s._write._name}, one day at a time.")
+        verb = "writes" if s._write_call.startswith("INSERT_OVERWRITE") else "adds to"
+        parts.append(f"It {verb} the Saved table {s._write._name}, one day at a time.")
     return " ".join(parts)
 
 

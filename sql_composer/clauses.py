@@ -31,8 +31,9 @@ from .tables import SIMPLE_NAME, Column, Table, aliased, hive_text, identifier
 
 TOOLBOX_VERSION = "2.0"
 
-ORDER = ["INSERT_OVERWRITE", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING",
-         "ORDER_BY", "LIMIT"]
+# The order clauses come in, as in SQL. A write comes first, and the joins share one place.
+ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
+WRITES = ("INSERT_OVERWRITE", "INSERT_INTO")
 JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN")
 
 
@@ -47,8 +48,13 @@ class Clause:
         self._name = name
         self.__dict__.update(parts)
 
-    def _rank(self) -> int:
-        return ORDER.index("JOIN" if self._name in JOINS else self._name.replace("_DISTINCT", ""))
+    def _place(self) -> str:
+        """This clause's place in ORDER: INSERT_INTO sits at INSERT, LEFT_JOIN at JOIN."""
+        if self._name in WRITES:
+            return "INSERT"
+        if self._name in JOINS:
+            return "JOIN"
+        return self._name.replace("_DISTINCT", "")
 
     def _call(self) -> str:
         """How this clause was written, for messages: FROM(job_runs), JOIN(jobs, ON=...)."""
@@ -500,13 +506,28 @@ def LIMIT(n):
     return Clause("LIMIT", n=n)
 
 
+def _write(call: str, table) -> Clause:
+    """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
+    table = _need_table(table, f"{call}(...)")
+    if table._statement is not None or table._date_partition is None:
+        _misuse(
+            what=f"{call}({table._alias}) needs a Saved table with a Date partition.",
+            why="A write fills one day of a real table, so the table needs a Date partition "
+            "to write the day into.",
+            fix="Pass the Saved table's own Table reference, with date_partition=... set.",
+            error=ValueError,
+        )
+    return Clause(call, table=table)
+
+
 def INSERT_OVERWRITE(table):
     """Write the Statement's rows into one day of a Saved table, replacing that day.
 
     It goes first, before SELECT. The day written is the one day the Statement reads, so
     loop over by_day(s) to write several. Columns are matched to the Saved table by name,
     and the Toolbox puts them in the table's order, leaving out its Date partition.
-    Re-running a day replaces it rather than adding to it. On Hive 2.3 and 3.1 under Tez, a
+    Re-running a day replaces it rather than adding to it, so a day can safely be sent
+    again; to add rows to a day instead, use INSERT_INTO. On Hive 2.3 and 3.1 under Tez, a
     day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved
     table's Table reference, check it with check_table_reference(t, send=...).
 
@@ -530,16 +551,40 @@ def INSERT_OVERWRITE(table):
       job_runs.dt,
       job_runs.job_id
     """
-    table = _need_table(table, "INSERT_OVERWRITE(...)")
-    if table._statement is not None or table._date_partition is None:
-        _misuse(
-            what=f"INSERT_OVERWRITE({table._alias}) needs a Saved table with a Date partition.",
-            why="A write replaces one day of a real table, so the table needs a Date "
-            "partition to write the day into.",
-            fix="Pass the Saved table's own Table reference, with date_partition=... set.",
-            error=ValueError,
-        )
-    return Clause("INSERT_OVERWRITE", table=table)
+    return _write("INSERT_OVERWRITE", table)
+
+
+def INSERT_INTO(table):
+    """Add rows to one day of a Saved table, keeping the rows already there.
+
+    It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
+    Statement reads, and its columns are matched by name. The difference is what happens to
+    the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and
+    adds more. Use it when a day is filled by more than one Statement, such as one for each
+    source. Sending the same Statement twice adds its rows twice, so the day's counts and
+    sums double; if a send may be repeated, use INSERT_OVERWRITE.
+
+    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    >>> print(to_hive(statement(
+    ...     INSERT_INTO(daily_runs),
+    ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24")),
+    ...     GROUP_BY(job_runs.dt, job_runs.job_id),
+    ... )))
+    INSERT INTO mart.daily_runs PARTITION(dt = '2026-09-24')
+    SELECT
+      job_runs.job_id,
+      COUNT(*) AS runs
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24'
+    GROUP BY
+      job_runs.dt,
+      job_runs.job_id
+    """
+    return _write("INSERT_INTO", table)
 
 
 # --- statement(...) ------------------------------------------------------------------------
@@ -554,21 +599,21 @@ def _check_order(clauses) -> None:
                 "FROM(...).",
                 fix="Wrap it in its clause, such as WHERE(equals(...)).",
             )
-    ranks = [clause._rank() for clause in clauses]
-    names = [clause._name for clause in clauses]
-    once = [n for n in set(names) if n not in JOINS and names.count(n) > 1]
-    if ranks != sorted(ranks) or once:
+    places = [clause._place() for clause in clauses]
+    ranks = [ORDER.index(place) for place in places]
+    # Only a join may come more than once. This also refuses two writes, or two SELECTs.
+    twice = [place for place in set(places) if place != "JOIN" and places.count(place) > 1]
+    if ranks != sorted(ranks) or twice:
         _misuse(
             what="statement(...) has its clauses out of SQL order, or one clause twice: "
-            + ", ".join(names) + ".",
+            + ", ".join(clause._name for clause in clauses) + ".",
             why="A Statement reads in SQL order, one clause each.",
-            fix="Order them as INSERT_OVERWRITE, SELECT, FROM, JOIN..., WHERE, GROUP_BY, "
-            "HAVING, ORDER_BY, LIMIT, and put all conditions in one WHERE.",
+            fix="Order them as INSERT_OVERWRITE or INSERT_INTO, SELECT, FROM, JOIN..., WHERE, "
+            "GROUP_BY, HAVING, ORDER_BY, LIMIT, and put all conditions in one WHERE.",
             error=ValueError,
         )
-    present = {ORDER[rank] for rank in ranks}
     for needed in ("SELECT", "FROM"):
-        if needed not in present:
+        if needed not in places:
             _misuse(what=f"statement(...) has no {needed}(...).",
                     why="Every Statement says what it returns and which table it reads.",
                     fix="Add SELECT(...) and FROM(...).", error=ValueError)
@@ -597,7 +642,10 @@ def statement(*clauses, returns_all_rows=False):
     s = Statement()
     s._clauses = clauses
     s._returns_all_rows = returns_all_rows
-    s._write = next((c.table for c in clauses if c._name == "INSERT_OVERWRITE"), None)
+    write = next((c for c in clauses if c._name in WRITES), None)
+    s._write = write.table if write else None
+    # How the write was called, for messages: INSERT_INTO(daily_runs).
+    s._write_call = f"{write._name}({write.table._alias})" if write else None
     select = next(c for c in clauses if c._name.startswith("SELECT"))
     s._outputs, s._distinct = select.outputs, select.distinct
     s._reads = [c for c in clauses if c._name == "FROM" or c._name in JOINS]
@@ -710,7 +758,7 @@ def _run_guards(s: Statement) -> None:
         missing = [c for c in expected if c not in names]
         extra = [n for n in names if n not in expected]
         if missing or extra:
-            guard_write_lines_up(table._alias, missing, extra)
+            guard_write_lines_up(s._write_call, table._alias, missing, extra)
 
 
 def _guard_group_by(s: Statement) -> None:
@@ -860,6 +908,7 @@ __all__ = [
     "ORDER_BY",
     "LIMIT",
     "INSERT_OVERWRITE",
+    "INSERT_INTO",
     "statement",
     "derived",
 ]

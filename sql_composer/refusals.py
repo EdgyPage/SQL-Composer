@@ -221,7 +221,8 @@ def guard_order_by_in_derived_table(name: str) -> None:
     )
 
 
-def guard_write_lines_up(table: str, missing: list[str], extra: list[str]) -> None:
+def guard_write_lines_up(call: str, table: str, missing: list[str],
+                         extra: list[str]) -> None:
     """A write must select exactly the Saved table's columns. No opt-out."""
     problems = []
     if missing:
@@ -230,7 +231,7 @@ def guard_write_lines_up(table: str, missing: list[str], extra: list[str]) -> No
         problems.append("it also selects " + ", ".join(extra))
     raise GuardRefused(
         four_part_message(
-            what=f"INSERT_OVERWRITE({table}): " + ", and ".join(problems) + ".",
+            what=f"{call}: " + ", and ".join(problems) + ".",
             why="Hive fills a table's columns by position, not by name, so a missing or extra "
             "column would put values in the wrong columns.",
             fix=f"SELECT every column of {table}'s Table reference except its Date partition, "
@@ -240,12 +241,12 @@ def guard_write_lines_up(table: str, missing: list[str], extra: list[str]) -> No
     )
 
 
-def guard_one_day_per_write(table: str, days: int) -> None:
-    """A write replaces one day. No opt-out."""
+def guard_one_day_per_write(call: str, days: int) -> None:
+    """A write fills one day. No opt-out."""
     raise GuardRefused(
         four_part_message(
-            what=f"INSERT_OVERWRITE({table}) covers {days} days.",
-            why="A write replaces one day of the Saved table at a time, so every day's rows "
+            what=f"{call} covers {days} days.",
+            why="A write fills one day of the Saved table at a time, so every day's rows "
             "would land in one day's Partition.",
             fix="Send one Statement per day: for day in by_day(s): run(day, send=...).",
             opt_out=None,

@@ -612,6 +612,13 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
+def hive_table(name: str, **more) -> exp.Table:
+    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops."""
+    parts = name.split(".")
+    database = identifier(parts[0]) if len(parts) == 2 else None
+    return exp.Table(this=identifier(parts[-1]), db=database, **more)
+
+
 def source(table: Table) -> exp.Expression:
     """How a table is named after FROM or JOIN."""
     if table._statement is not None:
@@ -619,9 +626,7 @@ def source(table: Table) -> exp.Expression:
         if table._alias == table._name:
             return base
     else:
-        parts = table._name.split(".")
-        base = exp.Table(this=identifier(parts[-1]),
-                         db=identifier(parts[0]) if len(parts) == 2 else None)
+        base = hive_table(table._name)
     return exp.alias_(base, identifier(table._alias), table=True)
 
 
@@ -1009,8 +1014,8 @@ def create_table(t, may_exist=False):
 
     Send it once with run(create_table(t), send=...). Every column needs a type. If the
     table already exists, Hive refuses with AlreadyExistsException, so editing the Table
-    reference and sending this again can't quietly look like it changed the table: drop the
-    table on the server first, or compare them with check_table_reference(t, send=...).
+    reference and sending this again can't quietly look like it changed the table: drop it
+    first with drop_table(t), or compare them with check_table_reference(t, send=...).
     may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -1035,9 +1040,7 @@ def create_table(t, may_exist=False):
             why="Hive needs every column's type to create the table.",
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
         )
-    parts = t._name.split(".")
-    table = exp.Table(this=identifier(parts[-1]),
-                      db=identifier(parts[0]) if len(parts) == 2 else None)
+    table = hive_table(t._name)
     columns = [_column_definition(t, c) for c in t._columns if c != t._date_partition]
     properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
     if t._date_partition is not None:
@@ -1046,6 +1049,33 @@ def create_table(t, may_exist=False):
     s = Statement()
     s._ddl = exp.Create(kind="TABLE", this=exp.Schema(this=table, expressions=columns),
                         properties=exp.Properties(expressions=properties), exists=may_exist)
+    return s
+
+
+def drop_table(t):
+    """The DROP TABLE IF EXISTS Statement for a table, from its Table reference.
+
+    It deletes the whole table, every day of it, and can't be undone from here. The usual
+    reason is changing a Saved table's columns: create_table refuses while the old table
+    exists, so drop it, create it again, and write its days again. IF EXISTS means that
+    sending it for a table that isn't there does nothing, rather than failing.
+
+    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    >>> print(to_hive(drop_table(daily_runs)))
+    DROP TABLE IF EXISTS mart.daily_runs
+    """
+    from .clauses import Statement
+
+    t = _real_table(t, "drop_table(...)")
+    table = hive_table(t._name)
+    # sqlglot 30 renamed the part of a DROP that holds the table from `this` to `tables`.
+    if "tables" in exp.Drop.arg_types:
+        drop = exp.Drop(kind="TABLE", tables=[table], exists=True)
+    else:
+        drop = exp.Drop(kind="TABLE", this=table, exists=True)
+    s = Statement()
+    s._ddl = drop
     return s
 
 

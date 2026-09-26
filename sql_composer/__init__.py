@@ -219,6 +219,13 @@ def _sqlglot_behaviour():
     insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
     if "PARTITION(dt = '2026-01-01')" not in insert.sql("hive"):
         problems.append("INSERT OVERWRITE drops its PARTITION")
+    # Built the way drop_table builds it: sqlglot 30 renamed a DROP's `this` to `tables`.
+    if "tables" in exp.Drop.arg_types:
+        drop = exp.Drop(kind="TABLE", tables=[exp.table_("t", db="db")], exists=True)
+    else:
+        drop = exp.Drop(kind="TABLE", this=exp.table_("t", db="db"), exists=True)
+    if drop.sql("hive") != "DROP TABLE IF EXISTS db.t":
+        problems.append("DROP TABLE drops its table name")
     try:
         qualify(exp.select("nope").from_("t"), schema={"t": {"a": "INT"}}, dialect="hive")
         problems.append("qualify no longer refuses an unknown column")
@@ -262,6 +269,7 @@ from .clauses import (  # noqa: E402
     FROM,
     GROUP_BY,
     HAVING,
+    INSERT_INTO,
     INSERT_OVERWRITE,
     JOIN,
     LEFT_JOIN,
@@ -300,6 +308,7 @@ from .tables import (  # noqa: E402
     check_key,
     check_table_reference,
     create_table,
+    drop_table,
     first_look,
     write_table_reference,
 )
@@ -316,6 +325,7 @@ __all__ = [
     "check_key",
     "check_table_reference",
     "create_table",
+    "drop_table",
     "all_columns",
     # clauses.py
     "SELECT",
@@ -331,6 +341,7 @@ __all__ = [
     "ORDER_BY",
     "LIMIT",
     "INSERT_OVERWRITE",
+    "INSERT_INTO",
     "statement",
     "derived",
     # conditions.py
