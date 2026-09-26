@@ -1,7 +1,7 @@
 # Build `lineage.py`
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 18
 
 ## Question
@@ -158,3 +158,62 @@ day written; box text is cut before the end date of a `between`; the docstring's
 shows `notebook` in the name, which a JupyterLab user won't see; the title lists Statements
 writers first while the file name keeps the order passed; and "Hive as submitted", when
 nothing was sent.
+
+## Answer
+
+**`sql_composer/lineage.py` is built, and `export_lineage(*statements, to=None)` is the 61st
+public name.** Commits b6c4dfa, e83599f, 7ffea6a, 48e5666, 5b0faca, 9f0a315, 9bf5f88 and
+d3d562d.
+
+- **`export_lineage`** writes an HTML page and its script-free Markdown twin, side by side.
+  - **Where:** by default `lineage/{time}_{scripts commit}_lineage_{calling file}_{variables}`,
+    beside the calling script, or beside the notebook named by `JPY_SESSION_NAME`. The
+    scripts commit is read straight from `.git` (HEAD, loose refs, `packed-refs`, a
+    worktree), and is `nogit` outside a repository. `to=` names the `.html` file instead.
+  - **It returns** the two paths, HTML first. Both footers give the time, the scripts commit
+    and `VERSION`.
+  - **Its docstring** has a doctest on the Example database.
+- **The page:** inline SVG with no dependency, laid out by its own script.
+  - **Graph and Grouped flowchart views.** Every step stays on screen: table columns, each
+    Derived table, and each Statement's outputs, with WHERE, JOIN ON, HAVING and LIMIT as
+    dashed condition boxes.
+  - **Controls:** expand, collapse or hide per kind or group by group, and switch the
+    conditions and the report on or off. Clicking a box lights up its path. The state rides
+    in the URL.
+  - **Without scripts,** it shows the report and points at the Markdown twin.
+- **The Markdown twin:** a Mermaid chart with one group per table, Derived table, Statement
+  and set of filters. Then, per Statement, writers first:
+  - **Calculated columns:** the call and the Hive it became, a text tree back to the table
+    columns, the conditions that decide its rows, and "One value for each different ...";
+  - **Copied columns;**
+  - **the Hive as submitted,** or a multi-day write's first day, with how to send it.
+- **What a box shows** is `BOX_LINES`, a list of one-line functions every view reads.
+- **Building block names:** every calculation and condition function records its call in
+  `meta["call"]` (`made_by` and `readable` in `tables.py`). The Hive is unchanged.
+- **Across Saved tables:**
+  - The Statements are ordered writers first.
+  - Each Saved table is its own table group, fed by its writers' outputs by name.
+  - A dotted "day written" arrow runs from the write's date bound to its Date partition.
+  - A loop refuses with a `ValueError` naming the Statements and tables in it.
+- **Lineage is walked from the Statements themselves,** never through `optimize()`, so
+  Derived tables stay on screen (see "Build decisions").
+- **Tests:** `tests/test_lineage.py`, 43 tests through `export_lineage` and the files it
+  writes. They cover the naming and the commit in a plain repository, with packed refs, in a
+  worktree and on a detached HEAD. The name-list test now counts 61 of 61 built. 767 tests
+  pass on sqlglot 30.19.0. On 25.24.2 the only failures are the two backtick cases that
+  failed before this ticket.
+- **Export:** `python tools/export_clean.py --preview` builds with `lineage.py` in the file
+  list and the cheat sheet. The export itself was not run.
+- **Code review and beginner reader:** see the Comments above for what was fixed and what
+  was answered.
+- **Drift:** D8 and D9 opened on 7ffea6a and closed in 48e5666. No item is open.
+- **For the user:**
+  - **`TOOLBOX_VERSION` stays `"2.0"`.** The version is the user's to confirm.
+    `export_lineage` is a new public name in 2.0, and CHANGES.md lists Lineage under 2.0.
+    The local `main` already holds a 2.0 export without it (14b0b6a, unpushed; `origin/main`
+    is still v1). No drift item asked for a raise.
+  - **The build decisions** above are the user's to overturn. Among them are "Calculated
+    columns" for the ticket's "Derived columns", and walking Statements rather than
+    `qualify` + `traverse_scope`.
+
+Beginner reader: .scratch/sql-composer-v2/reports/22-beginner-reader.md

@@ -127,6 +127,11 @@ at work without touching the user's own scripts.
   seven Statement scripts in `worked_examples/statements/`, each with `careless()` and `fixed()`
   and a test checking both numbers against pandas; `week_start` and `row_number` give labelled
   pandas results, and `tests/test_levels.py` holds the Levels over `worked_examples/`.
+- [Build `lineage.py`](issues/22-build-lineage-py.md): `export_lineage` ships as the 61st
+  name. It writes an inline-SVG page with Graph and Grouped flowchart views and a Mermaid
+  Markdown twin to a generated name in `lineage/`, and joins Statements across Saved tables.
+  Boxes show the Toolbox call each calculation was written with; `TOOLBOX_VERSION` stays
+  "2.0" for the user to confirm.
 
 ## Not yet specified
 
