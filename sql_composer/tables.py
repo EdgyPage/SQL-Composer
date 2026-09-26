@@ -1069,8 +1069,9 @@ def drop_table(t):
     """The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
 
     It deletes the whole table, every day of it, and the Toolbox can't bring it back. Use it
-    only for a Saved table you made: it takes any Table reference, so given a source table's,
-    such as job_runs, it would drop that table too, if your account is allowed to. The usual
+    only for a Saved table you made: it takes any Table reference, so given the reference of
+    a table others fill, such as job_runs, it would drop that table too, if your account is
+    allowed to. The usual
     reason is changing a Saved table's columns: create_table refuses while the old table
     exists, so drop it, create it again, and write its days again. IF EXISTS means that
     sending it for a table that isn't there does nothing, rather than failing.
