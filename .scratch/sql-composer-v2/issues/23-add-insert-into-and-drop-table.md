@@ -1,7 +1,7 @@
 # Add `INSERT_INTO` and `drop_table`
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -33,6 +33,16 @@ Build the two names, taking the 61 public names to 63:
 Done when the definition of done in `CLAUDE.md` holds, with a Worked example that creates a Saved
 table, overwrites a day, adds to a day, backfills with `by_day`, and drops and creates the table
 again, each step saying why.
+
+## Answer
+
+`INSERT_INTO(t)` and `drop_table(t)` ship as the 62nd and 63rd public names, and the user
+raised `TOOLBOX_VERSION` to "2.1". `INSERT_INTO` follows every rule of `INSERT_OVERWRITE` and keeps
+the day's rows; `drop_table` always writes `DROP TABLE IF EXISTS`. The Example gallery opens with
+six Worked examples of common jobs, led by `saved_table.py`: create, create if missing,
+overwrite a day, add a second table's rows to it, backfill, and drop and rebuild, each step
+saying why. The code review and the beginner reader are answered below; pytest passes at both
+ends of the sqlglot range, and no drift item is open.
 
 ## Comments
 
