@@ -47,8 +47,13 @@ def test_a_file_from_another_version_stops_the_import(tmp_path) -> None:
                                                         'TOOLBOX_VERSION = "1.9"')
         path.write_text(text, encoding="utf-8")
 
-    assert "running.py is from 1.9 - paste it again from the 2.0 download" in import_copy(
-        tmp_path, older)
+    assert import_copy(tmp_path, older).endswith(stopped(
+        what="running.py is from Toolbox version 1.9, and __init__.py is from 2.0.",
+        why="Files from different Toolbox versions weren't written to work together, so a "
+        "Statement could fail or come out wrong.",
+        fix="Delete the sql_composer folder, then copy the whole folder in again from one "
+        "download.",
+    ) + "\n")
 
 
 def test_an_extra_file_stops_the_import(tmp_path) -> None:
@@ -56,7 +61,25 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
         with_file_list(copy)
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
 
-    assert "my_notes.py isn't part of SQL Composer 2.0" in import_copy(tmp_path, extra)
+    assert import_copy(tmp_path, extra).endswith(stopped(
+        what="my_notes.py is in the sql_composer folder, but isn't part of SQL Composer 2.0.",
+        why="A file left over from an earlier Toolbox version can still be imported, and would "
+        "quietly run old code.",
+        fix="If it is one of your own scripts, move it out: your scripts sit beside the "
+        "sql_composer folder, never inside it. Otherwise delete the sql_composer folder, then "
+        "copy the whole folder in again from the 2.0 download.",
+    ) + "\n")
+
+
+def stopped(what: str, why: str, fix: str) -> str:
+    """The last line of an import stop: the four parts, with no opt-out."""
+    return (
+        "ImportError: sql_composer stopped on import:"
+        f"\n  What happened:  {what}"
+        f"\n  Why it matters: {why}"
+        f"\n  Usual fix:      {fix}"
+        "\n  Opt-out:        none - this one can't be switched off."
+    )
 
 
 def test_a_missing_file_stops_the_import(tmp_path) -> None:
@@ -64,7 +87,23 @@ def test_a_missing_file_stops_the_import(tmp_path) -> None:
         with_file_list(copy)
         (copy / "CHANGES.md").unlink()
 
-    assert "CHANGES.md is missing" in import_copy(tmp_path, missing)
+    assert import_copy(tmp_path, missing).endswith(stopped(
+        what="CHANGES.md is missing from the sql_composer folder.",
+        why="It was probably left out of the copy, and every file of SQL Composer 2.0 is "
+        "needed, so a part of it would fail later, far from the cause.",
+        fix="Delete the sql_composer folder, then copy the whole folder in again from the 2.0 "
+        "download.",
+    ) + "\n")
+
+
+def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path) -> None:
+    """The four-part message is built in __init__.py, so it works without refusals.py."""
+    def missing(copy: Path) -> None:
+        with_file_list(copy)
+        (copy / "refusals.py").unlink()
+
+    assert "What happened:  refusals.py is missing from the sql_composer folder." in (
+        import_copy(tmp_path, missing))
 
 
 def test_a_missing_example_gallery_stops_the_import(tmp_path) -> None:
@@ -94,9 +133,13 @@ def test_an_exported_copy_imports(tmp_path) -> None:
 
 @pytest.mark.parametrize("odd", ["tables.py", "examples.html", "CHANGES.md"])
 def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
-    stopped = import_copy(tmp_path, lambda copy: stamp_every_file(copy, odd=odd))
-    assert f"What happened:  {odd} came from a different export than __init__.py." in stopped
-    assert "Usual fix:" in stopped
+    assert import_copy(tmp_path, lambda copy: stamp_every_file(copy, odd=odd)).endswith(stopped(
+        what=f"{odd} came from a different export than __init__.py.",
+        why="Two exports of the same Toolbox version can differ, so the code, the Example "
+        "gallery and the change notes in this folder may not match each other.",
+        fix="Delete the sql_composer folder, then copy the whole folder in again from one "
+        "download.",
+    ) + "\n")
 
 
 def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None:
@@ -133,17 +176,45 @@ def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
     assert shown.stdout.strip() == "SQL Composer 2.0, exported 2026-10-02 14:05"
 
 
+def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "sqlglot", None)  # makes `import sqlglot` fail
+    with pytest.raises(ImportError) as error:
+        sql_composer._check_sqlglot()
+    assert f"ImportError: {error.value}" == stopped(
+        what="SQL Composer needs the sqlglot library, and this Python can't import it.",
+        why="SQL Composer writes every Statement as Hive through sqlglot, and reads the Hive "
+        "back to check it, so it can't build anything without it.",
+        fix='Install sqlglot in this Python, as in pip install "sqlglot>=25.24.2,<31.0.0", '
+        "then restart the kernel.",
+    )
+
+
 @pytest.mark.parametrize("version", ["25.24.1", "31.0.0", "unknown"])
 def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch, version) -> None:
     monkeypatch.setattr(sqlglot, "__version__", version)
-    with pytest.raises(ImportError, match=f"this Python has sqlglot {version}"):
+    with pytest.raises(ImportError) as error:
         sql_composer._check_sqlglot()
+    assert f"ImportError: {error.value}" == stopped(
+        what="SQL Composer needs sqlglot 25.24.2 or newer, below 31.0.0, and this Python has "
+        f"sqlglot {version}.",
+        why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can write "
+        "Hive differently, so a Statement could come out wrong without anything saying so.",
+        fix='Install a sqlglot in the range, as in pip install "sqlglot>=25.24.2,<31.0.0", '
+        "then restart the kernel.",
+    )
 
 
 def test_an_older_python_stops_the_import(monkeypatch) -> None:
     monkeypatch.setattr(sys, "version_info", (3, 9, 7, "final", 0))
-    with pytest.raises(ImportError, match="needs Python 3.11 or newer, and this is Python 3.9.7"):
+    with pytest.raises(ImportError) as error:
         sql_composer._check_python()
+    assert f"ImportError: {error.value}" == stopped(
+        what="SQL Composer needs Python 3.11 or newer, and this is Python 3.9.7.",
+        why="SQL Composer is tested only on Python 3.11 and newer, and parts of it may not work "
+        "on an older one.",
+        fix="Choose a Python 3.11 or newer kernel (Kernel > Change Kernel in JupyterLab), or ask "
+        "whoever looks after your environment to add one.",
+    )
 
 
 def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> None:
@@ -153,9 +224,16 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
     monkeypatch.setattr(exp, "convert",
                         lambda value, *args, **kw: exp.Literal.string("changed")
                         if value == "O'Brien\\" else real(value, *args, **kw))
-    with pytest.raises(ImportError, match="behaves differently: Hive string escaping has "
-                                          "changed. Nothing has been built or sent."):
+    with pytest.raises(ImportError) as error:
         sql_composer._check_sqlglot()
+    assert f"ImportError: {error.value}" == stopped(
+        what=f"sqlglot {sqlglot.__version__} is in the supported range, but behaves "
+        "differently: Hive string escaping has changed.",
+        why="SQL Composer relies on this behaviour to write Hive safely, so a Statement could "
+        "come out wrong. Nothing has been built or sent.",
+        fix='Install the sqlglot SQL Composer is tested on, as in pip install '
+        '"sqlglot==30.19.0", then restart the kernel.',
+    )
 
 
 def test_a_newer_sqlglot_in_range_prints_a_note(monkeypatch, capsys) -> None:

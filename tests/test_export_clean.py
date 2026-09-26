@@ -267,8 +267,16 @@ def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
     (source / "sql_composer" / "old_module.py").write_text('TOOLBOX_VERSION = "1.9"\n')
-    with pytest.raises(export_clean.ExportRefused, match="old_module.py is from 1.9"):
+    with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
+    # The whole four-part stop, not only its last line.
+    assert str(refused.value).startswith(
+        "The stamped copy of the Toolbox doesn't import, so nothing was exported:\n"
+        "ImportError: sql_composer stopped on import:\n"
+        "  What happened:  old_module.py is from Toolbox version 1.9, and __init__.py is from "
+        "2.0.\n"
+        "  Why it matters: ")
+    assert "\n  Usual fix:      " in str(refused.value)
 
 
 def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
