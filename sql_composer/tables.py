@@ -98,8 +98,8 @@ def made_by(tree: exp.Expression, name: str, *args, **keywords) -> exp.Expressio
 
 def _argument_text(value) -> str:
     """One argument of a Toolbox call, written back as Python, for the lineage boxes."""
-    # A column, condition or descending(...) is spotted by what it holds, not by its class,
-    # since those classes live in files that import this one.
+    # A column, condition or descending(...) is spotted by what it holds, not by its class:
+    # a condition's class and descending's live in files that import this one.
     if hasattr(value, "_tree"):
         return readable(value._tree)
     if hasattr(value, "_target"):
