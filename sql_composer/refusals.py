@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
 """Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
@@ -131,10 +131,29 @@ def guard_time_of_day(call: str, value: object) -> None:
     )
 
 
+_REGROUPING_FIXES = {
+    "a distinct count": "For a count over the whole span, count again with count_distinct(...) "
+    "from the rows it was counted from, under your own GROUP_BY: a week's count comes from "
+    "the week's rows, not from each day's count.",
+    "an average": "Keep the parts it was made from, sum_of(...) and "
+    "count_rows(where=is_not_null(...)) of the same column, add up each one, and divide "
+    "after your own GROUP_BY.",
+    "a division": "Keep both sides of the division as their own columns, add up each "
+    "one, and divide after your own GROUP_BY.",
+}
+# A column listed in does_not_add_up could be any of the three.
+_REGROUPING_FIX_FOR_A_LISTED_COLUMN = (
+    "It could be an average, a ratio or a distinct count, so work it out again from the table "
+    "it was made from. For an average or a ratio, add up its two parts and divide after your "
+    "own GROUP_BY. For a distinct count, count again with count_distinct(...)."
+)
+
+
 def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up: bool) -> None:
     """Adding up averages, ratios or distinct counts gives a wrong total.
 
-    `reason` says why the column doesn't add up, and is None when it does.
+    `reason` says why the column doesn't add up, and is None when it does. The usual fix
+    depends on it: a distinct count is counted again, an average or a ratio is divided again.
     """
     if adds_up or reason is None:
         return
@@ -144,8 +163,7 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
             why="Averages, ratios and distinct counts don't add up: the average of daily "
             "averages is not the weekly average, and a user seen on two days would be "
             "counted twice.",
-            fix="Keep the parts it was made from (the sum and the count), add those up, and "
-            "divide after your own GROUP_BY.",
+            fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
             opt_out=f"{call[:-1]}, adds_up=True)",
         )
     )
@@ -159,7 +177,9 @@ def guard_missing_group_by(columns: list[str]) -> None:
             what=f"SELECT has {listed}, which GROUP_BY leaves out.",
             why="Each output row is one group, so a column that isn't grouped has no single "
             "value to show. Hive would refuse the Statement.",
-            fix=f"Add {listed} to GROUP_BY, or put it inside a calculation such as max_of(...).",
+            fix=f"Add {listed} to GROUP_BY. To keep one whole row per group instead, such as "
+            "each job's latest run, number the rows with row_number(...) inside derived(...), "
+            "then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.",
             opt_out=None,
         )
     )

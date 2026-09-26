@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
 run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own

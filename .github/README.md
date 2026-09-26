@@ -1,7 +1,7 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 20:11 - generated from dev, do not edit -->
+<!-- SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit -->
 # SQL Composer
 
-This is SQL Composer 2.0, exported 2026-09-25 20:11.
+This is SQL Composer 2.0, exported 2026-09-25 20:53.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -94,7 +94,7 @@ from `sql_composer` itself, never from one of its files.
 SQL Composer: write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'2.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 20:11'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 20:53'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -118,7 +118,7 @@ Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement
 - `FROM` - The table a Statement reads; its Date partition must be bounded in WHERE.
 - `JOIN` - Add a second table's columns to each row, matching rows by ON=.
 - `LEFT_JOIN` - Like JOIN, but rows with no match are kept, with NULL in the joined columns.
-- `CROSS_JOIN` - Pair every row with every row of another table; its name is the opt-out.
+- `CROSS_JOIN` - Pair every row with every row of another table, with no ON=.
 - `WHERE` - Keep only the rows where every condition holds (they are joined with AND).
 - `GROUP_BY` - Group rows that share these values, one output row per group.
 - `HAVING` - Keep only the groups where every condition holds, tested after GROUP_BY.
