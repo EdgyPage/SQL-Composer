@@ -61,7 +61,7 @@ Behaviour-neutral readability refactors landed in 63ebaaa.
   - Overwrite versus append is decided by a bool, `s._replaces_day`, not by reading the
     message text.
   - `_write` is renamed `_write_clause`; a Clause's `items` and `trees` become `group_columns`
-    and `sort_keys`; `_partition_of` becomes `_date_partition_key`, and its long lines are
+    and `sort_keys`; `_partition_of` becomes `_spans_key`, and its long lines are
     wrapped.
   - `_day_unknown` returns its error, and the caller raises it.
   - `hive_table` takes a plain `partition=` argument.
