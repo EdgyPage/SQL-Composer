@@ -29,8 +29,8 @@ TOOLBOX_VERSION = "2.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------
-# Each function gives one line of a box, or "" to leave the line out. Every view reads this
-# list, so a line added here shows in the HTML, the Mermaid chart and the report alike.
+# Both views read box_lines, so a line added there shows in the HTML page and the Mermaid chart
+# alike.
 
 
 def name_line(box: dict) -> str:
@@ -44,11 +44,9 @@ def formula_line(box: dict) -> str:
     return box["formula"]
 
 
-BOX_LINES = [name_line, formula_line]
-
-
 def box_lines(box: dict) -> list[str]:
-    return [line for line in (show(box) for show in BOX_LINES) if line]
+    """The lines of text a box shows: its name, then its formula line unless that is empty."""
+    return [line for line in (name_line(box), formula_line(box)) if line]
 
 
 # --- The graph -------------------------------------------------------------------------------
