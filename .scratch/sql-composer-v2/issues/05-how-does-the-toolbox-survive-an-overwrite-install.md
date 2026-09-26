@@ -73,3 +73,17 @@ Ruled out:
 - **Stamping the version into the SQL string,** since it's unknown how the query API treats a
   leading comment.
 - **`%autoreload`,** which is left to the run-loop fog.
+
+## Comments
+
+**The user's decision (2026-09-25): "make all import stops four-part".** Every stop of the
+import self-check now has the four parts a refusal has (what happened, why it matters, the
+usual fix, and "Opt-out: none", since no import stop can be switched off), built by the one
+four-part function. Each still raises `ImportError`. This replaces the one-line shape decided
+above, such as *"sql_composer 3.1: `lineage.py` is from 2.7 - paste it again from the 3.1
+download."*: that stop now says `lineage.py is from Toolbox version 2.7, and __init__.py is from
+3.1.`, and its fix is to delete the folder and copy the whole folder in again from one download,
+which is right whichever of the two files is the stale one. An extra file's fix now says to move
+it out first if it is one of the user's own scripts, so deleting the folder doesn't lose it.
+Tests first, one per stop, in `tests/test_import_self_check.py` (ac2d38a). The work is recorded
+in "Build the Toolbox core" (ticket 18).
