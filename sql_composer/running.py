@@ -27,7 +27,7 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
 )
-from .tables import aliased, hive_text, identifier, source
+from .tables import aliased, hive_table, hive_text, identifier, source
 
 TOOLBOX_VERSION = "2.0"
 
@@ -157,21 +157,28 @@ def _check_dates_cap(s: Statement) -> None:
 def _written_day(s: Statement):
     """The one day a write covers, from the date bound of the table it reads from."""
     table, span = _bottom_read(s)
-    days = span.dates() if span is not None and span.is_bounded() else None
-    if days is None:
-        raise ValueError(
-            four_part_message(
-                what=f"INSERT_OVERWRITE({s._write._alias}) reads {table._name} without a "
-                "bound on its Date partition, so the day to write isn't known.",
-                why="A write replaces the one day its Statement reads.",
-                fix=f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "
-                "at a time with by_day(...).",
-                opt_out=None,
-            )
-        )
+    if table._date_partition is None:
+        _day_unknown(s, f"reads {table._name}, which has no Date partition",
+                     "Read a table with a Date partition in FROM, bounded to one day in WHERE.")
+    if span is None or not span.is_bounded():
+        _day_unknown(s, f"reads {table._name} without a bound on its Date partition",
+                     f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "
+                     "at a time with by_day(...).")
+    days = span.dates()
     if len(days) != 1:
-        guard_one_day_per_write(s._write._alias, len(days))
+        guard_one_day_per_write(s._write_call, len(days))
     return days[0]
+
+
+def _day_unknown(s: Statement, what: str, fix: str) -> None:
+    raise ValueError(
+        four_part_message(
+            what=f"{s._write_call} {what}, so the day to write isn't known.",
+            why="A write fills the one day its Statement reads.",
+            fix=fix,
+            opt_out=None,
+        )
+    )
 
 
 def _bottom_read(s: Statement):
@@ -187,15 +194,13 @@ def _bottom_read(s: Statement):
 def _write_tree(s: Statement) -> exp.Expression:
     table = s._write
     day = _written_day(s).strftime(table._date_format)
-    parts = table._name.split(".")
     partition = exp.Partition(expressions=[
         exp.EQ(this=exp.column(identifier(table._date_partition)),
                expression=exp.Literal.string(day)),
     ])
-    target = exp.Table(this=identifier(parts[-1]),
-                       db=identifier(parts[0]) if len(parts) == 2 else None,
-                       partition=partition)
-    return exp.Insert(this=target, expression=_select_tree(s), overwrite=True)
+    target = hive_table(table._name, partition=partition)
+    overwrite = s._write_call.startswith("INSERT_OVERWRITE")
+    return exp.Insert(this=target, expression=_select_tree(s), overwrite=overwrite)
 
 
 def _tree(s: Statement) -> exp.Expression:

@@ -29,9 +29,10 @@ ALLOWED = {"pandas", "numpy", "sqlglot"}
 PUBLIC_NAMES = [
     "TOOLBOX_VERSION", "VERSION",
     "Table", "write_table_reference", "first_look", "check_key", "check_table_reference",
-    "create_table", "all_columns",
+    "create_table", "drop_table", "all_columns",
     "SELECT", "SELECT_DISTINCT", "AS", "FROM", "JOIN", "LEFT_JOIN", "CROSS_JOIN", "WHERE",
-    "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT", "INSERT_OVERWRITE", "statement", "derived",
+    "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT", "INSERT_OVERWRITE", "INSERT_INTO", "statement",
+    "derived",
     "equals", "not_equals", "is_null", "is_not_null", "at_least", "at_most", "more_than",
     "less_than", "between", "last_n_days", "is_in", "is_not_in", "contains", "starts_with",
     "any_of", "all_of",
@@ -49,8 +50,8 @@ def toolbox_files() -> list[Path]:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 61
-    assert len(set(PUBLIC_NAMES)) == 61
+    assert len(PUBLIC_NAMES) == 63
+    assert len(set(PUBLIC_NAMES)) == 63
     assert sorted(sql_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sql_composer.__all__:
         assert hasattr(sql_composer, name), name

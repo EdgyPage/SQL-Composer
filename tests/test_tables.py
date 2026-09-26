@@ -10,6 +10,7 @@ from sql_composer import (
     check_key,
     check_table_reference,
     create_table,
+    drop_table,
     example_database,
     to_hive,
     write_table_reference,
@@ -200,3 +201,17 @@ def test_create_table_may_exist() -> None:
     t = Table("mart.t", columns={"a": "decimal(10,2)"}, date_partition=None)
     assert to_hive(create_table(t, may_exist=True)) == (
         "CREATE TABLE IF NOT EXISTS mart.t (\n  a DECIMAL(10, 2)\n)\nSTORED AS ORC")
+
+
+# --- drop_table -------------------------------------------------------------------------------
+
+
+def test_drop_table_drops_only_if_it_exists() -> None:
+    t = Table("mart.daily_runs", columns={"runs": "bigint", "dt": "string"},
+              date_partition="dt")
+    assert to_hive(drop_table(t)) == "DROP TABLE IF EXISTS mart.daily_runs"
+
+
+def test_drop_table_needs_a_real_tables_reference() -> None:
+    with pytest.raises(TypeError, match="not on a Derived table"):
+        drop_table("mart.daily_runs")

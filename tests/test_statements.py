@@ -14,6 +14,7 @@ from sql_composer import (
     FROM,
     GROUP_BY,
     HAVING,
+    INSERT_INTO,
     INSERT_OVERWRITE,
     JOIN,
     LIMIT,
@@ -376,6 +377,58 @@ def test_a_write_with_no_bound_on_its_day_is_refused() -> None:
     )
     with pytest.raises(ValueError, match="the day to write isn't known"):
         to_hive(unbounded)
+
+
+def adding_a_day(day="2026-09-24"):
+    return statement(
+        INSERT_INTO(daily_runs),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"),
+               AS(sum_of(job_runs.duration_mins), "minutes")),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, day)),
+        GROUP_BY(job_runs.dt, job_runs.job_id),
+    )
+
+
+def test_insert_into_adds_to_the_day_it_reads() -> None:
+    lines = to_hive(adding_a_day()).splitlines()
+    assert lines[0] == "INSERT INTO mart.daily_runs PARTITION(dt = '2026-09-24')"
+    assert lines[1:3] == ["SELECT", "  job_runs.job_id,"]
+
+
+def test_insert_into_keeps_every_rule_of_a_write() -> None:
+    with pytest.raises(GuardRefused, match=r"INSERT_INTO\(daily_runs\): it leaves out minutes"):
+        statement(INSERT_INTO(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+                  FROM(job_runs), WHERE(DAYS), GROUP_BY(job_runs.dt, job_runs.job_id))
+    two_days = statement(
+        INSERT_INTO(daily_runs),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"),
+               AS(sum_of(job_runs.duration_mins), "minutes")),
+        FROM(job_runs), WHERE(DAYS), GROUP_BY(job_runs.dt, job_runs.job_id),
+    )
+    with pytest.raises(GuardRefused, match=r"INSERT_INTO\(daily_runs\) covers 2 days"):
+        to_hive(two_days)
+    assert [to_hive(day).splitlines()[0][-13:] for day in by_day(two_days)] == [
+        "'2026-09-23')", "'2026-09-24')"]
+    with pytest.raises(ValueError, match="needs a Saved table with a Date partition"):
+        INSERT_INTO(jobs)
+    with pytest.raises(ValueError, match="write"):
+        derived("added", adding_a_day())
+
+
+def test_a_statement_has_one_write_at_most() -> None:
+    with pytest.raises(ValueError, match="one clause twice"):
+        statement(INSERT_OVERWRITE(daily_runs), INSERT_INTO(daily_runs),
+                  SELECT(job_runs.job_id), FROM(job_runs), WHERE(DAYS))
+
+
+def test_a_write_from_a_table_with_no_date_partition_says_so() -> None:
+    per_team = Table("mart.per_team", columns={"jobs": "bigint", "dt": "string"},
+                     date_partition="dt")
+    s = statement(INSERT_OVERWRITE(per_team), SELECT(AS(count_rows(), "jobs")), FROM(jobs))
+    with pytest.raises(ValueError, match="reads ops.jobs, which has no Date partition") as refused:
+        to_hive(s)
+    assert "None" not in str(refused.value)
 
 
 # --- by_day -------------------------------------------------------------------------------
