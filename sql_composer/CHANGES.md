@@ -26,7 +26,7 @@ The first version of the new Toolbox. Everything is new:
 - **Lineage.** `export_lineage(s)` writes where each column comes from, as an HTML page and
   a Markdown twin that needs no script, in a `lineage/` folder beside your script or
   notebook. Every step stays on screen, from the table columns through each Derived table to
-  the outputs, with controls to expand, collapse or hide each group. Pass several Statements
+  the outputs, with controls to expand, collapse or hide each table. Pass several Statements
   and the drawing follows each Saved table from the Statement that writes it to the ones that
   read it.
 - **The Example database.** `example_database` holds three made-up tables and a `send` that
