@@ -117,8 +117,10 @@ def _check_files():
             _stop(
                 what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
                 "from the sql_composer folder.",
-                why=f"Every file of SQL Composer {TOOLBOX_VERSION} is needed, and one left out "
-                "of the copy would make a part of it fail later, far from the cause.",
+                why=f"Every file of SQL Composer {TOOLBOX_VERSION} is needed: a missing .py "
+                "file would make a part of it fail later, far from the cause, and a missing "
+                "examples.html or CHANGES.md leaves you without the Example gallery or the "
+                "change notes.",
                 fix="Delete the sql_composer folder, then copy the whole folder in again from "
                 f"the {TOOLBOX_VERSION} download.",
             )
@@ -194,9 +196,9 @@ def _check_sqlglot():
             + "; ".join(problems) + ". Nothing has been built or sent.",
             why="SQL Composer relies on this behaviour to write Hive safely, so a Statement "
             "could come out wrong.",
-            fix="Install the sqlglot SQL Composer is tested on from a notebook cell with %pip "
-            f'install "sqlglot=={_dotted(_SQLGLOT_NEWEST_TESTED)}", then restart the kernel. '
-            f"{_NO_INSTALLING}",
+            fix="Install again the sqlglot SQL Composer is tested on, from a notebook cell "
+            f'with %pip install --force-reinstall "sqlglot=={_dotted(_SQLGLOT_NEWEST_TESTED)}", '
+            f"then restart the kernel. {_NO_INSTALLING}",
         )
     if version > _SQLGLOT_NEWEST_TESTED:
         print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
