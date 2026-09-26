@@ -93,7 +93,7 @@ def _box_key(kind: str, *parts) -> str:
 
 
 def _table_box(graph: Graph, table, column: str) -> str:
-    """The key of a table column's box, which is added the first time the column is read."""
+    """The key of a table column's box, added the first time the column is read or written."""
     return graph.add(_box_key("table", f"{table._name}.{column}"), kind="table",
                      group=table._name, name=f"{table._name}.{column}",
                      full=f"{table._name}.{column}",
@@ -365,7 +365,10 @@ def _tables_read_by(graph: Graph, condition: str) -> list[str]:
 
 
 def _copied_from(graph: Graph, key: str) -> list[str]:
-    """The boxes a copied column comes from, each the first one feeding the one before."""
+    """The full names of the boxes a copied column comes from, nearest first.
+
+    A box that is a calculation has " (calculated)" after its name.
+    """
     chain, at = [], key
     while graph.parents(at, "value"):
         at = graph.parents(at, "value")[0]
