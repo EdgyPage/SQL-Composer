@@ -27,7 +27,7 @@ import sql_composer  # noqa: E402
 from conftest import EXECUTOR_READY  # noqa: E402
 
 WHEN = datetime.datetime(2026, 10, 2, 14, 5)
-STAMP = "SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit"
+STAMP = "SQL Composer 2.1, exported 2026-10-02 14:05 - generated from dev, do not edit"
 
 
 def dev_toolbox_files() -> list[str]:
@@ -81,7 +81,7 @@ def readme(clean: Path) -> str:
 def test_the_readme_says_which_copy_it_came_with(clean: Path) -> None:
     text = readme(clean)
     assert text.splitlines()[0] == f"<!-- {STAMP} -->"
-    assert "This is SQL Composer 2.0, exported 2026-10-02 14:05." in text
+    assert "This is SQL Composer 2.1, exported 2026-10-02 14:05." in text
     assert "<!-- VERSION -->" not in text and "<!-- CHEAT SHEET -->" not in text
 
 
@@ -97,7 +97,7 @@ def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path
     assert "Running: turn a Statement into Hive, send it, split it by day" in running
     assert "- `to_hive` - The Hive string for a Statement, ready to send.\n" in running
     constants = text.split("### `__init__.py`\n", 1)[1]
-    assert ("- `TOOLBOX_VERSION` = `'2.0'` - the feature number, raised only when a big feature "
+    assert ("- `TOOLBOX_VERSION` = `'2.1'` - the feature number, raised only when a big feature "
             "lands.\n") in constants
     assert text.index("### `tables.py`") < text.index("### `clauses.py`")
 
@@ -106,7 +106,7 @@ def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> Non
     init = (clean / "sql_composer" / "__init__.py").read_text(encoding="utf-8")
     examples = doctest.DocTestParser().get_examples(ast.get_docstring(ast.parse(init)))
     shown = next(example.want for example in examples if example.source.strip() == "VERSION")
-    exported = repr("SQL Composer 2.0, exported 2026-10-02 14:05") + "\n"
+    exported = repr("SQL Composer 2.1, exported 2026-10-02 14:05") + "\n"
     assert doctest.OutputChecker().check_output(shown, exported, doctest.ELLIPSIS), shown
 
 
@@ -202,7 +202,7 @@ def test_the_export_commits_the_clean_tree_on_top_of_main(repo: Path) -> None:
     held = git(repo, "ls-tree", "-r", "--name-only", "main").splitlines()
     assert held == [".github/README.md"] + [f"sql_composer/{name}" for name in dev_toolbox_files()]
     assert git(repo, "log", "-1", "--format=%s", "main") == (
-        "SQL Composer 2.0, exported 2026-10-02 14:05")
+        "SQL Composer 2.1, exported 2026-10-02 14:05")
     assert dev in git(repo, "log", "-1", "--format=%b", "main")
     assert git(repo, "rev-parse", "--abbrev-ref", "HEAD") == "dev"
     assert git(repo, "rev-parse", "dev") == dev
@@ -261,7 +261,7 @@ def dev_copy(folder: Path) -> Path:
 
 def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
     version = export_clean.build(ROOT, tmp_path / "clean", WHEN)
-    assert version == "SQL Composer 2.0, exported 2026-10-02 14:05"
+    assert version == "SQL Composer 2.1, exported 2026-10-02 14:05"
 
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
@@ -274,7 +274,7 @@ def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
         "The stamped copy of the Toolbox doesn't import, so nothing was exported:\n"
         "ImportError: sql_composer stopped on import:\n"
         "  What happened:  old_module.py is from Toolbox version 1.9, and __init__.py is from "
-        "2.0.\n"
+        "2.1.\n"
         "  Why it matters: ")
     assert "\n  Usual fix:      " in str(refused.value)
 

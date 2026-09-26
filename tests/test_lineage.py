@@ -501,7 +501,7 @@ def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path) -> None:
     fill = fill_daily_runs("2026-09-23", "2026-09-24")
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     hive = section(markdown, "### Hive as submitted")
-    assert ("This write covers 2 days, and a write replaces one day at a time: send it with "
+    assert ("This write covers 2 days, and a write fills one day at a time: send it with "
             "`for day in by_day(fill): run(day, send=...)`. This is the first day's Hive."
             ) in hive
     assert "PARTITION(dt = '2026-09-23')" in hive

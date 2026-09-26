@@ -43,12 +43,12 @@ def test_an_untouched_copy_imports(tmp_path) -> None:
 def test_a_file_from_another_version_stops_the_import(tmp_path) -> None:
     def older(copy: Path) -> None:
         path = copy / "running.py"
-        text = path.read_text(encoding="utf-8").replace('TOOLBOX_VERSION = "2.0"',
+        text = path.read_text(encoding="utf-8").replace('TOOLBOX_VERSION = "2.1"',
                                                         'TOOLBOX_VERSION = "1.9"')
         path.write_text(text, encoding="utf-8")
 
     assert import_copy(tmp_path, older).endswith(stopped(
-        what="running.py is from Toolbox version 1.9, and __init__.py is from 2.0.",
+        what="running.py is from Toolbox version 1.9, and __init__.py is from 2.1.",
         why="Files from different Toolbox versions weren't written to work together, so a "
         "Statement could fail or come out wrong.",
         fix="Delete the sql_composer folder, then copy the whole folder in again from one "
@@ -62,13 +62,13 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
 
     assert import_copy(tmp_path, extra).endswith(stopped(
-        what="my_notes.py is in the sql_composer folder, but not part of SQL Composer 2.0.",
+        what="my_notes.py is in the sql_composer folder, but not part of SQL Composer 2.1.",
         why="A file left over from an earlier Toolbox version can still be imported, and would "
         "quietly run old code. A script of your own inside the folder would be deleted with it "
         "at the next update.",
         fix="Move any of your own scripts out first: they sit beside the sql_composer folder, "
         "never inside it. Then delete the sql_composer folder, and copy the whole folder in "
-        "again from the 2.0 download.",
+        "again from the 2.1 download.",
     ) + "\n")
 
 
@@ -90,10 +90,10 @@ def test_a_missing_file_stops_the_import(tmp_path) -> None:
 
     assert import_copy(tmp_path, missing).endswith(stopped(
         what="CHANGES.md is missing from the sql_composer folder.",
-        why="Every file of SQL Composer 2.0 is needed: a missing .py file would make a part "
+        why="Every file of SQL Composer 2.1 is needed: a missing .py file would make a part "
         "of it fail later, far from the cause, and a missing examples.html or CHANGES.md "
         "leaves you without the Example gallery or the change notes.",
-        fix="Delete the sql_composer folder, then copy the whole folder in again from the 2.0 "
+        fix="Delete the sql_composer folder, then copy the whole folder in again from the 2.1 "
         "download.",
     ) + "\n")
 
@@ -120,7 +120,7 @@ def stamp_every_file(copy: Path, odd: str | None = None) -> None:
     """Stamp line 1 of every file as the export does, and `odd` as from another export."""
     for path in copy.iterdir():
         when = "2026-09-30 09:00" if path.name == odd else "2026-10-02 14:05"
-        stamp = f"SQL Composer 2.0, exported {when} - generated from dev, do not edit"
+        stamp = f"SQL Composer 2.1, exported {when} - generated from dev, do not edit"
         line = f"# {stamp}" if path.suffix == ".py" else f"<!-- {stamp} -->"
         path.write_text(line + "\n" + path.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -175,7 +175,7 @@ def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
     import_copy(copy_root, stamped)
     shown = subprocess.run([sys.executable, "show.py"], cwd=copy_root, capture_output=True,
                            text=True)
-    assert shown.stdout.strip() == "SQL Composer 2.0, exported 2026-10-02 14:05"
+    assert shown.stdout.strip() == "SQL Composer 2.1, exported 2026-10-02 14:05"
 
 
 def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:

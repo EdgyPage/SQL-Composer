@@ -31,7 +31,7 @@ from .refusals import (
     guard_time_of_day,
 )
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 HIVE = "hive"
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"

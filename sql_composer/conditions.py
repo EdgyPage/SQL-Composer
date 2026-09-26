@@ -23,7 +23,7 @@ from .tables import (
     type_family,
 )
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 
 def today() -> datetime.date:
