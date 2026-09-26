@@ -1621,7 +1621,7 @@ GROUP BY
 <section class="entry" id="GuardRefused">
 <h3><code>GuardRefused</code></h3>
 <p class="why">A Guard stopped a Statement that would silently give a wrong answer.</p>
-<p>The message says what happened, why the number would come out wrong, the usual fix, and the opt-out keyword to paste if you really mean it. It is raised at your own line.</p>
+<p>The message says what happened, why the number would come out wrong and the usual fix. When the Guard has an opt-out, it also gives the keyword to paste if you really mean it; when it has none, it says so. It is raised at your own line.</p>
 <pre class="python">SELECT(count_rows())</pre>
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):

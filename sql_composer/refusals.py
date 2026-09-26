@@ -23,7 +23,7 @@ import os
 import sys
 import warnings
 
-# The one helper that builds every four-part message. It lives in __init__.py, since the
+# The one function that builds every four-part message. It lives in __init__.py, since the
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
@@ -33,8 +33,9 @@ TOOLBOX_VERSION = "2.0"
 class GuardRefused(Exception):
     """A Guard stopped a Statement that would silently give a wrong answer.
 
-    The message says what happened, why the number would come out wrong, the usual fix, and
-    the opt-out keyword to paste if you really mean it. It is raised at your own line.
+    The message says what happened, why the number would come out wrong and the usual fix.
+    When the Guard has an opt-out, it also gives the keyword to paste if you really mean it;
+    when it has none, it says so. It is raised at your own line.
 
     >>> SELECT(count_rows())
     Traceback (most recent call last):
