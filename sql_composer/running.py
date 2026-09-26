@@ -162,10 +162,10 @@ def _written_day(s: Statement):
     """The one day a write covers, from the date bound of the table it reads from."""
     table, span = _bottom_read(s)
     if table._date_partition is None:
-        _day_unknown(s, f"reads {table._name}, which has no Date partition",
+        raise _day_unknown(s, f"reads {table._name}, which has no Date partition",
                      "Read a table with a Date partition in FROM, bounded to one day in WHERE.")
     if span is None or not span.is_bounded():
-        _day_unknown(s, f"reads {table._name} without a bound on its Date partition",
+        raise _day_unknown(s, f"reads {table._name} without a bound on its Date partition",
                      f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "
                      "at a time with by_day(...).")
     days = span.dates()
@@ -174,8 +174,9 @@ def _written_day(s: Statement):
     return days[0]
 
 
-def _day_unknown(s: Statement, what: str, fix: str) -> None:
-    raise ValueError(
+def _day_unknown(s: Statement, what: str, fix: str) -> ValueError:
+    """The error for a write whose day isn't known; the caller raises it."""
+    return ValueError(
         four_part_message(
             what=f"{s._write_call} {what}, so the day to write isn't known.",
             why="A write fills the one day its Statement reads.",
@@ -204,8 +205,7 @@ def _write_tree(s: Statement) -> exp.Expression:
                expression=exp.Literal.string(day)),
     ])
     target = hive_table(table._name, partition=partition)
-    overwrite = s._write_call.startswith("INSERT_OVERWRITE")
-    return exp.Insert(this=target, expression=_select_tree(s), overwrite=overwrite)
+    return exp.Insert(this=target, expression=_select_tree(s), overwrite=s._replaces_day)
 
 
 def _statement_tree(s: Statement) -> exp.Expression:

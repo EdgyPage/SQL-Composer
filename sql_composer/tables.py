@@ -620,11 +620,14 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
-def hive_table(name: str, **more) -> exp.Table:
-    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops."""
+def hive_table(name: str, partition=None) -> exp.Table:
+    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
+
+    A write passes the PARTITION(...) it fills, which Hive writes after the name.
+    """
     parts = name.split(".")
     database = identifier(parts[0]) if len(parts) == 2 else None
-    return exp.Table(this=identifier(parts[-1]), db=database, **more)
+    return exp.Table(this=identifier(parts[-1]), db=database, partition=partition)
 
 
 def source(table: Table) -> exp.Expression:
@@ -849,7 +852,8 @@ def _real_table(t, call: str) -> Table:
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {t!r}.",
-                why="It works on a real table's Table reference, not on a Derived table.",
+                why="It works on a real table's Table reference, not on a table's name as "
+                "text or on a Derived table.",
                 fix="Pass a Table reference, such as job_runs.",
                 opt_out=None,
             )
