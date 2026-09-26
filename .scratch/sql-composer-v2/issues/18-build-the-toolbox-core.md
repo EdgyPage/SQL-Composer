@@ -101,9 +101,10 @@ beginner-readable option; the user may overturn any of them.
 - **The count.** "What's in the Toolbox?" lists 57 functions and classes plus `VERSION`, 58,
   but counts 59. The build reads the 59th as `TOOLBOX_VERSION`, which every file declares and
   `__init__.py` exports. With `example_database` and `check_table_reference` that makes the
-  name-list test's 61, of which 60 ship (all but `export_lineage`). **For the user to confirm.**
+  name-list test's 61, of which 60 ship (all but `export_lineage`). **Confirmed by the user
+  (2026-09-25).**
 - **`TOOLBOX_VERSION = "2.0"`,** since this is v2 and no ticket fixed a value (`3.1` in the
-  tickets is an illustration). **For the user to confirm.**
+  tickets is an illustration). **Confirmed by the user (2026-09-25).**
 - **The two constants' docstring is the Toolbox's own** (`sql_composer.__doc__`), since a
   string can't carry one; its `>>>` example shows both.
 - **`last_n_days(col, n)` writes the dates,** worked out when it is called: the n days before
@@ -204,8 +205,8 @@ and what is answered here instead:
     09 lists it with the Load limits. What it protects is the answer: Hive silently drops the
     order, and the cluster isn't at risk. The glossary says a check that protects the answer
     is a Guard. An `ORDER_BY` with a `LIMIT` inside a Derived table is allowed, since ticket
-    09's rule is "no `ORDER BY` without a `LIMIT`" and Hive keeps that order. **The user may
-    overturn this.**
+    09's rule is "no `ORDER BY` without a `LIMIT`" and Hive keeps that order. **The user kept
+    it (2026-09-25).**
   - **`hive_function("regexp_extract", col, pattern, 1)` comes out without the `1`.**
     sqlglot's generator drops the group when it is 1, Hive's default, so the Hive means the
     same. Fighting the generator would break the `to_hive` self-check. The docstring now says
@@ -230,6 +231,53 @@ and what is answered here instead:
     None of these shows through a public name, and each one is small.
   - **`more_than` and `less_than` count as a date bound at both ends,** where ticket 09 lists
     only `>=` with `<=`. Either pair bounds the partition, so it stays.
+
+**The user's decisions (2026-09-25).** The user read the finished v2 build and answered "go
+with your recommendations". What that settled, and the commits that applied it on `dev`:
+
+- **`TOOLBOX_VERSION` stays `"2.0"`: confirmed by the user.** Everything built so far is 2.0,
+  `export_lineage` (ticket 22) and the Example gallery (ticket 20) included, so there is no
+  raise. `sql_composer/CHANGES.md`'s 2.0 section now names everything 2.0 ships: `first_look`,
+  `all_columns`, `week_start`, `month_start`, `row_number`, `hive_function`, `GuardRefused`,
+  `LoadRefused`, `TOOLBOX_VERSION`, `VERSION` and the import self-check (e7e244d).
+- **The 59th public name is `TOOLBOX_VERSION`: confirmed by the user.** The name-list test's 61
+  names stand.
+- **`ORDER_BY` without `LIMIT` inside a Derived table stays a Guard:** a `GuardRefused` with no
+  opt-out, not a Load limit, since it protects the answer, not the cluster. Ticket 09, which
+  listed it with the Load limits, records the same decision. `CONTEXT.md`'s Guard and Load
+  limit already say this, and so do the Guard's and `ORDER_BY`'s Load limit's messages. Only
+  `ORDER_BY`'s docstring implied that `sorts_everything=True` always helps, and it now says it
+  doesn't inside `derived(...)` (18cc3c0).
+- **Three beginner-visible texts fixed, test first** (60ecbb6, 2b3f026). The seams under test
+  are the public names, as in "Build decisions" above: the refusal raised by `sum_of(...)` and
+  `statement(...)`, and `CROSS_JOIN`'s docstring.
+  - **The re-grouping Guard's "Usual fix"** now fits what was re-grouped. For a distinct count,
+    it says to count again with `count_distinct(...)` from the rows it was counted from, rather
+    than adding up the smaller counts. For an average, it says to keep the sum and the count
+    and divide. For a division, it says to keep both sides and divide. A column listed in
+    `does_not_add_up` could be any of these, so it gets both fixes.
+  - **The missing-`GROUP_BY` Guard** no longer offers `max_of(...)`, which takes each column from
+    a different row. It says to add the column to `GROUP_BY`, or to keep one whole row per group
+    with `row_number(...)` in a `derived(...)` table and keep row 1.
+  - **`CROSS_JOIN`'s docstring** says what its name opts out of: `JOIN` and `LEFT_JOIN` refuse a
+    join with no `ON=`. Its first line, which is its cheat-sheet line, is now "Pair every row
+    with every row of another table, with no ON=."
+
+  The Example gallery is regenerated with each change.
+- **CI's low end is green** (3c3d459). This is the backtick failure found during this build (see
+  above). sqlglot writes a doubled backtick from 25.24.2 on, but reads one back only from
+  **25.28.0**. That was found by trying every 25.x release from 25.24.2 up, and a sample of
+  releases above it, in a throwaway environment. The `embedded_backtick` and `hostile_name`
+  round trips now skip below 25.28.0, with a reason naming that version. The pin and the range
+  are unchanged. On sqlglot 25.24.2 the suite gives 892 passed and 45 skipped, with no failures.
+  On 30.19.0, all 937 tests pass. The Toolbox's own `to_hive` self-check still stops a Statement
+  that names a column with a backtick in it on sqlglot below 25.28.0. That is left for the user.
+- **The import self-check compares the export stamp of every file** (4efbc8b), not only the
+  `.py` files. It reads a `# ...` or `<!-- ... -->` line 1, the two styles the export writes. An
+  `examples.html` or `CHANGES.md` from another export stops the import, and so does one
+  regenerated on `dev` and pasted into an exported folder. The stop message has the four parts,
+  built by `four_part_message`. The other self-check stops keep ticket 05's one-line shape. An
+  unstamped `dev` folder and the export's `--preview` build still import.
 
 ## Answer
 
@@ -266,14 +314,14 @@ and what is answered here instead:
 
   On sqlglot 25.24.2, the two backtick cases of `test_escaping_cases.py` still fail. They
   failed before this build, which is noted above.
-- **Decisions:** "Build decisions" above records where the tickets left a choice open. Two of
-  them are **for the user to confirm**:
+- **Decisions:** "Build decisions" above records where the tickets left a choice open. The
+  user confirmed the two that waited for them (2026-09-25; see "The user's decisions" above):
   - the 59th name is read as `TOOLBOX_VERSION`;
   - `TOOLBOX_VERSION` is `"2.0"`.
 
-  The code review above records what was fixed and what was answered. One of the answers is
-  also the user's to overturn: `ORDER_BY` without `LIMIT` inside a Derived table is a
-  `GuardRefused`, not a `LoadRefused`.
+  The code review above records what was fixed and what was answered. The user also kept one
+  of the answers: `ORDER_BY` without `LIMIT` inside a Derived table is a `GuardRefused`, not a
+  `LoadRefused`.
 - **Drift:** D5 opened and closed, and nothing is open.
 
 Beginner reader: .scratch/sql-composer-v2/reports/18-beginner-reader.md

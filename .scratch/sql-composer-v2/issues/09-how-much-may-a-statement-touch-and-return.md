@@ -26,6 +26,14 @@ keyword on the offending call, named for what the user accepts, with no global s
 aren't Guards, but using the same refuse-plus-keyword shape would spare the user a second pattern to
 learn.
 
+**The user's decision (2026-09-25), from "Build the Toolbox core".** `ORDER_BY` without a
+`LIMIT` inside a Derived table, listed below with the Load limits, stays a **Guard**: it raises
+`GuardRefused` with no opt-out, not `LoadRefused`. What it protects is the answer, since Hive
+silently drops the order there, and the cluster isn't at risk. The glossary's Guard is a check
+that protects the answer. The user confirmed the build's choice with "go with your
+recommendations". The outermost Statement's `ORDER_BY` without `LIMIT` is still a Load limit,
+with `sorts_everything=True`.
+
 ## Answer
 
 **Load limits have the Guards' shape, under their own name.** A Load limit refuses at the offending

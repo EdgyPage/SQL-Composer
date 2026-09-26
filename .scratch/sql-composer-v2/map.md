@@ -117,8 +117,8 @@ at work without touching the user's own scripts.
   place, and the suite passes.
 - [Build the Toolbox core](issues/18-build-the-toolbox-core.md): `sql_composer/` ships 60 of
   the 61 names in eight flat modules, every one with a doctest on the Example database; 609
-  tests pass; `TOOLBOX_VERSION = "2.0"` and the 59th name being `TOOLBOX_VERSION` wait for the
-  user to confirm.
+  tests pass; `TOOLBOX_VERSION = "2.0"` and the 59th name being `TOOLBOX_VERSION` are
+  confirmed by the user, and `ORDER_BY` inside a Derived table stays a Guard.
 - [Build the Clean-branch export](issues/19-build-the-clean-branch-export.md):
   `python tools/export_clean.py` builds the stamped Toolbox and a README with a generated cheat
   sheet from the `dev` commit, checks and imports it, and commits it to `main` locally, refusing
@@ -131,7 +131,7 @@ at work without touching the user's own scripts.
   name. It writes an inline-SVG page with Graph and Grouped flowchart views and a Mermaid
   Markdown twin to a generated name in `lineage/`, and joins Statements across Saved tables.
   Boxes show the Toolbox call each calculation was written with; `TOOLBOX_VERSION` stays
-  "2.0" for the user to confirm.
+  "2.0", as the user confirmed.
 - [Build the Example gallery](issues/20-build-the-example-gallery.md): `tools/example_gallery.py`
   writes `sql_composer/examples.html`, one script-optional page with all 68 Worked examples,
   each with its Python, Hive, result (or a labelled pandas result) and the Toolbox names it
