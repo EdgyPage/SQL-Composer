@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own

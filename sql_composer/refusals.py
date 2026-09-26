@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
 """Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
@@ -14,7 +14,8 @@ by_day. A Warning shows at your own JOIN or LEFT_JOIN line. Every opt-out is a k
 of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
-code to paste. `four_part_message` builds all of them, so they all read the same way.
+code to paste, or none. `four_part_message` builds all of them, so they all read the same way,
+and so do the stops of the import self-check in __init__.py.
 """
 
 from __future__ import annotations
@@ -23,14 +24,19 @@ import os
 import sys
 import warnings
 
+# The one function that builds every four-part message. It lives in __init__.py, since the
+# import self-check needs it before this file can be trusted.
+from . import _four_part_message as four_part_message
+
 TOOLBOX_VERSION = "2.0"
 
 
 class GuardRefused(Exception):
     """A Guard stopped a Statement that would silently give a wrong answer.
 
-    The message says what happened, why the number would come out wrong, the usual fix, and
-    the opt-out keyword to paste if you really mean it. It is raised at your own line.
+    The message says what happened, why the number would come out wrong and the usual fix.
+    When the Guard has an opt-out, it also gives the keyword to paste if you really mean it;
+    when it has none, it says so. It is raised at your own line.
 
     >>> SELECT(count_rows())
     Traceback (most recent call last):
@@ -62,18 +68,6 @@ class LoadRefused(Exception):
 
 class RepeatedRowsWarning(UserWarning):
     """A join may repeat rows, so sums and counts over them may come out too big."""
-
-
-def four_part_message(what: str, why: str, fix: str, opt_out: str | None) -> str:
-    """The one shape every refusal and Warning message has."""
-    if opt_out is None:
-        opt_out = "none - this one can't be switched off."
-    return (
-        f"\n  What happened:  {what}"
-        f"\n  Why it matters: {why}"
-        f"\n  Usual fix:      {fix}"
-        f"\n  Opt-out:        {opt_out}"
-    )
 
 
 # --- Guards: each refuses a wrong answer --------------------------------------------------

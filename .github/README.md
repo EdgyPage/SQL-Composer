@@ -1,7 +1,7 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit -->
+<!-- SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit -->
 # SQL Composer
 
-This is SQL Composer 2.0, exported 2026-09-25 20:53.
+This is SQL Composer 2.0, exported 2026-09-25 21:43.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -27,10 +27,11 @@ from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
 2. Copy in the new one.
 3. Restart the kernel, which still holds the old code.
 
-None of your own files are inside the folder, so deleting it is safe. When it is imported, the
-folder checks itself, and stops with a plain message if a file is missing, extra, or from
-another version. `sql_composer.VERSION` says which copy you have, and `sql_composer/CHANGES.md`
-says what changed in each version.
+Keep your own files beside the folder, never inside it, so deleting it is safe. When it is
+imported, the folder checks itself. If a file is missing, extra, or from another version or
+export, or if this Python or its sqlglot won't work with it, it stops and says what happened,
+why it matters and the usual fix. `sql_composer.VERSION` says which copy you have, and
+`sql_composer/CHANGES.md` says what changed in each version.
 
 ## A first Statement
 
@@ -94,7 +95,7 @@ from `sql_composer` itself, never from one of its files.
 SQL Composer: write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'2.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 20:53'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 21:43'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 

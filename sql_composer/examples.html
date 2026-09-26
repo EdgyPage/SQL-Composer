@@ -1,4 +1,4 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit -->
+<!-- SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -628,7 +628,7 @@ WHERE
 <p class="why">SQL Composer: write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported, and stops with a plain message if a file is missing, extra, or from another version.</p>
+<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, or from another version or export, or if this Python or its sqlglot won&#x27;t work with it, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
@@ -1622,7 +1622,7 @@ GROUP BY
 <section class="entry" id="GuardRefused">
 <h3><code>GuardRefused</code></h3>
 <p class="why">A Guard stopped a Statement that would silently give a wrong answer.</p>
-<p>The message says what happened, why the number would come out wrong, the usual fix, and the opt-out keyword to paste if you really mean it. It is raised at your own line.</p>
+<p>The message says what happened, why the number would come out wrong and the usual fix. When the Guard has an opt-out, it also gives the keyword to paste if you really mean it; when it has none, it says so. It is raised at your own line.</p>
 <pre class="python">SELECT(count_rows())</pre>
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):

@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 20:53 - generated from dev, do not edit
+# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
