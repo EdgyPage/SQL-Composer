@@ -125,6 +125,17 @@ def first_line(docstring: str | None) -> str:
     return (docstring or "").strip().splitlines()[0]
 
 
+def last_error(stderr: str) -> str:
+    """The error at the end of a traceback, with every line of its message.
+
+    An import stop's message runs over several indented lines, the four parts, so this keeps
+    everything from the last unindented line on.
+    """
+    lines = stderr.strip().splitlines() or ["Python gave no message"]
+    start = max((i for i, line in enumerate(lines) if not line[:1].isspace()), default=0)
+    return "\n".join(lines[start:])
+
+
 def import_stamped(into: Path) -> dict:
     """Import the Clean tree's `sql_composer` in a fresh Python, and return `describe_toolbox()`."""
     environment = dict(os.environ, PYTHONPATH=str(Path(__file__).parent), PYTHONIOENCODING="utf-8")
@@ -136,7 +147,7 @@ def import_stamped(into: Path) -> dict:
     if done.returncode != 0:
         raise ExportRefused(
             f"The stamped copy of the Toolbox doesn't import, so nothing was exported:\n"
-            f"{(done.stderr.strip() or 'Python gave no message').splitlines()[-1]}"
+            f"{last_error(done.stderr)}"
         )
     described = json.loads(done.stdout.strip().splitlines()[-1])
     if Path(described["folder"]).resolve() != (into / TOOLBOX).resolve():

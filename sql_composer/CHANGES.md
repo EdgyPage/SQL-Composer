@@ -28,10 +28,11 @@ The first version of the new Toolbox. Everything is new:
   on days per Statement, both off to start with.
 - **Saved tables.** `INSERT_OVERWRITE(t)` writes one day of a Saved table, and
   `create_table(t)` creates it.
-- **The folder checks itself.** On import, `sql_composer` stops with a plain message if a
-  file is missing or extra, or if its files come from different versions or different
-  exports. It also stops on a Python older than 3.11, and on a sqlglot outside 25.24.2 up to
-  (not including) 31 or one that behaves differently.
+- **The folder checks itself.** On import, `sql_composer` stops if a file is missing or
+  extra, or if its files come from different versions or different exports. It also stops on a
+  Python older than 3.11, and on a sqlglot outside 25.24.2 up to (not including) 31 or one
+  that behaves differently. Each stop says what happened, why it matters and the usual fix, in
+  the same four parts as a refusal, and none of them can be switched off.
   `TOOLBOX_VERSION` is the feature number, and `VERSION` also says when this copy was exported.
 - **Lineage.** `export_lineage(s)` writes where each column comes from, as an HTML page and
   a Markdown twin that needs no script, in a `lineage/` folder beside your script or
