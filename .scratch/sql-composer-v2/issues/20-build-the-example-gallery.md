@@ -99,3 +99,55 @@ beginner-readable option; the user may overturn any of them.
   don't hold every word typed. Everything else is plain HTML, so Ctrl+F finds any word.
 - **The README template** gains one sentence pointing at `sql_composer/examples.html`, and
   `CHANGES.md` a line under 2.0, since a user who doesn't know the page exists can't open it.
+
+**Code review (2026-09-25), `code-review` over `ec7b7a7..HEAD`,** with this ticket and tickets
+13, 15 and 04 (and the Answers of 18, 19, 21 and 22) as the spec and `docs/agents/standards.md`
+as the standards. The spec reviewer checked every number on the page against the Example
+database's rows and the demonstrations' docstrings, and found none wrong. Fixed in the commit
+after this note:
+
+- **Standards:**
+  - 106 empty code boxes sat between docstring steps, from the blank text doctest's parser
+    returns between examples. They are gone, and a test holds it.
+  - A refusal read `GuardRefused:` and a Warning `RepeatedRowsWarning: ` differently. Both now
+    read as Python prints them: the kind on its own line, then the four lines.
+  - The README sentence set "those examples" apart from the Worked examples, though the
+    glossary counts a docstring's example as a Worked example, and it had a comma splice.
+  - The step labels "It shows" and "It stops" are now "Python shows" and "Python stops with an
+    error"; "the opt-out pasted" is "the opt-out added".
+  - `built_by` no longer writes the refusal's kind into a string for `careless_html` to read
+    back; `users`, `twins` and a reused `found` are `used_by`, `pandas_results_by_hive` and
+    `version`; the test's `entry_html` is `entry_section`, unlike the generator's.
+- **Spec:**
+  - The `run` and `example_database` entries showed pandas' printout, with its index, under
+    "Result on the Example database". The printout is now labelled "Python shows", and every
+    Statement handed to `run(...)`, like one handed to `to_hive(...)` or `export_lineage(...)`,
+    gets its result as a plain table. So the rule is one: each Statement an example hands to
+    the Toolbox shows its Hive (unless the docstring prints it) and its result.
+  - A pandas result was headed "Result on the Example database, computed in pandas, ...",
+    claiming the Example database in the same breath as saying it didn't run. It is now
+    "Result, computed in pandas, not by running this Hive".
+
+Answered, not changed:
+
+- **A name every Worked example on its own uses** (`SELECT`, `AS`, `FROM`, `statement`,
+  `example_database`) gets no "Worked examples that use it" links, since a list of all seven
+  says nothing. The build decision above is narrowed to that.
+- **`week_start`'s pandas table is a special case** in the generator, since its docstring's
+  example builds no Statement and ticket 15 asks for its pandas result. It uses the
+  re-grouping Worked example's own `with_week`, so the week is worked out in one place.
+- **Only `RuntimeError` and `ValueError` read as "the Example database can't run this"**:
+  those are what its `send` raises. Anything else stops the generator, which is what should
+  happen on `dev` when something unexpected breaks.
+- **The page's header adds the two lines to paste before an example, and the filter says how
+  many entries it shows.** Both help a first reader, and neither is a new name.
+- **Smells left, since standards.md prefers plain repetition to machinery:** `output_label`
+  matches the Toolbox's class names as text (the classes aren't public names); the handed
+  Statements are told apart by the function's name; `script_entry` returns four things; the
+  test lists the Toolbox's modules itself rather than asking the generator, so it checks the
+  generator instead of trusting it.
+
+**Also found, not from this ticket:** the import self-check compares export stamps only in
+`.py` files, so an `examples.html` (like `CHANGES.md`) pasted from another export isn't caught.
+The page changes only with the code, so a stale page means a stale folder, which the `.py`
+stamps already catch unless the page alone was copied.
