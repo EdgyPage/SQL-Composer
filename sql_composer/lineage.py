@@ -82,9 +82,16 @@ class Graph:
         return seen
 
 
+def _box_key(kind: str, *parts) -> str:
+    """The key a box is kept under in the graph: its kind, then the parts that tell it apart,
+    joined by ":", such as "output:0:runs"."""
+    return ":".join([kind, *(str(part) for part in parts)])
+
+
 def _table_box(graph: Graph, table, column: str) -> str:
-    return graph.add(f"table:{table._name}.{column}", kind="table", group=table._name,
-                     name=f"{table._name}.{column}", full=f"{table._name}.{column}",
+    return graph.add(_box_key("table", f"{table._name}.{column}"), kind="table",
+                     group=table._name, name=f"{table._name}.{column}",
+                     full=f"{table._name}.{column}",
                      type=table._columns.get(column), formula="", calculated=False)
 
 
@@ -97,7 +104,7 @@ def _resolver(graph: Graph, step: Statement, index: int):
         if table is None:
             return None  # an output name, as in ORDER BY "runs"
         if table._statement is not None:
-            return f"derived:{index}:{table._name}.{column.name}"
+            return _box_key("derived", index, f"{table._name}.{column.name}")
         return _table_box(graph, table, column.name)
 
     return resolve
@@ -126,33 +133,38 @@ def _condition_text(tree: exp.Expression, then: str) -> tuple[str, str]:
                  for text in (hive_text(tree), readable(tree)))
 
 
-def _add_step(graph: Graph, step: Statement, place: dict) -> None:
-    """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions."""
-    resolve = _resolver(graph, step, place["index"])
+def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
+              conditions: dict, table: str | None = None) -> None:
+    """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions.
+
+    `index` is the Statement's place in the order, `kind` is "derived" or "output", `group` is
+    the group the boxes are drawn in, and `table` is the Derived table's own name.
+    """
+    resolve = _resolver(graph, step, index)
     made = []
     for column, name in step._outputs:
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all(exp.Column)]
-        if place["kind"] == "output":
-            key, shown = f"output:{place['index']}:{name}", name
+        if kind == "output":
+            key, shown = _box_key("output", index, name), name
         else:
-            key, shown = f"derived:{place['index']}:{place['table']}.{name}", f"{place['group']}.{name}"
-        graph.add(key, kind=place["kind"], group=place["group"], name=shown,
-                  full=f"{place['group']}.{name}", type=column._type, sql=hive_text(tree),
-                  formula=readable(tree), calculated=not isinstance(tree, exp.Column),
+            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
+                  type=column._type, sql=hive_text(tree), formula=readable(tree),
+                  calculated=not isinstance(tree, exp.Column),
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
-                  else [], statement=place["index"])
+                  else [], statement=index)
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
     for number, (clause, condition, tree, then) in enumerate(_conditions_of(step)):
         sql, formula = _condition_text(tree, then)
-        key = graph.add(f"condition:{place['index']}:{place['group']}:{number}",
-                        kind="condition", group=place["group"],
-                        name=f"{clause} in {place['group']}",
-                        full=f"{clause} in {place['group']}", type=None, sql=sql,
-                        formula=formula, calculated=False, statement=place["index"])
-        place["conditions"][(id(step), id(condition))] = key
+        key = graph.add(_box_key("condition", index, group, number), kind="condition",
+                        group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
+                        type=None, sql=sql, formula=formula, calculated=False, statement=index)
+        # `conditions` is filled in here for the caller, which passes it on to _add_write so
+        # a write's date bound can find its condition's box.
+        conditions[(id(step), id(condition))] = key
         for used in tree.find_all(exp.Column):
             graph.arrow(resolve(used), key, "rows")
         for target in made:
@@ -175,7 +187,7 @@ def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list
     table, written = s._write, []
     for _, name in s._outputs:
         target = _table_box(graph, table, name)
-        graph.arrow(f"output:{index}:{name}", target, "value")
+        graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
     day = _table_box(graph, table, table._date_partition)
     written.append(day)
@@ -190,14 +202,13 @@ def build_graph(ordered: list[tuple[Statement, str]]) -> Graph:
     graph, ends = Graph(), []
     groups = _derived_group_names(ordered)
     for index, (s, name) in enumerate(ordered):
-        conditions = {}
+        conditions = {}  # each condition's box key, filled in by _add_step
         for table in derived_tables(s):
-            _add_step(graph, table._statement, {
-                "index": index, "kind": "derived", "table": table._name,
-                "group": groups[(index, table._name)], "conditions": conditions})
-        _add_step(graph, s, {"index": index, "kind": "output", "table": None, "group": name,
-                             "conditions": conditions})
-        ends += [f"output:{index}:{output}" for _, output in s._outputs]
+            _add_step(graph, table._statement, index=index, kind="derived",
+                      group=groups[(index, table._name)], conditions=conditions,
+                      table=table._name)
+        _add_step(graph, s, index=index, kind="output", group=name, conditions=conditions)
+        ends += [_box_key("output", index, output) for _, output in s._outputs]
         if s._write is not None:
             ends += _add_write(graph, s, index, conditions)
     keep = set(ends)
