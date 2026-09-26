@@ -75,21 +75,44 @@ def test_a_missing_example_gallery_stops_the_import(tmp_path) -> None:
     assert "examples.html is missing" in import_copy(tmp_path, missing)
 
 
-def test_files_from_two_exports_stop_the_import(tmp_path) -> None:
-    def stamped(copy: Path) -> None:
-        for path in copy.glob("*.py"):
-            when = "2026-10-02 14:05" if path.name != "tables.py" else "2026-09-30 09:00"
-            stamp = f"# SQL Composer 2.0, exported {when} - generated from dev, do not edit\n"
-            path.write_text(stamp + path.read_text(encoding="utf-8"), encoding="utf-8")
+def stamp_every_file(copy: Path, odd: str | None = None) -> None:
+    """Stamp line 1 of every file as the export does, and `odd` as from another export."""
+    for path in copy.iterdir():
+        when = "2026-09-30 09:00" if path.name == odd else "2026-10-02 14:05"
+        stamp = f"SQL Composer 2.0, exported {when} - generated from dev, do not edit"
+        line = f"# {stamp}" if path.suffix == ".py" else f"<!-- {stamp} -->"
+        path.write_text(line + "\n" + path.read_text(encoding="utf-8"), encoding="utf-8")
 
-    assert "tables.py came from a different export" in import_copy(tmp_path, stamped)
+
+def test_an_exported_copy_imports(tmp_path) -> None:
+    def exported(copy: Path) -> None:
+        with_file_list(copy)
+        stamp_every_file(copy)
+
+    assert import_copy(tmp_path, exported) == ""
+
+
+@pytest.mark.parametrize("odd", ["tables.py", "examples.html", "CHANGES.md"])
+def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
+    stopped = import_copy(tmp_path, lambda copy: stamp_every_file(copy, odd=odd))
+    assert f"What happened:  {odd} came from a different export than __init__.py." in stopped
+    assert "Usual fix:" in stopped
+
+
+def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None:
+    """An examples.html regenerated on dev, pasted into an exported folder, is caught too."""
+    def exported_but_one(copy: Path) -> None:
+        dev_page = (copy / "examples.html").read_text(encoding="utf-8")
+        stamp_every_file(copy)
+        (copy / "examples.html").write_text(dev_page, encoding="utf-8")
+
+    assert "examples.html came from a different export" in import_copy(tmp_path,
+                                                                      exported_but_one)
 
 
 def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
     def stamped(copy: Path) -> None:
-        for path in copy.glob("*.py"):
-            stamp = "# SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit\n"
-            path.write_text(stamp + path.read_text(encoding="utf-8"), encoding="utf-8")
+        stamp_every_file(copy)
         (copy.parent / "show.py").write_text("import sql_composer\nprint(sql_composer.VERSION)\n",
                                              encoding="utf-8")
 
