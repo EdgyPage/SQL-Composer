@@ -57,12 +57,17 @@ def _version_of(path):
 
 
 def _stamp_of(path):
-    """The export stamp on line 1, from a `# ...` or `<!-- ... -->` comment, or None."""
+    """The export stamp on line 1, or None.
+
+    The export writes it as a `# ...` comment in a .py file and as `<!-- ... -->` in any
+    other, since a `#` line in Markdown is a heading.
+    """
     with open(path, encoding="utf-8", errors="replace") as file:
         first = file.readline().strip()
-    for start, end in (("# ", ""), ("<!-- ", " -->")):
-        if first.startswith(start + "SQL Composer") and first.endswith(end):
-            return first[len(start):len(first) - len(end)]
+    start, end = ("# ", "") if path.endswith(".py") else ("<!-- ", " -->")
+    stamp = first[len(start):len(first) - len(end)]
+    if first.startswith(start) and first.endswith(end) and stamp.startswith("SQL Composer "):
+        return stamp
     return None
 
 
@@ -97,9 +102,9 @@ def _check_files():
         odd = sorted(name for name, stamp in stamps.items() if stamp != stamps["__init__.py"])
         _stop(four_part_message(
             what=f"{', '.join(odd)} came from a different export than __init__.py.",
-            why="Two exports of the same version can differ, so the code, the Example gallery "
-            "and the change notes in this folder may not match each other.",
-            fix="Delete the sql_composer folder and copy in the new one whole, from one "
+            why="Two exports of the same Toolbox version can differ, so the code, the Example "
+            "gallery and the change notes in this folder may not match each other.",
+            fix="Delete the sql_composer folder, then copy the whole folder in again from one "
             "download.",
             opt_out=None,
         ))
