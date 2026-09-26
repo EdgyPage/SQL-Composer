@@ -218,3 +218,9 @@ d3d562d.
     `qualify` + `traverse_scope`.
 
 Beginner reader: .scratch/sql-composer-v2/reports/22-beginner-reader.md
+
+**Readability refactor (2026-09-26).** At the user's request for code an intermediate Python
+user can read, `lineage.py`'s page script was un-minified (full names, one statement per line,
+a comment per function), and `BOX_LINES` was dropped: the seam this ticket and ticket 07 name
+is now the one function `box_lines`, which both the page and the Mermaid twin read, and which a
+test replaces to add a line. No behaviour changed (de28375..0c7d3be).

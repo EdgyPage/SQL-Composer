@@ -89,7 +89,7 @@ class Graph:
 def _box_key(kind: str, *parts) -> str:
     """The key a box is kept under in the graph: its kind, then the parts that tell it apart,
     joined by ":", such as "output:0:runs"."""
-    return ":".join([kind, *(str(part) for part in parts)])
+    return ":".join([kind] + [str(part) for part in parts])
 
 
 def _table_box(graph: Graph, table, column: str) -> str:
@@ -142,8 +142,9 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
               conditions: dict, table: str | None = None) -> None:
     """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions.
 
-    `index` is the Statement's place in the order, `kind` is "derived" or "output", `group` is
-    the group the boxes are drawn in, and `table` is the Derived table's own name.
+    `index` is the Statement's place in the order, and `kind` is "derived" or "output".
+    `group` is the group the output boxes are drawn in; a condition's box goes in "filters on"
+    that group. `table` is the Derived table's own name, given only when kind is "derived".
     """
     resolve = _resolver(graph, step, index)
     made = []
@@ -982,6 +983,7 @@ function visibleGraph() {
 
   // Where an arrow really starts, as a list of [box id, arrow kind]. When the box it starts
   // from is hidden, it goes on back through the arrows into that box, joining their kinds.
+  // A condition switched off is returned as it is, and the caller leaves its arrow out.
   // `visited` holds the boxes already passed, so a loop of arrows can't go round forever.
   function drawnStarts(id, kind, visited) {
     if (visited.has(id)) {
@@ -1050,7 +1052,7 @@ function visibleGraph() {
 
 // --- Where each box goes ------------------------------------------------------------------
 
-// A box's height: room for each of its lines of text.
+// A box's height: room for each of its lines of text, plus 10 pixels of padding.
 function boxHeight(box) {
   return 10 + LINE_HEIGHT * box.lines.length;
 }
@@ -1123,8 +1125,9 @@ function graphLayout(visible) {
     columns.push(visible.boxes.filter(box => columnOf[box.id] === number).map(box => box.id));
   }
 
-  // Reorder the columns 8 times, sweeping right, then left, and so on. Sweeping right, each
-  // box moves to the average place of its sources; sweeping left, of its targets.
+  // Make 8 sweeps across the columns, right, then left, and so on, reordering each column
+  // but the first one a sweep starts from. Sweeping right, each box moves to the average
+  // place of its sources; sweeping left, of its targets.
   for (let sweep = 0; sweep < 8; sweep++) {
     const sweepingRight = sweep % 2 === 0;
     const linked = sweepingRight ? neighbours.sources : neighbours.targets;
@@ -1218,8 +1221,8 @@ function flowchartLayout(visible) {
     }
   });
 
-  // The average height of the middles of the boxes in `ids` placed so far. When none is
-  // placed yet it is far below everything (1e9), so those boxes sort last.
+  // The average y (distance down the page) of the middles of the boxes in `ids` placed so
+  // far. When none is placed yet it is far below everything (1e9), so those boxes sort last.
   function averageMiddle(ids, middles) {
     const placed = ids.map(id => middles[id]).filter(middle => middle !== undefined);
     if (!placed.length) {
@@ -1231,7 +1234,7 @@ function flowchartLayout(visible) {
   // Place every group and its boxes, column by column. In each column, a group's boxes are
   // sorted by where their sources sit, and the groups by where all their boxes' sources sit,
   // so each sits level with what feeds it. It returns each box's top-left corner, each
-  // group's frame, and the middle height of each box.
+  // group's frame, and the y of each box's middle.
   function placeGroups() {
     const middles = {};
     const positions = {};
@@ -1295,7 +1298,9 @@ function flowchartLayout(visible) {
 function boxSvg(box, x, y, height) {
   const lines = box.lines.map((line, number) => {
     const bold = number ? '' : ' class="l"';
+    // How many characters fit across the box: fewer on the first line, which is bold.
     const text = escapeHtml(shortened(line, number ? 38 : 34));
+    // 8 pixels in from the box's left edge; the first line's baseline 17 pixels down.
     return `<text x="8" y="${17 + number * LINE_HEIGHT}"${bold}>${text}</text>`;
   });
   return `<g class="n ${box.kind}" id="${box.id}" transform="translate(${x},${y})">`
@@ -1313,6 +1318,7 @@ function curve(startX, startY, endX, endY) {
 
 // The "day written" label, just above the middle of its arrow.
 function dayWrittenLabel(startX, startY, endX, endY) {
+  // 28 pixels is about half the label's width, so the label is centred on the arrow.
   const x = (startX + endX) / 2 - 28;
   const y = (startY + endY) / 2 - 4;
   return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
@@ -1396,6 +1402,7 @@ function renderFlowchart(visible) {
 function draw() {
   const visible = visibleGraph();
   const drawing = state.view === 'flow' ? renderFlowchart(visible) : renderGraph(visible);
+  // A 10-pixel margin all round, and the picture never shrunk below 80% of its full size.
   const viewBox = `-10 -10 ${drawing.width + 20} ${drawing.height + 20}`;
   const size = `min-width:${Math.round(drawing.width * 0.8)}px;`
     + `aspect-ratio:${drawing.width + 20}/${drawing.height + 20}`;
