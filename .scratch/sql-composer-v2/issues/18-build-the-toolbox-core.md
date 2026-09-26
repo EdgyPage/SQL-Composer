@@ -343,6 +343,43 @@ fix doesn't say it drops the grouped count; `help(row_number)` is where that is 
 18cc3c0, e7e244d, b1169c3, c502537, 553510e and 084f384. All were clean, so no item opened and
 none is open.
 
+**The user's decision (2026-09-25): "make all import stops four-part".** This settles the
+answer above that left it to the user ("The import stop for two exports is the only one with
+four parts"). Tests first, one per import stop in `tests/test_import_self_check.py`, each
+checking the whole message. What was done:
+
+- **Every import stop has the four parts** (ac2d38a), built by the one four-part function,
+  and ends "Opt-out: none - this one can't be switched off.", since none has an opt-out. Each
+  still raises `ImportError`, headed `sql_composer stopped on import:`. The stops, in the order
+  they run:
+  - **an older Python:** fix, choose a 3.11 or newer kernel or ask for one;
+  - **an extra file:** fix, move it out if it is one of your own scripts, otherwise delete the
+    folder and copy the whole folder in again;
+  - **a missing file:** fix, delete the folder and copy the whole folder in again;
+  - **a file from another Toolbox version:** now says which version each side is, and its fix
+    is the same whole-folder copy "from one download", since the stale file may be
+    `__init__.py` itself;
+  - **two exports:** unchanged, except its heading no longer ends in a stray space;
+  - **no sqlglot**, **a sqlglot outside the range** and **one that behaves differently**:
+    fix, a `pip install` line with the range (or the tested 30.19.0), then restart the kernel.
+    A sqlglot that can't be imported had no test before; it has one now.
+- **Import order.** The self-check needs the four-part function before any other file can be
+  trusted, or even found. It lived in `refusals.py`, so a missing or older `refusals.py`
+  would have crashed the missing-file or version stop with a raw `ImportError` about
+  `refusals` itself. It now lives in `__init__.py` as the private `_four_part_message`,
+  defined before any check and with no sqlglot import, and `refusals.py` takes it from there
+  under its old name, so every other module still imports `four_part_message` from
+  `refusals.py`. A test deletes `refusals.py` from a copy and reads the missing-file stop. The
+  import allowlist and the Levels test are unchanged and pass.
+- **The export's refusal** quoted only the last line of the import's error, which would now be
+  just "Opt-out: none". It quotes the whole error from its first line (ac2d38a, test first).
+- **`GuardRefused`'s docstring** no longer promises an opt-out keyword: it gives the keyword
+  when the Guard has one, and says so when it has none (4757cc0). The Example gallery is
+  regenerated. `LoadRefused`'s docstring still promises one, which holds: every Load limit has
+  an opt-out.
+- **`CHANGES.md`'s 2.0 self-check line** now says each stop has the four parts and none can be
+  switched off (ac2d38a). `TOOLBOX_VERSION` stays "2.0".
+
 ## Answer
 
 **The Toolbox core is built: `sql_composer/` ships 60 of the 61 public names, everything but
