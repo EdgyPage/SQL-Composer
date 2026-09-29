@@ -1,7 +1,7 @@
 # Define the Editions once, in `tools/editions.py`
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 
 ## Question
