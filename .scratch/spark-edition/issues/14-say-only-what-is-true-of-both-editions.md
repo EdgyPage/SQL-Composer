@@ -18,7 +18,10 @@ move to the README and the CHANGES 3.0 draft.
 - In the Worked examples, `regrouping.py:5-6` and `latest_and_top_n.py:6-7` say "where the
   Example database can't run it".
 - Turn on the repo test that the canonical shared files hold no forbidden word (the list lives in
-  `tools/editions.py`).
+  `tools/editions.py`): remove the strict xfail from
+  `tests/test_editions.py::test_no_canonical_shared_file_names_what_only_one_edition_has`.
+- Word `sql_composer/CHANGES.md` without either folder's or product's name: it is a verbatim file,
+  copied byte for byte into Spark Composer's folder (ticket 06).
 - Regenerate `examples.html` and the golden.
 
 ## Done when

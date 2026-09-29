@@ -17,11 +17,11 @@ from editions import SPARK_COMPOSER, SQL_COMPOSER, SwapRefused, may_import, swap
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_the_two_editions_share_nothing_but_their_shape() -> None:
+def test_each_edition_has_its_folder_product_and_library() -> None:
     assert list(editions.EDITIONS) == ["sql_composer", "spark_composer"]
     assert (SQL_COMPOSER.product, SQL_COMPOSER.library) == ("SQL Composer", "sqlglot")
     assert (SPARK_COMPOSER.product, SPARK_COMPOSER.library) == ("Spark Composer", "pyspark")
-    assert editions.EXPORTED == ("sql_composer",)
+    assert editions.EXPORTED == (SQL_COMPOSER,)
 
 
 def test_every_file_in_the_sql_composer_folder_is_classified() -> None:
@@ -39,9 +39,10 @@ def test_a_shared_file_swaps_both_names() -> None:
     )
 
 
-def test_swapping_twice_changes_nothing_more() -> None:
-    once = swap("import sql_composer  # SQL Composer\n", "tables.py")
-    assert swap(once, "tables.py") == once
+def test_a_copy_is_never_swapped_again() -> None:
+    copy = swap("import sql_composer  # SQL Composer\n", "tables.py")
+    with pytest.raises(SwapRefused, match="only one Edition"):
+        swap(copy, "tables.py")
 
 
 @pytest.mark.parametrize("text", [
@@ -49,15 +50,17 @@ def test_swapping_twice_changes_nothing_more() -> None:
     "import sql_composer_x\n",
     "# two SQL Composers\n",
     "# sqlcomposer\n",
+    "# SQL - Composer\n",
 ])
 def test_a_name_the_swap_cant_be_sure_of_is_refused(text: str) -> None:
     with pytest.raises(SwapRefused, match="left"):
         swap(text, "tables.py")
 
 
-def test_a_shared_file_that_names_an_editions_library_is_refused() -> None:
-    with pytest.raises(SwapRefused, match="sqlglot"):
-        swap("# written by sqlglot\n", "tables.py")
+@pytest.mark.parametrize("text", ["# written by sqlglot\n", "# unlike Spark Composer\n"])
+def test_a_shared_file_naming_what_only_one_edition_has_is_refused(text: str) -> None:
+    with pytest.raises(SwapRefused, match="only one Edition"):
+        swap(text, "tables.py")
 
 
 def test_a_python_file_that_wont_parse_after_the_swap_is_refused() -> None:
@@ -82,13 +85,30 @@ def test_a_verbatim_file_is_copied_unchanged_but_may_not_name_an_edition() -> No
 
 def test_what_each_file_may_import() -> None:
     assert may_import(SPARK_COMPOSER, "tables.py") == {"pandas", "numpy"}
-    assert may_import(SPARK_COMPOSER, "writing.py") == {"pandas", "numpy"}
+    assert may_import(SPARK_COMPOSER, "writing.py") == set()
     assert may_import(SPARK_COMPOSER, "engine.py") == {"pandas", "numpy", "pyspark"}
     assert may_import(SQL_COMPOSER, "writing.py") == {"pandas", "numpy", "sqlglot"}
     assert may_import(SQL_COMPOSER, "engine.py") == {"pandas", "numpy", "sqlglot"}
+    assert may_import(SQL_COMPOSER, "refusals.py") == {"pandas", "numpy"}
 
 
 def test_the_sql_composer_files_still_importing_sqlglot_are_named_one_by_one() -> None:
     for name in editions.STILL_IMPORTING_SQLGLOT:
         assert name in editions.SHARED_FILES
         assert may_import(SQL_COMPOSER, name) == {"pandas", "numpy", "sqlglot"}
+
+
+def test_an_import_a_file_may_not_make_is_listed(tmp_path: Path) -> None:
+    folder = tmp_path / "spark_composer"
+    folder.mkdir()
+    (folder / "writing.py").write_text("import re\nimport pandas\nfrom . import trees\n")
+    (folder / "tables.py").write_text("import numpy\nimport sqlglot.exp\n")
+    assert editions.imports_outside(folder) == ["tables.py imports sqlglot.exp",
+                                                "writing.py imports pandas"]
+
+
+@pytest.mark.xfail(strict=True, reason="ticket 14 of the PySpark work rewords the shared files")
+def test_no_canonical_shared_file_names_what_only_one_edition_has() -> None:
+    found = {name: editions.forbidden_words((ROOT / "sql_composer" / name).read_text("utf-8"))
+             for name in editions.SHARED_FILES}
+    assert {name: words for name, words in found.items() if words} == {}
