@@ -21,7 +21,8 @@ at work without touching the user's own scripts.
   model are out; do not build on either. Salvage knowledge only: the escaping test matrix
   (now `tests/escaping_cases.py`), the sqlglot ground truth, and
   `docs/adr/0001-sqlglot-over-sqlalchemy.md`, which still stands. `CONTEXT.md` was rewritten for
-  v2 during charting.
+  v2 during charting. _Changed by the PySpark edition (2026-09-29):_ ADR 0002 supersedes ADR 0001
+  in part; SQL Composer still writes its Hive with sqlglot.
 - **Branches.** All work lands on `dev`. `main` is the Clean branch: generated from `dev` by an
   export script that copies an allowlist (the Toolbox plus a short README), never edited by hand.
   A check fails if `main` holds anything outside the allowlist, or if the Toolbox imports anything

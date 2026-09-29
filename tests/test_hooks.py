@@ -50,7 +50,8 @@ def test_watched_paths_need_a_review_and_tracker_commits_do_not() -> None:
 def test_both_editions_and_the_worked_examples_are_watched() -> None:
     changed = ["spark_composer/tables.py", "worked_examples/statements/regrouping.py",
                "tools/hive_corpus.py"]
-    assert needs_review(changed, "feat: x") == changed[:2]
+    assert needs_review(changed, "feat: x") == ["spark_composer/tables.py",
+                                                "worked_examples/statements/regrouping.py"]
 
 
 def test_a_no_drift_commit_needs_a_review_even_off_the_watched_paths() -> None:

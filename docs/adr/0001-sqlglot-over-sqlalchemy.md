@@ -1,8 +1,8 @@
 # Use sqlglot, not SQLAlchemy, to build and render SQL
 
-Status: accepted; superseded in part by ADR 0002 (a PySpark Edition), which gives the Toolbox a
-tree of its own and a second Edition a Hive printer of its own. SQL Composer still writes its
-Hive with sqlglot.
+Status: accepted; superseded in part by ADR 0002, which gives the Toolbox a tree of its own and
+its second Edition, Spark Composer, a Hive printer of its own, rather than a Spark dialect string.
+SQL Composer still writes its Hive with sqlglot.
 
 The composer builds Hive SQL as an expression tree and renders it to a string that is handed to an
 external query API. SQLAlchemy is the obvious choice for SQL in Python and it is the wrong one here:

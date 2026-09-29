@@ -229,7 +229,7 @@ The Levels test covers `worked_examples/building_blocks/` and `worked_examples/s
 is no `table_references/` folder, because the Example database's Table references ship inside the
 Toolbox as `example_database`.
 
-**Changed by the PySpark edition (2026-09-29).** `pytest` runs once per Edition (`python -m
-pytest`, and `python -m pytest --edition spark`), CI grows to four jobs (both ends of each
+**Changed by the PySpark edition (2026-09-29).** `pytest` will run once per Edition (`python -m
+pytest`, and `python -m pytest --edition spark`), CI will grow to four jobs (both ends of each
 Edition's library range), and the drift reviewer gains a seventh kind, `parity`, and watches
 `worked_examples/` and the Spark folder.
