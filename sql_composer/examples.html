@@ -2393,7 +2393,8 @@ GROUP BY
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
 <p class="why">The Example database: three made-up tables, and a send to run Statements on.</p>
-<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on sqlglot&#x27;s own executor and returns a DataFrame, just like your own send at work. Nothing leaves Python, so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query; DESCRIBE and SHOW PARTITIONS work on any version. A query that doesn&#x27;t sort its rows with ORDER_BY gets them sorted by every column, so every run shows them in the same order.</p>
+<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on sqlglot&#x27;s own executor and returns a DataFrame, just like your own send at work. Nothing leaves Python, so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query; DESCRIBE and SHOW PARTITIONS work on any version.</p>
+<p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(
     SELECT(runs.run_id, runs.status, runs.duration_mins),
