@@ -87,3 +87,8 @@ which is right whichever of the two files is the stale one. An extra file's fix 
 it out first if it is one of the user's own scripts, so deleting the folder doesn't lose it.
 Tests first, one per stop, in `tests/test_import_self_check.py` (ac2d38a). The work is recorded
 in "Build the Toolbox core" (ticket 18).
+
+**Changed by the PySpark edition (2026-09-29).** The zip root will hold two folders from 3.0,
+`sql_composer/` and `spark_composer/`, one per Edition; the user copies the one work uses,
+whole. Each folder checks itself on import exactly as decided here, and a file pasted in from
+the other Edition stops the import too.

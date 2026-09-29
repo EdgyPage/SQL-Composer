@@ -25,7 +25,7 @@ DRIFT_LIST = Path(".scratch") / "drift.md"
 REVIEWER_BRIEF = Path(".claude") / "hooks" / "drift-reviewer.md"
 REQUESTS_FILE = "sql-composer-drift-requests"
 
-WATCHED_FOLDERS = ("sql_composer/", "docs/")
+WATCHED_FOLDERS = ("sql_composer/", "spark_composer/", "worked_examples/", "docs/")
 WATCHED_FILES = frozenset({"CONTEXT.md", "CLAUDE.md", "requirements-dev.txt"})
 
 MAKES_A_COMMIT = re.compile(r"\bgit\b[^;&|\n]*\b(commit|merge|cherry-pick|revert|am|rebase)\b")

@@ -1,7 +1,7 @@
 # Does pyspark 3.5.0 and 4.0.4 run on this machine and in CI, the way the Editions need?
 
 Type: prototype
-Status: open
+Status: claimed
 Blocked by: 01
 
 ## Question

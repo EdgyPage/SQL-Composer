@@ -163,3 +163,7 @@ database holds two days.
   and it stays as the new `main`'s parent. **Pushing `main` is the user's step.**
 
 Beginner reader: .scratch/sql-composer-v2/reports/19-beginner-reader.md
+
+**Changed by the PySpark edition (2026-09-29).** From 3.0 the export builds both Editions from
+one `dev` commit, with one export time and each Edition's own stamp and file list, and `main`'s
+allowlist becomes both folders plus `.github/README.md`, with one README for both.

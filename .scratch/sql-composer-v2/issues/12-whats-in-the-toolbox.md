@@ -181,3 +181,7 @@ sandbox. The repeated-rows check became a Warning; its category isn't a public n
 `export_lineage(*statements, to=None)`. By default it writes a generated, timestamped name into a
 `lineage/` folder beside the calling file, rather than overwriting `lineage.html`. Both files'
 footers show the Toolbox version; the file name carries the user's own scripts' commit.
+
+**Changed by the PySpark edition (2026-09-29).** Both Editions are to carry these same 63 names,
+`to_hive` and `hive_function` included, and a test will hold them equal. The eight modules stay;
+each folder will gain `trees.py`, `writing.py` and `engine.py`, which hold no public name.

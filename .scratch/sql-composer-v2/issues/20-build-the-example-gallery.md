@@ -238,3 +238,8 @@ all 68 Worked examples, the 7 on their own and the 61 docstring examples.** Comm
   reader's costliest stops, which the Comments list.
 
 Beginner reader: .scratch/sql-composer-v2/reports/20-beginner-reader.md
+
+**Changed by the PySpark edition (2026-09-29).** Each Edition ships its own `examples.html`,
+generated from the same docstrings and Worked examples. Spark Composer's Example database runs
+`row_number` and `week_start`, so its page needs no pandas stand-ins, and a test compares the
+two pages entry by entry.
