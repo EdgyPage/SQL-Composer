@@ -4,8 +4,9 @@ A script imports only from lower Levels and from the Toolbox, never from a highe
 Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
 `table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
-a script may import the standard library and what work has (pandas, numpy, sqlglot), and the
-Toolbox only from its top level, as `from sql_composer import ...`.
+a script may import the standard library, what both Editions of the Toolbox may import (pandas
+and numpy, from `tools/editions.py`), and the Toolbox only from its top level, as
+`from sql_composer import ...`.
 
 Each Statement script's module docstring gives a title and one sentence on why, which the
 Example gallery shows.
@@ -19,10 +20,11 @@ from pathlib import Path
 
 import pytest
 
+from editions import SHARED_IMPORTS
+
 ROOT = Path(__file__).resolve().parent.parent
 WORKED_EXAMPLES = ROOT / "worked_examples"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
-WORK_HAS = {"pandas", "numpy", "sqlglot"}
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
     "repeated_rows", "regrouping", "left_join_then_where", "none_in_equals", "nan_in_a_list",
@@ -58,7 +60,7 @@ def _problem(name: str, level: int) -> str | None:
         if LEVELS[top] < level:
             return None
         return f"{name} is Level {LEVELS[top]}, not below Level {level}"
-    if top in sys.stdlib_module_names or top in WORK_HAS or top == "__future__":
+    if top in sys.stdlib_module_names or top in SHARED_IMPORTS or top == "__future__":
         return None
     return f"{name} is neither a lower Level, the Toolbox, nor something work has"
 

@@ -1,6 +1,7 @@
 """The checks `dev` holds the Toolbox to, as decided in "What does `dev` enforce?".
 
-- the Toolbox imports only the standard library, pandas, numpy, sqlglot and itself;
+- each Toolbox file imports only the standard library, itself and what `tools/editions.py`
+  allows it: pandas and numpy, and its Edition's library in the files that need it;
 - every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
@@ -18,11 +19,11 @@ from pathlib import Path
 
 import pytest
 
+import editions
 import sql_composer
 
 ROOT = Path(__file__).resolve().parent.parent
 TOOLBOX = ROOT / "sql_composer"
-ALLOWED = {"pandas", "numpy", "sqlglot"}
 
 # Every public name, as decided in the tracker. Add or remove a name only with the ticket
 # that decided it.
@@ -69,9 +70,10 @@ def test_the_toolbox_imports_only_what_work_has(path: Path) -> None:
             names = [node.module or ""]
         else:
             continue
+        allowed = editions.may_import(editions.SQL_COMPOSER, path.name)
         for name in names:
             top = name.split(".")[0]
-            assert top in sys.stdlib_module_names or top in ALLOWED or top == "__future__", (
+            assert top in sys.stdlib_module_names or top in allowed or top == "__future__", (
                 f"{path.name} imports {name}"
             )
 
@@ -89,9 +91,9 @@ def test_changes_has_a_section_for_the_version() -> None:
 
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
+    toolboxes = [package for package in editions.EDITIONS if (ROOT / package).is_dir()]
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "sql_composer", "tests", "tools",
-         "worked_examples"],
+        [sys.executable, "-m", "ruff", "check", *toolboxes, "tests", "tools", "worked_examples"],
         cwd=ROOT, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
