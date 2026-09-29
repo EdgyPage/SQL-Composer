@@ -1,7 +1,7 @@
 # How does Spark read the Toolbox's Hive, and which Hive claims hold on Spark?
 
 Type: research
-Status: open
+Status: resolved
 Blocked by: 02, 03
 
 ## Question
@@ -37,3 +37,49 @@ A findings file on a `research/spark-reads-hive` branch, named in a `Findings:` 
 each probe's result for each version and setting, marks each 3.0 change (ticket 25) and each
 argument-table row as needed or not with evidence, and gives every claim a proposed wording. It
 is linked from tickets 14 and 25.
+Findings: [findings/04-spark-reads-the-hive.md](../findings/04-spark-reads-the-hive.md)
+
+## Answer
+
+Measured on Windows 11 with pyspark 3.5.0 and 4.0.4, with ANSI on and off and
+`enforceReservedKeywords` on and off.
+
+- **Spark's parser** takes every golden text in every mode and version, `WITH ... INSERT` and
+  `STORED AS ORC` included, except `create_table` with type `json` or `uuid`
+  (UNSUPPORTED_DATATYPE).
+- **Escaping:** every escaping case reads back as written except BEL, FF and VT, which come back as
+  the letters a, f and v. That confirms the 2.1 refusal. With `escapedStringLiterals=true` no
+  value escapes its quotes, but every backslash is kept, so it goes in the README's settings check.
+- **Dates:** NEXT_DAY, TRUNC and DATE_ADD return DATE, and under ANSI a DATE mixed with a string
+  such as `'none'` raises. `CAST(... AS STRING)` gives Hive's string in every mode.
+- **Division:** `x / 0` and `x / y` with y = 0 raise DIVIDE_BY_ZERO under ANSI;
+  `x / NULLIF(y, 0)` gives NULL in every mode.
+- **Literals:** `0.5` is DECIMAL on Spark (DOUBLE on Hive); `0.5D` and `1e-05` are DOUBLE.
+- **Reserved words:** 28 words outside `HIVE_RESERVED` need backticks on Spark; backticks fix
+  every one in every context. Five of them (`any`, `except`, `minus`, `current_user`,
+  `recursive`) already break SQL Composer's own `to_hive` today.
+- **Argument counts:** WRONG_NUM_ARGS doesn't change with ANSI. Between versions only lag, lead,
+  like and mode differ. The findings give a shared row for each candidate function.
+
+**All four 3.0 changes (ticket 25) are needed,** with the evidence in the findings' "3.0 changes"
+section. That section also gives the exact CAST text, the 28 words, the strict type list and the
+shared argument rows. **The claims table** gives every Hive claim in the shared files a wording
+true of both engines, for ticket 14.
+
+The throwaway probe scripts stayed in the scratchpad, as ticket 02's did. The findings file is
+committed on `dev` beside ticket 02's instead of on a `research/spark-reads-hive` branch, so the
+tickets that cite it can link it.
+
+## Comments
+
+**Defaults chosen for what the research found but no ticket decided (2026-09-29).** These are
+recorded in the map's Notes for the user to change:
+
+- **A float literal** is written by the PySpark edition as a DOUBLE (`0.5D`), so a result is a
+  float in pandas as on Hive. This is a third declared difference (ticket 17), and SQL
+  Composer's Hive stays as it is.
+- **A literal zero divisor** also gets `NULLIF`: the division row covers every divisor that
+  isn't a non-zero number (ticket 17).
+- **Window functions through `hive_function`** (lag, lead, rank, dense_rank, ntile, row_number,
+  cume_dist, percent_rank, nth_value) are refused by the shared list, since `hive_function` can't
+  write OVER (ticket 25).

@@ -4,6 +4,9 @@ Type: task
 Status: open
 Blocked by: 04, 13
 
+Findings: [ticket 04](../findings/04-spark-reads-the-hive.md) gives the evidence and wording
+this ticket uses.
+
 ## Question
 
 The shared files will ship in both folders, so every sentence in them must be true of both. The

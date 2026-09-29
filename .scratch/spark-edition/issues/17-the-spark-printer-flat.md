@@ -4,6 +4,9 @@ Type: task
 Status: open
 Blocked by: 16
 
+Findings: [ticket 04](../findings/04-spark-reads-the-hive.md) gives the evidence and wording
+this ticket uses.
+
 ## Question
 
 Write `spark_composer/writing.py`'s one-line output. It imports only the standard library and its
@@ -18,7 +21,10 @@ It writes, matching sqlglot 30.19.0's Hive byte for byte except for declared row
   `COUNT(DISTINCT ...)`, `ROW_NUMBER() OVER (...)`, `CASE WHEN ... END`);
 - the printed forms of the five Toolbox date calls (date_sub prints as `DATE_ADD(x, n * -1)`);
 - hive_function as given, its name upper-cased: the first declared difference;
-- `a / NULLIF(b, 0)` when dividing by a column: the second declared difference.
+- `a / NULLIF(b, 0)` when dividing by anything but a non-zero number: the second declared
+  difference (ticket 04: Spark raises on a zero divisor under ANSI, a literal 0 included);
+- a float as a DOUBLE literal, `0.5D` where SQL Composer writes `0.5`: the third declared
+  difference (ticket 04: Spark reads `0.5` as DECIMAL, which pandas shows as `Decimal`).
 
 It also provides `read_back_function` (checked against the shared argument table and aggregate
 list), `describe_text`, `show_partitions_text`, and `read_back(text)`, a lexical check: one

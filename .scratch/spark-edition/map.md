@@ -47,6 +47,11 @@ uses.
   pyspark at exactly 3.5.0 unless the spike shows it unusable; `main` may be re-exported as 2.1
   while the Hive stays byte-identical; claims in shared docstrings and refusal reasons that hold
   only on Hive are reworded to hold on both engines.
+- **Defaults Claude chose after ticket 04's research (2026-09-29), for the user to change:** the
+  PySpark edition writes a float as a DOUBLE literal (`0.5D`, since Spark reads `0.5` as DECIMAL),
+  a third declared difference; its `NULLIF` covers every divisor that isn't a non-zero number, a
+  literal 0 included; and the shared `hive_function` list refuses window functions, which need
+  OVER.
 - **The shape.** A Statement is already plain Python; sqlglot sits only at its leaves, in the
   writer, in the Example database's executor and in the import self-check. So the split is:
   - a Toolbox-owned expression tree (`trees.py`) in place of sqlglot's at the leaves;
@@ -62,8 +67,8 @@ uses.
   `writing.py` imports only the standard library and its own package. Each `engine.py` may also
   import its own library. Only SQL Composer's `writing.py` and `engine.py` import sqlglot.
 - **Declared differences.** Every place the two Editions' Hive differs is one row of
-  `DECLARED_DIFFERENCES` in `tools/editions.py`, with its reason. After 3.0 there should be two:
-  division by a column, and `hive_function` written as given.
+  `DECLARED_DIFFERENCES` in `tools/editions.py`, with its reason. After 3.0 there should be three:
+  division, `hive_function` written as given, and float literals written as DOUBLE.
 - **The Example database of the PySpark edition** runs Spark in a private helper process, so it
   can never touch the user's own session or warehouse.
 - **Tests.** One suite. `python -m pytest` runs the sqlglot edition and the repo tests;
@@ -108,6 +113,10 @@ uses.
 - [Split the Example database into a shared send and `sql_composer/engine.py`](issues/10-split-the-example-database-and-sql-composer-engine.md):
   `engine.py` holds the install check and the query runner. The shared send answers only a
   single SELECT or WITH query, and gives rows in the same order in every Edition.
+- [How does Spark read the Toolbox's Hive, and which Hive claims hold on Spark?](issues/04-how-does-spark-read-the-toolboxs-hive.md):
+  Spark parses every golden text but two, reads every value back but BEL, FF and VT, and needs
+  all four 3.0 changes. `0.5` is DECIMAL there and a zero divisor raises under ANSI; the claims
+  table rewords every Hive claim for ticket 14.
 
 ## Not yet specified
 
