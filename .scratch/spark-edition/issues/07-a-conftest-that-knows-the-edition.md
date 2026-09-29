@@ -1,7 +1,7 @@
 # A conftest that knows the Edition, and tests with no hard-coded folder
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 06
 
 ## Question

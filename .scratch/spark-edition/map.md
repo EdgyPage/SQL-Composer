@@ -91,6 +91,9 @@ uses.
 - [Record the Edition split in the docs, and watch it for drift](issues/05-record-the-edition-split-in-the-docs.md):
   ADR 0002 and the glossary word Edition record the split; the drift reviewer watches the Spark
   folder and the Worked examples and gains a `parity` kind.
+- [Define the Editions once, in `tools/editions.py`](issues/06-define-the-editions-once.md): one
+  registry of folders, libraries, file kinds and import tiers, one import checker, and a `swap()`
+  that refuses any name it can't be sure of.
 
 ## Not yet specified
 

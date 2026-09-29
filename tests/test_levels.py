@@ -62,7 +62,7 @@ def _problem(name: str, level: int) -> str | None:
         return f"{name} is Level {LEVELS[top]}, not below Level {level}"
     if top in sys.stdlib_module_names or top in SHARED_IMPORTS or top == "__future__":
         return None
-    return f"{name} is neither a lower Level, the Toolbox, nor something work has"
+    return f"{name} is neither a lower Level, the Toolbox, nor something both Editions may import"
 
 
 def level_problems(source: str, level: int) -> list[str]:

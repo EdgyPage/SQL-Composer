@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import ast
 import re
 import subprocess
 import sys
@@ -58,24 +57,9 @@ def test_the_public_names_are_the_decided_ones() -> None:
         assert hasattr(sql_composer, name), name
 
 
-@pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: p.name)
-def test_the_toolbox_imports_only_what_work_has(path: Path) -> None:
-    tree = ast.parse(path.read_text(encoding="utf-8"))
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            names = [alias.name for alias in node.names]
-        elif isinstance(node, ast.ImportFrom):
-            if node.level > 0:
-                continue
-            names = [node.module or ""]
-        else:
-            continue
-        allowed = editions.may_import(editions.SQL_COMPOSER, path.name)
-        for name in names:
-            top = name.split(".")[0]
-            assert top in sys.stdlib_module_names or top in allowed or top == "__future__", (
-                f"{path.name} imports {name}"
-            )
+@pytest.mark.parametrize("folder", ["sql_composer"])
+def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
+    assert editions.imports_outside(ROOT / folder) == []
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: p.name)
@@ -91,9 +75,10 @@ def test_changes_has_a_section_for_the_version() -> None:
 
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
-    toolboxes = [package for package in editions.EDITIONS if (ROOT / package).is_dir()]
+    edition_folders = [folder for folder in editions.EDITIONS if (ROOT / folder).is_dir()]
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", *toolboxes, "tests", "tools", "worked_examples"],
+        [sys.executable, "-m", "ruff", "check", *edition_folders, "tests", "tools",
+         "worked_examples"],
         cwd=ROOT, capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr

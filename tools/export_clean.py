@@ -13,8 +13,8 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed:
   a cheat sheet: one line per public name, grouped by file, from each docstring's first line.
 
 It then checks what it built: each Toolbox file imports only what work has (the standard
-library, pandas, numpy, and sqlglot where `tools/editions.py` allows it), the stamped copy
-imports in a fresh Python, and the tree holds
+library, pandas, numpy, and sqlglot where `tools/editions.py` allows it), the stamped copy imports
+in a fresh Python, and the tree holds
 nothing outside its allowlist (`sql_composer/` and `.github/README.md`). Only then does it
 commit the tree to `main`, as one new commit on top of the old `main`. It never checks `main`
 out and never pushes: pushing `main` is your step.
@@ -28,7 +28,6 @@ To look at the Clean tree without committing anything, build it into an empty fo
 
 from __future__ import annotations
 
-import ast
 import datetime
 import inspect
 import io
@@ -185,30 +184,6 @@ def outside_allowlist(paths: list[str]) -> list[str]:
     ]
 
 
-def imports_outside_allowlist(folder: Path) -> list[str]:
-    """Each import in the Toolbox of something work doesn't have, as "<file> imports <name>".
-
-    What each file may import is in `tools/editions.py`.
-    """
-    edition = editions.EDITIONS[folder.name]
-    found = []
-    for path in sorted(folder.glob("*.py")):
-        allowed = sys.stdlib_module_names | editions.may_import(edition, path.name)
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.Import):
-                names = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom) and node.level == 0:
-                names = [node.module or ""]
-            else:
-                continue
-            found += [
-                f"{path.name} imports {name}"
-                for name in names
-                if name.split(".")[0] not in allowed
-            ]
-    return found
-
-
 def cheat_sheet(groups: list[dict]) -> str:
     """One Markdown section per Toolbox file, with one line per public name in it."""
     sections = []
@@ -254,7 +229,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
         (into / TOOLBOX / name).write_text(
             stamped(name, text, stamp), encoding="utf-8", newline="\n"
         )
-    bad_imports = imports_outside_allowlist(into / TOOLBOX)
+    bad_imports = editions.imports_outside(into / TOOLBOX)
     if bad_imports:
         raise ExportRefused(
             f"The Toolbox may import only the standard library, pandas, numpy and its "
