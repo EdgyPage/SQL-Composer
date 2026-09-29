@@ -54,8 +54,8 @@ PAGES = ("examples.html",)
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
 # SQL Composer's shared files that still import sqlglot. Tickets 10-13 of the PySpark work move
 # it into writing.py and engine.py, and ticket 13 empties this list.
-STILL_IMPORTING_SQLGLOT = ("__init__.py", "calculations.py", "clauses.py", "conditions.py",
-                           "example_database.py", "lineage.py", "running.py", "tables.py")
+STILL_IMPORTING_SQLGLOT = ("calculations.py", "clauses.py", "conditions.py", "lineage.py",
+                           "running.py", "tables.py")
 
 # The sqlglot whose layout Spark Composer's writing.py copies. Ticket 18 of the PySpark work adds
 # the test that holds it equal to the sqlglot pin in requirements-dev.txt.

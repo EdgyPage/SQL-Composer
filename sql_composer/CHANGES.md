@@ -29,6 +29,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - They put a table named with a word Hive keeps for itself, such as `order`, in backticks.
 - They no longer take a column Spark lists after the partition columns for another partition
   column, and they read the partition column of a table Spark lists as "# Partitioning".
+- The Example database returns a query's rows sorted by every column when its Statement has
+  no `ORDER_BY`, so every run shows them in the same order.
 
 ## 2.0
 

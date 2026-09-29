@@ -1,7 +1,7 @@
 # Split the Example database into a shared send and `sql_composer/engine.py`
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 03, 08
 
 ## Question
