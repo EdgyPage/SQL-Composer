@@ -26,6 +26,7 @@ from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .refusals import (
+    CONTROL_CHARACTERS,
     four_part_message,
     guard_control_character,
     guard_none_in_condition,
@@ -63,8 +64,13 @@ HIVE_AGGREGATES = frozenset(
     """.split()
 )
 
-# How Hive and Spark list the partition of rows whose partition column is NULL.
-NULL_DAY = "__HIVE_DEFAULT_PARTITION__"
+# The partition Hive and Spark list for the rows with no day: their partition column is NULL.
+ROWS_WITH_NO_DAY = "__HIVE_DEFAULT_PARTITION__"
+# DESCRIBE's headers: the partition list and its own column header, and the partitioning Spark
+# lists for a newer kind of table, one row per column or function of a column.
+PARTITION_INFORMATION = "# partition information"
+COLUMN_HEADER = "# col_name"
+PARTITIONING = "# partitioning"
 
 NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "decimal",
                 "numeric", "real")
@@ -430,14 +436,21 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     if isinstance(value, bool):
         return exp.true() if value else exp.false()
     if isinstance(value, str):
-        guard_control_character(call, position, value)
-        return exp.Literal.string(str.__str__(value))
+        return _string_literal(value, call, position)
     if isinstance(value, datetime.date):
         return exp.Literal.string(_date_text(value, column, call))
     text = _number_text(value)
     if text is None:
         guard_not_a_number(call, position, value)
     return exp.Literal.number(text)
+
+
+def _string_literal(value: str, call: str, position: str) -> exp.Expression:
+    """A string as a Hive literal, refused if it holds a character Hive would misread."""
+    for character in CONTROL_CHARACTERS:
+        if character in value:
+            guard_control_character(call, position, character)
+    return exp.Literal.string(str.__str__(value))
 
 
 def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
@@ -468,7 +481,7 @@ def _check_date_format(date_format: str) -> None:
                 fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
             )
         rest = rest.replace(directive, "")
-    if "%" in rest or "'" in rest:
+    if "%" in rest or "'" in rest or not rest.isprintable():
         _refuse_table(
             what=f"date_format={date_format!r} has something other than %Y, %m and %d.",
             why="Only the year, month and day can be turned into Hive's own pattern.",
@@ -712,25 +725,26 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
     frame = send(hive_text(exp.Describe(this=hive_table(name))))
     columns, comments, partitions = {}, {}, []
-    in_partitions = False
+    # The columns come first; each header after them, bar the partition list's own column
+    # header, starts a section, and only the partition sections name partition columns.
+    section = "columns"
     for row in frame.itertuples(index=False):
         column = str(row[0] or "").strip()
         kind = str(row[1] or "").strip()
         comment = str(row[2] or "").strip() if len(row) > 2 else ""
         if column.startswith("#"):
-            # "# Partition Information" opens the partition list and its "# col_name" header
-            # keeps it open; any other section, such as Spark's "# Column Default Values",
-            # ends it.
-            if column.lower() != "# col_name":
-                in_partitions = column.lower() == "# partition information"
+            if column.lower() != COLUMN_HEADER:
+                section = column.lower()
             continue
         if not column:
             continue
-        if in_partitions:
-            partitions.append(column)
-        elif column not in columns:
+        if section == "columns" and column not in columns:
             columns[column] = kind
             comments[column] = "" if comment in ("None", "nan") else comment
+        elif section == PARTITION_INFORMATION:
+            partitions.append(column)
+        elif section == PARTITIONING and SIMPLE_NAME.fullmatch(kind):
+            partitions.append(kind)
     return columns, comments, partitions
 
 
@@ -743,9 +757,8 @@ def _newest_partition_value(name: str, column: str, send) -> str | None:
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
             key, _, value = part.partition("=")
-            # The warehouse escapes a partition value (2026/09/24 is listed as
-            # 2026%2F09%2F24), and lists the rows with no value as its NULL day.
-            if key == column and value != NULL_DAY:
+            # The warehouse escapes a partition value: 2026/09/24 is listed as 2026%2F09%2F24.
+            if key == column and value != ROWS_WITH_NO_DAY:
                 values.append(urllib.parse.unquote(value))
     return max(values) if values else None
 
