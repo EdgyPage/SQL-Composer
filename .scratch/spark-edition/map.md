@@ -88,6 +88,9 @@ uses.
   377 cases pin what SQL Composer shows through four public seams, at the sqlglot pin; on
   25.24.2 five cases already differ, and `create_table`, DESCRIBE of a reserved name and
   `hive_function`'s date_format were found to need later fixes.
+- [Record the Edition split in the docs, and watch it for drift](issues/05-record-the-edition-split-in-the-docs.md):
+  ADR 0002 and the glossary word Edition record the split; the drift reviewer watches the Spark
+  folder and the Worked examples and gains a `parity` kind.
 
 ## Not yet specified
 

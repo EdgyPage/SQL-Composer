@@ -63,6 +63,6 @@ swept.
 
 **Changed by the PySpark edition (2026-09-29).** The sqlglot range here is SQL Composer's. Spark
 Composer needs no sqlglot; its library is pyspark `>=3.5.0,<4.1`, pinned at 4.0.4. The golden
-corpus (spark-edition ticket 03) found five shapes whose Hive differs on 25.24.2, which this
+corpus (spark-edition ticket 03) found four shapes whose Hive differs on 25.24.2, which this
 probe didn't reach: a window on one line, `STRUCT<a INT, b STRING>` without Hive's colon, and
 casts sqlglot adds to `date_format` and `datediff`.

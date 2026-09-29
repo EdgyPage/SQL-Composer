@@ -1,14 +1,17 @@
 # A second Edition writes the same Hive without sqlglot, and runs it on Spark
 
+Status: accepted
+
 The user hasn't settled which engine work will use, so the Toolbox is built twice, as two Editions
-with the same 63 functions: SQL Composer (`sql_composer`) writes its Hive with sqlglot, as ADR
+with the same 63 public names: SQL Composer (`sql_composer`) writes its Hive with sqlglot, as ADR
 0001 decided, and Spark Composer (`spark_composer`) writes the same Hive with a printer of its own
 and runs it with `spark.sql()` on Spark with Hive support, for a work environment that has pyspark
 and not sqlglot. To share almost everything, a Statement's leaves - its columns, conditions,
 calculations and sort keys - are held in a small expression tree the Toolbox owns, instead of in
-sqlglot's. Only two files differ between the folders: the one that turns the tree into text, and
-the one that checks the library and runs the Example database. Every other file of
-`spark_composer` is generated from `sql_composer`'s, and a test fails if a copy is stale.
+sqlglot's. Two files are written by hand in each folder: the one that turns the tree into text,
+and the one that checks the library and runs the Example database; each Edition also generates
+its own Example gallery. Every other file of `spark_composer` is generated from `sql_composer`'s,
+and a test fails if a copy is stale.
 
 This supersedes ADR 0001's rejection of "a hand-rolled AST and Hive renderer" in two ways: the
 Toolbox now owns its tree in both Editions, and Spark Composer hand-writes its Hive. ADR 0001's
@@ -22,9 +25,12 @@ sqlglot.
 
 - **A DataFrame-API Edition.** The user chose Hive text: it reads the same in both Editions, and
   every Guard and Load limit already reasons about the Statement, not about DataFrames.
-- **Keeping sqlglot in the Spark Edition** with `dialect="spark"`. This is the cheapest option,
+- **Keeping sqlglot in Spark Composer** with `dialect="spark"`. This is the cheapest option,
   but the user wants an Edition that needs no sqlglot at work.
-- **One package that detects its library.** One folder would hold the writing code for both
+- **Vendoring sqlglot inside Spark Composer's folder.** It would still need no install, but the
+  user would paste a copy of the very library the Edition exists to do without, far larger than
+  the Toolbox, with no way to update it but the next export.
+- **One folder that detects its library.** One folder would hold the writing code for both
   libraries, and the import self-check could no longer say which library a copy needs. This was
   rejected for two folders with the same file names.
 - **Spark for the Example database in the user's own Python.** PySpark allows one SparkContext per

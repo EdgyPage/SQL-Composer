@@ -14,9 +14,9 @@ Editions.
 _Avoid_: library, package, framework, SQL module
 
 **Edition**:
-One of the two forms the Toolbox comes in, with the same functions writing the same Hive: SQL
-Composer, which writes its Hive with sqlglot, and Spark Composer, which writes it itself and runs
-it on Spark. Each is its own folder, and they can sit side by side.
+One of the two forms the Toolbox comes in, with the same functions and almost the same Hive: SQL
+Composer, which needs sqlglot at work, and Spark Composer, which needs pyspark and runs its Hive on
+Spark. They can sit side by side.
 _Avoid_: flavour, variant, port, fork, backend, dialect
 
 **Toolbox version**:
@@ -118,6 +118,6 @@ with the Python that builds it and the Hive it emits. It sits either in a Toolbo
 _Avoid_: case, sample, recipe, demo
 
 **Example gallery**:
-The one searchable page holding every Worked example, generated from them and shipped with each
-Edition.
+The searchable page holding every Worked example, generated from them; each Edition ships its
+own.
 _Avoid_: cookbook, docs site, examples page
