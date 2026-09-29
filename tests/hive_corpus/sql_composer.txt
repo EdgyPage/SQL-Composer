@@ -35902,11 +35902,11 @@ LIMIT 20
 
 == warehouse:ops.order
 -- write_table_reference
-DESCRIBE ops.order
-SHOW PARTITIONS ops.order
+DESCRIBE ops.`order`
+SHOW PARTITIONS ops.`order`
 -- check_table_reference
-DESCRIBE ops.order
-SHOW PARTITIONS ops.order
+DESCRIBE ops.`order`
+SHOW PARTITIONS ops.`order`
 -- check_key
 ValueError:
   What happened:  check_key(order): its Table reference declares no key.

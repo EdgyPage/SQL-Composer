@@ -81,6 +81,11 @@ def test_guard_not_a_number_refuses() -> None:
         equals(job_runs.duration_mins, float("nan"))
 
 
+def test_guard_control_character_refuses() -> None:
+    with pytest.raises(GuardRefused, match="bell"):
+        equals(job_runs.status, "FAILED\x07")
+
+
 def test_guard_time_of_day_refuses() -> None:
     with pytest.raises(GuardRefused, match="time of day"):
         equals(job_runs.dt, datetime.datetime(2026, 9, 24, 13, 5))

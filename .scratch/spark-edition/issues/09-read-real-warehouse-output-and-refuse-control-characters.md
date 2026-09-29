@@ -1,7 +1,7 @@
 # Read real warehouse output, and refuse BEL, FF and VT in a value (2.1 fixes)
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 03
 
 ## Question
