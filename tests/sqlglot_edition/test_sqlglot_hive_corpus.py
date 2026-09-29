@@ -14,15 +14,11 @@ again, with `python tools/hive_corpus.py`, only for a change that is meant to al
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import pytest
 import sqlglot
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
-
-import hive_corpus  # noqa: E402
+import hive_corpus
 
 
 @pytest.mark.skipif(

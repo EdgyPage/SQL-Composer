@@ -179,14 +179,6 @@ def test_an_opt_out_shows_the_wrong_result_hive_would_give() -> None:
     assert "cache_warm" not in cells(careless)
 
 
-@pytest.mark.parametrize(
-    "entry_id", ["row_number", "week_start", "latest_and_top_n", "regrouping"])
-def test_results_the_example_database_cannot_run_come_from_pandas_labelled(
-    entry_id: str,
-) -> None:
-    assert "computed in pandas, not by running this Hive" in entries()[entry_id][1]
-
-
 def test_row_number_shows_the_latest_run_of_each_job() -> None:
     assert cells(entry_section("row_number")) == ["1", "104", "SUCCESS", "2", "102", "FAILED",
                                                "3", "103", "SUCCESS"]

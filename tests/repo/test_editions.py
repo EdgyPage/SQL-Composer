@@ -14,7 +14,7 @@ import pytest
 import editions
 from editions import SPARK_COMPOSER, SQL_COMPOSER, SwapRefused, may_import, swap
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_each_edition_has_its_folder_product_and_library() -> None:

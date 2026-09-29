@@ -22,7 +22,7 @@ import editions
 import sql_composer
 from conftest import toolbox_folder
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 TOOLBOX = toolbox_folder()
 
 # Every public name, as decided in the tracker. Add or remove a name only with the ticket

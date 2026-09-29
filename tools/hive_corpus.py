@@ -4,9 +4,9 @@ Run it on `dev` only when a change is meant to alter what the Toolbox writes, th
 
     python tools/hive_corpus.py
 
-`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. Both
-work only at the sqlglot pin in requirements-dev.txt, since another sqlglot writes some Hive
-differently. The file pins, for each case under a stable id, what the Toolbox shows through its
+`tests/sqlglot_edition/test_sqlglot_hive_corpus.py` fails while the committed file differs from
+what this writes. Both work only at the sqlglot pin in requirements-dev.txt, since another sqlglot
+writes some Hive differently. The file pins, for each case under a stable id, what the Toolbox shows through its
 public names:
 
 - each Statement's Hive, from `to_hive(...)`, or the refusal it stops with;
