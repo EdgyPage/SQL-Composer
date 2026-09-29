@@ -49,6 +49,8 @@ def test_show_partitions_lists_the_days() -> None:
 @pytest.mark.parametrize("hive", [
     "INSERT OVERWRITE TABLE ops.jobs SELECT 1",
     "WITH x AS (\n  SELECT 1 AS a\n)\nINSERT INTO ops.jobs\nSELECT a FROM x",
+    "WITH x AS (SELECT 1 AS a) insert into ops.jobs SELECT a FROM x",
+    "SELECT 1 FROM ops.jobs; DROP TABLE ops.jobs",
     "DROP TABLE IF EXISTS ops.jobs",
     "CREATE TABLE ops.more (a INT)",
 ])
@@ -57,7 +59,20 @@ def test_it_cant_be_written_to(hive: str) -> None:
         example_database.send(hive)
 
 
-def test_a_query_sorts_itself_only_with_an_order_by_outside_every_window() -> None:
+@pytest.mark.parametrize("hive", [
+    "-- the jobs\nSELECT job_name FROM ops.jobs",
+    "SELECT job_name FROM ops.jobs WHERE job_name <> 'INSERT; DROP'",
+    'SELECT job_name FROM ops.jobs WHERE job_name <> "INSERT"',
+    "SELECT\n  COUNT(*) AS load\nFROM ops.jobs AS jobs",
+    "WITH x AS (\n  SELECT 1 AS a\n)\nSELECT a AS load FROM x",
+])
+def test_a_query_that_only_reads_is_answered(hive: str) -> None:
+    assert example_database._is_query(hive)
+
+
+def test_a_query_sorts_itself_only_with_an_order_by_outside_every_bracket() -> None:
+    assert not example_database._sorts_itself('SELECT a FROM t WHERE b = "ORDER BY x"')
+    assert example_database._sorts_itself('SELECT a FROM t WHERE b = "(" ORDER BY a LIMIT 2')
     import hive_corpus_cases
 
     checked = 0

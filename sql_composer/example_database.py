@@ -151,30 +151,46 @@ def _show_partitions(name: str) -> pd.DataFrame:
     return pd.DataFrame({"partition": [f"{table._date_partition}={day}" for day in days]})
 
 
-# The first words of the commands that change a table, which the Example database refuses.
+# The words that start a command changing a table, which the Example database refuses.
 _WRITES = frozenset({"INSERT", "CREATE", "DROP", "ALTER", "TRUNCATE", "LOAD"})
-# A string, or a name in backticks: what a query says, as opposed to what it is.
-_QUOTED = re.compile(r"'(?:[^'\\]|\\.)*'|`(?:[^`]|``)*`")
+# A string in single or double quotes, or a name in backticks: what a query says, as opposed
+# to what it is.
+_QUOTED = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`""")
+
+
+def _outside_brackets(text: str) -> str:
+    """The Hive with its comments, quoted text and everything inside brackets blanked out.
+
+    What is left is the query itself: a window's OVER (...) and a Derived table's
+    WITH ... AS (...) are inside brackets, and a string can say anything.
+    """
+    lines = [line for line in text.splitlines() if not line.lstrip().startswith("--")]
+    depth, outside = 0, []
+    for character in _QUOTED.sub("''", "\n".join(lines)):
+        depth += {"(": 1, ")": -1}.get(character, 0)
+        outside.append(character if depth == 0 else " ")
+    return "".join(outside)
 
 
 def _is_query(text: str) -> bool:
-    """Whether the Hive only reads: it starts with SELECT or WITH, and no line starts a write."""
-    first = text.split(None, 1)[0].upper() if text.split() else ""
-    starts = {line.split(None, 1)[0].upper() for line in text.splitlines() if line.split()}
-    return first in ("SELECT", "WITH") and not starts & _WRITES
+    """Whether the Hive only reads: one SELECT or WITH query, with no command that writes.
+
+    A command starts either the text or what follows a WITH's last bracket, so a column
+    named `load` is not taken for one.
+    """
+    words = [word.upper() for word in
+             re.findall(r"[A-Za-z_]+|[;)]", _outside_brackets(text).rstrip().rstrip(";"))]
+    commands = words[:1] + [word for before, word in zip(words, words[1:]) if before == ")"]
+    return words[:1] in (["SELECT"], ["WITH"]) and ";" not in words and not set(commands) & _WRITES
 
 
 def _sorts_itself(text: str) -> bool:
     """Whether the Hive sorts its own rows: an ORDER BY outside every bracket.
 
-    An ORDER BY inside brackets belongs to a window's OVER (...) or to a Derived table's
-    WITH ... AS (...), and neither orders the rows that come back.
+    An ORDER BY inside brackets belongs to a window or to a Derived table, and neither orders
+    the rows that come back.
     """
-    depth, outside = 0, []
-    for character in _QUOTED.sub("''", text):
-        depth += {"(": 1, ")": -1}.get(character, 0)
-        outside.append(character if depth == 0 else " ")
-    return re.search(r"\bORDER\s+BY\b", "".join(outside), re.IGNORECASE) is not None
+    return re.search(r"\bORDER\s+BY\b", _outside_brackets(text), re.IGNORECASE) is not None
 
 
 def _in_order(row: tuple) -> tuple:

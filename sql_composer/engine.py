@@ -1,6 +1,6 @@
 """What SQL Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
-`__init__.py` calls `check_library()` as soon as it knows the folder is whole, before it imports
+`__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
 any other file. The Example database hands `run_query` a query's Hive and its tables, and gets
 back the query's column names and rows. This file imports sqlglot only inside its functions, so
 it can be imported to check sqlglot before sqlglot is trusted.
@@ -15,14 +15,14 @@ from . import _stop
 
 TOOLBOX_VERSION = "2.1"
 
-_LIBRARY_LOWEST = (25, 24, 2)
-_LIBRARY_BELOW = (31, 0, 0)
-_LIBRARY_NEWEST_TESTED = (30, 19, 0)
+_LOWEST = (25, 24, 2)
+_BELOW = (31, 0, 0)
+_NEWEST_TESTED = (30, 19, 0)
 # The executor counts COUNT(DISTINCT ...) right only from 30.19.0.
 _EXECUTOR_NEEDS = (30, 19, 0)
 
 
-# --- The library ----------------------------------------------------------------------------
+# --- sqlglot ------------------------------------------------------------------------------------
 
 
 def _dotted(numbers):
@@ -34,11 +34,11 @@ def _numbers(text):
     return tuple(int(n) for n in found.groups()) if found else None
 
 
-_IN_RANGE = f'"sqlglot>={_dotted(_LIBRARY_LOWEST)},<{_dotted(_LIBRARY_BELOW)}"'
+_IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
 
 
-def check_library():
+def check_installed():
     """Refuse a sqlglot outside the supported range, or one that behaves differently."""
     try:
         import sqlglot
@@ -52,17 +52,17 @@ def check_library():
         )
     found = getattr(sqlglot, "__version__", "unknown")
     version = _numbers(found)
-    if version is None or not _LIBRARY_LOWEST <= version < _LIBRARY_BELOW:
+    if version is None or not _LOWEST <= version < _BELOW:
         _stop(
-            what=f"SQL Composer needs sqlglot {_dotted(_LIBRARY_LOWEST)} or newer, below "
-            f"{_dotted(_LIBRARY_BELOW)}, and this Python has sqlglot {found}.",
+            what=f"SQL Composer needs sqlglot {_dotted(_LOWEST)} or newer, below "
+            f"{_dotted(_BELOW)}, and this Python has sqlglot {found}.",
             why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can "
             "write Hive differently, so a Statement could come out wrong without anything "
             "saying so.",
             fix="Install a sqlglot in that range from a notebook cell with %pip install "
             f"{_IN_RANGE}, then restart the kernel. {_NO_INSTALLING}",
         )
-    problems = _library_behaviour()
+    problems = _sqlglot_behaviour()
     if problems:
         _stop(
             what=f"sqlglot {found} is in the supported range, but behaves differently: "
@@ -70,15 +70,15 @@ def check_library():
             why="SQL Composer relies on this behaviour to write Hive safely, so a Statement "
             "could come out wrong.",
             fix="Install again the sqlglot SQL Composer is tested on, from a notebook cell "
-            f'with %pip install --force-reinstall "sqlglot=={_dotted(_LIBRARY_NEWEST_TESTED)}", '
+            f'with %pip install --force-reinstall "sqlglot=={_dotted(_NEWEST_TESTED)}", '
             f"then restart the kernel. {_NO_INSTALLING}",
         )
-    if version > _LIBRARY_NEWEST_TESTED:
+    if version > _NEWEST_TESTED:
         print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
-              f"({_dotted(_LIBRARY_NEWEST_TESTED)}). Its behaviour checks passed.")
+              f"({_dotted(_NEWEST_TESTED)}). Its behaviour checks passed.")
 
 
-def _library_behaviour():
+def _sqlglot_behaviour():
     from sqlglot import exp
     from sqlglot.errors import OptimizeError
     from sqlglot.optimizer.qualify import qualify
@@ -116,7 +116,7 @@ def example_database_cannot_run() -> str | None:
 
     version = _numbers(sqlglot.__version__) or (0, 0, 0)
     if version < _EXECUTOR_NEEDS:
-        return "the Example database runs queries only on sqlglot 30.19.0 or newer"
+        return f"the Example database runs queries only on sqlglot {_dotted(_EXECUTOR_NEEDS)} or newer"
     return None
 
 
@@ -125,8 +125,7 @@ def _executor_ready() -> None:
     import sqlglot
 
     found = sqlglot.__version__
-    numbers = re.match(r"(\d+)\.(\d+)\.(\d+)", found)
-    version = tuple(int(n) for n in numbers.groups()) if numbers else (0, 0, 0)
+    version = _numbers(found) or (0, 0, 0)
     # Imported only when a query runs: the rest of the Toolbox never needs the executor.
     from sqlglot.executor import execute
 
@@ -137,7 +136,8 @@ def _executor_ready() -> None:
             return
     raise RuntimeError(four_part_message(
         what="The Example database runs queries on sqlglot's own executor, which needs "
-        f"sqlglot 30.19.0 or newer to count correctly. This Python has sqlglot {found}.",
+        f"sqlglot {_dotted(_EXECUTOR_NEEDS)} or newer to count correctly. This Python has "
+        f"sqlglot {found}.",
         why="An older executor counts COUNT(DISTINCT ...) wrong, and says nothing.",
         fix="The rest of the Toolbox works as usual: to_hive(...) still shows a Statement's "
         "Hive. Only running queries on the Example database stops.",
