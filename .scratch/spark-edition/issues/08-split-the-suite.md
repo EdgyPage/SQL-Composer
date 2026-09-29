@@ -1,7 +1,7 @@
 # Split the suite into shared, sqlglot-edition and repo tests
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 07
 
 ## Question

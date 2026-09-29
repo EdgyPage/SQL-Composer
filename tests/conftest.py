@@ -10,6 +10,10 @@ Today is pinned to 2026-09-25, the day after the Example database's last day, so
 load limits are switched off again after each test, since `set_load_limits` changes them for
 the whole session.
 
+Each run collects the shared tests directly in `tests/` and its own Edition's folder,
+`tests/sqlglot_edition/` or `tests/spark_edition/`; SQL Composer's run also collects the repo's own
+checks in `tests/repo/`, which run once.
+
 A test marked `needs_example_database` runs a query on the Example database, and skips where it
 can't, saying why. `--example-database required` turns that skip into a failure, for a CI job
 whose Example database must run.
@@ -29,8 +33,13 @@ import pytest
 import editions
 
 ROOT = Path(__file__).resolve().parent.parent
+TESTS = ROOT / "tests"
 TODAY = datetime.date(2026, 9, 25)
 EDITION_CHOICES = {"sqlglot": editions.SQL_COMPOSER}
+# The folder of tests only one Edition passes, by the --edition that chooses it.
+EDITION_FOLDERS = {"sqlglot": "sqlglot_edition", "spark": "spark_edition"}
+# The repo's own checks, run once, in SQL Composer's run.
+REPO_FOLDER = "repo"
 # What this run was given: its Edition, and whether its Example database must run.
 _chosen: dict = {}
 
@@ -46,6 +55,31 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 def pytest_configure(config: pytest.Config) -> None:
     _chosen["edition"] = EDITION_CHOICES[config.getoption("--edition")]
     _chosen["example_database"] = config.getoption("--example-database")
+
+
+def folders_left_out(config: pytest.Config) -> set[str]:
+    """The folders of tests this run doesn't collect: the other Edition's, and the repo's."""
+    chosen = config.getoption("--edition")
+    left_out = {folder for edition, folder in EDITION_FOLDERS.items() if edition != chosen}
+    if chosen != "sqlglot":
+        left_out.add(REPO_FOLDER)
+    return left_out
+
+
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
+    if collection_path.parent == TESTS and collection_path.name in folders_left_out(config):
+        return True
+    return None
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
+    """Stop a run given a folder its Edition doesn't collect, rather than run the wrong one."""
+    named = sorted({item.path.parent.name for item in items
+                    if item.path.parent.parent == TESTS
+                    and item.path.parent.name in folders_left_out(config)})
+    if named:
+        raise pytest.UsageError(f"tests/{named[0]}/ doesn't run with --edition "
+                                f"{config.getoption('--edition')}.")
 
 
 def pytest_report_header(config: pytest.Config) -> str:

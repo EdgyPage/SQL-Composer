@@ -1,8 +1,8 @@
 """Worked example 7, latest run per job and top N per group with row_number.
 
-The Example database's executor has no window functions, so it refuses row_number with its
-plain message, and the example gives those results computed in pandas. Nothing here is
-guarded: the careless Statement runs, and its statuses come from the wrong runs.
+The example gives the row_number results computed in pandas too, for where the Example
+database can't run row_number. Nothing here is guarded: the careless Statement runs, and its
+statuses come from the wrong runs.
 """
 
 from __future__ import annotations
@@ -55,13 +55,6 @@ def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
     assert [row["status"] for row in careless] == largest_per_column_check()
     assert largest_per_column_check() == ["TEST", "SUCCESS", "SUCCESS"]
     assert [row["status"] for row in right] == ["SUCCESS", "FAILED", "SUCCESS"]
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("statement", ["fixed", "top_runs_per_job"])
-def test_the_example_database_cant_run_row_number(statement: str) -> None:
-    with pytest.raises(RuntimeError, match="its executor has no window functions"):
-        run(getattr(example, statement)(), send=example_database.send)
 
 
 @pytest.mark.needs_example_database

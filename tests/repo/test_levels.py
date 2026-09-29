@@ -22,7 +22,7 @@ import pytest
 
 from editions import SHARED_IMPORTS
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 WORKED_EXAMPLES = ROOT / "worked_examples"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
 # The seven demonstrations decided in "What does the Example database demonstrate?".

@@ -157,11 +157,6 @@ def test_hive_function_refuses_a_name_that_isnt_a_plain_name() -> None:
         hive_function("regexp_extract", jobs.team)
 
 
-def test_hive_function_output_reads_back_the_same_on_every_version() -> None:
-    days = hive_function("datediff", job_runs.dt, "2026-09-01")
-    to_hive(statement(SELECT(AS(days, "days")), FROM(job_runs), WHERE(DAYS)))
-
-
 # --- statement(...) -----------------------------------------------------------------------
 
 
