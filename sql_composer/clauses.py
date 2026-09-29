@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
+# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:
@@ -30,10 +30,11 @@ from .refusals import (
 )
 from .tables import SIMPLE_NAME, Column, Table, aliased, hive_text, identifier
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
-ORDER = ["INSERT_OVERWRITE", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING",
-         "ORDER_BY", "LIMIT"]
+# The order clauses come in, as in SQL. A write comes first, and the joins share one place.
+ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
+WRITES = ("INSERT_OVERWRITE", "INSERT_INTO")
 JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN")
 
 
@@ -42,18 +43,45 @@ def _misuse(what: str, why: str, fix: str, error=TypeError):
 
 
 class Clause:
-    """One clause of a Statement, made by a clause function such as SELECT(...)."""
+    """One clause of a Statement, made by a clause function such as SELECT(...).
 
-    def __init__(self, name: str, **parts):
-        self._name = name
-        self.__dict__.update(parts)
+    Each clause function fills in only the parts its clause has; the rest keep their
+    defaults. statement(...) reads them back to build the Statement.
+    """
 
-    def _rank(self) -> int:
-        return ORDER.index("JOIN" if self._name in JOINS else self._name.replace("_DISTINCT", ""))
+    def __init__(self, name: str, *, outputs=None, distinct=False, table=None, on=None,
+                 reads_all_partitions=False, many_matches=False, keeps_only_matches=False,
+                 conditions=None, group_columns=None, sort_keys=None, sorts_everything=False,
+                 n=None):
+        self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
+        # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
+        self.outputs = outputs
+        self.distinct = distinct
+        # FROM, the joins and the writes: the table, a join's ON= condition, and opt-outs.
+        self.table = table
+        self.on = on
+        self.reads_all_partitions = reads_all_partitions
+        self.many_matches = many_matches
+        self.keeps_only_matches = keeps_only_matches
+        # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
+        self.conditions = conditions
+        self.group_columns = group_columns
+        # ORDER_BY: the sqlglot trees to sort by, and its opt-out. LIMIT: the row count.
+        self.sort_keys = sort_keys
+        self.sorts_everything = sorts_everything
+        self.n = n
+
+    def _place(self) -> str:
+        """This clause's place in ORDER: INSERT_INTO sits at INSERT, LEFT_JOIN at JOIN."""
+        if self._name in WRITES:
+            return "INSERT"
+        if self._name in JOINS:
+            return "JOIN"
+        return self._name.replace("_DISTINCT", "")
 
     def _call(self) -> str:
         """How this clause was written, for messages: FROM(job_runs), JOIN(jobs, ON=...)."""
-        on = ", ON=..." if getattr(self, "on", None) is not None else ""
+        on = ", ON=..." if self.on is not None else ""
         return f"{self._name}({self.table._alias}{on})"
 
     def __repr__(self) -> str:
@@ -74,7 +102,24 @@ class Named:
 class Statement:
     """A query, assembled by statement(...). to_hive(s) gives its Hive string."""
 
-    _ddl = None
+    def __init__(self):
+        # Filled in by statement(...), from the clauses it was given:
+        self._clauses = ()  # the clauses, in the order written
+        self._returns_all_rows = False  # the opt-out of the automatic LIMIT
+        self._write = None  # the Saved table an INSERT_OVERWRITE or INSERT_INTO writes
+        self._write_call = None  # how that write was called, for messages
+        self._replaces_day = False  # True for INSERT_OVERWRITE, False for INSERT_INTO
+        self._outputs = []  # SELECT's (column, output name) pairs
+        self._distinct = False  # whether it is SELECT_DISTINCT
+        self._reads = []  # the FROM clause, then each join clause
+        self._where = []  # WHERE's conditions
+        self._having = []  # HAVING's conditions
+        self._group_by = []  # GROUP_BY's columns, with output names looked up
+        self._order_by = []  # ORDER_BY's sqlglot trees
+        self._limit = None  # LIMIT's row count
+        # Set instead by create_table and drop_table, whose Statement is a sqlglot tree ready
+        # to write, with none of the parts above.
+        self._ddl = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:
@@ -415,7 +460,7 @@ def GROUP_BY(*columns):
                 why="It groups by columns, or by the name of a calculation in SELECT.",
                 fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").',
             )
-    return Clause("GROUP_BY", items=items)
+    return Clause("GROUP_BY", group_columns=items)
 
 
 def HAVING(*conditions):
@@ -482,7 +527,7 @@ def ORDER_BY(*columns, sorts_everything=False):
                     why="It sorts by columns or output names.",
                     fix="Pass a column, an output name, or descending(...).")
     trees = [ordered(item, "ORDER_BY(...)") for item in items]
-    return Clause("ORDER_BY", trees=trees, sorts_everything=sorts_everything)
+    return Clause("ORDER_BY", sort_keys=trees, sorts_everything=sorts_everything)
 
 
 def LIMIT(n):
@@ -501,13 +546,28 @@ def LIMIT(n):
     return Clause("LIMIT", n=n)
 
 
+def _write_clause(call: str, table) -> Clause:
+    """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
+    table = _need_table(table, f"{call}(...)")
+    if table._statement is not None or table._date_partition is None:
+        _misuse(
+            what=f"{call}({table._alias}) needs a Saved table with a Date partition.",
+            why="A write fills one day of a real table, so the table needs a Date partition "
+            "to write the day into.",
+            fix="Pass the Saved table's own Table reference, with date_partition=... set.",
+            error=ValueError,
+        )
+    return Clause(call, table=table)
+
+
 def INSERT_OVERWRITE(table):
     """Write the Statement's rows into one day of a Saved table, replacing that day.
 
     It goes first, before SELECT. The day written is the one day the Statement reads, so
     loop over by_day(s) to write several. Columns are matched to the Saved table by name,
     and the Toolbox puts them in the table's order, leaving out its Date partition.
-    Re-running a day replaces it rather than adding to it. On Hive 2.3 and 3.1 under Tez, a
+    Re-running a day replaces it rather than adding to it, so a day can safely be sent
+    again; to add rows to a day instead, use INSERT_INTO. On Hive 2.3 and 3.1 under Tez, a
     day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved
     table's Table reference, check it with check_table_reference(t, send=...).
 
@@ -531,16 +591,37 @@ def INSERT_OVERWRITE(table):
       job_runs.dt,
       job_runs.job_id
     """
-    table = _need_table(table, "INSERT_OVERWRITE(...)")
-    if table._statement is not None or table._date_partition is None:
-        _misuse(
-            what=f"INSERT_OVERWRITE({table._alias}) needs a Saved table with a Date partition.",
-            why="A write replaces one day of a real table, so the table needs a Date "
-            "partition to write the day into.",
-            fix="Pass the Saved table's own Table reference, with date_partition=... set.",
-            error=ValueError,
-        )
-    return Clause("INSERT_OVERWRITE", table=table)
+    return _write_clause("INSERT_OVERWRITE", table)
+
+
+def INSERT_INTO(table):
+    """Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
+
+    It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
+    Statement reads, and its columns are matched by name. The difference is what happens to
+    the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and
+    adds more. Use it when a day's rows come from more than one table: send INSERT_OVERWRITE
+    for the day first, from the first table, then INSERT_INTO from each other table. Sending
+    the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its
+    INSERT_OVERWRITE. Below, a day of failed runs gets the runs with a high alert added.
+
+    >>> run_alerts = example_database.run_alerts
+    >>> runs_to_review = Table("mart.runs_to_review", date_partition="dt",
+    ...     columns={"run_id": "bigint", "dt": "string"})
+    >>> print(to_hive(statement(
+    ...     INSERT_INTO(runs_to_review),
+    ...     SELECT_DISTINCT(run_alerts.run_id),
+    ...     FROM(run_alerts),
+    ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
+    ... )))
+    INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-24')
+    SELECT DISTINCT
+      run_alerts.run_id
+    FROM ops.run_alerts AS run_alerts
+    WHERE
+      run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+    """
+    return _write_clause("INSERT_INTO", table)
 
 
 # --- statement(...) ------------------------------------------------------------------------
@@ -555,21 +636,32 @@ def _check_order(clauses) -> None:
                 "FROM(...).",
                 fix="Wrap it in its clause, such as WHERE(equals(...)).",
             )
-    ranks = [clause._rank() for clause in clauses]
-    names = [clause._name for clause in clauses]
-    once = [n for n in set(names) if n not in JOINS and names.count(n) > 1]
-    if ranks != sorted(ranks) or once:
+    places = [clause._place() for clause in clauses]
+    ranks = [ORDER.index(place) for place in places]
+    # Only a join may come more than once: not two writes, nor SELECT with SELECT_DISTINCT.
+    for place in ORDER:
+        found = [clause._name for clause in clauses if clause._place() == place]
+        if place != "JOIN" and len(found) > 1:
+            _misuse(
+                what=f"statement(...) has {' and '.join(found)}, but a Statement has only one "
+                f"{place} clause.",
+                why="A Statement is one query, so it has one of each clause (only JOINs may "
+                "repeat), and it writes at most once.",
+                fix="Keep one of them. Put all conditions in one WHERE, and send a second "
+                "write as a Statement of its own.",
+                error=ValueError,
+            )
+    if ranks != sorted(ranks):
         _misuse(
-            what="statement(...) has its clauses out of SQL order, or one clause twice: "
-            + ", ".join(names) + ".",
+            what="statement(...) has its clauses out of SQL order: "
+            + ", ".join(clause._name for clause in clauses) + ".",
             why="A Statement reads in SQL order, one clause each.",
-            fix="Order them as INSERT_OVERWRITE, SELECT, FROM, JOIN..., WHERE, GROUP_BY, "
-            "HAVING, ORDER_BY, LIMIT, and put all conditions in one WHERE.",
+            fix="Order them as INSERT_OVERWRITE or INSERT_INTO, SELECT, FROM, JOIN..., WHERE, "
+            "GROUP_BY, HAVING, ORDER_BY, LIMIT, and put all conditions in one WHERE.",
             error=ValueError,
         )
-    present = {ORDER[rank] for rank in ranks}
     for needed in ("SELECT", "FROM"):
-        if needed not in present:
+        if needed not in places:
             _misuse(what=f"statement(...) has no {needed}(...).",
                     why="Every Statement says what it returns and which table it reads.",
                     fix="Add SELECT(...) and FROM(...).", error=ValueError)
@@ -598,15 +690,19 @@ def statement(*clauses, returns_all_rows=False):
     s = Statement()
     s._clauses = clauses
     s._returns_all_rows = returns_all_rows
-    s._write = next((c.table for c in clauses if c._name == "INSERT_OVERWRITE"), None)
+    write = next((c for c in clauses if c._name in WRITES), None)
+    s._write = write.table if write else None
+    # How the write was called, for messages: INSERT_INTO(daily_runs).
+    s._write_call = f"{write._name}({write.table._alias})" if write else None
+    s._replaces_day = write is not None and write._name == "INSERT_OVERWRITE"
     select = next(c for c in clauses if c._name.startswith("SELECT"))
     s._outputs, s._distinct = select.outputs, select.distinct
     s._reads = [c for c in clauses if c._name == "FROM" or c._name in JOINS]
     s._where = _clause_part(clauses, "WHERE", "conditions")
     s._having = _clause_part(clauses, "HAVING", "conditions")
-    s._group_by = _resolve_group_by(s, _clause_part(clauses, "GROUP_BY", "items"))
+    s._group_by = _resolve_group_by(s, _clause_part(clauses, "GROUP_BY", "group_columns"))
     order = next((c for c in clauses if c._name == "ORDER_BY"), None)
-    s._order_by = order.trees if order else []
+    s._order_by = order.sort_keys if order else []
     s._limit = next((c.n for c in clauses if c._name == "LIMIT"), None)
     _check_tables(s)
     _run_guards(s)
@@ -701,7 +797,7 @@ def _run_guards(s: Statement) -> None:
         if read._name != "LEFT_JOIN":
             continue
         for condition in s._where:
-            if read.table._alias in condition._tables() and condition._kind != "is_null":
+            if read.table._alias in condition._tables() and not condition._tests_for_null:
                 guard_left_join_then_where(read.table._alias, repr(condition),
                                            read.keeps_only_matches)
     if s._write is not None:
@@ -711,7 +807,7 @@ def _run_guards(s: Statement) -> None:
         missing = [c for c in expected if c not in names]
         extra = [n for n in names if n not in expected]
         if missing or extra:
-            guard_write_lines_up(table._alias, missing, extra)
+            guard_write_lines_up(s._write_call, table._alias, missing, extra)
 
 
 def _guard_group_by(s: Statement) -> None:
@@ -861,6 +957,7 @@ __all__ = [
     "ORDER_BY",
     "LIMIT",
     "INSERT_OVERWRITE",
+    "INSERT_INTO",
     "statement",
     "derived",
 ]
