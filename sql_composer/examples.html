@@ -1313,7 +1313,7 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
 <p class="why">Write a new Table reference file for a table, from Hive&#x27;s own description of it.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
 <pre class="python">print(path.read_text())</pre>
 <p class="label">Python shows</p>
@@ -1363,7 +1363,7 @@ LIMIT 20</pre>
 <section class="entry" id="check_key">
 <h3><code>check_key</code></h3>
 <p class="why">Check on the newest day that no two rows share the table&#x27;s declared key.</p>
-<p>JOIN relies on a declared key to warn about repeated rows, and Hive never enforces one. This counts rows per key over one day (the newest in SHOW PARTITIONS), 20 at most.</p>
+<p>JOIN relies on a declared key to warn about repeated rows, and Hive never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
 <pre class="python">check_key(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
@@ -1381,7 +1381,7 @@ LIMIT 20</pre>
 <section class="entry" id="check_table_reference">
 <h3><code>check_table_reference</code></h3>
 <p class="why">Compare a Table reference with its table in Hive, and list what differs.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code>, and lists problems (which make Statements wrong) and notes (which may not matter), each with the line to change in the Table reference file. It never edits the file and never refuses anything: a table Hive can&#x27;t describe, or a send that fails, is reported too. Comments, the key and does_not_add_up aren&#x27;t compared.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code>, and lists problems (which make Statements wrong) and notes (which may not matter), each with the line to change in the Table reference file. The columns and their types come from DESCRIBE, and the Date partition&#x27;s date_format is checked against the newest day SHOW PARTITIONS lists. It never edits the file and never refuses anything: a table Hive can&#x27;t describe, or a send that fails, is reported too. Comments, the key and does_not_add_up aren&#x27;t compared.</p>
 <pre class="python">check_table_reference(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.job_runs matches its Table reference.</pre>

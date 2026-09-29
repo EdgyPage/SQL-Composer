@@ -120,10 +120,13 @@ def guard_control_character(call: str, position: str, character: str) -> None:
     name, letter = CONTROL_CHARACTERS[character]
     raise GuardRefused(
         four_part_message(
-            what=f"{call}: {position} holds {name}, {character!r}.",
-            why=f"Hive and Spark would read it back as the letter {letter}, so the value would "
-            "quietly be a different one.",
-            fix=f"Take it out of the value first, as in value.replace({character!r}, \"\").",
+            what=f"{call}: {position} holds {name}, {character!r}, which is what \\{letter} "
+            "gives in a Python string.",
+            why=f"The Hive would write it as \\{letter}, which Hive reads back as the plain "
+            f"letter {letter}, so the value would quietly be a different one.",
+            fix=f"If you typed \\{letter} in a string, such as a Windows path, put r before "
+            "the quotes, as in r'D:\\logs\\alerts', or double the backslash. If the "
+            "character is really in your data, take it out of the value first.",
             opt_out=None,
         )
     )

@@ -20,15 +20,23 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `SELECT_DISTINCT`, is now refused.
 - A write that reads a table with no Date partition now says so plainly.
 - A value holding a bell, a form feed or a vertical tab is now refused, and so is a
-  `date_format` holding one: Hive and Spark would read it back as the letter a, f or v, so the
-  value compared or written would quietly be a different one.
-- `write_table_reference`, `check_table_reference` and `check_key` now find a day written
-  like 2026/09/24, which the warehouse lists as `2026%2F09%2F24`.
-- They no longer take the partition the warehouse lists for rows with no day for the newest
-  day.
-- They put a table named with a word Hive keeps for itself, such as `order`, in backticks.
-- They no longer take a column Spark lists after the partition columns for another partition
-  column, and they read the partition column of a table Spark lists as "# Partitioning".
+  `date_format` holding one. In a Python string these are what `\a`, `\f` and `\v` give, as
+  in a Windows path like `'D:\logs\alerts'`. The Hive would write them as `\a`, `\f` and
+  `\v`, which Hive reads back as the plain letters a, f and v, so the value would quietly be
+  a different one. Write such a path with r before the quotes: `r'D:\logs\alerts'`.
+- `write_table_reference`, `check_table_reference` and `check_key` now read a day written
+  like 2026/09/24, which SHOW PARTITIONS lists as `2026%2F09%2F24`. Before, for such a table,
+  `check_table_reference` said to change its line to `date_partition=None,` and
+  `write_table_reference` wrote that line: if you have it, put the Date partition back, with
+  `date_format="%Y/%m/%d",`, and run `check_key` again.
+- SHOW PARTITIONS lists the rows with no day under the name `__HIVE_DEFAULT_PARTITION__`,
+  which sorts after every day. `check_key` used to count that day's rows, not the newest day's:
+  run it again on a table that has rows with no day.
+- `write_table_reference`, `check_table_reference` and `check_key` now work on a table named
+  with a word Hive keeps for itself, such as `ops.order`: they put the name in backticks in
+  what they send. Your Table reference names the table as before, `Table("ops.order", ...)`.
+- When DESCRIBE lists more after a table's partition columns, such as the columns' default
+  values, that is no longer taken for more partition columns.
 - The Example database returns a query's rows sorted by every column when its Statement has
   no `ORDER_BY`, so every run shows them in the same order.
 

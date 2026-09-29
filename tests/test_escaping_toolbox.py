@@ -98,12 +98,12 @@ def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(_label
                  lambda: hive_function("upper", value),
                  lambda: contains(job_runs.status, value),
                  lambda: starts_with(job_runs.status, value)):
-        with pytest.raises(GuardRefused, match="would read it back as the letter"):
+        with pytest.raises(GuardRefused, match="reads back as the plain letter"):
             make()
 
 
 def test_a_date_format_holding_a_control_character_is_refused() -> None:
-    with pytest.raises(ValueError, match="something other than"):
+    with pytest.raises(ValueError, match="isn't printed"):
         Table("ops.t", columns={"dt": "string"}, date_partition="dt", date_format="%Y\x07%m%d")
 
 
