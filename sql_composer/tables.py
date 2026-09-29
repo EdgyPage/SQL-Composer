@@ -481,7 +481,7 @@ def _check_date_format(date_format: str) -> None:
                 fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
             )
         rest = rest.replace(directive, "")
-    if not rest.isprintable():
+    if any(character in rest for character in CONTROL_CHARACTERS):
         _refuse_table(
             what=f"date_format={date_format!r} holds a character that isn't printed, such as "
             "the bell \\a gives in a Python string.",
@@ -489,7 +489,7 @@ def _check_date_format(date_format: str) -> None:
             fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
             "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
         )
-    if "%" in rest or "'" in rest:
+    if "%" in rest or "'" in rest or not rest.isprintable():
         _refuse_table(
             what=f"date_format={date_format!r} has something other than %Y, %m and %d.",
             why="Only the year, month and day can be turned into Hive's own pattern.",

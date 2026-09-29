@@ -30,13 +30,19 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `write_table_reference` wrote that line: if you have it, put the Date partition back, with
   `date_format="%Y/%m/%d",`, and run `check_key` again.
 - SHOW PARTITIONS lists the rows with no day under the name `__HIVE_DEFAULT_PARTITION__`,
-  which sorts after every day. `check_key` used to count that day's rows, not the newest day's:
-  run it again on a table that has rows with no day.
+  which sorts after every day, and the three used to take it for the newest day. On a table
+  with such rows, `check_table_reference` said to change its line to `date_partition=None,`,
+  `write_table_reference` wrote that line, and `check_key` counted those rows instead of the
+  newest day's: if you have that line, put the Date partition back, and run `check_key` again.
 - `write_table_reference`, `check_table_reference` and `check_key` now work on a table named
   with a word Hive keeps for itself, such as `ops.order`: they put the name in backticks in
   what they send. Your Table reference names the table as before, `Table("ops.order", ...)`.
 - When DESCRIBE lists more after a table's partition columns, such as the columns' default
   values, that is no longer taken for more partition columns.
+- A table Spark describes with a "# Partitioning" section, such as a Delta or Iceberg table,
+  now has its partition column read from it. Before, `check_table_reference` said to change
+  its line to `date_partition="Part 0",` and `write_table_reference` wrote
+  `date_partition=None,`: if you have either line, put the Date partition back.
 - The Example database returns a query's rows sorted by every column when its Statement has
   no `ORDER_BY`, so every run shows them in the same order.
 
