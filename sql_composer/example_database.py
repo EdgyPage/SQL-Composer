@@ -165,20 +165,16 @@ def _is_query(text: str) -> bool:
 
 
 def _sorts_itself(text: str) -> bool:
-    """Whether the Hive has an ORDER BY of its own, outside every window's OVER (...)."""
-    plain = _QUOTED.sub("''", text)
-    kept, depth, i = [], 0, 0
-    while i < len(plain):
-        over = re.match(r"OVER\s*\(", plain[i:], re.IGNORECASE)
-        if depth == 0 and over:
-            depth, i = 1, i + over.end()
-            continue
-        if depth:
-            depth += {"(": 1, ")": -1}.get(plain[i], 0)
-        else:
-            kept.append(plain[i])
-        i += 1
-    return re.search(r"\bORDER\s+BY\b", "".join(kept), re.IGNORECASE) is not None
+    """Whether the Hive sorts its own rows: an ORDER BY outside every bracket.
+
+    An ORDER BY inside brackets belongs to a window's OVER (...) or to a Derived table's
+    WITH ... AS (...), and neither orders the rows that come back.
+    """
+    depth, outside = 0, []
+    for character in _QUOTED.sub("''", text):
+        depth += {"(": 1, ")": -1}.get(character, 0)
+        outside.append(character if depth == 0 else " ")
+    return re.search(r"\bORDER\s+BY\b", "".join(outside), re.IGNORECASE) is not None
 
 
 def _in_order(row: tuple) -> tuple:
