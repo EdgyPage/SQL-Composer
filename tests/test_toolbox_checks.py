@@ -58,8 +58,9 @@ def test_the_public_names_are_the_decided_ones() -> None:
         assert hasattr(sql_composer, name), name
 
 
-def test_each_toolbox_file_imports_only_what_editions_allows() -> None:
-    assert editions.imports_outside(TOOLBOX) == []
+@pytest.mark.parametrize("folder", [f for f in editions.EDITIONS if (ROOT / f).is_dir()])
+def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
+    assert editions.imports_outside(ROOT / folder) == []
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: p.name)

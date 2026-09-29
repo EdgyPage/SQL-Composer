@@ -18,7 +18,9 @@ New `sql_composer/engine.py`, declaring TOOLBOX_VERSION, with no `>>>` examples:
   (`sql_composer/example_database.py:157-241` and `:270-282`), importing sqlglot only inside
   functions.
 
-`__init__.py` calls `engine.check_library()` right after `_check_files()`.
+`__init__.py` calls `engine.check_library()` right after `_check_files()`. `tests/conftest.py`'s
+`example_database_cannot_run()` asks the Edition's `engine.py` instead of importing sqlglot
+itself (ticket 07's review), so ticket 16 can block sqlglot in the Spark run.
 `example_database.py` stops importing sqlglot and gains three shared text rules:
 
 - a query is answered only when its first word is SELECT or WITH and no line starts with INSERT,

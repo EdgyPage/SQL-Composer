@@ -16,8 +16,9 @@ In `pytest_configure`, `editions.use("spark")`:
 - imports every `spark_composer` file and aliases `sql_composer` and each `sql_composer.X` to it;
 - adds a meta-path finder that refuses any other `sql_composer.*` import.
 
-`in_edition()` now swaps the product and package names (for the import-stop messages), and the
-report header names the Edition. Add `tests/spark_edition/test_spark_alias.py` and
+The import-stop and export tests already read the Edition's folder, product and version from
+`conftest.edition()` (ticket 07), so they follow the alias; the report names the Edition it
+tested. Add `tests/spark_edition/test_spark_alias.py` and
 `test_spark_independence.py`, so a failed alias can never pass silently as a sqlglot run. Make
 `tools/example_gallery.py` and `tools/hive_corpus.py` alias-aware: they call `editions.use`
 before any Toolbox import, take module prefixes from the package name, and put the product in
