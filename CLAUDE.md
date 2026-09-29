@@ -8,9 +8,9 @@ pushes; pushing `main` is the user's step. A hook refuses commits and file edits
 is checked out.
 
 v2 is charted and built through the wayfinder map at `.scratch/sql-composer-v2/map.md`. Read its
-Notes before working any ticket. The PySpark edition, a second Toolbox beside this one, is charted
-and built through `.scratch/spark-edition/map.md`; read its Notes too before working one of its
-tickets.
+Notes before working any ticket. The PySpark work, which builds the Toolbox a second time without
+sqlglot, is charted and built through `.scratch/spark-edition/map.md`; read its Notes too before
+working one of its tickets.
 
 ## Checks
 
