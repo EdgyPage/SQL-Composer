@@ -43,8 +43,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   now has its partition column read from it. Before, `check_table_reference` said to change
   its line to `date_partition="Part 0",` and `write_table_reference` wrote
   `date_partition=None,`: if you have either line, put the Date partition back.
-- The Example database returns a query's rows sorted by every column when its Statement has
-  no `ORDER_BY`, so every run shows them in the same order.
+- The Example database gives a Statement's rows in the same order every time. When the
+  Statement has no `ORDER_BY`, they are sorted by its first column, then its second, and so on,
+  with None first. At work, rows still come back in no fixed order.
 
 ## 2.0
 

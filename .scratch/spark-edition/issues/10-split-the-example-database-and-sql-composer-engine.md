@@ -1,7 +1,7 @@
 # Split the Example database into a shared send and `sql_composer/engine.py`
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 03, 08
 
 ## Question
@@ -54,9 +54,9 @@ Every stop message and doctest output is unchanged.
 
 `example_database.py` no longer imports sqlglot. It gains three shared text rules:
 
-- **Only a query is answered.** The text must be one SELECT or WITH query. It is refused as "can't
-  be written to" when a write command starts it or follows a WITH's last bracket, or when a second
-  command follows a `;`.
+- **Only a query is answered.** Its command, the first word or the first after WITH's Derived
+  tables, must be SELECT, and no second command may follow a `;`. Anything else is refused as
+  "can't be written to".
 - **A query sorts itself** only with an ORDER BY outside every bracket.
 - **Otherwise the rows are sorted** by every column, None first.
 
@@ -91,10 +91,29 @@ docstring's new sentence. CHANGES has a 2.1 line for the fixed row order.
     - a query after a `-- comment` line was refused;
     - a double-quoted string could hide or fake an ORDER BY.
 
-    `_outside_brackets` now drops comment lines, blanks every quoted text (single, double,
-    backticks) and everything inside brackets. `_is_query` refuses a write word only where a command
-    starts, so an alias named `load` is still answered. A test covers each case.
+    `_outside_brackets` now blanks comments, every quoted text (single, double, backticks) and
+    everything inside brackets. `_is_query` asks that the command be SELECT. A test covers each
+    case.
+
+    The drift review of `a9d9730` found two more gaps (D25, D26), both fixed:
+    - an alias written without AS right after a bracket, as in `COUNT(*) load`, was taken for a
+      command;
+    - a `--` comment after code on the same line was left in.
   - **For ticket 14:** the shared `example_database.py` docstring still names sqlglot's executor and
     30.19.0, which `editions.swap()` refuses. The neutral wording belongs with the other claims.
-  - **Beginner reader:** it ran on the docstring's new sentence and the CHANGES line; its report is
-    linked below.
+
+**Beginner reader (2026-09-29):**
+[reports/10-beginner-reader.md](../reports/10-beginner-reader.md). Its three costliest stops were
+answered:
+
+- The write refusal's fix sent a plain string to `to_hive`, which refuses text. It now says
+  `to_hive(drop_table(t))`, and that `to_hive` takes what `create_table`, `drop_table` or
+  `statement(...)` builds.
+- "Sorted by every column" now says the first column comes first, then the second, with None
+  first.
+- The docstring and CHANGES now say that at work rows come back in no fixed order, and to sort in
+  pandas when the order matters. This also answers stop 5, where a bare ORDER_BY is refused
+  without a LIMIT.
+
+Both texts now say "Statement" and drop "every run" (stops 4 and 6). Stop 7, sqlglot named in the
+docstring, is ticket 14's.

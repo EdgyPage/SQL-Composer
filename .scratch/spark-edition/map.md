@@ -101,6 +101,13 @@ uses.
   yes, both, on Windows 11 and ubuntu-latest; 3.5.0 stays the floor. A helper-process Spark with
   global temp views answers the corpus like SQL Composer's Example database; six Windows pitfalls
   and their fixes are in the findings.
+- [Read real warehouse output, and refuse BEL, FF and VT in a value](issues/09-read-real-warehouse-output-and-refuse-control-characters.md):
+  2.1 fixes. Escaped days and rows with no day are read the way the warehouse lists them.
+  DESCRIBE is read section by section. A value holding the character `\a`, `\f` or `\v` gives is
+  refused, because Hive and Spark would read it back as a letter.
+- [Split the Example database into a shared send and `sql_composer/engine.py`](issues/10-split-the-example-database-and-sql-composer-engine.md):
+  `engine.py` holds the install check and the query runner. The shared send answers only a
+  single SELECT or WITH query, and gives rows in the same order in every Edition.
 
 ## Not yet specified
 

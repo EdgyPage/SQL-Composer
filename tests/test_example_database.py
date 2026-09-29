@@ -50,6 +50,7 @@ def test_show_partitions_lists_the_days() -> None:
     "INSERT OVERWRITE TABLE ops.jobs SELECT 1",
     "WITH x AS (\n  SELECT 1 AS a\n)\nINSERT INTO ops.jobs\nSELECT a FROM x",
     "WITH x AS (SELECT 1 AS a) insert into ops.jobs SELECT a FROM x",
+    "WITH x AS (SELECT 1 AS a), y AS (SELECT 2 AS b) INSERT INTO ops.jobs SELECT a FROM x",
     "SELECT 1 FROM ops.jobs; DROP TABLE ops.jobs",
     "DROP TABLE IF EXISTS ops.jobs",
     "CREATE TABLE ops.more (a INT)",
@@ -65,6 +66,10 @@ def test_it_cant_be_written_to(hive: str) -> None:
     'SELECT job_name FROM ops.jobs WHERE job_name <> "INSERT"',
     "SELECT\n  COUNT(*) AS load\nFROM ops.jobs AS jobs",
     "WITH x AS (\n  SELECT 1 AS a\n)\nSELECT a AS load FROM x",
+    "SELECT COUNT(*) load FROM ops.jobs",
+    "WITH x AS (SELECT 1 AS a), y AS (SELECT 2 AS b) SELECT COUNT(*) load FROM x",
+    "SELECT COUNT(*) AS n -- one; per job\nFROM ops.jobs",
+    "SELECT job_name FROM ops.jobs -- it's a note",
 ])
 def test_a_query_that_only_reads_is_answered(hive: str) -> None:
     assert example_database._is_query(hive)
@@ -72,6 +77,8 @@ def test_a_query_that_only_reads_is_answered(hive: str) -> None:
 
 def test_a_query_sorts_itself_only_with_an_order_by_outside_every_bracket() -> None:
     assert not example_database._sorts_itself('SELECT a FROM t WHERE b = "ORDER BY x"')
+    assert not example_database._sorts_itself("SELECT a FROM t -- ORDER BY a")
+    assert example_database._sorts_itself("SELECT a FROM t WHERE b = '--' ORDER BY a LIMIT 2")
     assert example_database._sorts_itself('SELECT a FROM t WHERE b = "(" ORDER BY a LIMIT 2')
     import hive_corpus_cases
 

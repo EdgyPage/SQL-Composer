@@ -4,8 +4,11 @@ It holds the Table references `jobs`, `job_runs` and `run_alerts`, their rows (t
 2026-09-23 and 2026-09-24), and `send`, which runs a Statement's Hive on sqlglot's own
 executor and returns a DataFrame, just like your own send at work. Nothing leaves Python,
 so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query;
-DESCRIBE and SHOW PARTITIONS work on any version. A query that doesn't sort its rows with
-ORDER_BY gets them sorted by every column, so every run shows them in the same order.
+DESCRIBE and SHOW PARTITIONS work on any version.
+
+Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
+ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first.
+At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.
 
 >>> runs = example_database.job_runs
 >>> run(statement(
@@ -151,11 +154,10 @@ def _show_partitions(name: str) -> pd.DataFrame:
     return pd.DataFrame({"partition": [f"{table._date_partition}={day}" for day in days]})
 
 
-# The words that start a command changing a table, which the Example database refuses.
-_WRITES = frozenset({"INSERT", "CREATE", "DROP", "ALTER", "TRUNCATE", "LOAD"})
-# A string in single or double quotes, or a name in backticks: what a query says, as opposed
-# to what it is.
-_QUOTED = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`""")
+# A string in single or double quotes, a name in backticks, or a comment to the end of its
+# line: what a query says, as opposed to what it is. Whichever starts first wins, as when Hive
+# reads it, so a -- inside a string is part of the string.
+_SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
 
 
 def _outside_brackets(text: str) -> str:
@@ -164,24 +166,37 @@ def _outside_brackets(text: str) -> str:
     What is left is the query itself: a window's OVER (...) and a Derived table's
     WITH ... AS (...) are inside brackets, and a string can say anything.
     """
-    lines = [line for line in text.splitlines() if not line.lstrip().startswith("--")]
+    said = _SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
     depth, outside = 0, []
-    for character in _QUOTED.sub("''", "\n".join(lines)):
+    for character in said:
         depth += {"(": 1, ")": -1}.get(character, 0)
         outside.append(character if depth == 0 else " ")
     return "".join(outside)
 
 
-def _is_query(text: str) -> bool:
-    """Whether the Hive only reads: one SELECT or WITH query, with no command that writes.
+def _command(words: list[str]) -> str:
+    """The word a query's command starts with: the first, or the first after WITH's tables.
 
-    A command starts either the text or what follows a WITH's last bracket, so a column
-    named `load` is not taken for one.
+    After WITH come the Derived tables, `name AS (...)`, with a comma between each; the first
+    word after a closing bracket with no comma after it starts the command.
+    """
+    if words[:1] != ["WITH"]:
+        return words[0] if words else ""
+    for before, word in zip(words, words[1:]):
+        if before == ")" and word != ",":
+            return word
+    return ""
+
+
+def _is_query(text: str) -> bool:
+    """Whether the Hive is one query that only reads.
+
+    Its command must be SELECT, and nothing may follow a `;`: a write, even after WITH, and a
+    second command are not queries.
     """
     words = [word.upper() for word in
-             re.findall(r"[A-Za-z_]+|[;)]", _outside_brackets(text).rstrip().rstrip(";"))]
-    commands = words[:1] + [word for before, word in zip(words, words[1:]) if before == ")"]
-    return words[:1] in (["SELECT"], ["WITH"]) and ";" not in words and not set(commands) & _WRITES
+             re.findall(r"[A-Za-z_]+|[;),]", _outside_brackets(text).rstrip().rstrip(";"))]
+    return ";" not in words and _command(words) == "SELECT"
 
 
 def _sorts_itself(text: str) -> bool:
@@ -220,7 +235,9 @@ def send(hive):
             "can't be written to.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers.",
-            fix="A write's Hive can still be shown with to_hive(...).",
+            fix="to_hive(...) shows a write's Hive without sending it, as in "
+            "to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) "
+            "builds, not text.",
             opt_out=None,
         ))
     columns, rows = engine.run_query(text, _TABLES)
