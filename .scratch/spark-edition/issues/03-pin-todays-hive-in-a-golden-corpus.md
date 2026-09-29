@@ -1,7 +1,7 @@
 # Pin today's Hive, reprs and lineage in a golden corpus
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 
 ## Question
@@ -34,3 +34,46 @@ No Toolbox file changes.
 The golden is committed, rendered from today's code (the code `main` holds as 955dafd). The
 Definition of done in `CLAUDE.md` holds; pytest passes at sqlglot 30.19.0, and at 25.24.2 with
 the golden skipped and its reason shown.
+
+## Comments
+
+**The seams (the user's choice, 2026-09-29).** The golden pins four public seams per case:
+`to_hive`, the repr of every output and condition, the commands the warehouse helpers send
+through a recording send, and `export_lineage`'s Markdown without its dated line. The internal
+`tables.readable` is not pinned directly; its text shows in the lineage Markdown's formulas.
+
+**Build decisions.**
+
+- `tools/hive_corpus.py` reuses `tools/example_gallery.py`'s docstring and Worked-example
+  collectors, `example_setting` (today 2026-09-25, a temporary folder) and `run_step`. The
+  cases are 25 docstring examples, 39 Worked-example functions (careless with its opt-out too),
+  94 edge cases, 200 generated Statements and 7 tables' warehouse commands: 365 in all, about
+  1.09 MB, rendered in about 8.5 s.
+- The edge cases and the generator live in `tests/hive_corpus_cases.py` and build only through
+  public names. Each generated case has a seed of its own, so adding one never shifts another.
+  The line-width pairs were measured once on sqlglot 30.19.0 and are written in as numbers, so
+  the cases never adjust themselves to the printer.
+- A Toolbox refusal is written in full; it is told apart by its four-part message. Any other
+  error from `to_hive` or `export_lineage` is written by its type alone and marked "not a Toolbox
+  refusal"; an error while building a case fails the run.
+- The tool reads a Statement's private parts only to find what to repr; everything written comes
+  through public names. If tickets 12-13 rename those parts, the tool fails loudly.
+- The test skips unless sqlglot is exactly the pin, read from `requirements-dev.txt`.
+- `tests/escaping_cases.py` gains BEL, FF, VT, backspace, NUL and SUB, pinned to today's text.
+
+**Findings for later tickets.**
+
+- **The golden holds only at the pin.** On sqlglot 25.24.2, inside the supported range, five
+  cases differ: `ROW_NUMBER() OVER (...)` is written on one line; a `struct<a:int,b:string>`
+  column is written `STRUCT<a INT, b STRING>`, without the colon Hive needs; `date_format` gains
+  `CAST(... AS TIMESTAMP)`; and `datediff` gains `TO_DATE(...)`. Ticket 06 of v2 found the
+  output identical across the range; these shapes weren't in its probe. For tickets 04, 12 and 25.
+- **`create_table` lets a bad type through to a crash.** `bigint unsigned` passes the type check
+  but `to_hive` then stops with sqlglot's raw `ParseError`, not a four-part message; `json`,
+  `uuid` and `interval` pass and are written as types Hive doesn't have. For ticket 25's strict
+  types.
+- **sqlglot changes a `hive_function` pattern's meaning.** `hive_function("date_format", dt,
+  "YYYY-MM")` is written with `'yyyy-MM'`; in Hive, `YYYY` is the week-based year. For ticket 25
+  and the declared `hive_function` difference.
+- **Control characters.** sqlglot writes BEL, FF, VT and backspace as `\a`, `\f`, `\v`, `\b`, and
+  lets NUL and SUB into the text raw; it reads all six back itself. For ticket 09.

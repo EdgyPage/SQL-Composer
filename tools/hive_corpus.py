@@ -1,0 +1,279 @@
+"""Write the golden corpus, `tests/hive_corpus/sql_composer.txt`: what SQL Composer shows today.
+
+Run it on `dev` only when a change is meant to alter what the Toolbox writes, then review the diff:
+
+    python tools/hive_corpus.py
+
+`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. The
+file pins, for each case under a stable id, what the Toolbox shows through its public names:
+
+- each Statement's Hive, from `to_hive(...)`, or the refusal it stops with;
+- the repr of each output and condition, of the Statement and of each Derived table it reads;
+- the commands `write_table_reference`, `check_table_reference` and `check_key` send;
+- `export_lineage`'s Markdown report of the case's Statements, without its dated last line.
+
+The cases are every docstring example that hands a Statement to `to_hive`, `run` or
+`export_lineage`; every Statement function of the Worked examples; the edge cases and the
+generated Statements in `tests/hive_corpus_cases.py`; and the Table references of both.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import doctest
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+GOLDEN = ROOT / "tests" / "hive_corpus" / "sql_composer.txt"
+sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tests")]
+
+import pandas as pd  # noqa: E402
+
+import example_gallery as gallery  # noqa: E402
+import hive_corpus_cases  # noqa: E402
+import sql_composer  # noqa: E402
+from sql_composer import example_database  # noqa: E402
+from sql_composer.clauses import derived_tables  # noqa: E402
+
+REFUSALS = (sql_composer.GuardRefused, sql_composer.LoadRefused, TypeError, ValueError)
+CASE = "== "
+PART = "-- "
+
+
+# --- The cases -------------------------------------------------------------------------------
+
+
+def docstring_cases() -> list[tuple[str, object]]:
+    """Each docstring example that hands a Statement on, as a function that replays it."""
+    found = []
+    for names, doc in gallery.docstrings():
+        parts = [part for part in doctest.DocTestParser().parse(doc) if not isinstance(part, str)]
+        if any(name + "(" in part.source for part in parts for name in gallery.HANDED_TO):
+            found.append((f"doc:{names[0]}", _replaying(parts)))
+    return found
+
+
+def _replaying(parts: list):
+    def build() -> list:
+        handed = []
+        scope = gallery.example_scope(handed)
+        for part in parts:
+            gallery.run_step(part.source, scope)
+        return _unique([s for _, s in handed])
+    return build
+
+
+def worked_example_cases() -> list[tuple[str, object]]:
+    """Each Statement function of each Worked example script, careless() with its opt-out too."""
+    found = []
+    for module in gallery.statement_scripts():
+        script = module.__name__.split(".")[-1]
+        functions = gallery.other_statements(module)
+        if gallery.is_demonstration(module):
+            functions = [("careless", module.careless), ("fixed", module.fixed)] + functions
+            opt_out = gallery.opt_out_of(module.careless)
+            if opt_out is not None:
+                functions.append((f"careless_{opt_out}", _with(module.careless, opt_out)))
+        found += [(f"worked:{script}:{name}", _listed(function)) for name, function in functions]
+    return found
+
+
+def _with(function, keyword: str):
+    return lambda: function(**{keyword: True})
+
+
+def _listed(function):
+    def build() -> list:
+        built = function()
+        return list(built) if isinstance(built, list) else [built]
+    return build
+
+
+def cases() -> list[tuple[str, object]]:
+    """Every case, in a fixed order: docstrings, Worked examples, edge cases, generated ones."""
+    found = (docstring_cases() + worked_example_cases() + hive_corpus_cases.edge_cases()
+             + hive_corpus_cases.generated_cases())
+    ids = [case_id for case_id, _ in found]
+    repeated = sorted({case_id for case_id in ids if ids.count(case_id) > 1})
+    if repeated:
+        raise ValueError(f"Two cases share an id: {', '.join(repeated)}")
+    return found
+
+
+def _unique(statements: list) -> list:
+    found = []
+    for s in statements:
+        if not any(s is seen for seen in found):
+            found.append(s)
+    return found
+
+
+# --- What a case shows -----------------------------------------------------------------------
+
+
+def is_refusal(error: Exception) -> bool:
+    """Whether the Toolbox stopped on purpose, with one of its four-part messages."""
+    return isinstance(error, REFUSALS) and "What happened:" in str(error)
+
+
+def refused_text(error: Exception) -> str:
+    """A Toolbox refusal in full; any other error by its type alone, marked as not a refusal.
+
+    Another library's message can carry terminal colours or change between its versions, and
+    what matters here is that the Toolbox let it through.
+    """
+    if is_refusal(error):
+        return f"{type(error).__name__}:{error}"
+    return f"{type(error).__module__}.{type(error).__name__}, not a Toolbox refusal"
+
+
+def case_text(case_id: str, build) -> str:
+    """One case: each of its Statements, then the lineage report of all of them."""
+    lines = [CASE + case_id]
+    with gallery.example_setting():
+        try:
+            statements = build()
+        except REFUSALS as error:
+            if not is_refusal(error):
+                raise
+            return "\n".join(lines + [PART + "refused", refused_text(error), ""])
+        for number, s in enumerate(statements, 1):
+            lines += statement_lines(number, s)
+        lines += lineage_lines([s for s in statements if s._ddl is None])
+    return "\n".join(lines + [""])
+
+
+def statement_lines(number: int, s) -> list[str]:
+    """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's."""
+    lines = [PART + f"Statement {number}: to_hive"]
+    try:
+        lines.append(sql_composer.to_hive(s))
+    except Exception as error:  # noqa: BLE001 - what to_hive stops with is part of the output
+        lines.append(refused_text(error))
+    for step, name in [(s, "the Statement")] + [
+            (table._statement, f"Derived table {table._name}") for table in derived_tables(s)]:
+        shown = parts_shown(step)
+        if shown:
+            lines += [PART + f"Statement {number}: {name}", *shown]
+    return lines
+
+
+def parts_shown(step) -> list[str]:
+    """The repr of each output and condition of one step, as a notebook shows it."""
+    shown = [f"output {name}: {column!r}" for column, name in step._outputs]
+    for read in step._reads:
+        if read.on is not None:
+            shown.append(f"{read._call()} ON: {read.on!r}")
+    shown += [f"WHERE: {condition!r}" for condition in step._where]
+    shown += [f"HAVING: {condition!r}" for condition in step._having]
+    return shown
+
+
+def lineage_lines(statements: list) -> list[str]:
+    """export_lineage's Markdown report of the Statements, without its dated last line."""
+    if not statements:
+        return []
+    with tempfile.TemporaryDirectory() as folder:
+        try:
+            _, markdown = sql_composer.export_lineage(*statements, to=Path(folder) / "case.html")
+        except Exception as error:  # noqa: BLE001 - as for to_hive
+            return [PART + "export_lineage", refused_text(error)]
+        text = markdown.read_text(encoding="utf-8")
+    kept = [line for line in text.splitlines() if not line.startswith("Made by export_lineage on")]
+    return [PART + "export_lineage", *kept]
+
+
+# --- The commands sent to the warehouse ------------------------------------------------------
+
+
+class Recording:
+    """A send that notes each command and answers like the warehouse, without running a query.
+
+    DESCRIBE and SHOW PARTITIONS are answered from the Table reference's own columns, as Hive
+    lists them; any other command gets an empty frame, so check_key finds no repeats.
+    """
+
+    def __init__(self, t):
+        self.table = t
+        self.sent = []
+
+    def __call__(self, text: str) -> pd.DataFrame:
+        self.sent.append(text)
+        if text.startswith("DESCRIBE"):
+            return describe_frame(self.table)
+        if text.startswith("SHOW PARTITIONS"):
+            return pd.DataFrame({"partition": [f"{self.table._date_partition}=2026-09-24"]})
+        return pd.DataFrame()
+
+
+def describe_frame(t) -> pd.DataFrame:
+    """What Hive's DESCRIBE lists for a Table reference: its columns, then its partition."""
+    rows = [(name, kind, "") for name, kind in t._columns.items()]
+    if t._date_partition is not None:
+        rows += [("", None, None), ("# Partition Information", None, None),
+                 ("# col_name", "data_type", "comment"),
+                 (t._date_partition, t._columns[t._date_partition], "")]
+    return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
+
+
+def warehouse_text(t) -> str:
+    """The commands write_table_reference, check_table_reference and check_key send for `t`."""
+    lines = [CASE + f"warehouse:{t._name}"]
+    with gallery.example_setting():
+        for call in (_write_reference, sql_composer.check_table_reference, sql_composer.check_key):
+            send = Recording(t)
+            try:
+                call(t, send)
+            except REFUSALS as error:
+                if not is_refusal(error):
+                    raise
+                send.sent.append(refused_text(error))
+            lines += [PART + call.__name__.lstrip("_"), *send.sent]
+    return "\n".join(lines + [""])
+
+
+def _write_reference(t, send) -> None:
+    """write_table_reference, in a folder of its own, so its file never meets another."""
+    with tempfile.TemporaryDirectory() as folder, contextlib.chdir(folder):
+        sql_composer.write_table_reference(t._name, send=send)
+
+
+def tables() -> list:
+    """The Example database's Table references, then the edge cases' own."""
+    return [example_database.jobs, example_database.job_runs, example_database.run_alerts,
+            *hive_corpus_cases.edge_tables()]
+
+
+# --- The file --------------------------------------------------------------------------------
+
+
+def corpus_text() -> str:
+    """The whole golden corpus, as one string."""
+    header = ("# What SQL Composer shows today, written by tools/hive_corpus.py. Don't edit it by "
+              "hand.\n")
+    blocks = [case_text(case_id, build) for case_id, build in cases()]
+    blocks += [warehouse_text(t) for t in tables()]
+    return header + "\n".join(blocks)
+
+
+def blocks_by_id(text: str) -> dict[str, str]:
+    """A written corpus, split into its cases by id."""
+    found = {}
+    for block in text.split("\n" + CASE)[1:]:
+        case_id, _, body = block.partition("\n")
+        found[case_id] = body
+    return found
+
+
+def main() -> None:
+    GOLDEN.parent.mkdir(parents=True, exist_ok=True)
+    text = corpus_text()
+    with open(GOLDEN, "w", encoding="utf-8", newline="\n") as file:
+        file.write(text)
+    print(f"Wrote {GOLDEN.relative_to(ROOT)}: {len(blocks_by_id(text))} cases.")
+
+
+if __name__ == "__main__":
+    main()
