@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import datetime
 import importlib
-import re
 from pathlib import Path
 from types import ModuleType
 
@@ -106,17 +105,8 @@ def toolbox_module(name: str = "") -> ModuleType:
 
 
 def example_database_cannot_run() -> str | None:
-    """Why the Example database can't run a query here, or None when it can.
-
-    Only SQL Composer's can't, on a sqlglot older than 30.19.0; ticket 10 of the PySpark work
-    moves this question into each Edition's engine.py.
-    """
-    import sqlglot
-
-    found = re.match(r"(\d+)\.(\d+)\.(\d+)", sqlglot.__version__)
-    if (tuple(int(n) for n in found.groups()) if found else (0, 0, 0)) < (30, 19, 0):
-        return "the Example database runs queries only on sqlglot 30.19.0 or newer"
-    return None
+    """Why the Example database can't run a query here, or None when it can: its Edition says."""
+    return toolbox_module("engine").example_database_cannot_run()
 
 
 def skip_unless_the_example_database_runs() -> None:

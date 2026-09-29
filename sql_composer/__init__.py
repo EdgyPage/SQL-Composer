@@ -31,9 +31,6 @@ TOOLBOX_VERSION = "2.1"
 _FILES = None
 
 _PYTHON_NEEDED = (3, 11)
-_SQLGLOT_LOWEST = (25, 24, 2)
-_SQLGLOT_BELOW = (31, 0, 0)
-_SQLGLOT_NEWEST_TESTED = (30, 19, 0)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -152,88 +149,6 @@ def _check_files():
         )
 
 
-def _dotted(numbers):
-    return ".".join(str(n) for n in numbers)
-
-
-def _numbers(text):
-    found = re.match(r"(\d+)\.(\d+)\.(\d+)", text)
-    return tuple(int(n) for n in found.groups()) if found else None
-
-
-_IN_RANGE = f'"sqlglot>={_dotted(_SQLGLOT_LOWEST)},<{_dotted(_SQLGLOT_BELOW)}"'
-_NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
-
-
-def _check_sqlglot():
-    """Refuse a sqlglot outside the supported range, or one that behaves differently."""
-    try:
-        import sqlglot
-    except ImportError:
-        _stop(
-            what="SQL Composer needs sqlglot, and this Python can't import it.",
-            why="SQL Composer writes every Statement as Hive through sqlglot, and reads the "
-            "Hive back to check it, so it can't build anything without it.",
-            fix=f"Install sqlglot from a notebook cell with %pip install {_IN_RANGE}, then "
-            f"restart the kernel. {_NO_INSTALLING}",
-        )
-    found = getattr(sqlglot, "__version__", "unknown")
-    version = _numbers(found)
-    if version is None or not _SQLGLOT_LOWEST <= version < _SQLGLOT_BELOW:
-        _stop(
-            what=f"SQL Composer needs sqlglot {_dotted(_SQLGLOT_LOWEST)} or newer, below "
-            f"{_dotted(_SQLGLOT_BELOW)}, and this Python has sqlglot {found}.",
-            why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can "
-            "write Hive differently, so a Statement could come out wrong without anything "
-            "saying so.",
-            fix="Install a sqlglot in that range from a notebook cell with %pip install "
-            f"{_IN_RANGE}, then restart the kernel. {_NO_INSTALLING}",
-        )
-    problems = _sqlglot_behaviour()
-    if problems:
-        _stop(
-            what=f"sqlglot {found} is in the supported range, but behaves differently: "
-            + "; ".join(problems) + ". Nothing has been built or sent.",
-            why="SQL Composer relies on this behaviour to write Hive safely, so a Statement "
-            "could come out wrong.",
-            fix="Install again the sqlglot SQL Composer is tested on, from a notebook cell "
-            f'with %pip install --force-reinstall "sqlglot=={_dotted(_SQLGLOT_NEWEST_TESTED)}", '
-            f"then restart the kernel. {_NO_INSTALLING}",
-        )
-    if version > _SQLGLOT_NEWEST_TESTED:
-        print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
-              f"({_dotted(_SQLGLOT_NEWEST_TESTED)}). Its behaviour checks passed.")
-
-
-def _sqlglot_behaviour():
-    from sqlglot import exp
-    from sqlglot.errors import OptimizeError
-    from sqlglot.optimizer.qualify import qualify
-
-    problems = []
-    if exp.convert("O'Brien\\").sql("hive") != "'O\\'Brien\\\\'":
-        problems.append("Hive string escaping has changed")
-    table = exp.table_("t", db="db")
-    table.set("partition", exp.Partition(
-        expressions=[exp.column("dt").eq(exp.Literal.string("2026-01-01"))]))
-    insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
-    if "PARTITION(dt = '2026-01-01')" not in insert.sql("hive"):
-        problems.append("INSERT OVERWRITE drops its PARTITION")
-    # Built the way drop_table builds it: sqlglot 30 renamed a DROP's `this` to `tables`.
-    if "tables" in exp.Drop.arg_types:
-        drop = exp.Drop(kind="TABLE", tables=[exp.table_("t", db="db")], exists=True)
-    else:
-        drop = exp.Drop(kind="TABLE", this=exp.table_("t", db="db"), exists=True)
-    if drop.sql("hive") != "DROP TABLE IF EXISTS db.t":
-        problems.append("DROP TABLE drops its table name")
-    try:
-        qualify(exp.select("nope").from_("t"), schema={"t": {"a": "INT"}}, dialect="hive")
-        problems.append("qualify no longer refuses an unknown column")
-    except OptimizeError:
-        pass
-    return problems
-
-
 def _version_text():
     stamp = _stamp_of(os.path.join(_HERE, "__init__.py"))
     if stamp is None:
@@ -243,7 +158,11 @@ def _version_text():
 
 _check_python()
 _check_files()
-_check_sqlglot()
+# The library check lives in engine.py, one file per Edition, imported only once the folder is
+# known to be whole.
+from . import engine  # noqa: E402
+
+engine.check_library()
 
 VERSION = _version_text()
 

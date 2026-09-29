@@ -1474,10 +1474,10 @@ GROUP BY
   job_runs.status</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>status</th><th>runs</th></tr>
+<tr><td><i>NULL</i></td><td>1</td></tr>
 <tr><td>FAILED</td><td>2</td></tr>
 <tr><td>SUCCESS</td><td>5</td></tr>
 <tr><td>TEST</td><td>1</td></tr>
-<tr><td><i>NULL</i></td><td>1</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
@@ -1566,14 +1566,14 @@ WHERE
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>team</th></tr>
 <tr><td>95</td><td>data</td></tr>
+<tr><td>96</td><td>finance</td></tr>
+<tr><td>97</td><td>finance</td></tr>
+<tr><td>98</td><td>finance</td></tr>
 <tr><td>99</td><td>data</td></tr>
 <tr><td>101</td><td>data</td></tr>
-<tr><td>104</td><td>data</td></tr>
-<tr><td>96</td><td>finance</td></tr>
-<tr><td>98</td><td>finance</td></tr>
 <tr><td>102</td><td>finance</td></tr>
-<tr><td>97</td><td>finance</td></tr>
 <tr><td>103</td><td>finance</td></tr>
+<tr><td>104</td><td>data</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>JOIN</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
@@ -1628,22 +1628,22 @@ FROM ops.jobs AS jobs
 CROSS JOIN ops.jobs AS other</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_name</th><th>other_job</th></tr>
-<tr><td>nightly_load</td><td>nightly_load</td></tr>
-<tr><td>nightly_load</td><td>invoice_sync</td></tr>
-<tr><td>nightly_load</td><td>report_build</td></tr>
-<tr><td>nightly_load</td><td>cache_warm</td></tr>
-<tr><td>invoice_sync</td><td>nightly_load</td></tr>
-<tr><td>invoice_sync</td><td>invoice_sync</td></tr>
-<tr><td>invoice_sync</td><td>report_build</td></tr>
-<tr><td>invoice_sync</td><td>cache_warm</td></tr>
-<tr><td>report_build</td><td>nightly_load</td></tr>
-<tr><td>report_build</td><td>invoice_sync</td></tr>
-<tr><td>report_build</td><td>report_build</td></tr>
-<tr><td>report_build</td><td>cache_warm</td></tr>
-<tr><td>cache_warm</td><td>nightly_load</td></tr>
-<tr><td>cache_warm</td><td>invoice_sync</td></tr>
-<tr><td>cache_warm</td><td>report_build</td></tr>
 <tr><td>cache_warm</td><td>cache_warm</td></tr>
+<tr><td>cache_warm</td><td>invoice_sync</td></tr>
+<tr><td>cache_warm</td><td>nightly_load</td></tr>
+<tr><td>cache_warm</td><td>report_build</td></tr>
+<tr><td>invoice_sync</td><td>cache_warm</td></tr>
+<tr><td>invoice_sync</td><td>invoice_sync</td></tr>
+<tr><td>invoice_sync</td><td>nightly_load</td></tr>
+<tr><td>invoice_sync</td><td>report_build</td></tr>
+<tr><td>nightly_load</td><td>cache_warm</td></tr>
+<tr><td>nightly_load</td><td>invoice_sync</td></tr>
+<tr><td>nightly_load</td><td>nightly_load</td></tr>
+<tr><td>nightly_load</td><td>report_build</td></tr>
+<tr><td>report_build</td><td>cache_warm</td></tr>
+<tr><td>report_build</td><td>invoice_sync</td></tr>
+<tr><td>report_build</td><td>nightly_load</td></tr>
+<tr><td>report_build</td><td>report_build</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>CROSS_JOIN</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>statement</code>, <code>to_hive</code></p>
 </section>
@@ -1764,8 +1764,8 @@ FROM ops.jobs AS jobs
 LIMIT 2</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_name</th></tr>
-<tr><td>nightly_load</td></tr>
 <tr><td>invoice_sync</td></tr>
+<tr><td>nightly_load</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>LIMIT</code>, <code>SELECT</code>, <code>FROM</code>, <code>statement</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a></p>
@@ -1886,8 +1886,8 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = runs_per_job.job_id</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_name</th><th>runs</th></tr>
-<tr><td>nightly_load</td><td>4</td></tr>
 <tr><td>invoice_sync</td><td>3</td></tr>
+<tr><td>nightly_load</td><td>4</td></tr>
 <tr><td>report_build</td><td>2</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code></p>
@@ -2299,10 +2299,10 @@ GROUP BY
   job_runs.status</pre>
 <p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>status</th><th>runs</th></tr>
+<tr><td>2026-09-23</td><td><i>NULL</i></td><td>1</td></tr>
 <tr><td>2026-09-23</td><td>FAILED</td><td>1</td></tr>
 <tr><td>2026-09-23</td><td>SUCCESS</td><td>2</td></tr>
 <tr><td>2026-09-23</td><td>TEST</td><td>1</td></tr>
-<tr><td>2026-09-23</td><td><i>NULL</i></td><td>1</td></tr>
 </table></div>
 <p class="label">Result of Statement 2 of 2 on the Example database</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>status</th><th>runs</th></tr>
@@ -2393,7 +2393,7 @@ GROUP BY
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
 <p class="why">The Example database: three made-up tables, and a send to run Statements on.</p>
-<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on sqlglot&#x27;s own executor and returns a DataFrame, just like your own send at work. Nothing leaves Python, so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query; DESCRIBE and SHOW PARTITIONS work on any version.</p>
+<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on sqlglot&#x27;s own executor and returns a DataFrame, just like your own send at work. Nothing leaves Python, so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query; DESCRIBE and SHOW PARTITIONS work on any version. A query that doesn&#x27;t sort its rows with ORDER_BY gets them sorted by every column, so every run shows them in the same order.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(
     SELECT(runs.run_id, runs.status, runs.duration_mins),

@@ -117,9 +117,9 @@ def test_sql_text_is_written_in_exactly_one_function() -> None:
                 if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
                         and call.func.attr == "sql"):
                     callers.append((name, function.name, call))
-    # The import-time behaviour checks in __init__.py call .sql() on sqlglot's own nodes to
+    # The import-time behaviour checks in engine.py call .sql() on sqlglot's own nodes to
     # check sqlglot itself; they write nothing the Toolbox sends.
-    writers = [(name, fn) for name, fn, _ in callers if name != "__init__.py"]
+    writers = [(name, fn) for name, fn, _ in callers if name != "engine.py"]
     assert writers == [("tables.py", "hive_text")]
     raising = [call for name, fn, call in callers if fn == "hive_text"][0]
     keywords = {k.arg: ast.unparse(k.value) for k in raising.keywords}

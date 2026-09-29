@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 
 from sql_composer import (
@@ -12,6 +14,8 @@ from sql_composer import (
     LEFT_JOIN,
     SELECT,
     WHERE,
+    GuardRefused,
+    LoadRefused,
     all_of,
     contains,
     count_distinct,
@@ -42,9 +46,54 @@ def test_show_partitions_lists_the_days() -> None:
         example_database.send("SHOW PARTITIONS ops.jobs")
 
 
-def test_it_cant_be_written_to() -> None:
+@pytest.mark.parametrize("hive", [
+    "INSERT OVERWRITE TABLE ops.jobs SELECT 1",
+    "WITH x AS (\n  SELECT 1 AS a\n)\nINSERT INTO ops.jobs\nSELECT a FROM x",
+    "DROP TABLE IF EXISTS ops.jobs",
+    "CREATE TABLE ops.more (a INT)",
+])
+def test_it_cant_be_written_to(hive: str) -> None:
     with pytest.raises(ValueError, match="can't be written to"):
-        example_database.send("INSERT OVERWRITE TABLE ops.jobs SELECT 1")
+        example_database.send(hive)
+
+
+def test_a_query_sorts_itself_only_with_an_order_by_outside_every_window() -> None:
+    import hive_corpus_cases
+
+    checked = 0
+    for _, build in hive_corpus_cases.edge_cases() + hive_corpus_cases.generated_cases():
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")  # some cases join off a key, which warns
+                statements = build()
+        except (GuardRefused, LoadRefused, TypeError, ValueError):
+            continue
+        for s in statements:
+            if s._ddl is not None:
+                continue
+            try:
+                hive = to_hive(s)
+            except (GuardRefused, LoadRefused, TypeError, ValueError):
+                continue
+            if hive.startswith("SELECT") or hive.startswith("WITH"):
+                assert example_database._sorts_itself(hive) == bool(s._order_by), hive
+                checked += 1
+    assert checked > 150
+    assert not example_database._sorts_itself("SELECT a FROM t WHERE b = 'ORDER BY x'")
+
+
+@pytest.mark.needs_example_database
+def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
+    frame = run(statement(
+        SELECT(job_runs.status, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(last_n_days(job_runs.dt, 2)),
+        GROUP_BY(job_runs.status),
+    ), send=example_database.send)
+    assert frame.to_dict("records") == [
+        {"status": None, "runs": 1}, {"status": "FAILED", "runs": 2},
+        {"status": "SUCCESS", "runs": 5}, {"status": "TEST", "runs": 1},
+    ]
 
 
 @pytest.mark.needs_example_database
@@ -92,8 +141,8 @@ def test_count_distinct_is_right_on_the_executor() -> None:
     [
         (starts_with(jobs.job_name, "invoice_"), ["invoice_sync"]),
         (contains(jobs.job_name, "_sync"), ["invoice_sync"]),
-        (contains(jobs.job_name, "_"), ["nightly_load", "invoice_sync", "report_build",
-                                        "cache_warm"]),
+        (contains(jobs.job_name, "_"), ["cache_warm", "invoice_sync", "nightly_load",
+                                        "report_build"]),
         (contains(jobs.job_name, "t_"), ["report_build"]),
         (starts_with(jobs.job_name, "invoice%"), []),
     ],
