@@ -9797,6 +9797,104 @@ WHERE
 ---
 
 
+== edge:reads:derived_top_n
+-- Statement 1: to_hive
+WITH longest AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.duration_mins
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  ORDER BY
+    job_runs.duration_mins DESC
+  LIMIT 3
+)
+SELECT
+  longest.run_id,
+  longest.duration_mins
+FROM longest
+-- Statement 1: the Statement
+output run_id: longest.run_id
+output duration_mins: longest.duration_mins
+-- Statement 1: Derived table longest
+output run_id: job_runs.run_id
+output duration_mins: job_runs.duration_mins
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n2["ops.job_runs.duration_mins<br/><small>int</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["longest"]
+    n1["longest.run_id<br/><small>job_runs.run_id</small>"]
+    n3["longest.duration_mins<br/><small>job_runs.duration_mins</small>"]
+  end
+  subgraph g2["filters on longest"]
+    n4{{"WHERE in longest<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"LIMIT in longest<br/><small>ORDER BY job_runs.duration_mins DESC LIMIT 3</small>"}}
+  end
+  subgraph g3["statement"]
+    n7["run_id<br/><small>longest.run_id</small>"]
+    n8["duration_mins<br/><small>longest.duration_mins</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n2 -.-> n6
+  n1 --> n7
+  n3 --> n8
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | longest.run_id ← ops.job_runs.run_id |
+| `duration_mins` | longest.duration_mins ← ops.job_runs.duration_mins |
+
+### Hive as submitted
+
+```sql
+WITH longest AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.duration_mins
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  ORDER BY
+    job_runs.duration_mins DESC
+  LIMIT 3
+)
+SELECT
+  longest.run_id,
+  longest.duration_mins
+FROM longest
+```
+
+---
+
+
 == edge:reads:by_day
 -- Statement 1: to_hive
 SELECT

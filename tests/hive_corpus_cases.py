@@ -308,11 +308,20 @@ def _read_cases() -> dict:
         "reads:timestamp_last_n_days": lambda: [statement(
             SELECT(events.event_id), FROM(events),
             WHERE(one_day(events), last_n_days(events.at, 3), equals(events.is_active, True)))],
+        "reads:derived_top_n": lambda: [_reading_top_n()],
         "reads:by_day": lambda: by_day(statement(
             SELECT(job_runs.job_id, job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
             WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
             GROUP_BY(job_runs.job_id, job_runs.dt))),
     }
+
+
+def _reading_top_n():
+    """A Statement with no ORDER_BY of its own, reading a Derived table that has one."""
+    longest = derived("longest", statement(
+        SELECT(job_runs.run_id, job_runs.duration_mins), FROM(job_runs), WHERE(one_day()),
+        ORDER_BY(descending(job_runs.duration_mins)), LIMIT(3)))
+    return statement(SELECT(longest.run_id, longest.duration_mins), FROM(longest))
 
 
 def _self_join():
