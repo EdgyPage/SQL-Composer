@@ -38,6 +38,10 @@ at work without touching the user's own scripts.
   `select *` must not pull a whole table; find where this matters and get ahead of it by default.
 - **Allowed at work:** Python stdlib, pandas, numpy, sqlglot. Output is a Hive SQL string for an
   API that accepts only strings.
+  _Changed by the PySpark edition (2026-09-29):_ a second Edition, `spark_composer`, writes the
+  same Hive without sqlglot and runs it on Spark, for a work environment with pyspark instead.
+  This Toolbox's allowed list above still holds for `sql_composer`. See
+  [the PySpark edition's map](../spark-edition/map.md).
 - **Everything is generated.** Every output and artifact the Toolbox produces (SQL, lineage
   HTML, Markdown reports) is built from the Statement by code, never written or edited by hand.
 - **Skills.** Grilling tickets call `grilling` and `domain-modeling`; prototype tickets call
@@ -160,6 +164,7 @@ at work without touching the user's own scripts.
   in charting by the beginner-readability test. Its *guarantees* are not out: the user asked for
   them back as lightweight functions shown working on an example database (see the guardrails
   and example-database tickets). The model does not return.
-- **Dialects other than Hive.**
+- **Dialects other than Hive.** Still out: the PySpark edition (2026-09-29) writes the same Hive
+  and runs it on Spark.
 - **Life beyond roughly seven months.** The data migration ends the need, so scalability past
   that is not a goal.
