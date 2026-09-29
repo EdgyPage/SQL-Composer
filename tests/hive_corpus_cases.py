@@ -104,8 +104,9 @@ daily_runs = Table(
 )
 """A Saved table, for the writes."""
 
-TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "decimal",
-         "decimal(10,2)", "decimal(10, 2)", "numeric(5,1)", "string", "varchar(20)", "char(3)",
+TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "real",
+         "double precision", "decimal", "decimal(10,2)", "decimal(10, 2)", "numeric(5,1)",
+         "string", "varchar(20)", "char(3)",
          "boolean", "date", "timestamp", "binary", "array<string>", "map<string,int>",
          "struct<a:int,b:string>", "bigint unsigned", "json", "uuid", "interval", "nonsense")
 
@@ -141,9 +142,18 @@ def _width_cases() -> list:
             SELECT(job_runs.status, AS(count_rows(), "runs")), FROM(job_runs),
             WHERE(one_day()), GROUP_BY(job_runs.status),
             HAVING(at_least(count_rows(), 2), not_equals(job_runs.status, v)))),
+        "having_or": (43, lambda v: statement(
+            SELECT(job_runs.status, AS(count_rows(), "runs")), FROM(job_runs),
+            WHERE(one_day()), GROUP_BY(job_runs.status),
+            HAVING(any_of(at_least(count_rows(), 2), not_equals(job_runs.status, v))))),
         "join_on": (33, lambda v: statement(
             SELECT(job_runs.run_id), FROM(job_runs),
             JOIN(jobs, ON=all_of(equals(jobs.job_id, job_runs.job_id), equals(jobs.team, v))),
+            WHERE(one_day()))),
+        "join_on_or": (8, lambda v: statement(
+            SELECT(job_runs.run_id), FROM(job_runs),
+            JOIN(jobs, ON=all_of(equals(jobs.job_id, job_runs.job_id),
+                                 any_of(equals(jobs.team, "a"), equals(jobs.team, v)))),
             WHERE(one_day()))),
         "case": (26, lambda v: _rows(AS(if_else(equals(job_runs.status, "FAILED"), v, "ok"),
                                         "label"))),
@@ -155,9 +165,9 @@ def _width_cases() -> list:
     found = []
     for name, (fits, make) in constructs.items():
         for length in (fits, fits + 1):
-            found.append((f"edge:width:{name}:{length}", _one(make, "x" * length)))
+            found.append((f"edge:width:{name}:{length}", _building(make, "x" * length)))
     for length in (33, 34):
-        found.append((f"edge:width:window:{length}", _one(_window, length)))
+        found.append((f"edge:width:window:{length}", _building(_window, length)))
     return found
 
 
@@ -171,7 +181,8 @@ def _window(length: int):
         FROM(wide), WHERE(equals(wide.dt, DAY)))
 
 
-def _one(make, value):
+def _building(make, value):
+    """A case: the one Statement `make(value)` builds."""
     return lambda: [make(value)]
 
 
@@ -317,13 +328,13 @@ def _last_step(depth: int):
     step = derived("step_1", statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs),
         WHERE(one_day()), GROUP_BY(job_runs.job_id)))
-    for level in range(2, depth + 1):
-        step = derived(f"step_{level}", statement(
-            SELECT(step.job_id, step.runs), FROM(step), WHERE(more_than(step.runs, level - 2))))
+    for number in range(2, depth + 1):
+        step = derived(f"step_{number}", statement(
+            SELECT(step.job_id, step.runs), FROM(step), WHERE(more_than(step.runs, number - 2))))
     return step
 
 
-def _chain(depth: int) -> list:
+def _reading_steps(depth: int) -> list:
     step = _last_step(depth)
     return [statement(SELECT(step.job_id, step.runs), FROM(step))]
 
@@ -338,7 +349,8 @@ def _write(clause, depth: int) -> list:
 
 
 def _structure_cases() -> dict:
-    found = {f"derived:chain_{depth}": (lambda depth=depth: _chain(depth)) for depth in (1, 2, 3)}
+    found = {f"derived:depth_{depth}": (lambda depth=depth: _reading_steps(depth))
+             for depth in (1, 2, 3)}
     for clause in (INSERT_OVERWRITE, INSERT_INTO):
         for depth in (0, 1, 2):
             name = f"write:{clause.__name__}:derived_{depth}"
@@ -349,10 +361,16 @@ def _structure_cases() -> dict:
         GROUP_BY(job_runs.job_id))]
     for name, t in EDGE_TABLES.items():
         found[f"drop_table:{name}"] = lambda t=t: [drop_table(t)]
-    for number, kind in enumerate(TYPES):
-        found[f"create_table:{kind}"] = lambda number=number, kind=kind: [create_table(Table(
-            f"mart.types_{number}", columns={"c": kind, "dt": "string"}, date_partition="dt"))]
+    for kind in TYPES:
+        found[f"create_table:{kind}"] = lambda kind=kind: [create_table(Table(
+            "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt"))]
     found["create_table:may_exist"] = lambda: [create_table(daily_runs, may_exist=True)]
+    found["create_table:untyped"] = lambda: [create_table(Table(
+        "mart.typed", columns={"c": None, "dt": "string"}, date_partition="dt"))]
+    found["create_table:no_date_partition"] = lambda: [create_table(Table(
+        "mart.typed", columns={"c": "bigint"}, date_partition=None))]
+    for name, t in EDGE_TABLES.items():
+        found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
     return found
 
 

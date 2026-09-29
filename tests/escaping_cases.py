@@ -63,7 +63,7 @@ STRING_CASES: tuple[tuple[str, str, str], ...] = (
     # Six more control characters, pinned as sqlglot writes them today. It writes BEL, FF, VT
     # and backspace as \a \f \v \b and reads them back itself, but Hive's and Spark's readers
     # may take \a \f \v for the letters a f v. NUL and SUB reach the text raw. Whether any of
-    # these is refused is decided in the PySpark edition's ticket 09.
+    # these is refused is decided in ticket 09 of the PySpark work, in .scratch/spark-edition/.
     ("bell", "a\x07b", r"'a\ab'"),
     ("form_feed", "a\x0cb", r"'a\fb'"),
     ("vertical_tab", "a\x0bb", r"'a\vb'"),

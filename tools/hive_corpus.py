@@ -4,8 +4,10 @@ Run it on `dev` only when a change is meant to alter what the Toolbox writes, th
 
     python tools/hive_corpus.py
 
-`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. The
-file pins, for each case under a stable id, what the Toolbox shows through its public names:
+`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. Both
+work only at the sqlglot pin in requirements-dev.txt, since another sqlglot writes some Hive
+differently. The file pins, for each case under a stable id, what the Toolbox shows through its
+public names:
 
 - each Statement's Hive, from `to_hive(...)`, or the refusal it stops with;
 - the repr of each output and condition, of the Statement and of each Derived table it reads;
@@ -20,16 +22,19 @@ generated Statements in `tests/hive_corpus_cases.py`; and the Table references o
 from __future__ import annotations
 
 import contextlib
+import datetime
 import doctest
+import re
 import sys
 import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "tests" / "hive_corpus" / "sql_composer.txt"
-sys.path[:0] = [str(ROOT / "tools"), str(ROOT / "tests")]
+sys.path[:0] = [str(ROOT), str(ROOT / "tools"), str(ROOT / "tests")]
 
 import pandas as pd  # noqa: E402
+import sqlglot  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
@@ -37,9 +42,15 @@ import sql_composer  # noqa: E402
 from sql_composer import example_database  # noqa: E402
 from sql_composer.clauses import derived_tables  # noqa: E402
 
-REFUSALS = (sql_composer.GuardRefused, sql_composer.LoadRefused, TypeError, ValueError)
-CASE = "== "
-PART = "-- "
+PIN = re.search(r"^sqlglot==(\S+)$",
+                (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.MULTILINE)[1]
+# The exception types a Toolbox refusal comes as; is_refusal tells a refusal from a bug.
+REFUSAL_TYPES = (sql_composer.GuardRefused, sql_composer.LoadRefused, TypeError, ValueError)
+# The warehouse's newest day, as the recording send lists it.
+NEWEST_DAY = datetime.date(2026, 9, 24)
+# The lines that start a case and a part of a case in the file.
+CASE_MARK = "== "
+PART_MARK = "-- "
 
 
 # --- The cases -------------------------------------------------------------------------------
@@ -75,16 +86,18 @@ def worked_example_cases() -> list[tuple[str, object]]:
             functions = [("careless", module.careless), ("fixed", module.fixed)] + functions
             opt_out = gallery.opt_out_of(module.careless)
             if opt_out is not None:
-                functions.append((f"careless_{opt_out}", _with(module.careless, opt_out)))
+                functions.append((f"careless_{opt_out}", _opted_out(module.careless, opt_out)))
         found += [(f"worked:{script}:{name}", _listed(function)) for name, function in functions]
     return found
 
 
-def _with(function, keyword: str):
+def _opted_out(function, keyword: str):
+    """`function` called with its Guard's opt-out keyword set."""
     return lambda: function(**{keyword: True})
 
 
 def _listed(function):
+    """`function`'s Statements as a list: it returns one, or a list of them as by_day does."""
     def build() -> list:
         built = function()
         return list(built) if isinstance(built, list) else [built]
@@ -115,7 +128,7 @@ def _unique(statements: list) -> list:
 
 def is_refusal(error: Exception) -> bool:
     """Whether the Toolbox stopped on purpose, with one of its four-part messages."""
-    return isinstance(error, REFUSALS) and "What happened:" in str(error)
+    return isinstance(error, REFUSAL_TYPES) and "What happened:" in str(error)
 
 
 def refused_text(error: Exception) -> str:
@@ -129,16 +142,21 @@ def refused_text(error: Exception) -> str:
     return f"{type(error).__module__}.{type(error).__name__}, not a Toolbox refusal"
 
 
+def refusal_or_raise(error: Exception) -> str:
+    """A refusal met while building a case, as text; any other error is a bug, so it stops."""
+    if not is_refusal(error):
+        raise error
+    return refused_text(error)
+
+
 def case_text(case_id: str, build) -> str:
     """One case: each of its Statements, then the lineage report of all of them."""
-    lines = [CASE + case_id]
+    lines = [CASE_MARK + case_id]
     with gallery.example_setting():
         try:
             statements = build()
-        except REFUSALS as error:
-            if not is_refusal(error):
-                raise
-            return "\n".join(lines + [PART + "refused", refused_text(error), ""])
+        except REFUSAL_TYPES as error:
+            return "\n".join(lines + [PART_MARK + "refused", refusal_or_raise(error), ""])
         for number, s in enumerate(statements, 1):
             lines += statement_lines(number, s)
         lines += lineage_lines([s for s in statements if s._ddl is None])
@@ -147,7 +165,7 @@ def case_text(case_id: str, build) -> str:
 
 def statement_lines(number: int, s) -> list[str]:
     """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's."""
-    lines = [PART + f"Statement {number}: to_hive"]
+    lines = [PART_MARK + f"Statement {number}: to_hive"]
     try:
         lines.append(sql_composer.to_hive(s))
     except Exception as error:  # noqa: BLE001 - what to_hive stops with is part of the output
@@ -156,16 +174,15 @@ def statement_lines(number: int, s) -> list[str]:
             (table._statement, f"Derived table {table._name}") for table in derived_tables(s)]:
         shown = parts_shown(step)
         if shown:
-            lines += [PART + f"Statement {number}: {name}", *shown]
+            lines += [PART_MARK + f"Statement {number}: {name}", *shown]
     return lines
 
 
 def parts_shown(step) -> list[str]:
     """The repr of each output and condition of one step, as a notebook shows it."""
     shown = [f"output {name}: {column!r}" for column, name in step._outputs]
-    for read in step._reads:
-        if read.on is not None:
-            shown.append(f"{read._call()} ON: {read.on!r}")
+    shown += [f"read {number} ON: {read.on!r}"
+              for number, read in enumerate(step._reads, 1) if read.on is not None]
     shown += [f"WHERE: {condition!r}" for condition in step._where]
     shown += [f"HAVING: {condition!r}" for condition in step._having]
     return shown
@@ -179,10 +196,10 @@ def lineage_lines(statements: list) -> list[str]:
         try:
             _, markdown = sql_composer.export_lineage(*statements, to=Path(folder) / "case.html")
         except Exception as error:  # noqa: BLE001 - as for to_hive
-            return [PART + "export_lineage", refused_text(error)]
+            return [PART_MARK + "export_lineage", refused_text(error)]
         text = markdown.read_text(encoding="utf-8")
     kept = [line for line in text.splitlines() if not line.startswith("Made by export_lineage on")]
-    return [PART + "export_lineage", *kept]
+    return [PART_MARK + "export_lineage", *kept]
 
 
 # --- The commands sent to the warehouse ------------------------------------------------------
@@ -191,8 +208,9 @@ def lineage_lines(statements: list) -> list[str]:
 class Recording:
     """A send that notes each command and answers like the warehouse, without running a query.
 
-    DESCRIBE and SHOW PARTITIONS are answered from the Table reference's own columns, as Hive
-    lists them; any other command gets an empty frame, so check_key finds no repeats.
+    DESCRIBE and SHOW PARTITIONS are answered from the Table reference itself, as Hive lists
+    them, with NEWEST_DAY written in the table's date_format; any other command gets an empty
+    frame, so check_key finds no repeats.
     """
 
     def __init__(self, t):
@@ -204,7 +222,8 @@ class Recording:
         if text.startswith("DESCRIBE"):
             return describe_frame(self.table)
         if text.startswith("SHOW PARTITIONS"):
-            return pd.DataFrame({"partition": [f"{self.table._date_partition}=2026-09-24"]})
+            day = NEWEST_DAY.strftime(self.table._date_format)
+            return pd.DataFrame({"partition": [f"{self.table._date_partition}={day}"]})
         return pd.DataFrame()
 
 
@@ -220,21 +239,22 @@ def describe_frame(t) -> pd.DataFrame:
 
 def warehouse_text(t) -> str:
     """The commands write_table_reference, check_table_reference and check_key send for `t`."""
-    lines = [CASE + f"warehouse:{t._name}"]
+    lines = [CASE_MARK + f"warehouse:{t._name}"]
+    helpers = [("write_table_reference", _write_table_reference),
+               ("check_table_reference", sql_composer.check_table_reference),
+               ("check_key", sql_composer.check_key)]
     with gallery.example_setting():
-        for call in (_write_reference, sql_composer.check_table_reference, sql_composer.check_key):
+        for name, helper in helpers:
             send = Recording(t)
             try:
-                call(t, send)
-            except REFUSALS as error:
-                if not is_refusal(error):
-                    raise
-                send.sent.append(refused_text(error))
-            lines += [PART + call.__name__.lstrip("_"), *send.sent]
+                helper(t, send)
+            except REFUSAL_TYPES as error:
+                send.sent.append(refusal_or_raise(error))
+            lines += [PART_MARK + name, *send.sent]
     return "\n".join(lines + [""])
 
 
-def _write_reference(t, send) -> None:
+def _write_table_reference(t, send) -> None:
     """write_table_reference, in a folder of its own, so its file never meets another."""
     with tempfile.TemporaryDirectory() as folder, contextlib.chdir(folder):
         sql_composer.write_table_reference(t._name, send=send)
@@ -258,22 +278,18 @@ def corpus_text() -> str:
     return header + "\n".join(blocks)
 
 
-def blocks_by_id(text: str) -> dict[str, str]:
-    """A written corpus, split into its cases by id."""
-    found = {}
-    for block in text.split("\n" + CASE)[1:]:
-        case_id, _, body = block.partition("\n")
-        found[case_id] = body
-    return found
-
-
-def main() -> None:
-    GOLDEN.parent.mkdir(parents=True, exist_ok=True)
+def main() -> int:
+    if sqlglot.__version__ != PIN:
+        print(f"The golden is written at the sqlglot pin, {PIN}, and this is "
+              f"{sqlglot.__version__}: another sqlglot writes some Hive differently.")
+        return 1
     text = corpus_text()
+    GOLDEN.parent.mkdir(parents=True, exist_ok=True)
     with open(GOLDEN, "w", encoding="utf-8", newline="\n") as file:
         file.write(text)
-    print(f"Wrote {GOLDEN.relative_to(ROOT)}: {len(blocks_by_id(text))} cases.")
+    print(f"Wrote {GOLDEN.relative_to(ROOT)}: {text.count(chr(10) + CASE_MARK)} cases.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

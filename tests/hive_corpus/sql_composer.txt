@@ -395,7 +395,7 @@ WHERE
 -- Statement 1: the Statement
 output run_id: job_runs.run_id
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -477,7 +477,7 @@ GROUP BY
 -- Statement 1: the Statement
 output job_name: jobs.job_name
 output runs: COUNT(CASE WHEN NOT job_runs.run_id IS NULL THEN 1 END)
-LEFT_JOIN(job_runs, ON=...) ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
 
@@ -1261,7 +1261,7 @@ JOIN ops.jobs AS jobs
 -- Statement 1: the Statement
 output job_name: jobs.job_name
 output runs: runs_per_job.runs
-JOIN(jobs, ON=...) ON: jobs.job_id = runs_per_job.job_id
+read 2 ON: jobs.job_id = runs_per_job.job_id
 -- Statement 1: Derived table runs_per_job
 output job_id: job_runs.job_id
 output runs: COUNT(*)
@@ -1800,7 +1800,7 @@ GROUP BY
 -- Statement 1: the Statement
 output team: jobs.team
 output runs: COUNT(*)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -2300,7 +2300,7 @@ WHERE
 -- Statement 1: the Statement
 output job_id: jobs.job_id
 output job_name: jobs.job_name
-LEFT_JOIN(job_runs, ON=...) ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.run_id IS NULL
 -- export_lineage
 # Lineage: statement
@@ -2388,7 +2388,7 @@ JOIN ran
 -- Statement 1: the Statement
 output job_id: jobs.job_id
 output job_name: jobs.job_name
-JOIN(ran, ON=...) ON: ran.job_id = jobs.job_id
+read 2 ON: ran.job_id = jobs.job_id
 -- Statement 1: Derived table ran
 output job_id: job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -3065,7 +3065,7 @@ GROUP BY
 -- Statement 1: the Statement
 output job_name: jobs.job_name
 output runs: COUNT(CASE WHEN NOT job_runs.run_id IS NULL THEN 1 END)
-LEFT_JOIN(job_runs, ON=...) ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
 
@@ -3157,7 +3157,7 @@ GROUP BY
 -- Statement 1: the Statement
 output job_name: jobs.job_name
 output runs: COUNT(CASE WHEN NOT job_runs.run_id IS NULL THEN 1 END)
-LEFT_JOIN(job_runs, ON=...) ON: job_runs.job_id = jobs.job_id
+read 2 ON: job_runs.job_id = jobs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -4067,7 +4067,7 @@ WHERE
 -- Statement 1: the Statement
 output minutes: SUM(job_runs.duration_mins)
 output alerts: COUNT(*)
-JOIN(run_alerts, ON=...) ON: run_alerts.run_id = job_runs.run_id
+read 2 ON: run_alerts.run_id = job_runs.run_id
 WHERE: job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
 WHERE: run_alerts.dt BETWEEN '2026-09-24' AND '2026-09-24'
 -- export_lineage
@@ -4181,7 +4181,7 @@ WHERE
 -- Statement 1: the Statement
 output minutes: SUM(job_runs.duration_mins)
 output alerts: SUM(alerts_per_run.alerts)
-LEFT_JOIN(alerts_per_run, ON=...) ON: alerts_per_run.run_id = job_runs.run_id
+read 2 ON: alerts_per_run.run_id = job_runs.run_id
 WHERE: job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
 -- Statement 1: Derived table alerts_per_run
 output run_id: run_alerts.run_id
@@ -4320,7 +4320,7 @@ WHERE
 -- Statement 1: the Statement
 output minutes: SUM(job_runs.duration_mins)
 output alerts: COUNT(*)
-JOIN(run_alerts, ON=...) ON: run_alerts.run_id = job_runs.run_id
+read 2 ON: run_alerts.run_id = job_runs.run_id
 WHERE: job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
 WHERE: run_alerts.dt BETWEEN '2026-09-24' AND '2026-09-24'
 -- export_lineage
@@ -4535,7 +4535,7 @@ WHERE
 -- Statement 1: the Statement
 output run_id: job_runs.run_id
 output job_id: job_runs.job_id
-JOIN(job_runs, ON=...) ON: job_runs.run_id = run_alerts.run_id
+read 2 ON: job_runs.run_id = run_alerts.run_id
 WHERE: run_alerts.dt = '2026-09-24'
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: run_alerts.severity = 'high'
@@ -4661,7 +4661,7 @@ WHERE
 -- Statement 2: the Statement
 output run_id: job_runs.run_id
 output job_id: job_runs.job_id
-JOIN(job_runs, ON=...) ON: job_runs.run_id = run_alerts.run_id
+read 2 ON: job_runs.run_id = run_alerts.run_id
 WHERE: run_alerts.dt = '2026-09-23'
 WHERE: job_runs.dt = '2026-09-23'
 WHERE: run_alerts.severity = 'high'
@@ -4695,7 +4695,7 @@ WHERE
 -- Statement 4: the Statement
 output run_id: job_runs.run_id
 output job_id: job_runs.job_id
-JOIN(job_runs, ON=...) ON: job_runs.run_id = run_alerts.run_id
+read 2 ON: job_runs.run_id = run_alerts.run_id
 WHERE: run_alerts.dt = '2026-09-24'
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: run_alerts.severity = 'high'
@@ -5084,7 +5084,7 @@ GROUP BY
 output team: jobs.team
 output runs: SUM(per_job.runs)
 output minutes: SUM(per_job.minutes)
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output runs: COUNT(*)
@@ -5277,7 +5277,7 @@ WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 output team: jobs.team
 output runs: SUM(per_job.runs)
 output minutes: SUM(per_job.minutes)
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- export_lineage
 # Lineage: statement
 
@@ -6014,6 +6014,188 @@ HAVING
 ---
 
 
+== edge:width:having_or:43
+-- Statement 1: to_hive
+SELECT
+  job_runs.status,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.status
+HAVING
+  COUNT(*) >= 2 OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+-- Statement 1: the Statement
+output status: job_runs.status
+output runs: COUNT(*)
+WHERE: job_runs.dt = '2026-09-24'
+HAVING: COUNT(*) >= 2 OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.status<br/><small>string</small>"]
+    n4["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["status<br/><small>job_runs.status</small>"]
+    n2["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n3{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n5{{"HAVING in statement<br/><small>any_of(at_least(count_rows(), 2), not_equal…</small>"}}
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n0 -.-> n5
+  n3 -.->|filters| g1
+  n5 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- HAVING in statement: `any_of(at_least(count_rows(), 2), not_equals(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))`, which is `COUNT(*) >= 2 OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'` (reads ops.job_runs.status)
+
+One value for each different `job_runs.status`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `status` | ops.job_runs.status |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.status,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.status
+HAVING
+  COUNT(*) >= 2 OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+```
+
+---
+
+
+== edge:width:having_or:44
+-- Statement 1: to_hive
+SELECT
+  job_runs.status,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.status
+HAVING
+  COUNT(*) >= 2
+  OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+-- Statement 1: the Statement
+output status: job_runs.status
+output runs: COUNT(*)
+WHERE: job_runs.dt = '2026-09-24'
+HAVING: COUNT(*) >= 2 OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.status<br/><small>string</small>"]
+    n4["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["status<br/><small>job_runs.status</small>"]
+    n2["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n3{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n5{{"HAVING in statement<br/><small>any_of(at_least(count_rows(), 2), not_equal…</small>"}}
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n0 -.-> n5
+  n3 -.->|filters| g1
+  n5 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- HAVING in statement: `any_of(at_least(count_rows(), 2), not_equals(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))`, which is `COUNT(*) >= 2 OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'` (reads ops.job_runs.status)
+
+One value for each different `job_runs.status`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `status` | ops.job_runs.status |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.status,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.status
+HAVING
+  COUNT(*) >= 2
+  OR job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+```
+
+---
+
+
 == edge:width:join_on:33
 -- Statement 1: to_hive
 SELECT
@@ -6025,7 +6207,7 @@ WHERE
   job_runs.dt = '2026-09-24'
 -- Statement 1: the Statement
 output run_id: job_runs.run_id
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id AND jobs.team = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+read 2 ON: jobs.job_id = job_runs.job_id AND jobs.team = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -6102,7 +6284,7 @@ WHERE
   job_runs.dt = '2026-09-24'
 -- Statement 1: the Statement
 output run_id: job_runs.run_id
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id AND jobs.team = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+read 2 ON: jobs.job_id = job_runs.job_id AND jobs.team = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -6161,6 +6343,168 @@ FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
   AND jobs.team = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:width:join_on_or:8
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id AND (
+    jobs.team = 'a' OR jobs.team = 'xxxxxxxx'
+  )
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+read 2 ON: jobs.job_id = job_runs.job_id AND (jobs.team = 'a' OR jobs.team = 'xxxxxxxx')
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n6["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"JOIN ON in statement<br/><small>all_of(equals(jobs.job_id, job_runs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.jobs"]
+    n5["ops.jobs.job_id<br/><small>bigint</small>"]
+    n7["ops.jobs.team<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 -.-> n4
+  n7 -.-> n4
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id AND (
+    jobs.team = 'a' OR jobs.team = 'xxxxxxxx'
+  )
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:width:join_on_or:9
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+  AND (
+    jobs.team = 'a' OR jobs.team = 'xxxxxxxxx'
+  )
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+read 2 ON: jobs.job_id = job_runs.job_id AND (jobs.team = 'a' OR jobs.team = 'xxxxxxxxx')
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n6["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"JOIN ON in statement<br/><small>all_of(equals(jobs.job_id, job_runs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.jobs"]
+    n5["ops.jobs.job_id<br/><small>bigint</small>"]
+    n7["ops.jobs.team<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 -.-> n4
+  n7 -.-> n4
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+  AND (
+    jobs.team = 'a' OR jobs.team = 'xxxxxxxxx'
+  )
 WHERE
   job_runs.dt = '2026-09-24'
 ```
@@ -8706,7 +9050,7 @@ WHERE
 -- Statement 1: the Statement
 output job_name: jobs.job_name
 output run_id: job_runs.run_id
-LEFT_JOIN(job_runs, ON=...) ON: job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
 WHERE: job_runs.status = 'FAILED'
 -- export_lineage
 # Lineage: statement
@@ -8874,7 +9218,7 @@ WHERE
 -- Statement 1: the Statement
 output run_id: job_runs.run_id
 output earlier_run: earlier.run_id
-JOIN(earlier, ON=...) ON: earlier.job_id = job_runs.job_id
+read 2 ON: earlier.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: earlier.dt = '2026-09-23'
 -- export_lineage
@@ -8958,8 +9302,8 @@ GROUP BY
 -- Statement 1: the Statement
 output team: jobs.team
 output alerts: COUNT(*)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
-JOIN(run_alerts, ON=...) ON: run_alerts.run_id = job_runs.run_id
+read 2 ON: jobs.job_id = job_runs.job_id
+read 3 ON: run_alerts.run_id = job_runs.run_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: run_alerts.dt = '2026-09-24'
 -- export_lineage
@@ -9612,7 +9956,7 @@ GROUP BY
 ---
 
 
-== edge:derived:chain_1
+== edge:derived:depth_1
 -- Statement 1: to_hive
 WITH step_1 AS (
   SELECT
@@ -9715,7 +10059,7 @@ FROM step_1
 ---
 
 
-== edge:derived:chain_2
+== edge:derived:depth_2
 -- Statement 1: to_hive
 WITH step_1 AS (
   SELECT
@@ -9847,7 +10191,7 @@ FROM step_2
 ---
 
 
-== edge:derived:chain_3
+== edge:derived:depth_3
 -- Statement 1: to_hive
 WITH step_1 AS (
   SELECT
@@ -10748,7 +11092,7 @@ DROP TABLE IF EXISTS mart.daily_runs
 
 == edge:create_table:tinyint
 -- Statement 1: to_hive
-CREATE TABLE mart.types_0 (
+CREATE TABLE mart.typed (
   c TINYINT
 )
 PARTITIONED BY (
@@ -10758,7 +11102,7 @@ STORED AS ORC
 
 == edge:create_table:smallint
 -- Statement 1: to_hive
-CREATE TABLE mart.types_1 (
+CREATE TABLE mart.typed (
   c SMALLINT
 )
 PARTITIONED BY (
@@ -10768,7 +11112,7 @@ STORED AS ORC
 
 == edge:create_table:int
 -- Statement 1: to_hive
-CREATE TABLE mart.types_2 (
+CREATE TABLE mart.typed (
   c INT
 )
 PARTITIONED BY (
@@ -10778,7 +11122,7 @@ STORED AS ORC
 
 == edge:create_table:integer
 -- Statement 1: to_hive
-CREATE TABLE mart.types_3 (
+CREATE TABLE mart.typed (
   c INT
 )
 PARTITIONED BY (
@@ -10788,7 +11132,7 @@ STORED AS ORC
 
 == edge:create_table:bigint
 -- Statement 1: to_hive
-CREATE TABLE mart.types_4 (
+CREATE TABLE mart.typed (
   c BIGINT
 )
 PARTITIONED BY (
@@ -10798,7 +11142,7 @@ STORED AS ORC
 
 == edge:create_table:float
 -- Statement 1: to_hive
-CREATE TABLE mart.types_5 (
+CREATE TABLE mart.typed (
   c FLOAT
 )
 PARTITIONED BY (
@@ -10808,7 +11152,27 @@ STORED AS ORC
 
 == edge:create_table:double
 -- Statement 1: to_hive
-CREATE TABLE mart.types_6 (
+CREATE TABLE mart.typed (
+  c DOUBLE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
+== edge:create_table:real
+-- Statement 1: to_hive
+CREATE TABLE mart.typed (
+  c FLOAT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
+== edge:create_table:double precision
+-- Statement 1: to_hive
+CREATE TABLE mart.typed (
   c DOUBLE
 )
 PARTITIONED BY (
@@ -10818,7 +11182,7 @@ STORED AS ORC
 
 == edge:create_table:decimal
 -- Statement 1: to_hive
-CREATE TABLE mart.types_7 (
+CREATE TABLE mart.typed (
   c DECIMAL
 )
 PARTITIONED BY (
@@ -10828,7 +11192,7 @@ STORED AS ORC
 
 == edge:create_table:decimal(10,2)
 -- Statement 1: to_hive
-CREATE TABLE mart.types_8 (
+CREATE TABLE mart.typed (
   c DECIMAL(10, 2)
 )
 PARTITIONED BY (
@@ -10838,7 +11202,7 @@ STORED AS ORC
 
 == edge:create_table:decimal(10, 2)
 -- Statement 1: to_hive
-CREATE TABLE mart.types_9 (
+CREATE TABLE mart.typed (
   c DECIMAL(10, 2)
 )
 PARTITIONED BY (
@@ -10848,7 +11212,7 @@ STORED AS ORC
 
 == edge:create_table:numeric(5,1)
 -- Statement 1: to_hive
-CREATE TABLE mart.types_10 (
+CREATE TABLE mart.typed (
   c DECIMAL(5, 1)
 )
 PARTITIONED BY (
@@ -10858,7 +11222,7 @@ STORED AS ORC
 
 == edge:create_table:string
 -- Statement 1: to_hive
-CREATE TABLE mart.types_11 (
+CREATE TABLE mart.typed (
   c STRING
 )
 PARTITIONED BY (
@@ -10868,7 +11232,7 @@ STORED AS ORC
 
 == edge:create_table:varchar(20)
 -- Statement 1: to_hive
-CREATE TABLE mart.types_12 (
+CREATE TABLE mart.typed (
   c VARCHAR(20)
 )
 PARTITIONED BY (
@@ -10878,7 +11242,7 @@ STORED AS ORC
 
 == edge:create_table:char(3)
 -- Statement 1: to_hive
-CREATE TABLE mart.types_13 (
+CREATE TABLE mart.typed (
   c CHAR(3)
 )
 PARTITIONED BY (
@@ -10888,7 +11252,7 @@ STORED AS ORC
 
 == edge:create_table:boolean
 -- Statement 1: to_hive
-CREATE TABLE mart.types_14 (
+CREATE TABLE mart.typed (
   c BOOLEAN
 )
 PARTITIONED BY (
@@ -10898,7 +11262,7 @@ STORED AS ORC
 
 == edge:create_table:date
 -- Statement 1: to_hive
-CREATE TABLE mart.types_15 (
+CREATE TABLE mart.typed (
   c DATE
 )
 PARTITIONED BY (
@@ -10908,7 +11272,7 @@ STORED AS ORC
 
 == edge:create_table:timestamp
 -- Statement 1: to_hive
-CREATE TABLE mart.types_16 (
+CREATE TABLE mart.typed (
   c TIMESTAMP
 )
 PARTITIONED BY (
@@ -10918,7 +11282,7 @@ STORED AS ORC
 
 == edge:create_table:binary
 -- Statement 1: to_hive
-CREATE TABLE mart.types_17 (
+CREATE TABLE mart.typed (
   c BINARY
 )
 PARTITIONED BY (
@@ -10928,7 +11292,7 @@ STORED AS ORC
 
 == edge:create_table:array<string>
 -- Statement 1: to_hive
-CREATE TABLE mart.types_18 (
+CREATE TABLE mart.typed (
   c ARRAY<STRING>
 )
 PARTITIONED BY (
@@ -10938,7 +11302,7 @@ STORED AS ORC
 
 == edge:create_table:map<string,int>
 -- Statement 1: to_hive
-CREATE TABLE mart.types_19 (
+CREATE TABLE mart.typed (
   c MAP<STRING, INT>
 )
 PARTITIONED BY (
@@ -10948,7 +11312,7 @@ STORED AS ORC
 
 == edge:create_table:struct<a:int,b:string>
 -- Statement 1: to_hive
-CREATE TABLE mart.types_20 (
+CREATE TABLE mart.typed (
   c STRUCT<a: INT, b: STRING>
 )
 PARTITIONED BY (
@@ -10962,7 +11326,7 @@ sqlglot.errors.ParseError, not a Toolbox refusal
 
 == edge:create_table:json
 -- Statement 1: to_hive
-CREATE TABLE mart.types_22 (
+CREATE TABLE mart.typed (
   c JSON
 )
 PARTITIONED BY (
@@ -10972,7 +11336,7 @@ STORED AS ORC
 
 == edge:create_table:uuid
 -- Statement 1: to_hive
-CREATE TABLE mart.types_23 (
+CREATE TABLE mart.typed (
   c UUID
 )
 PARTITIONED BY (
@@ -10982,7 +11346,7 @@ STORED AS ORC
 
 == edge:create_table:interval
 -- Statement 1: to_hive
-CREATE TABLE mart.types_24 (
+CREATE TABLE mart.typed (
   c INTERVAL
 )
 PARTITIONED BY (
@@ -10993,7 +11357,7 @@ STORED AS ORC
 == edge:create_table:nonsense
 -- refused
 ValueError:
-  What happened:  create_table(types_25): c's type 'nonsense' isn't a Hive type.
+  What happened:  create_table(typed): c's type 'nonsense' isn't a Hive type.
   Why it matters: Hive needs a type it knows to create the column.
   Usual fix:      Use a Hive type such as "string", "bigint", "double" or "decimal(10,2)".
   Opt-out:        none - this one can't be switched off.
@@ -11001,6 +11365,67 @@ ValueError:
 == edge:create_table:may_exist
 -- Statement 1: to_hive
 CREATE TABLE IF NOT EXISTS mart.daily_runs (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
+== edge:create_table:untyped
+-- refused
+ValueError:
+  What happened:  create_table(typed): c has no type.
+  Why it matters: Hive needs every column's type to create the table.
+  Usual fix:      Give each one its Hive type, such as "c": "string".
+  Opt-out:        none - this one can't be switched off.
+
+== edge:create_table:no_date_partition
+-- Statement 1: to_hive
+CREATE TABLE mart.typed (
+  c BIGINT
+)
+STORED AS ORC
+
+== edge:create_table:odd
+-- Statement 1: to_hive
+CREATE TABLE ops.`order` (
+  `select` STRING,
+  `1st` BIGINT,
+  `two words` STRING
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
+== edge:create_table:compact
+-- Statement 1: to_hive
+CREATE TABLE ops.compact_runs (
+  run_id BIGINT,
+  status STRING
+)
+PARTITIONED BY (
+  day STRING
+)
+STORED AS ORC
+
+== edge:create_table:events
+-- Statement 1: to_hive
+CREATE TABLE ops.events (
+  event_id BIGINT,
+  at TIMESTAMP,
+  is_active BOOLEAN
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
+== edge:create_table:daily_runs
+-- Statement 1: to_hive
+CREATE TABLE mart.daily_runs (
   job_id BIGINT,
   runs BIGINT
 )
@@ -11030,7 +11455,7 @@ LIMIT 30
 output k0: job_runs.status
 output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: AVG(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -11438,7 +11863,7 @@ output k1: jobs.region
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: SUM(job_runs.avg_retry_secs)
 output a2: SUM(job_runs.duration_mins)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 HAVING: COUNT(*) >= 1
 -- export_lineage
@@ -12019,7 +12444,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 19
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -12254,7 +12679,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MIN(job_runs.duration_mins)
@@ -13013,7 +13438,7 @@ LIMIT 26
 output k0: jobs.team
 output a0: COUNT(CASE WHEN job_runs.status LIKE '%a\\_b\\%%' THEN 1 END)
 output a1: SUM(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -13259,7 +13684,7 @@ output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output c1: jobs.team
 output c2: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output c3: ((job_runs.duration_mins * 31) - 3) / 4
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.status = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 WHERE: job_runs.duration_mins > 15 OR job_runs.status IN ('')
@@ -13547,7 +13972,7 @@ output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: AVG(job_runs.duration_mins)
 output a2: MIN(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -13834,7 +14259,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: COUNT(CASE WHEN job_runs.status LIKE 'x%' THEN 1 END)
@@ -13951,7 +14376,7 @@ LIMIT 4
 -- Statement 1: the Statement
 output c0: job_runs.status
 output c1: COALESCE(job_runs.status, 'Berlin – München')
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -14269,7 +14694,7 @@ WHERE
 output c0: jobs.team
 output c1: job_runs.run_id
 output c2: COALESCE(job_runs.status, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.duration_mins < 8
 WHERE: job_runs.duration_mins >= 23 AND job_runs.status = 'Berlin – München'
@@ -14500,7 +14925,7 @@ WHERE
 output c0: job_runs.duration_mins
 output c1: UPPER(job_runs.status)
 output c2: TRUNC(job_runs.dt, 'MM')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: NOT job_runs.status IN ('Berlin – München', 'O\'Brien')
 WHERE: NOT job_runs.status IN ('a_b%', '', 'C:\\temp') AND job_runs.duration_mins BETWEEN 57 AND 82
@@ -14905,7 +15330,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: SUM(job_runs.duration_mins)
@@ -15124,7 +15549,7 @@ ORDER BY
 LIMIT 14
 -- Statement 1: the Statement
 output c0: CONCAT(job_runs.status, '', job_runs.dt)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -15566,7 +15991,7 @@ LIMIT 27
 -- Statement 1: the Statement
 output c0: CONCAT(job_runs.status, 'O\'Brien', job_runs.dt)
 output c1: job_runs.duration_mins + 3
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status <> 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 WHERE: job_runs.duration_mins >= 56 AND job_runs.status = 'C:\\temp'
@@ -15699,7 +16124,7 @@ GROUP BY
 -- Statement 1: the Statement
 output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: COUNT(DISTINCT job_runs.status)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -15810,7 +16235,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MAX(job_runs.duration_mins)
@@ -16149,7 +16574,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 14
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -16268,7 +16693,7 @@ WHERE
 LIMIT 16
 -- Statement 1: the Statement
 output c0: jobs.region
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -16359,7 +16784,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 17
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -16494,7 +16919,7 @@ WHERE
 output c0: CASE WHEN job_runs.duration_mins <= 35 OR job_runs.duration_mins <= 29 OR job_runs.status LIKE 'Berlin – München%' THEN '' ELSE NULL END
 output c1: job_runs.duration_mins
 output c2: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: NOT job_runs.avg_retry_secs IS NULL OR NOT job_runs.avg_retry_secs IS NULL OR job_runs.duration_mins < 5
 -- export_lineage
@@ -16630,7 +17055,7 @@ LIMIT 48
 output k0: job_runs.job_id
 output k1: jobs.region
 output a0: SUM(CASE WHEN job_runs.duration_mins > 42 THEN job_runs.duration_mins END)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -16748,7 +17173,7 @@ output k1: TRUNC(job_runs.dt, 'MM')
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: MIN(job_runs.duration_mins)
 output a2: COUNT(*)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -16925,7 +17350,7 @@ output c0: ((job_runs.duration_mins * 2) - 0) / 1
 output c1: jobs.region
 output c2: 0 - job_runs.duration_mins
 output c3: TRUNC(job_runs.dt, 'MM')
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.status IS NULL
 WHERE: NOT job_runs.status IN ('C:\\temp', '', 'O\'Brien')
@@ -17310,7 +17735,7 @@ WHERE
 LIMIT 45
 -- Statement 1: the Statement
 output c0: UPPER(job_runs.status)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -17407,7 +17832,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 13
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -17533,7 +17958,7 @@ HAVING
 -- Statement 1: the Statement
 output k0: job_runs.dt
 output a0: MAX(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 HAVING: COUNT(*) >= 4
 -- export_lineage
@@ -17643,7 +18068,7 @@ LIMIT 36
 -- Statement 1: the Statement
 output k0: job_runs.dt
 output a0: COUNT(DISTINCT CASE WHEN job_runs.status <> 'O\'Brien' OR job_runs.duration_mins <= -1 OR job_runs.status IN ('', 'Berlin – München', 'C:\\temp') THEN job_runs.status END)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -17889,7 +18314,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: COUNT(*)
@@ -18120,7 +18545,7 @@ GROUP BY
 -- Statement 1: the Statement
 output k0: job_runs.status
 output a0: COUNT(*)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -18671,7 +19096,7 @@ WHERE
   )
 -- Statement 1: the Statement
 output c0: UPPER(job_runs.status)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' AND job_runs.duration_mins <= 47 AND (NOT job_runs.status IN ('', 'FAILED', 'Berlin – München') OR job_runs.status = 'O\'Brien' OR job_runs.status LIKE '%O\'Brien%' OR job_runs.duration_mins > 29)
 WHERE: job_runs.duration_mins <= 33 OR job_runs.status LIKE '%x%' OR job_runs.duration_mins >= 9
@@ -18947,7 +19372,7 @@ WHERE
 -- Statement 1: the Statement
 output c0: job_runs.dt
 output c1: TRUNC(job_runs.dt, 'MM')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -19477,7 +19902,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: COUNT(CASE WHEN job_runs.status LIKE '%a\\_b\\%%' AND job_runs.duration_mins >= 6 AND job_runs.status IS NULL AND job_runs.duration_mins >= 38 THEN 1 END)
@@ -19983,7 +20408,7 @@ output c0: COALESCE(job_runs.status, 'FAILED')
 output c1: jobs.job_name
 output c2: COALESCE(job_runs.status, 'a_b%')
 output c3: TRUNC(job_runs.dt, 'MM')
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.duration_mins <= 52
 WHERE: job_runs.duration_mins > 5
@@ -20137,7 +20562,7 @@ WHERE
 output c0: ((job_runs.duration_mins * 55) - 3) / 3
 output c1: UPPER(job_runs.status)
 output c2: job_runs.duration_mins + 7
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -20370,7 +20795,7 @@ output k0: job_runs.job_id
 output a0: COUNT(*)
 output a1: AVG(CASE WHEN job_runs.duration_mins < 51 THEN job_runs.duration_mins END)
 output a2: SUM(job_runs.avg_retry_secs)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -20616,7 +21041,7 @@ ORDER BY
 LIMIT 24
 -- Statement 1: the Statement
 output c0: CASE WHEN job_runs.duration_mins > 11 OR job_runs.status <> 'Berlin – München' THEN 'FAILED' ELSE NULL END
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -20855,7 +21280,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 20
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -21270,7 +21695,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MIN(job_runs.duration_mins)
@@ -21638,7 +22063,7 @@ WHERE
 output c0: TRUNC(job_runs.dt, 'MM')
 output c1: ((job_runs.duration_mins * 8) - 5) / 5
 output c2: UPPER(job_runs.status)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins < 2
 WHERE: NOT job_runs.avg_retry_secs IS NULL
@@ -21957,7 +22382,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 0
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -22084,7 +22509,7 @@ LIMIT 28
 -- Statement 1: the Statement
 output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: SUM(job_runs.avg_retry_secs)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -22319,7 +22744,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 0
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -22574,7 +22999,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: COUNT(CASE WHEN NOT job_runs.status IN ('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'FAILED', 'Berlin – München') THEN 1 END)
@@ -22843,7 +23268,7 @@ output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output c1: UPPER(job_runs.status)
 output c2: job_runs.duration_mins + 1
 output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status LIKE 'x%'
 WHERE: NOT job_runs.avg_retry_secs IS NULL AND job_runs.status LIKE 'C:\\\\temp%' AND job_runs.status LIKE '%O\'Brien%'
@@ -23213,7 +23638,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MAX(job_runs.duration_mins)
@@ -23341,7 +23766,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 4
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -23795,7 +24220,7 @@ WHERE
 -- Statement 1: the Statement
 output c0: 0 - job_runs.duration_mins
 output c1: 0 - job_runs.duration_mins
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -24424,7 +24849,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MAX(job_runs.duration_mins)
@@ -24665,7 +25090,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MAX(job_runs.duration_mins)
@@ -24906,7 +25331,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MAX(job_runs.duration_mins)
@@ -25034,7 +25459,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 12
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -25167,7 +25592,7 @@ WHERE
 output c0: job_runs.duration_mins + 1
 output c1: CASE WHEN job_runs.status <> 'O\'Brien' OR NOT job_runs.status IN ('FAILED', 'C:\\temp', 'a_b%') OR job_runs.duration_mins > 47 THEN 'a_b%' ELSE 'other' END
 output c2: TRUNC(job_runs.dt, 'MM')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins > -2
 WHERE: job_runs.duration_mins > -1
@@ -25331,7 +25756,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 19
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -25754,7 +26179,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: SUM(job_runs.duration_mins)
@@ -26121,7 +26546,7 @@ LIMIT 33
 output k0: job_runs.status
 output a0: COUNT(DISTINCT job_runs.status)
 output a1: MAX(job_runs.duration_mins)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -26253,7 +26678,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 11
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -26535,7 +26960,7 @@ output k1: jobs.region
 output a0: COUNT(*)
 output a1: MIN(job_runs.duration_mins)
 output a2: SUM(job_runs.duration_mins)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -26693,7 +27118,7 @@ output c0: CONCAT(job_runs.status, '', job_runs.dt)
 output c1: ((job_runs.duration_mins * 47) - 3) / 4
 output c2: CONCAT(job_runs.status, 'FAILED', job_runs.dt)
 output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins < 27 AND job_runs.duration_mins < 12
 WHERE: job_runs.status IN ('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'Berlin – München', 'O\'Brien')
@@ -26884,7 +27309,7 @@ output k0: job_runs.dt
 output a0: AVG(job_runs.duration_mins)
 output a1: SUM(job_runs.avg_retry_secs)
 output a2: SUM(CASE WHEN job_runs.duration_mins BETWEEN 5 AND 9 AND NOT job_runs.avg_retry_secs IS NULL AND job_runs.duration_mins BETWEEN -4 AND -3 THEN job_runs.duration_mins END)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -27044,7 +27469,7 @@ output k1: jobs.team
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: SUM(job_runs.avg_retry_secs)
 output a2: MAX(job_runs.duration_mins)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 HAVING: COUNT(*) >= 3
 -- export_lineage
@@ -27199,7 +27624,7 @@ ORDER BY
 LIMIT 45
 -- Statement 1: the Statement
 output c0: COALESCE(job_runs.status, 'C:\\temp')
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -27294,7 +27719,7 @@ output k0: job_runs.dt
 output k1: job_runs.job_id
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: SUM(job_runs.avg_retry_secs)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -27604,7 +28029,7 @@ GROUP BY
 output k0: job_runs.job_id
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: SUM(job_runs.avg_retry_secs)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -28278,7 +28703,7 @@ LIMIT 37
 output c0: CONCAT(job_runs.status, '', job_runs.dt)
 output c1: job_runs.run_id
 output c2: CONCAT(job_runs.status, 'O\'Brien', job_runs.dt)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status IN ('Berlin – München') AND job_runs.duration_mins <= 50
 WHERE: job_runs.status IS NULL
@@ -28440,7 +28865,7 @@ output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: COUNT(CASE WHEN job_runs.duration_mins BETWEEN 40 AND 47 OR job_runs.status LIKE '%O\'Brien%' THEN 1 END)
 output a1: COUNT(*)
 output a2: MAX(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 HAVING: COUNT(*) >= 2
 -- export_lineage
@@ -28835,7 +29260,7 @@ WHERE
   AND job_runs.status IN ('Berlin – München', 'C:\\temp')
 -- Statement 1: the Statement
 output c0: ((job_runs.duration_mins * 46) - 1) / 1
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.status IN ('Berlin – München', 'C:\\temp')
 -- export_lineage
@@ -29006,7 +29431,7 @@ LIMIT 39
 -- Statement 1: the Statement
 output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: MIN(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -29436,7 +29861,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 0
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -29560,7 +29985,7 @@ HAVING
 -- Statement 1: the Statement
 output k0: job_runs.status
 output a0: COUNT(CASE WHEN job_runs.status IS NULL AND job_runs.duration_mins > -4 THEN 1 END)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 HAVING: COUNT(*) >= 3
 -- export_lineage
@@ -29960,7 +30385,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 13
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -30101,7 +30526,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: COUNT(DISTINCT CASE WHEN job_runs.duration_mins > 49 THEN job_runs.status END)
@@ -30358,7 +30783,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 9
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -30499,7 +30924,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 13
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -30636,7 +31061,7 @@ LIMIT 29
 -- Statement 1: the Statement
 output c0: CONCAT(job_runs.status, 'O\'Brien', job_runs.dt)
 output c1: UPPER(job_runs.status)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins <= 7
 WHERE: job_runs.status LIKE 'a\\_b\\%%'
@@ -30765,7 +31190,7 @@ LIMIT 27
 output k0: jobs.team
 output k1: jobs.region
 output a0: MAX(job_runs.duration_mins)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -30956,7 +31381,7 @@ WHERE
 LIMIT 7
 -- Statement 1: the Statement
 output c0: 0 - job_runs.duration_mins
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.status = 'a_b%'
 WHERE: job_runs.duration_mins > 8
@@ -31286,7 +31711,7 @@ LIMIT 41
 output k0: TRUNC(job_runs.dt, 'MM')
 output a0: MIN(job_runs.duration_mins)
 output a1: SUM(job_runs.duration_mins)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -31501,7 +31926,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MIN(job_runs.duration_mins)
@@ -31773,7 +32198,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: COUNT(DISTINCT job_runs.status)
@@ -31897,7 +32322,7 @@ LIMIT 48
 output k0: TRUNC(job_runs.dt, 'MM')
 output k1: jobs.team
 output a0: SUM(job_runs.avg_retry_secs)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -32438,7 +32863,7 @@ WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23') AND job_runs.duration_mins < 16
 -- Statement 1: the Statement
 output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins < 16
 -- export_lineage
@@ -32644,7 +33069,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output job_name: jobs.job_name
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 6
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -33054,7 +33479,7 @@ output k1: job_runs.status
 output a0: COUNT(DISTINCT job_runs.status)
 output a1: MIN(job_runs.duration_mins)
 output a2: MIN(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 HAVING: COUNT(*) >= 3
 -- export_lineage
@@ -33205,7 +33630,7 @@ output k0: job_runs.status
 output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
 output a0: MIN(job_runs.duration_mins)
 output a1: SUM(job_runs.avg_retry_secs)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -33346,7 +33771,7 @@ output c0: 0 - job_runs.duration_mins
 output c1: CONCAT(job_runs.status, 'FAILED', job_runs.dt)
 output c2: 0 - job_runs.duration_mins
 output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status LIKE '%O\'Brien%'
 WHERE: job_runs.status <> 'Berlin – München'
@@ -33825,7 +34250,7 @@ WHERE
 output c0: UPPER(job_runs.status)
 output c1: jobs.job_name
 output c2: CONCAT(job_runs.status, 'FAILED', job_runs.dt)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -34046,7 +34471,7 @@ WHERE
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 WHERE: per_job.total > 10
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
@@ -34176,7 +34601,7 @@ output k0: job_runs.dt
 output a0: AVG(job_runs.duration_mins)
 output a1: COUNT(*)
 output a2: SUM(CASE WHEN job_runs.duration_mins <= 18 THEN job_runs.duration_mins END)
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 HAVING: COUNT(*) >= 4
 -- export_lineage
@@ -34332,7 +34757,7 @@ output k1: job_runs.status
 output a0: SUM(CASE WHEN job_runs.status IN ('O\'Brien', 'C:\\temp') THEN job_runs.duration_mins END)
 output a1: COUNT(DISTINCT job_runs.status)
 output a2: MIN(job_runs.duration_mins)
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 HAVING: COUNT(*) >= 3
 -- export_lineage
@@ -34732,7 +35157,7 @@ JOIN ops.jobs AS jobs
 output job_id: per_job.job_id
 output total: per_job.total
 output team: jobs.team
-JOIN(jobs, ON=...) ON: jobs.job_id = per_job.job_id
+read 2 ON: jobs.job_id = per_job.job_id
 -- Statement 1: Derived table per_job
 output job_id: job_runs.job_id
 output total: MAX(job_runs.duration_mins)
@@ -34855,7 +35280,7 @@ WHERE
   )
 -- Statement 1: the Statement
 output c0: jobs.region
-JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.status LIKE '%O\'Brien%'
 WHERE: job_runs.duration_mins >= -5 OR job_runs.status IN ('C:\\temp', 'a_b%', 'FAILED')
@@ -35195,7 +35620,7 @@ LIMIT 16
 -- Statement 1: the Statement
 output c0: ((job_runs.duration_mins * 20) - 3) / 2
 output c1: CASE WHEN job_runs.status IN ('O\'Brien', 'FAILED', 'Berlin – München') AND job_runs.status IN ('', 'FAILED', 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx') THEN 'Berlin – München' ELSE 'other' END
-LEFT_JOIN(jobs, ON=...) ON: jobs.job_id = job_runs.job_id
+read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -35418,7 +35843,7 @@ GROUP BY
 
 
 == warehouse:ops.jobs
--- write_reference
+-- write_table_reference
 DESCRIBE ops.jobs
 -- check_table_reference
 DESCRIBE ops.jobs
@@ -35434,7 +35859,7 @@ HAVING
 LIMIT 20
 
 == warehouse:ops.job_runs
--- write_reference
+-- write_table_reference
 DESCRIBE ops.job_runs
 SHOW PARTITIONS ops.job_runs
 -- check_table_reference
@@ -35455,7 +35880,7 @@ HAVING
 LIMIT 20
 
 == warehouse:ops.run_alerts
--- write_reference
+-- write_table_reference
 DESCRIBE ops.run_alerts
 SHOW PARTITIONS ops.run_alerts
 -- check_table_reference
@@ -35476,7 +35901,7 @@ HAVING
 LIMIT 20
 
 == warehouse:ops.order
--- write_reference
+-- write_table_reference
 DESCRIBE ops.order
 SHOW PARTITIONS ops.order
 -- check_table_reference
@@ -35490,7 +35915,7 @@ ValueError:
   Opt-out:        none - this one can't be switched off.
 
 == warehouse:ops.compact_runs
--- write_reference
+-- write_table_reference
 DESCRIBE ops.compact_runs
 SHOW PARTITIONS ops.compact_runs
 -- check_table_reference
@@ -35498,14 +35923,20 @@ DESCRIBE ops.compact_runs
 SHOW PARTITIONS ops.compact_runs
 -- check_key
 SHOW PARTITIONS ops.compact_runs
-ValueError:
-  What happened:  equals(compact_runs.day, ...) compares the Date partition compact_runs.day with '2026-09-24', which isn't a day written like '20260925'.
-  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
-  Usual fix:      Write the day as '20260925', or pass a datetime.date.
-  Opt-out:        none - this one can't be switched off.
+SELECT
+  compact_runs.run_id,
+  COUNT(*) AS copies
+FROM ops.compact_runs AS compact_runs
+WHERE
+  compact_runs.day = '20260924'
+GROUP BY
+  compact_runs.run_id
+HAVING
+  COUNT(*) > 1
+LIMIT 20
 
 == warehouse:ops.events
--- write_reference
+-- write_table_reference
 DESCRIBE ops.events
 SHOW PARTITIONS ops.events
 -- check_table_reference
@@ -35526,7 +35957,7 @@ HAVING
 LIMIT 20
 
 == warehouse:mart.daily_runs
--- write_reference
+-- write_table_reference
 DESCRIBE mart.daily_runs
 SHOW PARTITIONS mart.daily_runs
 -- check_table_reference
