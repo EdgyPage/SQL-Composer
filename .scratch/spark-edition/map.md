@@ -97,6 +97,10 @@ uses.
 - [A conftest that knows the Edition, and tests with no hard-coded folder](issues/07-a-conftest-that-knows-the-edition.md):
   `--edition` and `--example-database` choose before any Toolbox import, and the tests read the
   Edition's folder, product and version.
+- [Does pyspark 3.5.0 and 4.0.4 run on this machine and in CI?](issues/02-does-pyspark-run-here-and-in-ci.md):
+  yes, both, on Windows 11 and ubuntu-latest; 3.5.0 stays the floor. A helper-process Spark with
+  global temp views answers the corpus like SQL Composer's Example database; six Windows pitfalls
+  and their fixes are in the findings.
 
 ## Not yet specified
 
