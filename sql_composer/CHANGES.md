@@ -1,7 +1,25 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit -->
+<!-- SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit -->
 # Changes
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
+
+## 2.1
+
+- **Adding to a day.** `INSERT_INTO(t)` adds a Statement's rows to one day of a Saved
+  table and keeps the rows already there, for a day filled from more than one source. It
+  follows every rule of `INSERT_OVERWRITE`, but sending it twice adds its rows twice, so
+  the first write of a day is still `INSERT_OVERWRITE`.
+- **Dropping a table.** `drop_table(t)` writes `DROP TABLE IF EXISTS` for a table, to
+  send with `run`. It deletes every day of the table, and is for rebuilding a Saved table
+  after changing its columns: drop it, create it again, and write its days again.
+- **More Worked examples.** The Example gallery now starts with common jobs, each built in
+  steps that say why: building a Saved table (create it, write a day, add to a day,
+  backfill, drop and rebuild it), jobs with no runs, labels and counts by condition, counts
+  per group with `HAVING` and the top N, filters by a list or by text, and a long Statement
+  built from named steps. The Statements that give a wrong number beside their fix follow.
+- A Statement with both `INSERT_OVERWRITE` and `INSERT_INTO`, or with both `SELECT` and
+  `SELECT_DISTINCT`, is now refused.
+- A write that reads a table with no Date partition now says so plainly.
 
 ## 2.0
 

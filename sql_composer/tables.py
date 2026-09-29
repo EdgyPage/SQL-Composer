@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
+# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
@@ -32,7 +32,7 @@ from .refusals import (
     guard_time_of_day,
 )
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 HIVE = "hive"
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
@@ -98,6 +98,9 @@ def made_by(tree: exp.Expression, name: str, *args, **keywords) -> exp.Expressio
 
 
 def _argument_text(value) -> str:
+    """One argument of a Toolbox call, written back as Python, for the lineage boxes."""
+    # A column, condition or descending(...) is spotted by what it holds, not by its class:
+    # a condition's class and descending's live in files that import this one.
     if hasattr(value, "_tree"):
         return readable(value._tree)
     if hasattr(value, "_target"):
@@ -156,6 +159,8 @@ class Column:
     def __repr__(self) -> str:
         return hive_text(self._tree)
 
+    # Defining __eq__ below would make Python drop hashing; keep it, so a column can still
+    # be a dict key or go in a set.
     __hash__ = object.__hash__
 
     def __eq__(self, other):
@@ -297,7 +302,8 @@ def _python_family(value) -> str:
     return "date"
 
 
-ACCEPTS = {
+# For each column type family, the kinds of Python value it may be compared with.
+COMPARABLE_VALUES = {
     "number": {"number"},
     "string": {"string", "date", "timestamp"},
     "date": {"date", "string", "timestamp"},
@@ -308,7 +314,7 @@ ACCEPTS = {
 
 def _check_type(value, column: Column | None, call: str) -> None:
     family = type_family(column._type) if column is not None else None
-    if family is None or _python_family(value) in ACCEPTS[family]:
+    if family is None or _python_family(value) in COMPARABLE_VALUES[family]:
         return
     raise TypeError(
         four_part_message(
@@ -333,13 +339,13 @@ def _example_of(family: str) -> str:
 
 def date_format_of(column: Column | None) -> str:
     """The date pattern for values compared with this column."""
-    table = column._table if column is not None else None
-    if table is not None and table._date_partition == column._name:
-        return table._date_format
+    if is_date_partition(column):
+        return column._table._date_format
     return DEFAULT_DATE_FORMAT
 
 
 def is_date_partition(column: Column | None) -> bool:
+    """Whether the column is its table's Date partition."""
     table = column._table if column is not None else None
     return table is not None and table._date_partition is not None and (
         table._date_partition == column._name)
@@ -371,6 +377,8 @@ def as_date(value, column: Column, call: str) -> datetime.date:
 
 def _number_text(value) -> str | None:
     """A number's Hive text, written by the Toolbox rather than by the value's own str()."""
+    # int.__repr__(value), not repr(value): a subclass of int could change its own repr,
+    # and so change the Hive. The same goes for float, Decimal and, in literal(), str.
     if isinstance(value, int):
         return int.__repr__(value)
     if isinstance(value, float):
@@ -384,7 +392,7 @@ def _number_text(value) -> str | None:
 SINGLE_VALUES = (bool, int, float, decimal.Decimal, str, datetime.date)
 
 
-def _plain(value):
+def _python_value(value):
     """A numpy or pandas value as the plain Python value it stands for."""
     if isinstance(value, np.datetime64):
         return pd.Timestamp(value)
@@ -400,7 +408,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
         return value._tree.copy()
-    value = _plain(value)
+    value = _python_value(value)
     if value is None:
         if in_condition:
             guard_none_in_condition(call)
@@ -613,6 +621,16 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
+def hive_table(name: str, partition=None) -> exp.Table:
+    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
+
+    A write passes the PARTITION(...) it fills, which Hive writes after the name.
+    """
+    parts = name.split(".")
+    database = identifier(parts[0]) if len(parts) == 2 else None
+    return exp.Table(this=identifier(parts[-1]), db=database, partition=partition)
+
+
 def source(table: Table) -> exp.Expression:
     """How a table is named after FROM or JOIN."""
     if table._statement is not None:
@@ -620,9 +638,7 @@ def source(table: Table) -> exp.Expression:
         if table._alias == table._name:
             return base
     else:
-        parts = table._name.split(".")
-        base = exp.Table(this=identifier(parts[-1]),
-                         db=identifier(parts[0]) if len(parts) == 2 else None)
+        base = hive_table(table._name)
     return exp.alias_(base, identifier(table._alias), table=True)
 
 
@@ -837,7 +853,8 @@ def _real_table(t, call: str) -> Table:
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {t!r}.",
-                why="It works on a real table's Table reference, not on a Derived table.",
+                why="It works on a real table's Table reference, not on a table's name as "
+                "text or on a Derived table.",
                 fix="Pass a Table reference, such as job_runs.",
                 opt_out=None,
             )
@@ -1009,9 +1026,10 @@ def create_table(t, may_exist=False):
     """The CREATE TABLE Statement for a Saved table, from its Table reference.
 
     Send it once with run(create_table(t), send=...). Every column needs a type. If the
-    table already exists, Hive refuses with AlreadyExistsException, so editing the Table
-    reference and sending this again can't quietly look like it changed the table: drop the
-    table on the server first, or compare them with check_table_reference(t, send=...).
+    table already exists, Hive refuses with AlreadyExistsException. Without that refusal,
+    you could edit the Table reference, send this again, and think the table had changed when
+    it hadn't. Compare the two with check_table_reference(t, send=...), or, to start the
+    table again, drop it with drop_table(t), which deletes every day it holds.
     may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -1026,7 +1044,7 @@ def create_table(t, may_exist=False):
     )
     STORED AS ORC
     """
-    from .clauses import Statement
+    from .clauses import Statement  # here, not at the top: clauses.py imports this file
 
     t = _real_table(t, "create_table(...)")
     untyped = [column for column, kind in t._columns.items() if not kind]
@@ -1036,9 +1054,7 @@ def create_table(t, may_exist=False):
             why="Hive needs every column's type to create the table.",
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
         )
-    parts = t._name.split(".")
-    table = exp.Table(this=identifier(parts[-1]),
-                      db=identifier(parts[0]) if len(parts) == 2 else None)
+    table = hive_table(t._name)
     columns = [_column_definition(t, c) for c in t._columns if c != t._date_partition]
     properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
     if t._date_partition is not None:
@@ -1047,6 +1063,36 @@ def create_table(t, may_exist=False):
     s = Statement()
     s._ddl = exp.Create(kind="TABLE", this=exp.Schema(this=table, expressions=columns),
                         properties=exp.Properties(expressions=properties), exists=may_exist)
+    return s
+
+
+def drop_table(t):
+    """The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
+
+    It deletes the whole table, every day of it, and the Toolbox can't bring it back. Use it
+    only for a Saved table you made: it takes any Table reference, so given the reference of
+    a table others fill, such as job_runs, it would drop that table too, if your account is
+    allowed to. The usual
+    reason is changing a Saved table's columns: create_table refuses while the old table
+    exists, so drop it, create it again, and write its days again. IF EXISTS means that
+    sending it for a table that isn't there does nothing, rather than failing.
+
+    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    >>> print(to_hive(drop_table(daily_runs)))
+    DROP TABLE IF EXISTS mart.daily_runs
+    """
+    from .clauses import Statement  # here, not at the top: clauses.py imports this file
+
+    t = _real_table(t, "drop_table(...)")
+    table = hive_table(t._name)
+    # sqlglot 30 renamed the part of a DROP that holds the table from `this` to `tables`.
+    if "tables" in exp.Drop.arg_types:
+        drop = exp.Drop(kind="TABLE", tables=[table], exists=True)
+    else:
+        drop = exp.Drop(kind="TABLE", this=table, exists=True)
+    s = Statement()
+    s._ddl = drop
     return s
 
 

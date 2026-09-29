@@ -1,7 +1,7 @@
-<!-- SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit -->
+<!-- SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit -->
 # SQL Composer
 
-This is SQL Composer 2.0, exported 2026-09-25 21:43.
+This is SQL Composer 2.1, exported 2026-09-29 12:54.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -81,8 +81,9 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 `sql_composer/examples.html` is the Example gallery: every Worked example on one page, its
 Python and, for each Statement it builds, the Hive and any result, from the Example database
 or, where the Example database can't run it, computed in pandas. It holds the docstrings'
-examples and the Worked examples on their own, each of which shows a Statement that gives a
-wrong number beside its fix. Open it in your browser. It needs nothing else: a box at the top
+examples and the Worked examples on their own: common jobs built in steps that each say why,
+such as building a Saved table or finding rows with no match, and Statements that give a wrong
+number shown beside their fix. Open it in your browser. It needs nothing else: a box at the top
 keeps only the examples holding every word you type, and Ctrl+F searches it too.
 
 ## Cheat sheet
@@ -94,8 +95,8 @@ from `sql_composer` itself, never from one of its files.
 
 SQL Composer: write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'2.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'SQL Composer 2.0, exported 2026-09-25 21:43'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'2.1'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'SQL Composer 2.1, exported 2026-09-29 12:54'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -107,6 +108,7 @@ Table references: Table, and the functions that read, write and check one.
 - `check_key` - Check on the newest day that no two rows share the table's declared key.
 - `check_table_reference` - Compare a Table reference with its table in Hive, and list what differs.
 - `create_table` - The CREATE TABLE Statement for a Saved table, from its Table reference.
+- `drop_table` - The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
 - `all_columns` - Every column of a Table reference, in its order, for SELECT instead of `*`.
 
 ### `clauses.py`
@@ -126,6 +128,7 @@ Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement
 - `ORDER_BY` - Sort the result; it needs a LIMIT, and sorting in pandas is usually better.
 - `LIMIT` - Return at most n rows.
 - `INSERT_OVERWRITE` - Write the Statement's rows into one day of a Saved table, replacing that day.
+- `INSERT_INTO` - Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
 - `statement` - Assemble clause functions, in SQL order, into a Statement.
 - `derived` - Name a Statement so another Statement can read it like a table.
 

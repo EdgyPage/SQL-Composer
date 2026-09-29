@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
+# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own
@@ -26,7 +26,7 @@ from .tables import (
     made_by,
 )
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 

@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
+# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
 """Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
@@ -28,7 +28,7 @@ import warnings
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 
 class GuardRefused(Exception):
@@ -158,6 +158,7 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
             "averages is not the weekly average, and a user seen on two days would be "
             "counted twice.",
             fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
+            # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
             opt_out=f"{call[:-1]}, adds_up=True)",
         )
     )
@@ -222,7 +223,8 @@ def guard_order_by_in_derived_table(name: str) -> None:
     )
 
 
-def guard_write_lines_up(table: str, missing: list[str], extra: list[str]) -> None:
+def guard_write_lines_up(call: str, table: str, missing: list[str],
+                         extra: list[str]) -> None:
     """A write must select exactly the Saved table's columns. No opt-out."""
     problems = []
     if missing:
@@ -231,7 +233,7 @@ def guard_write_lines_up(table: str, missing: list[str], extra: list[str]) -> No
         problems.append("it also selects " + ", ".join(extra))
     raise GuardRefused(
         four_part_message(
-            what=f"INSERT_OVERWRITE({table}): " + ", and ".join(problems) + ".",
+            what=f"{call}: " + ", and ".join(problems) + ".",
             why="Hive fills a table's columns by position, not by name, so a missing or extra "
             "column would put values in the wrong columns.",
             fix=f"SELECT every column of {table}'s Table reference except its Date partition, "
@@ -241,13 +243,13 @@ def guard_write_lines_up(table: str, missing: list[str], extra: list[str]) -> No
     )
 
 
-def guard_one_day_per_write(table: str, days: int) -> None:
-    """A write replaces one day. No opt-out."""
+def guard_one_day_per_write(call: str, days: int) -> None:
+    """A write fills one day. No opt-out."""
     raise GuardRefused(
         four_part_message(
-            what=f"INSERT_OVERWRITE({table}) covers {days} days.",
-            why="A write replaces one day of the Saved table at a time, so every day's rows "
-            "would land in one day's Partition.",
+            what=f"{call} covers {days} days.",
+            why="A write fills one day of the Saved table at a time, so every day's rows "
+            "would land in that one day.",
             fix="Send one Statement per day: for day in by_day(s): run(day, send=...).",
             opt_out=None,
         )

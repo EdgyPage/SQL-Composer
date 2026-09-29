@@ -1,4 +1,4 @@
-# SQL Composer 2.0, exported 2026-09-25 21:43 - generated from dev, do not edit
+# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
 run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own
@@ -28,9 +28,9 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
 )
-from .tables import aliased, hive_text, identifier, source
+from .tables import aliased, hive_table, hive_text, identifier, source
 
-TOOLBOX_VERSION = "2.0"
+TOOLBOX_VERSION = "2.1"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}
@@ -69,7 +69,7 @@ def set_load_limits(rows=None, dates=None):
 # --- Building the Hive -----------------------------------------------------------------------
 
 
-def _set(tree: exp.Expression, part: str, value) -> None:
+def _set_part(tree: exp.Expression, part: str, value) -> None:
     """Set a part of a sqlglot tree. sqlglot 30 renamed `from` and `with` to `from_`, `with_`."""
     for key in (part, part + "_"):
         if key in type(tree).arg_types:
@@ -79,12 +79,14 @@ def _set(tree: exp.Expression, part: str, value) -> None:
 
 
 def _output(column, name: str) -> exp.Expression:
+    """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
         return column._tree.copy()
     return exp.alias_(column._tree.copy(), identifier(name))
 
 
 def _join_tree(read) -> exp.Join:
+    """The sqlglot tree of one JOIN, LEFT_JOIN or CROSS_JOIN clause."""
     parts = {"this": source(read.table)}
     if read.on is not None:
         parts["on"] = read.on._tree.copy()
@@ -96,6 +98,7 @@ def _join_tree(read) -> exp.Join:
 
 
 def _select_tree(s: Statement) -> exp.Select:
+    """The sqlglot tree of a Statement's SELECT, from FROM to LIMIT, without WITH."""
     outputs = s._outputs
     if s._write is not None:
         order = list(s._write._columns)
@@ -103,7 +106,7 @@ def _select_tree(s: Statement) -> exp.Select:
     tree = exp.Select(expressions=[_output(column, name) for column, name in outputs])
     if s._distinct:
         tree.set("distinct", exp.Distinct())
-    _set(tree, "from", exp.From(this=source(s._reads[0].table)))
+    _set_part(tree, "from", exp.From(this=source(s._reads[0].table)))
     if len(s._reads) > 1:
         tree.set("joins", [_join_tree(read) for read in s._reads[1:]])
     if s._where:
@@ -120,13 +123,14 @@ def _select_tree(s: Statement) -> exp.Select:
 
 
 def _with(tree: exp.Expression, s: Statement) -> exp.Expression:
+    """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
     parts = [
         exp.CTE(this=_select_tree(table._statement),
                 alias=exp.TableAlias(this=identifier(table._name)))
         for table in derived_tables(s)
     ]
     if parts:
-        _set(tree, "with", exp.With(expressions=parts))
+        _set_part(tree, "with", exp.With(expressions=parts))
     return tree
 
 
@@ -158,21 +162,30 @@ def _check_dates_cap(s: Statement) -> None:
 def _written_day(s: Statement):
     """The one day a write covers, from the date bound of the table it reads from."""
     table, span = _bottom_read(s)
-    days = span.dates() if span is not None and span.is_bounded() else None
-    if days is None:
-        raise ValueError(
-            four_part_message(
-                what=f"INSERT_OVERWRITE({s._write._alias}) reads {table._name} without a "
-                "bound on its Date partition, so the day to write isn't known.",
-                why="A write replaces the one day its Statement reads.",
-                fix=f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "
-                "at a time with by_day(...).",
-                opt_out=None,
-            )
-        )
+    if table._date_partition is None:
+        raise _day_unknown(s, f"reads {table._name}, which has no Date partition",
+                     "A Saved table is filled one day at a time from a table with days: "
+                     "read one with a Date partition in FROM, bounded to one day in WHERE.")
+    if span is None or not span.is_bounded():
+        raise _day_unknown(s, f"reads {table._name} without a bound on its Date partition",
+                     f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "
+                     "at a time with by_day(...).")
+    days = span.dates()
     if len(days) != 1:
-        guard_one_day_per_write(s._write._alias, len(days))
+        guard_one_day_per_write(s._write_call, len(days))
     return days[0]
+
+
+def _day_unknown(s: Statement, what: str, fix: str) -> ValueError:
+    """The error for a write whose day isn't known; the caller raises it."""
+    return ValueError(
+        four_part_message(
+            what=f"{s._write_call} {what}, so the day to write isn't known.",
+            why="A write fills the one day its Statement reads.",
+            fix=fix,
+            opt_out=None,
+        )
+    )
 
 
 def _bottom_read(s: Statement):
@@ -186,20 +199,19 @@ def _bottom_read(s: Statement):
 
 
 def _write_tree(s: Statement) -> exp.Expression:
+    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
     table = s._write
     day = _written_day(s).strftime(table._date_format)
-    parts = table._name.split(".")
     partition = exp.Partition(expressions=[
         exp.EQ(this=exp.column(identifier(table._date_partition)),
                expression=exp.Literal.string(day)),
     ])
-    target = exp.Table(this=identifier(parts[-1]),
-                       db=identifier(parts[0]) if len(parts) == 2 else None,
-                       partition=partition)
-    return exp.Insert(this=target, expression=_select_tree(s), overwrite=True)
+    target = hive_table(table._name, partition=partition)
+    return exp.Insert(this=target, expression=_select_tree(s), overwrite=s._replaces_day)
 
 
-def _tree(s: Statement) -> exp.Expression:
+def _statement_tree(s: Statement) -> exp.Expression:
+    """The whole sqlglot tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
     if s._ddl is not None:
         return s._ddl.copy()
     if s._write is not None:
@@ -251,7 +263,7 @@ def to_hive(s):
         )
     if s._ddl is None:
         _check_dates_cap(s)
-    text = hive_text(_tree(s), pretty=True)
+    text = hive_text(_statement_tree(s), pretty=True)
     _self_check(text)
     return text
 
@@ -321,16 +333,23 @@ def _steps(s: Statement) -> list[tuple[Statement, str]]:
     return steps
 
 
-def _one_day(step: Statement, day, new_from=None) -> Statement:
-    """A copy of `step` reading one day, or reading `new_from` in place of its FROM table."""
+def _reading(step: Statement, new_from) -> Statement:
+    """A copy of `step` that reads `new_from` in place of its FROM table."""
+    clauses = list(step._clauses)
+    first = step._reads[0]
+    clauses[clauses.index(first)] = FROM(new_from,
+                                         reads_all_partitions=first.reads_all_partitions)
+    return statement(*clauses, returns_all_rows=step._returns_all_rows)
+
+
+def _one_day(step: Statement, day) -> Statement:
+    """A copy of `step` whose WHERE bounds its FROM table's Date partition to one day."""
     clauses = list(step._clauses)
     first = step._reads[0]
     index = clauses.index(first)
-    if new_from is not None:
-        clauses[index] = FROM(new_from, reads_all_partitions=first.reads_all_partitions)
-        return statement(*clauses, returns_all_rows=step._returns_all_rows)
     table = first.table
     key = (table._alias, table._date_partition)
+    # Keep every condition but the old bound on the date, then bound it to the one day.
     kept = [c for c in step._where if c._only_bounds != key]
     where = WHERE(*kept, equals(getattr(table, table._date_partition), day))
     old = next((c for c in clauses if c._name == "WHERE"), None)
@@ -411,13 +430,14 @@ def by_day(s):
 
 
 def _split(steps, day) -> Statement:
+    """The Statement for one day: the bottom step bounded to it, each step above reading it."""
     bottom = _one_day(steps[-1][0], day)
     for step, _ in reversed(steps[:-1]):
         old = step._reads[0].table
         new = derived(old._name, bottom)
         if old._alias != old._name:
             new = aliased(new, old._alias)
-        bottom = _one_day(step, day, new_from=new)
+        bottom = _reading(step, new)
     return bottom
 
 
