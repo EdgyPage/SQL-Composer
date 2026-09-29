@@ -40,7 +40,7 @@ the golden skipped and its reason shown.
 The golden corpus is in place: `tools/hive_corpus.py` writes `tests/hive_corpus/sql_composer.txt`,
 377 cases under stable ids, each pinning what a user sees through four public seams, and
 `tests/test_hive_corpus.py` fails at the sqlglot pin while the committed file differs from what
-the Toolbox writes. A test change of one word (backticking `status`) changes 3,500 of its lines.
+the Toolbox writes. Backticking one more word, `status`, changes 1,501 of its lines.
 `tests/escaping_cases.py` pins six more control characters. No Toolbox file changed; pytest
 passes at sqlglot 30.19.0 (1,095 tests) and at 25.24.2 (1,037, with the golden skipped and its
 reason shown). The code review is answered below, and neither commit touched a watched path, so
