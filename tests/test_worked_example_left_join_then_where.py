@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from conftest import example_rows, needs_executor
+from conftest import example_rows
 from sql_composer import GuardRefused, example_database, run
 from statements import left_join_then_where as example
 
@@ -34,7 +34,7 @@ def test_keeps_only_matches_lets_the_careless_statement_through() -> None:
     example.careless(keeps_only_matches=True)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_careless_statement_loses_the_job_that_never_ran() -> None:
     right = pandas_check()
     result = run(example.careless(keeps_only_matches=True), send=example_database.send)
@@ -42,7 +42,7 @@ def test_the_careless_statement_loses_the_job_that_never_ran() -> None:
     assert "cache_warm" not in runs_by_job(result)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_fixed_statement_keeps_it_with_no_runs() -> None:
     right = pandas_check()
     result = run(example.fixed(), send=example_database.send)

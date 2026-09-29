@@ -9,7 +9,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from conftest import example_rows, needs_executor
+from conftest import example_rows
 from sql_composer import example_database, run
 from statements import (
     groups_and_top_n,
@@ -33,7 +33,7 @@ def result(s) -> list[dict]:
 # --- jobs_that_never_ran --------------------------------------------------------------------
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_anti_join_finds_the_job_with_no_runs() -> None:
     jobs = example_rows("jobs")
     never = jobs[~jobs.job_id.isin(runs().job_id)]
@@ -42,7 +42,7 @@ def test_the_anti_join_finds_the_job_with_no_runs() -> None:
     assert list(never.job_name) == ["cache_warm"]
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_semi_join_lists_each_job_that_ran_once() -> None:
     jobs = example_rows("jobs")
     ran = jobs[jobs.job_id.isin(runs().job_id)]
@@ -54,7 +54,7 @@ def test_the_semi_join_lists_each_job_that_ran_once() -> None:
 # --- labels_and_counts ----------------------------------------------------------------------
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_labels_fill_null_and_split_by_length() -> None:
     expected = pd.DataFrame({
         "run_id": runs().run_id,
@@ -64,7 +64,7 @@ def test_labels_fill_null_and_split_by_length() -> None:
     assert result(labels_and_counts.labelled_runs()) == expected.to_dict("records")
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_one_row_per_job_with_a_count_of_each_outcome() -> None:
     found = runs().assign(
         succeeded=runs().status.eq("SUCCESS"),
@@ -79,7 +79,7 @@ def test_one_row_per_job_with_a_count_of_each_outcome() -> None:
 # --- groups_and_top_n -----------------------------------------------------------------------
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_distinct_counts_having_and_top_n() -> None:
     assert sorted(row["team"] for row in result(groups_and_top_n.teams())) == sorted(
         example_rows("jobs").team.unique())
@@ -100,7 +100,7 @@ def test_distinct_counts_having_and_top_n() -> None:
 # --- lists_and_text -------------------------------------------------------------------------
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 @pytest.mark.parametrize(
     ("statement", "keep"),
     [
@@ -117,14 +117,14 @@ def test_lists_and_either_condition(statement: str, keep) -> None:
     assert [row["run_id"] for row in found] == list(kept.run_id)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_still_running_run_is_dropped_by_not_in_and_kept_by_is_null() -> None:
     dropped = [row["run_id"] for row in result(lists_and_text.runs_that_did_not_pass())]
     kept = [row["run_id"] for row in result(lists_and_text.runs_to_check())]
     assert 98 not in dropped and 98 in kept
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_text_matching_takes_underscore_as_itself() -> None:
     jobs = example_rows("jobs")
     names = jobs.job_name
@@ -136,7 +136,7 @@ def test_text_matching_takes_underscore_as_itself() -> None:
 # --- step_by_step ---------------------------------------------------------------------------
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_each_step_reads_the_one_before_it() -> None:
     per_job = runs().groupby("job_id").agg(runs=("run_id", "size"),
                                             minutes=("duration_mins", "sum"))

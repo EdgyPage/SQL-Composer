@@ -7,6 +7,9 @@ minversion = "9.0"
 testpaths = ["tests"]
 pythonpath = [".", "worked_examples", "tools"]
 addopts = "-q --strict-markers --strict-config"
+markers = [
+    "needs_example_database: runs a query on the Example database, so skips where it can't",
+]
 filterwarnings = [
     # A warning nobody reads is indistinguishable from success, so the suite fails on one.
     "error",

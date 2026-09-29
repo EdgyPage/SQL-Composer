@@ -17,11 +17,11 @@ import inspect
 import pytest
 
 import sql_composer
-from conftest import EXECUTOR_READY
+from conftest import skip_unless_the_example_database_runs
 
 PUBLIC = list(sql_composer.__all__)
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
-# Examples that run a query on the Example database, and so need sqlglot's executor.
+# Examples that run a query on the Example database, and so need it to run here.
 RUNS_A_QUERY = ("run(", "check_key(")
 
 
@@ -55,8 +55,8 @@ def test_a_first_line_is_one_short_sentence(name: str) -> None:
 @pytest.mark.parametrize("name", sorted(set(PUBLIC) - CONSTANTS) + ["TOOLBOX_VERSION"])
 def test_the_worked_example_runs(name: str, tmp_path, monkeypatch) -> None:
     doc = docstring_of(name)
-    if not EXECUTOR_READY and any(call in doc for call in RUNS_A_QUERY):
-        pytest.skip("the example runs a query, which needs sqlglot 30.19.0 or newer")
+    if any(call in doc for call in RUNS_A_QUERY):
+        skip_unless_the_example_database_runs()
     monkeypatch.chdir(tmp_path)
     scope = {public: getattr(sql_composer, public) for public in PUBLIC}
     scope["job_runs"] = sql_composer.example_database.job_runs

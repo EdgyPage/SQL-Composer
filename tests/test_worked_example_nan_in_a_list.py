@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from conftest import example_rows, needs_executor
+from conftest import example_rows
 from sql_composer import GuardRefused, example_database, run, to_hive
 from statements import nan_in_a_list as example
 
@@ -36,7 +36,7 @@ def test_the_guard_refuses_a_nan_in_the_list() -> None:
     assert "Opt-out:        none" in message
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_careless_hive_would_count_no_rows() -> None:
     hive = to_hive(example.fixed())
     assert "NOT job_runs.job_id IN (2.0)" in hive
@@ -44,6 +44,6 @@ def test_the_careless_hive_would_count_no_rows() -> None:
     assert example_database.send(careless_hive).runs[0] == 0
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_the_other_jobs_runs() -> None:
     assert run(example.fixed(), send=example_database.send).runs[0] == pandas_check() == 3
