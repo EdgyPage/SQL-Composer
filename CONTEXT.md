@@ -1,25 +1,32 @@
 # SQL Composer
 
 A toolbox for writing Hive SQL in Python. Queries are composed from Python functions and a small
-stack of the user's own scripts, emitted as a single string for a query API that accepts only
-strings, and traced back to the table columns they read.
+stack of the user's own scripts, emitted as a single Hive SQL string - sent to a query API that
+accepts only strings, or run on Spark - and traced back to the table columns they read.
 
 ## Language
 
 ### What ships to work
 
 **Toolbox**:
-The set of Python functions that compose Hive SQL - the only thing copied to work.
+The set of Python functions that compose Hive SQL - the only thing copied to work. It comes in two
+Editions.
 _Avoid_: library, package, framework, SQL module
 
+**Edition**:
+One of the two builds of the Toolbox, with the same functions writing the same Hive: SQL Composer,
+which writes its Hive with sqlglot, and Spark Composer, which writes it itself and runs it on
+Spark. Each is its own folder, and they can sit side by side.
+_Avoid_: flavour, variant, port, fork, backend, dialect
+
 **Toolbox version**:
-The feature number of the Toolbox (`3.1`), raised only when a big feature lands. Two copies of the
-same Toolbox version are told apart by when they were exported.
+The feature number of the Toolbox (`3.1`), raised only when a big feature lands, and shared by both
+Editions. Two copies of the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox and its README, generated from the Dev branch and never
-edited by hand.
+The branch holding only the Toolbox's Editions and their README, generated from the Dev branch
+and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:
@@ -101,8 +108,8 @@ _Avoid_: guard, quota, throttle, safety check
 
 **Example database**:
 A small set of made-up tables, with their Table references, on which Worked examples run and each
-Guard and Warning is shown catching a wrong number. It ships inside the Toolbox, so Statements can
-be practised on it at work without touching the warehouse.
+Guard and Warning is shown catching a wrong number. It ships inside each Edition, so Statements
+can be practised on it at work without touching the warehouse.
 _Avoid_: fixture, sample data, demo database, test tables
 
 **Worked example**:
@@ -111,6 +118,6 @@ with the Python that builds it and the Hive it emits. It sits either in a Toolbo
 _Avoid_: case, sample, recipe, demo
 
 **Example gallery**:
-The one searchable page holding every Worked example, generated from them and shipped with the
-Toolbox.
+The one searchable page holding every Worked example, generated from them and shipped with each
+Edition.
 _Avoid_: cookbook, docs site, examples page

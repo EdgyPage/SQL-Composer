@@ -1,7 +1,7 @@
 # Record the Edition split in the docs, and watch it for drift
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 
 ## Question

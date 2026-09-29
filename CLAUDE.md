@@ -22,9 +22,10 @@ What no test can hold is in `docs/agents/standards.md`, which the code reviewer 
 
 ## Drift
 
-After a commit that touches the Toolbox, `docs/`, `CONTEXT.md`, `CLAUDE.md` or
-`requirements-dev.txt`, the drift reviewer looks for anything the commit made untrue and adds one
-open item per finding to `.scratch/drift.md`. It edits nothing else.
+After a commit that touches either Edition of the Toolbox, `worked_examples/`, `docs/`,
+`CONTEXT.md`, `CLAUDE.md` or `requirements-dev.txt`, the drift reviewer looks for anything the
+commit made untrue and adds one open item per finding to `.scratch/drift.md`. It edits nothing
+else.
 
 - Fix open items as your next commits. Each fix marks its item `[x]` with the fixing commit.
 - A false alarm closes with a `No-drift: <item> - <why>` line in a commit message. The reviewer
