@@ -14,9 +14,9 @@ Editions.
 _Avoid_: library, package, framework, SQL module
 
 **Edition**:
-One of the two builds of the Toolbox, with the same functions writing the same Hive: SQL Composer,
-which writes its Hive with sqlglot, and Spark Composer, which writes it itself and runs it on
-Spark. Each is its own folder, and they can sit side by side.
+One of the two forms the Toolbox comes in, with the same functions writing the same Hive: SQL
+Composer, which writes its Hive with sqlglot, and Spark Composer, which writes it itself and runs
+it on Spark. Each is its own folder, and they can sit side by side.
 _Avoid_: flavour, variant, port, fork, backend, dialect
 
 **Toolbox version**:

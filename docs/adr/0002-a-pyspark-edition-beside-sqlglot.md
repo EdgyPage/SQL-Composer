@@ -24,12 +24,12 @@ sqlglot.
   every Guard and Load limit already reasons about the Statement, not about DataFrames.
 - **Keeping sqlglot in the Spark Edition** with `dialect="spark"`. This is the cheapest option,
   but the user wants an Edition that needs no sqlglot at work.
-- **One package that detects its library.** One folder would hold two backends, and the import
-  self-check could no longer say which library a copy needs. This was rejected for two folders
-  with the same file names.
+- **One package that detects its library.** One folder would hold the writing code for both
+  libraries, and the import self-check could no longer say which library a copy needs. This was
+  rejected for two folders with the same file names.
 - **Spark for the Example database in the user's own Python.** PySpark allows one SparkContext per
-  process, so the sandbox would either run on the user's real session or pin their session to
-  the sandbox. It runs in a helper process instead.
+  process, so the Example database would either run on the user's real session or pin their
+  session to its own. It runs in a helper process instead.
 - **Storing trees in sqlglot's printed form.** This was rejected so that SQL Composer rebuilds
   exactly the sqlglot trees it builds today, and its Hive stays byte-identical on every sqlglot in
   its range.
