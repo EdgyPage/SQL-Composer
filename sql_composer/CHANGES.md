@@ -19,13 +19,16 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - A Statement with both `INSERT_OVERWRITE` and `INSERT_INTO`, or with both `SELECT` and
   `SELECT_DISTINCT`, is now refused.
 - A write that reads a table with no Date partition now says so plainly.
-- A value holding a bell, form feed or vertical tab is now refused: Hive would read it back
-  as a plain letter, so the value compared or written would quietly be a different one.
-- `write_table_reference`, `check_table_reference` and `check_key` now read the warehouse
-  the way it answers: a day listed as `2026%2F09%2F24` is the day 2026/09/24, the NULL day
-  is never taken for the newest one, a table named with a reserved word such as `order`
-  is written in backticks, and what Spark lists after a table's partitions isn't taken for
-  more partitions.
+- A value holding a bell, a form feed or a vertical tab is now refused, and so is a
+  `date_format` holding one: Hive and Spark would read it back as the letter a, f or v, so the
+  value compared or written would quietly be a different one.
+- `write_table_reference`, `check_table_reference` and `check_key` now find a day written
+  like 2026/09/24, which the warehouse lists as `2026%2F09%2F24`.
+- They no longer take the partition the warehouse lists for rows with no day for the newest
+  day.
+- They put a table named with a word Hive keeps for itself, such as `order`, in backticks.
+- They no longer take a column Spark lists after the partition columns for another partition
+  column, and they read the partition column of a table Spark lists as "# Partitioning".
 
 ## 2.0
 

@@ -122,13 +122,48 @@ def answering(describe_rows, partitions, sent=None):
     return send
 
 
-# Spark lists DESCRIBE with no blank row, a None comment, and more sections after the partitions.
+# Spark lists DESCRIBE with a None comment, no blank row before the partitions, and more sections
+# after them, such as the columns that have a default value.
 SPARK_DESCRIBE = [
     ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
     ("# Partition Information", "", ""), ("# col_name", "data_type", "comment"),
     ("dt", "string", None),
-    ("# Column Default Values", "", ""), ("status", "string", "'NEW'"),
+    ("", "", ""), ("# Column Default Values", "", ""), ("status", "string", "'NEW'"),
 ]
+# Hive lists a blank row before the partitions, an empty comment, and nothing after them.
+HIVE_DESCRIBE = [
+    ("run_id", "bigint", ""), ("status", "string", ""), ("dt", "string", ""),
+    ("", None, None), ("# Partition Information", None, None),
+    ("# col_name", "data_type", "comment"), ("dt", "string", ""),
+]
+# Spark lists a newer kind of table's partitioning as one row per column or function of one.
+SPARK_PARTITIONING = [
+    ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
+    ("", "", ""), ("# Partitioning", "", ""), ("Part 0", "dt", ""),
+]
+
+
+@pytest.mark.parametrize("describe", [SPARK_DESCRIBE, HIVE_DESCRIBE, SPARK_PARTITIONING],
+                         ids=["spark", "hive", "spark_partitioning"])
+def test_describe_is_read_as_hive_and_spark_list_it(describe, tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    send = answering(describe, ["dt=2026-09-24"])
+    t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
+              date_partition="dt")
+    assert repr(check_table_reference(t, send=send)) == "ops.runs matches its Table reference."
+    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    assert '"Part 0"' not in text
+    assert 'date_partition="dt",\n' in text
+
+
+def test_every_escaped_character_of_a_partition_value_is_read(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    sent = []
+    send = answering(SPARK_DESCRIBE, ["region=eu%3Dwest/dt=2026%2F09%2F24/note=50%25%5Cx"], sent)
+    t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
+              date_partition="dt", date_format="%Y/%m/%d", key=["run_id"])
+    check_key(t, send=send)
+    assert "runs.dt = '2026/09/24'" in sent[-1]
 
 
 def test_a_section_after_the_partitions_is_not_read_as_partitions(tmp_path, monkeypatch) -> None:

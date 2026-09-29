@@ -38,6 +38,7 @@ from sql_composer import (
     less_than,
     more_than,
     not_equals,
+    starts_with,
 )
 from sql_composer.example_database import job_runs
 
@@ -88,13 +89,22 @@ def test_calculations_escape_their_values(_label, value, expected) -> None:
 def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(_label, value,
                                                                            _expected) -> None:
     for make in (lambda: equals(job_runs.status, value),
+                 lambda: not_equals(job_runs.status, value),
                  lambda: between(job_runs.status, "a", value),
                  lambda: is_in(job_runs.status, ["a", value]),
+                 lambda: is_not_in(job_runs.status, [value]),
                  lambda: fill_null(job_runs.status, value),
+                 lambda: if_else(equals(job_runs.status, "x"), value, "y"),
                  lambda: hive_function("upper", value),
-                 lambda: contains(job_runs.status, value)):
-        with pytest.raises(GuardRefused, match="control character"):
+                 lambda: contains(job_runs.status, value),
+                 lambda: starts_with(job_runs.status, value)):
+        with pytest.raises(GuardRefused, match="would read it back as the letter"):
             make()
+
+
+def test_a_date_format_holding_a_control_character_is_refused() -> None:
+    with pytest.raises(ValueError, match="something other than"):
+        Table("ops.t", columns={"dt": "string"}, date_partition="dt", date_format="%Y\x07%m%d")
 
 
 @pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)

@@ -110,24 +110,20 @@ def guard_not_a_number(call: str, position: str, value: object) -> None:
     )
 
 
-# The control characters Hive and Spark would read back as letters, and what each is called.
-CONTROL_CHARACTERS = {"\x07": "a bell (BEL)", "\x0c": "a form feed (FF)",
-                      "\x0b": "a vertical tab (VT)"}
+# The control characters Hive and Spark would read back as letters: each one's name and letter.
+CONTROL_CHARACTERS = {"\x07": ("a bell", "a"), "\x0c": ("a form feed", "f"),
+                      "\x0b": ("a vertical tab", "v")}
 
 
-def guard_control_character(call: str, position: str, value: str) -> None:
+def guard_control_character(call: str, position: str, character: str) -> None:
     """A value holding a control character Hive would read as a letter. No opt-out."""
-    found = next((name for character, name in CONTROL_CHARACTERS.items() if character in value),
-                 None)
-    if found is None:
-        return
+    name, letter = CONTROL_CHARACTERS[character]
     raise GuardRefused(
         four_part_message(
-            what=f"{call}: {position} holds a control character, {found}.",
-            why="Hive and Spark read it back as a plain letter, so the value would quietly be "
-            "a different one.",
-            fix="Leave the character out of the value. To find rows that hold it, use "
-            "contains(...) with the text on either side of it.",
+            what=f"{call}: {position} holds {name}, {character!r}.",
+            why=f"Hive and Spark would read it back as the letter {letter}, so the value would "
+            "quietly be a different one.",
+            fix=f"Take it out of the value first, as in value.replace({character!r}, \"\").",
             opt_out=None,
         )
     )
