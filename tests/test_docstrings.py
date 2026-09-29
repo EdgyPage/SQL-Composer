@@ -21,7 +21,7 @@ from conftest import skip_unless_the_example_database_runs
 
 PUBLIC = list(sql_composer.__all__)
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
-# Examples that run a query on the Example database, and so need it to run here.
+# Examples that run a query, and so need the Example database to run here.
 RUNS_A_QUERY = ("run(", "check_key(")
 
 

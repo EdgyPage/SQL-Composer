@@ -94,6 +94,9 @@ uses.
 - [Define the Editions once, in `tools/editions.py`](issues/06-define-the-editions-once.md): one
   registry of folders, libraries, file kinds and import tiers, one import checker, and a `swap()`
   that refuses any name it can't be sure of.
+- [A conftest that knows the Edition, and tests with no hard-coded folder](issues/07-a-conftest-that-knows-the-edition.md):
+  `--edition` and `--example-database` choose before any Toolbox import, and the tests read the
+  Edition's folder, product and version.
 
 ## Not yet specified
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 import ast
 import doctest
 import html
-import importlib
 import re
 import sys
 from html.parser import HTMLParser
@@ -20,7 +19,7 @@ from pathlib import Path
 import pytest
 
 import sql_composer
-from conftest import edition, toolbox_folder
+from conftest import toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
 GALLERY = toolbox_folder() / "examples.html"
@@ -33,7 +32,8 @@ import example_gallery  # noqa: E402
 def test_the_committed_gallery_is_what_the_generator_writes() -> None:
     committed = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
     assert example_gallery.gallery_page() == committed, (
-        "sql_composer/examples.html is out of date: run python tools/example_gallery.py"
+        f"{GALLERY.relative_to(ROOT).as_posix()} is out of date: run python "
+        "tools/example_gallery.py"
     )
 
 
@@ -57,8 +57,8 @@ def entries() -> dict[str, tuple[str, str]]:
 def toolbox_docstrings() -> list[doctest.DocTest]:
     """Every docstring in the Toolbox that holds a >>> example."""
     finder = doctest.DocTestFinder()
-    modules = [sql_composer] + [
-        importlib.import_module(f"{edition().folder}.{path.stem}")
+    modules = [toolbox_module()] + [
+        toolbox_module(path.stem)
         for path in sorted(toolbox_folder().glob("*.py")) if path.stem != "__init__"
     ]
     return [test for module in modules for test in finder.find(module) if test.examples]

@@ -28,8 +28,8 @@ from conftest import skip_unless_the_example_database_runs  # noqa: E402
 
 WHEN = datetime.datetime(2026, 10, 2, 14, 5)
 VERSION = sql_composer.TOOLBOX_VERSION
-EXPORTED = f"SQL Composer {VERSION}, exported 2026-10-02 14:05"
-STAMP = f"{EXPORTED} - generated from dev, do not edit"
+VERSION_TEXT = f"SQL Composer {VERSION}, exported 2026-10-02 14:05"
+STAMP = f"{VERSION_TEXT} - generated from dev, do not edit"
 
 
 def dev_toolbox_files() -> list[str]:
@@ -83,7 +83,7 @@ def readme(clean: Path) -> str:
 def test_the_readme_says_which_copy_it_came_with(clean: Path) -> None:
     text = readme(clean)
     assert text.splitlines()[0] == f"<!-- {STAMP} -->"
-    assert f"This is {EXPORTED}." in text
+    assert f"This is {VERSION_TEXT}." in text
     assert "<!-- VERSION -->" not in text and "<!-- CHEAT SHEET -->" not in text
 
 
@@ -108,7 +108,7 @@ def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> Non
     init = (clean / "sql_composer" / "__init__.py").read_text(encoding="utf-8")
     examples = doctest.DocTestParser().get_examples(ast.get_docstring(ast.parse(init)))
     shown = next(example.want for example in examples if example.source.strip() == "VERSION")
-    exported = repr(EXPORTED) + "\n"
+    exported = repr(VERSION_TEXT) + "\n"
     assert doctest.OutputChecker().check_output(shown, exported, doctest.ELLIPSIS), shown
 
 
@@ -204,7 +204,7 @@ def test_the_export_commits_the_clean_tree_on_top_of_main(repo: Path) -> None:
     held = git(repo, "ls-tree", "-r", "--name-only", "main").splitlines()
     assert held == [".github/README.md"] + [f"sql_composer/{name}" for name in dev_toolbox_files()]
     assert git(repo, "log", "-1", "--format=%s", "main") == (
-        EXPORTED)
+        VERSION_TEXT)
     assert dev in git(repo, "log", "-1", "--format=%b", "main")
     assert git(repo, "rev-parse", "--abbrev-ref", "HEAD") == "dev"
     assert git(repo, "rev-parse", "dev") == dev
@@ -263,7 +263,7 @@ def dev_copy(folder: Path) -> Path:
 
 def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
     version = export_clean.build(ROOT, tmp_path / "clean", WHEN)
-    assert version == EXPORTED
+    assert version == VERSION_TEXT
 
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
