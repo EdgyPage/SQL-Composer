@@ -84,6 +84,10 @@ uses.
   Hive for `spark.sql()`; both Editions share a Toolbox-owned tree and every other file, ship
   together on one `main` as 3.0, and are held together by generated copies, goldens and a
   parity test.
+- [Pin today's Hive, reprs and lineage in a golden corpus](issues/03-pin-todays-hive-in-a-golden-corpus.md):
+  377 cases pin what SQL Composer shows through four public seams, at the sqlglot pin; on
+  25.24.2 five cases already differ, and `create_table`, DESCRIBE of a reserved name and
+  `hive_function`'s date_format were found to need later fixes.
 
 ## Not yet specified
 
