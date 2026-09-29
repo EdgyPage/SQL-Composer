@@ -60,6 +60,16 @@ STRING_CASES: tuple[tuple[str, str, str], ...] = (
     ("injection", INJECTION, r"'\' OR 1=1 --'"),
     ("injection_drop", DROP_PAYLOAD, r"'\'; DROP TABLE mart.deliveries; --'"),
     ("escaped_quote_injection", ESCAPED_QUOTE_INJECTION, r"'\\\' OR \'1\'=\'1'"),
+    # Six more control characters, pinned as sqlglot writes them today. It writes BEL, FF, VT
+    # and backspace as \a \f \v \b and reads them back itself, but Hive's and Spark's readers
+    # may take \a \f \v for the letters a f v. NUL and SUB reach the text raw. Whether any of
+    # these is refused is decided in the PySpark edition's ticket 09.
+    ("bell", "a\x07b", r"'a\ab'"),
+    ("form_feed", "a\x0cb", r"'a\fb'"),
+    ("vertical_tab", "a\x0bb", r"'a\vb'"),
+    ("backspace", "a\x08b", r"'a\bb'"),
+    ("nul", "a\x00b", "'a\x00b'"),
+    ("substitute", "a\x1ab", "'a\x1ab'"),
 )
 
 CONTROL_CHARACTER_LABELS = frozenset({"newline", "tab", "carriage_return"})
