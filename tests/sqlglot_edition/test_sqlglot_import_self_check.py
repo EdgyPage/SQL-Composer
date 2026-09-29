@@ -27,7 +27,7 @@ def stopped(what: str, why: str, fix: str) -> str:
 def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "sqlglot", None)  # makes `import sqlglot` fail
     with pytest.raises(ImportError) as error:
-        sql_composer.engine.check_library()
+        sql_composer.engine.check_installed()
     assert f"ImportError: {error.value}" == stopped(
         what="SQL Composer needs sqlglot, and this Python can't import it.",
         why="SQL Composer writes every Statement as Hive through sqlglot, and reads the Hive "
@@ -42,7 +42,7 @@ def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
 def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch, version) -> None:
     monkeypatch.setattr(sqlglot, "__version__", version)
     with pytest.raises(ImportError) as error:
-        sql_composer.engine.check_library()
+        sql_composer.engine.check_installed()
     assert f"ImportError: {error.value}" == stopped(
         what="SQL Composer needs sqlglot 25.24.2 or newer, below 31.0.0, and this Python has "
         f"sqlglot {version}.",
@@ -63,7 +63,7 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
                         lambda value, *args, **kw: exp.Literal.string("changed")
                         if value == "O'Brien\\" else real(value, *args, **kw))
     with pytest.raises(ImportError) as error:
-        sql_composer.engine.check_library()
+        sql_composer.engine.check_installed()
     assert f"ImportError: {error.value}" == stopped(
         what=f"sqlglot {sqlglot.__version__} is in the supported range, but behaves "
         "differently: Hive string escaping has changed. Nothing has been built or sent.",
@@ -78,7 +78,7 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
 
 def test_a_newer_sqlglot_in_range_prints_a_note(monkeypatch, capsys) -> None:
     monkeypatch.setattr(sqlglot, "__version__", "30.20.1")
-    sql_composer.engine.check_library()
+    sql_composer.engine.check_installed()
     assert capsys.readouterr().out == (
         "Note: sqlglot 30.20.1 is newer than any version SQL Composer was tested on "
         "(30.19.0). Its behaviour checks passed.\n")

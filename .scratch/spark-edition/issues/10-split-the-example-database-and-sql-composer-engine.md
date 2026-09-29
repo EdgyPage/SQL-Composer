@@ -38,3 +38,63 @@ The Definition of done in `CLAUDE.md` holds; pytest is green at both ends; every
 message and doctest output is unchanged; a test proves `_sorts_itself(to_hive(s)) ==
 bool(s._order_by)` over the corpus; `WITH ... INSERT` text is refused as "can't be written to";
 the golden is byte-identical; and the gallery's diff is row order only, reviewed.
+
+## Answer
+
+`sql_composer/engine.py` holds what SQL Composer runs on:
+
+- `check_installed()`, which `__init__.py` calls right after `_check_files()`. It is the old sqlglot
+  check, moved word for word, with its constants now `_LOWEST`, `_BELOW` and `_NEWEST_TESTED`.
+- `run_query(text, tables) -> (columns, rows)`, the executor code. It imports sqlglot only inside
+  its functions.
+- `example_database_cannot_run()`, which `tests/conftest.py` now asks instead of importing sqlglot
+  itself.
+
+Every stop message and doctest output is unchanged.
+
+`example_database.py` no longer imports sqlglot. It gains three shared text rules:
+
+- **Only a query is answered.** The text must be one SELECT or WITH query. It is refused as "can't
+  be written to" when a write command starts it or follows a WITH's last bracket, or when a second
+  command follows a `;`.
+- **A query sorts itself** only with an ORDER BY outside every bracket.
+- **Otherwise the rows are sorted** by every column, None first.
+
+A test proves `_sorts_itself(to_hive(s)) == bool(s._order_by)` over more than 150 corpus Statements.
+The golden is byte-identical. The gallery's diff was reviewed as row order in six tables plus the
+docstring's new sentence. CHANGES has a 2.1 line for the fixed row order.
+
+## Comments
+
+**Code review (2026-09-29), `4dbc93f` and `8499a79`.**
+
+- *Standards:*
+  - **Fixed:**
+    - No name says "library", which the glossary keeps out of the Toolbox. The check is
+      `check_installed()`, its constants are `_LOWEST`, `_BELOW` and `_NEWEST_TESTED`, and the
+      behaviour check is `_sqlglot_behaviour` again.
+    - The `__init__.py` comment says what `engine.py` checks.
+    - The executor's version test reuses `_numbers`, and its messages write 30.19.0 from
+      `_EXECUTOR_NEEDS`.
+    - The sorting test's name says "every bracket".
+  - **Answered, not changed:**
+    - `run_query` still receives the Example database's `(table, rows)` pairs and reads `_columns`
+      for its schema. The Spark engine (ticket 19) needs the same pairs to build its views, and
+      `ops` is the one database both engines serve. Ticket 19 revisits this if its shape differs.
+    - `run_query` keeps the name the ticket gave it. It is private to the Edition, beside a public
+      `run` and a user's `send`.
+- *Spec:*
+  - **Fixed:** the query rule is stricter than the ticket's "no line starts with INSERT...". The
+    review found four gaps in that rule:
+    - a one-line `WITH x AS (...) INSERT INTO ...` was answered with an empty DataFrame;
+    - `SELECT 1; DROP TABLE ...` reached the executor;
+    - a query after a `-- comment` line was refused;
+    - a double-quoted string could hide or fake an ORDER BY.
+
+    `_outside_brackets` now drops comment lines, blanks every quoted text (single, double,
+    backticks) and everything inside brackets. `_is_query` refuses a write word only where a command
+    starts, so an alias named `load` is still answered. A test covers each case.
+  - **For ticket 14:** the shared `example_database.py` docstring still names sqlglot's executor and
+    30.19.0, which `editions.swap()` refuses. The neutral wording belongs with the other claims.
+  - **Beginner reader:** it ran on the docstring's new sentence and the CHANGES line; its report is
+    linked below.

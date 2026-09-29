@@ -10,7 +10,7 @@ Create the PySpark edition's folder. Its shared files are generated, never hand-
 
 - `tools/make_spark_edition.py` writes each SHARED_FILE through `editions.swap()` and copies
   `CHANGES.md` verbatim, with `newline="\n"`. Running it twice changes nothing.
-- Hand-written `spark_composer/engine.py`: `check_library()` finds pyspark, imports it, parses the
+- Hand-written `spark_composer/engine.py`: `check_installed()` finds pyspark, imports it, parses the
   version prefix, requires `[3.5.0, 4.1.0)` and prints a note above 4.0.4, with four-part stops
   mirroring SQL Composer's. It starts no JVM. `run_query` raises a four-part "not built yet" for
   now.

@@ -158,11 +158,11 @@ def _version_text():
 
 _check_python()
 _check_files()
-# The library check lives in engine.py, one file per Edition, imported only once the folder is
-# known to be whole.
+# engine.py, one file per Edition, checks what the Edition needs installed. It is imported only
+# once the folder is known to be whole.
 from . import engine  # noqa: E402
 
-engine.check_library()
+engine.check_installed()
 
 VERSION = _version_text()
 
