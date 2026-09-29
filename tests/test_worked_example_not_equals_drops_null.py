@@ -7,7 +7,9 @@ pandas' own `!=`, which keeps the NULL row.
 
 from __future__ import annotations
 
-from conftest import example_rows, needs_executor
+import pytest
+
+from conftest import example_rows
 from sql_composer import example_database, run
 from statements import not_equals_drops_null as example
 
@@ -25,7 +27,7 @@ def test_both_statements_build_with_no_guard_or_warning() -> None:
     example.fixed()
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_careless_statement_drops_the_run_still_going() -> None:
     sql_count, pandas_count = pandas_check()
     result = run(example.careless(), send=example_database.send)
@@ -33,7 +35,7 @@ def test_the_careless_statement_drops_the_run_still_going() -> None:
     assert pandas_count == 4
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_it_as_pandas_does() -> None:
     _, pandas_count = pandas_check()
     assert run(example.fixed(), send=example_database.send).runs[0] == pandas_count == 4

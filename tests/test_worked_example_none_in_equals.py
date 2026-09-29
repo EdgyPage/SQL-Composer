@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from conftest import example_rows, needs_executor
+from conftest import example_rows
 from sql_composer import GuardRefused, example_database, run, to_hive
 from statements import none_in_equals as example
 
@@ -29,7 +29,7 @@ def test_the_guard_refuses_none_in_equals() -> None:
     assert "Opt-out:        none" in message
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_careless_hive_would_count_no_rows() -> None:
     equal_to_none, _ = pandas_check()
     hive = to_hive(example.fixed())
@@ -38,7 +38,7 @@ def test_the_careless_hive_would_count_no_rows() -> None:
     assert example_database.send(careless_hive).running[0] == equal_to_none == 0
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_fixed_statement_finds_the_run_still_going() -> None:
     _, missing = pandas_check()
     assert run(example.fixed(), send=example_database.send).running[0] == missing == 1

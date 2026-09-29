@@ -15,17 +15,20 @@ import pytest
 import sqlglot
 
 import sql_composer
+from conftest import edition, toolbox_folder
 
-TOOLBOX = Path(__file__).resolve().parent.parent / "sql_composer"
+TOOLBOX = toolbox_folder()
+FOLDER, PRODUCT = edition().folder, edition().product
+VERSION = sql_composer.TOOLBOX_VERSION
 FILES = sorted(p.name for p in TOOLBOX.iterdir() if p.name != "__pycache__")
 
 
 def import_copy(tmp_path: Path, change) -> str:
     """Copy the Toolbox, apply `change` to the copy, import it, and return what it printed."""
-    copy = tmp_path / "sql_composer"
+    copy = tmp_path / FOLDER
     shutil.copytree(TOOLBOX, copy, ignore=shutil.ignore_patterns("__pycache__"))
     change(copy)
-    result = subprocess.run([sys.executable, "-c", "import sql_composer"], cwd=tmp_path,
+    result = subprocess.run([sys.executable, "-c", f"import {FOLDER}"], cwd=tmp_path,
                             capture_output=True, text=True)
     return result.stderr
 
@@ -43,15 +46,15 @@ def test_an_untouched_copy_imports(tmp_path) -> None:
 def test_a_file_from_another_version_stops_the_import(tmp_path) -> None:
     def older(copy: Path) -> None:
         path = copy / "running.py"
-        text = path.read_text(encoding="utf-8").replace('TOOLBOX_VERSION = "2.1"',
+        text = path.read_text(encoding="utf-8").replace(f'TOOLBOX_VERSION = "{VERSION}"',
                                                         'TOOLBOX_VERSION = "1.9"')
         path.write_text(text, encoding="utf-8")
 
     assert import_copy(tmp_path, older).endswith(stopped(
-        what="running.py is from Toolbox version 1.9, and __init__.py is from 2.1.",
+        what=f"running.py is from Toolbox version 1.9, and __init__.py is from {VERSION}.",
         why="Files from different Toolbox versions weren't written to work together, so a "
         "Statement could fail or come out wrong.",
-        fix="Delete the sql_composer folder, then copy the whole folder in again from one "
+        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from one "
         "download.",
     ) + "\n")
 
@@ -62,20 +65,20 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
 
     assert import_copy(tmp_path, extra).endswith(stopped(
-        what="my_notes.py is in the sql_composer folder, but not part of SQL Composer 2.1.",
+        what=f"my_notes.py is in the {FOLDER} folder, but not part of {PRODUCT} {VERSION}.",
         why="A file left over from an earlier Toolbox version can still be imported, and would "
         "quietly run old code. A script of your own inside the folder would be deleted with it "
         "at the next update.",
-        fix="Move any of your own scripts out first: they sit beside the sql_composer folder, "
-        "never inside it. Then delete the sql_composer folder, and copy the whole folder in "
-        "again from the 2.1 download.",
+        fix=f"Move any of your own scripts out first: they sit beside the {FOLDER} folder, "
+        f"never inside it. Then delete the {FOLDER} folder, and copy the whole folder in "
+        f"again from the {VERSION} download.",
     ) + "\n")
 
 
 def stopped(what: str, why: str, fix: str) -> str:
     """The last line of an import stop: the four parts, with no opt-out."""
     return (
-        "ImportError: sql_composer stopped on import:"
+        f"ImportError: {FOLDER} stopped on import:"
         f"\n  What happened:  {what}"
         f"\n  Why it matters: {why}"
         f"\n  Usual fix:      {fix}"
@@ -89,11 +92,11 @@ def test_a_missing_file_stops_the_import(tmp_path) -> None:
         (copy / "CHANGES.md").unlink()
 
     assert import_copy(tmp_path, missing).endswith(stopped(
-        what="CHANGES.md is missing from the sql_composer folder.",
-        why="Every file of SQL Composer 2.1 is needed: a missing .py file would make a part "
+        what=f"CHANGES.md is missing from the {FOLDER} folder.",
+        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a part "
         "of it fail later, far from the cause, and a missing examples.html or CHANGES.md "
         "leaves you without the Example gallery or the change notes.",
-        fix="Delete the sql_composer folder, then copy the whole folder in again from the 2.1 "
+        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the {VERSION} "
         "download.",
     ) + "\n")
 
@@ -104,7 +107,7 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path) -> None:
         with_file_list(copy)
         (copy / "refusals.py").unlink()
 
-    assert "What happened:  refusals.py is missing from the sql_composer folder." in (
+    assert f"What happened:  refusals.py is missing from the {FOLDER} folder." in (
         import_copy(tmp_path, missing))
 
 
@@ -120,7 +123,7 @@ def stamp_every_file(copy: Path, odd: str | None = None) -> None:
     """Stamp line 1 of every file as the export does, and `odd` as from another export."""
     for path in copy.iterdir():
         when = "2026-09-30 09:00" if path.name == odd else "2026-10-02 14:05"
-        stamp = f"SQL Composer 2.1, exported {when} - generated from dev, do not edit"
+        stamp = f"{PRODUCT} {VERSION}, exported {when} - generated from dev, do not edit"
         line = f"# {stamp}" if path.suffix == ".py" else f"<!-- {stamp} -->"
         path.write_text(line + "\n" + path.read_text(encoding="utf-8"), encoding="utf-8")
 
@@ -139,7 +142,7 @@ def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
         what=f"{odd} came from a different export than __init__.py.",
         why="Two exports of the same Toolbox version can differ, so the code, the Example "
         "gallery and the change notes in this folder may not match each other.",
-        fix="Delete the sql_composer folder, then copy the whole folder in again from one "
+        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from one "
         "download.",
     ) + "\n")
 
@@ -159,7 +162,7 @@ def test_a_markdown_heading_is_not_read_as_a_stamp(tmp_path) -> None:
     """In Markdown the export writes an HTML comment, so a `# ...` line 1 there is a heading."""
     def heading(copy: Path) -> None:
         changes = copy / "CHANGES.md"
-        text = changes.read_text(encoding="utf-8").replace("# Changes", "# SQL Composer changes", 1)
+        text = changes.read_text(encoding="utf-8").replace("# Changes", f"# {PRODUCT} changes", 1)
         changes.write_text(text, encoding="utf-8")
 
     assert import_copy(tmp_path, heading) == ""
@@ -168,14 +171,14 @@ def test_a_markdown_heading_is_not_read_as_a_stamp(tmp_path) -> None:
 def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
     def stamped(copy: Path) -> None:
         stamp_every_file(copy)
-        (copy.parent / "show.py").write_text("import sql_composer\nprint(sql_composer.VERSION)\n",
+        (copy.parent / "show.py").write_text(f"import {FOLDER}\nprint({FOLDER}.VERSION)\n",
                                              encoding="utf-8")
 
     copy_root = tmp_path
     import_copy(copy_root, stamped)
     shown = subprocess.run([sys.executable, "show.py"], cwd=copy_root, capture_output=True,
                            text=True)
-    assert shown.stdout.strip() == "SQL Composer 2.1, exported 2026-10-02 14:05"
+    assert shown.stdout.strip() == f"{PRODUCT} {VERSION}, exported 2026-10-02 14:05"
 
 
 def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
@@ -214,8 +217,8 @@ def test_an_older_python_stops_the_import(monkeypatch) -> None:
     with pytest.raises(ImportError) as error:
         sql_composer._check_python()
     assert f"ImportError: {error.value}" == stopped(
-        what="SQL Composer needs Python 3.11 or newer, and this is Python 3.9.7.",
-        why="SQL Composer is tested only on Python 3.11 and newer, and parts of it may not work "
+        what=f"{PRODUCT} needs Python 3.11 or newer, and this is Python 3.9.7.",
+        why=f"{PRODUCT} is tested only on Python 3.11 and newer, and parts of it may not work "
         "on an older one.",
         fix="Choose a Python 3.11 or newer kernel (Kernel > Change Kernel in JupyterLab), or ask "
         "whoever looks after your environment to add one.",

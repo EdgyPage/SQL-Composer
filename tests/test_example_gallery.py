@@ -20,16 +20,16 @@ from pathlib import Path
 import pytest
 
 import sql_composer
-from conftest import needs_executor
+from conftest import edition, toolbox_folder
 
 ROOT = Path(__file__).resolve().parent.parent
-GALLERY = ROOT / "sql_composer" / "examples.html"
+GALLERY = toolbox_folder() / "examples.html"
 sys.path.insert(0, str(ROOT / "tools"))
 
 import example_gallery  # noqa: E402
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_committed_gallery_is_what_the_generator_writes() -> None:
     committed = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
     assert example_gallery.gallery_page() == committed, (
@@ -58,8 +58,8 @@ def toolbox_docstrings() -> list[doctest.DocTest]:
     """Every docstring in the Toolbox that holds a >>> example."""
     finder = doctest.DocTestFinder()
     modules = [sql_composer] + [
-        importlib.import_module(f"sql_composer.{path.stem}")
-        for path in sorted((ROOT / "sql_composer").glob("*.py")) if path.stem != "__init__"
+        importlib.import_module(f"{edition().folder}.{path.stem}")
+        for path in sorted(toolbox_folder().glob("*.py")) if path.stem != "__init__"
     ]
     return [test for module in modules for test in finder.find(module) if test.examples]
 

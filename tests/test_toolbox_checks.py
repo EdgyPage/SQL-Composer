@@ -20,9 +20,10 @@ import pytest
 
 import editions
 import sql_composer
+from conftest import toolbox_folder
 
 ROOT = Path(__file__).resolve().parent.parent
-TOOLBOX = ROOT / "sql_composer"
+TOOLBOX = toolbox_folder()
 
 # Every public name, as decided in the tracker. Add or remove a name only with the ticket
 # that decided it.
@@ -57,9 +58,8 @@ def test_the_public_names_are_the_decided_ones() -> None:
         assert hasattr(sql_composer, name), name
 
 
-@pytest.mark.parametrize("folder", ["sql_composer"])
-def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
-    assert editions.imports_outside(ROOT / folder) == []
+def test_each_toolbox_file_imports_only_what_editions_allows() -> None:
+    assert editions.imports_outside(TOOLBOX) == []
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: p.name)

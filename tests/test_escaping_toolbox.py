@@ -13,12 +13,12 @@ import ast
 import datetime
 import decimal
 import re
-from pathlib import Path
 
 import pytest
 import sqlglot
 from sqlglot import exp
 
+from conftest import toolbox_folder
 from escaping_cases import (
     IDENTIFIER_CASES,
     INJECTION_PAYLOADS,
@@ -57,7 +57,7 @@ from sql_composer import (
 )
 from sql_composer.example_database import job_runs
 
-TOOLBOX = Path(__file__).resolve().parent.parent / "sql_composer"
+TOOLBOX = toolbox_folder()
 STRING_IDS = [label for label, _value, _expected in STRING_CASES]
 
 COMPARISONS = [

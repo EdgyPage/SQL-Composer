@@ -30,7 +30,6 @@ from sql_composer import (
     to_hive,
     week_start,
 )
-from conftest import needs_executor
 from sql_composer.example_database import job_runs, jobs, run_alerts
 
 
@@ -59,7 +58,7 @@ def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch) -> None:
         example_database.send("SELECT 1 FROM ops.jobs")
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
     from sql_composer.refusals import RepeatedRowsWarning
 
@@ -77,7 +76,7 @@ def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
     assert run(fixed, send=example_database.send).minutes[0] == 100
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_left_join_keeps_the_job_that_never_ran() -> None:
     s = statement(
         SELECT(jobs.job_name, AS(count_rows(where=equals(job_runs.status, "SUCCESS")), "ok")),
@@ -90,7 +89,7 @@ def test_left_join_keeps_the_job_that_never_ran() -> None:
     assert result == {"nightly_load": 3, "invoice_sync": 1, "report_build": 1, "cache_warm": 0}
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_count_distinct_is_right_on_the_executor() -> None:
     s = statement(SELECT(AS(count_distinct(job_runs.status), "statuses")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
@@ -98,7 +97,7 @@ def test_count_distinct_is_right_on_the_executor() -> None:
     assert "COUNT(DISTINCT job_runs.status)" in to_hive(s)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 @pytest.mark.parametrize(
     ("condition", "names"),
     [
@@ -115,7 +114,7 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None
     assert list(run(s, send=example_database.send).job_name) == names
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 @pytest.mark.parametrize(
     ("calculation", "missing"),
     [

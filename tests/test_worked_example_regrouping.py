@@ -13,7 +13,7 @@ import pandas as pd
 import pytest
 import sqlglot.executor.python
 
-from conftest import example_rows, needs_executor
+from conftest import example_rows
 from sql_composer import GuardRefused, example_database, run
 from statements import regrouping as example
 
@@ -39,13 +39,13 @@ def test_adds_up_true_lets_the_careless_statement_through() -> None:
     example.careless(adds_up=True)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_example_database_cant_run_week_start() -> None:
     with pytest.raises(RuntimeError, match="its executor has no NEXT_DAY"):
         run(example.fixed(), send=example_database.send)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_pandas_results_give_the_wrong_and_the_right_count() -> None:
     added_up, right = pandas_check()
     careless = example.careless_in_pandas()
@@ -65,7 +65,7 @@ def _next_day(day, weekday):
     return (start + datetime.timedelta(days=7 - start.weekday())).isoformat()
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_the_hive_gives_the_same_numbers_as_pandas(monkeypatch) -> None:
     monkeypatch.setitem(sqlglot.executor.python.ENV, "TSORDSADD", _date_add)
     monkeypatch.setitem(sqlglot.executor.python.ENV, "NEXTDAY", _next_day)

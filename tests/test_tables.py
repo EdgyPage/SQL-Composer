@@ -15,7 +15,6 @@ from sql_composer import (
     to_hive,
     write_table_reference,
 )
-from conftest import needs_executor
 from sql_composer.example_database import job_runs, jobs
 
 
@@ -176,7 +175,7 @@ def test_check_key_needs_a_key() -> None:
         check_key(t, send=example_database.send)
 
 
-@needs_executor
+@pytest.mark.needs_example_database
 def test_check_key_on_a_table_with_no_date_partition() -> None:
     assert repr(check_key(jobs, send=example_database.send)) == \
         "ops.jobs: the key (job_id) holds."
