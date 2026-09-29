@@ -72,6 +72,11 @@ STRING_CASES: tuple[tuple[str, str, str], ...] = (
     ("substitute", "a\x1ab", "'a\x1ab'"),
 )
 
+REFUSED_CONTROL_CHARACTERS = frozenset({"bell", "form_feed", "vertical_tab"})
+r"""Cases the Toolbox refuses in a value: sqlglot writes them as \a \f \v, which Hive and Spark
+read as the letters a f v, so the value would quietly change. Their rows above still pin what
+sqlglot writes, for sqlglot's own tests; the Toolbox never writes them."""
+
 CONTROL_CHARACTER_LABELS = frozenset({"newline", "tab", "carriage_return"})
 """Cases whose raw character must never reach the SQL text. A raw newline inside a literal
 would end a `--` comment line written above it and turn the rest of the value into SQL."""

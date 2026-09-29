@@ -104,6 +104,66 @@ def test_write_table_reference_leaves_a_partition_that_isnt_a_date_to_you(tmp_pa
     assert "date_partition=None,  # TODO: partitioned by region" in text
 
 
+# --- What a real warehouse sends back ---------------------------------------------------------
+
+
+def answering(describe_rows, partitions, sent=None):
+    """A stand-in for `send` answering with the rows given, noting every command it is sent."""
+
+    def send(hive: str) -> pd.DataFrame:
+        if sent is not None:
+            sent.append(hive)
+        if hive.startswith("DESCRIBE"):
+            return pd.DataFrame(describe_rows, columns=["col_name", "data_type", "comment"])
+        if hive.startswith("SHOW PARTITIONS"):
+            return pd.DataFrame({"partition": partitions})
+        return pd.DataFrame({"run_id": [], "copies": []})
+
+    return send
+
+
+# Spark lists DESCRIBE with no blank row, a None comment, and more sections after the partitions.
+SPARK_DESCRIBE = [
+    ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
+    ("# Partition Information", "", ""), ("# col_name", "data_type", "comment"),
+    ("dt", "string", None),
+    ("# Column Default Values", "", ""), ("status", "string", "'NEW'"),
+]
+
+
+def test_a_section_after_the_partitions_is_not_read_as_partitions(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    send = answering(SPARK_DESCRIBE, ["dt=2026-09-24"])
+    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    assert 'date_partition="dt",\n' in text
+    t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
+              date_partition="dt")
+    assert repr(check_table_reference(t, send=send)) == "ops.runs matches its Table reference."
+
+
+def test_an_escaped_partition_value_is_read_as_its_day(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    send = answering(SPARK_DESCRIBE, ["dt=2026%2F09%2F23", "dt=2026%2F09%2F24"])
+    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    assert 'date_format="%Y/%m/%d",' in text
+
+
+def test_the_null_day_is_never_the_newest() -> None:
+    sent = []
+    send = answering(SPARK_DESCRIBE, ["dt=2026-09-23", "dt=__HIVE_DEFAULT_PARTITION__"], sent)
+    t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
+              date_partition="dt", key=["run_id"])
+    assert repr(check_key(t, send=send)) == "ops.runs: the key (run_id) holds on 2026-09-23."
+    assert "runs.dt = '2026-09-23'" in sent[-1]
+
+
+def test_a_reserved_table_name_is_quoted_in_what_is_sent(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    sent = []
+    write_table_reference("ops.order", send=answering(SPARK_DESCRIBE, ["dt=2026-09-24"], sent))
+    assert sent == ["DESCRIBE ops.`order`", "SHOW PARTITIONS ops.`order`"]
+
+
 # --- check_table_reference --------------------------------------------------------------------
 
 

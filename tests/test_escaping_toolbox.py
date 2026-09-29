@@ -25,6 +25,7 @@ from escaping_cases import (
     NON_FINITE_NUMBERS,
     NUMBER_CASES,
     NUMBER_TEXT,
+    REFUSED_CONTROL_CHARACTERS,
     SNEAKY_NUMBERS,
     STRING_CASES,
 )
@@ -58,7 +59,10 @@ from sql_composer import (
 from sql_composer.example_database import job_runs
 
 TOOLBOX = toolbox_folder()
-STRING_IDS = [label for label, _value, _expected in STRING_CASES]
+# The cases the Toolbox writes; the ones it refuses are checked on their own, below.
+WRITTEN = [case for case in STRING_CASES if case[0] not in REFUSED_CONTROL_CHARACTERS]
+WRITTEN_IDS = [label for label, _value, _expected in WRITTEN]
+REFUSED = [case for case in STRING_CASES if case[0] in REFUSED_CONTROL_CHARACTERS]
 
 COMPARISONS = [
     (equals, "="),
@@ -85,7 +89,7 @@ def _literals(hive: str) -> list[str]:
     return [node.this for node in statements[0].find_all(exp.Literal) if node.is_string]
 
 
-@pytest.mark.parametrize(("_label", "value", "expected"), STRING_CASES, ids=STRING_IDS)
+@pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
 @pytest.mark.parametrize(("function", "operator"), COMPARISONS,
                          ids=[f.__name__ for f, _ in COMPARISONS])
 def test_each_comparison_writes_the_literal_exactly(function, operator, _label, value,
@@ -93,32 +97,46 @@ def test_each_comparison_writes_the_literal_exactly(function, operator, _label, 
     assert repr(function(job_runs.status, value)) == f"job_runs.status {operator} {expected}"
 
 
-@pytest.mark.parametrize(("_label", "value", "expected"), STRING_CASES, ids=STRING_IDS)
+@pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
 def test_both_ends_of_a_range(_label, value, expected) -> None:
     condition = between(job_runs.status, value, value)
     assert repr(condition) == f"job_runs.status BETWEEN {expected} AND {expected}"
 
 
-@pytest.mark.parametrize(("_label", "value", "expected"), STRING_CASES, ids=STRING_IDS)
+@pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
 def test_each_item_of_a_list(_label, value, expected) -> None:
     assert repr(is_in(job_runs.status, ["a", value])) == f"job_runs.status IN ('a', {expected})"
     assert repr(is_not_in(job_runs.status, [value])) == f"NOT job_runs.status IN ({expected})"
 
 
-@pytest.mark.parametrize(("_label", "value", "expected"), STRING_CASES, ids=STRING_IDS)
+@pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
 def test_calculations_escape_their_values(_label, value, expected) -> None:
     assert repr(fill_null(job_runs.status, value)) == f"COALESCE(job_runs.status, {expected})"
     assert expected in repr(if_else(equals(job_runs.status, "x"), value, "y"))
     assert repr(hive_function("upper", value)) == f"UPPER({expected})"
 
 
-@pytest.mark.parametrize(("_label", "value", "_expected"), STRING_CASES, ids=STRING_IDS)
+@pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
 @pytest.mark.parametrize("function", [contains, starts_with])
 def test_a_like_pattern_keeps_the_value_whole(function, _label, value, _expected) -> None:
     hive = _statement_with(function(job_runs.status, value))
     patterns = [literal for literal in _literals(hive) if literal != "2026-09-24"]
     escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     assert escaped in patterns[0]
+
+
+@pytest.mark.parametrize(("_label", "value", "_expected"), REFUSED,
+                         ids=[label for label, _value, _expected in REFUSED])
+def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(_label, value,
+                                                                           _expected) -> None:
+    for make in (lambda: equals(job_runs.status, value),
+                 lambda: between(job_runs.status, "a", value),
+                 lambda: is_in(job_runs.status, ["a", value]),
+                 lambda: fill_null(job_runs.status, value),
+                 lambda: hive_function("upper", value),
+                 lambda: contains(job_runs.status, value)):
+        with pytest.raises(GuardRefused, match="control character"):
+            make()
 
 
 @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
@@ -132,7 +150,7 @@ def test_an_injection_payload_stays_one_value_in_a_whole_statement(function, _op
     assert not list(tree.find_all(exp.Or)), "the payload became an OR"
 
 
-@pytest.mark.parametrize(("_label", "value", "_expected"), STRING_CASES, ids=STRING_IDS)
+@pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
 def test_a_date_partition_bound_refuses_anything_but_a_day(_label, value, _expected) -> None:
     with pytest.raises(ValueError, match="isn't a day"):
         equals(job_runs.dt, value)

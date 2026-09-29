@@ -17,6 +17,7 @@ import difflib
 import json
 import keyword
 import re
+import urllib.parse
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,7 @@ from sqlglot.errors import ErrorLevel
 
 from .refusals import (
     four_part_message,
+    guard_control_character,
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
@@ -60,6 +62,9 @@ HIVE_AGGREGATES = frozenset(
     percentile percentile_approx stddev stddev_pop stddev_samp sum var_pop var_samp variance
     """.split()
 )
+
+# How Hive and Spark list the partition of rows whose partition column is NULL.
+NULL_DAY = "__HIVE_DEFAULT_PARTITION__"
 
 NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "decimal",
                 "numeric", "real")
@@ -425,6 +430,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     if isinstance(value, bool):
         return exp.true() if value else exp.false()
     if isinstance(value, str):
+        guard_control_character(call, position, value)
         return exp.Literal.string(str.__str__(value))
     if isinstance(value, datetime.date):
         return exp.Literal.string(_date_text(value, column, call))
@@ -704,7 +710,7 @@ class Verdict:
 
 def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
-    frame = send(hive_text(exp.Describe(this=exp.to_table(name))))
+    frame = send(hive_text(exp.Describe(this=hive_table(name))))
     columns, comments, partitions = {}, {}, []
     in_partitions = False
     for row in frame.itertuples(index=False):
@@ -712,7 +718,11 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
         kind = str(row[1] or "").strip()
         comment = str(row[2] or "").strip() if len(row) > 2 else ""
         if column.startswith("#"):
-            in_partitions = in_partitions or "partition" in column.lower()
+            # "# Partition Information" opens the partition list and its "# col_name" header
+            # keeps it open; any other section, such as Spark's "# Column Default Values",
+            # ends it.
+            if column.lower() != "# col_name":
+                in_partitions = column.lower() == "# partition information"
             continue
         if not column:
             continue
@@ -727,14 +737,16 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
 def _newest_partition_value(name: str, column: str, send) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
     command = exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + hive_text(exp.to_table(name))))
+        "PARTITIONS " + hive_text(hive_table(name))))
     frame = send(hive_text(command))
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
             key, _, value = part.partition("=")
-            if key == column:
-                values.append(value)
+            # The warehouse escapes a partition value (2026/09/24 is listed as
+            # 2026%2F09%2F24), and lists the rows with no value as its NULL day.
+            if key == column and value != NULL_DAY:
+                values.append(urllib.parse.unquote(value))
     return max(values) if values else None
 
 
