@@ -2,18 +2,19 @@
 
 Status: accepted
 
-The user hasn't settled which engine work will use, so the Toolbox is built twice, as two Editions
-with the same 63 public names: SQL Composer (`sql_composer`) writes its Hive with sqlglot, as ADR
-0001 decided, and Spark Composer (`spark_composer`) writes the same Hive with a printer of its own
-and runs it with `spark.sql()` on Spark with Hive support, for a work environment that has pyspark
-and not sqlglot. To share almost everything, a Statement is held in a small tree the Toolbox owns
-(`trees.py`), instead of in sqlglot's: its SELECT, write, CREATE or DROP, down to its columns,
-conditions, calculations and sort keys. SQL Composer's `writing.py` rebuilds each Node with the
-sqlglot calls it always made, so its trees, and its Hive, are what they were; Spark Composer's
-prints the Nodes itself. Two files are written by hand in each folder: the one that turns the tree
-into text, and the one that checks the library and runs the Example database; each Edition also
-generates its own Example gallery. Every other file of `spark_composer` is generated from
-`sql_composer`'s, and a test fails if a copy is stale.
+The user hasn't settled whether the warehouse at work will run Statements on Hive or on Spark, so
+the Toolbox is built twice, as two Editions with the same 63 public names: SQL Composer
+(`sql_composer`) writes its Hive with sqlglot, as ADR 0001 decided, and Spark Composer
+(`spark_composer`) writes the same Hive with a printer of its own and runs it with `spark.sql()` on
+Spark with Hive support, for a work environment that has pyspark and not sqlglot. To share almost
+everything, a Statement is held in a small tree the Toolbox owns (`trees.py`), instead of in
+sqlglot's: its SELECT, write, CREATE or DROP, down to its columns, conditions, calculations and sort
+keys. SQL Composer's `writing.py` rebuilds each Node with the sqlglot calls it always made, so its
+trees, and its Hive, are what they were; Spark Composer's prints the Nodes itself. Two files are
+written by hand in each folder: the one that turns the tree into text, and the one that checks the
+library and runs the Example database; each Edition also generates its own Example gallery. Every
+other file of `spark_composer` is generated from `sql_composer`'s, and a test fails if a copy is
+stale.
 
 This supersedes ADR 0001's rejection of "a hand-rolled AST and Hive renderer" in two ways: the
 Toolbox now owns its tree in both Editions, and Spark Composer hand-writes its Hive. ADR 0001's
