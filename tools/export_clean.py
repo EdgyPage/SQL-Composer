@@ -12,8 +12,10 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed, f
   `# SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit`, every
   folder with the same time;
 - it writes the list of the folder's files into its `__init__.py`, for the import self-check;
-- it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version and
-  a cheat sheet: one line per public name, grouped by file, from each docstring's first line.
+- it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
+  places the two Editions' Hive differs, from `DECLARED_DIFFERENCES` in `tools/editions.py`,
+  and a cheat sheet: one line per public name, grouped by file, from each docstring's first
+  line.
 
 It then checks what it built: each Toolbox file imports only what work has (the standard
 library, pandas, numpy, and its Edition's library where `tools/editions.py` allows it); each
@@ -53,6 +55,7 @@ DRIFT_LIST = ".scratch/drift.md"
 README = ".github/README.md"
 README_TEMPLATE = "docs/clean-branch-readme.md"
 VERSION_MARKER = "<!-- VERSION -->"
+DIFFERENCES_MARKER = "<!-- DIFFERENCES -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
 
 
@@ -205,12 +208,27 @@ def cheat_sheet(groups: list[dict]) -> str:
     return "\n\n".join(sections)
 
 
+def differences_text() -> str:
+    """One item for each place the two Editions' Hive differs, from DECLARED_DIFFERENCES."""
+    return "\n".join(
+        f"- **{row.title}** {row.why} SQL Composer writes `{row.sql_composer}` where Spark "
+        f"Composer writes `{row.spark_composer}`."
+        for row in editions.DECLARED_DIFFERENCES.values())
+
+
 def readme_text(template: str, described: dict, stamp: str) -> str:
-    """The Clean branch's README: the template, with the version and the cheat sheet put in."""
-    for marker in (VERSION_MARKER, CHEAT_SHEET_MARKER):
+    """The Clean branch's README: the template, with the version, the Editions' differences
+    and the cheat sheet put in.
+
+    The version is the first Edition's without its name, such as "3.0, exported 2026-10-02
+    14:05": every Edition has one version and one export time.
+    """
+    for marker in (VERSION_MARKER, DIFFERENCES_MARKER, CHEAT_SHEET_MARKER):
         if template.count(marker) != 1:
             raise ExportRefused(f"{README_TEMPLATE} must have `{marker}` exactly once.")
-    text = template.replace(VERSION_MARKER, described["version"])
+    product = f"{editions.EXPORTED[0].product} "
+    text = template.replace(VERSION_MARKER, described["version"].removeprefix(product))
+    text = text.replace(DIFFERENCES_MARKER, differences_text())
     text = text.replace(CHEAT_SHEET_MARKER, cheat_sheet(described["groups"]))
     return stamped("README.md", text, stamp)
 
