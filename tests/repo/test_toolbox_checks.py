@@ -58,6 +58,14 @@ def test_the_public_names_are_the_decided_ones() -> None:
         assert hasattr(sql_composer, name), name
 
 
+def test_spark_composer_has_the_same_public_names() -> None:
+    import spark_composer
+
+    assert sorted(spark_composer.__all__) == sorted(PUBLIC_NAMES)
+    for name in spark_composer.__all__:
+        assert hasattr(spark_composer, name), name
+
+
 @pytest.mark.parametrize("folder", [f for f in editions.EDITIONS if (ROOT / f).is_dir()])
 def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
     assert editions.imports_outside(ROOT / folder) == []

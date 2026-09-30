@@ -20,6 +20,20 @@ runs it on Python 3.11 at both ends of the supported sqlglot range. Set up with
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
+## Two Editions
+
+The Toolbox is built twice, as ADR 0002 records: `sql_composer/` (SQL Composer, which writes its
+Hive with sqlglot) and `spark_composer/` (Spark Composer, which prints its own Hive and runs it on
+Spark). `tools/editions.py` is the one registry of which files the two share and which each writes
+itself.
+
+- Edit a shared file only in `sql_composer/`, then run `python tools/make_spark_edition.py`. Never
+  edit a generated copy in `spark_composer/`: a test fails while one is stale, and names that
+  command.
+- `sql_composer/writing.py` and `sql_composer/engine.py` are written by hand, and so are
+  `spark_composer/writing.py` and `spark_composer/engine.py`, with the same function names and
+  parameters, which a test holds.
+
 ## Drift
 
 After a commit that touches either Edition of the Toolbox, `worked_examples/`, `docs/`,

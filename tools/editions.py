@@ -48,6 +48,24 @@ SHARED_FILES = ("__init__.py", "calculations.py", "clauses.py", "conditions.py",
                 "example_database.py", "lineage.py", "refusals.py", "running.py", "tables.py",
                 "trees.py")
 EDITION_FILES = ("writing.py", "engine.py")
+# The functions each Edition file offers the shared files, with their parameters: both
+# Editions' copies have exactly these. Either may have more of its own.
+EDITION_INTERFACE = {
+    "writing.py": {
+        "hive_text": ["node"],
+        "hive_statement": ["node"],
+        "read_back": ["text"],
+        "function_adds_rows_up": ["name", "args", "call"],
+        "hive_type": ["text"],
+        "describe_text": ["name"],
+        "show_partitions_text": ["name"],
+    },
+    "engine.py": {
+        "check_installed": [],
+        "example_database_cannot_run": [],
+        "run_query": ["text", "tables"],
+    },
+}
 VERBATIM_FILES = ("CHANGES.md",)
 PAGES = ("examples.html",)
 

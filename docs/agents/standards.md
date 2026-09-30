@@ -25,3 +25,11 @@ shape, even at the cost of some repetition.
 
 The Toolbox's public names are decided in the tracker. A change that adds, removes or renames
 one points at the ticket that decided it.
+
+## Parity
+
+Both Editions show a user the same thing: the same names, messages, docstrings and Worked
+examples, and the same Hive. A change to one Edition's writing or engine file, such as
+`sql_composer/writing.py`, is made in the other's too, unless the Hive has to differ; then the
+difference is a row of `DECLARED_DIFFERENCES` in `tools/editions.py`, with its reason, and nowhere
+else.
