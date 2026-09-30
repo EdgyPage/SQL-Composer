@@ -9,18 +9,16 @@ from __future__ import annotations
 
 import datetime
 
-from sqlglot import exp
-
 from .refusals import four_part_message, guard_none_in_condition
 from .tables import (
     Column,
     as_date,
-    has_aggregate,
     is_date_partition,
     literal,
     made_by,
     type_family,
 )
+from .trees import Node, combined, has_aggregate
 from .writing import hive_text
 
 TOOLBOX_VERSION = "2.1"
@@ -92,7 +90,7 @@ class Condition:
         return hive_text(self._tree)
 
     def _tables(self) -> set[str]:
-        return {column.table for column in self._tree.find_all(exp.Column) if column.table}
+        return {column.table for column in self._tree.find_all("Column") if column.table}
 
     def __and__(self, other):
         _no_combining("&", "all_of(...), or separate conditions in WHERE(...)")
@@ -142,13 +140,14 @@ def _spans_key(column: Column) -> tuple[str, str]:
     return (column._table._alias, column._name)
 
 
-def _compare(name: str, node, column, value, span_of) -> Condition:
+def _compare(name: str, kind: str, column, value, span_of) -> Condition:
     """A comparison of a column with one value, noting any Date partition bound."""
     call = f"{name}({column!r}, ...)"
     column = _need_column(column, call)
     if value is None:
         guard_none_in_condition(f"{name}({column!r}, None)")
-    tree = node(this=column._tree.copy(), expression=literal(value, call=call, column=column))
+    tree = Node(kind, this=column._tree.copy(),
+                expression=literal(value, call=call, column=column))
     made_by(tree, name, column, value)
     if not is_date_partition(column) or isinstance(value, Column):
         return Condition(tree)
@@ -168,7 +167,7 @@ def equals(column, value):
     >>> equals(job_runs.status, "O'Brien")
     job_runs.status = 'O\\'Brien'
     """
-    return _compare("equals", exp.EQ, column, value, lambda day: Span(day, day, frozenset([day])))
+    return _compare("equals", "EQ", column, value, lambda day: Span(day, day, frozenset([day])))
 
 
 def not_equals(column, value):
@@ -180,7 +179,7 @@ def not_equals(column, value):
     >>> not_equals(job_runs.status, "TEST")
     job_runs.status <> 'TEST'
     """
-    return _compare("not_equals", exp.NEQ, column, value, lambda day: Span())
+    return _compare("not_equals", "NEQ", column, value, lambda day: Span())
 
 
 def at_least(column, value):
@@ -189,7 +188,7 @@ def at_least(column, value):
     >>> at_least(job_runs.duration_mins, 30)
     job_runs.duration_mins >= 30
     """
-    return _compare("at_least", exp.GTE, column, value, lambda day: Span(low=day))
+    return _compare("at_least", "GTE", column, value, lambda day: Span(low=day))
 
 
 def at_most(column, value):
@@ -198,7 +197,7 @@ def at_most(column, value):
     >>> at_most(job_runs.duration_mins, 30)
     job_runs.duration_mins <= 30
     """
-    return _compare("at_most", exp.LTE, column, value, lambda day: Span(high=day))
+    return _compare("at_most", "LTE", column, value, lambda day: Span(high=day))
 
 
 def more_than(column, value):
@@ -207,7 +206,7 @@ def more_than(column, value):
     >>> more_than(job_runs.duration_mins, 30)
     job_runs.duration_mins > 30
     """
-    return _compare("more_than", exp.GT, column, value,
+    return _compare("more_than", "GT", column, value,
                     lambda day: Span(low=day + datetime.timedelta(days=1)))
 
 
@@ -217,7 +216,7 @@ def less_than(column, value):
     >>> less_than(job_runs.duration_mins, 30)
     job_runs.duration_mins < 30
     """
-    return _compare("less_than", exp.LT, column, value,
+    return _compare("less_than", "LT", column, value,
                     lambda day: Span(high=day - datetime.timedelta(days=1)))
 
 
@@ -233,7 +232,8 @@ def between(column, low, high):
     column = _need_column(column, call)
     if low is None or high is None:
         guard_none_in_condition(f"between({column!r}, {low!r}, {high!r})")
-    tree = exp.Between(
+    tree = Node(
+        "Between",
         this=column._tree.copy(),
         low=literal(low, call=call, column=column, position="the low end"),
         high=literal(high, call=call, column=column, position="the high end"),
@@ -279,15 +279,16 @@ def last_n_days(column, n):
     last = today() - datetime.timedelta(days=1)
     first = today() - datetime.timedelta(days=n)
     if type_family(column._type) == "timestamp":
-        tree = exp.and_(
-            exp.GTE(this=column._tree.copy(), expression=literal(first, call=call)),
-            exp.LT(this=column._tree.copy(), expression=literal(today(), call=call)),
-        )
+        tree = combined("And", [
+            Node("GTE", this=column._tree.copy(), expression=literal(first, call=call)),
+            Node("LT", this=column._tree.copy(), expression=literal(today(), call=call)),
+        ])
     elif first == last:
-        tree = exp.EQ(this=column._tree.copy(), expression=literal(first, call=call,
-                                                                     column=column))
+        tree = Node("EQ", this=column._tree.copy(), expression=literal(first, call=call,
+                                                                         column=column))
     else:
-        tree = exp.Between(
+        tree = Node(
+            "Between",
             this=column._tree.copy(),
             low=literal(first, call=call, column=column),
             high=literal(last, call=call, column=column),
@@ -334,9 +335,9 @@ def _in(name: str, column, values, negated: bool) -> Condition:
         literal(value, call=call, column=column, position=f"item {number}")
         for number, value in enumerate(values, start=1)
     ]
-    tree = exp.In(this=column._tree.copy(), expressions=items)
+    tree = Node("In", this=column._tree.copy(), expressions=items)
     if negated:
-        return Condition(made_by(exp.Not(this=tree), name, column, values))
+        return Condition(made_by(Node("Not", this=tree), name, column, values))
     made_by(tree, name, column, values)
     if not is_date_partition(column):
         return Condition(tree)
@@ -373,7 +374,7 @@ def is_null(column):
     job_runs.status IS NULL
     """
     column = _need_column(column, "is_null(...)")
-    tree = exp.Is(this=column._tree.copy(), expression=exp.Null())
+    tree = Node("Is", this=column._tree.copy(), expression=Node("Null"))
     return Condition(made_by(tree, "is_null", column), tests_for_null=True)
 
 
@@ -384,7 +385,7 @@ def is_not_null(column):
     NOT job_runs.status IS NULL
     """
     column = _need_column(column, "is_not_null(...)")
-    tree = exp.Not(this=exp.Is(this=column._tree.copy(), expression=exp.Null()))
+    tree = Node("Not", this=Node("Is", this=column._tree.copy(), expression=Node("Null")))
     return Condition(made_by(tree, "is_not_null", column))
 
 
@@ -401,7 +402,8 @@ def _like(name: str, column, text: str, pattern) -> Condition:
             )
         )
     escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    tree = exp.Like(this=column._tree.copy(), expression=literal(pattern(escaped), call=call))
+    tree = Node("Like", this=column._tree.copy(),
+                expression=literal(pattern(escaped), call=call))
     return Condition(made_by(tree, name, column, text))
 
 
@@ -462,8 +464,8 @@ def any_of(*conditions):
     for condition in found[1:]:
         spans = {key: days_in_either(span, condition._spans[key])
                  for key, span in spans.items() if key in condition._spans}
-    return Condition(made_by(exp.or_(*[c._tree.copy() for c in found]), "any_of", *found),
-                     spans=spans)
+    tree = combined("Or", [c._tree.copy() for c in found])
+    return Condition(made_by(tree, "any_of", *found), spans=spans)
 
 
 def all_of(*conditions):
@@ -477,7 +479,7 @@ def all_of(*conditions):
     (jobs.team = 'finance' AND jobs.region = 'PAR') OR jobs.team = 'data'
     """
     found = _conditions(conditions, "all_of(...)")
-    tree = made_by(exp.and_(*[c._tree.copy() for c in found]), "all_of", *found)
+    tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)
     return Condition(tree, spans=combined_spans(found))
 
 

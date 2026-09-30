@@ -32,36 +32,21 @@ from .refusals import (
     guard_not_a_number,
     guard_time_of_day,
 )
-from .writing import describe_text, drop, hive_text, hive_type, show_partitions_text
+from .trees import ARITHMETIC, SIMPLE_NAME, Node
+from .writing import (
+    describe_text,
+    drop,
+    hive_table,
+    hive_text,
+    hive_type,
+    identifier,
+    show_partitions_text,
+)
 
 TOOLBOX_VERSION = "2.1"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
-SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
-
-# Hive's reserved words: a column with one of these names must be written in backticks.
-HIVE_RESERVED = frozenset(
-    """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
-    CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
-    CURRENT_TIMESTAMP CURSOR DATABASE DATE DAYOFWEEK DECIMAL DELETE DESCRIBE DISTINCT DOUBLE
-    DROP ELSE END EXCHANGE EXISTS EXTENDED EXTERNAL EXTRACT FALSE FETCH FLOAT FLOOR FOLLOWING
-    FOR FOREIGN FROM FULL FUNCTION GRANT GROUP GROUPING HAVING IF IMPORT IN INNER INSERT INT
-    INTEGER INTERSECT INTERVAL INTO IS JOIN LATERAL LEFT LESS LIKE LOCAL MACRO MAP MORE NONE
-    NOT NULL NUMERIC OF ON ONLY OR ORDER OUT OUTER OVER PARTIALSCAN PARTITION PERCENT
-    PRECEDING PRECISION PRESERVE PRIMARY PROCEDURE RANGE READS REDUCE REFERENCES REGEXP
-    REVOKE RIGHT RLIKE ROLLBACK ROLLUP ROW ROWS SELECT SET SMALLINT START SYNC TABLE
-    TABLESAMPLE THEN TIME TIMESTAMP TO TRANSFORM TRIGGER TRUE TRUNCATE UNBOUNDED UNION
-    UNIQUEJOIN UPDATE USER USING UTC_TMESTAMP VALUES VARCHAR VIEWS WHEN WHERE WINDOW
-    WITH""".split()
-)
-
-# Hive aggregate functions that sqlglot may not know as aggregates when named in hive_function.
-HIVE_AGGREGATES = frozenset(
-    """avg collect_list collect_set corr count covar_pop covar_samp histogram_numeric max min
-    percentile percentile_approx stddev stddev_pop stddev_samp sum var_pop var_samp variance
-    """.split()
-)
 
 # The partition Hive and Spark list for the rows with no day: their partition column is NULL.
 ROWS_WITH_NO_DAY = "__HIVE_DEFAULT_PARTITION__"
@@ -76,19 +61,10 @@ NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "dou
 STRING_TYPES = ("string", "varchar", "char")
 
 
-# --- Names -----------------------------------------------------------------------------------
-
-
-def identifier(name: str) -> exp.Identifier:
-    """A name as Hive needs it: in backticks only when it isn't a plain word."""
-    plain = SIMPLE_NAME.fullmatch(name) and name.upper() not in HIVE_RESERVED
-    return exp.to_identifier(name, quoted=not plain)
-
-
 # --- The call that made a calculation or condition, for the lineage -------------------------
 
 
-def made_by(tree: exp.Expression, name: str, *args, **keywords) -> exp.Expression:
+def made_by(tree: Node, name: str, *args, **keywords) -> Node:
     """Note on `tree` the Toolbox call that made it, such as week_start(job_runs.dt).
 
     The note leaves the Hive unchanged. The lineage shows it, since it reads the way the
@@ -116,15 +92,16 @@ def _argument_text(value) -> str:
     return repr(value)
 
 
-def readable(tree: exp.Expression) -> str:
+def readable(tree: Node) -> str:
     """A calculation or condition as it was written: its Toolbox calls, else its Hive."""
     if "call" in tree.meta:
         return tree.meta["call"]
-    copied = tree.copy()
-    for node in list(copied.find_all(exp.Expression)):
-        if node is not copied and "call" in node.meta:
-            node.replace(exp.Var(this=node.meta["call"]))
-    return hive_text(copied)
+    return hive_text(tree.replaced(_call_shown))
+
+
+def _call_shown(node: Node) -> Node | None:
+    """The Toolbox call that made a Node, to be written in its place, or None if none did."""
+    return Node("Var", this=node.meta["call"]) if "call" in node.meta else None
 
 
 # --- Columns and calculations --------------------------------------------------------------
@@ -202,40 +179,40 @@ class Column:
         _no_operator("if, and, or or not", "a condition such as equals(...)")
 
     def __add__(self, other):
-        return arithmetic(self, other, exp.Add, "+")
+        return arithmetic(self, other, "Add", "+")
 
     def __radd__(self, other):
-        return arithmetic(other, self, exp.Add, "+")
+        return arithmetic(other, self, "Add", "+")
 
     def __sub__(self, other):
-        return arithmetic(self, other, exp.Sub, "-")
+        return arithmetic(self, other, "Sub", "-")
 
     def __rsub__(self, other):
-        return arithmetic(other, self, exp.Sub, "-")
+        return arithmetic(other, self, "Sub", "-")
 
     def __mul__(self, other):
-        return arithmetic(self, other, exp.Mul, "*")
+        return arithmetic(self, other, "Mul", "*")
 
     def __rmul__(self, other):
-        return arithmetic(other, self, exp.Mul, "*")
+        return arithmetic(other, self, "Mul", "*")
 
     def __truediv__(self, other):
-        return arithmetic(self, other, exp.Div, "/")
+        return arithmetic(self, other, "Div", "/")
 
     def __rtruediv__(self, other):
-        return arithmetic(other, self, exp.Div, "/")
+        return arithmetic(other, self, "Div", "/")
 
     def __neg__(self):
-        return arithmetic(0, self, exp.Sub, "-")
+        return arithmetic(0, self, "Sub", "-")
 
 
-def _bracketed(tree: exp.Expression) -> exp.Expression:
-    if isinstance(tree, (exp.Add, exp.Sub, exp.Mul, exp.Div)):
-        return exp.Paren(this=tree)
+def _bracketed(tree: Node) -> Node:
+    if tree.kind in ARITHMETIC:
+        return Node("Paren", this=tree)
     return tree
 
 
-def arithmetic(left, right, node, symbol: str) -> Column:
+def arithmetic(left, right, kind: str, symbol: str) -> Column:
     """Build `left <symbol> right`, bracketing each side that is itself arithmetic."""
     sides = []
     for side in (left, right):
@@ -254,26 +231,17 @@ def arithmetic(left, right, node, symbol: str) -> Column:
             )
         sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False)))
     left, right = sides
-    adds_up = left._adds_up and right._adds_up and node is not exp.Div
-    because = "a division" if node is exp.Div else (
+    adds_up = left._adds_up and right._adds_up and kind != "Div"
+    because = "a division" if kind == "Div" else (
         left._not_adding_up_because or right._not_adding_up_because)
     return Column(
-        node(this=_bracketed(left._tree.copy()), expression=_bracketed(right._tree.copy())),
+        Node(kind, this=_bracketed(left._tree.copy()),
+             expression=_bracketed(right._tree.copy())),
         adds_up=adds_up,
         not_adding_up_because=None if adds_up else because,
         aggregate=left._aggregate or right._aggregate,
         window=left._window or right._window,
     )
-
-
-def has_aggregate(tree: exp.Expression) -> bool:
-    """True when the tree adds rows up (COUNT, SUM, ...) outside a window."""
-    for node in tree.find_all(exp.AggFunc, exp.Anonymous):
-        if node.find_ancestor(exp.Window):
-            continue
-        if isinstance(node, exp.AggFunc) or str(node.name).lower() in HIVE_AGGREGATES:
-            return True
-    return False
 
 
 # --- Values ------------------------------------------------------------------------------
@@ -408,7 +376,7 @@ def _python_value(value):
 
 
 def literal(value, *, call: str, column: Column | None = None, position: str = "the value",
-            in_condition: bool = True) -> exp.Expression:
+            in_condition: bool = True) -> Node:
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
         return value._tree.copy()
@@ -416,7 +384,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     if value is None:
         if in_condition:
             guard_none_in_condition(call)
-        return exp.Null()
+        return Node("Null")
     if not isinstance(value, SINGLE_VALUES):
         raise TypeError(
             four_part_message(
@@ -428,23 +396,23 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
         )
     _check_type(value, column, call)
     if isinstance(value, bool):
-        return exp.true() if value else exp.false()
+        return Node("Boolean", this=value)
     if isinstance(value, str):
         return _string_literal(value, call, position)
     if isinstance(value, datetime.date):
-        return exp.Literal.string(_date_text(value, column, call))
+        return Node("Literal", this=_date_text(value, column, call), is_string=True)
     text = _number_text(value)
     if text is None:
         guard_not_a_number(call, position, value)
-    return exp.Literal.number(text)
+    return Node("Literal", this=text, is_string=False)
 
 
-def _string_literal(value: str, call: str, position: str) -> exp.Expression:
+def _string_literal(value: str, call: str, position: str) -> Node:
     """A string as a Hive literal, refused if it holds a character Hive would misread."""
     for character in CONTROL_CHARACTERS:
         if character in value:
             guard_control_character(call, position, character)
-    return exp.Literal.string(str.__str__(value))
+    return Node("Literal", this=str.__str__(value), is_string=True)
 
 
 def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
@@ -609,7 +577,7 @@ class Table:
     def _column(self, name: str) -> Column:
         because = self._not_adding_up_because.get(name)
         return Column(
-            exp.column(identifier(name), table=identifier(self._alias)),
+            Node("Column", name=name, table=self._alias),
             table=self,
             name=name,
             type=self._columns[name],
@@ -639,16 +607,6 @@ def aliased(table: Table, name: str) -> Table:
     copied = copy.copy(table)
     copied._alias = name
     return copied
-
-
-def hive_table(name: str, partition=None) -> exp.Table:
-    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
-
-    A write passes the PARTITION(...) it fills, which Hive writes after the name.
-    """
-    parts = name.split(".")
-    database = identifier(parts[0]) if len(parts) == 2 else None
-    return exp.Table(this=identifier(parts[-1]), db=database, partition=partition)
 
 
 def source(table: Table) -> exp.Expression:

@@ -27,7 +27,8 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
 )
-from .tables import aliased, hive_table, identifier, source
+from .tables import aliased, source
+from .writing import hive_table, identifier, to_sqlglot
 
 TOOLBOX_VERSION = "2.1"
 
@@ -71,15 +72,15 @@ def set_load_limits(rows=None, dates=None):
 def _output(column, name: str) -> exp.Expression:
     """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
-        return column._tree.copy()
-    return exp.alias_(column._tree.copy(), identifier(name))
+        return to_sqlglot(column._tree)
+    return exp.alias_(to_sqlglot(column._tree), identifier(name))
 
 
 def _join_tree(read) -> exp.Join:
     """The sqlglot tree of one JOIN, LEFT_JOIN or CROSS_JOIN clause."""
     parts = {"this": source(read.table)}
     if read.on is not None:
-        parts["on"] = read.on._tree.copy()
+        parts["on"] = to_sqlglot(read.on._tree)
     if read._name == "LEFT_JOIN":
         parts["side"] = "LEFT"
     if read._name == "CROSS_JOIN":
@@ -100,13 +101,14 @@ def _select_tree(s: Statement) -> exp.Select:
     if len(s._reads) > 1:
         tree.set("joins", [_join_tree(read) for read in s._reads[1:]])
     if s._where:
-        tree.set("where", exp.Where(this=exp.and_(*[c._tree.copy() for c in s._where])))
+        tree.set("where", exp.Where(this=exp.and_(*[to_sqlglot(c._tree) for c in s._where])))
     if s._group_by:
-        tree.set("group", exp.Group(expressions=[c._tree.copy() for c in s._group_by]))
+        tree.set("group", exp.Group(expressions=[to_sqlglot(c._tree) for c in s._group_by]))
     if s._having:
-        tree.set("having", exp.Having(this=exp.and_(*[c._tree.copy() for c in s._having])))
+        tree.set("having", exp.Having(this=exp.and_(*[to_sqlglot(c._tree)
+                                                       for c in s._having])))
     if s._order_by:
-        tree.set("order", exp.Order(expressions=[o.copy() for o in s._order_by]))
+        tree.set("order", exp.Order(expressions=[to_sqlglot(o) for o in s._order_by]))
     if s._limit is not None:
         tree.set("limit", exp.Limit(expression=exp.Literal.number(s._limit)))
     return tree
@@ -307,9 +309,8 @@ def _check_splittable(s: Statement, date_partition: str, step: str) -> None:
     if grouping is not None and date_partition not in grouping:
         guard_by_day_grouping(step, date_partition)
     for column in outputs:
-        for window in column._tree.find_all(exp.Window):
-            names = [c.name for c in window.args.get("partition_by") or []
-                     if isinstance(c, exp.Column)]
+        for window in column._tree.find_all("Window"):
+            names = [c.name for c in window.parts["partition_by"] if c.kind == "Column"]
             if date_partition not in names:
                 guard_by_day_grouping(step, date_partition)
 

@@ -8,21 +8,17 @@ max. Each takes `where=` to count or add up only some rows.
 
 from __future__ import annotations
 
-from sqlglot import exp
-
 from .conditions import Condition
 from .refusals import four_part_message, guard_unsafe_regrouping
 from .tables import (
     Column,
-    SIMPLE_NAME,
-    has_aggregate,
     hive_date_pattern,
-    identifier,
     is_date_partition,
     literal,
     made_by,
 )
-from .writing import hive_call, read_back_function
+from .trees import SIMPLE_NAME, Node, has_aggregate
+from .writing import read_back_function
 
 TOOLBOX_VERSION = "2.1"
 
@@ -42,7 +38,7 @@ def _need_column(column, call: str) -> Column:
     )
 
 
-def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expression:
+def _only_where(tree: Node, where, call: str, then=None) -> Node:
     """`tree`, or CASE WHEN where THEN tree END when only some rows count."""
     if where is None:
         return tree
@@ -55,15 +51,17 @@ def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expres
                 opt_out=None,
             )
         )
-    return exp.Case(ifs=[exp.If(this=where._tree.copy(), true=then or tree)])
+    return Node("Case", ifs=[Node("If", this=where._tree.copy(), true=then or tree)])
 
 
-def _aggregate(name, node, column, where, *, adds_up=True, because=None,
+def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
     call = f"{name}({column!r})"
     column = _need_column(column, call)
     inner = _only_where(column._tree.copy(), where, call)
-    tree = node(this=exp.Distinct(expressions=[inner])) if distinct else node(this=inner)
+    if distinct:
+        inner = Node("Distinct", expressions=[inner])
+    tree = Node(kind, this=inner)
     made_by(tree, name, column, where=where)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
 
@@ -76,8 +74,9 @@ def count_rows(where=None):
     >>> count_rows(where=equals(job_runs.status, "FAILED"))
     COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END)
     """
-    tree = _only_where(exp.Star(), where, "count_rows(...)", then=exp.Literal.number(1))
-    return Column(made_by(exp.Count(this=tree), "count_rows", where=where), type="bigint",
+    tree = _only_where(Node("Star"), where, "count_rows(...)",
+                       then=Node("Literal", this="1", is_string=False))
+    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint",
                   aggregate=True)
 
 
@@ -90,7 +89,7 @@ def count_distinct(column, where=None):
     >>> count_distinct(job_runs.job_id)
     COUNT(DISTINCT job_runs.job_id)
     """
-    return _aggregate("count_distinct", exp.Count, column, where, adds_up=False,
+    return _aggregate("count_distinct", "Count", column, where, adds_up=False,
                       because="a distinct count", distinct=True)
 
 
@@ -109,7 +108,7 @@ def sum_of(column, where=None, adds_up=False):
     call = f"sum_of({column!r})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate("sum_of", exp.Sum, column, where)
+    return _aggregate("sum_of", "Sum", column, where)
 
 
 def average_of(column, where=None, adds_up=False):
@@ -126,7 +125,7 @@ def average_of(column, where=None, adds_up=False):
     call = f"average_of({column!r})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate("average_of", exp.Avg, column, where, adds_up=False,
+    return _aggregate("average_of", "Avg", column, where, adds_up=False,
                       because="an average")
 
 
@@ -136,7 +135,7 @@ def min_of(column, where=None):
     >>> min_of(job_runs.duration_mins)
     MIN(job_runs.duration_mins)
     """
-    return _aggregate("min_of", exp.Min, column, where)
+    return _aggregate("min_of", "Min", column, where)
 
 
 def max_of(column, where=None):
@@ -145,7 +144,7 @@ def max_of(column, where=None):
     >>> max_of(job_runs.duration_mins)
     MAX(job_runs.duration_mins)
     """
-    return _aggregate("max_of", exp.Max, column, where)
+    return _aggregate("max_of", "Max", column, where)
 
 
 def _as_column(value, call: str) -> Column:
@@ -172,8 +171,9 @@ def if_else(condition, then, otherwise):
             )
         )
     first, second = _as_column(then, call), _as_column(otherwise, call)
-    tree = exp.Case(
-        ifs=[exp.If(this=condition._tree.copy(), true=first._tree.copy())],
+    tree = Node(
+        "Case",
+        ifs=[Node("If", this=condition._tree.copy(), true=first._tree.copy())],
         default=second._tree.copy(),
     )
     made_by(tree, "if_else", condition, then, otherwise)
@@ -193,7 +193,7 @@ def fill_null(column, value):
     column = _need_column(column, call)
     other = _as_column(value, call)
     return Column(
-        made_by(exp.Coalesce(this=column._tree.copy(), expressions=[other._tree.copy()]),
+        made_by(Node("Coalesce", this=column._tree.copy(), expressions=[other._tree.copy()]),
                 "fill_null", column, value),
         type=column._type,
         adds_up=column._adds_up,
@@ -202,15 +202,24 @@ def fill_null(column, value):
     )
 
 
-def _as_day(column: Column) -> exp.Expression:
+def _as_day(column: Column) -> Node:
     """A date column as a day Hive's date functions read ("2026-09-25")."""
     if not is_date_partition(column):
         return column._tree.copy()
     pattern = hive_date_pattern(column._table._date_format)
     if pattern == DEFAULT_HIVE_PATTERN:
         return column._tree.copy()
-    unix = hive_call("unix_timestamp", column._tree.copy(), exp.Literal.string(pattern))
-    return hive_call("from_unixtime", unix, exp.Literal.string(DEFAULT_HIVE_PATTERN))
+    unix = _call("unix_timestamp", column._tree.copy(), _text(pattern))
+    return _call("from_unixtime", unix, _text(DEFAULT_HIVE_PATTERN))
+
+
+def _call(name: str, *args: Node) -> Node:
+    """A call to one of Hive's date functions, such as next_day."""
+    return Node("Call", name=name, args=list(args))
+
+
+def _text(text: str) -> Node:
+    return Node("Literal", this=text, is_string=True)
 
 
 def week_start(column):
@@ -223,8 +232,8 @@ def week_start(column):
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
     """
     column = _need_column(column, "week_start(...)")
-    week_ago = hive_call("date_sub", _as_day(column), exp.Literal.number(7))
-    tree = hive_call("next_day", week_ago, exp.Literal.string("MO"))
+    week_ago = _call("date_sub", _as_day(column), Node("Literal", this="7", is_string=False))
+    tree = _call("next_day", week_ago, _text("MO"))
     return Column(made_by(tree, "week_start", column), type="string")
 
 
@@ -235,7 +244,7 @@ def month_start(column):
     TRUNC(job_runs.dt, 'MM')
     """
     column = _need_column(column, "month_start(...)")
-    tree = hive_call("trunc", _as_day(column), exp.Literal.string("MM"))
+    tree = _call("trunc", _as_day(column), _text("MM"))
     return Column(made_by(tree, "month_start", column), type="string")
 
 
@@ -262,17 +271,17 @@ def descending(column):
     return Ordering(column)
 
 
-def ordered(item, call: str) -> exp.Ordered:
+def ordered(item, call: str) -> Node:
     """The ORDER BY entry for a column, an output name or descending(...)."""
     descending_order = isinstance(item, Ordering)
     target = item._target if descending_order else item
     if isinstance(target, str):
-        tree = exp.column(identifier(target))
+        tree = Node("Column", name=target)
     else:
         tree = _need_column(target, call)._tree.copy()
     # Hive puts NULL first when sorting up and last when sorting down; saying so keeps sqlglot
     # from writing NULLS LAST or NULLS FIRST into the Hive.
-    return exp.Ordered(this=tree, desc=descending_order, nulls_first=not descending_order)
+    return Node("Ordered", this=tree, desc=descending_order, nulls_first=not descending_order)
 
 
 def _listed(items) -> list:
@@ -319,8 +328,8 @@ def row_number(*, PARTITION_BY, ORDER_BY):
     """
     call = "row_number(...)"
     groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
-    order = exp.Order(expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
-    tree = exp.Window(this=exp.RowNumber(), partition_by=groups, order=order)
+    order = Node("Order", expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
+    tree = Node("Window", this=Node("RowNumber"), partition_by=groups, order=order)
     made_by(tree, "row_number", PARTITION_BY=PARTITION_BY, ORDER_BY=ORDER_BY)
     return Column(tree, type="int", window=True)
 
@@ -350,7 +359,8 @@ def hive_function(name, *args):
         literal(arg, call=call, position=f"argument {number}", in_condition=False)
         for number, arg in enumerate(args, start=1)
     ]
-    tree = read_back_function(name, trees, call)
+    tree = Node("HiveFunction", name=name, args=trees,
+                aggregate=read_back_function(name, trees, call))
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)

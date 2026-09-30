@@ -11,8 +11,6 @@ another Statement can read it like a table.
 
 from __future__ import annotations
 
-from sqlglot import exp
-
 from .calculations import Ordering, ordered
 from .conditions import Condition, combined_spans
 from .refusals import (
@@ -27,7 +25,8 @@ from .refusals import (
     load_limit_order_by,
     warning_repeated_rows,
 )
-from .tables import SIMPLE_NAME, Column, Table, aliased, identifier
+from .tables import Column, Table, aliased
+from .trees import SIMPLE_NAME, Node
 from .writing import hive_text
 
 TOOLBOX_VERSION = "2.1"
@@ -66,7 +65,7 @@ class Clause:
         # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
         self.conditions = conditions
         self.group_columns = group_columns
-        # ORDER_BY: the sqlglot trees to sort by, and its opt-out. LIMIT: the row count.
+        # ORDER_BY: the sort keys, and its opt-out. LIMIT: the row count.
         self.sort_keys = sort_keys
         self.sorts_everything = sorts_everything
         self.n = n
@@ -96,7 +95,7 @@ class Named:
         self._name = name
 
     def __repr__(self) -> str:
-        return hive_text(exp.alias_(self._column._tree.copy(), identifier(self._name)))
+        return hive_text(Node("Alias", this=self._column._tree.copy(), alias=self._name))
 
 
 class Statement:
@@ -115,7 +114,7 @@ class Statement:
         self._where = []  # WHERE's conditions
         self._having = []  # HAVING's conditions
         self._group_by = []  # GROUP_BY's columns, with output names looked up
-        self._order_by = []  # ORDER_BY's sqlglot trees
+        self._order_by = []  # ORDER_BY's sort keys
         self._limit = None  # LIMIT's row count
         # Set instead by create_table and drop_table, whose Statement is a sqlglot tree ready
         # to write, with none of the parts above.
@@ -296,14 +295,15 @@ def _need_on(on, call: str, table: Table):
 
 def _matched_columns(table: Table, on: Condition) -> list[str]:
     """The columns of `table` that ON= pins with an equals at its top level."""
-    parts = list(on._tree.flatten()) if isinstance(on._tree, exp.And) else [on._tree]
+    parts = list(on._tree.flatten()) if on._tree.kind == "And" else [on._tree]
     matched = set()
     for part in parts:
-        if not isinstance(part, exp.EQ):
+        if part.kind != "EQ":
             continue
-        for mine, other in ((part.this, part.expression), (part.expression, part.this)):
-            if isinstance(mine, exp.Column) and mine.table == table._alias and not (
-                    isinstance(other, exp.Column) and other.table == table._alias):
+        sides = (part.parts["this"], part.parts["expression"])
+        for mine, other in (sides, sides[::-1]):
+            if mine.kind == "Column" and mine.table == table._alias and not (
+                    other.kind == "Column" and other.table == table._alias):
                 matched.add(mine.name)
     return sorted(matched)
 
@@ -764,7 +764,7 @@ def _check_tables(s: Statement) -> None:
         names[table._name] = table._statement
     used = set()
     for tree in _trees(s):
-        used |= {column.table for column in tree.find_all(exp.Column) if column.table}
+        used |= {column.table for column in tree.find_all("Column") if column.table}
     unread = sorted(used - set(aliases))
     if unread:
         _misuse(
@@ -783,7 +783,7 @@ def _check_tables(s: Statement) -> None:
             )
 
 
-def _trees(s: Statement) -> list[exp.Expression]:
+def _trees(s: Statement) -> list[Node]:
     trees = [column._tree for column, _ in s._outputs]
     trees += [c._tree for c in s._where + s._having]
     trees += [read.on._tree for read in s._reads if read.on is not None]
@@ -815,12 +815,12 @@ def _guard_group_by(s: Statement) -> None:
     if not (aggregates or s._group_by or s._having):
         return
     groups = [column._tree for column in s._group_by]
-    grouped = {(c.table, c.name) for tree in groups for c in tree.find_all(exp.Column)}
+    grouped = {(c.table, c.name) for tree in groups for c in tree.find_all("Column")}
     missing = []
     for column, _ in s._outputs:
         if column._aggregate or any(column._tree == tree for tree in groups):
             continue
-        used = {(c.table, c.name) for c in column._tree.find_all(exp.Column)}
+        used = {(c.table, c.name) for c in column._tree.find_all("Column")}
         if not used <= grouped:
             missing.append(repr(column))
     if missing:
