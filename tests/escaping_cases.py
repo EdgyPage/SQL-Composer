@@ -144,8 +144,8 @@ NON_FINITE_NUMBERS: tuple[object, ...] = (
 `amount > NULL` is never true and a Statement quietly returns no rows."""
 
 NUMBER_CASES: tuple[tuple[str, object, str, str], ...] = (
-    # (Hive type, value, the Hive text SQL Composer writes for it, and Spark Composer's: Spark
-    # reads 0.1 as a DECIMAL, so there a float is a DOUBLE, 0.1D)
+    # (Hive type, value, the Hive text SQL Composer writes for it, and Spark Composer's, where
+    # a float is a DOUBLE, 0.1D: the "float" row of DECLARED_DIFFERENCES in tools/editions.py)
     ("BIGINT", 0, "0", "0"),
     ("BIGINT", -12, "-12", "-12"),
     ("DECIMAL(18,2)", decimal.Decimal("1.50"), "1.50", "1.50"),

@@ -16,6 +16,7 @@ from .tables import (
     is_date_partition,
     literal,
     made_by,
+    python_text,
 )
 from .trees import SIMPLE_NAME, Node, has_aggregate, number, string
 from .writing import function_adds_rows_up
@@ -56,7 +57,7 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
 
 def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
-    call = f"{name}({column!r})"
+    call = f"{name}({python_text(column)})"
     column = _need_column(column, call)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
@@ -105,9 +106,9 @@ def sum_of(column, where=None, adds_up=False):
     >>> sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))
     SUM(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END)
     """
-    call = f"sum_of({column!r})"
+    call = f"sum_of({python_text(column)})"
     column = _need_column(column, call)
-    guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
+    guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
     return _aggregate("sum_of", "Sum", column, where)
 
 
@@ -122,9 +123,9 @@ def average_of(column, where=None, adds_up=False):
     >>> average_of(job_runs.duration_mins)
     AVG(job_runs.duration_mins)
     """
-    call = f"average_of({column!r})"
+    call = f"average_of({python_text(column)})"
     column = _need_column(column, call)
-    guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
+    guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
     return _aggregate("average_of", "Avg", column, where, adds_up=False,
                       because="an average")
 
@@ -189,7 +190,7 @@ def fill_null(column, value):
     >>> fill_null(job_runs.status, "RUNNING")
     COALESCE(job_runs.status, 'RUNNING')
     """
-    call = f"fill_null({column!r}, ...)"
+    call = f"fill_null({python_text(column)}, ...)"
     column = _need_column(column, call)
     other = _as_column(value, call)
     return Column(
@@ -333,9 +334,10 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
 
-    In the Hive, a function may appear under its other name, as nvl as COALESCE, or without
-    an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1:
-    group 1 is what the warehouse takes when none is given. Either way it does the same.
+    The Hive writes its name in capitals. It may also write another name that does the same,
+    as COALESCE for nvl, or leave out an argument that is filled in anyway, as
+    regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none
+    is given. Either way it does the same.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')

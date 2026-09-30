@@ -16,6 +16,7 @@ from .tables import (
     is_date_partition,
     literal,
     made_by,
+    python_text,
     type_family,
 )
 from .trees import Node, combined, has_aggregate
@@ -142,10 +143,10 @@ def _spans_key(column: Column) -> tuple[str, str]:
 
 def _compare(name: str, kind: str, column, value, span_of) -> Condition:
     """A comparison of a column with one value, noting any Date partition bound."""
-    call = f"{name}({column!r}, ...)"
+    call = f"{name}({python_text(column)}, ...)"
     column = _need_column(column, call)
     if value is None:
-        guard_none_in_condition(f"{name}({column!r}, None)")
+        guard_none_in_condition(f"{name}({python_text(column)}, None)")
     tree = Node(kind, this=column._tree.copy(),
                 expression=literal(value, call=call, column=column))
     made_by(tree, name, column, value)
@@ -228,10 +229,10 @@ def between(column, low, high):
     >>> between(job_runs.dt, "2026-09-01", "2026-09-24")
     job_runs.dt BETWEEN '2026-09-01' AND '2026-09-24'
     """
-    call = f"between({column!r}, ...)"
+    call = f"between({python_text(column)}, ...)"
     column = _need_column(column, call)
     if low is None or high is None:
-        guard_none_in_condition(f"between({column!r}, {low!r}, {high!r})")
+        guard_none_in_condition(f"between({python_text(column)}, {low!r}, {high!r})")
     tree = Node(
         "Between",
         this=column._tree.copy(),
@@ -245,7 +246,7 @@ def between(column, low, high):
     if first > last:
         raise ValueError(
             four_part_message(
-                what=f"between({column!r}, {low!r}, {high!r}) starts after it ends.",
+                what=f"between({python_text(column)}, {low!r}, {high!r}) starts after it ends.",
                 why="No day is both on or after the first and on or before the second, so "
                 "this would match nothing.",
                 fix="Put the earlier day first.",
@@ -265,7 +266,7 @@ def last_n_days(column, n):
     >>> last_n_days(job_runs.dt, 7)
     job_runs.dt BETWEEN '2026-09-18' AND '2026-09-24'
     """
-    call = f"last_n_days({column!r}, {n!r})"
+    call = f"last_n_days({python_text(column)}, {n!r})"
     column = _need_column(column, call)
     if isinstance(n, bool) or not isinstance(n, int) or n < 1:
         raise ValueError(
@@ -326,11 +327,11 @@ def _values(values, call: str) -> list:
 
 
 def _in(name: str, column, values, negated: bool) -> Condition:
-    call = f"{name}({column!r}, ...)"
+    call = f"{name}({python_text(column)}, ...)"
     column = _need_column(column, call)
     values = _values(values, call)
     if any(value is None for value in values):
-        guard_none_in_condition(f"{name}({column!r}, [..., None, ...])")
+        guard_none_in_condition(f"{name}({python_text(column)}, [..., None, ...])")
     items = [
         literal(value, call=call, column=column, position=f"item {number}")
         for number, value in enumerate(values, start=1)
@@ -390,7 +391,7 @@ def is_not_null(column):
 
 
 def _like(name: str, column, text: str, pattern) -> Condition:
-    call = f"{name}({column!r}, {text!r})"
+    call = f"{name}({python_text(column)}, {text!r})"
     column = _need_column(column, call)
     if not isinstance(text, str):
         raise TypeError(

@@ -47,8 +47,9 @@ HIVE_AGGREGATES = frozenset(
 )
 
 
-# How many arguments Hive and Spark both take for a function hive_function may call: the fewest
-# and the most, None for no most. A function not listed is written as it is given.
+# How many arguments Hive and Spark both take for a function hive_function may call: (fewest,
+# most), with most None when there is no upper limit. Where an Edition counts a call's arguments
+# by this list, a function not listed here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {
     "upper": (1, 1),
     "lower": (1, 1),
@@ -85,7 +86,7 @@ KINDS = {
     # Leaves: a column, a value, and the pieces with no parts.
     "Column": ("name", "table"),
     # A value: its text, whether it is a string, and whether a number is a Python float.
-    "Literal": ("this", "is_string", "double"),
+    "Literal": ("this", "is_string", "is_float"),
     "Null": (),
     "Boolean": ("this",),
     "Star": (),
@@ -158,7 +159,8 @@ class Node:
     A part holds another Node, a list of Nodes, or a plain value such as a column's name.
     `meta` holds notes that aren't part of the Hive, such as the Toolbox call that made the
     Node. Two Nodes are equal when their kinds and parts are, whatever their notes, so a
-    HiveFunction never equals a Coalesce, even when both write COALESCE.
+    HiveFunction never equals a Coalesce, even when both write COALESCE. A Literal's is_float
+    isn't compared: 0.5 and Decimal("0.5") are the same number, however an Edition writes them.
     """
 
     # Equal Nodes may still be changed, so a Node can't be a dict key or go in a set.
@@ -274,10 +276,10 @@ def _compared(parts: dict) -> dict:
     """The parts that make two Nodes equal: those holding something.
 
     None, False and an empty list count as left out, so an Ordered with desc=False equals one
-    with no desc at all.
+    with no desc at all. A Literal's is_float is left out too.
     """
     return {name: value for name, value in parts.items()
-            if not (value is None or value is False or value == [])}
+            if not (value is None or value is False or value == [] or name == "is_float")}
 
 
 # --- Building trees ------------------------------------------------------------------------
@@ -288,9 +290,9 @@ def string(text: str) -> Node:
     return Node("Literal", this=text, is_string=True)
 
 
-def number(text: str, double: bool = False) -> Node:
-    """A number, written as the Toolbox formats it, such as 42 or 0.5; double for a float."""
-    return Node("Literal", this=text, is_string=False, double=double)
+def number(text: str, is_float: bool = False) -> Node:
+    """A number, written as the Toolbox formats it, such as 42 or 0.5; is_float for a float."""
+    return Node("Literal", this=text, is_string=False, is_float=is_float)
 
 
 def combined(kind: str, nodes: list[Node]) -> Node:

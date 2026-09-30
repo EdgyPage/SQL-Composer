@@ -202,7 +202,7 @@ def _statement_tree(s: Statement) -> Node:
 
 
 def _self_check(text: str) -> None:
-    """Parse the Hive back and write it again: it must come out the same."""
+    """The Hive must read back as the same text (writing.read_back), or nothing is sent."""
     again = writing.read_back(text)
     if again != text:
         raise RuntimeError(

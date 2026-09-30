@@ -95,32 +95,11 @@ DECLARED_DIFFERENCES = {
     "Composer divides by NULLIF(divisor, 0) unless the divisor is a number other than 0.",
     "float": "Spark reads 0.5 as a DECIMAL, where Hive reads a DOUBLE, so Spark Composer "
     "writes a Python float as a DOUBLE: 0.5D.",
-    "hive_function": "SQL Composer writes a hive_function call as sqlglot reads it back, such "
-    "as nvl as COALESCE; Spark Composer writes it as it was named.",
+    "hive_function": "SQL Composer checks a hive_function call by having sqlglot read it "
+    "back, and writes the call as sqlglot does, such as nvl as COALESCE. Spark Composer has no "
+    "sqlglot, so it writes the call as it was named. Both call the same function.",
 }
 
-
-def _nonzero_number(node) -> bool:
-    if node.kind != "Literal" or node.parts.get("is_string"):
-        return False
-    try:
-        return float(node.parts["this"]) != 0
-    except ValueError:
-        return False
-
-
-def declared_differences_in(tree) -> set[str]:
-    """Which declared differences a tree of the Toolbox's own holds."""
-    found = set()
-    for node in tree.walk():
-        if node.kind == "Div" and not _nonzero_number(node.parts["expression"]):
-            found.add("division")
-        if (node.kind == "Literal" and node.parts.get("double")
-                and not re.search(r"[eE]", node.parts["this"])):
-            found.add("float")
-        if node.kind == "HiveFunction":
-            found.add("hive_function")
-    return found
 
 
 def may_import(edition: Edition, file_name: str) -> frozenset:

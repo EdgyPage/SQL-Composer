@@ -32,7 +32,11 @@ def hive_text(node: Node) -> str:
 
 
 def readable_text(node: Node) -> str:
-    """A part of a Statement as it was written in Python, on one line: here, just its Hive."""
+    """A part of a Statement as Hive on one line, for the lineage to show how it was written.
+
+    Here it is just its Hive: SQL Composer adds nothing to its Hive that the other Edition
+    doesn't.
+    """
     return hive_text(node)
 
 
