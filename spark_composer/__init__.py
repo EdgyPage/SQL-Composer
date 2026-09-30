@@ -118,8 +118,11 @@ def _check_home(stamps):
     on_disk = os.path.basename(_HERE)
     homes = {name: _home_of(name, stamp) for name, stamp in stamps.items()}
     # The folder is the Toolbox folder its name and its files' stamps agree on. A folder its
-    # files' stamps don't name, such as one you renamed, is the one __init__.py belongs in.
-    this = on_disk if on_disk in homes.values() else _FOLDER
+    # files don't name, such as one you renamed, is the one most of its other files' stamps
+    # name, so a __init__.py pasted in can't decide it; unstamped, as on dev, __init__.py's.
+    stamped = [home for name, home in homes.items() if name != "__init__.py" and home]
+    this = on_disk if on_disk in homes.values() else max(stamped, key=stamped.count,
+                                                          default=_FOLDER)
     elsewhere = sorted(name for name, home in homes.items() if home not in (None, this))
     if elsewhere:
         home = homes[elsewhere[0]]
