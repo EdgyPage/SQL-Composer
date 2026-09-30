@@ -166,6 +166,9 @@ uses.
 - [Refuse the two mix-ups](issues/23-refuse-the-two-mix-ups.md): an object the other
   Edition's folder made, and a send that gives back Spark's DataFrame, are each refused
   saying what went wrong and what to paste; a write's frame isn't, as Spark has done it.
+- [Build both Editions in the export](issues/24-build-both-editions-in-the-export.md): the export
+  builds, stamps, imports and cross-checks every Edition EXPORTED names, still SQL Composer
+  alone; a file from the other folder, `__init__.py` too, stops the import.
 
 ## Not yet specified
 
