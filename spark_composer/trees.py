@@ -11,8 +11,9 @@ order, because the lineage lists a calculation's columns in the order a breadth-
 them, and that order must not change.
 
 This file also says which names Hive and Spark need in backticks, which column types
-create_table takes, which functions hive_function knows add rows up, which it refuses because
-they work only over a window, and how many arguments it lets some functions take.
+create_table takes, which functions hive_function knows turn many rows into one, which it
+refuses because they work only over a window, and how many arguments it lets some functions
+take.
 """
 
 from __future__ import annotations
@@ -89,7 +90,7 @@ HIVE_FUNCTION_ARGUMENTS = {
     "date_format": (2, 2), "datediff": (2, 2), "date_add": (2, 2), "date_sub": (2, 2),
     "add_months": (2, 2), "months_between": (2, 2), "next_day": (2, 2), "trunc": (2, 2),
     "date_trunc": (2, 2), "last_day": (1, 1), "to_date": (1, 1), "from_unixtime": (1, 2),
-    "unix_timestamp": (1, 2), "year": (1, 1), "quarter": (1, 1), "month": (1, 1),
+    "year": (1, 1), "quarter": (1, 1), "month": (1, 1),
     "weekofyear": (1, 1), "day": (1, 1), "dayofmonth": (1, 1), "hour": (1, 1),
     "minute": (1, 1), "second": (1, 1),
     # Numbers.
@@ -107,8 +108,7 @@ HIVE_FUNCTION_ARGUMENTS = {
     "corr": (2, 2), "covar_pop": (2, 2), "covar_samp": (2, 2), "percentile": (2, 2),
     "percentile_approx": (2, 3), "histogram_numeric": (2, 2), "any": (1, 1), "some": (1, 1),
     "every": (1, 1), "bool_and": (1, 1), "bool_or": (1, 1), "count_if": (1, 1),
-    "first": (1, 1), "last": (1, 1), "first_value": (1, 1), "last_value": (1, 1),
-    "max_by": (2, 2), "min_by": (2, 2), "median": (1, 1), "approx_count_distinct": (1, 1),
+    "max_by": (2, 2), "min_by": (2, 2), "median": (1, 1),
 }
 
 
