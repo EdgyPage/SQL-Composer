@@ -8,8 +8,8 @@ give a wrong number, or read or return too much, and says what to change.
 
 ## Which folder to copy
 
-The Toolbox comes in two Editions, two folders with the same functions, the same refusals and
-the same version. Copy one, the whole folder:
+The Toolbox comes in two Editions, two folders with the same functions and the same version.
+Copy one, the whole folder:
 
 - **`sql_composer`, SQL Composer**, writes its Hive with the sqlglot package. Copy it when your
   notebook sends Hive to the warehouse through a query API of its own.
