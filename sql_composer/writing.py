@@ -128,7 +128,7 @@ def _set_part(tree: exp.Expression, part: str, value) -> None:
 
 
 def _identifier(name: str) -> exp.Identifier:
-    """A name as Hive needs it: in backticks only when it isn't a plain word."""
+    """A name as Hive and Spark need it: in backticks only when it isn't a plain word."""
     return exp.to_identifier(name, quoted=not plain_name(name))
 
 
