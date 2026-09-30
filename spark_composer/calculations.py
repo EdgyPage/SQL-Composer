@@ -224,11 +224,12 @@ def week_start(column):
 
     Hive and Spark have no week function that works the same on both, so this takes the first
     Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is
-    the day seven days before. On Hive the result is text, a day like "2026-09-21". Spark gives
-    it back as a date (datetime.date) instead, which prints the same, so comparing it with text,
-    as == "2026-09-21", matches no row, and merging it with text gives no rows, with no error.
-    So turn it into text first: if you named it week with AS, and run(...) gave you the
-    DataFrame result, write result["week"] = result["week"].astype(str).
+    the day seven days before. Where Hive runs the query, the result comes back as text, a day
+    like "2026-09-21"; where Spark runs it, as a date (datetime.date), which prints the same. In
+    the DataFrame you get back, a date compared with text, as == "2026-09-21", matches no row,
+    and merged with text gives no rows, with no error; inside the Statement, comparing it with
+    text works on both. So turn it into text first. If you named it week with AS, and result is
+    the DataFrame run(...) gave you, write result["week"] = result["week"].astype(str).
 
     >>> week_start(job_runs.dt)
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
@@ -242,11 +243,12 @@ def week_start(column):
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
-    On Hive the result is text, a day like "2026-09-01". Spark gives it back as a date
-    (datetime.date) instead, which prints the same, so comparing it with text, as ==
-    "2026-09-01", matches no row, and merging it with text gives no rows, with no error. So turn
-    it into text first: if you named it month with AS, and run(...) gave you the DataFrame
-    result, write result["month"] = result["month"].astype(str).
+    Where Hive runs the query, the result comes back as text, a day like "2026-09-01"; where
+    Spark runs it, as a date (datetime.date), which prints the same. In the DataFrame you get
+    back, a date compared with text, as == "2026-09-01", matches no row, and merged with text
+    gives no rows, with no error; inside the Statement, comparing it with text works on both. So
+    turn it into text first. If you named it month with AS, and result is the DataFrame run(...)
+    gave you, write result["month"] = result["month"].astype(str).
 
     >>> month_start(job_runs.dt)
     TRUNC(job_runs.dt, 'MM')

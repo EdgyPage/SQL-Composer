@@ -120,6 +120,9 @@ def toolbox_module(name: str = "") -> ModuleType:
 
 # Whether the Example database answered the one query each run sends it, and if not, why.
 _ANSWERED: dict = {}
+# What an Example database whose Spark couldn't start says: that is about this computer, so its
+# tests are skipped. Anything else the one query raises is a bug, and fails them.
+_DIDNT_START = ("quit while it was starting", "didn't start within")
 
 
 def example_database_cannot_run() -> str | None:
@@ -127,7 +130,7 @@ def example_database_cannot_run() -> str | None:
 
     Its Edition says what it lacks. Then, once a run, it is sent one query, so an Example
     database that can't answer, such as a Spark that can't start, gives every test one reason
-    rather than each test a wait of its own.
+    rather than each test a wait of its own. Whether that reason is a bug is kept too.
     """
     reason = toolbox_module("engine").example_database_cannot_run()
     if reason is not None:
@@ -140,16 +143,22 @@ def example_database_cannot_run() -> str | None:
             said = re.search(r"What happened:\s*(.+)", str(error))
             _ANSWERED["reason"] = ("the Example database didn't answer: "
                                    + (said.group(1) if said else str(error).strip()))
+            _ANSWERED["bug"] = not any(phrase in str(error) for phrase in _DIDNT_START)
     return _ANSWERED["reason"]
 
 
 def skip_unless_the_example_database_runs() -> None:
-    """Skip the test where the Example database can't run a query, or fail if it's required."""
+    """Skip the test where the Example database can't run a query, or fail if that's a bug.
+
+    Where it is required, as in CI, it fails whatever the reason.
+    """
     reason = example_database_cannot_run()
     if reason is None:
         return
     if _chosen["example_database"] == "required":
         pytest.fail(f"--example-database required, but {reason}")
+    if _ANSWERED.get("bug"):
+        pytest.fail(reason)
     pytest.skip(reason)
 
 

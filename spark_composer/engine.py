@@ -127,39 +127,41 @@ def _java() -> tuple[str | None, str]:
 _JAVAS_ASKED: dict = {}
 
 
-def _java_said(program: str) -> tuple[int | None, str | None, str]:
-    """A java program's main version, such as 17, its own folder, and what stopped it saying.
+def _java_facts(program: str) -> tuple[int | None, str | None, str]:
+    """A java program's main version, such as 17, its own folder, and why it gave no version.
 
-    The version is None when it doesn't say one. Its folder is the Java's own, even when the
-    program found is a script that runs it.
+    It asks the program once while the program is unchanged; one that gave no version is asked
+    again next time. Its folder is the Java's own, even when the program is a script that runs
+    it.
     """
     try:
         asked = (program, os.stat(program).st_mtime_ns)
     except OSError as error:
-        return None, None, str(error)
+        return None, None, f"it couldn't be run ({error.strerror or error})"
     if asked not in _JAVAS_ASKED:
-        said = _ask_java(program)
-        if said[0] is None:
-            return said
-        _JAVAS_ASKED[asked] = said
+        facts = _ask_java(program)
+        if facts[0] is None:
+            return facts
+        _JAVAS_ASKED[asked] = facts
     return _JAVAS_ASKED[asked]
 
 
 def _ask_java(program: str) -> tuple[int | None, str | None, str]:
+    """Run a java program to ask its version and folder, as _java_facts gives them."""
     try:
         # Its settings name its folder; -XX:-UsePerfData leaves no file in the temporary folder.
         done = subprocess.run([program, "-XX:-UsePerfData", "-XshowSettings:properties",
                                "-version"], capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
-        return None, None, "it didn't answer within 60 seconds"
+        return None, None, "it gave no answer within 60 seconds"
     except OSError as error:
-        return None, None, str(error)
+        return None, None, f"it couldn't be run ({error.strerror or error})"
     said = done.stderr + done.stdout
     version = re.search(r'version "(\d+)(?:\.(\d+))?', said)
     if version is None:
         lines = [line.strip() for line in said.splitlines()
                  if line.strip() and not line.startswith("Picked up")]
-        return None, None, ". ".join(line.rstrip(".") for line in lines[:2])
+        return None, None, "it said " + ". ".join(line.rstrip(".") for line in lines[:2])
     home = re.search(r"^\s*java\.home = (.+?)\s*$", said, re.MULTILINE)
     # Java 8 and older call themselves 1.8 and so on.
     number = int(version[2]) if version[1] == "1" and version[2] else int(version[1])
@@ -169,15 +171,24 @@ def _ask_java(program: str) -> tuple[int | None, str | None, str]:
 # The Javas the Example database's Spark starts on, and how to point this Python at one, to paste
 # into the notebook; no restart is needed.
 _JAVAS = f"Java {_JAVA_NEEDED} to {_JAVA_NEWEST}"
-_POINT_AT_JAVA = ('import os; os.environ["JAVA_HOME"] = r"<the Java\'s folder, the one with '
-                  'bin in it>". No restart is needed.')
-# What the script that starts Spark on Windows can't take in the temporary folder's path.
-_LAUNCHER_CANT_TAKE = "&()!^;,= "
+_POINT_AT_JAVA = ('import os; os.environ["JAVA_HOME"] = r"<folder>", where <folder> is the '
+                  "Java's folder, the one with bin in it. No restart is needed.")
+# The characters Spark's Windows launcher, the script that starts it, can't take in the
+# temporary folder's path; it can't take a space either, which the folder's short name avoids.
+_LAUNCHER_CANT_TAKE = "&()!^;,="
 
 
 def _lacking() -> tuple[str, str] | None:
     """What the Example database's Spark lacks here, and how to give it that, or None."""
     return _spark_home_lacking() or _temporary_folder_lacking() or _java_lacking()
+
+
+# How to point pyspark at a Spark it can start: SPARK_HOME tells it which, when set.
+_SPARK_HOME_FIX = (
+    "Set SPARK_HOME to the folder of a Spark install of pyspark's own version, the one with bin "
+    "in it, or take it away so pyspark uses the Spark it comes with: import os; "
+    'os.environ.pop("SPARK_HOME"). A `spark` of your own that is already running isn\'t '
+    "changed, and no restart is needed.")
 
 
 def _spark_home_lacking() -> tuple[str, str] | None:
@@ -194,12 +205,9 @@ def _spark_home_lacking() -> tuple[str, str] | None:
         # named in ways this doesn't know.
         if found is None or wanted is None or found[:2] == wanted[:2]:
             return None
-        holds = f"which holds Spark {_dotted(found)}, and this Python's pyspark is {pyspark}"
-    return (f"can't start: SPARK_HOME is {spark_home}, {holds}",
-            f"Set SPARK_HOME to the folder of a Spark {pyspark} install, the one with bin in "
-            "it, or take it away so pyspark uses the Spark it comes with: import os; "
-            'os.environ.pop("SPARK_HOME"). Your own `spark`, already running, isn\'t changed, '
-            "and no restart is needed.")
+        holds = (f"which holds Spark {_dotted(found)}, and this Python's pyspark is {pyspark}: "
+                 "pyspark can only start a Spark of its own version")
+    return (f"can't start: SPARK_HOME is {spark_home}, {holds}", _SPARK_HOME_FIX)
 
 
 def _spark_in(folder: Path) -> tuple | None:
@@ -217,15 +225,17 @@ def _temporary_folder_lacking() -> tuple[str, str] | None:
         return None
     # The path Spark is given: the folder's short name, which has no space, where Windows has one.
     path = _temporary_folder()
-    characters = " ".join(char for char in _LAUNCHER_CANT_TAKE if char != " " and char in path)
-    named = " and ".join(filter(None, (characters, "a space" if " " in path else "")))
-    if not named:
+    found = [f'"{char}"' for char in _LAUNCHER_CANT_TAKE if char in path]
+    found += ["a space"] if " " in path else []
+    if not found:
         return None
-    return (f"can't start: the temporary folder Python uses, {tempfile.gettempdir()}, has "
-            f"{named} in its path, which the script that starts Spark on Windows can't take",
-            "Make a folder whose path has only letters, digits, - and _ in it, such as "
-            "C:\\Temp, and point Python at it: import tempfile; tempfile.tempdir = "
-            'r"C:\\Temp". No restart is needed.')
+    named = found[0] if len(found) == 1 else f"{', '.join(found[:-1])} and {found[-1]}"
+    return (f"can't start: the temporary folder Python uses (tempfile.gettempdir(), which comes "
+            f"from TMP or TEMP), {tempfile.gettempdir()}, has {named} in its path, and the "
+            "script that starts Spark on Windows can't take that",
+            "Make a folder whose path has none of these, such as C:\\Temp, and point Python at "
+            'it: import tempfile; tempfile.tempdir = r"C:\\Temp". Python\'s other temporary '
+            "files go there too from then on. No restart is needed.")
 
 
 def _java_lacking() -> tuple[str, str] | None:
@@ -241,14 +251,15 @@ def _java_lacking() -> tuple[str, str] | None:
                            f"{_POINT_AT_JAVA} If you have none, install Java {_JAVA_NEEDED} "
                            "first.")
         return found, install
-    version, _, said = _java_said(program)
+    version, _, why_not = _java_facts(program)
     if version is not None and _JAVA_NEEDED <= version <= _JAVA_NEWEST:
         return None
     if version is None:
         return (f"{needs}, and {program} didn't say which Java it is"
-                + (f": it said {said.rstrip('.')}" if said else ""),
-                f"Run {program} -version in a terminal to see what stops it, or point this "
-                f"Python at another {_JAVAS}: {_POINT_AT_JAVA}")
+                + (f": {why_not.rstrip('.')}" if why_not else ""),
+                "See what it says, in this notebook: import subprocess; print(subprocess.run("
+                f'[r"{program}", "-version"], capture_output=True, text=True).stderr). Or point '
+                f"this Python at another {_JAVAS}: {_POINT_AT_JAVA}")
     return f"{needs}, and {program} is Java {version}", install
 
 
@@ -277,9 +288,11 @@ _STOP_SECONDS = 15
 # process join that kernel's Spark, read its settings or its Hadoop's, or put its files
 # elsewhere.
 _NOT_PASSED_ON = ("PYSPARK_GATEWAY_PORT", "PYSPARK_GATEWAY_SECRET", "PYSPARK_SUBMIT_ARGS",
-                  "HADOOP_CONF_DIR", "YARN_CONF_DIR", "SPARK_DIST_CLASSPATH",
-                  "_PYSPARK_DRIVER_CONN_INFO_PATH", "SPARK_CONNECT_MODE", "SPARK_REMOTE",
-                  "SPARK_LOCAL_DIRS", "SPARK_EXECUTOR_DIRS", "LOCAL_DIRS")
+                  "SPARK_SUBMIT_OPTS", "HADOOP_CONF_DIR", "YARN_CONF_DIR",
+                  "SPARK_DIST_CLASSPATH", "_PYSPARK_DRIVER_CONN_INFO_PATH",
+                  "SPARK_CONNECT_MODE", "SPARK_CONNECT_MODE_ENABLED", "SPARK_REMOTE",
+                  "SPARK_LOCAL_REMOTE", "SPARK_API_MODE", "SPARK_LOCAL_DIRS",
+                  "SPARK_EXECUTOR_DIRS", "LOCAL_DIRS")
 # Values Spark must read back as they were written, checked once its Spark starts.
 _ESCAPING_CHECK = ("it's", "C:\\temp\\", "two\nlines", "tab\there", "back\rspace", "50%_off",
                    "`name`", 'say "hi"', "-- not a comment", "; not a second statement",
@@ -334,7 +347,7 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     with _ONE_AT_A_TIME:
         reply = _answer(text, tables)
     if "refused" in reply:
-        raise RuntimeError(_refused(reply["refused"]))
+        raise RuntimeError(_refused(reply["refused"], tables))
     if "unheld" in reply:
         raise RuntimeError(_unheld(reply["unheld"]))
     return reply["columns"], [tuple(row) for row in reply["rows"]]
@@ -366,8 +379,9 @@ def _spark_says(said: str) -> str:
     """The part of Spark's message that names the problem, with no full stop at its end.
 
     It is the message's first line, less its SQLSTATE, the place in the Hive, and Spark's
-    advice to change one of its settings or to use one of its try_ functions: the Example
-    database's Spark takes no settings, and the Toolbox wraps none of Spark's try_ functions.
+    advice to change one of its settings or to use one of its try_ functions in place of what
+    failed: the Example database's Spark takes no settings, and the Toolbox wraps none of
+    Spark's try_ functions.
     """
     lines = said.strip().splitlines() or ["(Spark said nothing)"]
     first = re.sub(r"\s*SQLSTATE:.*$", "", lines[0])
@@ -375,25 +389,29 @@ def _spark_says(said: str) -> str:
     first = re.sub(r"[,;]?\s*(?:please |if necessary )?set ['\"]?spark\.sql\.[\w.]+['\"]?"
                    r"[^.]*\.?", "", first, flags=re.IGNORECASE)
     kept = [sentence for sentence in re.split(r"(?<=\.)\s+(?=[A-Z\[])", first)
-            if not re.search(r"[`']try_", sentence)]
+            if not re.match(r"Use [`']try_\w+[`'] to tolerate", sentence)]
     return " ".join(kept).rstrip(" ;.,") or first.rstrip(" ;.,")
 
 
-def _refused(said: str) -> str:
+def _refused(said: str, tables: dict) -> str:
     """Spark's refusal of a query, with what Spark said about it."""
     return four_part_message(
         what=f"Spark couldn't run this Hive on the Example database: {_spark_says(said)}.",
-        why="Your warehouse's Spark would refuse this Hive too. For a few mistakes, such as "
-        "text where a date goes, a Spark set up less strictly gives None instead of refusing: "
-        "a wrong answer with no error. Either way, the Statement needs changing.",
-        fix="Spark's message names the problem: usually a table, column or hive_function(...) "
-        "name spelt wrong (print a Table reference, such as example_database.jobs, to see its "
-        "columns), a value of the wrong type, such as text given where a date goes, or a "
-        "calculation with no answer, such as dividing by zero. If none of these, and "
-        "statement(...) built the Hive, please report it with the Statement to whoever looks "
-        "after the Toolbox.",
+        why="Your warehouse's Spark would refuse it too, or, if it is set up less strictly, give "
+        "a wrong answer with no error. Either way, the query needs changing.",
+        fix="Spark's message names the problem. Most often it is a table, column or "
+        f"hive_function(...) name spelt wrong: the tables are {_listed(tables)}, and printing "
+        "one, such as example_database.jobs, shows its columns. Or it is a value of the wrong "
+        "type, such as text where a date goes, or a number too big for its type. If it is none "
+        "of these, and statement(...) built the Hive, please report it with the Statement to "
+        "whoever looks after the Toolbox.",
         opt_out=None,
     )
+
+
+def _listed(tables: dict) -> str:
+    names = [f"ops.{name}" for name in tables]
+    return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def _unheld(said: str) -> str:
@@ -401,9 +419,11 @@ def _unheld(said: str) -> str:
     return four_part_message(
         what="The Example database's Spark ran this Hive, but Python couldn't take what it gave "
         f"back: {said.rstrip('.')}.",
-        why="Python needs every value to make the DataFrame, so none can be made.",
-        fix="Change the Statement so it gives back plain numbers, text, dates and times. "
-        "Python's dates end at the year 9999, and on Windows it can't take a time before 1970.",
+        why="Python needs every value to make the DataFrame, so this query gives no "
+        "DataFrame.",
+        fix="Change the query so it gives back plain numbers, text, dates and times, not "
+        "intervals or maps. Python's dates end at the year 9999, and on Windows it can't take a "
+        "time before 1970.",
         opt_out=None,
     )
 
@@ -413,7 +433,7 @@ def _python_stopping() -> NoReturn:
     raise RuntimeError(four_part_message(
         what="The Example database runs no query while your Python is stopping.",
         why="Its Spark is stopped along with your Python, so this query got no answer.",
-        fix="None is needed: run the query again once your kernel has started again.",
+        fix="Run the query again once your kernel has started again.",
         opt_out=None,
     ))
 
@@ -422,8 +442,8 @@ def _start_spark(tables: dict) -> None:
     """Start a Spark in a new temporary folder, make its tables, and check its escaping.
 
     Interrupted, as by a notebook's Interrupt button, it stops that Spark, which would otherwise
-    give its answers to the queries after, and keeps its log. A Spark is used only once all this
-    is done: one left half started is stopped at the next query.
+    give its answers to the queries after, and keeps what it wrote, if anything. A Spark is used
+    only once all this is done: one left half started is stopped at the next query.
     """
     if _STOPPING.is_set():
         _python_stopping()
@@ -444,12 +464,13 @@ def _start_spark(tables: dict) -> None:
 
 
 def _interrupted() -> None:
-    """Stop a Spark whose start was interrupted, keeping its log, in case the start hung."""
-    kept = _keep(_end_and_read_log(wait=False))
+    """Stop a Spark whose start was interrupted, keeping what it wrote, in case it hung."""
+    log_text = _end_and_read_log(wait=False)
+    kept = _keep(log_text) if log_text.strip() else None
     _stop_spark(wait=False)
     if kept is not None:
-        print(f"Note: the Example database's Spark was stopped as it started. What it wrote is "
-              f"in {kept}.", file=sys.stderr)
+        print("Note: the Example database's Spark was stopped while it was starting. If it was "
+              f"slow to start, what it wrote is in {kept}.", file=sys.stderr)
 
 
 def _launch() -> None:
@@ -465,7 +486,7 @@ def _launch() -> None:
     # The process writes to it while it runs; _stop_spark closes it once the process stops.
     _SPARK["log"] = log = open(folder / "spark.log", "w", encoding="utf-8")
     _SPARK["process"] = process = subprocess.Popen(
-        [sys.executable, "-B", str(Path(__file__).resolve())], cwd=folder,
+        [_python(), "-B", str(Path(__file__).resolve())], cwd=folder,
         env=_environment(folder), stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT,
         text=True, **_APART)
     # Before the process is told anything, so everything it starts is held too.
@@ -550,8 +571,7 @@ def _still_starting(deadline: float) -> None:
 
 
 def _not_started(what: str, busy: bool = False) -> NoReturn:
-    """End the Spark that couldn't start, keep its log, and say so, with what most likely says
-    why."""
+    """End the Spark that couldn't start, keep its log, and say what most likely says why."""
     log_text = _end_and_read_log(wait=not busy)
     kept = _keep(log_text)
     _stop_spark(wait=False)
@@ -560,6 +580,9 @@ def _not_started(what: str, busy: bool = False) -> NoReturn:
             else " It wrote nothing that says why." if log_text.strip() else " It wrote nothing.")
     spark_home = os.environ.get("SPARK_HOME")
     started = f" It was started from the Spark in SPARK_HOME, {spark_home}." if spark_home else ""
+    # A slow computer is the likeliest reason for a slow start, unless what it wrote names an
+    # error.
+    slow = busy and not (last and _AN_ERROR.search(last))
     show = (f"show its log, {kept}, to whoever looks after your environment" if kept
             else "tell whoever looks after your environment")
     raise RuntimeError(four_part_message(
@@ -567,7 +590,9 @@ def _not_started(what: str, busy: bool = False) -> NoReturn:
         why="The Example database runs each query on that Spark, so none can run until one "
         "starts. to_hive(...) still writes every Statement's Hive.",
         fix=("A busy computer can take longer: close other programs, then run the query again."
-             if busy else "Run the query again: another Spark starts.")
+             if slow else "Run the query again: another Spark starts.")
+        + (" If SPARK_HOME's Spark isn't of pyspark's own version, take SPARK_HOME away: "
+           'import os; os.environ.pop("SPARK_HOME").' if spark_home else "")
         + f" If it fails the same way, {show}.",
         opt_out=None,
     )) from None
@@ -601,11 +626,15 @@ def _keep(log_text: str) -> Path | None:
 
 
 # The lines a start writes that say nothing about why it failed: what Spark and Java write as
-# a start goes well, the lines around a Python traceback, and pyspark's own word that the Java
-# quit, which the message says already.
+# a start goes well, the lines around a Python traceback, and pyspark's and Java's own words
+# for Java having quit, which the message says already.
 _ROUTINE = re.compile(r'\d\d/\d\d/\d\d \S+ (WARN|INFO)|\{"ts"|Using Spark\'s|Setting default|'
                       r"To adjust|WARNING:|Picked up _?JAVA|Traceback|During handling|"
-                      r"The above exception|.*\[JAVA_GATEWAY_EXITED\]")
+                      r"The above exception|.*\[JAVA_GATEWAY_EXITED\]|"
+                      # Java's own words for having quit, above or below its reason.
+                      r"Error occurred during initialization of VM|"
+                      r"Error: Could not create the Java Virtual Machine|"
+                      r"Error: A fatal exception has occurred")
 # A line that names an error, as Java's and Python's errors do.
 _AN_ERROR = re.compile(r"(Exception|Error)\b")
 
@@ -666,7 +695,9 @@ def _ask(sql: str) -> dict:
     except (EOFError, OSError) as error:
         raise _Gone from error
     except KeyboardInterrupt:
-        _stop_spark(wait=False)
+        # A start that is interrupted stops its Spark itself, keeping what it wrote.
+        if _SPARK.get("ready"):
+            _stop_spark(wait=False)
         raise
     if "stopped" in reply:
         raise _Gone
@@ -773,6 +804,19 @@ def _temporary_folder() -> str:
     return base
 
 
+def _python() -> str:
+    """This Python's program, as the console program where this one is pythonw.exe.
+
+    Windows hides the console of a console program started with no window, and Spark's
+    launcher, which is one, then shares it; pythonw.exe has none, so the launcher's would show.
+    """
+    program = Path(sys.executable)
+    console = program.with_name("python.exe")
+    if program.name.lower() == "pythonw.exe" and console.is_file():
+        return str(console)
+    return sys.executable
+
+
 def _environment(folder: Path) -> dict:
     """The process's environment: yours, less a kernel's Spark, with its own folders and UTC."""
     environment = {key: value for key, value in os.environ.items()
@@ -780,20 +824,19 @@ def _environment(folder: Path) -> dict:
     for name in ("TMP", "TEMP", "TMPDIR"):
         environment[name] = str(folder / "tmp")
     environment.update(SPARK_CONF_DIR=str(folder / "conf"), SPARK_LOCAL_IP="127.0.0.1",
-                       PYSPARK_PYTHON=sys.executable, TZ="UTC")
+                       PYSPARK_PYTHON=_python(), TZ="UTC")
     program, _ = _java()
     if program is not None and not os.environ.get("JAVA_HOME"):
         # The Java's own folder, which a script found on PATH in its place doesn't show:
         # Spark's Windows launcher can't run a java that is a script.
-        _, home, _ = _java_said(program)
+        _, home, _ = _java_facts(program)
         if home:
             environment["JAVA_HOME"] = home
     return environment
 
 
 def _settings(folder: Path) -> dict:
-    """Its Spark: one core, no catalog on disk, and every file in its own folder, on this
-    computer's own disk."""
+    """Its Spark: one core, no catalog on disk, and every file in its own folder, on this disk."""
     posix = folder.as_posix()
     settings = {
         "spark.master": "local[1]", "spark.app.name": "spark_composer_example_database",
@@ -851,8 +894,7 @@ def _stop_what_runs(wait: bool) -> None:
 
 
 def _end(process: subprocess.Popen, job, wait: bool) -> None:
-    """End the process and everything it started, and let go of its job: with wait, after
-    letting it stop."""
+    """End the process, everything it started, and its job: with wait, after letting it stop."""
     if wait:
         with contextlib.suppress(subprocess.TimeoutExpired):
             process.wait(_STOP_SECONDS)
@@ -923,8 +965,7 @@ def _kernel32():
 
 
 def _job_limits():
-    """The job's limits, as Windows lays them out, set to end every process in the job as
-    its last handle closes."""
+    """The job's limits as Windows lays them out, set to end all in it as its handle closes."""
     import ctypes
     from ctypes import wintypes
 
@@ -971,7 +1012,7 @@ def _terminate_job(job) -> None:
 
 
 def _close_job(job) -> None:
-    _terminate_job(job)
+    """Let go of the job; anything still in it ends as it closes."""
     _kernel32().CloseHandle(job)
 
 
