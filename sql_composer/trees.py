@@ -99,7 +99,8 @@ KINDS = {
     "Alias": ("this", "alias"),
     # A call to one of Hive's date functions the Toolbox writes, such as next_day.
     "Call": ("name", "args"),
-    # hive_function's call, kept as it was written, and whether the function adds rows up.
+    # hive_function's call: the function's name in lower case, its arguments as written, and
+    # whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
     # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
     "Select": ("with_tables", "outputs", "distinct", "source", "joins", "where", "group_by",
