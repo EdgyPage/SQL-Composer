@@ -2,9 +2,9 @@
 
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
 one for each piece of the SQL. This file writes them out as Hive, laid out over lines as SQL
-Composer lays out its own. It also checks what it wrote, counts a hive_function call's arguments
-(HIVE_FUNCTION_ARGUMENTS in trees.py), and writes the DESCRIBE and SHOW PARTITIONS commands for
-a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
+Composer lays out its own: each helper below names the sqlglot code it copies. It also checks
+what it wrote, counts a hive_function call's arguments (HIVE_FUNCTION_ARGUMENTS in trees.py),
+and writes the DESCRIBE and SHOW PARTITIONS commands for a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
 Spark Composer, this one) writes Hive its own way behind these same function names.
 
 Its Hive is SQL Composer's but in three places:
@@ -91,14 +91,17 @@ def readable_text(node: Node) -> str:
 # --- The layout: sqlglot's sep, seg, indent, wrap and lists ---------------------------------
 
 
+# After sqlglot's Generator.sep.
 def _sep(pretty: bool, sep: str = " ") -> str:
     return f"{sep.strip()}\n" if pretty else sep
 
 
+# After sqlglot's Generator.seg.
 def _seg(sql: str, pretty: bool, sep: str = " ") -> str:
     return f"{_sep(pretty, sep)}{sql}"
 
 
+# After sqlglot's Generator.indent.
 def _indent(sql: str, pretty: bool, level: int = 0, pad: int = PAD, skip_first: bool = False,
             skip_last: bool = False) -> str:
     if not pretty or not sql:
@@ -111,10 +114,12 @@ def _indent(sql: str, pretty: bool, level: int = 0, pad: int = PAD, skip_first: 
     )
 
 
+# After sqlglot's Generator.too_wide.
 def _too_wide(sqls) -> bool:
     return sum(len(sql) for sql in sqls) > WIDTH
 
 
+# After sqlglot's Generator.format_args.
 def _args(sqls: list[str], pretty: bool, sep: str = ", ") -> str:
     if pretty and _too_wide(sqls):
         return _indent("\n" + f"{sep.strip()}\n".join(sqls) + "\n", pretty, skip_first=True,
@@ -122,10 +127,12 @@ def _args(sqls: list[str], pretty: bool, sep: str = ", ") -> str:
     return sep.join(sqls)
 
 
+# After sqlglot's Generator.func.
 def _func(name: str, nodes: list, pretty: bool) -> str:
     return f"{name}({_args([_sql(node, pretty) for node in nodes], pretty)})"
 
 
+# After sqlglot's Generator.expressions.
 def _list(sqls: list[str], pretty: bool, flat: bool = False, indent: bool = True,
           skip_first: bool = False, skip_last: bool = False, sep: str = ", ",
           dynamic: bool = False, new_line: bool = False) -> str:
@@ -144,6 +151,7 @@ def _list(sqls: list[str], pretty: bool, flat: bool = False, indent: bool = True
     return _indent(text, pretty, skip_first=skip_first, skip_last=skip_last) if indent else text
 
 
+# After sqlglot's Generator.wrap.
 def _wrap(sql: str, pretty: bool) -> str:
     """A whole query in round brackets, as a Derived table's body."""
     if not sql:
@@ -152,6 +160,7 @@ def _wrap(sql: str, pretty: bool) -> str:
     return f"({_sep(pretty, '')}{inner}{_seg(')', pretty, sep='')}"
 
 
+# After sqlglot's Generator.op_expressions.
 def _op_list(op: str, sqls: list[str], pretty: bool, flat: bool = False) -> str:
     listed = _list(sqls, pretty, flat=flat)
     if flat:
@@ -162,6 +171,7 @@ def _op_list(op: str, sqls: list[str], pretty: bool, flat: bool = False) -> str:
 # --- Values and names -----------------------------------------------------------------------
 
 
+# After sqlglot's Generator.literal_sql, for a string.
 def _quoted(text: str) -> str:
     """A string value between single quotes, checked: it must read back as the same value."""
     written = "'" + "".join(_ESCAPES.get(character, character) for character in text) + "'"
@@ -170,6 +180,7 @@ def _quoted(text: str) -> str:
     return written
 
 
+# After sqlglot's Generator.identifier_sql.
 def _identifier(text: str) -> str:
     """A name, in backticks when it isn't plain, checked: it must read back as the same name."""
     if plain_name(text):
@@ -202,11 +213,13 @@ def _part(node: Node, part: str, pretty: bool) -> str:
     return "" if value is None else _sql(value, pretty)
 
 
+# After sqlglot's Generator.column_sql.
 def _column(node: Node, pretty: bool) -> str:
     column = _identifier(node.name)
     return f"{_identifier(node.table)}.{column}" if node.table else column
 
 
+# After sqlglot's Generator.literal_sql.
 def _literal(node: Node, pretty: bool) -> str:
     if node.parts.get("is_string"):
         return _quoted(node.parts["this"])
@@ -218,6 +231,7 @@ def _literal(node: Node, pretty: bool) -> str:
     return text
 
 
+# After sqlglot's Generator.binary.
 def _two_sided(node: Node, pretty: bool) -> str:
     divisor = node.parts["expression"]
     right = _part(node, "expression", pretty)
@@ -236,6 +250,7 @@ def _nonzero_number(node: Node) -> bool:
         return False
 
 
+# After sqlglot's Generator.connector_sql.
 def _connector(node: Node, pretty: bool) -> str:
     """AND and OR: each condition on its own line when they won't fit on one."""
     pieces, waiting, operators = [], [node], set()
@@ -254,17 +269,20 @@ def _connector(node: Node, pretty: bool) -> str:
     return ("\n" if pretty and _too_wide(pieces) else " ").join(pieces)
 
 
+# After sqlglot's Generator.paren_sql.
 def _paren(node: Node, pretty: bool) -> str:
     inner = _seg(_indent(_part(node, "this", pretty), pretty), pretty, sep="")
     return f"({inner}{_seg(')', pretty, sep='')}"
 
 
+# After sqlglot's Generator.in_sql.
 def _in(node: Node, pretty: bool) -> str:
     items = _list([_sql(item, pretty) for item in node.parts["expressions"]], pretty,
                   dynamic=True, new_line=True, skip_first=True, skip_last=True)
     return f"{_part(node, 'this', pretty)} IN ({items})"
 
 
+# After sqlglot's Generator.case_sql.
 def _case(node: Node, pretty: bool) -> str:
     statements = ["CASE"]
     for when in node.parts["ifs"]:
@@ -279,15 +297,18 @@ def _case(node: Node, pretty: bool) -> str:
     return " ".join(statements)
 
 
+# After sqlglot's Generator.function_fallback_sql.
 def _aggregate(node: Node, pretty: bool) -> str:
     return _func(_AGGREGATES[node.kind], [node.parts["this"]], pretty)
 
 
+# After sqlglot's Generator.distinct_sql.
 def _distinct(node: Node, pretty: bool) -> str:
     return "DISTINCT " + _list([_sql(item, pretty) for item in node.parts["expressions"]],
                                pretty, flat=True)
 
 
+# After sqlglot's Generator.window_sql.
 def _window(node: Node, pretty: bool) -> str:
     pieces = []
     partitions = [_sql(item, pretty) for item in node.parts["partition_by"]]
@@ -299,16 +320,19 @@ def _window(node: Node, pretty: bool) -> str:
     return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
 
 
+# After sqlglot's Generator.order_sql.
 def _order(node: Node, pretty: bool, flat: bool = False) -> str:
     return _op_list("ORDER BY", [_sql(item, pretty) for item in node.parts["expressions"]],
                     pretty, flat=flat)
 
 
+# After sqlglot's Generator.ordered_sql.
 def _ordered(node: Node, pretty: bool) -> str:
     desc = node.parts.get("desc")
     return _part(node, "this", pretty) + {True: " DESC", False: " ASC", None: ""}[desc]
 
 
+# After sqlglot's the Hive dialect's date functions, date_sub as DATE_ADD with * -1.
 def _call(node: Node, pretty: bool) -> str:
     args = node.parts["args"]
     if node.name == "date_sub":
@@ -320,6 +344,7 @@ def _call(node: Node, pretty: bool) -> str:
 # --- A whole Statement ----------------------------------------------------------------------
 
 
+# After sqlglot's Generator.select_sql and query_modifiers.
 def _select(node: Node, pretty: bool) -> str:
     outputs = _list([_sql(item, pretty) for item in node.parts["outputs"]], pretty)
     sql = "SELECT" + (" DISTINCT" if node.parts.get("distinct") else "")
@@ -343,6 +368,7 @@ def _select(node: Node, pretty: bool) -> str:
     return _with_tables(node, sql, pretty)
 
 
+# After sqlglot's Generator.with_sql and cte_sql.
 def _with_tables(node: Node, sql: str, pretty: bool) -> str:
     tables = node.parts.get("derived_tables") or []
     if not tables:
@@ -352,6 +378,7 @@ def _with_tables(node: Node, sql: str, pretty: bool) -> str:
     return f"WITH {listed}{_sep(pretty)}{sql}"
 
 
+# After sqlglot's Generator.join_sql.
 def _join(node: Node, pretty: bool) -> str:
     kind = node.parts["how"]
     on = _part(node, "on", pretty)
@@ -362,6 +389,7 @@ def _join(node: Node, pretty: bool) -> str:
     return f"{_seg(kind, pretty)} {_part(node, 'this', pretty)}{on}"
 
 
+# After sqlglot's Generator.table_sql and partition_sql.
 def _table(node: Node, pretty: bool) -> str:
     database = node.parts.get("db")
     sql = _identifier(node.name)
@@ -375,6 +403,7 @@ def _table(node: Node, pretty: bool) -> str:
     return sql if alias is None else f"{sql} AS {_identifier(alias)}"
 
 
+# After sqlglot's Generator.insert_sql.
 def _insert(node: Node, pretty: bool) -> str:
     into = " OVERWRITE TABLE" if node.parts["overwrite"] else " INTO"
     target, select = _part(node, "target", pretty), _part(node, "select", pretty)
@@ -382,15 +411,18 @@ def _insert(node: Node, pretty: bool) -> str:
     return _with_tables(node, sql, pretty)
 
 
+# After sqlglot's Generator.columndef_sql.
 def _column_def(node: Node, pretty: bool) -> str:
     return f"{_identifier(node.name)} {_type(node.parts['type'], pretty)}"
 
 
+# After sqlglot's Generator.schema_sql.
 def _columns(defs: list[Node], pretty: bool) -> str:
     listed = _list([_sql(item, pretty) for item in defs], pretty)
     return f"({_sep(pretty, '')}{listed}{_seg(')', pretty, sep='')}"
 
 
+# After sqlglot's Generator.create_sql and properties_sql.
 def _create(node: Node, pretty: bool) -> str:
     exists = " IF NOT EXISTS" if node.parts.get("exists") else ""
     sql = f"CREATE TABLE{exists} {_part(node, 'target', pretty)}"
@@ -403,6 +435,7 @@ def _create(node: Node, pretty: bool) -> str:
     return sql + _sep(pretty) + _list(properties, pretty, indent=False, sep=" ")
 
 
+# After sqlglot's Generator.drop_sql.
 def _drop(node: Node, pretty: bool) -> str:
     return f"DROP TABLE IF EXISTS {_part(node, 'target', pretty)}"
 
@@ -419,6 +452,7 @@ _TYPE_NAMES = {
 }
 
 
+# After sqlglot's Generator.datatype_sql.
 def _type(text: str, pretty: bool) -> str:
     written, rest = _parse_type(text.strip(), pretty)
     if rest.strip():
