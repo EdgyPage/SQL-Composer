@@ -362,7 +362,8 @@ def hive_function(name, *args):
     The Hive writes its name in capitals. It may also write another name that does the same,
     as COALESCE for nvl, or leave out an argument that is filled in anyway, as
     regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none
-    is given. Either way it does the same.
+    is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not
+    YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.
 
     It checks the call before writing it:
 

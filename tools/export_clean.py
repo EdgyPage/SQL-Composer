@@ -63,10 +63,14 @@ class ExportRefused(Exception):
     """The export stopped before touching `main`; the message says why and what to do."""
 
 
+def version_text(toolbox_version: str, when: datetime.datetime) -> str:
+    """A version and the time it was exported, such as "3.0, exported 2026-10-02 14:05"."""
+    return f"{toolbox_version}, exported {when.strftime('%Y-%m-%d %H:%M')}"
+
+
 def stamp_text(product: str, toolbox_version: str, when: datetime.datetime) -> str:
-    """The line-1 stamp, such as "SQL Composer 2.0, exported 2026-10-02 14:05 - ..."."""
-    exported = when.strftime("%Y-%m-%d %H:%M")
-    return f"{product} {toolbox_version}, exported {exported} - generated from dev, do not edit"
+    """The line-1 stamp, such as "SQL Composer 3.0, exported 2026-10-02 14:05 - ..."."""
+    return f"{product} {version_text(toolbox_version, when)} - generated from dev, do not edit"
 
 
 def stamped(name: str, text: str, stamp: str) -> str:
@@ -216,20 +220,15 @@ def differences_text() -> str:
         for row in editions.DECLARED_DIFFERENCES.values())
 
 
-def readme_text(template: str, described: dict, stamp: str) -> str:
-    """The Clean branch's README: the template, with the version, the Editions' differences
-    and the cheat sheet put in.
-
-    The version is the first Edition's without its name, such as "3.0, exported 2026-10-02
-    14:05": every Edition has one version and one export time.
-    """
+def readme_text(template: str, groups: list[dict], version: str, stamp: str) -> str:
+    """The Clean branch's README: the template, with the version, such as "3.0, exported
+    2026-10-02 14:05", the Editions' differences and the cheat sheet put in."""
     for marker in (VERSION_MARKER, DIFFERENCES_MARKER, CHEAT_SHEET_MARKER):
         if template.count(marker) != 1:
             raise ExportRefused(f"{README_TEMPLATE} must have `{marker}` exactly once.")
-    product = f"{editions.EXPORTED[0].product} "
-    text = template.replace(VERSION_MARKER, described["version"].removeprefix(product))
+    text = template.replace(VERSION_MARKER, version)
     text = text.replace(DIFFERENCES_MARKER, differences_text())
-    text = text.replace(CHEAT_SHEET_MARKER, cheat_sheet(described["groups"]))
+    text = text.replace(CHEAT_SHEET_MARKER, cheat_sheet(groups))
     return stamped("README.md", text, stamp)
 
 
@@ -354,25 +353,29 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     """Build the Clean tree from the `dev` folder `source` into the folder `into`, with each
     Edition EXPORTED in tools/editions.py names.
 
-    Returns the first exported Edition's copy's `VERSION`.
+    Returns what the tree is, as main's commit names it, such as "SQL Composer and Spark
+    Composer 3.0, exported 2026-10-02 14:05".
     """
     if into.exists() and any(into.iterdir()):
         raise ExportRefused(f"{into} isn't empty. Build the Clean tree into an empty folder.")
     check_editions(source)
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
     check_readme(template)
-    stamps = [stamp_text(edition.product, toolbox_version_of(source, edition), when)
-              for edition in editions.EXPORTED]
-    described = [build_edition(source, into, edition, stamp)
-                 for edition, stamp in zip(editions.EXPORTED, stamps)]
+    version = toolbox_version_of(source, editions.EXPORTED[0])
+    described = [build_edition(source, into, edition, stamp_text(edition.product, version, when))
+                 for edition in editions.EXPORTED]
     check_described_alike(described)
+    # The README is every Edition's, so its stamp names them all.
+    products = " and ".join(edition.product for edition in editions.EXPORTED)
     (into / README).parent.mkdir()
-    (into / README).write_text(readme_text(template, described[0], stamps[0]),
-                               encoding="utf-8", newline="\n")
+    (into / README).write_text(
+        readme_text(template, described[0]["groups"], version_text(version, when),
+                    stamp_text(products, version, when)),
+        encoding="utf-8", newline="\n")
     outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
-    return described[0]["version"]
+    return f"{products} {version_text(version, when)}"
 
 
 def git(repo: Path, *args: str, **options) -> str:

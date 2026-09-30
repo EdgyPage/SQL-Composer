@@ -12,8 +12,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **week_start and month_start give text on Spark too**. Their Hive is now
   `CAST(NEXT_DAY(...) AS STRING)` and `CAST(TRUNC(...) AS STRING)`: Spark's NEXT_DAY and TRUNC
   give a date, and the CAST makes it text, a day like "2026-09-21", as Hive gives it. On Hive
-  the result is the same as before. On Spark, a Saved table's column for either is typed
-  "string": Spark won't write text into a date column.
+  the result is the same as before. On Spark, give a Saved table's column for either the type
+  "string", not "date": Spark won't write text into a date column.
 - **The words Spark reserves go in backticks too**, such as any, except, minus,
   semi and current_user, as column, table and Derived table names. Before, some of them made
   to_hive fail, and others were written plain, which Spark refuses.
@@ -34,8 +34,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   Hive with sqlglot still has sqlglot check the call; the other writes it as given, and Spark
   checks it when it runs.
 - **An object from the other Edition's folder is refused plainly**. Given, say, a
-  Table reference whose file imports the other folder, each function says which folder made
-  the object, and how to import from one folder only, whichever your notebook uses.
+  Table reference whose file imports the other folder, the Toolbox function you give it to
+  says which folder made the object, and how to import from one folder only, whichever your
+  notebook uses.
 - **A file from the other folder stops the import**. A file copied in from the
   other folder by mistake, even `__init__.py`, is named with the folder it came from, and the
   fix says to copy this folder in again from its own folder of the download.
@@ -76,8 +77,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   with None first. At work, rows still come back in no fixed order.
 - A `hive_function(...)` call is now compared by the function you name, whatever its case, and
   by its arguments, so it no longer counts as the same calculation as another one that writes
-  the same Hive: `hive_function("nvl", x, 0)` and `fill_null(x, 0)` both write COALESCE, for
-  example. It matters in one place: a `derived(...)` table that SELECTs one and groups by the
+  the same Hive: `hive_function("coalesce", x, 0)` and `fill_null(x, 0)` both write COALESCE,
+  for example. It matters in one place: a `derived(...)` table that SELECTs one and groups by the
   other no longer knows its key, so a JOIN to it warns. Group by the calculation you SELECT.
 - Refusals and docstrings that described Hive alone now say what holds on Spark as well, and
   call where Statements run at work "the warehouse".

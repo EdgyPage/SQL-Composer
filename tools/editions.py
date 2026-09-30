@@ -114,11 +114,11 @@ class Difference:
 # Each place the two Editions differ on purpose.
 DECLARED_DIFFERENCES = {
     "division": Difference(
-        title="Dividing by a column.",
-        why="Spark stops the whole query with an error when it divides by 0, where Hive gives "
-        "NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when "
-        "y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is "
-        "written as it is.",
+        title="Dividing by something that could be 0.",
+        why="With ANSI on, Spark 4's default, Spark stops the whole query with an error when it "
+        "divides by 0, where Hive gives NULL. So Spark Composer writes x / y as "
+        "x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. "
+        "A divisor that is a number other than 0 is written as it is.",
         sql_composer="SUM(job_runs.duration_mins) / COUNT(*)",
         spark_composer="SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)",
         cases=("edge:brackets:nested", "edge:brackets:aggregates",
@@ -129,8 +129,8 @@ DECLARED_DIFFERENCES = {
         title="A Python float.",
         why="Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, "
         "where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python float as "
-        "0.5D: the D marks a DOUBLE, and doesn't mean days. A number written with e, such as "
-        "1e-05, is a DOUBLE already.",
+        "0.5D: the D marks a DOUBLE, and doesn't mean days. A very small or very large float, "
+        "which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.",
         sql_composer="COALESCE(job_runs.avg_retry_secs, 0.1)",
         spark_composer="COALESCE(job_runs.avg_retry_secs, 0.1D)",
         cases=("worked:nan_in_a_list:fixed", "edge:calculations:values",
@@ -139,15 +139,15 @@ DECLARED_DIFFERENCES = {
     ),
     "hive_function": Difference(
         title="A hive_function call.",
-        why="SQL Composer has sqlglot read a hive_function call back, and writes the call as "
-        "sqlglot does: sometimes by another name that does the same, such as COALESCE for nvl, "
-        "and sometimes with an argument changed, such as a date_format pattern 'YYYY-MM' "
-        "written 'yyyy-MM', which isn't the same: YYYY is the year a week belongs to. Spark "
-        "Composer has no sqlglot, so it writes the call by the name and the arguments it was "
-        "given. And for a function hive_function's own list doesn't count, SQL Composer refuses "
-        "a call sqlglot can't build, which Spark Composer writes as given. Spark refuses some of "
-        "these when it runs, such as nvl2 with 1 argument, and runs others, such as "
-        "unix_timestamp with none or approx_count_distinct with 2.",
+        why="SQL Composer writes a hive_function call as sqlglot reads it back: sometimes by "
+        "another name that does the same, such as COALESCE for nvl, and sometimes with an "
+        "argument changed, such as a date_format pattern 'YYYY-MM' written 'yyyy-MM'. Spark "
+        "Composer writes the call as you gave it, its name in capitals. So write 'yyyy' for the "
+        "year in a date_format pattern: YYYY is the year a week belongs to, which Spark refuses "
+        "in a pattern. And hive_function counts the arguments of the functions on its own list "
+        "in both Editions; for any other function, SQL Composer refuses a call sqlglot can't "
+        "build, and Spark Composer writes it, for Spark to refuse when it runs, as it does nvl2 "
+        "with 1 argument, or to run, as it does unix_timestamp with none.",
         sql_composer="COALESCE(job_runs.status, 'none')",
         spark_composer="NVL(job_runs.status, 'none')",
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",

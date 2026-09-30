@@ -16,22 +16,26 @@ Copy one, the whole folder:
 - **`spark_composer`, Spark Composer**, writes the same Hive itself and needs no sqlglot. Copy it
   when your notebook runs Spark, with a `spark` session that reads the warehouse's tables.
 
-Both write the same Hive, but in the few places listed under
-[Where the two Editions' Hive differs](#where-the-two-editions-hive-differs). Pick one per
-notebook: the two folders' objects don't mix.
+Both write the same Hive, except in the few places listed under
+[Where the two Editions' Hive differs](#where-the-two-editions-hive-differs), and each difference
+is for Spark. So if your query API runs Hive, SQL Composer's Hive is right for it. If it runs
+Spark, and you can install pyspark, Spark Composer's Hive fits it better, and works with any
+`send`. Pick one per notebook: the two folders' objects don't mix.
 
 This page writes `sql_composer`. With Spark Composer, write `spark_composer` wherever this page
-writes `sql_composer`: in your imports, and in `sql_composer.VERSION`.
+writes `sql_composer`: in your imports, in `sql_composer.VERSION`, and in paths such as
+`sql_composer/CHANGES.md`.
 
 ## Install
 
 Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
 
 - SQL Composer: sqlglot 25.24.2 or newer, below 31. Its Example database runs queries on
-  sqlglot 30.19.0 or newer.
-- Spark Composer: pyspark 3.5.0 or newer, below 4.1. Its Example database starts a Spark of its
-  own, apart from yours, which needs Java 17 to 21: set JAVA_HOME to it, or have `java` on the
-  PATH.
+  sqlglot 30.19.0 or newer, so for both: `%pip install "sqlglot>=30.19.0,<31"`.
+- Spark Composer: pyspark 3.5.0 or newer, below 4.1: `%pip install "pyspark>=3.5.0,<4.1"`. Its
+  Example database starts a Spark of its own, in a second Python in the background, so your
+  `spark` is never touched. That Spark needs Java 17 to 21: set JAVA_HOME to it, or have `java`
+  on the PATH.
 
 1. Download this branch as a zip and extract it.
 2. Copy the whole `sql_composer` folder, or the whole `spark_composer` folder, into the folder
@@ -47,7 +51,7 @@ from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
 ## Update
 
 1. Delete the folder.
-2. Copy in the new one, the whole folder, from the same folder of the download.
+2. From the new download, copy in the whole folder of the same name.
 3. Restart the kernel, which still holds the old code.
 
 Keep your own files beside the folder, never inside it, so deleting it is safe. When it is
@@ -91,9 +95,11 @@ returns a pandas DataFrame. On the Example database, its own `send` runs it:
 3     104  SUCCESS
 ```
 
-At work, `send` is your own. With SQL Composer, it is whatever sends a Hive string to your query
-API and gives back a DataFrame. With Spark Composer, it is usually this, with your notebook's
-own `spark` session:
+At work, `send` is your own, and a Statement reads your own tables: `write_table_reference`
+writes the Table reference for one. With SQL Composer, `send` is whatever sends a Hive string to
+your query API and gives back a pandas DataFrame, such as
+`send=lambda hive: pd.DataFrame(my_api.query(hive))`. With Spark Composer, it is usually this,
+with your notebook's own `spark` session:
 
 ```python
 result = run(first, send=lambda hive: spark.sql(hive).toPandas())
@@ -108,12 +114,17 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 >>> jobs, job_runs = example_database.jobs, example_database.job_runs
 ```
 
+The examples take today as 2026-09-25, the day after the Example database's last day.
+`last_n_days(...)` counts back from your own today, so in a pasted example that uses it, write
+`between(...)` with the days the example's Hive shows in its place, such as
+`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
+
 ## The Example gallery
 
 Each folder holds its own Example gallery: every Worked example on one page, its Python and,
-for each Statement it builds, the Hive and any result. Open it in your browser. It
-needs nothing else: a box at the top keeps only the examples holding every word you type, and
-Ctrl+F searches it too. It holds the docstrings' examples and the Worked examples on their own:
+for each Statement it builds, the Hive and any result. Open it in your browser. It needs nothing
+else: a box at the top keeps only the examples holding every word you type, and Ctrl+F searches
+it too. Besides each docstring's example, it holds the Worked examples that stand on their own:
 common jobs built in steps that each say why, such as building a Saved table or finding rows
 with no match, and Statements that give a wrong number shown beside their fix.
 
@@ -124,24 +135,30 @@ with no match, and Statements that give a wrong number shown beside their fix.
 
 ## Before you use Spark Composer at work
 
-Check these once, by hand, in your notebook's Spark: Spark Composer's Hive relies on them.
+Check one setting once, by hand, in your notebook's Spark:
+`spark.conf.get("spark.sql.parser.escapedStringLiterals")` should be `"false"`, Spark's default.
+Set to `"true"`, Spark reads a backslash in a value as itself, so a value with a backslash in
+it, and the `%` or `_` that `contains` and `starts_with` match as themselves, would come out
+wrong. If it is `"true"`, ask whoever looks after your Spark whether it can be `"false"`, or run
+`spark.conf.set("spark.sql.parser.escapedStringLiterals", "false")` in your notebook first.
 
-- `spark.conf.get("spark.sql.parser.escapedStringLiterals")` is `"false"`, Spark's default.
-  Set to `"true"`, Spark reads a backslash in a value as itself, so a value holding one, and
-  the `%` or `_` that `contains` and `starts_with` match as themselves, would come out wrong.
-- `spark.sql.ansi.enabled` may be either. With it on, Spark 4's default, Spark stops a query
-  that divides by 0, and Spark Composer writes a division so it gives NULL instead, as Hive
-  does.
-- `spark.sql.ansi.enforceReservedKeywords` may be either: Spark Composer puts every word Spark
-  reserves in backticks.
-- Before writing a Saved table, check it isn't a Hive ACID table: Spark can't write those.
-  `spark.sql("SHOW TBLPROPERTIES mart.daily_runs").toPandas()` lists a table's properties, and
-  an ACID table has `transactional` set to `true`. Hive 3 can make every new table one, so
-  check a table `create_table` made too.
+Two other settings may be either:
+
+- `spark.sql.ansi.enabled`: with it on, Spark 4's default, Spark stops a query that divides by
+  0, and Spark Composer writes a division so it gives NULL instead, as Hive does.
+- `spark.sql.ansi.enforceReservedKeywords`: Spark Composer puts every word Spark reserves in
+  backticks.
+
+Before you read or write a Saved table, check it isn't a Hive ACID table: one Hive keeps its
+own way, so that single rows can be changed. Spark can't read or write those as it reads other
+tables. `spark.sql("SHOW TBLPROPERTIES mart.daily_runs").toPandas()` lists a table's properties,
+and an ACID table has `transactional` set to `true`. Hive 3 can make every new table one, so
+check a table `create_table` made too. If a table is one, ask whoever looks after the warehouse
+for a table Spark can write, one with `transactional` set to `false`.
 
 ## Where the two Editions' Hive differs
 
-Both Editions write the same Hive for a Statement but in these places, each on purpose:
+Both Editions write the same Hive for a Statement, except in these places, each on purpose:
 
 <!-- DIFFERENCES -->
 
@@ -149,5 +166,7 @@ Both Editions write the same Hive for a Statement but in these places, each on p
 
 Everything the Toolbox offers, one line each, grouped by the file it lives in. Import every name
 from the folder itself, `sql_composer` or `spark_composer`, never from one of its files.
+Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
+`job_runs.duration_mins / 60`.
 
 <!-- CHEAT SHEET -->
