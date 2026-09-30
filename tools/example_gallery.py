@@ -182,11 +182,28 @@ def label(text: str) -> str:
 
 
 def code_html(text: str, kind: str = "python") -> str:
-    """A block of code or output. Python names this Edition's folder, as the Worked examples,
-    written for SQL Composer, do once pasted into this Edition."""
-    if kind == "python":
-        text = editions.named_for(EDITION, text)
     return f'<pre class="{kind}">{escape(text.strip(chr(10)).rstrip())}</pre>'
+
+
+def source_html(text: str) -> str:
+    """A Worked example's Python, naming this Edition's folder, as it does pasted into it.
+
+    The Worked examples are written for SQL Composer, and import sql_composer.
+    """
+    return code_html(editions.named_for(EDITION, text))
+
+
+# What Spark Composer adds to the Hive, by the row of DECLARED_DIFFERENCES that says why, and
+# how each shows in its Hive: NULLIF around a divisor, and the D of a float.
+ADDED = {"division": re.compile(r"/ NULLIF\("), "float": re.compile(r"\b\d+\.\d+D\b")}
+
+
+def hive_html(text: str) -> str:
+    """A Statement's Hive, with a note on each thing in it that Spark Composer adds, and why."""
+    notes = [editions.DECLARED_DIFFERENCES[name].why for name, shows in ADDED.items()
+             if EDITION is editions.SPARK_COMPOSER and shows.search(text)]
+    return code_html(text, "hive") + "".join(f'<p class="note">{inline(note)}</p>'
+                                              for note in notes)
 
 
 def inline(text: str) -> str:
@@ -427,12 +444,12 @@ def opt_out_of(function) -> str | None:
 def statement_html(built, module, name: str) -> str:
     """The Hive and result of what a function built: one Statement, or a list of them."""
     if isinstance(built, Statement):
-        return (label("Hive") + code_html(sql_composer.to_hive(built), "hive")
+        return (label("Hive") + hive_html(sql_composer.to_hive(built))
                 + result_html(built, getattr(module, f"{name}_in_pandas", None)))
     parts = []
     for number, s in enumerate(built, 1):
         which = f" of Statement {number} of {len(built)}"
-        parts += [label(f"Hive{which}"), code_html(sql_composer.to_hive(s), "hive"),
+        parts += [label(f"Hive{which}"), hive_html(sql_composer.to_hive(s)),
                   result_html(s, which=which)]
     return "".join(parts)
 
@@ -440,7 +457,7 @@ def statement_html(built, module, name: str) -> str:
 def careless_html(module) -> str:
     s, heading, message = built_by(module.careless)
     body = ['<h4>Careless: what most people write first</h4>',
-            code_html(inspect.getsource(module.careless))]
+            source_html(inspect.getsource(module.careless))]
     if message:
         body += [label(heading), code_html(message, "refusal")]
     if s is None:
@@ -498,7 +515,7 @@ def is_demonstration(module) -> bool:
 
 def function_html(heading: str, function, module, name: str) -> str:
     """One Statement function of a script: a heading, its source, then its Hive and result."""
-    return (f"<h4>{heading}<code>{name}()</code></h4>" + code_html(inspect.getsource(function))
+    return (f"<h4>{heading}<code>{name}()</code></h4>" + source_html(inspect.getsource(function))
             + statement_html(function(), module, name))
 
 
@@ -513,7 +530,7 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
     with example_setting():
         if is_demonstration(module):
             steps = ('<div class="pair">\n<div>' + careless_html(module) + "</div>\n<div>"
-                     + "<h4>Fixed</h4>" + code_html(inspect.getsource(module.fixed))
+                     + "<h4>Fixed</h4>" + source_html(inspect.getsource(module.fixed))
                      + statement_html(module.fixed(), module, "fixed") + "</div>\n</div>")
             steps += "".join(function_html("Also in this script: ", function, module, name)
                              for name, function in others)
@@ -526,9 +543,9 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
     names = names_in("\n".join([top] + [text for *_, text in lower]
                                + [inspect.getsource(function) for function in functions]))
     body = [f'<p class="why">{inline(why)}</p>', *(f"<p>{inline(note)}</p>" for note in notes),
-            label(f"The top of its script, statements/{entry_id}.py"), code_html(top)]
+            label(f"The top of its script, statements/{entry_id}.py"), source_html(top)]
     for kind, name, folder, text in lower:
-        body += [label(f"{kind} it imports, {folder}/{name}"), code_html(text)]
+        body += [label(f"{kind} it imports, {folder}/{name}"), source_html(text)]
     body += [steps, names_html(names)]
     return entry_id, title, names, entry_html(entry_id, inline(title), "\n".join(body))
 
@@ -576,9 +593,17 @@ def gallery_page() -> str:
     used_by = {name: found for name, found in used_by.items() if len(found) < len(scripts)}
     documented = [(names, docstring_entry(names, doc, pandas_results, used_by))
                   for names, doc in docstrings()]
+    # Only a page with a pandas result says where pandas stands in.
+    from_pandas = any(PANDAS_LABEL in entry for entry in
+                      [entry for *_, entry in common + fixes] + [entry for _, entry in documented])
     return PAGE.format(
         product=escape(EDITION.product),
         folder=escape(EDITION.folder),
+        or_pandas=(", or computed in pandas where the Example database can't\nrun it"
+                   if from_pandas else ""),
+        but_not_pandas=(", but not\nthe pandas that computes a result the Example database can't run"
+                        if from_pandas else ""),
+        send_at_work=SEND_AT_WORK.get(EDITION.folder, ""),
         version=escape(sql_composer.TOOLBOX_VERSION),
         worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
@@ -591,6 +616,15 @@ def gallery_page() -> str:
         fixes="\n".join(entry for _, _, entry in fixes),
         documented="\n".join(entry for _, entry in documented),
     )
+
+
+# What a page adds on the send a user gives run(...) at work, by the Edition's folder.
+SEND_AT_WORK = {
+    "spark_composer": """
+<p>At work your notebook's own <code>spark</code> runs the Hive: where an example gives
+<code>run(...)</code> <code>send=run_query</code>, give it
+<code>send=lambda hive: spark.sql(hive).toPandas()</code>.</p>""",
+}
 
 
 def contents_html(entries: list[tuple[str, str, str]]) -> str:
@@ -628,18 +662,18 @@ table.result th,table.result td{{border:1px solid #ddd;padding:2px 8px;text-alig
 <p>Every Worked example on one page: {worked_count} Worked examples on their own, and the
 {docstring_count} examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up
-tables that ship inside the Toolbox, or computed in pandas where the Example database can't
-run it. Press Ctrl+F to search the page.</p>
+tables that ship inside the Toolbox{or_pandas}. Press Ctrl+F to search the page.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's two days, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
-notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
-no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
-to get the results shown.</p>
+notebook, an example uses your own today, so <code>last_n_days</code>, and
+<code>first_look</code>'s yesterday, read other days and find no rows here: write
+<code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in their place to get the results
+shown.</p>{send_at_work}
 <p>To paste a docstring's example, first run <code>from {folder} import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
-examples on their own are scripts kept where the Toolbox is written, not in the
-<code>{folder}</code> folder. Each entry shows the Python that builds its Statements, but not
-the pandas that computes a result the Example database can't run. To try one, paste the top of
+examples on their own are scripts kept with the Toolbox's own source, not in the
+<code>{folder}</code> folder. Each entry shows the Python that builds its Statements{but_not_pandas}.
+To try one, paste the top of
 its script, with the Table reference or Building block it imports pasted in place of its
 <code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the
 functions.</p>

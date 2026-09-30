@@ -1,9 +1,6 @@
 """Re-grouping: adding up each day's count of jobs gives too many for the week.
 
 Why: a job that ran on two days is in both days' counts, so adding them up counts it twice.
-
-Where the Example database can't run week_start, the results below are computed in pandas
-instead, not by running this Hive.
 """
 
 import pandas as pd

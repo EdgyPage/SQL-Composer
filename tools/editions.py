@@ -120,7 +120,8 @@ DECLARED_DIFFERENCES = {
         "written as it is.",
         sql_composer="SUM(job_runs.duration_mins) / COUNT(*)",
         spark_composer="SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)",
-        cases=("edge:brackets:nested", "edge:brackets:aggregates"),
+        cases=("edge:brackets:nested", "edge:brackets:aggregates",
+               "worked:labels_and_counts:failed_share_per_job"),
         spark_composer_adds=True,
     ),
     "float": Difference(
@@ -130,7 +131,8 @@ DECLARED_DIFFERENCES = {
         "1e-05, is a DOUBLE already.",
         sql_composer="COALESCE(job_runs.avg_retry_secs, 0.1)",
         spark_composer="COALESCE(job_runs.avg_retry_secs, 0.1D)",
-        cases=("worked:nan_in_a_list:fixed", "edge:calculations:values"),
+        cases=("worked:nan_in_a_list:fixed", "edge:calculations:values",
+               "worked:labels_and_counts:failed_share_per_job"),
         spark_composer_adds=True,
     ),
     "hive_function": Difference(
@@ -225,10 +227,7 @@ def swap(text: str, file_name: str) -> str:
     forbidden = forbidden_words(text)
     if forbidden:
         raise SwapRefused(f"{file_name} names {', '.join(forbidden)}, which only one Edition has.")
-    swapped = named_for(SPARK_COMPOSER, text)
-    left = sorted(set(SQL_COMPOSER_NAME.findall(swapped)))
-    if left:
-        raise SwapRefused(f"{file_name} would be left naming {', '.join(left)}.")
+    swapped = named_for(SPARK_COMPOSER, text, file_name)
     if file_name.endswith(".py"):
         try:
             ast.parse(swapped)
@@ -237,10 +236,17 @@ def swap(text: str, file_name: str) -> str:
     return swapped
 
 
-def named_for(edition: Edition, text: str) -> str:
-    """Text written for SQL Composer, such as a Worked example, naming `edition` instead."""
+def named_for(edition: Edition, text: str, where: str = "The text") -> str:
+    """Text written for SQL Composer, such as a Worked example, naming `edition` instead.
+
+    Text that would still name SQL Composer another way, as SQL-Composer, is refused.
+    """
     swapped = _whole_word(SQL_COMPOSER.folder).sub(edition.folder, text)
-    return _whole_word(SQL_COMPOSER.product).sub(edition.product, swapped)
+    swapped = _whole_word(SQL_COMPOSER.product).sub(edition.product, swapped)
+    left = sorted(set(SQL_COMPOSER_NAME.findall(swapped))) if edition is not SQL_COMPOSER else []
+    if left:
+        raise SwapRefused(f"{where} would be left naming {', '.join(left)}.")
+    return swapped
 
 
 def _verbatim(text: str, file_name: str) -> str:

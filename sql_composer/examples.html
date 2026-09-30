@@ -31,14 +31,16 @@ tables that ship inside the Toolbox, or computed in pandas where the Example dat
 run it. Press Ctrl+F to search the page.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's two days, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
-notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
-no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
-to get the results shown.</p>
+notebook, an example uses your own today, so <code>last_n_days</code>, and
+<code>first_look</code>'s yesterday, read other days and find no rows here: write
+<code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in their place to get the results
+shown.</p>
 <p>To paste a docstring's example, first run <code>from sql_composer import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
-examples on their own are scripts kept where the Toolbox is written, not in the
+examples on their own are scripts kept with the Toolbox's own source, not in the
 <code>sql_composer</code> folder. Each entry shows the Python that builds its Statements, but not
-the pandas that computes a result the Example database can't run. To try one, paste the top of
+the pandas that computes a result the Example database can't run.
+To try one, paste the top of
 its script, with the Table reference or Building block it imports pasted in place of its
 <code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the
 functions.</p>
@@ -51,7 +53,7 @@ functions.</p>
 <ul>
 <li><a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a></li>
 <li><a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a></li>
-<li><a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></li>
+<li><a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></li>
 <li><a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></li>
 <li><a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></li>
 <li><a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a></li>
@@ -257,7 +259,7 @@ JOIN ran
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>all_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="labels_and_counts">
-<h3>Label rows with if_else, fill NULL with fill_null, and count by condition.</h3>
+<h3>Label with if_else, fill NULL with fill_null, count by condition, and divide.</h3>
 <p class="why">Why: codes and NULLs make a result hard to read, and a count of each kind side by side gives one row per job instead of one row per job and status.</p>
 <p class="label">The top of its script, statements/labels_and_counts.py</p>
 <pre class="python">from sql_composer import (
@@ -331,6 +333,36 @@ GROUP BY
 <tr><td>1</td><td>3</td><td>0</td><td>0</td></tr>
 <tr><td>2</td><td>1</td><td>1</td><td>1</td></tr>
 <tr><td>3</td><td>1</td><td>1</td><td>0</td></tr>
+</table></div><h4><code>failed_share_per_job()</code></h4><pre class="python">def failed_share_per_job():
+    &quot;&quot;&quot;Each job&#x27;s failed runs as a percent of its runs: one count divided by another.
+
+    Divide after GROUP_BY, as one count by another, not an average of per-row values. Times
+    100.0, not 100, so the percent keeps its decimals. A division by 0 gives NULL, which pandas
+    shows as NaN; COUNT(*) of a group is never 0, so it can&#x27;t happen here.
+    &quot;&quot;&quot;
+    return statement(
+        SELECT(
+            job_runs.job_id,
+            AS(count_rows(where=equals(job_runs.status, &quot;FAILED&quot;)) * 100.0 / count_rows(),
+               &quot;failed_percent&quot;),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),
+        GROUP_BY(job_runs.job_id),
+    )</pre><p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.job_id,
+  (
+    COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END) * 100.0
+  ) / COUNT(*) AS failed_percent
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>failed_percent</th></tr>
+<tr><td>1</td><td>0.0</td></tr>
+<tr><td>2</td><td>33.333333333333336</td></tr>
+<tr><td>3</td><td>50.0</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>if_else</code>, <code>fill_null</code>, <code>example_database</code></p>
 </section>
@@ -722,7 +754,6 @@ WHERE
 <section class="entry" id="latest_and_top_n">
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
-<p>Where the Example database can&#x27;t run row_number, the results of fixed() and top_runs_per_job() below are computed in pandas instead, not by running this Hive.</p>
 <p class="label">The top of its script, statements/latest_and_top_n.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
@@ -1073,7 +1104,6 @@ WHERE
 <section class="entry" id="regrouping">
 <h3>Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</h3>
 <p class="why">Why: a job that ran on two days is in both days&#x27; counts, so adding them up counts it twice.</p>
-<p>Where the Example database can&#x27;t run week_start, the results below are computed in pandas instead, not by running this Hive.</p>
 <p class="label">The top of its script, statements/regrouping.py</p>
 <pre class="python">import pandas as pd
 
@@ -1513,7 +1543,7 @@ FROM ops.jobs AS jobs</pre>
 <pre class="output">job_runs.duration_mins / 60 AS hours</pre>
 <p>A table named twice in one Statement, such as a table joined to itself, needs a second name for one of them: AS(job_runs, &quot;earlier&quot;) is read as FROM ops.job_runs AS earlier.</p>
 <p class="names">Toolbox names used: <code>AS</code>, <code>count_rows</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="FROM">
 <h3><code>FROM</code></h3>
@@ -1689,7 +1719,7 @@ GROUP BY
   NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no NEXT_DAY.</p>
 <p class="names">Toolbox names used: <code>GROUP_BY</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>week_start</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="HAVING">
 <h3><code>HAVING</code></h3>
@@ -1904,7 +1934,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.status = &#x27;O\&#x27;Brien&#x27;</pre>
 <p class="names">Toolbox names used: <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="not_equals">
 <h3><code>not_equals</code></h3>
@@ -1923,7 +1953,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.status IS NULL</pre>
 <p class="names">Toolbox names used: <code>is_null</code></p>
-<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a></p>
+<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a></p>
 </section>
 <section class="entry" id="is_not_null">
 <h3><code>is_not_null</code></h3>
@@ -1959,7 +1989,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.duration_mins &gt; 30</pre>
 <p class="names">Toolbox names used: <code>more_than</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
 <section class="entry" id="less_than">
 <h3><code>less_than</code></h3>
@@ -1977,7 +2007,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.dt BETWEEN &#x27;2026-09-01&#x27; AND &#x27;2026-09-24&#x27;</pre>
 <p class="names">Toolbox names used: <code>between</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="last_n_days">
 <h3><code>last_n_days</code></h3>
@@ -2055,7 +2085,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)</pre>
 <p class="names">Toolbox names used: <code>count_rows</code>, <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="count_distinct">
 <h3><code>count_distinct</code></h3>
@@ -2113,7 +2143,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 ELSE 0 END</pre>
 <p class="names">Toolbox names used: <code>if_else</code>, <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
 <section class="entry" id="fill_null">
 <h3><code>fill_null</code></h3>
@@ -2122,7 +2152,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">COALESCE(job_runs.status, &#x27;RUNNING&#x27;)</pre>
 <p class="names">Toolbox names used: <code>fill_null</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>

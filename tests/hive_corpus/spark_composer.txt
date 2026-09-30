@@ -2684,6 +2684,93 @@ GROUP BY
 ---
 
 
+== worked:labels_and_counts:failed_share_per_job
+-- Statement 1: to_hive
+SELECT
+  job_runs.job_id,
+  (
+    COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) * 100.0D
+  ) / NULLIF(COUNT(*), 0) AS failed_percent
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  job_runs.job_id
+-- Statement 1: the Statement
+output job_id: job_runs.job_id
+output failed_percent: (COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) * 100.0D) / NULLIF(COUNT(*), 0)
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>job_runs.job_id</small>"]
+    n3["failed_percent<br/><small>(count_rows(where=equals(job_runs.status, #quot;…</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `failed_percent`
+
+Calculated in **statement** as `(count_rows(where=equals(job_runs.status, "FAILED")) * 100.0) / count_rows()`, which is `(COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) * 100.0D) / NULLIF(COUNT(*), 0)`.
+
+```text
+statement.failed_percent = (count_rows(where=equals(job_runs.status, "FAILED")) * 100.0) / count_rows()
+└─ ops.job_runs.status  (string)
+```
+
+Rows that count:
+- WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.job_runs.job_id |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.job_id,
+  (
+    COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) * 100.0D
+  ) / NULLIF(COUNT(*), 0) AS failed_percent
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  job_runs.job_id
+```
+
+---
+
+
 == worked:latest_and_top_n:careless
 -- Statement 1: to_hive
 SELECT

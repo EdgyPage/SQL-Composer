@@ -76,6 +76,16 @@ def test_one_row_per_job_with_a_count_of_each_outcome() -> None:
         expected.reset_index().to_dict("records"))
 
 
+@pytest.mark.needs_example_database
+def test_each_jobs_failed_runs_as_a_percent_of_its_runs() -> None:
+    per_job = runs().assign(failed=runs().status.eq("FAILED")).groupby("job_id").failed
+    expected = (per_job.sum() * 100.0 / per_job.size()).rename("failed_percent")
+    assert result(labels_and_counts.failed_share_per_job()) == (
+        expected.reset_index().to_dict("records"))
+    assert [row["failed_percent"] for row in expected.reset_index().to_dict("records")] == [
+        0.0, 100.0 / 3, 50.0]
+
+
 # --- groups_and_top_n -----------------------------------------------------------------------
 
 
