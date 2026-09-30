@@ -5,9 +5,9 @@ Import everything from here, never from a file inside the folder:
     from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
 To update, delete the `sql_composer` folder, copy in the new one and restart the kernel. The
-folder checks itself when imported. If a file is missing, extra, or from another version or
-export, or if this Python can't run the Toolbox, it stops and says what happened, why it
-matters and the usual fix.
+folder checks itself when imported. If a file is missing, extra, from another version or
+export, or from another Toolbox folder, or if this Python can't run the Toolbox, it stops and
+says what happened, why it matters and the usual fix.
 
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
 full text, which also says when this copy was exported.
@@ -26,7 +26,9 @@ import sys
 
 TOOLBOX_VERSION = "2.1"
 
-# The Edition this folder is, as its export stamps each of its files.
+# The folder this file belongs in, and the name its export stamps on each of that folder's
+# files.
+_FOLDER = "sql_composer"
 _PRODUCT = "SQL Composer"
 
 # The export script writes the Toolbox's file list here. On dev it is None, and the checks
@@ -56,7 +58,8 @@ def _four_part_message(what: str, why: str, fix: str, opt_out: str | None) -> st
 
 def _stop(what, why, fix):
     """Stop the import with the four-part message. No import stop can be switched off."""
-    raise ImportError("sql_composer stopped on import:"
+    # The folder the import found, which a __init__.py pasted in from another folder can't know.
+    raise ImportError(f"{os.path.basename(_HERE)} stopped on import:"
                       + _four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
@@ -78,6 +81,11 @@ def _version_of(path):
     return found.group(1) if found else None
 
 
+# Any Toolbox folder's stamp, such as "SQL Composer 2.1, exported 2026-10-02 14:05 - ...",
+# whose first words name the folder its file belongs in.
+_STAMP = re.compile(r"(\w+ Composer) \S+, exported ")
+
+
 def _stamp_of(path):
     """The export stamp on line 1, or None.
 
@@ -88,24 +96,54 @@ def _stamp_of(path):
         first = file.readline().strip()
     start, end = ("# ", "") if path.endswith(".py") else ("<!-- ", " -->")
     stamp = first[len(start):len(first) - len(end)]
-    # Either Edition's stamp, such as "... Composer 2.1, exported 2026-10-02 14:05 - ...".
-    if first.startswith(start) and first.endswith(end) and re.match(
-            r"\w+ Composer \S+, exported ", stamp):
+    if first.startswith(start) and first.endswith(end) and _STAMP.match(stamp):
         return stamp
     return None
 
 
-def _product_of(stamp):
-    """The Edition a stamp names."""
-    return stamp[:stamp.index(" Composer ")] + " Composer"
+def _home_of(name, stamp):
+    """The folder a file belongs in: __init__.py knows its own, and a stamp names any other's.
+
+    None for an unstamped file other than __init__.py.
+    """
+    if name == "__init__.py":
+        return _FOLDER
+    if stamp is None:
+        return None
+    return _STAMP.match(stamp).group(1).lower().replace(" ", "_")
+
+
+def _check_home(stamps):
+    """Stop if a file came from another Toolbox folder than the one it sits in."""
+    folder = os.path.basename(_HERE)
+    homes = {name: _home_of(name, stamp) for name, stamp in stamps.items()}
+    elsewhere = sorted(name for name, home in homes.items() if home not in (None, folder))
+    if elsewhere:
+        home = homes[elsewhere[0]]
+        _stop(
+            what=f"{', '.join(elsewhere)} {'is' if len(elsewhere) == 1 else 'are'} from the "
+            f"{home} folder, and this is the {folder} folder.",
+            why="A folder's files are made to work only with each other: a .py file from "
+            "another folder could make a Statement fail or come out wrong, and an "
+            "examples.html or CHANGES.md from one may not describe this folder's code.",
+            fix=f"Delete the {folder} folder, then copy it in again from the {folder} folder "
+            f"of one download, not from {home}.",
+        )
 
 
 def _check_files():
-    """Stop if the pasted folder is missing a file, has an extra one, or mixes versions."""
+    """Stop if the pasted folder is missing a file, has an extra one, or mixes versions,
+    exports or Toolbox folders."""
     present = sorted(
         name for name in os.listdir(_HERE)
         if name != "__pycache__" and not name.startswith(".")
     )
+    stamps = {
+        name: _stamp_of(os.path.join(_HERE, name))
+        for name in present if os.path.isfile(os.path.join(_HERE, name))
+    }
+    # First, since a __init__.py from another folder brings that folder's file list and names.
+    _check_home(stamps)
     if _FILES is not None:
         extra = [name for name in present if name not in _FILES]
         missing = [name for name in _FILES if name not in present]
@@ -141,20 +179,6 @@ def _check_files():
                 + f", and __init__.py is from {TOOLBOX_VERSION}.",
                 why="Files from different Toolbox versions weren't written to work together, "
                 "so a Statement could fail or come out wrong.",
-                fix="Delete the sql_composer folder, then copy the whole folder in again from "
-                "one download.",
-            )
-    stamps = {
-        name: _stamp_of(os.path.join(_HERE, name))
-        for name in present if os.path.isfile(os.path.join(_HERE, name))
-    }
-    for name, stamp in stamps.items():
-        if stamp is not None and _product_of(stamp) != _PRODUCT:
-            _stop(
-                what=f"{name} is from {_product_of(stamp)}, the other Edition, and this folder "
-                f"is {_PRODUCT}.",
-                why="Each Edition's files work only with the rest of its own folder, so a file "
-                "from the other one could make a Statement fail or come out wrong.",
                 fix="Delete the sql_composer folder, then copy the whole folder in again from "
                 "one download.",
             )
