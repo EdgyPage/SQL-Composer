@@ -4,8 +4,8 @@ A Table reference is one `Table(...)` call describing one table: its columns and
 types, its Date partition, its key, and the columns that don't add up. Its columns are its
 attributes (`job_runs.status`), so a typo fails at once, with the column list.
 
-This file also holds the column object those attributes return, and the one place values become
-Hive literals. `writing.py` writes them as Hive text.
+This file also holds the column object those attributes return, and `literal(...)`, the one
+place a Python value, such as "FAILED" or 42, enters a Statement.
 """
 
 from __future__ import annotations

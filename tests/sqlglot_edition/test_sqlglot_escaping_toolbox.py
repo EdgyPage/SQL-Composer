@@ -131,6 +131,8 @@ def test_only_the_edition_files_read_hive_or_name_its_dialect() -> None:
             if isinstance(node, (ast.Name, ast.Attribute, ast.alias)):
                 named = getattr(node, "id", None) or getattr(node, "attr", None) or node.name
                 assert named not in ("parse_one", "ErrorLevel"), f"{name}: {named}"
+            if isinstance(node, ast.Constant):
+                assert node.value != "hive", f"{name} names the hive dialect, line {node.lineno}"
 
 
 def test_no_sql_text_is_built_with_an_f_string() -> None:
