@@ -168,6 +168,12 @@ def _width_cases() -> list:
             found.append((f"edge:width:{name}:{length}", _building(make, "x" * length)))
     for length in (33, 34):
         found.append((f"edge:width:window:{length}", _building(_window, length)))
+    # An IN list and a column type too wide for one line, which go one item to a line.
+    found.append(("edge:width:in_items", _building(lambda v: _rows(job_runs.run_id, where=[
+        is_in(job_runs.status, [f"{v}{n}" for n in range(5)])]), "x" * 20)))
+    wide = "struct<" + ",".join(f"field_{n}:string" for n in range(8)) + ">"
+    found.append(("edge:width:struct", lambda: [create_table(Table(
+        "mart.typed", columns={"c": wide, "dt": "string"}, date_partition="dt"))]))
     return found
 
 

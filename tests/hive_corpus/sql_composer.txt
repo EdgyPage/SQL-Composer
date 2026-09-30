@@ -7094,6 +7094,105 @@ WHERE
 ---
 
 
+== edge:width:in_items
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+  AND job_runs.status IN (
+    'xxxxxxxxxxxxxxxxxxxx0',
+    'xxxxxxxxxxxxxxxxxxxx1',
+    'xxxxxxxxxxxxxxxxxxxx2',
+    'xxxxxxxxxxxxxxxxxxxx3',
+    'xxxxxxxxxxxxxxxxxxxx4'
+  )
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+WHERE: job_runs.dt = '2026-09-24'
+WHERE: job_runs.status IN ('xxxxxxxxxxxxxxxxxxxx0', 'xxxxxxxxxxxxxxxxxxxx1', 'xxxxxxxxxxxxxxxxxxxx2', 'xxxxxxxxxxxxxxxxxxxx3', 'xxxxxxxxxxxxxxxxxxxx4')
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement<br/><small>is_in(job_runs.status, [#quot;xxxxxxxxxxxxxxxxxx…</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+  AND job_runs.status IN (
+    'xxxxxxxxxxxxxxxxxxxx0',
+    'xxxxxxxxxxxxxxxxxxxx1',
+    'xxxxxxxxxxxxxxxxxxxx2',
+    'xxxxxxxxxxxxxxxxxxxx3',
+    'xxxxxxxxxxxxxxxxxxxx4'
+  )
+```
+
+---
+
+
+== edge:width:struct
+-- Statement 1: to_hive
+CREATE TABLE mart.typed (
+  c STRUCT<
+    field_0: STRING,
+    field_1: STRING,
+    field_2: STRING,
+    field_3: STRING,
+    field_4: STRING,
+    field_5: STRING,
+    field_6: STRING,
+    field_7: STRING
+  >
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
 == edge:brackets:add_then_divide
 -- Statement 1: to_hive
 SELECT

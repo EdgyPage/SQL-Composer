@@ -9,7 +9,8 @@ Run it on `dev` only when a change is meant to alter what the Toolbox writes, th
 what this writes. SQL Composer's is written only at the sqlglot pin in requirements-dev.txt,
 since another sqlglot writes some Hive differently; Spark Composer's needs no Java.
 `tests/repo/test_edition_parity.py` holds that the two differ only where `DECLARED_DIFFERENCES`
-in `tools/editions.py` says they do.
+in `tools/editions.py` says they do. For that test, `--as-written` prints Spark Composer's
+corpus with what it adds to SQL Composer's Hive left out, as its readable_text leaves it out.
 
 The file pins, for each case under a stable id, what the Toolbox shows through its public
 names:
@@ -52,7 +53,14 @@ from sql_composer import example_database  # noqa: E402
 from sql_composer.clauses import derived_tables  # noqa: E402
 
 EDITION = editions.EDITIONS[sql_composer.__name__]
-GOLDEN = ROOT / "tests" / "hive_corpus" / f"{EDITION.folder}.txt"
+
+
+def golden_path(edition: editions.Edition) -> Path:
+    """Where an Edition's golden corpus is committed."""
+    return ROOT / "tests" / "hive_corpus" / f"{edition.folder}.txt"
+
+
+GOLDEN = golden_path(EDITION)
 # The command that writes this Edition's golden.
 COMMAND = f"python tools/hive_corpus.py --edition {EDITION.option}"
 
@@ -303,7 +311,26 @@ def cannot_write() -> str | None:
     return None
 
 
+def cases_in(text: str) -> dict[str, str]:
+    """A golden corpus, case by case: each case's id, and what it shows."""
+    blocks = text.split("\n" + CASE_MARK)[1:]
+    return {block.split("\n", 1)[0]: block for block in blocks}
+
+
+def as_written() -> int:
+    """Print Spark Composer's corpus with what it adds to SQL Composer's Hive left out."""
+    if EDITION is not editions.SPARK_COMPOSER:
+        print("--as-written is for --edition spark: SQL Composer adds nothing to leave out.")
+        return 1
+    # The switch Spark Composer's readable_text sets, set here for the whole corpus.
+    sql_composer.writing._AS_WRITTEN.set(True)
+    sys.stdout.buffer.write(corpus_text().encode("utf-8"))
+    return 0
+
+
 def main() -> int:
+    if "--as-written" in sys.argv:
+        return as_written()
     reason = cannot_write()
     if reason is not None:
         print(f"Nothing was written: {reason}.")
