@@ -156,6 +156,9 @@ uses.
   Spark Composer's page runs every Statement on its own Spark, explains NULLIF and the D
   where they show, and matches SQL Composer's page block for block once they are left out;
   a new Worked example divides one count by another.
+- [Spark CI and pins](issues/20-spark-ci-and-pins.md): CI runs both Editions at both ends of
+  their ranges, Spark Composer on Java 17 without sqlglot and with its Example database
+  required; the tests read each job's own steps, and all four jobs are green on `dev`.
 
 ## Not yet specified
 
