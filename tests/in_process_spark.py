@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 from pathlib import Path
 from unittest import mock
 
@@ -38,9 +39,14 @@ def in_process_spark(folder: Path, **settings):
     builder = SparkSession.builder
     for key, value in {**engine._settings(folder), **settings}.items():
         builder = builder.config(key, value)
+    # pyspark takes over Ctrl+C for its Spark, and keeps it after that Spark stops, which turns
+    # a later test's interrupt into an error of its own: this Python keeps its own.
+    interrupt = signal.getsignal(signal.SIGINT)
     # The first Spark starts the Java, which takes this Python's environment as it is then.
     with mock.patch.dict(os.environ, engine._environment(folder), clear=True):
-        return builder.getOrCreate()
+        session = builder.getOrCreate()
+    signal.signal(signal.SIGINT, interrupt)
+    return session
 
 
 def spark_says(error: Exception) -> str:
@@ -90,6 +96,14 @@ def wide_table():
             for key in re.findall(r"\bwide\.(kx+)\b", text)}
     return Table("ops.wide", columns={**dict.fromkeys(sorted(keys), "string"), "v": "bigint",
                                       "dt": "string"}, date_partition="dt")
+
+
+_TABLE_READ = re.compile(r"\b(?:FROM|JOIN)\s+(`?\w+`?\.`?\w+`?)")
+
+
+def tables_read(text: str) -> set[str]:
+    """The tables a query reads, by the names it gives them, as ops.jobs."""
+    return set(_TABLE_READ.findall(text))
 
 
 def queries(edition: editions.Edition) -> list[tuple[str, str]]:

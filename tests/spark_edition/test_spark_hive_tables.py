@@ -11,8 +11,8 @@ temporary folder, and each Statement goes through the send a Spark user gives at
 - drop_table sent twice does nothing the second time;
 - write_table_reference, check_table_reference and check_key read real DESCRIBE and SHOW
   PARTITIONS output, of a day written as yyyy/MM/dd and with a row that has no day;
-- every query in Spark Composer's golden gives on real tables the rows the Example database
-  gives.
+- every query in Spark Composer's golden runs on real tables, and one on the Example database's
+  tables gives the rows it gives.
 """
 
 from __future__ import annotations
@@ -25,7 +25,14 @@ import pytest
 import editions
 from conftest import example_rows, skip_unless_the_example_database_runs
 from hive_corpus_cases import EDGE_TABLES
-from in_process_spark import REFUSED, in_process_spark, queries, spark_folder, wide_table
+from in_process_spark import (
+    REFUSED,
+    in_process_spark,
+    queries,
+    spark_folder,
+    tables_read,
+    wide_table,
+)
 from sql_composer import (
     AS,
     FROM,
@@ -217,14 +224,19 @@ def test_check_key_reads_the_newest_day_never_the_rows_with_no_day(slashed, send
 # --- The corpus on real tables ------------------------------------------------------------------
 
 
+# The Example database's tables, which it can compare a query's rows on.
+EXAMPLE_TABLES = {f"ops.{name}" for name in example_database._TABLES}
+
+
 @pytest.mark.parametrize("text", [text for where, text in queries(editions.SPARK_COMPOSER)
                                   if where.split()[0] not in REFUSED],
                          ids=[where for where, _ in queries(editions.SPARK_COMPOSER)
                               if where.split()[0] not in REFUSED])
-def test_each_query_gives_on_real_tables_the_rows_the_example_database_gives(spark,
-                                                                            text: str) -> None:
+def test_each_query_runs_on_real_tables_as_on_the_example_database(spark, text: str) -> None:
     found = [tuple(row) for row in spark.sql(text).collect()]
-    if not _sorts_itself(text):
-        found = sorted(found, key=_in_order)
-    real = pd.DataFrame(found, columns=spark.sql(text).columns)
-    pd.testing.assert_frame_equal(real, example_database.send(text))
+    # The corpus's own tables are empty, and only here: its queries on them just run.
+    if tables_read(text) <= EXAMPLE_TABLES:
+        if not _sorts_itself(text):
+            found = sorted(found, key=_in_order)
+        real = pd.DataFrame(found, columns=spark.sql(text).columns)
+        pd.testing.assert_frame_equal(real, example_database.send(text))

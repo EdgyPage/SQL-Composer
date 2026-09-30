@@ -21,7 +21,6 @@ for.
 from __future__ import annotations
 
 import os
-import re
 
 import pytest
 
@@ -37,6 +36,7 @@ from in_process_spark import (
     queries,
     spark_folder,
     spark_says,
+    tables_read,
     wide_table,
 )
 from sql_composer import (
@@ -139,13 +139,10 @@ def test_spark_parses_the_hive_with_its_keywords_enforced_or_not(spark, text: st
 
 # --- Spark runs the queries -----------------------------------------------------------------
 
-_TABLE_NAMED = re.compile(r"\b(?:FROM|JOIN)\s+(`?\w+`?\.`?\w+`?)")
-
-
 def _query_cases() -> list:
     found = []
     for where, text in queries(editions.SPARK_COMPOSER):
-        databases = {name.split(".")[0] for name in _TABLE_NAMED.findall(text)}
+        databases = {name.split(".")[0] for name in tables_read(text)}
         marks = ([pytest.mark.skipif(os.name == "nt", reason="it reads a table outside ops, "
                                      "which needs a database: Spark can't make one on Windows "
                                      "without winutils")]
