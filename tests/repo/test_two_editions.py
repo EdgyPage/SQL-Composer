@@ -2,8 +2,9 @@
 
 `spark_composer/` holds a generated copy of every shared file and of `CHANGES.md`, and its own
 `writing.py` and `engine.py`. These tests hold the copies current, both folders to the Edition
-registry, their versions in lockstep, the Edition files' interface the same in both, and
-`spark_composer` importable with neither Java nor sqlglot.
+registry, CHANGES.md the same in both, the Edition files' interface the same in both, and
+`spark_composer` importable with neither Java nor sqlglot. One TOOLBOX_VERSION across both
+folders is held in test_toolbox_checks.py.
 """
 
 from __future__ import annotations
