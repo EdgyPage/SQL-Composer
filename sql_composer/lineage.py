@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import VERSION
 from .clauses import Statement, derived_tables
-from .refusals import GuardRefused, four_part_message
+from .refusals import GuardRefused, four_part_message, refuse_the_other_editions
 from .running import by_day, to_hive
 from .tables import readable
 from .trees import Node
@@ -704,6 +704,7 @@ def _check_statements(statements) -> list:
     found = []
     for s in statements:
         if not isinstance(s, Statement) or s._ddl is not None:
+            refuse_the_other_editions(s, "export_lineage")
             raise TypeError(four_part_message(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
                 "table.",

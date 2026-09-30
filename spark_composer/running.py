@@ -24,6 +24,8 @@ from .refusals import (
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
+    refuse_a_spark_dataframe,
+    refuse_the_other_editions,
 )
 from .tables import aliased, source, table_node
 from .trees import Node, combined
@@ -232,6 +234,7 @@ def to_hive(s):
       job_runs.dt = '2026-09-24'
     """
     if not isinstance(s, Statement):
+        refuse_the_other_editions(s, "to_hive")
         raise TypeError(
             four_part_message(
                 what=f"to_hive was given {s!r}, which isn't a Statement.",
@@ -274,6 +277,7 @@ def run(s, send):
         )
     text = to_hive(s)
     result = send(text)
+    refuse_a_spark_dataframe(result, "a Statement's Hive")
     limit = automatic_limit(s) if s._ddl is None else None
     if limit is not None and hasattr(result, "__len__"):
         load_limit_rows(len(result), limit)
@@ -380,6 +384,7 @@ def by_day(s):
       job_runs.status
     """
     if not isinstance(s, Statement) or s._ddl is not None:
+        refuse_the_other_editions(s, "by_day")
         raise TypeError(
             four_part_message(
                 what=f"by_day was given {s!r}, which isn't a Statement that reads a table.",

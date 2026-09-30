@@ -9,7 +9,7 @@ max. Each takes `where=` to count or add up only some rows.
 from __future__ import annotations
 
 from .conditions import Condition
-from .refusals import four_part_message, guard_unsafe_regrouping
+from .refusals import four_part_message, guard_unsafe_regrouping, refuse_the_other_editions
 from .tables import (
     Column,
     hive_date_pattern,
@@ -29,6 +29,7 @@ DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 def _need_column(column, call: str) -> Column:
     if isinstance(column, Column):
         return column
+    refuse_the_other_editions(column, call)
     raise TypeError(
         four_part_message(
             what=f"{call} was given {column!r} where a column goes.",
@@ -44,6 +45,7 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
     if where is None:
         return tree
     if not isinstance(where, Condition):
+        refuse_the_other_editions(where, call)
         raise TypeError(
             four_part_message(
                 what=f"{call}: where={where!r} isn't a condition.",
@@ -162,6 +164,7 @@ def if_else(condition, then, otherwise):
     """
     call = "if_else(...)"
     if not isinstance(condition, Condition):
+        refuse_the_other_editions(condition, call)
         raise TypeError(
             four_part_message(
                 what=f"if_else was given {condition!r} where a condition goes.",
