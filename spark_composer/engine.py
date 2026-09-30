@@ -45,8 +45,10 @@ TOOLBOX_VERSION = "2.1"
 _LOWEST = (3, 5, 0)
 _BELOW = (4, 1, 0)
 _NEWEST_TESTED = (4, 0, 4)
-# The oldest Java that both supported Sparks run on.
+# The Javas both supported Sparks run on: Spark 4 needs 17 or newer, and a Java newer than 21
+# stops the Hadoop inside Spark from starting.
 _JAVA_NEEDED = 17
+_JAVA_NEWEST = 21
 
 
 # --- pyspark ----------------------------------------------------------------------------
@@ -129,32 +131,61 @@ def _java_version(program: str) -> int | None:
     return int(found[2]) if found[1] == "1" and found[2] else int(found[1])
 
 
-# How to point this Python at a Java, to paste into the notebook; no restart is needed.
-_JAVA_HOME_TO = (f"JAVA_HOME to the folder of a Java {_JAVA_NEEDED} or newer, the one with bin "
-                 'inside: import os; os.environ["JAVA_HOME"] = r"<that folder>". No restart is '
-                 "needed.")
+# The Javas both supported Sparks run on, and how to point this Python at one, to paste into the
+# notebook; no restart is needed.
+_JAVAS = f"Java {_JAVA_NEEDED} to {_JAVA_NEWEST}"
+_POINT_AT_JAVA = ('import os; os.environ["JAVA_HOME"] = r"<the Java\'s folder, the one with '
+                  'bin in it>". No restart is needed.')
+# The characters Spark's Windows launcher can't take in the temporary folder's path.
+_LAUNCHER_CANT_TAKE = "&()!^"
 
 
 def _lacking() -> tuple[str, str] | None:
     """What the Example database's Spark lacks here, and how to give it that, or None."""
+    return _spark_home_lacking() or _temporary_folder_lacking() or _java_lacking()
+
+
+def _spark_home_lacking() -> tuple[str, str] | None:
     spark_home = os.environ.get("SPARK_HOME")
-    if spark_home and not (Path(spark_home) / "bin").is_dir():
-        return (f"can't start: SPARK_HOME is {spark_home}, which has no Spark in it",
-                "Set SPARK_HOME to a Spark's folder, or take it away so pyspark uses its own: "
-                'import os; os.environ.pop("SPARK_HOME"). No restart is needed.')
+    if not spark_home:
+        return None
+    programs = Path(spark_home) / "bin"
+    if (programs / "spark-submit").is_file() or (programs / "spark-submit.cmd").is_file():
+        return None
+    return (f"can't start: SPARK_HOME is {spark_home}, which has no Spark in it",
+            "Set SPARK_HOME to the folder of a Spark install, the one with bin in it, or take "
+            'it away so pyspark uses the Spark it comes with: import os; '
+            'os.environ.pop("SPARK_HOME"). Your own spark, already running, isn\'t changed, '
+            "and no restart is needed.")
+
+
+def _java_lacking() -> tuple[str, str] | None:
     program, missing = _java()
-    needs = f"needs Java {_JAVA_NEEDED} or newer"
-    if program is None and os.environ.get("JAVA_HOME"):
-        return f"{needs}, and {missing}", f"Set {_JAVA_HOME_TO}"
+    needs = f"needs {_JAVAS}"
+    install = (f"Install Java {_JAVA_NEEDED}, then set JAVA_HOME to its folder: "
+               f"{_POINT_AT_JAVA} If you can't install it, ask whoever looks after your "
+               "environment.")
     if program is None:
-        return (f"{needs}, and {missing}",
-                f"Install Java {_JAVA_NEEDED} or newer, then set {_JAVA_HOME_TO} If you can't "
-                "install it, ask whoever looks after your environment.")
+        found = f"{needs}, and {missing}"
+        if os.environ.get("JAVA_HOME"):
+            return found, (f"Set JAVA_HOME to the folder of your {_JAVAS}: {_POINT_AT_JAVA} "
+                           f"If you have none, install Java {_JAVA_NEEDED} first.")
+        return found, install
     version = _java_version(program)
-    if version is None or version < _JAVA_NEEDED:
-        which = "doesn't say its version" if version is None else f"is Java {version}"
-        return f"{needs}, and {program} {which}", f"Set {_JAVA_HOME_TO}"
-    return None
+    if version is not None and _JAVA_NEEDED <= version <= _JAVA_NEWEST:
+        return None
+    which = "doesn't say its version" if version is None else f"is Java {version}"
+    return f"{needs}, and {program} {which}", install
+
+
+def _temporary_folder_lacking() -> tuple[str, str] | None:
+    folder = _temporary_folder()
+    if os.name != "nt" or not set(folder) & set(_LAUNCHER_CANT_TAKE):
+        return None
+    return (f"can't start: the path of the temporary folder, {folder}, has one of "
+            f"{' '.join(_LAUNCHER_CANT_TAKE)} in it, which Spark's Windows launcher can't take",
+            "Point TEMP and TMP at a folder whose path has none of them, such as C:\\Temp, "
+            "then restart the kernel.")
 
 
 def example_database_cannot_run() -> str | None:
@@ -173,11 +204,15 @@ _START_SECONDS = 180
 _QUERY_SECONDS = 300
 # How often a wait looks at whether the process is still there, in seconds.
 _LOOK_EVERY = 0.2
-# What a kernel started by spark-submit carries, which would make the process join that kernel's
-# Spark rather than start its own, or read its settings.
+# How long deleting a folder keeps trying while a Spark that has just stopped lets go of its
+# files, which takes about a second.
+_DELETE_SECONDS = 10
+# What a kernel started by spark-submit, or a Spark machine, carries, which would make the
+# process join that kernel's Spark, read its settings, or put its files elsewhere.
 _NOT_PASSED_ON = ("PYSPARK_GATEWAY_PORT", "PYSPARK_GATEWAY_SECRET", "PYSPARK_SUBMIT_ARGS",
                   "HADOOP_CONF_DIR", "YARN_CONF_DIR", "_PYSPARK_DRIVER_CONN_INFO_PATH",
-                  "SPARK_CONNECT_MODE", "SPARK_REMOTE")
+                  "SPARK_CONNECT_MODE", "SPARK_REMOTE", "SPARK_LOCAL_DIRS",
+                  "SPARK_EXECUTOR_DIRS", "LOCAL_DIRS")
 # Values Spark must read back as they were written, checked once its Spark starts.
 _ESCAPING_CHECK = ("it's", "C:\\temp\\", "two\nlines", "tab\there", "back\rspace", "50%_off",
                    "`name`", 'say "hi"', "-- not a comment", "; not a second statement",
@@ -188,53 +223,85 @@ _FOLDER_PREFIX = "spark_composer_example_database_"
 _IN_USE = "in-use"
 # How old a folder with nothing holding it must be before it is deleted as left over.
 _LEFT_OVER_SECONDS = 60
+# Where the log of a Spark that couldn't start is kept, once its folder is deleted.
+_FAILED_START_LOG = "spark_composer_failed_start.log"
 
-# The running Spark: its process, its connection, its folder, its log, and the folder's lock.
+# The running Spark: its process, the listener it connected to, its connection, its folder,
+# its log, and the folder's lock.
 _SPARK: dict = {}
+# One query at a time: a reply goes to whoever asked, even with queries from several threads.
+_ONE_AT_A_TIME = threading.Lock()
+
+
+class _Gone(Exception):
+    """The process, or the Java its Spark runs on, has stopped: this Spark can't answer."""
 
 
 def run_query(text: str, tables: dict) -> tuple[list, list]:
     """Run a query's Hive on the Example database's Spark: its column names, and its rows.
 
     `tables` maps each table's short name to its Table reference and its rows. Its Spark starts
-    on the first query, and again if it has stopped.
+    on the first query, and again if it has stopped; a query its stopped Spark couldn't answer
+    is sent once more to the new one.
     """
     lacking = _lacking()
     if lacking is not None:
+        what, fix = lacking
         raise RuntimeError(four_part_message(
-            what=f"The Example database's Spark {lacking[0]}.",
+            what=f"The Example database's Spark {what}.",
             why="The Example database runs each query on that Spark, so example_database.send "
             "can't give a DataFrame here. to_hive(...) still writes every Statement's Hive.",
-            fix=lacking[1],
+            fix=fix,
             opt_out=None,
         ))
-    process = _SPARK.get("process")
-    if process is None or process.poll() is not None:
-        _stop_spark()
-        _start_spark(tables)
-    reply = _ask(text)
+    with _ONE_AT_A_TIME:
+        reply = _answer(text, tables)
     if "refused" in reply:
         raise RuntimeError(_refused(reply["refused"]))
     return reply["columns"], [tuple(row) for row in reply["rows"]]
 
 
+def _answer(text: str, tables: dict) -> dict:
+    """The reply to a query, starting a Spark first, and again if the one there has stopped."""
+    for attempt in (1, 2):
+        process = _SPARK.get("process")
+        if process is None or process.poll() is not None:
+            _stop_spark()
+            _start_spark(tables)
+        try:
+            return _ask(text)
+        except _Gone:
+            _stop_spark(wait=False)
+            if attempt == 2:
+                _stopped()
+    raise AssertionError  # the loop returns or raises
+
+
 def _first_line(said: str) -> str:
-    """The first line of what Spark said, which names the problem, without its SQLSTATE."""
+    """What Spark said, cut to the sentences that name the problem, with no full stop.
+
+    It leaves out Spark's SQLSTATE, the place in the Hive, and Spark's advice to change its
+    settings or use its try_ functions, which the Example database's Spark doesn't take.
+    """
     lines = said.strip().splitlines() or ["(Spark said nothing)"]
-    return re.sub(r"\s*SQLSTATE:.*$", "", lines[0]).rstrip(" ;.") + "."
+    first = re.sub(r"\s*SQLSTATE:.*$", "", lines[0])
+    first = re.sub(r"[.;\s]*;\s*line \d+ pos \d+.*$", "", first)
+    kept = [sentence for sentence in re.split(r"(?<=\.)\s+(?=[A-Z\[])", first)
+            if "spark.sql." not in sentence and "try_" not in sentence]
+    return " ".join(kept).rstrip(" ;.") or first.rstrip(" ;.")
 
 
 def _refused(said: str) -> str:
-    """Spark's refusal of a query, with the first line of what Spark said."""
+    """Spark's refusal of a query, with what Spark said about it."""
     return four_part_message(
-        what=f"Spark couldn't run this Hive on the Example database: {_first_line(said)}",
-        why="Your warehouse's Spark would most likely refuse the same Hive, so the Statement "
-        "would fail at work too.",
-        fix="Spark's message names the problem: usually a name spelt differently from the "
-        "Example database's tables (ops.jobs, ops.job_runs and ops.run_alerts, whose columns "
-        "their Table references list), or a value of the wrong type, such as text given to "
-        "hive_function(...) where a date goes. If neither, and statement(...) built the Hive, "
-        "please report it with the Statement to whoever looks after the Toolbox.",
+        what=f"Spark couldn't run this Hive on the Example database: {_first_line(said)}.",
+        why="At work Spark refuses the same Hive or, set up less strictly, quietly gives None "
+        "where this one stopped, so the Statement needs changing either way.",
+        fix="Spark's message names the problem: usually a table, column or hive_function(...) "
+        "name spelt wrong (print a Table reference, such as example_database.jobs, to see its "
+        "columns), or a value of the wrong type, such as text given where a date goes. If "
+        "neither, and statement(...) built the Hive, please report it with the Statement to "
+        "whoever looks after the Toolbox.",
         opt_out=None,
     )
 
@@ -252,8 +319,10 @@ def _start_spark(tables: dict) -> None:
           "later ones about a second.", file=sys.stderr)
     try:
         folder = Path(tempfile.mkdtemp(prefix=_FOLDER_PREFIX, dir=_temporary_folder()))
+        # Held for as long as this Spark runs, so no other Python deletes its folder.
         _SPARK.update(folder=folder, lock=_hold(folder / _IN_USE))
-        for name in ("warehouse", "local", "java-tmp", "tmp", "conf"):
+        for name in ("warehouse", "local", "tmp", "conf") + (() if os.name == "nt" else
+                                                             ("java-tmp",)):
             (folder / name).mkdir()
         key = os.urandom(32)
         _SPARK["listener"] = listener = Listener(("127.0.0.1", 0), authkey=key)
@@ -262,20 +331,26 @@ def _start_spark(tables: dict) -> None:
         _SPARK["process"] = process = subprocess.Popen(
             [sys.executable, "-B", str(Path(__file__).resolve())], cwd=folder,
             env=_environment(folder), stdin=subprocess.PIPE, stdout=log,
-            stderr=subprocess.STDOUT, text=True)
+            stderr=subprocess.STDOUT, text=True, start_new_session=os.name != "nt")
         process.stdin.write(json.dumps({"address": list(listener.address), "key": key.hex(),
                                         "settings": _settings(folder)}) + "\n")
         process.stdin.flush()
         _connect(listener)
-        for name, (table, rows) in tables.items():
-            reply = _ask(_table_hive(name, table._columns, rows))
-            if "refused" in reply:
-                said = _first_line(reply["refused"])
-                _toolbox_failed(f"couldn't make its table {name}: {said}")
+        _make_tables(tables)
         _check_escaping()
+    except _Gone:
+        _not_started("stopped before it started")
     except KeyboardInterrupt:
         _stop_spark(wait=False)
         raise
+
+
+def _make_tables(tables: dict) -> None:
+    for name, (table, rows) in tables.items():
+        reply = _ask(_table_hive(name, table._columns, rows))
+        if "refused" in reply:
+            said = _first_line(reply["refused"])
+            _toolbox_failed(f"couldn't make its table {name}: {said}.")
 
 
 def _connect(listener) -> None:
@@ -295,15 +370,22 @@ def _connect(listener) -> None:
     except (EOFError, OSError):
         _not_started("stopped before it started")
     if "stopped" in started:
-        _not_started(f"couldn't start: {_first_line(started['stopped'])}")
+        _not_started("couldn't start")
 
 
 def _accept(listener, accepted: dict) -> None:
-    """Take the process's connection back, unless the start gives up first and closes it."""
-    try:
-        accepted["connection"] = listener.accept()
-    except Exception:  # noqa: BLE001 - a closed listener, or a connection with the wrong key
-        pass
+    """Take the process's connection back, passing over any other that knocks first.
+
+    It ends when the start gives up and closes the listener.
+    """
+    while True:
+        try:
+            accepted["connection"] = listener.accept()
+            return
+        except Exception:  # noqa: BLE001 - a knock with the wrong key, or a closed listener
+            if _SPARK.get("listener") is not listener:
+                return
+            time.sleep(_LOOK_EVERY / 4)
 
 
 def _still_starting(deadline: float) -> None:
@@ -314,23 +396,34 @@ def _still_starting(deadline: float) -> None:
         _not_started(f"didn't start within {_START_SECONDS} seconds", busy=True)
 
 
-_BUSY = "A busy computer can take longer: close other programs, then run the query again."
-_NOT_STARTING = ("Run the query again: another Spark starts. If it fails the same way, show "
-                 "this message to whoever looks after your environment: something there stops "
-                 "Spark from starting, such as security software that stops programs on this "
-                 "computer from connecting to each other.")
-
-
 def _not_started(what: str, busy: bool = False) -> NoReturn:
-    """Stop the Spark that couldn't start, and say so."""
+    """Stop the Spark that couldn't start, keep its log, and say so, with its last line."""
+    log, last = _keep_log()
     _stop_spark(wait=False)
+    said = f" The last thing it wrote: {last}" if last else " It wrote nothing."
     raise RuntimeError(four_part_message(
-        what=f"The Example database's Spark {what}.",
+        what=f"The Example database's Spark {what}.{said}",
         why="The Example database runs each query on that Spark, so none can run until one "
         "starts. to_hive(...) still writes every Statement's Hive.",
-        fix=_BUSY if busy else _NOT_STARTING,
+        fix="A busy computer can take longer: close other programs, then run the query again."
+        if busy else "Run the query again: another Spark starts. If it fails the same way, "
+        f"show its log, {log}, to whoever looks after your environment.",
         opt_out=None,
     ))
+
+
+def _keep_log() -> tuple[Path, str]:
+    """Copy the log of a Spark that couldn't start out of its folder; give its last line."""
+    kept = Path(_temporary_folder()) / _FAILED_START_LOG
+    log = _SPARK.get("log")
+    if log is None:
+        return kept, ""
+    log.flush()
+    with contextlib.suppress(OSError):
+        shutil.copyfile(log.name, kept)
+    lines = [line.strip() for line in Path(log.name).read_text(
+        encoding="utf-8", errors="replace").splitlines() if line.strip()]
+    return kept, lines[-1] if lines else ""
 
 
 def _toolbox_failed(what: str) -> NoReturn:
@@ -338,11 +431,10 @@ def _toolbox_failed(what: str) -> NoReturn:
     _stop_spark()
     raise RuntimeError(four_part_message(
         what=f"The Example database's Spark {what}",
-        why="This is a bug in the Toolbox, not in your Statement: the Hive Spark refused is "
-        "the Toolbox's own, so no query can run on the Example database here.",
-        fix="Please report this message to whoever looks after the Toolbox, with this Python's "
-        f"pyspark version, {_pyspark_version()}. to_hive(...) still writes every Statement's "
-        "Hive.",
+        why="This is a bug in the Toolbox, not in your Statement: the Hive that Spark refused "
+        "is the Toolbox's own, so no query can run on the Example database here.",
+        fix="Please report this message to whoever looks after the Toolbox, with its pyspark "
+        f"version, {_pyspark_version()}. to_hive(...) still writes every Statement's Hive.",
         opt_out=None,
     ))
 
@@ -356,8 +448,9 @@ def _pyspark_version() -> str:
 def _ask(sql: str) -> dict:
     """Send one piece of Hive and wait for the reply: its columns and rows, or Spark's refusal.
 
-    When the process stops or doesn't answer in time, it is stopped, and that is said. When the
-    wait is interrupted, it is stopped too, so its answer can't come to the next query.
+    When the process or its Java has stopped, it raises _Gone. When the answer doesn't come in
+    time, or the wait is interrupted, the Spark is stopped, so its answer can't reach the next
+    query.
     """
     connection, process = _SPARK["connection"], _SPARK["process"]
     deadline = time.monotonic() + _QUERY_SECONDS
@@ -365,29 +458,40 @@ def _ask(sql: str) -> dict:
         connection.send(sql)
         while not connection.poll(_LOOK_EVERY):
             if process.poll() is not None:
-                _stopped("stopped")
+                raise _Gone
             if time.monotonic() > deadline:
-                _stopped(f"didn't answer within {_QUERY_SECONDS} seconds")
+                _stop_spark(wait=False)
+                _too_slow()
         reply = connection.recv()
-    except (EOFError, OSError):
-        _stopped("stopped")
+    except (EOFError, OSError) as error:
+        raise _Gone from error
     except KeyboardInterrupt:
         _stop_spark(wait=False)
         raise
     if "stopped" in reply:
-        _stopped(f"stopped: {_first_line(reply['stopped'])}")
+        raise _Gone
     return reply
 
 
-def _stopped(what: str) -> NoReturn:
-    """Stop a Spark that stopped answering, and say so."""
-    _stop_spark(wait=False)
+def _stopped() -> NoReturn:
+    """Say that the Spark stopped twice in a row, so the query got no answer."""
     raise RuntimeError(four_part_message(
-        what=f"The Example database's Spark {what}.",
-        why="The query didn't get an answer, and the queries after it would get the wrong "
-        "ones, so that Spark is stopped.",
-        fix="Run the query again: another Spark starts. A query that runs for minutes is too "
-        "big for the Example database, whose tables hold a few rows each.",
+        what="The Example database's Spark stopped while it had the query, and so did another "
+        "one started for it.",
+        why="Its Spark is gone, so the query got no answer.",
+        fix="Run the query again: another Spark starts. If it stops the same way, show this "
+        "message to whoever looks after your environment.",
+        opt_out=None,
+    ))
+
+
+def _too_slow() -> NoReturn:
+    """Say that a query took longer than _QUERY_SECONDS, so its Spark was stopped."""
+    raise RuntimeError(four_part_message(
+        what=f"The Example database's Spark didn't answer within {_QUERY_SECONDS} seconds.",
+        why="Its answer would have come to the next query instead, so that Spark was stopped.",
+        fix="A query that runs for minutes is too big for the Example database, whose tables "
+        "hold a few rows each: check it for a JOIN with no ON, then run it again.",
         opt_out=None,
     ))
 
@@ -401,8 +505,8 @@ def _check_escaping() -> None:
                         for i, value in enumerate(_ESCAPING_CHECK))
     reply = _ask(f"SELECT {written}")
     if "refused" in reply:
-        _toolbox_failed(f"refused the Toolbox's own check of how it reads text: "
-                        f"{_first_line(reply['refused'])}")
+        _toolbox_failed("refused the Toolbox's own check of how it reads text: "
+                        f"{_first_line(reply['refused'])}.")
     wrong = [f"{wrote!r} came back as {read!r}"
              for wrote, read in zip(_ESCAPING_CHECK, reply["rows"][0]) if wrote != read]
     if wrong:
@@ -505,8 +609,8 @@ def _settings(folder: Path) -> dict:
 def _stop_spark(wait: bool = True) -> None:
     """Stop the Spark, if one runs, and delete its folder.
 
-    With wait, the process is asked to stop its Spark first; without, it is killed at once, and
-    its Spark follows within a second.
+    With wait, the process is told to stop its Spark, and is given time to; without, the
+    process and everything it started, its Spark's Java included, are killed at once.
     """
     connection, process = _SPARK.pop("connection", None), _SPARK.pop("process", None)
     if connection is not None:
@@ -515,21 +619,48 @@ def _stop_spark(wait: bool = True) -> None:
                 connection.send(None)
         connection.close()
     if process is not None:
-        try:
-            if not wait:
-                process.kill()
-            process.stdin.close()
-            process.wait(30)
-        except (OSError, subprocess.TimeoutExpired):
-            process.kill()
-            process.wait(30)
+        _end(process, wait)
     for name in ("listener", "log", "lock"):
         held = _SPARK.pop(name, None)
         if held is not None:
             held.close()
     folder = _SPARK.pop("folder", None)
     if folder is not None:
-        _remove(folder, tries=50)
+        _remove(folder, tries=int(_DELETE_SECONDS / _LOOK_EVERY))
+
+
+def _end(process: subprocess.Popen, wait: bool) -> None:
+    """End the process: with wait, by letting it stop; without, or if it doesn't, by force.
+
+    Forced, everything it started goes with it.
+    """
+    if wait:
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(30)
+    if process.poll() is None:
+        _kill_everything_started_by(process)
+    with contextlib.suppress(OSError):
+        process.stdin.close()
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        process.wait(30)
+
+
+def _kill_everything_started_by(process: subprocess.Popen) -> None:
+    """Kill a process and every process it started.
+
+    On Windows those are the tree of its children; elsewhere the process leads a session of
+    its own, which they are in.
+    """
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)],
+                       capture_output=True, check=False)
+    else:
+        import signal
+
+        with contextlib.suppress(OSError):
+            os.killpg(process.pid, signal.SIGKILL)
+    with contextlib.suppress(OSError):
+        process.kill()
 
 
 atexit.register(_stop_spark)
@@ -539,8 +670,7 @@ atexit.register(_stop_spark)
 
 
 def _hold(path: Path):
-    """Open `path` and lock it, for as long as this Python lives or until it is closed."""
-    # Held open for the folder's life: closing it gives up the lock.
+    """Open `path` and lock it, until it is closed or this Python stops."""
     held = open(path, "a+b")
     try:
         held.seek(0)
@@ -561,9 +691,9 @@ def _hold(path: Path):
 def _remove(folder: Path, tries: int = 1) -> None:
     """Delete a Spark's folder, its in-use file last, trying `tries` times.
 
-    A Spark lets go of its files about a second after it stops, so the tries are a fifth of a
-    second apart. Until everything else is gone the folder keeps its in-use file, so a later
-    start can finish the job.
+    A Spark lets go of its files about a second after it stops, so the tries are _LOOK_EVERY
+    apart. Until everything else is gone the folder keeps its in-use file, so a later start can
+    finish the job.
     """
     for attempt in range(tries):
         for part in _parts(folder):
@@ -598,7 +728,7 @@ def _delete_left_over() -> None:
 
     The Python that starts a Spark holds its folder's in-use file locked while it lives, and the
     lock goes with it, however it stops: a folder whose lock can be taken, and that is over a
-    minute old, is left over.
+    minute old, is left over. Taking the lock only tests it; it is given up at once.
     """
     now = time.time()
     for folder in Path(_temporary_folder()).glob(f"{_FOLDER_PREFIX}*"):
@@ -618,17 +748,17 @@ def _delete_left_over() -> None:
 def _serve() -> None:
     """Start a Spark with the settings sent on stdin, then answer each piece of Hive sent.
 
-    A query Spark refuses goes back to be shown. Anything else means this Spark can't go on,
-    so it says so and stops, and the next query starts another. It stops when told to (None),
-    when the connection closes, and, once its Spark has started, at once when your Python stops,
-    even mid-query: its pipe to this process's stdin closes then.
+    Whatever goes wrong with a query goes back to be shown, unless the Java its Spark runs on
+    has gone: then it says it has stopped, and stops, and the next query starts another Spark.
+    It stops when told to (None), when the connection closes, and, once its Spark has started,
+    at once when your Python stops, even mid-query: its pipe to this process's stdin closes
+    then.
     """
     from multiprocessing.connection import Client
 
     config = json.loads(sys.stdin.readline())
     connection = Client(tuple(config["address"]), authkey=bytes.fromhex(config["key"]))
     try:
-        from pyspark.errors import PySparkException
         from pyspark.sql import SparkSession
 
         builder = SparkSession.builder
@@ -653,16 +783,24 @@ def _serve() -> None:
             frame = spark.sql(sql)
             reply = {"columns": list(frame.columns),
                      "rows": [tuple(row) for row in frame.collect()]}
-        except Exception as error:  # noqa: BLE001 - a refusal, or a Spark that can't go on
-            # A Java error pyspark passes on as it is, from a Java that is still there, has the
-            # Java exception with it.
-            if not isinstance(error, PySparkException) and not hasattr(error, "java_exception"):
+        except Exception as error:  # noqa: BLE001 - shown, unless its Java has gone
+            if _java_gone(error):
                 connection.send({"stopped": f"{type(error).__name__}: {error}"})
                 break
             reply = {"refused": _what_spark_said(error)}
         connection.send(reply)
     spark.stop()
     connection.close()
+
+
+def _java_gone(error: Exception) -> bool:
+    """Whether an error says the Java this Spark runs on has gone, rather than a query failed.
+
+    Py4J, which pyspark talks to that Java through, raises a Py4JNetworkError, or the
+    connection's own error, when it can't reach it.
+    """
+    names = {kind.__name__ for kind in type(error).__mro__}
+    return "Py4JNetworkError" in names or isinstance(error, (ConnectionError, EOFError))
 
 
 def _stop_with_your_python() -> None:
@@ -676,22 +814,25 @@ def _stop_with_your_python() -> None:
 
 
 def _what_spark_said(error: Exception) -> str:
-    """What a refused query's error says: its Java cause's message, when it has one.
+    """What a failed query's error says: its Java cause's message, when it has one.
 
     A refusal pyspark doesn't turn into its own error, such as one raised while Spark runs the
-    query, holds Spark's reason in the Java exception at the root of it.
+    query, holds Spark's reason in the Java exception at the root of it. An error Python raises
+    while turning Spark's rows into Python values says what it is.
     """
     cause = getattr(error, "java_exception", None)
     try:
         while cause is not None and cause.getCause() is not None:
             cause = cause.getCause()
         if cause is not None:
-            said = cause.getMessage() or ""
+            said = (cause.getMessage() or "").strip()
             name = cause.getClass().getSimpleName()
-            return said if said.startswith("[") else f"{name}: {said}"
+            return said if said.startswith("[") else ": ".join(filter(None, (name, said)))
     except Exception:  # noqa: BLE001 - Java can't say more; Python's text says enough
         pass
-    return str(error)
+    if hasattr(error, "getErrorClass") or hasattr(error, "getCondition"):
+        return str(error)
+    return f"{type(error).__name__}: {error}"
 
 
 if __name__ == "__main__":
