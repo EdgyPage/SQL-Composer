@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 import sql_composer
-from conftest import edition, toolbox_folder
+from conftest import edition, import_stop, toolbox_folder
 
 TOOLBOX = toolbox_folder()
 FOLDER, PRODUCT = edition().folder, edition().product
@@ -49,7 +49,7 @@ def test_a_file_from_another_version_stops_the_import(tmp_path) -> None:
                                                         'TOOLBOX_VERSION = "1.9"')
         path.write_text(text, encoding="utf-8")
 
-    assert import_copy(tmp_path, older).endswith(stopped(
+    assert import_copy(tmp_path, older).endswith(import_stop(
         what=f"running.py is from Toolbox version 1.9, and __init__.py is from {VERSION}.",
         why="Files from different Toolbox versions weren't written to work together, so a "
         "Statement could fail or come out wrong.",
@@ -63,7 +63,7 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
         with_file_list(copy)
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
 
-    assert import_copy(tmp_path, extra).endswith(stopped(
+    assert import_copy(tmp_path, extra).endswith(import_stop(
         what=f"my_notes.py is in the {FOLDER} folder, but not part of {PRODUCT} {VERSION}.",
         why="A file left over from an earlier Toolbox version can still be imported, and would "
         "quietly run old code. A script of your own inside the folder would be deleted with it "
@@ -74,23 +74,13 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
     ) + "\n")
 
 
-def stopped(what: str, why: str, fix: str) -> str:
-    """The last line of an import stop: the four parts, with no opt-out."""
-    return (
-        f"ImportError: {FOLDER} stopped on import:"
-        f"\n  What happened:  {what}"
-        f"\n  Why it matters: {why}"
-        f"\n  Usual fix:      {fix}"
-        "\n  Opt-out:        none - this one can't be switched off."
-    )
-
 
 def test_a_missing_file_stops_the_import(tmp_path) -> None:
     def missing(copy: Path) -> None:
         with_file_list(copy)
         (copy / "CHANGES.md").unlink()
 
-    assert import_copy(tmp_path, missing).endswith(stopped(
+    assert import_copy(tmp_path, missing).endswith(import_stop(
         what=f"CHANGES.md is missing from the {FOLDER} folder.",
         why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a part "
         "of it fail later, far from the cause, and a missing examples.html or CHANGES.md "
@@ -137,7 +127,7 @@ def test_an_exported_copy_imports(tmp_path) -> None:
 
 @pytest.mark.parametrize("odd", ["tables.py", "examples.html", "CHANGES.md"])
 def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
-    assert import_copy(tmp_path, lambda copy: stamp_every_file(copy, odd=odd)).endswith(stopped(
+    assert import_copy(tmp_path, lambda copy: stamp_every_file(copy, odd=odd)).endswith(import_stop(
         what=f"{odd} came from a different export than __init__.py.",
         why="Two exports of the same Toolbox version can differ, so the code, the Example "
         "gallery and the change notes in this folder may not match each other.",
@@ -184,12 +174,10 @@ def test_an_older_python_stops_the_import(monkeypatch) -> None:
     monkeypatch.setattr(sys, "version_info", (3, 9, 7, "final", 0))
     with pytest.raises(ImportError) as error:
         sql_composer._check_python()
-    assert f"ImportError: {error.value}" == stopped(
+    assert f"ImportError: {error.value}" == import_stop(
         what=f"{PRODUCT} needs Python 3.11 or newer, and this is Python 3.9.7.",
         why=f"{PRODUCT} is tested only on Python 3.11 and newer, and parts of it may not work "
         "on an older one.",
         fix="Choose a Python 3.11 or newer kernel (Kernel > Change Kernel in JupyterLab), or ask "
         "whoever looks after your environment to add one.",
     )
-
-

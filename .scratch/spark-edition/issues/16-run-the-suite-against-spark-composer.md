@@ -24,6 +24,10 @@ tested. Add `tests/spark_edition/test_spark_alias.py` and
 before any Toolbox import, take module prefixes from the package name, and put the product in
 page text.
 
+In `tests/conftest.py`, add `"spark"` to `EDITION_CHOICES`, whose keys then match
+`EDITION_FOLDERS`: fold the two into one table of each `--edition`'s Edition and test folder, so
+adding an Edition is one edit (ticket 08's review).
+
 ## Done when
 
 The Definition of done in `CLAUDE.md` holds; `python -m pytest --edition spark` collects with no

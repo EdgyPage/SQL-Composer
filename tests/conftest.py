@@ -22,7 +22,9 @@ whose Example database must run.
 from __future__ import annotations
 
 import datetime
+import html
 import importlib
+import re
 from pathlib import Path
 from types import ModuleType
 
@@ -127,6 +129,35 @@ def example_rows(table: str) -> pd.DataFrame:
     """
     reference, rows = toolbox_module("example_database")._TABLES[table]
     return pd.DataFrame(rows, columns=list(reference._columns))
+
+
+def import_stop(what: str, why: str, fix: str) -> str:
+    """The last line of the Edition's import stop: the four parts, with no opt-out."""
+    return (
+        f"ImportError: {edition().folder} stopped on import:"
+        f"\n  What happened:  {what}"
+        f"\n  Why it matters: {why}"
+        f"\n  Usual fix:      {fix}"
+        "\n  Opt-out:        none - this one can't be switched off."
+    )
+
+
+def page_text(html_text: str) -> str:
+    """What a reader sees: the tags taken out, entities read, and runs of spaces made one."""
+    text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html_text, flags=re.DOTALL)
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", text)).split())
+
+
+def gallery_entries() -> dict[str, tuple[str, str]]:
+    """Each entry on the Edition's Example gallery, by its id: its title and all its text."""
+    found = re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>',
+                       (toolbox_folder() / "examples.html").read_text(encoding="utf-8"),
+                       re.DOTALL)
+    return {
+        entry_id: (page_text(re.search(r"<h3>(.*?)</h3>", body, re.DOTALL).group(1)),
+                   page_text(body))
+        for entry_id, body in found
+    }
 
 
 @pytest.fixture(autouse=True)

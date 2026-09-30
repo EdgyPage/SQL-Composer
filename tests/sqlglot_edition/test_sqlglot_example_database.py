@@ -1,5 +1,4 @@
-"""SQL Composer's Example database runs queries on sqlglot's executor, and says what it can't run.
-"""
+"""SQL Composer's Example database runs queries on sqlglot's executor and says what it can't."""
 
 from __future__ import annotations
 

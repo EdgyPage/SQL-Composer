@@ -22,7 +22,7 @@ move to the README and the CHANGES 3.0 draft.
   Example database can't run it".
 - Turn on the repo test that the canonical shared files hold no forbidden word (the list lives in
   `tools/editions.py`): remove the strict xfail from
-  `tests/test_editions.py::test_no_canonical_shared_file_names_what_only_one_edition_has`.
+  `tests/repo/test_editions.py::test_no_canonical_shared_file_names_what_only_one_edition_has`.
 - Word `sql_composer/CHANGES.md` without either folder's or product's name: it is a verbatim file,
   copied byte for byte into Spark Composer's folder (ticket 06).
 - Regenerate `examples.html` and the golden.

@@ -534,4 +534,3 @@ def _derived_statement(pick):
         outputs.append(pick.choice((jobs.team, jobs.job_name)))
     where = [WHERE(more_than(per_job.total, pick.randint(0, 20)))] if pick.random() < 0.5 else []
     return statement(SELECT(*outputs), *reads, *where)
-

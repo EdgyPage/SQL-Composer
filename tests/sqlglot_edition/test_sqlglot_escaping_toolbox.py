@@ -15,7 +15,7 @@ import sqlglot
 from sqlglot import exp
 
 from conftest import toolbox_folder
-from escaping_cases import INJECTION_PAYLOADS, REFUSED_CONTROL_CHARACTERS, STRING_CASES
+from escaping_cases import INJECTION_PAYLOADS, WRITTEN, WRITTEN_IDS
 from sql_composer import (
     AS,
     FROM,
@@ -39,9 +39,6 @@ from sql_composer import (
 from sql_composer.example_database import job_runs
 
 TOOLBOX = toolbox_folder()
-# The cases the Toolbox writes; it refuses the rest (tests/test_escaping_toolbox.py).
-WRITTEN = [case for case in STRING_CASES if case[0] not in REFUSED_CONTROL_CHARACTERS]
-WRITTEN_IDS = [label for label, _value, _expected in WRITTEN]
 
 COMPARISONS = [
     (equals, "="),

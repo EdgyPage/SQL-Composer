@@ -117,6 +117,9 @@ uses.
   Spark parses every golden text but two, reads every value back but BEL, FF and VT, and needs
   all four 3.0 changes. `0.5` is DECIMAL there and a zero divisor raises under ANSI; the claims
   table rewords every Hive claim for ticket 14.
+- [Split the suite into shared, sqlglot-edition and repo tests](issues/08-split-the-suite.md):
+  shared tests in `tests/` run in every Edition; `tests/sqlglot_edition/` and `tests/repo/` hold
+  the rest, and a layout test holds the split, the unique names and the collection rules.
 
 ## Not yet specified
 

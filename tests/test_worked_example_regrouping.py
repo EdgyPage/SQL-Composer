@@ -6,7 +6,6 @@ week_start; `sqlglot_edition/test_sqlglot_worked_examples.py` checks its Hive ag
 
 from __future__ import annotations
 
-
 import pandas as pd
 import pytest
 
@@ -44,5 +43,3 @@ def test_the_pandas_results_give_the_wrong_and_the_right_count() -> None:
     assert careless.to_dict("records") == [{"week": "2026-09-21", "jobs_that_ran": added_up}]
     assert fixed.to_dict("records") == [{"week": "2026-09-21", "jobs_that_ran": right}]
     assert (added_up, right) == (6, 3)
-
-

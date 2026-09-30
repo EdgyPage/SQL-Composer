@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 import sql_composer
-from conftest import toolbox_folder, toolbox_module
+from conftest import gallery_entries, page_text, toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
 GALLERY = toolbox_folder() / "examples.html"
@@ -37,23 +37,6 @@ def test_the_committed_gallery_is_what_the_generator_writes() -> None:
     )
 
 
-def page_text(html_text: str) -> str:
-    """What a reader sees: the tags taken out, entities read, and runs of spaces made one."""
-    text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html_text, flags=re.DOTALL)
-    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", text)).split())
-
-
-def entries() -> dict[str, tuple[str, str]]:
-    """Each entry on the page, by its id: its title and all its text, as a reader sees them."""
-    found = re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>',
-                       GALLERY.read_text(encoding="utf-8"), re.DOTALL)
-    return {
-        entry_id: (page_text(re.search(r"<h3>(.*?)</h3>", body, re.DOTALL).group(1)),
-                   page_text(body))
-        for entry_id, body in found
-    }
-
-
 def toolbox_docstrings() -> list[doctest.DocTest]:
     """Every docstring in the Toolbox that holds a >>> example."""
     finder = doctest.DocTestFinder()
@@ -66,7 +49,7 @@ def toolbox_docstrings() -> list[doctest.DocTest]:
 
 @pytest.mark.parametrize("name", sql_composer.__all__)
 def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
-    titled = [title for title, _ in entries().values()
+    titled = [title for title, _ in gallery_entries().values()
               if re.search(rf"(?<![\w.]){name}(?![\w.])", title)]
     assert titled, f"no entry is titled {name}"
 
@@ -106,7 +89,7 @@ STATEMENT_SCRIPTS = sorted((ROOT / "worked_examples" / "statements").glob("*.py"
 @pytest.mark.parametrize("path", STATEMENT_SCRIPTS, ids=lambda path: path.stem)
 def test_every_statement_script_has_an_entry_with_its_title_and_why(path: Path) -> None:
     doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8")))
-    title, text = entries()[path.stem]
+    title, text = gallery_entries()[path.stem]
     assert title == page_text(html.escape(doc.splitlines()[0]))
     why = next(paragraph for paragraph in doc.split("\n\n") if paragraph.startswith("Why: "))
     assert " ".join(why.replace("`", "").split()) in text
@@ -190,12 +173,12 @@ def test_a_docstring_statement_shows_its_result_on_the_example_database() -> Non
 
 
 def test_a_statement_the_example_database_cannot_run_says_why() -> None:
-    _, text = entries()["INSERT_OVERWRITE"]
+    _, text = gallery_entries()["INSERT_OVERWRITE"]
     assert "No result here. The Example database only answers SELECT" in text
 
 
 def test_a_statement_given_to_run_shows_its_hive() -> None:
-    _, text = entries()["run"]
+    _, text = gallery_entries()["run"]
     assert "The Hive of the Statement given to run(...) SELECT job_runs.run_id," in text
 
 
@@ -228,7 +211,7 @@ def test_without_scripts_every_entry_is_plain_html() -> None:
     page = GALLERY.read_text(encoding="utf-8")
     assert re.search(r'<p id="filter" hidden>', page)
     assert page.count(" hidden") == 1
-    assert len(entries()) == len(STATEMENT_SCRIPTS) + len(toolbox_docstrings())
+    assert len(gallery_entries()) == len(STATEMENT_SCRIPTS) + len(toolbox_docstrings())
 
 
 class TagCounter(HTMLParser):

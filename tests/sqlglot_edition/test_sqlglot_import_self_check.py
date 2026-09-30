@@ -1,5 +1,4 @@
-"""SQL Composer stops on import when its sqlglot is missing, out of range or behaves differently.
-"""
+"""SQL Composer stops on import when sqlglot is missing, out of range or behaves differently."""
 
 from __future__ import annotations
 
@@ -9,26 +8,14 @@ import pytest
 import sqlglot
 
 import sql_composer
-from conftest import edition
-
-FOLDER = edition().folder
-
-def stopped(what: str, why: str, fix: str) -> str:
-    """The last line of an import stop: the four parts, with no opt-out."""
-    return (
-        f"ImportError: {FOLDER} stopped on import:"
-        f"\n  What happened:  {what}"
-        f"\n  Why it matters: {why}"
-        f"\n  Usual fix:      {fix}"
-        "\n  Opt-out:        none - this one can't be switched off."
-    )
+from conftest import import_stop
 
 
 def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "sqlglot", None)  # makes `import sqlglot` fail
     with pytest.raises(ImportError) as error:
         sql_composer.engine.check_installed()
-    assert f"ImportError: {error.value}" == stopped(
+    assert f"ImportError: {error.value}" == import_stop(
         what="SQL Composer needs sqlglot, and this Python can't import it.",
         why="SQL Composer writes every Statement as Hive through sqlglot, and reads the Hive "
         "back to check it, so it can't build anything without it.",
@@ -43,7 +30,7 @@ def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch, version) -> N
     monkeypatch.setattr(sqlglot, "__version__", version)
     with pytest.raises(ImportError) as error:
         sql_composer.engine.check_installed()
-    assert f"ImportError: {error.value}" == stopped(
+    assert f"ImportError: {error.value}" == import_stop(
         what="SQL Composer needs sqlglot 25.24.2 or newer, below 31.0.0, and this Python has "
         f"sqlglot {version}.",
         why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can write "
@@ -64,7 +51,7 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
                         if value == "O'Brien\\" else real(value, *args, **kw))
     with pytest.raises(ImportError) as error:
         sql_composer.engine.check_installed()
-    assert f"ImportError: {error.value}" == stopped(
+    assert f"ImportError: {error.value}" == import_stop(
         what=f"sqlglot {sqlglot.__version__} is in the supported range, but behaves "
         "differently: Hive string escaping has changed. Nothing has been built or sent.",
         why="SQL Composer relies on this behaviour to write Hive safely, so a Statement could "

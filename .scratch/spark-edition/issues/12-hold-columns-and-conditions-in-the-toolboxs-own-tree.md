@@ -33,7 +33,7 @@ generic constructor, so the sqlglot trees themselves stay identical. `tables.rea
 shared: it copies the tree top-down, replaces each noted node with a `Var` holding its call, and
 calls `hive_text`.
 
-Tests: `tests/sqlglot_edition/test_trees_match_sqlglot.py` checks, over every corpus tree, the
+Tests: `tests/sqlglot_edition/test_sqlglot_trees_match.py` checks, over every corpus tree, the
 column order against `to_sqlglot(node).find_all(exp.Column)`, pairwise `==`, `has_aggregate`
 against the old function, the flatten of ON, and window partition names.
 `tests/test_trees.py` tests `Node` on hand-built nodes. The f-string AST rule extends to `Node(...)`

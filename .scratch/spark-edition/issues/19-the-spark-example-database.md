@@ -31,8 +31,8 @@ shared `example_database.py` turns into a frame with today's constructor.
 `conftest` adds a warm-up, stops the helper in `pytest_sessionfinish`, and adds ticket 2's
 `filterwarnings` lines. Add Spark twins of the executor-limit tests (Spark runs row_number,
 NEXT_DAY and TRUNC) and a type census. Until ticket 25, a strict xfail names the row each failing
-test waits for (for example NEXT_DAY returning DATE, which fails
-`tests/test_worked_example_regrouping.py:74-75`).
+test waits for (for example NEXT_DAY returning DATE, which fails a Spark twin of
+`tests/sqlglot_edition/test_sqlglot_worked_examples.py::test_the_regrouping_hive_gives_the_same_numbers_as_pandas`).
 
 ## Done when
 
