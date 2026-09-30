@@ -17,7 +17,8 @@ Each run collects the shared tests directly in `tests/` and its own Edition's fo
 checks in `tests/repo/`, which run once.
 
 A test marked `needs_example_database` runs a query on the Example database, and skips where it
-can't, saying why. `--example-database required` turns that skip into a failure, for a CI job
+can't, saying why; whether it can is asked once a run, by sending it one query.
+`--example-database required` turns that skip into a failure, for a CI job
 whose Example database must run.
 """
 
@@ -117,9 +118,29 @@ def toolbox_module(name: str = "") -> ModuleType:
     return importlib.import_module(f"{edition().folder}.{name}" if name else edition().folder)
 
 
+# Whether the Example database answered the one query each run sends it, and if not, why.
+_ANSWERED: dict = {}
+
+
 def example_database_cannot_run() -> str | None:
-    """Why the Example database can't run a query here, or None when it can: its Edition says."""
-    return toolbox_module("engine").example_database_cannot_run()
+    """Why the Example database can't run a query here, or None when it can.
+
+    Its Edition says what it lacks. Then, once a run, it is sent one query, so an Example
+    database that can't answer, such as a Spark that can't start, gives every test one reason
+    rather than each test a wait of its own.
+    """
+    reason = toolbox_module("engine").example_database_cannot_run()
+    if reason is not None:
+        return reason
+    if "reason" not in _ANSWERED:
+        try:
+            toolbox_module("example_database").send("SELECT job_id FROM ops.jobs")
+            _ANSWERED["reason"] = None
+        except RuntimeError as error:
+            said = re.search(r"What happened:\s*(.+)", str(error))
+            _ANSWERED["reason"] = ("the Example database didn't answer: "
+                                   + (said.group(1) if said else str(error).strip()))
+    return _ANSWERED["reason"]
 
 
 def skip_unless_the_example_database_runs() -> None:
