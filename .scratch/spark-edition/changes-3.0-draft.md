@@ -12,6 +12,9 @@ a 2.1 re-export goes into `CHANGES.md` under 2.1 instead.
   `CAST(NEXT_DAY(...) AS STRING)` and `CAST(TRUNC(...) AS STRING)`: Spark's NEXT_DAY and TRUNC
   give a date, and the CAST makes it text, a day like "2026-09-21", as Hive gives it. On Hive
   the result is the same as before.
+- **The words Spark reserves go in backticks too** (ticket 25), such as any, except, minus,
+  semi and current_user, as column, table and Derived table names. Before, some of them made
+  to_hive fail, and others were written plain, which Spark refuses.
 - **A file from the other folder stops the import** (ticket 24). A file copied in from the
   other folder by mistake, even `__init__.py`, is named with the folder it came from, and the
   fix says to copy this folder in again from its own folder of the download.

@@ -23,7 +23,9 @@ TOOLBOX_VERSION = "2.1"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-# Hive's reserved words: a column with one of these names must be written in backticks.
+# Hive's and Spark's reserved words: a name that is one of these must be written in backticks.
+# The last three lines are the words Spark reserves in any of its keyword modes, or won't take
+# as a table's name, and Hive doesn't reserve.
 HIVE_RESERVED = frozenset(
     """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
     CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
@@ -36,7 +38,10 @@ HIVE_RESERVED = frozenset(
     REVOKE RIGHT RLIKE ROLLBACK ROLLUP ROW ROWS SELECT SET SMALLINT START SYNC TABLE
     TABLESAMPLE THEN TIME TIMESTAMP TO TRANSFORM TRIGGER TRUE TRUNCATE UNBOUNDED UNION
     UNIQUEJOIN UPDATE USER USING UTC_TMESTAMP VALUES VARCHAR VIEWS WHEN WHERE WINDOW
-    WITH""".split()
+    WITH
+    ANTI ANY CALL CHECK COLLATE COLLATION CURRENT_TIME CURRENT_USER ESCAPE EXCEPT EXECUTE
+    FILTER LEADING MINUS NATURAL OFFSET OVERLAPS PERCENTILE_CONT PERCENTILE_DISC RECURSIVE SEMI
+    SESSION_USER SOME SQL TRAILING UNIQUE UNKNOWN WITHIN""".split()
 )
 
 # Hive aggregate functions that hive_function may be given by name.
@@ -74,7 +79,7 @@ HIVE_FUNCTION_ARGUMENTS = {
 
 
 def plain_name(name: str) -> bool:
-    """Whether Hive can take the name as it is; any other name goes in backticks."""
+    """Whether Hive and Spark can take the name as it is; any other name goes in backticks."""
     return bool(SIMPLE_NAME.fullmatch(name)) and name.upper() not in HIVE_RESERVED
 
 

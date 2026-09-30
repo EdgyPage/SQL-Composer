@@ -79,6 +79,13 @@ odd = Table(
 )
 """A table whose name and columns all need backticks: a reserved word, a digit first, a space."""
 
+spark_words = Table(
+    "ops.semi",
+    columns={"any": "string", "minus": "bigint", "current_user": "string", "dt": "string"},
+    date_partition="dt",
+)
+"""A table whose name and columns are words Spark reserves and Hive doesn't."""
+
 compact = Table(
     "ops.compact_runs",
     columns={"run_id": "bigint", "status": "string", "day": "string"},
@@ -111,7 +118,8 @@ TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "
          "struct<a:int,b:string>", "bigint unsigned", "json", "uuid", "interval", "nonsense")
 
 
-EDGE_TABLES = {"odd": odd, "compact": compact, "events": events, "daily_runs": daily_runs}
+EDGE_TABLES = {"odd": odd, "spark_words": spark_words, "compact": compact, "events": events,
+               "daily_runs": daily_runs}
 
 
 def edge_tables() -> list:
@@ -308,6 +316,10 @@ def _read_cases() -> dict:
         "reads:odd_names": lambda: [statement(
             SELECT(odd.select, getattr(odd, "1st"), AS(getattr(odd, "two words"), "order")),
             FROM(odd), WHERE(one_day(odd), equals(odd.select, "x")))],
+        "reads:spark_reserved_names": lambda: [statement(
+            SELECT(spark_words.any, spark_words.minus,
+                   AS(spark_words.current_user, "within")),
+            FROM(spark_words), WHERE(one_day(spark_words), equals(spark_words.any, "x")))],
         "reads:compact_day": lambda: [statement(
             SELECT(compact.run_id, AS(week_start(compact.day), "week"),
                    AS(month_start(compact.day), "month")),

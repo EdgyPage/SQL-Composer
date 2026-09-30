@@ -9744,6 +9744,85 @@ WHERE
 ---
 
 
+== edge:reads:spark_reserved_names
+-- Statement 1: to_hive
+SELECT
+  `semi`.`any`,
+  `semi`.`minus`,
+  `semi`.`current_user` AS `within`
+FROM ops.`semi` AS `semi`
+WHERE
+  `semi`.dt = '2026-09-24' AND `semi`.`any` = 'x'
+-- Statement 1: the Statement
+output any: `semi`.`any`
+output minus: `semi`.`minus`
+output within: `semi`.`current_user`
+WHERE: `semi`.dt = '2026-09-24'
+WHERE: `semi`.`any` = 'x'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.semi"]
+    n0["ops.semi.any<br/><small>string</small>"]
+    n2["ops.semi.minus<br/><small>bigint</small>"]
+    n4["ops.semi.current_user<br/><small>string</small>"]
+    n7["ops.semi.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["any<br/><small>#96;semi#96;.#96;any#96;</small>"]
+    n3["minus<br/><small>#96;semi#96;.#96;minus#96;</small>"]
+    n5["within<br/><small>#96;semi#96;.#96;current_user#96;</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n6{{"WHERE in statement<br/><small>equals(#96;semi#96;.dt, #quot;2026-09-24#quot;)</small>"}}
+    n8{{"WHERE in statement<br/><small>equals(#96;semi#96;.#96;any#96;, #quot;x#quot;)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n4 --> n5
+  n7 -.-> n6
+  n0 -.-> n8
+  n6 -.->|filters| g1
+  n8 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `any` | ops.semi.any |
+| `minus` | ops.semi.minus |
+| `within` | ops.semi.current_user |
+
+### Hive as submitted
+
+```sql
+SELECT
+  `semi`.`any`,
+  `semi`.`minus`,
+  `semi`.`current_user` AS `within`
+FROM ops.`semi` AS `semi`
+WHERE
+  `semi`.dt = '2026-09-24' AND `semi`.`any` = 'x'
+```
+
+---
+
+
 == edge:reads:compact_day
 -- Statement 1: to_hive
 SELECT
@@ -11362,6 +11441,10 @@ GuardRefused:
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS ops.`order`
 
+== edge:drop_table:spark_words
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.`semi`
+
 == edge:drop_table:compact
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS ops.compact_runs
@@ -11678,6 +11761,18 @@ CREATE TABLE ops.`order` (
   `select` STRING,
   `1st` BIGINT,
   `two words` STRING
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+
+== edge:create_table:spark_words
+-- Statement 1: to_hive
+CREATE TABLE ops.`semi` (
+  `any` STRING,
+  `minus` BIGINT,
+  `current_user` STRING
 )
 PARTITIONED BY (
   dt STRING
@@ -36194,6 +36289,20 @@ SHOW PARTITIONS ops.`order`
 -- check_key
 ValueError:
   What happened:  check_key(order): its Table reference declares no key.
+  Why it matters: There is nothing to check.
+  Usual fix:      Add key=[...] to its Table(...) call, such as key=["run_id"].
+  Opt-out:        none - this one can't be switched off.
+
+== warehouse:ops.semi
+-- write_table_reference
+DESCRIBE ops.`semi`
+SHOW PARTITIONS ops.`semi`
+-- check_table_reference
+DESCRIBE ops.`semi`
+SHOW PARTITIONS ops.`semi`
+-- check_key
+ValueError:
+  What happened:  check_key(semi): its Table reference declares no key.
   Why it matters: There is nothing to check.
   Usual fix:      Add key=[...] to its Table(...) call, such as key=["run_id"].
   Opt-out:        none - this one can't be switched off.
