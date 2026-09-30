@@ -78,6 +78,63 @@ HIVE_FUNCTION_ARGUMENTS = {
 }
 
 
+# The column types create_table takes: the ones Hive and Spark share, written as DESCRIBE
+# prints them. decimal may take (precision) or (precision,scale), varchar and char take
+# (length), and array, map and struct hold other types, as in array<string>, map<string,int>
+# and struct<name:string,runs:int>.
+HIVE_TYPES = frozenset(
+    """tinyint smallint int bigint float double decimal string varchar char boolean date
+    timestamp binary array map struct""".split()
+)
+
+# How many types an array or a map holds; a struct holds one or more, each with a name.
+_HOLDS = {"array": 1, "map": 2}
+_SIZES = {"decimal": r"\(\s*\d+\s*(,\s*\d+\s*)?\)", "varchar": r"\(\s*\d+\s*\)",
+          "char": r"\(\s*\d+\s*\)"}
+
+
+def is_hive_type(text: str) -> bool:
+    """Whether create_table takes a column type: one on HIVE_TYPES, in any case."""
+    rest = _after_type(text.lower())
+    return rest is not None and not rest.strip()
+
+
+def _after_type(text: str) -> str | None:
+    """What follows the type `text` starts with, or None when it doesn't start with one."""
+    found = re.match(r"\s*([a-z]+)\s*", text)
+    if not found or found.group(1) not in HIVE_TYPES:
+        return None
+    word, rest = found.group(1), text[found.end():]
+    if word in _SIZES:
+        sizes = re.match(_SIZES[word], rest)
+        if sizes:
+            return rest[sizes.end():]
+        # decimal alone is decimal(10,0); varchar and char need their length.
+        return rest if word == "decimal" else None
+    if word in ("array", "map", "struct"):
+        return _after_held(word, rest)
+    return rest
+
+
+def _after_held(word: str, text: str) -> str | None:
+    """What follows the <...> of an array, a map or a struct, or None when it isn't right."""
+    rest, held, opening = text, 0, "<"
+    while rest is not None and rest.startswith(opening):
+        rest, opening = rest[1:], ","
+        if word == "struct":
+            # Each type a struct holds has a name before it, as in struct<name:string>.
+            field = re.match(r"\s*[a-z_][a-z0-9_]*\s*:", rest)
+            if not field:
+                return None
+            rest = rest[field.end():]
+        rest = _after_type(rest)
+        held += 1
+        rest = None if rest is None else rest.lstrip()
+    if rest is None or not rest.startswith(">") or held != _HOLDS.get(word, max(held, 1)):
+        return None
+    return rest[1:]
+
+
 def plain_name(name: str) -> bool:
     """Whether Hive and Spark can take the name as it is; any other name goes in backticks."""
     return bool(SIMPLE_NAME.fullmatch(name)) and name.upper() not in HIVE_RESERVED

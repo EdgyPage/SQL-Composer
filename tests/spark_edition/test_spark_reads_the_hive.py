@@ -15,7 +15,6 @@ own Python set up as the Example database's is:
   backticks;
 - what each declared difference says of Spark holds.
 
-Strict xfails name what ticket 25 of the PySpark work changes for each one that fails.
 """
 
 from __future__ import annotations
@@ -115,21 +114,11 @@ def _make_tables(spark) -> None:
 
 # --- Spark's parser -------------------------------------------------------------------------
 
-# What waits for ticket 25 of the PySpark work, by the change it waits for.
-TYPES = ("ticket 25 of the PySpark work has create_table take only types on a Hive list; until "
-         "then SQL Composer writes JSON and UUID, which Spark doesn't have")
-
-
 def _parse_cases() -> list:
     found = []
     for edition in editions.EDITIONS.values():
         for hive in hive_texts(edition):
-            marks = []
-            if edition is editions.SQL_COMPOSER and hive.case in (
-                    "edge:create_table:json", "edge:create_table:uuid"):
-                marks = [pytest.mark.xfail(strict=True, raises=AssertionError, reason=TYPES)]
-            found.append(pytest.param(hive.text, id=f"{edition.library} {hive.where}",
-                                      marks=marks))
+            found.append(pytest.param(hive.text, id=f"{edition.library} {hive.where}"))
     return found
 
 

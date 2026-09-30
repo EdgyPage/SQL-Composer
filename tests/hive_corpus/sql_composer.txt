@@ -11488,14 +11488,12 @@ PARTITIONED BY (
 STORED AS ORC
 
 == edge:create_table:integer
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c INT
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'integer' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:bigint
 -- Statement 1: to_hive
@@ -11528,24 +11526,20 @@ PARTITIONED BY (
 STORED AS ORC
 
 == edge:create_table:real
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c FLOAT
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'real' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:double precision
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c DOUBLE
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'double precision' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:decimal
 -- Statement 1: to_hive
@@ -11578,14 +11572,12 @@ PARTITIONED BY (
 STORED AS ORC
 
 == edge:create_table:numeric(5,1)
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c DECIMAL(5, 1)
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'numeric(5,1)' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:string
 -- Statement 1: to_hive
@@ -11688,45 +11680,43 @@ PARTITIONED BY (
 STORED AS ORC
 
 == edge:create_table:bigint unsigned
--- Statement 1: to_hive
-sqlglot.errors.ParseError, not a Toolbox refusal
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'bigint unsigned' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:json
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c JSON
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'json' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:uuid
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c UUID
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'uuid' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:interval
--- Statement 1: to_hive
-CREATE TABLE mart.typed (
-  c INTERVAL
-)
-PARTITIONED BY (
-  dt STRING
-)
-STORED AS ORC
+-- refused
+ValueError:
+  What happened:  create_table(typed): c's type 'interval' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:nonsense
 -- refused
 ValueError:
-  What happened:  create_table(typed): c's type 'nonsense' isn't a Hive type.
-  Why it matters: Hive needs a type it knows to create the column.
-  Usual fix:      Use a Hive type such as "string", "bigint", "double" or "decimal(10,2)".
+  What happened:  create_table(typed): c's type 'nonsense' isn't one the Toolbox can create.
+  Why it matters: Hive and Spark each need a type they know to create a column, so create_table takes only the types they share, written as DESCRIBE prints them.
+  Usual fix:      Use one of string, bigint, int, smallint, tinyint, double, float, decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an array<string>, map<string,int> or struct<name:string,runs:int> of them.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:may_exist

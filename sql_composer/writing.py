@@ -96,8 +96,9 @@ def _tree_adds_rows_up(tree: exp.Expression) -> bool:
     return False
 
 
-def hive_type(text: str) -> exp.DataType:
-    """A column's type for CREATE TABLE, as sqlglot reads it; raises when it can't."""
+def _hive_type(text: str) -> exp.DataType:
+    """A column's type for CREATE TABLE, as sqlglot reads it. create_table has checked it
+    against HIVE_TYPES in trees.py already."""
     return exp.DataType.build(text, dialect=_DIALECT)
 
 
@@ -326,6 +327,6 @@ _REPLAY = {
     "Insert": _insert,
     "Create": _create,
     "ColumnDef": lambda node: exp.ColumnDef(this=_identifier(node.name),
-                                            kind=hive_type(node.parts["type"])),
+                                            kind=_hive_type(node.parts["type"])),
     "Drop": _drop,
 }

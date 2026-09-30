@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 import pytest
 
@@ -285,10 +287,27 @@ def test_create_table_refuses_untyped_columns() -> None:
         create_table(t)
 
 
-def test_create_table_refuses_a_type_hive_doesnt_have() -> None:
-    t = Table("mart.t", columns={"a": "int(", "dt": "string"}, date_partition="dt")
-    with pytest.raises(ValueError, match="isn't a Hive type"):
+@pytest.mark.parametrize("kind", ["int(", "json", "uuid", "integer", "real", "double precision",
+                                  "numeric(5,1)", "varchar", "char", "interval",
+                                  "timestamp with local time zone", "array<json>", "map<string>",
+                                  "struct<>", "struct<int>", "array<string", "decimal(10,2"])
+def test_create_table_refuses_a_type_hive_and_spark_dont_share(kind: str) -> None:
+    t = Table("mart.t", columns={"a": kind, "dt": "string"}, date_partition="dt")
+    with pytest.raises(ValueError, match=f"a's type '{re.escape(kind)}' isn't one the Toolbox "
+                       "can create"):
         create_table(t)
+
+
+@pytest.mark.parametrize(("kind", "written"), [
+    ("BIGINT", "BIGINT"), ("decimal", "DECIMAL"), ("decimal(10)", "DECIMAL(10)"),
+    ("decimal(10, 2)", "DECIMAL(10, 2)"), ("varchar(20)", "VARCHAR(20)"),
+    ("array<string>", "ARRAY<STRING>"), ("map<string,int>", "MAP<STRING, INT>"),
+    # sqlglot 25 leaves out a struct's colons, where 30 writes STRUCT<a: INT, b: STRING>.
+    ("struct<a:int,b:string>", "STRUCT<a"),
+])
+def test_create_table_takes_each_type_hive_and_spark_share(kind: str, written: str) -> None:
+    t = Table("mart.t", columns={"a": kind}, date_partition=None)
+    assert to_hive(create_table(t)).startswith(f"CREATE TABLE mart.t (\n  a {written}")
 
 
 def test_create_table_may_exist() -> None:

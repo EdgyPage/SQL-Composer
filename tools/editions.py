@@ -70,7 +70,6 @@ EDITION_INTERFACE = {
         "readable_text": ["node"],
         "read_back": ["text"],
         "function_adds_rows_up": ["name", "args", "call"],
-        "hive_type": ["text"],
         "describe_text": ["name"],
         "show_partitions_text": ["name"],
     },
@@ -147,14 +146,6 @@ DECLARED_DIFFERENCES = {
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
                "edge:hive_function:regexp_extract", "edge:hive_function:date_format",
                "edge:hive_function:substr", "edge:hive_function:instr"),
-    ),
-    "create_table_types": Difference(
-        why="Until 3.0, SQL Composer writes a create_table column type sqlglot knows, such as "
-        "json, even where Hive and Spark have no such type; Spark Composer already refuses it.",
-        sql_composer="c JSON",
-        spark_composer="c's type 'json' isn't a Hive type",
-        cases=("edge:create_table:bigint unsigned", "edge:create_table:json",
-               "edge:create_table:uuid", "edge:create_table:interval"),
     ),
     "hive_function_arguments": Difference(
         why="Until 3.0, SQL Composer has sqlglot check a hive_function call's arguments, and "
