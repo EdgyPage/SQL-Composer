@@ -7,7 +7,7 @@ Composer lays out its own. It also checks what it wrote, counts a hive_function 
 a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
 Spark Composer, this one) writes Hive its own way behind these same function names.
 
-Its Hive is SQL Composer's but in three places, each with its reason in the README:
+Its Hive is SQL Composer's but in three places:
 
 - a division by anything that could be 0 is written x / NULLIF(y, 0). NULLIF(y, 0) is NULL when
   y is 0, so that row gets NULL, as in Hive, where Spark would stop the whole query with an
@@ -35,14 +35,19 @@ WIDTH = 80
 PAD = 2
 
 # How a character of a string value is written between single quotes. Each is escaped on its
-# own, so an escape's backslash is never escaped again. BEL, FF and VT have no escape Hive and
-# Spark both read; the Toolbox refuses a value that holds one before it gets here.
+# own, so an escape's backslash is never escaped again. BEL, FF and VT are written \a, \f and \v,
+# as SQL Composer writes them, which Hive and Spark read back as the letters a, f and v: the
+# Toolbox refuses a value that holds one before it gets here, and _quoted would stop it if one
+# did.
 _ESCAPES = {
     "\\": "\\\\",
     "'": "\\'",
     "\n": "\\n",
     "\t": "\\t",
     "\r": "\\r",
+    "\x07": "\\a",
+    "\x0c": "\\f",
+    "\x0b": "\\v",
     "\x08": "\\b",
 }
 
@@ -506,8 +511,9 @@ _WRITE = {
 # --- Reading the Hive back ------------------------------------------------------------------
 
 # How Hive and Spark read a backslash in a value: before one of these it stands for a control
-# character, before % or _ it stays, for LIKE, and before any other character it stands for that
-# character. It is kept apart from _ESCAPES on purpose, so a slip there reads back wrong.
+# character, before % or _ it stays, for LIKE, and before any other character this file writes
+# it stands for that character. (Spark also reads \Z, \u and octal escapes, which this file never
+# writes.) It is kept apart from _ESCAPES on purpose, so a slip there reads back wrong.
 _CONTROLS = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "0": "\0"}
 
 
