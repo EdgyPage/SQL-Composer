@@ -366,6 +366,8 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
     if made_by == this or not made_by.endswith("_composer"):
         return
     called = _CALLED.get(type(value).__name__, "object")
+    if getattr(value, "_statement", None) is not None:  # a Table made by derived(...)
+        called = "Derived table"
     article = "an" if called[0] in "aeiou" else "a"
     raise TypeError(four_part_message(
         what=f"{call} was given {article} {called} made by {made_by}, but you called it from "
