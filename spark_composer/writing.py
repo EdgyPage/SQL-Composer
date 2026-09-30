@@ -1,59 +1,571 @@
 """How Spark Composer writes a Statement as Hive text, with no package but Python's own.
 
-The other files build a Statement's parts as the Toolbox's own tree (trees.py). This file writes
-them out as the same Hive SQL Composer writes, checks the text, and says how a table is
+The other files build a Statement's parts as the Toolbox's own tree (trees.py). This file
+writes them out as Hive: the same Hive SQL Composer writes, laid out the same way, since its
+layout copies sqlglot 30.19.0's rule for rule. It also checks the text it wrote, reads a
+hive_function call's arguments against the list both Editions share, and says how a table is
 described. Each Edition of the Toolbox writes Hive its own way behind these same function names.
+
+Where the two Editions' Hive differs on purpose, `tools/editions.py` lists why
+(`DECLARED_DIFFERENCES`): a division writes NULLIF around its divisor, since Spark refuses to
+divide by zero; a float is written as a DOUBLE, as in 0.5D, since Spark reads 0.5 as a DECIMAL;
+and a hive_function call is written as it was named.
 """
 
 from __future__ import annotations
 
+import re
+
 from .refusals import four_part_message
-from .trees import Node, plain_name
+from .trees import HIVE_AGGREGATES, HIVE_FUNCTION_ARGUMENTS, Node, plain_name
 
 TOOLBOX_VERSION = "2.1"
 
+# The width past which a list of pieces, or a call's arguments, go one to a line.
+WIDTH = 80
+# How far each level is indented.
+PAD = 2
 
-def _not_yet() -> RuntimeError:
-    return RuntimeError(four_part_message(
-        what="Spark Composer can't write Hive yet.",
-        why="Its writer is built in a later step of the PySpark work.",
-        fix="Use SQL Composer for now.",
-        opt_out=None,
-    ))
+# How a string value is written between single quotes: the backslash first, so an escape
+# added for a quote is never itself escaped.
+_ESCAPES = {
+    "\\": "\\\\",
+    "'": "\\'",
+    "\n": "\\n",
+    "\t": "\\t",
+    "\r": "\\r",
+    "\x07": "\\a",
+    "\x0c": "\\f",
+    "\x0b": "\\v",
+    "\x08": "\\b",
+}
+
+_OPERATORS = {
+    "EQ": "=", "NEQ": "<>", "GT": ">", "GTE": ">=", "LT": "<", "LTE": "<=", "Like": "LIKE",
+    "Is": "IS", "Add": "+", "Sub": "-", "Mul": "*", "Div": "/",
+}
+_CONNECTORS = {"And": "AND", "Or": "OR"}
+_AGGREGATES = {"Count": "COUNT", "Sum": "SUM", "Avg": "AVG", "Min": "MIN", "Max": "MAX"}
+_DATE_CALLS = {"next_day": "NEXT_DAY", "trunc": "TRUNC", "unix_timestamp": "UNIX_TIMESTAMP",
+               "from_unixtime": "FROM_UNIXTIME"}
 
 
 def hive_text(node: Node) -> str:
     """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive on one line."""
-    raise _not_yet()
+    return _sql(node, False).strip()
 
 
 def hive_statement(node: Node) -> str:
     """A whole Statement's tree as the Hive to_hive gives: laid out over several lines."""
-    raise _not_yet()
+    return _sql(node, True).strip()
+
+
+def readable_text(node: Node) -> str:
+    """A part of a Statement as it was written in Python, on one line.
+
+    It leaves out what this file adds to the Hive for Spark: the NULLIF around a divisor and the
+    D after a float. So a calculation reads the same in both Editions; only its Hive differs.
+    """
+    written = node.copy()
+    for part in written.walk():
+        if part.kind == "Div":
+            part.meta["as_written"] = True
+        elif part.kind == "Literal":
+            part.set("double", False)
+    return hive_text(written)
+
+
+# --- The layout: sqlglot's sep, seg, indent, wrap and lists ---------------------------------
+
+
+def _sep(pretty: bool, sep: str = " ") -> str:
+    return f"{sep.strip()}\n" if pretty else sep
+
+
+def _seg(sql: str, pretty: bool, sep: str = " ") -> str:
+    return f"{_sep(pretty, sep)}{sql}"
+
+
+def _indent(sql: str, pretty: bool, level: int = 0, pad: int = PAD, skip_first: bool = False,
+            skip_last: bool = False) -> str:
+    if not pretty or not sql:
+        return sql
+    lines = sql.split("\n")
+    return "\n".join(
+        line if (skip_first and i == 0) or (skip_last and i == len(lines) - 1)
+        else f"{' ' * (level * PAD + pad)}{line}"
+        for i, line in enumerate(lines)
+    )
+
+
+def _too_wide(sqls) -> bool:
+    return sum(len(sql) for sql in sqls) > WIDTH
+
+
+def _args(sqls: list[str], pretty: bool, sep: str = ", ") -> str:
+    if pretty and _too_wide(sqls):
+        return _indent("\n" + f"{sep.strip()}\n".join(sqls) + "\n", pretty, skip_first=True,
+                       skip_last=True)
+    return sep.join(sqls)
+
+
+def _func(name: str, nodes: list, pretty: bool) -> str:
+    return f"{name}({_args([_sql(node, pretty) for node in nodes], pretty)})"
+
+
+def _list(sqls: list[str], pretty: bool, flat: bool = False, indent: bool = True,
+          skip_first: bool = False, skip_last: bool = False, sep: str = ", ",
+          dynamic: bool = False, new_line: bool = False) -> str:
+    if not sqls:
+        return ""
+    if flat:
+        return sep.join(sql for sql in sqls if sql)
+    count = len(sqls)
+    pieces = [f"{sql}{sep if i + 1 < count else ''}" for i, sql in enumerate(sqls)]
+    if pretty and (not dynamic or _too_wide(pieces)):
+        if new_line:
+            pieces = ["", *pieces, ""]
+        text = "\n".join(piece.rstrip() for piece in pieces)
+    else:
+        text = "".join(pieces)
+    return _indent(text, pretty, skip_first=skip_first, skip_last=skip_last) if indent else text
+
+
+def _wrap(sql: str, pretty: bool) -> str:
+    """A whole query in round brackets, as a Derived table's body."""
+    if not sql:
+        return "()"
+    inner = _indent(sql, pretty, level=1, pad=0)
+    return f"({_sep(pretty, '')}{inner}{_seg(')', pretty, sep='')}"
+
+
+def _op_list(op: str, sqls: list[str], pretty: bool, flat: bool = False) -> str:
+    listed = _list(sqls, pretty, flat=flat)
+    if flat:
+        return f"{op} {listed}"
+    return f"{_seg(op, pretty)}{_sep(pretty) if listed else ''}{listed}"
+
+
+# --- Values and names -----------------------------------------------------------------------
+
+
+def string(text: str) -> str:
+    return "'" + "".join(_ESCAPES.get(character, character) for character in text) + "'"
+
+
+def name(text: str) -> str:
+    return text if plain_name(text) else "`" + text.replace("`", "``") + "`"
+
+
+def _table_name(text: str) -> str:
+    return ".".join(name(part) for part in text.split("."))
+
+
+# --- One function per kind of Node ----------------------------------------------------------
+
+
+def _sql(node: Node, pretty: bool) -> str:
+    return _WRITE[node.kind](node, pretty)
+
+
+def _part(node: Node, part: str, pretty: bool) -> str:
+    value = node.parts.get(part)
+    return "" if value is None else _sql(value, pretty)
+
+
+def _column(node: Node, pretty: bool) -> str:
+    return f"{name(node.table)}.{name(node.name)}" if node.table else name(node.name)
+
+
+def _literal(node: Node, pretty: bool) -> str:
+    if node.parts.get("is_string"):
+        return string(node.parts["this"])
+    text = node.parts["this"]
+    # A Python float is a DOUBLE: Spark reads 0.5 as a DECIMAL, and 0.5D as a DOUBLE.
+    if node.parts.get("double") and not re.search(r"[eE]", text):
+        return f"{text}D"
+    return text
+
+
+def _two_sided(node: Node, pretty: bool) -> str:
+    divisor = node.parts["expression"]
+    right = _part(node, "expression", pretty)
+    # Spark refuses to divide by zero where Hive gives NULL, so any divisor that could be zero
+    # goes through NULLIF, which makes it NULL instead.
+    if node.kind == "Div" and not node.meta.get("as_written") and not _nonzero_number(divisor):
+        right = _func("NULLIF", [divisor, Node("Literal", this="0", is_string=False)], pretty)
+    return f"{_part(node, 'this', pretty)} {_OPERATORS[node.kind]} {right}"
+
+
+def _nonzero_number(node: Node) -> bool:
+    if node.kind != "Literal" or node.parts.get("is_string"):
+        return False
+    try:
+        return float(node.parts["this"]) != 0
+    except ValueError:
+        return False
+
+
+def _connector(node: Node, pretty: bool) -> str:
+    """AND and OR: each condition on its own line when they won't fit on one."""
+    pieces, waiting, operators = [], [node], set()
+    while waiting:
+        item = waiting.pop()
+        if not isinstance(item, str) and item.kind in _CONNECTORS:
+            operator = _CONNECTORS[item.kind]
+            waiting.extend((item.parts["expression"], operator, item.parts["this"]))
+            operators.add(operator)
+            continue
+        sql = item if isinstance(item, str) else _sql(item, pretty)
+        if pieces and pieces[-1] in operators:
+            pieces[-1] += f" {sql}"
+        else:
+            pieces.append(sql)
+    return ("\n" if pretty and _too_wide(pieces) else " ").join(pieces)
+
+
+def _paren(node: Node, pretty: bool) -> str:
+    inner = _seg(_indent(_part(node, "this", pretty), pretty), pretty, sep="")
+    return f"({inner}{_seg(')', pretty, sep='')}"
+
+
+def _in(node: Node, pretty: bool) -> str:
+    items = _list([_sql(item, pretty) for item in node.parts["expressions"]], pretty,
+                  dynamic=True, new_line=True, skip_first=True, skip_last=True)
+    return f"{_part(node, 'this', pretty)} IN ({items})"
+
+
+def _case(node: Node, pretty: bool) -> str:
+    statements = ["CASE"]
+    for when in node.parts["ifs"]:
+        statements.append(f"WHEN {_part(when, 'this', pretty)}")
+        statements.append(f"THEN {_part(when, 'true', pretty)}")
+    default = _part(node, "default", pretty)
+    if default:
+        statements.append(f"ELSE {default}")
+    statements.append("END")
+    if pretty and _too_wide(statements):
+        return _indent("\n".join(statements), pretty, skip_first=True, skip_last=True)
+    return " ".join(statements)
+
+
+def _aggregate(node: Node, pretty: bool) -> str:
+    return _func(_AGGREGATES[node.kind], [node.parts["this"]], pretty)
+
+
+def _distinct(node: Node, pretty: bool) -> str:
+    return "DISTINCT " + _list([_sql(item, pretty) for item in node.parts["expressions"]],
+                               pretty, flat=True)
+
+
+def _window(node: Node, pretty: bool) -> str:
+    pieces = []
+    partitions = [_sql(item, pretty) for item in node.parts["partition_by"]]
+    if partitions:
+        pieces.append("PARTITION BY " + ", ".join(partitions))
+    order = node.parts.get("order")
+    if order is not None:
+        pieces.append(_order(order, pretty, flat=True))
+    return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
+
+
+def _order(node: Node, pretty: bool, flat: bool = False) -> str:
+    return _op_list("ORDER BY", [_sql(item, pretty) for item in node.parts["expressions"]],
+                    pretty, flat=flat)
+
+
+def _ordered(node: Node, pretty: bool) -> str:
+    desc = node.parts.get("desc")
+    return _part(node, "this", pretty) + {True: " DESC", False: " ASC", None: ""}[desc]
+
+
+def _call(node: Node, pretty: bool) -> str:
+    args = node.parts["args"]
+    if node.name == "date_sub":
+        week = Node("Mul", this=args[1], expression=Node("Literal", this="-1", is_string=False))
+        return _func("DATE_ADD", [args[0], week], pretty)
+    return _func(_DATE_CALLS[node.name], args, pretty)
+
+
+# --- A whole Statement ----------------------------------------------------------------------
+
+
+def _select(node: Node, pretty: bool) -> str:
+    outputs = _list([_sql(item, pretty) for item in node.parts["outputs"]], pretty)
+    sql = "SELECT" + (" DISTINCT" if node.parts.get("distinct") else "")
+    sql += f"{_sep(pretty)}{outputs}" if outputs else ""
+    sql += f"{_seg('FROM', pretty)} {_part(node, 'source', pretty)}"
+    sql += "".join(_sql(join, pretty) for join in node.parts.get("joins") or [])
+    if node.parts.get("where") is not None:
+        where = _indent(_part(node, "where", pretty), pretty)
+        sql += f"{_seg('WHERE', pretty)}{_sep(pretty)}{where}"
+    if node.parts.get("group_by"):
+        sql += _op_list("GROUP BY", [_sql(item, pretty) for item in node.parts["group_by"]],
+                        pretty)
+    if node.parts.get("having") is not None:
+        having = _indent(_part(node, "having", pretty), pretty)
+        sql += f"{_seg('HAVING', pretty)}{_sep(pretty)}{having}"
+    if node.parts.get("order_by"):
+        sql += _op_list("ORDER BY", [_sql(item, pretty) for item in node.parts["order_by"]],
+                        pretty)
+    if node.parts.get("limit") is not None:
+        sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
+    return _with_tables(node, sql, pretty)
+
+
+def _with_tables(node: Node, sql: str, pretty: bool) -> str:
+    tables = node.parts.get("derived_tables") or []
+    if not tables:
+        return sql
+    listed = ", ".join(f"{name(table.parts['alias'])} AS "
+                       f"{_wrap(_part(table, 'this', pretty), pretty)}" for table in tables)
+    return f"WITH {listed}{_sep(pretty)}{sql}"
+
+
+def _join(node: Node, pretty: bool) -> str:
+    kind = node.parts["how"]
+    on = _part(node, "on", pretty)
+    if on:
+        on = _indent(on, pretty, skip_first=True)
+        space = _seg(" " * PAD, pretty) if pretty else " "
+        on = f"{space}ON {on}"
+    return f"{_seg(kind, pretty)} {_part(node, 'this', pretty)}{on}"
+
+
+def _table(node: Node, pretty: bool) -> str:
+    database = node.parts.get("db")
+    sql = f"{name(database)}.{name(node.name)}" if database else name(node.name)
+    partition = node.parts.get("partition")
+    if partition is not None:
+        sql += " PARTITION(" + ", ".join(
+            _sql(item, pretty) for item in partition.parts["expressions"]) + ")"
+    alias = node.parts.get("alias")
+    return sql if alias is None else f"{sql} AS {name(alias)}"
+
+
+def _insert(node: Node, pretty: bool) -> str:
+    into = " OVERWRITE TABLE" if node.parts["overwrite"] else " INTO"
+    target, select = _part(node, "target", pretty), _part(node, "select", pretty)
+    sql = f"INSERT{into} {target}{_sep(pretty)}{select}"
+    return _with_tables(node, sql, pretty)
+
+
+def _column_def(node: Node, pretty: bool) -> str:
+    return f"{name(node.name)} {_type(node.parts['type'], pretty)}"
+
+
+def _columns(defs: list[Node], pretty: bool) -> str:
+    listed = _list([_sql(item, pretty) for item in defs], pretty)
+    return f"({_sep(pretty, '')}{listed}{_seg(')', pretty, sep='')}"
+
+
+def _create(node: Node, pretty: bool) -> str:
+    exists = " IF NOT EXISTS" if node.parts.get("exists") else ""
+    sql = f"CREATE TABLE{exists} {_part(node, 'target', pretty)}"
+    columns = node.parts["columns"]
+    sql += f" {_columns(columns, pretty)}" if columns else ""
+    properties = []
+    if node.parts["partitioned_by"]:
+        properties.append(f"PARTITIONED BY {_columns(node.parts['partitioned_by'], pretty)}")
+    properties.append("STORED AS ORC")
+    return sql + _sep(pretty) + _list(properties, pretty, indent=False, sep=" ")
+
+
+def _drop(node: Node, pretty: bool) -> str:
+    return f"DROP TABLE IF EXISTS {_part(node, 'target', pretty)}"
+
+
+# --- Column types, as CREATE TABLE writes them ----------------------------------------------
+
+_TYPE_NAMES = {
+    "tinyint": "TINYINT", "smallint": "SMALLINT", "int": "INT", "integer": "INT",
+    "bigint": "BIGINT", "float": "FLOAT", "real": "FLOAT", "double": "DOUBLE",
+    "double precision": "DOUBLE", "decimal": "DECIMAL", "numeric": "DECIMAL", "dec": "DECIMAL",
+    "string": "STRING", "varchar": "VARCHAR", "char": "CHAR", "boolean": "BOOLEAN",
+    "date": "DATE", "timestamp": "TIMESTAMP", "binary": "BINARY",
+    "array": "ARRAY", "map": "MAP", "struct": "STRUCT",
+}
+
+
+def _type(text: str, pretty: bool) -> str:
+    written, rest = _parse_type(text.strip(), pretty)
+    if rest.strip():
+        raise ValueError(f"can't read the type {text!r}")
+    return written
+
+
+def _parse_type(text: str, pretty: bool) -> tuple[str, str]:
+    found = re.match(r"\s*([A-Za-z_]+(?: precision)?)\s*", text, re.IGNORECASE)
+    if not found:
+        raise ValueError(f"can't read the type {text!r}")
+    word = found.group(1).lower()
+    if word not in _TYPE_NAMES:
+        raise ValueError(f"can't read the type {text!r}")
+    written, rest = _TYPE_NAMES[word], text[found.end():]
+    if rest.startswith("("):
+        close = rest.index(")")
+        params = [part.strip() for part in rest[1:close].split(",")]
+        written += "(" + ", ".join(params) + ")"
+        rest = rest[close + 1:]
+    elif rest.startswith("<"):
+        inner, rest = _nested(rest[1:], word, pretty)
+        written += f"<{inner}>"
+    return written, rest
+
+
+def _nested(text: str, word: str, pretty: bool) -> tuple[str, str]:
+    parts, rest = [], text
+    while True:
+        rest = rest.lstrip()
+        if word == "struct":
+            field = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*:\s*", rest)
+            if not field:
+                raise ValueError(f"can't read the struct {text!r}")
+            inner, rest = _parse_type(rest[field.end():], pretty)
+            parts.append(f"{field.group(1)}: {inner}")
+        else:
+            inner, rest = _parse_type(rest, pretty)
+            parts.append(inner)
+        rest = rest.lstrip()
+        if rest.startswith(","):
+            rest = rest[1:]
+            continue
+        if rest.startswith(">"):
+            listed = _list(parts, pretty, dynamic=True, new_line=True, skip_first=True,
+                           skip_last=True)
+            return listed, rest[1:]
+        raise ValueError(f"can't read the type {text!r}")
+
+
+_WRITE = {
+    "Column": _column,
+    "Literal": _literal,
+    "Null": lambda node, pretty: "NULL",
+    "Boolean": lambda node, pretty: "TRUE" if node.parts["this"] else "FALSE",
+    "Star": lambda node, pretty: "*",
+    "Var": lambda node, pretty: node.parts["this"],
+    "RowNumber": lambda node, pretty: "ROW_NUMBER()",
+    **{kind: _two_sided for kind in _OPERATORS},
+    **{kind: _connector for kind in _CONNECTORS},
+    "Paren": _paren,
+    "Not": lambda node, pretty: f"NOT {_part(node, 'this', pretty)}",
+    "Between": lambda node, pretty: (f"{_part(node, 'this', pretty)} BETWEEN "
+                                     f"{_part(node, 'low', pretty)} AND "
+                                     f"{_part(node, 'high', pretty)}"),
+    "In": _in,
+    "Case": _case,
+    "Coalesce": lambda node, pretty: _func("COALESCE",
+                                           [node.parts["this"], *node.parts["expressions"]],
+                                           pretty),
+    "Distinct": _distinct,
+    **{kind: _aggregate for kind in _AGGREGATES},
+    "Window": _window,
+    "Order": _order,
+    "Ordered": _ordered,
+    "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "
+                                   f"{name(node.parts['alias'])}"),
+    "Call": _call,
+    "HiveFunction": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
+    "Select": _select,
+    "Table": _table,
+    "Join": _join,
+    "Insert": _insert,
+    "Create": _create,
+    "ColumnDef": _column_def,
+    "Drop": _drop,
+}
+
+
+# --- Reading the Hive back ------------------------------------------------------------------
+
+# The escapes a value in quotes may hold, and the character each one stands for.
+_DECODED = {"\\": "\\", "'": "'", "n": "\n", "t": "\t", "r": "\r", "a": "\x07", "f": "\x0c",
+            "v": "\x0b", "b": "\x08", "%": "\\%", "_": "\\_"}
 
 
 def read_back(text: str) -> str:
-    """The Hive, checked. to_hive compares the two, to check its own Hive."""
-    raise _not_yet()
+    """The text itself when it reads back as one statement, or what is wrong with it."""
+    problem = _problem(text)
+    return text if problem is None else f"(the Hive doesn't read back: {problem})"
+
+
+def _problem(text: str) -> str | None:
+    at = 0
+    while at < len(text):
+        character = text[at]
+        if character == "'":
+            at = _after_string(text, at)
+            if at is None:
+                return "a value in quotes doesn't end"
+        elif character == "`":
+            at = _after_name(text, at)
+            if at is None:
+                return "a name in backticks doesn't end"
+        elif text.startswith("--", at) or text.startswith("/*", at):
+            return "a comment outside quotes"
+        elif character == ";":
+            return "a second statement after ;"
+        elif character == '"':
+            return "a double quote outside a value"
+        else:
+            at += 1
+    return None
+
+
+def _after_string(text: str, start: int) -> int | None:
+    at = start + 1
+    while at < len(text):
+        character = text[at]
+        if character == "\\":
+            if at + 1 >= len(text) or text[at + 1] not in _DECODED:
+                return None
+            at += 2
+        elif character == "'":
+            return at + 1
+        elif character in "\n\r":
+            return None
+        else:
+            at += 1
+    return None
+
+
+def _after_name(text: str, start: int) -> int | None:
+    at = start + 1
+    while at < len(text):
+        if text[at] == "`":
+            if text.startswith("``", at):
+                at += 2
+                continue
+            return at + 1
+        at += 1
+    return None
+
+
+# --- hive_function, column types, and describing a table ------------------------------------
 
 
 def function_adds_rows_up(name: str, args: list[Node], call: str) -> bool:
-    """Whether hive_function(name, *args) adds rows up.
+    """Whether hive_function(name, *args) adds rows up, by the list both Editions share.
 
     It raises TypeError when the function doesn't take this many arguments.
     """
-    raise _not_yet()
+    fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))
+    if len(args) < fewest or (most is not None and len(args) > most):
+        takes = f"{fewest}" if fewest == most else (
+            f"{fewest} or more" if most is None else f"{fewest} to {most}")
+        raise TypeError(four_part_message(
+            what=f"{call} was given {len(args)} arguments, which don't fit {name}.",
+            why=f"{name} takes {takes} arguments in Hive and in Spark, so the warehouse would "
+            "refuse the call.",
+            fix=f"Check {name}'s arguments in Hive's documentation.",
+            opt_out=None,
+        ))
+    return name.lower() in HIVE_AGGREGATES
 
 
 def hive_type(text: str) -> str:
-    """A column's type for CREATE TABLE; raises when it isn't one."""
-    raise _not_yet()
-
-
-def _table_name(name: str) -> str:
-    """A table's full name, each part in backticks where it needs them."""
-    return ".".join(part if plain_name(part) else "`" + part.replace("`", "``") + "`"
-                    for part in name.split("."))
+    """A column's type for CREATE TABLE, as it is written; raises when it isn't one."""
+    return _type(text, False)
 
 
 def describe_text(name: str) -> str:

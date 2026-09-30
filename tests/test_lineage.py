@@ -18,6 +18,7 @@ import textwrap
 import pytest
 
 import sql_composer
+from conftest import in_this_edition
 from sql_composer import (
     AS,
     FROM,
@@ -320,8 +321,24 @@ def test_arithmetic_between_calls_reads_as_written(tmp_path) -> None:
         GROUP_BY(job_runs.job_id),
     )
     markdown, _ = read(export_lineage(average, to=tmp_path / "lineage.html"))
-    assert ("as `sum_of(job_runs.duration_mins) / count_rows()`, which is "
-            "`SUM(job_runs.duration_mins) / COUNT(*)`") in markdown
+    hive = in_this_edition("SUM(job_runs.duration_mins) / COUNT(*)",
+                           "SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)")
+    assert f"as `sum_of(job_runs.duration_mins) / count_rows()`, which is `{hive}`" in markdown
+
+
+def test_a_condition_reads_as_written_where_the_editions_write_different_hive(tmp_path) -> None:
+    slow = statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(at_least(job_runs.duration_mins * 0.5 / job_runs.avg_retry_secs, 2),
+              last_n_days(job_runs.dt, 2)),
+        GROUP_BY(job_runs.job_id),
+    )
+    markdown, _ = read(export_lineage(slow, to=tmp_path / "lineage.html"))
+    hive = in_this_edition("(job_runs.duration_mins * 0.5) / job_runs.avg_retry_secs >= 2",
+                           "(job_runs.duration_mins * 0.5D) / NULLIF(job_runs.avg_retry_secs, 0) >= 2")
+    assert ("`at_least((job_runs.duration_mins * 0.5) / job_runs.avg_retry_secs, 2)`, "
+            f"which is `{hive}`") in markdown
 
 
 def test_the_report_traces_each_calculated_column_back_to_the_tables(tmp_path) -> None:

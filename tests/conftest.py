@@ -99,6 +99,14 @@ def edition() -> editions.Edition:
     return _chosen["edition"]
 
 
+def in_this_edition(sql_composer, spark_composer):
+    """What a test expects where the two Editions write different Hive on purpose.
+
+    Each such place is one of `DECLARED_DIFFERENCES` in `tools/editions.py`.
+    """
+    return spark_composer if edition() is editions.SPARK_COMPOSER else sql_composer
+
+
 def toolbox_folder() -> Path:
     """The folder of the Edition these tests run against."""
     return ROOT / edition().folder
