@@ -231,7 +231,7 @@ class Node:
 
     @property
     def name(self) -> str:
-        """A column's name, or a function's for a Call or a HiveFunction."""
+        """A column's or a table's name, or a function's for a Call or a HiveFunction."""
         return self.parts.get("name") or ""
 
     @property

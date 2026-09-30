@@ -49,8 +49,9 @@ sqlglot.
 - A calculation's Node keeps the shape of the sqlglot tree SQL Composer built for it, part for
   part, because the lineage orders a calculation's columns by a breadth-first walk. A test holds
   every tree in the golden corpus to its sqlglot tree.
-- hive_function is kept as written, so a call sqlglot writes in another function's form, such as
-  nvl as COALESCE, no longer equals that function's calculation.
+- hive_function is kept as the function named, whatever its case, and its arguments, so a call
+  sqlglot writes in another function's form, such as nvl as COALESCE, no longer equals that
+  function's calculation.
 - Both Editions share one Toolbox version and ship together on one Clean branch.
 - The places their Hive differs are declared in one table on `dev`, each with its reason: division
   (Spark 4 refuses to divide by zero under ANSI), `hive_function` spelled as given, and a float
