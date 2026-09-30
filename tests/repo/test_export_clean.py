@@ -312,9 +312,16 @@ def test_the_export_refuses_while_main_is_checked_out_in_a_worktree(repo: Path) 
         export_clean.export(repo, WHEN)
 
 
+def _main_commit(repo: Path) -> str:
+    """The commit `main` points at, or "" where there is no local `main`, as in CI's checkout."""
+    found = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet",
+                            "refs/heads/main"], capture_output=True, text=True, encoding="utf-8")
+    return found.stdout.strip()
+
+
 def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys) -> None:
-    main_before = git(ROOT, "rev-parse", "main")
+    main_before = _main_commit(ROOT)
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert "Nothing was committed" in capsys.readouterr().out
-    assert git(ROOT, "rev-parse", "main") == main_before
+    assert _main_commit(ROOT) == main_before

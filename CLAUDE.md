@@ -14,9 +14,17 @@ working one of its tickets.
 
 ## Checks
 
-`pytest` holds every principle a test can hold, so run `python -m pytest` before you commit. CI
-runs it on Python 3.11 at both ends of the supported sqlglot range. Set up with
+`pytest` holds every principle a test can hold, so run both runs before you commit:
+`python -m pytest`, which tests SQL Composer and the repo's own checks, and
+`python -m pytest --edition spark`, which tests Spark Composer. Spark Composer's Example database
+needs Java 17: without it, its tests skip and say so. Set up with
 `pip install -r requirements-dev.txt`.
+
+CI runs four jobs on Python 3.11, each Edition at both ends of its library's range: sqlglot
+25.24.2 and 30.19.0, and pyspark 3.5.0 and 4.0.4 on Java 17, with sqlglot uninstalled and
+`--example-database required`, so a Spark test that can't run fails rather than skips. Export
+only a commit whose four jobs passed: the export checks neither gallery, and Spark Composer's
+needs Java to check.
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
@@ -53,7 +61,7 @@ else.
 
 A `task` ticket that changes code is done when:
 
-1. `pytest` passes;
+1. both runs pass, `python -m pytest` and `python -m pytest --edition spark`;
 2. the `code-review` skill has run with the ticket as its spec, and its findings are fixed or
    answered in the ticket;
 3. the ticket leaves no open item in `.scratch/drift.md`;

@@ -5,12 +5,15 @@
 - every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
-- the sqlglot pin in requirements-dev.txt falls inside the supported range, and CI runs both
-  the bottom of that range and the pin.
+- each Edition's library pin in requirements-dev.txt (sqlglot for SQL Composer, pyspark for
+  Spark Composer) falls inside the range its engine.py supports, and CI runs each Edition at the
+  bottom of that range and at the pin; Spark Composer's jobs run on Java 17, without sqlglot,
+  with its Example database required.
 """
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
@@ -102,18 +105,45 @@ def _version(text: str) -> tuple[int, ...]:
     return tuple(int(n) for n in text.split("."))
 
 
-def test_the_sqlglot_pin_is_inside_the_supported_range() -> None:
+def _supported(edition: editions.Edition) -> dict[str, tuple[int, ...]]:
+    """The range of its library an Edition's engine.py supports, read without importing it."""
+    tree = ast.parse((ROOT / edition.folder / "engine.py").read_text(encoding="utf-8"))
+    return {node.targets[0].id: ast.literal_eval(node.value) for node in tree.body
+            if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id in ("_LOWEST", "_BELOW", "_NEWEST_TESTED")}
+
+
+def _pin(edition: editions.Edition) -> tuple[int, ...]:
     requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
-    pin = _version(re.search(r"^sqlglot==([\d.]+)$", requirements, re.MULTILINE).group(1))
-    assert sql_composer.engine._LOWEST <= pin < sql_composer.engine._BELOW
-    assert pin == sql_composer.engine._NEWEST_TESTED
+    return _version(re.search(rf"^{edition.library}==([\d.]+)$", requirements,
+                              re.MULTILINE).group(1))
 
 
-def test_ci_runs_the_bottom_of_the_range_and_the_pin() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "dev.yml").read_text(encoding="utf-8")
-    matrix = re.search(r"sqlglot: \[(.*)\]", workflow).group(1)
+EACH_EDITION = pytest.mark.parametrize("edition", list(editions.EDITIONS.values()),
+                                       ids=lambda edition: edition.library)
+WORKFLOW = ROOT / ".github" / "workflows" / "dev.yml"
+
+
+@EACH_EDITION
+def test_each_library_pin_is_inside_the_range_its_edition_supports(edition) -> None:
+    supported = _supported(edition)
+    assert supported["_LOWEST"] <= _pin(edition) < supported["_BELOW"]
+    assert _pin(edition) == supported["_NEWEST_TESTED"]
+
+
+@EACH_EDITION
+def test_ci_runs_each_edition_at_the_bottom_of_its_range_and_at_its_pin(edition) -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    matrix = re.search(rf"{edition.library}: \[(.*)\]", workflow).group(1)
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
-    requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
-    pin = _version(re.search(r"^sqlglot==([\d.]+)$", requirements, re.MULTILINE).group(1))
-    assert versions == {sql_composer.engine._LOWEST, pin}
+    assert versions == {_supported(edition)["_LOWEST"], _pin(edition)}
     assert 'python-version: "3.11"' in workflow
+
+
+def test_spark_composers_ci_runs_on_java_17_without_sqlglot_and_needs_its_example_database(
+) -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    assert "distribution: temurin" in workflow and 'java-version: "17"' in workflow
+    assert "pip uninstall --yes sqlglot" in workflow
+    assert "find_spec('sqlglot') is not None" in workflow
+    assert "python -m pytest --edition spark --example-database required" in workflow
