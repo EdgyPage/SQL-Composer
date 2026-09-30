@@ -44,17 +44,30 @@ HIVE_RESERVED = frozenset(
     SESSION_USER SOME SQL TRAILING UNIQUE UNKNOWN WITHIN""".split()
 )
 
-# Hive aggregate functions that hive_function may be given by name.
+# The functions hive_function may be given by name that add rows up, as SUM and COUNT do: every
+# aggregate Spark has, at the versions the Toolbox takes, and Hive's, which are among them.
 HIVE_AGGREGATES = frozenset(
-    """avg collect_list collect_set corr count covar_pop covar_samp histogram_numeric max min
-    percentile percentile_approx stddev stddev_pop stddev_samp sum var_pop var_samp variance
+    """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
+    bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set corr count
+    count_if count_min_sketch covar_pop covar_samp every first first_value grouping grouping_id
+    histogram_numeric hll_sketch_agg hll_union_agg kurtosis last last_value listagg max max_by
+    mean median min min_by mode percentile percentile_approx percentile_cont percentile_disc
+    regr_avgx regr_avgy regr_count regr_intercept regr_r2 regr_slope regr_sxx regr_sxy regr_syy
+    skewness some std stddev stddev_pop stddev_samp string_agg sum try_avg try_sum var_pop
+    var_samp variance
     """.split()
+)
+
+# The functions that work only over a window, as ROW_NUMBER() OVER (...) does: hive_function
+# can't write OVER, so it refuses them.
+WINDOW_FUNCTIONS = frozenset(
+    """cume_dist dense_rank lag lead nth_value ntile percent_rank rank row_number""".split()
 )
 
 
 # How many arguments Hive and Spark both take for a function hive_function may call: (fewest,
-# most), with most None when there is no upper limit. Where an Edition counts a call's arguments
-# by this list, a function not listed here isn't counted.
+# most), with most None when there is no upper limit. hive_function counts a call's arguments by
+# this list in both Editions; a function not listed here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {
     "upper": (1, 1),
     "lower": (1, 1),

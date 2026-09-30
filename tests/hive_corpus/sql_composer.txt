@@ -9218,9 +9218,9 @@ GROUP BY
 == edge:hive_function:too_many_arguments
 -- refused
 TypeError:
-  What happened:  hive_function('upper', ...) was given 2 arguments, which don't fit upper.
-  Why it matters: sqlglot knows this Hive function and couldn't build it from these arguments.
-  Usual fix:      Check upper's arguments in Hive's documentation.
+  What happened:  hive_function('upper', ...) gives upper 2 arguments, and upper takes 1 argument.
+  Why it matters: The warehouse would stop the whole Statement with an error when it runs.
+  Usual fix:      Give upper 1 argument after its name.
   Opt-out:        none - this one can't be switched off.
 
 == edge:reads:left_join_keeps_only_matches

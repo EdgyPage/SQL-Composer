@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 import warnings
 
 import numpy as np
@@ -158,6 +159,33 @@ def test_hive_function_refuses_a_name_that_isnt_a_plain_name() -> None:
         hive_function("upper(x); drop table y; --", jobs.team)
     with pytest.raises(TypeError, match=r"hive_function\('regexp_extract', \.\.\.\)"):
         hive_function("regexp_extract", jobs.team)
+
+
+@pytest.mark.parametrize(("call", "said"), [
+    (lambda: hive_function("upper", jobs.team, jobs.team),
+     "gives upper 2 arguments, and upper takes 1 argument."),
+    (lambda: hive_function("length", jobs.team, 2), "and length takes 1 argument."),
+    (lambda: hive_function("regexp_extract", jobs.team), "and regexp_extract takes 2 to 3"),
+    (lambda: hive_function("concat_ws", "-"), "gives concat_ws 1 argument, and concat_ws takes "
+     "2 or more arguments."),
+])
+def test_hive_function_counts_arguments_by_the_list_hive_and_spark_share(call, said) -> None:
+    with pytest.raises(TypeError, match=re.escape(said)):
+        call()
+
+
+@pytest.mark.parametrize("name", ["lag", "RANK", "row_number"])
+def test_hive_function_refuses_a_function_that_needs_a_window(name: str) -> None:
+    with pytest.raises(ValueError, match=re.escape(
+            f"hive_function({name!r}, ...) calls {name}, which works only over a window")):
+        hive_function(name, jobs.team)
+
+
+@pytest.mark.parametrize("name", ["first", "count_if", "any_value", "collect_set", "SUM"])
+def test_hive_function_knows_the_functions_that_add_rows_up(name: str) -> None:
+    """A function that adds rows up needs GROUP_BY beside a column, as count_rows() does."""
+    with pytest.raises(GuardRefused, match="which GROUP_BY leaves out"):
+        statement(SELECT(jobs.region, AS(hive_function(name, jobs.team), "x")), FROM(jobs))
 
 
 # --- statement(...) -----------------------------------------------------------------------

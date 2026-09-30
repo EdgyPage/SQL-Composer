@@ -3,9 +3,8 @@
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
 one for each piece of the SQL. This file writes them out as Hive, laid out over lines as SQL
 Composer lays out its own: each function below that copies sqlglot's layout names the sqlglot
-code it copies. It also checks what it wrote, counts a hive_function call's arguments
-(HIVE_FUNCTION_ARGUMENTS in trees.py), and writes the DESCRIBE and SHOW PARTITIONS commands for
-a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
+code it copies. It also checks what it wrote, and writes the DESCRIBE and SHOW PARTITIONS commands for a
+table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
 Spark Composer, this one) writes Hive its own way behind these same function names.
 
 Its Hive is SQL Composer's but in three places:
@@ -25,8 +24,7 @@ from __future__ import annotations
 import contextvars
 import re
 
-from .refusals import four_part_message
-from .trees import HIVE_AGGREGATES, HIVE_FUNCTION_ARGUMENTS, HIVE_TYPES, Node, plain_name
+from .trees import HIVE_TYPES, Node, plain_name
 
 TOOLBOX_VERSION = "2.1"
 
@@ -623,33 +621,9 @@ def _name_at(text: str, start: int) -> tuple[str, int] | None:
 # --- hive_function, column types, and describing a table ------------------------------------
 
 
-def function_adds_rows_up(name: str, args: list[Node], call: str) -> bool:
-    """Check a hive_function call's number of arguments, then say whether it adds rows up.
-
-    The counts are HIVE_FUNCTION_ARGUMENTS in trees.py, and the functions that add rows up, as
-    SUM or COUNT do, are HIVE_AGGREGATES there. It raises TypeError when the function takes
-    another number of arguments.
-    """
-    fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))
-    if len(args) < fewest or (most is not None and len(args) > most):
-        takes = _arguments(fewest, most)
-        raise TypeError(four_part_message(
-            what=f"{call} gives {name} {_arguments(len(args), len(args))}, and {name} takes "
-            f"{takes}.",
-            why="The warehouse would stop the whole Statement with an error when it runs.",
-            fix=f"Give {name} {takes} after its name.",
-            opt_out=None,
-        ))
-    return name.lower() in HIVE_AGGREGATES
-
-
-def _arguments(fewest: int, most: int | None) -> str:
-    """How many arguments, such as "1 argument", "2 to 3 arguments" or "2 or more arguments"."""
-    if most is None:
-        return f"{fewest} or more arguments"
-    if fewest != most:
-        return f"{fewest} to {most} arguments"
-    return "1 argument" if fewest == 1 else f"{fewest} arguments"
+def check_call(name: str, args: list[Node], call: str) -> None:
+    """Refuse nothing more: Spark Composer writes a hive_function call as it was given, so the
+    checks calculations.py makes by the list in trees.py are all it needs."""
 
 
 # After sqlglot's Generator.describe_sql.

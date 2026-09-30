@@ -17,7 +17,7 @@ from sqlglot import exp
 import hive_corpus_cases
 from sql_composer import GuardRefused, LoadRefused, writing
 from sql_composer.clauses import derived_tables
-from sql_composer.trees import KINDS, has_aggregate
+from sql_composer.trees import HIVE_AGGREGATES, KINDS, has_aggregate
 
 
 def _trees_of(s) -> list:
@@ -44,6 +44,17 @@ def _corpus_trees() -> list:
 
 
 TREES = _corpus_trees()
+
+
+def _adds_rows_up(tree: exp.Expression) -> bool:
+    """Whether a sqlglot tree adds rows up (COUNT, SUM, ...) outside a window, as sqlglot knows
+    its functions, or calls one the Toolbox's shared list says adds rows up."""
+    for node in tree.find_all(exp.AggFunc, exp.Anonymous):
+        if node.find_ancestor(exp.Window):
+            continue
+        if isinstance(node, exp.AggFunc) or str(node.name).lower() in HIVE_AGGREGATES:
+            return True
+    return False
 # The trees whose columns sqlglot might have rewritten: those holding a hive_function call.
 AS_WRITTEN = [any(True for _ in tree.find_all("HiveFunction")) for tree in TREES]
 
@@ -66,7 +77,7 @@ def test_a_tree_matches_its_sqlglot_tree(index: int) -> None:
     if not AS_WRITTEN[index]:
         assert ([(c.table, c.name) for c in node.find_all("Column")]
                 == [(c.table, c.name) for c in tree.find_all(exp.Column)])
-    assert has_aggregate(node) == writing._tree_adds_rows_up(tree)
+    assert has_aggregate(node) == _adds_rows_up(tree)
     if node.kind == "And":
         assert ([writing.hive_text(part) for part in node.flatten()]
                 == [writing.sql_text(part) for part in tree.flatten()])

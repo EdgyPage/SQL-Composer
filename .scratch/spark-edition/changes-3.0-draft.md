@@ -20,6 +20,12 @@ a 2.1 re-export goes into `CHANGES.md` under 2.1 instead.
   boolean, date, timestamp, binary, varchar(n), char(n), and arrays, maps and structs of them.
   Before, it took any type sqlglot knew, such as json or uuid, which neither has, and wrote
   integer, real or numeric under other names.
+- **hive_function checks a call by one list** (ticket 25): how many arguments the functions
+  it knows Hive and Spark both have take, such as upper, substr or datediff, and which
+  functions add rows up, now every aggregate Spark has, such as first and count_if. A function
+  that works only over a window, such as lag or rank, is refused, since hive_function can't
+  write OVER. Before, sqlglot checked the call, and let through some counts Hive and Spark
+  refuse, such as length with 2 arguments.
 - **A file from the other folder stops the import** (ticket 24). A file copied in from the
   other folder by mistake, even `__init__.py`, is named with the folder it came from, and the
   fix says to copy this folder in again from its own folder of the download.

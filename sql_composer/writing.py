@@ -14,7 +14,7 @@ from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .refusals import four_part_message
-from .trees import HIVE_AGGREGATES, Node, plain_name
+from .trees import Node, plain_name
 
 TOOLBOX_VERSION = "2.1"
 
@@ -50,24 +50,25 @@ def read_back(text: str) -> str:
     return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
 
 
-def function_adds_rows_up(name: str, args: list[Node], call: str) -> bool:
-    """Whether hive_function(name, *args) adds rows up, as sqlglot reads the call.
+def check_call(name: str, args: list[Node], call: str) -> None:
+    """Refuse a hive_function call sqlglot can't build from its arguments.
 
-    It raises TypeError when sqlglot can't build the call from these arguments.
+    calculations.py has checked the call against the list Hive and Spark share already. sqlglot
+    knows more functions than that list, and builds some of them only from certain arguments.
     """
     try:
-        tree = _read_back_call(name, [to_sqlglot(arg) for arg in args])
+        _read_back_call(name, [to_sqlglot(arg) for arg in args])
     except (ValueError, TypeError, sqlglot.errors.ParseError) as error:
         raise TypeError(
             four_part_message(
-                what=f"{call} was given {len(args)} arguments, which don't fit {name}.",
+                what=f"{call} was given {len(args)} argument{'' if len(args) == 1 else 's'}, "
+                f"which don't fit {name}.",
                 why="sqlglot knows this Hive function and couldn't build it from these "
                 "arguments.",
                 fix=f"Check {name}'s arguments in Hive's documentation.",
                 opt_out=None,
             )
         ) from error
-    return _tree_adds_rows_up(tree)
 
 
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
@@ -84,16 +85,6 @@ def _read_back_call(name: str, arguments: list) -> exp.Expression:
     if text not in _READ_BACK:
         _READ_BACK[text] = sqlglot.parse_one(text, read=_DIALECT)
     return _READ_BACK[text].copy()
-
-
-def _tree_adds_rows_up(tree: exp.Expression) -> bool:
-    """True when a sqlglot tree adds rows up (COUNT, SUM, ...) outside a window."""
-    for node in tree.find_all(exp.AggFunc, exp.Anonymous):
-        if node.find_ancestor(exp.Window):
-            continue
-        if isinstance(node, exp.AggFunc) or str(node.name).lower() in HIVE_AGGREGATES:
-            return True
-    return False
 
 
 def _hive_type(text: str) -> exp.DataType:
