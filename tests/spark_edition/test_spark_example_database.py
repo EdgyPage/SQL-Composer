@@ -6,18 +6,21 @@ twins. These also hold:
 
 - what Python type each kind of column comes back as;
 - what the Example database says when Java, Spark or a usable temporary folder is missing,
-  when Spark refuses a query, and when Python can't hold what Spark gives back;
-- that your Python holds no Spark afterwards;
+  when its Spark can't start, when Spark refuses a query, and when Python can't take what
+  Spark gives back;
+- that your Python holds no Spark afterwards, and that its Spark reads nothing of a kernel's
+  own Spark or Hadoop settings;
 - that its Spark, and everything started for it, ends however it is stopped: told to, killed,
   interrupted as it starts or mid-query, killed from outside, stopped by the query it runs,
-  or left behind by a Python that was killed or stopped mid-query; and that a stray
-  connection doesn't hold up a start.
+  or left behind by a Python that was killed or stopped mid-query; that a Spark left half
+  started isn't used; and that a stray connection doesn't hold up a start.
 """
 
 from __future__ import annotations
 
 import _thread
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -62,6 +65,23 @@ def _rows(frame) -> list[tuple]:
 
 def _count_jobs() -> list:
     return list(example_database.send("SELECT count(*) AS jobs FROM ops.jobs").jobs)
+
+
+# What _count_jobs() gives: the Example database's jobs table holds four jobs.
+_EVERY_JOB = [4]
+
+
+@pytest.fixture
+def own_temporary_folder(monkeypatch, tmp_path) -> Path:
+    """A temporary folder of the test's own, so a failed start's kept log stays out of yours."""
+    folder = tmp_path / "temp"
+    folder.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(folder))
+    return folder
+
+
+def _kept_logs(folder: Path) -> list[Path]:
+    return list(folder.glob("spark_composer_failed_start_*.log"))
 
 
 # --- What sqlglot's executor can't run --------------------------------------------------------
@@ -149,14 +169,115 @@ def test_a_spark_home_that_holds_no_spark_is_named(monkeypatch, tmp_path, folder
         example_database.send("SELECT job_id FROM ops.jobs")
 
 
-@pytest.mark.skipif(os.name != "nt", reason="only Spark's Windows launcher can't take these")
-def test_a_temporary_folder_the_windows_launcher_cant_take_is_named(monkeypatch) -> None:
-    monkeypatch.setattr(tempfile, "tempdir", "C:\\Users\\Tom&Jerry\\Temp")
+def test_a_spark_home_holding_another_spark_is_named(monkeypatch, tmp_path) -> None:
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / ("spark-submit.cmd" if os.name == "nt" else "spark-submit")).touch()
+    (tmp_path / "jars").mkdir()
+    (tmp_path / "jars" / "spark-core_2.12-3.4.1.jar").touch()
+    monkeypatch.setenv("SPARK_HOME", str(tmp_path))
     reason = engine.example_database_cannot_run()
-    assert ("the temporary folder Python uses, C:\\Users\\Tom&Jerry\\Temp, has & in its path"
+    assert (f"SPARK_HOME is {tmp_path}, which holds Spark 3.4.1, and this Python's pyspark is "
             in reason)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="only Spark's Windows launcher can't take these")
+@pytest.mark.parametrize(("folder", "named"), [
+    ("C:\\Users\\Tom&Jerry\\Temp", "&"),
+    ("C:\\Users\\a;b\\Temp", ";"),
+    # A folder Windows gives no short name, as on a drive where it makes none.
+    ("C:\\No Such Folder\\Temp", "a space"),
+], ids=["&", ";", "a space with no short name"])
+def test_a_temporary_folder_the_windows_launcher_cant_take_is_named(monkeypatch, folder: str,
+                                                                    named: str) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", folder)
+    reason = engine.example_database_cannot_run()
+    assert f"the temporary folder Python uses, {folder}, has {named} in its path" in reason
     with pytest.raises(RuntimeError, match=r"tempfile\.tempdir = "):
         example_database.send("SELECT job_id FROM ops.jobs")
+
+
+@pytest.mark.needs_example_database
+def test_a_java_that_couldnt_say_its_version_is_asked_again(monkeypatch) -> None:
+    monkeypatch.setattr(engine, "_JAVAS_ASKED", {})  # as in a Python that hasn't asked yet
+    monkeypatch.setenv("JAVA_TOOL_OPTIONS", "-Xmx1m")  # too little memory for Java to start
+    reason = engine.example_database_cannot_run()
+    assert ("didn't say which Java it is: it said Error occurred during initialization of VM"
+            in reason)
+    monkeypatch.delenv("JAVA_TOOL_OPTIONS")
+    assert engine.example_database_cannot_run() is None
+
+
+# --- What the Example database says when its Spark can't start -------------------------------
+
+
+@pytest.mark.parametrize(("log", "said"), [
+    ("Launcher: the Java it runs could not start.\n"
+     "Traceback (most recent call last):\n"
+     '  File "engine.py", line 1004, in _serve\n'
+     "    spark = builder.getOrCreate()\n"
+     "pyspark.errors.exceptions.base.PySparkRuntimeError: [JAVA_GATEWAY_EXITED] Java gateway "
+     "process exited before sending its port number.\n",
+     "Launcher: the Java it runs could not start."),
+    ("26/09/30 04:32:01 WARN Utils: Your hostname resolves to a loopback address\n"
+     "26/09/30 04:32:01 ERROR SparkContext: Error initializing SparkContext.\n"
+     "java.net.BindException: Address already in use: bind\n"
+     "\tat java.base/sun.nio.ch.Net.bind0(Native Method)\n"
+     "\tat java.base/java.lang.Thread.run(Thread.java:840)\n"
+     "Traceback (most recent call last):\n"
+     '  File "engine.py", line 1004, in _serve\n'
+     "py4j.protocol.Py4JJavaError: An error occurred while calling "
+     "None.org.apache.spark.api.java.JavaSparkContext.\n"
+     ": java.net.BindException: Address already in use: bind\n"
+     "\tat java.base/sun.nio.ch.Net.bind0(Native Method)\n"
+     "\t... 20 more\n",
+     "java.net.BindException: Address already in use: bind"),
+    ("Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8\n"
+     "Traceback (most recent call last):\n"
+     '  File "engine.py", line 1004, in _serve\n'
+     "TypeError: 'JavaPackage' object is not callable\n",
+     "TypeError: 'JavaPackage' object is not callable"),
+    ('Exception in thread "Thread-1" java.lang.OutOfMemoryError: Cannot reserve 4096 bytes\n'
+     "\tat java.base/java.nio.Bits.reserveMemory(Bits.java:178)\n",
+     'Exception in thread "Thread-1" java.lang.OutOfMemoryError: Cannot reserve 4096 bytes'),
+    ("WARNING: Using incubator modules: jdk.incubator.vector\n"
+     "Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties\n"
+     "26/09/30 04:32:01 WARN Shell: Did not find winutils.exe\n", ""),
+], ids=["the launcher's own complaint", "a Java error, under its stack and a traceback",
+        "a Python error, under a Java notice", "a Java error with no traceback",
+        "only what a start that goes well writes"])
+def test_a_failed_starts_log_is_cut_to_what_most_likely_says_why(log: str, said: str) -> None:
+    assert engine._last_words(log) == said
+
+
+@pytest.mark.needs_example_database
+def test_a_launcher_that_quits_without_starting_java_is_said_to_have_quit(
+        monkeypatch, tmp_path, own_temporary_folder) -> None:
+    # What Spark's Windows launcher does when the Java it runs can't start: it says why, and
+    # quits as though all went well.
+    home = tmp_path / "spark"
+    (home / "bin").mkdir(parents=True)
+    (home / "jars").mkdir()
+    (home / "jars" / f"spark-core_2.13-{engine._pyspark_version()}.jar").touch()
+    if os.name == "nt":
+        (home / "bin" / "spark-submit.cmd").write_text(
+            "@echo off\necho Launcher: the Java it runs could not start.\nexit /b 0\n")
+    else:
+        launcher = home / "bin" / "spark-submit"
+        launcher.write_text("#!/bin/sh\necho 'Launcher: the Java it runs could not start.'\n"
+                            "exit 0\n")
+        launcher.chmod(0o755)
+    monkeypatch.setenv("SPARK_HOME", str(home))
+    engine._stop_spark()
+    started = time.monotonic()
+    with pytest.raises(RuntimeError) as quit_:
+        example_database.send("SELECT job_id FROM ops.jobs")
+    took = time.monotonic() - started
+    message = str(quit_.value)
+    assert ("quit while it was starting. What it wrote that most likely says why: Launcher: the "
+            "Java it runs could not start." in message)
+    assert f"It was started from the Spark in SPARK_HOME, {home}." in message
+    assert f"show its log, {_kept_logs(own_temporary_folder)[0]}, to whoever" in message
+    assert took < 60, f"it took {took:.0f} seconds to see the launcher had quit"
 
 
 # --- What the Example database says when a query goes wrong -----------------------------------
@@ -176,8 +297,11 @@ def test_a_temporary_folder_the_windows_launcher_cant_take_is_named(monkeypatch)
      "Max iterations (100) reached for batch Resolution"),
     ("[UNRESOLVED_COLUMN] ... one of the following? [`team`, `job_id`].; line 1 pos 7",
      "[UNRESOLVED_COLUMN] ... one of the following? [`team`, `job_id`]"),
+    ("[ARITHMETIC_OVERFLOW] integer overflow. Use 'try_multiply' to tolerate overflow and "
+     'return NULL instead. If necessary set "spark.sql.ansi.enabled" to "false" to bypass this '
+     "error. SQLSTATE: 22003", "[ARITHMETIC_OVERFLOW] integer overflow"),
 ], ids=["suggestion naming a try_ column", "setting advice", "3.5.0 setting advice",
-        "3.5.0 place in the Hive"])
+        "3.5.0 place in the Hive", "try_ advice in single quotes"])
 def test_what_spark_says_is_cut_to_what_names_the_problem(said: str, shown: str) -> None:
     assert engine._spark_says(said) == shown
 
@@ -198,28 +322,38 @@ def test_a_query_spark_refuses_shows_what_spark_said() -> None:
 @pytest.mark.parametrize(("sql", "said"), [
     # ANSI's division by zero, raised while Spark runs the query, not while it reads it.
     ("SELECT sum(duration_mins) / 0 AS x FROM ops.job_runs", "[DIVIDE_BY_ZERO]"),
+    # ANSI's overflow, whose advice names a try_ function in single quotes.
+    ("SELECT duration_mins * 2147483647 AS x FROM ops.job_runs",
+     "[ARITHMETIC_OVERFLOW] integer overflow."),
     # A Java error pyspark leaves as one, from a function Spark calls on each row.
     ("SELECT java_method('java.lang.Integer', 'parseInt', job_name) AS n FROM ops.jobs",
      "NumberFormatException"),
-], ids=["ansi", "java"])
+], ids=["ansi", "ansi overflow", "java"])
 def test_a_query_spark_refuses_while_running_it_is_answered_and_its_spark_goes_on(
         sql: str, said: str) -> None:
     _count_jobs()
     process = engine._SPARK["process"]
     with pytest.raises(RuntimeError) as refused:
         example_database.send(sql)
-    assert f"Spark couldn't run this Hive on the Example database: {said}" in str(refused.value)
+    message = str(refused.value)
+    assert f"Spark couldn't run this Hive on the Example database: {said}" in message
+    assert "try_" not in message, "Spark's advice to use a function the Toolbox doesn't wrap"
     assert engine._SPARK["process"] is process, "a query Spark refused stopped its Spark"
 
 
 @pytest.mark.needs_example_database
-def test_a_value_python_cant_hold_is_said_so_and_its_spark_goes_on() -> None:
+@pytest.mark.parametrize(("sql", "said"), [
+    ("SELECT make_date(10001, 1, 1) AS d FROM ops.jobs", "ValueError: year 10001"),
+    # pyspark raises an error of its own as it turns an interval into Python.
+    ("SELECT make_interval(1, 2, 3, 4, 5, 6, 7) AS i", ""),
+], ids=["a date after 9999", "an interval"])
+def test_a_value_python_cant_take_is_said_so_and_its_spark_goes_on(sql: str, said: str) -> None:
     _count_jobs()
     process = engine._SPARK["process"]
-    with pytest.raises(RuntimeError, match="Python can't hold a value it gave back: "
-                       "ValueError: year 10001"):
-        example_database.send("SELECT make_date(10001, 1, 1) AS d FROM ops.jobs")
-    assert engine._SPARK["process"] is process, "a value Python can't hold stopped its Spark"
+    with pytest.raises(RuntimeError, match="Python couldn't take what it gave back: "
+                       + re.escape(said)):
+        example_database.send(sql)
+    assert engine._SPARK["process"] is process, "a value Python can't take stopped its Spark"
 
 
 # --- One query at a time ----------------------------------------------------------------------
@@ -248,7 +382,12 @@ def test_queries_from_two_threads_each_get_their_own_answer() -> None:
 
 
 def _processes_naming(folder: Path) -> list[tuple[int, str]]:
-    """Every process whose command line names a Spark's folder: its Java and launchers do."""
+    """Every process started for a Spark, and its program's name.
+
+    Its Java and launchers name the Spark's folder on their command lines. Off Windows the
+    Spark's own Python, which runs in the folder, is found by that; on Windows a Python still
+    running there keeps the folder from being deleted.
+    """
     if os.name == "nt":
         listed = subprocess.run(
             ["powershell", "-NoProfile", "-Command",
@@ -259,13 +398,14 @@ def _processes_naming(folder: Path) -> list[tuple[int, str]]:
         return [(int(pid), name) for pid, name in (line.split(" ", 1)
                                                    for line in listed.splitlines() if line)]
     found = []
-    for cmdline in Path("/proc").glob("[0-9]*/cmdline"):
+    for process in Path("/proc").glob("[0-9]*"):
         try:
-            words = cmdline.read_bytes().split(b"\0")
+            words = (process / "cmdline").read_bytes().split(b"\0")
+            runs_in = os.readlink(process / "cwd")
         except OSError:
             continue
-        if any(folder.name.encode() in word for word in words):
-            found.append((int(cmdline.parent.name), words[0].decode(errors="replace")))
+        if folder.name in runs_in or any(folder.name.encode() in word for word in words):
+            found.append((int(process.name), Path(words[0].decode(errors="replace")).name))
     return found
 
 
@@ -280,18 +420,17 @@ def _nothing_left_of(folder: Path) -> None:
     assert not folder.exists()
 
 
-class _FoldersMade:
-    """The folders the Example database makes while this is in use."""
+def _note_folders_made(monkeypatch) -> list[Path]:
+    """The folders the Example database makes from now on, as it makes them."""
+    made: list[Path] = []
+    real = tempfile.mkdtemp
 
-    def __init__(self, monkeypatch) -> None:
-        self.made: list[Path] = []
-        real = tempfile.mkdtemp
+    def noting(*args, **kwargs) -> str:
+        made.append(Path(real(*args, **kwargs)))
+        return str(made[-1])
 
-        def noting(*args, **kwargs) -> str:
-            self.made.append(Path(real(*args, **kwargs)))
-            return str(self.made[-1])
-
-        monkeypatch.setattr(engine.tempfile, "mkdtemp", noting)
+    monkeypatch.setattr(engine.tempfile, "mkdtemp", noting)
+    return made
 
 
 @pytest.mark.needs_example_database
@@ -305,6 +444,46 @@ def test_your_python_holds_no_spark_and_your_folder_gets_no_files() -> None:
 
 
 @pytest.mark.needs_example_database
+def test_a_kernels_hadoop_settings_dont_reach_its_spark(monkeypatch, tmp_path) -> None:
+    # What a kernel started by spark-submit, on a Spark that brings no Hadoop of its own, carries.
+    (tmp_path / "core-site.xml").write_text(
+        "<configuration><property><name>fs.defaultFS</name>"
+        "<value>nowhere://warehouse-at-work/</value></property></configuration>")
+    monkeypatch.setenv("SPARK_DIST_CLASSPATH", str(tmp_path))
+    engine._stop_spark()
+    assert _count_jobs() == _EVERY_JOB
+
+
+@pytest.mark.needs_example_database
+def test_a_java_found_through_a_script_on_path_starts_its_spark(monkeypatch, tmp_path) -> None:
+    # As a version manager puts a script named java first on PATH, in place of the Java.
+    java, _ = engine._java()
+    if os.name == "nt":
+        (tmp_path / "java.bat").write_text(f'@"{java}" %*\n')
+    else:
+        (tmp_path / "java").write_text(f'#!/bin/sh\nexec "{java}" "$@"\n')
+        (tmp_path / "java").chmod(0o755)
+    monkeypatch.delenv("JAVA_HOME", raising=False)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    assert Path(engine._java()[0]).parent == tmp_path
+    engine._stop_spark()
+    assert _count_jobs() == _EVERY_JOB
+
+
+@pytest.mark.needs_example_database
+def test_a_relative_temporary_folder_is_taken_from_where_your_python_runs(monkeypatch,
+                                                                         tmp_path) -> None:
+    (tmp_path / "temp").mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(tempfile, "tempdir", "temp")
+    engine._stop_spark()
+    try:
+        assert _count_jobs() == _EVERY_JOB
+    finally:
+        engine._stop_spark()
+
+
+@pytest.mark.needs_example_database
 def test_stopping_its_spark_leaves_nothing() -> None:
     _count_jobs()
     folder = engine._SPARK["folder"]
@@ -314,10 +493,10 @@ def test_stopping_its_spark_leaves_nothing() -> None:
 
 @pytest.mark.needs_example_database
 def test_a_killed_spark_process_starts_again() -> None:
-    before = _count_jobs()
+    _count_jobs()
     engine._SPARK["process"].kill()
     engine._SPARK["process"].wait(60)
-    assert _count_jobs() == before
+    assert _count_jobs() == _EVERY_JOB
 
 
 @pytest.mark.needs_example_database
@@ -327,17 +506,18 @@ def test_a_spark_whose_java_was_killed_answers_the_next_query_from_a_new_one() -
     javas = [pid for pid, name in _processes_naming(folder) if name.lower().startswith("java")]
     assert javas, "the Spark's Java wasn't found"
     for pid in javas:
+        # Windows has no SIGKILL: there os.kill ends a process at once, whatever the signal.
         os.kill(pid, signal.SIGTERM if os.name == "nt" else signal.SIGKILL)
-    assert _count_jobs() == [4]
+    assert _count_jobs() == _EVERY_JOB
     _nothing_left_of(folder)
 
 
 @pytest.mark.needs_example_database
 def test_a_query_that_stops_its_spark_says_so() -> None:
     _count_jobs()
-    with pytest.raises(RuntimeError, match="the query itself seems to stop Spark"):
+    with pytest.raises(RuntimeError, match="so the query itself seems to stop Spark"):
         example_database.send("SELECT java_method('java.lang.System', 'exit', 0) AS bye")
-    assert _count_jobs() == [4]
+    assert _count_jobs() == _EVERY_JOB
 
 
 @pytest.mark.needs_example_database
@@ -352,14 +532,15 @@ def test_an_interrupted_query_leaves_no_answer_for_the_next_one() -> None:
             example_database.send(slow)
     finally:
         interrupt.cancel()
-    assert _count_jobs() == [4]
+    assert _count_jobs() == _EVERY_JOB
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("after", [0.5, 1.0, 1.5, 2.0, 3.0])
-def test_an_interrupted_start_leaves_nothing(monkeypatch, after: float) -> None:
+def test_an_interrupted_start_leaves_nothing_but_its_log(monkeypatch, own_temporary_folder,
+                                                         after: float) -> None:
     engine._stop_spark()
-    folders = _FoldersMade(monkeypatch)
+    made = _note_folders_made(monkeypatch)
     interrupt = threading.Timer(after, _thread.interrupt_main)
     interrupt.start()
     try:
@@ -367,16 +548,42 @@ def test_an_interrupted_start_leaves_nothing(monkeypatch, after: float) -> None:
             example_database.send("SELECT job_id FROM ops.jobs")
     finally:
         interrupt.cancel()
-    assert folders.made
-    _nothing_left_of(folders.made[0])
+    assert made
+    _nothing_left_of(made[0])
+    assert _kept_logs(own_temporary_folder), "the interrupted start's log wasn't kept"
+
+
+@pytest.mark.needs_example_database
+def test_a_spark_left_half_started_is_not_used(monkeypatch) -> None:
+    engine._stop_spark()
+    real_still_starting = engine._still_starting
+
+    def second_interrupt() -> None:
+        raise KeyboardInterrupt
+
+    def interrupted_once_connected(deadline: float) -> None:
+        # A first Interrupt once the process has connected, before its Spark says it started,
+        # and a second as the first one's stop begins, so that stop never happens.
+        if "connection" in engine._SPARK:
+            monkeypatch.setattr(engine, "_interrupted", second_interrupt)
+            raise KeyboardInterrupt
+        real_still_starting(deadline)
+
+    monkeypatch.setattr(engine, "_still_starting", interrupted_once_connected)
+    with pytest.raises(KeyboardInterrupt):
+        example_database.send("SELECT job_id FROM ops.jobs")
+    monkeypatch.undo()
+    half_started = engine._SPARK["folder"]
+    assert list(example_database.send("SELECT 'B' AS b").b) == ["B"]
+    _nothing_left_of(half_started)
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("after", [1.0, 2.0])
-def test_a_spark_process_killed_as_it_starts_leaves_nothing(monkeypatch,
+def test_a_spark_process_killed_as_it_starts_leaves_nothing(monkeypatch, own_temporary_folder,
                                                              after: float) -> None:
     engine._stop_spark()
-    folders = _FoldersMade(monkeypatch)
+    made = _note_folders_made(monkeypatch)
 
     def kill_it() -> None:
         while engine._SPARK.get("process") is None:
@@ -389,7 +596,7 @@ def test_a_spark_process_killed_as_it_starts_leaves_nothing(monkeypatch,
     with pytest.raises(RuntimeError, match="quit while it was starting"):
         example_database.send("SELECT job_id FROM ops.jobs")
     killer.join()
-    _nothing_left_of(folders.made[0])
+    _nothing_left_of(made[0])
 
 
 @pytest.mark.needs_example_database
@@ -397,13 +604,15 @@ def test_a_spark_process_killed_as_it_starts_leaves_nothing(monkeypatch,
                          ids=["knocks and goes", "stays and says nothing"])
 def test_a_stray_connection_doesnt_hold_up_a_start(says: bool) -> None:
     engine._stop_spark()
+    knocked = threading.Event()
     strays = []
 
     def knock() -> None:
         for _ in range(400):
-            server = engine._SPARK.get("server")
-            if server is not None:
-                stray = socket.create_connection(server.getsockname())
+            listener = engine._SPARK.get("listener")
+            if listener is not None:
+                stray = socket.create_connection(listener.getsockname())
+                knocked.set()
                 if says:
                     strays.append(stray)
                 else:
@@ -414,11 +623,12 @@ def test_a_stray_connection_doesnt_hold_up_a_start(says: bool) -> None:
     knocker = threading.Thread(target=knock)
     knocker.start()
     try:
-        assert _count_jobs() == [4]
+        assert _count_jobs() == _EVERY_JOB
     finally:
         knocker.join()
         for stray in strays:
             stray.close()
+    assert knocked.is_set(), "no stray connection was made while the Spark started"
 
 
 # --- Folders and Pythons --------------------------------------------------------------------
@@ -436,10 +646,13 @@ sys.stdin.read()
 """
 
 
+def _other_python_script(then: str) -> str:
+    return _OTHER_PYTHON.format(root=str(ROOT), tools=str(ROOT / "tools"), then=then)
+
+
 def _other_python(then: str) -> subprocess.Popen:
-    script = _OTHER_PYTHON.format(root=str(ROOT), tools=str(ROOT / "tools"), then=then)
-    return subprocess.Popen([sys.executable, "-c", script], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, text=True)
+    return subprocess.Popen([sys.executable, "-c", _other_python_script(then)],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
 
 
 def _first_line_starting(child: subprocess.Popen, mark: str) -> str | None:
@@ -452,7 +665,8 @@ def _first_line_starting(child: subprocess.Popen, mark: str) -> str | None:
 def _made_old(folder: Path) -> None:
     """Make a folder look older than a left-over folder must be."""
     old = time.time() - 2 * engine._LEFT_OVER_SECONDS
-    os.utime(folder / engine._IN_USE, (old, old))
+    in_use = folder / engine._IN_USE
+    os.utime(in_use if in_use.exists() else folder, (old, old))
 
 
 def _deleted_as_left_over(folder: Path) -> bool:
@@ -484,14 +698,14 @@ def test_the_folder_of_a_killed_python_is_deleted_at_the_next_start() -> None:
 
 @pytest.mark.needs_example_database
 def test_a_python_that_stops_mid_query_stops_at_once_and_leaves_nothing() -> None:
-    script = _OTHER_PYTHON.format(root=str(ROOT), tools=str(ROOT / "tools"), then=(
+    script = _other_python_script(
         "import threading, time\n"
         f"example_database.send({'SELECT job_id FROM ops.jobs'!r})\n"
         'print("FOLDER", engine._SPARK["folder"], flush=True)\n'
         "slow = 'SELECT sum(a.id * b.id) AS s FROM range(60000) a CROSS JOIN range(60000) b'\n"
         "threading.Thread(target=example_database.send, args=(slow,), daemon=True).start()\n"
         "time.sleep(2)\n"
-        "sys.exit(0)"))
+        "sys.exit(0)")
     started = time.monotonic()
     done = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True,
                           timeout=180)
@@ -517,3 +731,13 @@ def test_a_folder_a_live_python_holds_is_left_alone() -> None:
             child.kill()
     _made_old(folder)
     assert _deleted_as_left_over(folder), "once its Python stopped, the folder was left over"
+
+
+def test_a_folder_with_no_in_use_file_is_deleted_once_old() -> None:
+    # As a Python leaves one when it stops between making the folder and its in-use file.
+    folder = Path(tempfile.mkdtemp(prefix=engine._FOLDER_PREFIX,
+                                   dir=engine._temporary_folder()))
+    engine._delete_left_over()
+    assert folder.exists(), "a folder just made was deleted"
+    _made_old(folder)
+    assert _deleted_as_left_over(folder)
