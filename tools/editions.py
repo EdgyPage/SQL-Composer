@@ -17,6 +17,7 @@ and `imports_outside` lists every import that breaks it.
 
 from __future__ import annotations
 
+import argparse
 import ast
 import importlib
 import importlib.abc
@@ -35,13 +36,23 @@ class Edition:
     library_files: tuple[str, ...]
     # The Edition files that may import nothing but the standard library and their own folder.
     stdlib_only_files: tuple[str, ...] = ()
+    # What `--edition` calls it, for pytest and the tools; its own tests are in
+    # tests/<option>_edition/.
+    option: str = ""
+
+    @property
+    def tests_folder(self) -> str:
+        return f"{self.option}_edition"
 
 
 SQL_COMPOSER = Edition("sql_composer", "SQL Composer", "sqlglot",
-                       library_files=("writing.py", "engine.py"))
+                       library_files=("writing.py", "engine.py"), option="sqlglot")
 SPARK_COMPOSER = Edition("spark_composer", "Spark Composer", "pyspark",
-                         library_files=("engine.py",), stdlib_only_files=("writing.py",))
+                         library_files=("engine.py",), stdlib_only_files=("writing.py",),
+                         option="spark")
 EDITIONS = {edition.folder: edition for edition in (SQL_COMPOSER, SPARK_COMPOSER)}
+# Each Edition by its `--edition` name.
+BY_OPTION = {edition.option: edition for edition in EDITIONS.values()}
 
 # The Editions the export ships to `main`. Spark Composer joins them in 3.0.
 EXPORTED = (SQL_COMPOSER,)
@@ -173,7 +184,7 @@ class _OnlyTheAlias(importlib.abc.MetaPathFinder):
     """Refuses any `sql_composer.*` module the alias doesn't hold, rather than load the real one."""
 
     def find_spec(self, fullname, path, target=None):
-        if fullname == "sql_composer" or fullname.startswith("sql_composer."):
+        if _in_sql_composer(fullname):
             raise ImportError(f"{fullname} isn't part of the Spark run's alias: only Spark "
                               "Composer's own modules stand in for SQL Composer's.")
         return None
@@ -188,22 +199,29 @@ def use(edition: Edition) -> None:
     """
     if edition is SQL_COMPOSER:
         return
-    if any(name == "sql_composer" or name.startswith("sql_composer.") for name in sys.modules):
+    if any(_in_sql_composer(name) for name in sys.modules):
         raise RuntimeError("editions.use: sql_composer is already imported, so the run would "
                            "mix the two Editions. Choose the Edition before any Toolbox import.")
     sys.modules["sqlglot"] = None  # any `import sqlglot` now fails loudly
-    sys.modules["sql_composer"] = importlib.import_module(edition.folder)
-    for name in SHARED_FILES + EDITION_FILES:
-        if name != "__init__.py":
-            stem = name.removesuffix(".py")
-            sys.modules[f"sql_composer.{stem}"] = importlib.import_module(
-                f"{edition.folder}.{stem}")
+    for module in toolbox_modules():
+        own = edition.folder + module.removeprefix("sql_composer")
+        sys.modules[module] = importlib.import_module(own)
     sys.meta_path.insert(0, _OnlyTheAlias())
 
 
-def chosen(arguments: list[str]) -> Edition:
-    """The Edition a tool's command line asks for with --edition sqlglot or --edition spark."""
-    if "--edition" not in arguments:
-        return SQL_COMPOSER
-    name = arguments[arguments.index("--edition") + 1]
-    return {"sqlglot": SQL_COMPOSER, "spark": SPARK_COMPOSER}[name]
+def _in_sql_composer(module: str) -> bool:
+    return module == "sql_composer" or module.startswith("sql_composer.")
+
+
+def toolbox_modules() -> list[str]:
+    """The name of every module of an Edition's folder, as `sql_composer` and its files."""
+    return ["sql_composer"] + [f"sql_composer.{name.removesuffix('.py')}"
+                               for name in SHARED_FILES + EDITION_FILES if name != "__init__.py"]
+
+
+def edition_on_command_line(arguments: list[str]) -> Edition:
+    """The Edition a tool's command line asks for: --edition sqlglot, the default, or spark."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--edition", choices=sorted(BY_OPTION), default=SQL_COMPOSER.option)
+    known, _ = parser.parse_known_args(arguments[1:])
+    return BY_OPTION[known.edition]

@@ -7,6 +7,7 @@ Composer's. A swap that can't be sure it changed every name, and nothing else, r
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -81,6 +82,30 @@ def test_a_verbatim_file_is_copied_unchanged_but_may_not_name_an_edition() -> No
         swap("Copy the sql_composer folder.\n", "CHANGES.md")
     with pytest.raises(SwapRefused, match="neither Edition.*Spark Composer"):
         swap("New in Spark Composer.\n", "CHANGES.md")
+
+
+def test_the_alias_refuses_once_sql_composer_is_imported() -> None:
+    import sql_composer  # noqa: F401 - this run has already imported it
+
+    before = dict(sys.modules)
+    with pytest.raises(RuntimeError, match="sql_composer is already imported"):
+        editions.use(SPARK_COMPOSER)
+    assert sys.modules == before
+
+
+@pytest.mark.parametrize(("arguments", "folder"), [
+    (["tool.py"], "sql_composer"),
+    (["tool.py", "--edition", "spark"], "spark_composer"),
+    (["tool.py", "--edition=spark"], "spark_composer"),
+    (["tool.py", "--edition", "sqlglot"], "sql_composer"),
+])
+def test_a_tool_takes_its_edition_from_its_command_line(arguments, folder) -> None:
+    assert editions.edition_on_command_line(arguments).folder == folder
+
+
+def test_a_tool_refuses_an_edition_it_doesnt_know() -> None:
+    with pytest.raises(SystemExit):
+        editions.edition_on_command_line(["tool.py", "--edition", "hive"])
 
 
 def test_what_each_file_may_import() -> None:

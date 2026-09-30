@@ -57,3 +57,29 @@ ticket for tickets 17-19; the default run is green at both ends.
 and Spark Composer's writer was still a stub, so the Spark run stopped at collection. The alias
 tests themselves pass. Ticket 17's writer is what the collection needs, and it comes right after,
 with the run's remaining failures listed there.
+
+## Comments
+
+**Code review (2026-09-29), `df91bc5`.** Breaking the alias in a scratch copy failed the guard
+tests for each part removed but one, the refusal of an already-imported `sql_composer`, which
+now has a test of its own.
+
+- *Standards:*
+  - **Fixed:**
+    - Each Edition carries its `--edition` name and its test folder (`option`, `tests_folder`), so
+      the conftest and the tools share one table, `editions.BY_OPTION`.
+    - `editions.toolbox_modules()` lists the aliased modules once, for `use()` and the
+      independence test.
+    - `chosen()` is `edition_on_command_line()`, which says what it reads.
+  - **Answered, not changed:** `hive_corpus.main` checks the sqlglot pin for SQL Composer only.
+    The pin belongs to that Edition's golden, and Spark Composer's writer has no pin to check.
+- *Spec:*
+  - **Fixed:**
+    - A tool's `--edition` is read with argparse: `--edition=spark` works, and an unknown name
+      stops with a usage message rather than a KeyError or an IndexError.
+    - `hive_corpus.py` says the sqlglot pin is for SQL Composer's golden only.
+    - Ticket 22's text says the gallery tool already has `--edition`, defaulting to SQL
+      Composer, and asks its engine whether queries can run. The tool needed both as soon as
+      sqlglot was blocked.
+  - **Answered, not changed:** the list of the Spark run's remaining failures moves to ticket 17,
+    where the run first collects.

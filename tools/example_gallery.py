@@ -51,7 +51,7 @@ import editions  # noqa: E402
 
 if __name__ == "__main__":
     # Before any Toolbox import: `import sql_composer` then gives the Edition asked for.
-    editions.use(editions.chosen(sys.argv))
+    editions.use(editions.edition_on_command_line(sys.argv))
 
 import pandas as pd  # noqa: E402
 

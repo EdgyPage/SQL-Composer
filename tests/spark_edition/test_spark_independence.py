@@ -16,10 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def _loaded():
-    importlib.import_module("sql_composer")
-    for name in editions.SHARED_FILES + editions.EDITION_FILES:
-        if name != "__init__.py":
-            importlib.import_module(f"sql_composer.{name.removesuffix('.py')}")
+    for module in editions.toolbox_modules():
+        importlib.import_module(module)
     for folder in ("statements", "building_blocks", "table_references"):
         for path in sorted((ROOT / "worked_examples" / folder).glob("*.py")):
             importlib.import_module(f"{folder}.{path.stem}")
