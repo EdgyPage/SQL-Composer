@@ -173,6 +173,9 @@ uses.
   and month, Spark's reserved words in backticks, create_table's types by one list, and
   hive_function's counts, aggregates and window functions by one list; the version items
   wait for ticket 26.
+- [Ship both Editions as 3.0](issues/26-ship-both-editions-as-3-0.md): the export ships both folders
+  with one README for both, and both are 3.0; `main` is exported locally, for the user to
+  push and try at work.
 
 ## Not yet specified
 
