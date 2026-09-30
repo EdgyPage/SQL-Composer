@@ -1,12 +1,16 @@
 """The Toolbox's own tree: what a calculation, a condition or a sort key is made of.
 
-A column's calculation or a condition is a small tree of Nodes, such as `EQ` holding a `Column`
-and a `Literal`. `writing.py` turns a tree into Hive. The shapes copy the ones SQL Composer has
-always built, part for part, because the lineage lists a calculation's columns in the order a
-breadth-first walk finds them.
+You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
+its own, rather than in the objects of whatever package writes the Hive, so that every Edition can
+share the same tree.
 
-This file also holds the rules for names: which names Hive needs in backticks, and which of
-Hive's functions add rows up.
+A column's calculation or a condition is a small tree of Nodes, such as `EQ` holding a `Column`
+and a `Literal`. `writing.py` turns a tree into Hive. Each kind of Node has fixed parts in a fixed
+order, because the lineage lists a calculation's columns in the order a breadth-first walk finds
+them, and that order must not change.
+
+This file also says which names Hive needs in backticks, and which of Hive's functions add rows
+up.
 """
 
 from __future__ import annotations
@@ -98,6 +102,8 @@ KINDS = {
     "HiveFunction": ("name", "args", "aggregate"),
 }
 
+# The date functions a Call may name: the ones week_start and month_start write.
+DATE_CALLS = frozenset({"date_sub", "next_day", "trunc", "unix_timestamp", "from_unixtime"})
 AGGREGATES = frozenset({"Count", "Sum", "Avg", "Min", "Max"})
 ARITHMETIC = frozenset({"Add", "Sub", "Mul", "Div"})
 CONNECTORS = frozenset({"And", "Or"})
@@ -108,7 +114,8 @@ class Node:
 
     A part holds another Node, a list of Nodes, or a plain value such as a column's name.
     `meta` holds notes that aren't part of the Hive, such as the Toolbox call that made the
-    Node. Two Nodes are equal when their kinds and parts are, whatever their notes.
+    Node. Two Nodes are equal when their kinds and parts are, whatever their notes, so a
+    HiveFunction never equals a Coalesce, even when both write COALESCE.
     """
 
     # Equal Nodes may still be changed, so a Node can't be a dict key or go in a set.
@@ -120,6 +127,9 @@ class Node:
         unknown = set(parts) - set(KINDS[kind])
         if unknown:
             raise ValueError(f"trees: a {kind} has no part {sorted(unknown)[0]!r}.")
+        if kind == "Call" and parts.get("name") not in DATE_CALLS:
+            raise ValueError(f"trees: {parts.get('name')!r} isn't one of the date functions a "
+                             "Call writes.")
         self.kind = kind
         self.parts = {name: parts[name] for name in KINDS[kind] if name in parts}
         self.meta = {}
@@ -133,11 +143,10 @@ class Node:
 
     def copy(self) -> Node:
         """A copy of the whole tree, notes included, that can be changed on its own."""
-        copied = Node(self.kind, **{name: _copied(value) for name, value in self.parts.items()})
-        copied.meta = dict(self.meta)
-        return copied
+        return self._with_stand_ins(lambda node: None, top=True)
 
     def set(self, part: str, value) -> None:
+        """Set one part, which must be one this kind of Node has."""
         if part not in KINDS[self.kind]:
             raise ValueError(f"trees: a {self.kind} has no part {part!r}.")
         self.parts[part] = value
@@ -160,17 +169,21 @@ class Node:
 
     def find_all(self, *kinds: str):
         """Every Node of these kinds in the tree, in the order walk() finds them."""
+        unknown = set(kinds) - set(KINDS)
+        if unknown:
+            raise ValueError(f"trees: there is no kind of Node called {sorted(unknown)[0]!r}.")
         return (node for node in self.walk() if node.kind in kinds)
 
     def unnest(self) -> Node:
-        """The Node inside any brackets around this one."""
+        """The Node inside any round brackets, ( ), around this one."""
         node = self
         while node.kind == "Paren":
             node = node.parts["this"]
         return node
 
     def flatten(self):
-        """The conditions an AND or OR joins, however they were nested, brackets taken off."""
+        """The conditions an AND or OR joins, however they were nested, round brackets taken
+        off; an AND inside brackets comes back whole."""
         for side in (self.parts["this"], self.parts["expression"]):
             if side.kind == self.kind:
                 yield from side.flatten()
@@ -178,8 +191,12 @@ class Node:
                 yield side.unnest()
 
     def replaced(self, stand_in) -> Node:
-        """A copy in which each Node below the top that stand_in(node) gives a Node for is
-        swapped for that Node, and nothing under it is looked at."""
+        """A copy of the tree in which stand_in(node) may swap any Node below the top.
+
+        When stand_in gives a Node, that Node takes the old one's place, and the old one's own
+        parts are skipped. When it gives None, the Node is copied and its parts are offered in
+        turn.
+        """
         return self._with_stand_ins(stand_in, top=True)
 
     def _with_stand_ins(self, stand_in, top: bool) -> Node:
@@ -201,21 +218,13 @@ class Node:
 
     @property
     def name(self) -> str:
-        """A column's name."""
+        """A column's name, or a function's for a Call or a HiveFunction."""
         return self.parts.get("name") or ""
 
     @property
     def table(self) -> str:
         """The name of a column's table, or "" for a column named without one."""
         return self.parts.get("table") or ""
-
-
-def _copied(value):
-    if isinstance(value, Node):
-        return value.copy()
-    if isinstance(value, list):
-        return [_copied(item) for item in value]
-    return value
 
 
 def _compared(parts: dict) -> dict:
@@ -229,6 +238,16 @@ def _compared(parts: dict) -> dict:
 
 
 # --- Building trees ------------------------------------------------------------------------
+
+
+def string(text: str) -> Node:
+    """A string value, such as 'FAILED', already checked by the caller."""
+    return Node("Literal", this=text, is_string=True)
+
+
+def number(text: str) -> Node:
+    """A number, written as the Toolbox formats it, such as 42 or 0.5."""
+    return Node("Literal", this=text, is_string=False)
 
 
 def combined(kind: str, nodes: list[Node]) -> Node:
@@ -246,7 +265,8 @@ def _bracketed_connector(node: Node) -> Node:
 
 
 def has_aggregate(node: Node) -> bool:
-    """True when the tree adds rows up (COUNT, SUM, ...) outside a window."""
+    """True when the tree adds rows up (COUNT, SUM, ...) outside a window, the
+    ROW_NUMBER() OVER (...) that row_number(...) writes."""
     if node.kind == "Window":
         return False
     if node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"]):

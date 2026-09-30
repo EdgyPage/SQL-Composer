@@ -39,7 +39,7 @@ def read_back(text: str) -> str:
     return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
 
 
-def read_back_function(name: str, args: list[Node], call: str) -> bool:
+def function_adds_rows_up(name: str, args: list[Node], call: str) -> bool:
     """Whether hive_function(name, *args) adds rows up, as sqlglot reads the call.
 
     It raises TypeError when sqlglot can't build the call from these arguments.
@@ -56,7 +56,7 @@ def read_back_function(name: str, args: list[Node], call: str) -> bool:
                 opt_out=None,
             )
         ) from error
-    return _adds_rows_up(tree)
+    return _tree_adds_rows_up(tree)
 
 
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
@@ -75,7 +75,7 @@ def _read_back_call(name: str, arguments: list) -> exp.Expression:
     return _READ_BACK[text].copy()
 
 
-def _adds_rows_up(tree: exp.Expression) -> bool:
+def _tree_adds_rows_up(tree: exp.Expression) -> bool:
     """True when a sqlglot tree adds rows up (COUNT, SUM, ...) outside a window."""
     for node in tree.find_all(exp.AggFunc, exp.Anonymous):
         if node.find_ancestor(exp.Window):
@@ -149,7 +149,7 @@ def to_sqlglot(node: Node) -> exp.Expression:
 
     Built the same way, the tree is the same, so sqlglot writes the same Hive.
     """
-    return _BUILDERS[node.kind](node)
+    return _REPLAY[node.kind](node)
 
 
 def _built(node: Node, part: str) -> exp.Expression:
@@ -191,7 +191,7 @@ def _one_sided(kind):
     return lambda node: kind(this=_built(node, "this"))
 
 
-_BUILDERS = {
+_REPLAY = {
     "Column": _column,
     "Literal": _literal,
     "Null": lambda node: exp.Null(),

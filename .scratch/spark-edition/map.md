@@ -123,6 +123,9 @@ uses.
 - [Put every sqlglot-only step behind `sql_composer/writing.py`](issues/11-put-every-sqlglot-step-behind-writing-py.md):
   one file writes, reads back and builds what only sqlglot can; no shared file names the
   dialect, and the Hive is byte-identical.
+- [Hold Columns, Conditions and sort keys in the Toolbox's own tree](issues/12-hold-columns-and-conditions-in-the-toolboxs-own-tree.md):
+  `trees.Node` holds every calculation, condition and sort key in sqlglot's shapes, and SQL
+  Composer replays each with sqlglot, byte-identical; hive_function is compared as written.
 
 ## Not yet specified
 

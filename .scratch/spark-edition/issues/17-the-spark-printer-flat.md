@@ -26,7 +26,7 @@ It writes, matching sqlglot 30.19.0's Hive byte for byte except for declared row
 - a float as a DOUBLE literal, `0.5D` where SQL Composer writes `0.5`: the third declared
   difference (ticket 04: Spark reads `0.5` as DECIMAL, which pandas shows as `Decimal`).
 
-It also provides `read_back_function` (checked against the shared argument table and aggregate
+It also provides `function_adds_rows_up` (checked against the shared argument table and aggregate
 list), `describe_text`, `show_partitions_text`, and `read_back(text)`, a lexical check: one
 statement, no comment or `;` outside a literal, and every literal and quoted name decodes to what
 was written. In `tests/`, an independent lexical literal reader replaces sqlglot's `_literals`, so
