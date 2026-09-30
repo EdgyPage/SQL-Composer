@@ -8,7 +8,6 @@ max. Each takes `where=` to count or add up only some rows.
 
 from __future__ import annotations
 
-import sqlglot
 from sqlglot import exp
 
 from .conditions import Condition
@@ -18,12 +17,12 @@ from .tables import (
     SIMPLE_NAME,
     has_aggregate,
     hive_date_pattern,
-    hive_text,
     identifier,
     is_date_partition,
     literal,
     made_by,
 )
+from .writing import hive_call, read_back_function
 
 TOOLBOX_VERSION = "2.1"
 
@@ -210,10 +209,8 @@ def _as_day(column: Column) -> exp.Expression:
     pattern = hive_date_pattern(column._table._date_format)
     if pattern == DEFAULT_HIVE_PATTERN:
         return column._tree.copy()
-    unix = exp.func("unix_timestamp", column._tree.copy(), exp.Literal.string(pattern),
-                    dialect="hive")
-    return exp.func("from_unixtime", unix, exp.Literal.string(DEFAULT_HIVE_PATTERN),
-                    dialect="hive")
+    unix = hive_call("unix_timestamp", column._tree.copy(), exp.Literal.string(pattern))
+    return hive_call("from_unixtime", unix, exp.Literal.string(DEFAULT_HIVE_PATTERN))
 
 
 def week_start(column):
@@ -226,8 +223,8 @@ def week_start(column):
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
     """
     column = _need_column(column, "week_start(...)")
-    week_ago = exp.func("date_sub", _as_day(column), exp.Literal.number(7), dialect="hive")
-    tree = exp.func("next_day", week_ago, exp.Literal.string("MO"), dialect="hive")
+    week_ago = hive_call("date_sub", _as_day(column), exp.Literal.number(7))
+    tree = hive_call("next_day", week_ago, exp.Literal.string("MO"))
     return Column(made_by(tree, "week_start", column), type="string")
 
 
@@ -238,7 +235,7 @@ def month_start(column):
     TRUNC(job_runs.dt, 'MM')
     """
     column = _need_column(column, "month_start(...)")
-    tree = exp.func("trunc", _as_day(column), exp.Literal.string("MM"), dialect="hive")
+    tree = hive_call("trunc", _as_day(column), exp.Literal.string("MM"))
     return Column(made_by(tree, "month_start", column), type="string")
 
 
@@ -353,21 +350,7 @@ def hive_function(name, *args):
         literal(arg, call=call, position=f"argument {number}", in_condition=False)
         for number, arg in enumerate(args, start=1)
     ]
-    try:
-        tree = exp.func(name, *trees, dialect="hive")
-        # Read the call back once, as to_hive's self-check will: a few functions come back in
-        # sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot), which is then stable.
-        tree = sqlglot.parse_one(hive_text(tree), read="hive")
-    except (ValueError, TypeError, sqlglot.errors.ParseError) as error:
-        raise TypeError(
-            four_part_message(
-                what=f"{call} was given {len(args)} arguments, which don't fit {name}.",
-                why="sqlglot knows this Hive function and couldn't build it from these "
-                "arguments.",
-                fix=f"Check {name}'s arguments in Hive's documentation.",
-                opt_out=None,
-            )
-        ) from error
+    tree = read_back_function(name, trees, call)
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)

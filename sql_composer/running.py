@@ -7,9 +7,9 @@ CSVs stay in it. The Toolbox never imports it.
 
 from __future__ import annotations
 
-import sqlglot
 from sqlglot import exp
 
+from . import writing
 from .clauses import (
     FROM,
     WHERE,
@@ -27,7 +27,7 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
 )
-from .tables import aliased, hive_table, hive_text, identifier, source
+from .tables import aliased, hive_table, identifier, source
 
 TOOLBOX_VERSION = "2.1"
 
@@ -68,15 +68,6 @@ def set_load_limits(rows=None, dates=None):
 # --- Building the Hive -----------------------------------------------------------------------
 
 
-def _set_part(tree: exp.Expression, part: str, value) -> None:
-    """Set a part of a sqlglot tree. sqlglot 30 renamed `from` and `with` to `from_`, `with_`."""
-    for key in (part, part + "_"):
-        if key in type(tree).arg_types:
-            tree.set(key, value)
-            return
-    raise RuntimeError(f"sql_composer: this sqlglot has no {part!r} on {type(tree).__name__}.")
-
-
 def _output(column, name: str) -> exp.Expression:
     """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
@@ -105,7 +96,7 @@ def _select_tree(s: Statement) -> exp.Select:
     tree = exp.Select(expressions=[_output(column, name) for column, name in outputs])
     if s._distinct:
         tree.set("distinct", exp.Distinct())
-    _set_part(tree, "from", exp.From(this=source(s._reads[0].table)))
+    writing.set_part(tree, "from", exp.From(this=source(s._reads[0].table)))
     if len(s._reads) > 1:
         tree.set("joins", [_join_tree(read) for read in s._reads[1:]])
     if s._where:
@@ -129,7 +120,7 @@ def _with(tree: exp.Expression, s: Statement) -> exp.Expression:
         for table in derived_tables(s)
     ]
     if parts:
-        _set_part(tree, "with", exp.With(expressions=parts))
+        writing.set_part(tree, "with", exp.With(expressions=parts))
     return tree
 
 
@@ -224,7 +215,7 @@ def _statement_tree(s: Statement) -> exp.Expression:
 
 def _self_check(text: str) -> None:
     """Parse the Hive back and write it again: it must come out the same."""
-    again = hive_text(sqlglot.parse_one(text, read="hive"), pretty=True)
+    again = writing.read_back(text)
     if again != text:
         raise RuntimeError(
             "sql_composer wrote Hive that doesn't read back the same. This is a bug in the "
@@ -262,7 +253,7 @@ def to_hive(s):
         )
     if s._ddl is None:
         _check_dates_cap(s)
-    text = hive_text(_statement_tree(s), pretty=True)
+    text = writing.hive_text(_statement_tree(s), pretty=True)
     _self_check(text)
     return text
 

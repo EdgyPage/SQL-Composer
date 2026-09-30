@@ -114,13 +114,23 @@ def test_sql_text_is_written_in_exactly_one_function() -> None:
                 if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
                         and call.func.attr == "sql"):
                     callers.append((name, function.name, call))
-    # The import-time behaviour checks in engine.py call .sql() on sqlglot's own nodes to
-    # check sqlglot itself; they write nothing the Toolbox sends.
-    writers = [(name, fn) for name, fn, _ in callers if name != "engine.py"]
-    assert writers == [("tables.py", "hive_text")]
-    raising = [call for name, fn, call in callers if fn == "hive_text"][0]
+    assert [(name, fn) for name, fn, _ in callers] == [("writing.py", "sql_text")]
+    raising = callers[0][2]
     keywords = {k.arg: ast.unparse(k.value) for k in raising.keywords}
     assert keywords["unsupported_level"] == "ErrorLevel.RAISE"
+
+
+def test_only_the_edition_files_read_hive_or_name_its_dialect() -> None:
+    """parse_one, ErrorLevel and dialect= are sqlglot's alone: writing.py and engine.py hold them."""
+    for name, tree in _toolbox_trees().items():
+        if name in ("writing.py", "engine.py"):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.keyword):
+                assert node.arg not in ("dialect", "read"), f"{name}: {ast.unparse(node)}"
+            if isinstance(node, (ast.Name, ast.Attribute, ast.alias)):
+                named = getattr(node, "id", None) or getattr(node, "attr", None) or node.name
+                assert named not in ("parse_one", "ErrorLevel"), f"{name}: {named}"
 
 
 def test_no_sql_text_is_built_with_an_f_string() -> None:

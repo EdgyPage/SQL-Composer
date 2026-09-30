@@ -23,7 +23,8 @@ from . import VERSION
 from .clauses import Statement, derived_tables
 from .refusals import GuardRefused, four_part_message
 from .running import by_day, to_hive
-from .tables import hive_text, readable
+from .tables import readable
+from .writing import hive_text
 
 TOOLBOX_VERSION = "2.1"
 

@@ -83,21 +83,19 @@ def _sqlglot_behaviour():
     from sqlglot.errors import OptimizeError
     from sqlglot.optimizer.qualify import qualify
 
+    # Written the way the Toolbox writes, now that the sqlglot it needs is known to be here.
+    from .writing import drop, sql_text
+
     problems = []
-    if exp.convert("O'Brien\\").sql("hive") != "'O\\'Brien\\\\'":
+    if sql_text(exp.convert("O'Brien\\")) != "'O\\'Brien\\\\'":
         problems.append("Hive string escaping has changed")
     table = exp.table_("t", db="db")
     table.set("partition", exp.Partition(
         expressions=[exp.column("dt").eq(exp.Literal.string("2026-01-01"))]))
     insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
-    if "PARTITION(dt = '2026-01-01')" not in insert.sql("hive"):
+    if "PARTITION(dt = '2026-01-01')" not in sql_text(insert):
         problems.append("INSERT OVERWRITE drops its PARTITION")
-    # Built the way drop_table builds it: sqlglot 30 renamed a DROP's `this` to `tables`.
-    if "tables" in exp.Drop.arg_types:
-        drop = exp.Drop(kind="TABLE", tables=[exp.table_("t", db="db")], exists=True)
-    else:
-        drop = exp.Drop(kind="TABLE", this=exp.table_("t", db="db"), exists=True)
-    if drop.sql("hive") != "DROP TABLE IF EXISTS db.t":
+    if sql_text(drop(exp.table_("t", db="db"))) != "DROP TABLE IF EXISTS db.t":
         problems.append("DROP TABLE drops its table name")
     try:
         qualify(exp.select("nope").from_("t"), schema={"t": {"a": "INT"}}, dialect="hive")
@@ -196,13 +194,13 @@ def _missing_function(tree, error: str) -> str:
     """The Hive name of the function the executor didn't know, from its error."""
     from sqlglot import exp
 
-    from .tables import hive_text
+    from .writing import sql_text
 
     found = re.search(r"name '(\w+)' is not defined", error)
     if found is not None:
         for function in tree.find_all(exp.Func):
             if function.key.upper() == found.group(1):
-                return hive_text(function).split("(")[0]
+                return sql_text(function).split("(")[0]
     return f"what this needs ({error})"
 
 

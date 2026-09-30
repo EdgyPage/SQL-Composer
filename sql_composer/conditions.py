@@ -16,12 +16,12 @@ from .tables import (
     Column,
     as_date,
     has_aggregate,
-    hive_text,
     is_date_partition,
     literal,
     made_by,
     type_family,
 )
+from .writing import hive_text
 
 TOOLBOX_VERSION = "2.1"
 
