@@ -1,7 +1,9 @@
-# Runs pytest on every push to `dev`, on Python 3.11, for each Edition at both ends of the range
-# it supports: SQL Composer at sqlglot 25.24.2 (the bottom) and 30.19.0 (its pin in
-# requirements-dev.txt), and Spark Composer at pyspark 3.5.0 (the bottom) and 4.0.4 (its pin),
-# on Java 17, with sqlglot uninstalled and its Example database required to run.
+# Runs pytest on every push to `dev`, on Python 3.11, for each Edition at the bottom of the range
+# it supports and at its pin in requirements-dev.txt, the newest version it is tested on:
+# - SQL Composer supports sqlglot 25.24.2 up to (not including) 31, and runs at 25.24.2 and
+#   30.19.0;
+# - Spark Composer supports pyspark 3.5.0 up to (not including) 4.1, and runs at 3.5.0 and 4.0.4,
+#   on Java 17, with sqlglot uninstalled and its Example database required to run.
 # `main` has no CI: a workflow file there would sit outside its allowlist.
 name: dev
 
