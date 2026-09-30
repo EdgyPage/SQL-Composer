@@ -681,15 +681,15 @@ WHERE
 == doc:GROUP_BY
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output week: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output week: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output runs: COUNT(*)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
@@ -724,7 +724,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `week`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.week = week_start(job_runs.dt)
@@ -752,13 +752,13 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -3926,15 +3926,15 @@ GuardRefused:
 == worked:regrouping:fixed
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
   COUNT(DISTINCT job_runs.job_id) AS jobs_that_ran
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output week: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output week: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output jobs_that_ran: COUNT(DISTINCT job_runs.job_id)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
@@ -3971,7 +3971,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `week`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.week = week_start(job_runs.dt)
@@ -3999,13 +3999,13 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
   COUNT(DISTINCT job_runs.job_id) AS jobs_that_ran
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -4024,13 +4024,13 @@ WITH jobs_per_day AS (
     job_runs.dt
 )
 SELECT
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS STRING) AS week,
   SUM(jobs_per_day.jobs_that_ran) AS jobs_that_ran
 FROM jobs_per_day
 GROUP BY
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output week: NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO')
+output week: CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS STRING)
 output jobs_that_ran: SUM(jobs_per_day.jobs_that_ran)
 -- Statement 1: Derived table jobs_per_day
 output dt: job_runs.dt
@@ -4090,7 +4090,7 @@ One value for each different `job_runs.dt`.
 
 #### `week`
 
-Calculated in **statement** as `week_start(jobs_per_day.dt)`, which is `NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(jobs_per_day.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.week = week_start(jobs_per_day.dt)
@@ -4130,11 +4130,11 @@ WITH jobs_per_day AS (
     job_runs.dt
 )
 SELECT
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS STRING) AS week,
   SUM(jobs_per_day.jobs_that_ran) AS jobs_that_ran
 FROM jobs_per_day
 GROUP BY
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -8392,14 +8392,14 @@ WHERE
 == edge:calculations:dates
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
-  TRUNC(job_runs.dt, 'MM') AS month
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS month
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 -- Statement 1: the Statement
-output week: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-output month: TRUNC(job_runs.dt, 'MM')
+output week: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
+output month: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -8434,7 +8434,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `week`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.week = week_start(job_runs.dt)
@@ -8446,7 +8446,7 @@ Rows that count:
 
 #### `month`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.month = month_start(job_runs.dt)
@@ -8460,8 +8460,8 @@ Rows that count:
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
-  TRUNC(job_runs.dt, 'MM') AS month
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS month
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -9748,18 +9748,18 @@ WHERE
 -- Statement 1: to_hive
 SELECT
   compact_runs.run_id,
-  NEXT_DAY(
+  CAST(NEXT_DAY(
     DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 7 * -1),
     'MO'
-  ) AS week,
-  TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM') AS month
+  ) AS STRING) AS week,
+  CAST(TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM') AS STRING) AS month
 FROM ops.compact_runs AS compact_runs
 WHERE
   compact_runs.day BETWEEN '20260923' AND '20260924'
 -- Statement 1: the Statement
 output run_id: compact_runs.run_id
-output week: NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 7 * -1), 'MO')
-output month: TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM')
+output week: CAST(NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 7 * -1), 'MO') AS STRING)
+output month: CAST(TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM') AS STRING)
 WHERE: compact_runs.day BETWEEN '20260923' AND '20260924'
 -- export_lineage
 # Lineage: statement
@@ -9797,7 +9797,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `week`
 
-Calculated in **statement** as `week_start(compact_runs.day)`, which is `NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(compact_runs.day)`, which is `CAST(NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.week = week_start(compact_runs.day)
@@ -9809,7 +9809,7 @@ Rows that count:
 
 #### `month`
 
-Calculated in **statement** as `month_start(compact_runs.day)`, which is `TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM')`.
+Calculated in **statement** as `month_start(compact_runs.day)`, which is `CAST(TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM') AS STRING)`.
 
 ```text
 statement.month = month_start(compact_runs.day)
@@ -9830,11 +9830,11 @@ Rows that count:
 ```sql
 SELECT
   compact_runs.run_id,
-  NEXT_DAY(
+  CAST(NEXT_DAY(
     DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 7 * -1),
     'MO'
-  ) AS week,
-  TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM') AS month
+  ) AS STRING) AS week,
+  CAST(TRUNC(FROM_UNIXTIME(UNIX_TIMESTAMP(compact_runs.day, 'yyyyMMdd'), 'yyyy-MM-dd'), 'MM') AS STRING) AS month
 FROM ops.compact_runs AS compact_runs
 WHERE
   compact_runs.day BETWEEN '20260923' AND '20260924'
@@ -11720,7 +11720,7 @@ STORED AS ORC
 -- Statement 1: to_hive
 SELECT
   job_runs.status AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   AVG(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
@@ -11729,13 +11729,13 @@ WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.status,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   a0 ASC
 LIMIT 30
 -- Statement 1: the Statement
 output k0: job_runs.status
-output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: AVG(job_runs.duration_mins)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
@@ -11786,7 +11786,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k1 = week_start(job_runs.dt)
@@ -11825,7 +11825,7 @@ One value for each different `job_runs.status` and `week_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.status AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   AVG(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
@@ -11834,7 +11834,7 @@ WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.status,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   a0 ASC
 LIMIT 30
@@ -12123,7 +12123,7 @@ LIMIT 44
 == gen:003
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   jobs.region AS k1,
   SUM(job_runs.avg_retry_secs) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1,
@@ -12134,13 +12134,13 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO'),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
   jobs.region
 HAVING
   COUNT(*) >= 1
 LIMIT 8
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output k1: jobs.region
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: SUM(job_runs.avg_retry_secs)
@@ -12202,7 +12202,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -12276,7 +12276,7 @@ One value for each different `week_start(job_runs.dt)` and `jobs.region`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   jobs.region AS k1,
   SUM(job_runs.avg_retry_secs) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1,
@@ -12287,7 +12287,7 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO'),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
   jobs.region
 HAVING
   COUNT(*) >= 1
@@ -12301,7 +12301,7 @@ LIMIT 8
 -- Statement 1: to_hive
 SELECT
   job_runs.duration_mins + 9 AS c0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c1,
   CONCAT(job_runs.status, 'FAILED', job_runs.dt) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
@@ -12312,7 +12312,7 @@ WHERE
   )
 -- Statement 1: the Statement
 output c0: job_runs.duration_mins + 9
-output c1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c2: CONCAT(job_runs.status, 'FAILED', job_runs.dt)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.status LIKE 'a\\_b\\%%'
@@ -12375,7 +12375,7 @@ Rows that count:
 
 #### `c1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c1 = week_start(job_runs.dt)
@@ -12407,7 +12407,7 @@ Rows that count:
 ```sql
 SELECT
   job_runs.duration_mins + 9 AS c0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c1,
   CONCAT(job_runs.status, 'FAILED', job_runs.dt) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
@@ -12430,7 +12430,7 @@ SELECT
       job_runs.duration_mins * 39
     ) - 2
   ) / 4 AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -12441,7 +12441,7 @@ LIMIT 21
 -- Statement 1: the Statement
 output c0: job_runs.duration_mins + 2
 output c1: ((job_runs.duration_mins * 39) - 2) / 4
-output c2: TRUNC(job_runs.dt, 'MM')
+output c2: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.status IN ('O\'Brien')
 -- export_lineage
@@ -12514,7 +12514,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c2 = month_start(job_runs.dt)
@@ -12536,7 +12536,7 @@ SELECT
       job_runs.duration_mins * 39
     ) - 2
   ) / 4 AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -12552,7 +12552,7 @@ LIMIT 21
 == gen:006
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   job_runs.status AS k1,
   AVG(job_runs.duration_mins) AS a0,
   MAX(job_runs.duration_mins) AS a1,
@@ -12561,13 +12561,13 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
   job_runs.status
 ORDER BY
   a1 DESC
 LIMIT 4
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output k1: job_runs.status
 output a0: AVG(job_runs.duration_mins)
 output a1: MAX(job_runs.duration_mins)
@@ -12616,7 +12616,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -12682,7 +12682,7 @@ One value for each different `month_start(job_runs.dt)` and `job_runs.status`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   job_runs.status AS k1,
   AVG(job_runs.duration_mins) AS a0,
   MAX(job_runs.duration_mins) AS a1,
@@ -12691,7 +12691,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
   job_runs.status
 ORDER BY
   a1 DESC
@@ -13510,15 +13510,15 @@ WHERE
 == gen:014
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(CASE WHEN job_runs.duration_mins < 55 THEN job_runs.duration_mins END) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: SUM(CASE WHEN job_runs.duration_mins < 55 THEN job_runs.duration_mins END)
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
@@ -13555,7 +13555,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -13583,13 +13583,13 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(CASE WHEN job_runs.duration_mins < 55 THEN job_runs.duration_mins END) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -13944,9 +13944,9 @@ WHERE
 == gen:018
 -- Statement 1: to_hive
 SELECT DISTINCT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   jobs.team AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2,
   (
     (
       job_runs.duration_mins * 31
@@ -13962,9 +13962,9 @@ WHERE
     job_runs.duration_mins > 15 OR job_runs.status IN ('')
   )
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c1: jobs.team
-output c2: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c2: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c3: ((job_runs.duration_mins * 31) - 3) / 4
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -14025,7 +14025,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -14040,7 +14040,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c2 = week_start(job_runs.dt)
@@ -14078,9 +14078,9 @@ Rows that count:
 
 ```sql
 SELECT DISTINCT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   jobs.team AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2,
   (
     (
       job_runs.duration_mins * 31
@@ -14108,8 +14108,8 @@ SELECT DISTINCT
       job_runs.duration_mins * 59
     ) - 1
   ) / 4 AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -14118,8 +14118,8 @@ WHERE
   AND job_runs.status = 'O\'Brien'
 -- Statement 1: the Statement
 output c0: ((job_runs.duration_mins * 59) - 1) / 4
-output c1: TRUNC(job_runs.dt, 'MM')
-output c2: TRUNC(job_runs.dt, 'MM')
+output c1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
+output c2: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.duration_mins <= 2
 WHERE: job_runs.status IS NULL
@@ -14185,7 +14185,7 @@ Rows that count:
 
 #### `c1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c1 = month_start(job_runs.dt)
@@ -14200,7 +14200,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c2 = month_start(job_runs.dt)
@@ -14222,8 +14222,8 @@ SELECT DISTINCT
       job_runs.duration_mins * 59
     ) - 1
   ) / 4 AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -14238,7 +14238,7 @@ WHERE
 == gen:020
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   AVG(job_runs.duration_mins) AS a1,
   MIN(job_runs.duration_mins) AS a2
@@ -14248,9 +14248,9 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: AVG(job_runs.duration_mins)
 output a2: MIN(job_runs.duration_mins)
@@ -14303,7 +14303,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -14363,7 +14363,7 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   AVG(job_runs.duration_mins) AS a1,
   MIN(job_runs.duration_mins) AS a2
@@ -14373,7 +14373,7 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -14382,7 +14382,7 @@ GROUP BY
 == gen:021
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   COUNT(CASE WHEN job_runs.status IN ('') THEN 1 END) AS a0,
   MAX(job_runs.duration_mins) AS a1,
   MIN(job_runs.duration_mins) AS a2
@@ -14390,12 +14390,12 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   a2 ASC
 LIMIT 19
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: COUNT(CASE WHEN job_runs.status IN ('') THEN 1 END)
 output a1: MAX(job_runs.duration_mins)
 output a2: MIN(job_runs.duration_mins)
@@ -14441,7 +14441,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -14501,7 +14501,7 @@ One value for each different `month_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   COUNT(CASE WHEN job_runs.status IN ('') THEN 1 END) AS a0,
   MAX(job_runs.duration_mins) AS a1,
   MIN(job_runs.duration_mins) AS a2
@@ -14509,7 +14509,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   a2 ASC
 LIMIT 19
@@ -14742,20 +14742,20 @@ LIMIT 4
 == gen:024
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   job_runs.status AS k1,
   MAX(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
   job_runs.status
 ORDER BY
   k1 ASC
 LIMIT 41
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output k1: job_runs.status
 output a0: MAX(job_runs.duration_mins)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -14798,7 +14798,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -14834,14 +14834,14 @@ One value for each different `month_start(job_runs.dt)` and `job_runs.status`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   job_runs.status AS k1,
   MAX(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
   job_runs.status
 ORDER BY
   k1 ASC
@@ -15189,7 +15189,7 @@ FROM per_job
 SELECT DISTINCT
   job_runs.duration_mins AS c0,
   UPPER(job_runs.status) AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -15206,7 +15206,7 @@ WHERE
 -- Statement 1: the Statement
 output c0: job_runs.duration_mins
 output c1: UPPER(job_runs.status)
-output c2: TRUNC(job_runs.dt, 'MM')
+output c2: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: NOT job_runs.status IN ('Berlin – München', 'O\'Brien')
@@ -15285,7 +15285,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c2 = month_start(job_runs.dt)
@@ -15311,7 +15311,7 @@ Rows that count:
 SELECT DISTINCT
   job_runs.duration_mins AS c0,
   UPPER(job_runs.status) AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -15336,7 +15336,7 @@ SELECT
   COALESCE(job_runs.status, 'FAILED') AS c0,
   0 - job_runs.duration_mins AS c1,
   CONCAT(job_runs.status, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', job_runs.dt) AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -15353,7 +15353,7 @@ LIMIT 44
 output c0: COALESCE(job_runs.status, 'FAILED')
 output c1: 0 - job_runs.duration_mins
 output c2: CONCAT(job_runs.status, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', job_runs.dt)
-output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c3: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.duration_mins < 21 AND NOT job_runs.avg_retry_secs IS NULL AND job_runs.status LIKE '%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%' AND job_runs.status = ''
 -- export_lineage
@@ -15447,7 +15447,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c3 = week_start(job_runs.dt)
@@ -15466,7 +15466,7 @@ SELECT
   COALESCE(job_runs.status, 'FAILED') AS c0,
   0 - job_runs.duration_mins AS c1,
   CONCAT(job_runs.status, 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', job_runs.dt) AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -16394,7 +16394,7 @@ LIMIT 27
 == gen:038
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   COUNT(DISTINCT job_runs.status) AS a0
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
@@ -16402,9 +16402,9 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: COUNT(DISTINCT job_runs.status)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -16450,7 +16450,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -16480,7 +16480,7 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   COUNT(DISTINCT job_runs.status) AS a0
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
@@ -16488,7 +16488,7 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -16623,16 +16623,16 @@ JOIN ops.jobs AS jobs
 == gen:040
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   AVG(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: AVG(job_runs.duration_mins)
 output a1: SUM(job_runs.avg_retry_secs)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -16673,7 +16673,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -16715,14 +16715,14 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   AVG(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -17186,7 +17186,7 @@ SELECT
     ELSE NULL
   END AS c0,
   job_runs.duration_mins AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -17200,7 +17200,7 @@ WHERE
 -- Statement 1: the Statement
 output c0: CASE WHEN job_runs.duration_mins <= 35 OR job_runs.duration_mins <= 29 OR job_runs.status LIKE 'Berlin – München%' THEN '' ELSE NULL END
 output c1: job_runs.duration_mins
-output c2: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c2: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: NOT job_runs.avg_retry_secs IS NULL OR NOT job_runs.avg_retry_secs IS NULL OR job_runs.duration_mins < 5
@@ -17270,7 +17270,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c2 = week_start(job_runs.dt)
@@ -17300,7 +17300,7 @@ SELECT
     ELSE NULL
   END AS c0,
   job_runs.duration_mins AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -17433,8 +17433,8 @@ LIMIT 48
 == gen:047
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   SUM(job_runs.avg_retry_secs) AS a0,
   MIN(job_runs.duration_mins) AS a1,
   COUNT(*) AS a2
@@ -17444,14 +17444,14 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   a2 ASC
 LIMIT 18
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
-output k1: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
+output k1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: MIN(job_runs.duration_mins)
 output a2: COUNT(*)
@@ -17507,7 +17507,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -17521,7 +17521,7 @@ Rows that count:
 
 #### `k1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k1 = month_start(job_runs.dt)
@@ -17585,8 +17585,8 @@ One value for each different `month_start(job_runs.dt)` and `month_start(job_run
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   SUM(job_runs.avg_retry_secs) AS a0,
   MIN(job_runs.duration_mins) AS a1,
   COUNT(*) AS a2
@@ -17596,8 +17596,8 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   a2 ASC
 LIMIT 18
@@ -17616,7 +17616,7 @@ SELECT
   ) / 1 AS c0,
   jobs.region AS c1,
   0 - job_runs.duration_mins AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -17631,7 +17631,7 @@ LIMIT 27
 output c0: ((job_runs.duration_mins * 2) - 0) / 1
 output c1: jobs.region
 output c2: 0 - job_runs.duration_mins
-output c3: TRUNC(job_runs.dt, 'MM')
+output c3: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.status IS NULL
@@ -17724,7 +17724,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c3 = month_start(job_runs.dt)
@@ -17755,7 +17755,7 @@ SELECT
   ) / 1 AS c0,
   jobs.region AS c1,
   0 - job_runs.duration_mins AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -17774,10 +17774,10 @@ LIMIT 27
 == gen:049
 -- Statement 1: to_hive
 SELECT DISTINCT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   0 - job_runs.duration_mins AS c1,
   UPPER(job_runs.status) AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -17785,10 +17785,10 @@ ORDER BY
   c0 ASC
 LIMIT 23
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c1: 0 - job_runs.duration_mins
 output c2: UPPER(job_runs.status)
-output c3: TRUNC(job_runs.dt, 'MM')
+output c3: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- export_lineage
 # Lineage: statement
@@ -17831,7 +17831,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -17870,7 +17870,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c3 = month_start(job_runs.dt)
@@ -17885,10 +17885,10 @@ Rows that count:
 
 ```sql
 SELECT DISTINCT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   0 - job_runs.duration_mins AS c1,
   UPPER(job_runs.status) AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -18910,18 +18910,18 @@ GROUP BY
 == gen:059
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   COUNT(DISTINCT job_runs.status) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 HAVING
   COUNT(*) >= 1
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: COUNT(DISTINCT job_runs.status)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -18965,7 +18965,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -19010,14 +19010,14 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   COUNT(DISTINCT job_runs.status) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 HAVING
   COUNT(*) >= 1
 ```
@@ -19478,7 +19478,7 @@ WHERE
 -- Statement 1: to_hive
 SELECT
   job_runs.job_id AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   MIN(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1,
   COUNT(
@@ -19494,12 +19494,12 @@ WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
   job_runs.job_id,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 HAVING
   COUNT(*) >= 4
 -- Statement 1: the Statement
 output k0: job_runs.job_id
-output k1: TRUNC(job_runs.dt, 'MM')
+output k1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: MIN(job_runs.duration_mins)
 output a1: SUM(job_runs.avg_retry_secs)
 output a2: COUNT(DISTINCT CASE WHEN job_runs.status = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' AND job_runs.status IS NULL AND job_runs.status LIKE 'a\\_b\\%%' THEN job_runs.status END)
@@ -19550,7 +19550,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k1 = month_start(job_runs.dt)
@@ -19617,7 +19617,7 @@ One value for each different `job_runs.job_id` and `month_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.job_id AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   MIN(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1,
   COUNT(
@@ -19633,7 +19633,7 @@ WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
   job_runs.job_id,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 HAVING
   COUNT(*) >= 4
 ```
@@ -19645,7 +19645,7 @@ HAVING
 -- Statement 1: to_hive
 SELECT DISTINCT
   job_runs.dt AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -19653,7 +19653,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- Statement 1: the Statement
 output c0: job_runs.dt
-output c1: TRUNC(job_runs.dt, 'MM')
+output c1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
@@ -19697,7 +19697,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c1 = month_start(job_runs.dt)
@@ -19719,7 +19719,7 @@ Rows that count:
 ```sql
 SELECT DISTINCT
   job_runs.dt AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -19735,7 +19735,7 @@ WHERE
 SELECT
   0 - job_runs.duration_mins AS c0,
   job_runs.duration_mins + 2 AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -19756,7 +19756,7 @@ LIMIT 39
 -- Statement 1: the Statement
 output c0: 0 - job_runs.duration_mins
 output c1: job_runs.duration_mins + 2
-output c2: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c2: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: NOT job_runs.avg_retry_secs IS NULL OR NOT job_runs.avg_retry_secs IS NULL
 WHERE: job_runs.status IS NULL OR job_runs.status = 'C:\\temp'
@@ -19843,7 +19843,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c2 = week_start(job_runs.dt)
@@ -19863,7 +19863,7 @@ Rows that count:
 SELECT
   0 - job_runs.duration_mins AS c0,
   job_runs.duration_mins + 2 AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -20301,14 +20301,14 @@ JOIN ops.jobs AS jobs
 == gen:070
 -- Statement 1: to_hive
 SELECT DISTINCT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   job_runs.run_id AS c1,
   CONCAT(job_runs.status, '', job_runs.dt) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c1: job_runs.run_id
 output c2: CONCAT(job_runs.status, '', job_runs.dt)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -20350,7 +20350,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -20383,7 +20383,7 @@ Rows that count:
 
 ```sql
 SELECT DISTINCT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   job_runs.run_id AS c1,
   CONCAT(job_runs.status, '', job_runs.dt) AS c2
 FROM ops.job_runs AS job_runs
@@ -20398,7 +20398,7 @@ WHERE
 -- Statement 1: to_hive
 SELECT
   0 - job_runs.duration_mins AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1,
   COALESCE(job_runs.status, 'a_b%') AS c2
 FROM ops.job_runs AS job_runs
 WHERE
@@ -20423,7 +20423,7 @@ ORDER BY
 LIMIT 3
 -- Statement 1: the Statement
 output c0: 0 - job_runs.duration_mins
-output c1: TRUNC(job_runs.dt, 'MM')
+output c1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output c2: COALESCE(job_runs.status, 'a_b%')
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.status IS NULL AND job_runs.status <> 'O\'Brien' AND job_runs.status IN ('Berlin – München') AND (job_runs.status IN ('a_b%', 'Berlin – München', 'FAILED') AND job_runs.status <> 'Berlin – München' AND job_runs.status IN ('a_b%', 'O\'Brien', 'FAILED'))
@@ -20489,7 +20489,7 @@ Rows that count:
 
 #### `c1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c1 = month_start(job_runs.dt)
@@ -20522,7 +20522,7 @@ Rows that count:
 ```sql
 SELECT
   0 - job_runs.duration_mins AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1,
   COALESCE(job_runs.status, 'a_b%') AS c2
 FROM ops.job_runs AS job_runs
 WHERE
@@ -20674,7 +20674,7 @@ SELECT
   COALESCE(job_runs.status, 'FAILED') AS c0,
   jobs.job_name AS c1,
   COALESCE(job_runs.status, 'a_b%') AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -20689,7 +20689,7 @@ LIMIT 49
 output c0: COALESCE(job_runs.status, 'FAILED')
 output c1: jobs.job_name
 output c2: COALESCE(job_runs.status, 'a_b%')
-output c3: TRUNC(job_runs.dt, 'MM')
+output c3: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.duration_mins <= 52
@@ -20782,7 +20782,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c3 = month_start(job_runs.dt)
@@ -20809,7 +20809,7 @@ SELECT
   COALESCE(job_runs.status, 'FAILED') AS c0,
   jobs.job_name AS c1,
   COALESCE(job_runs.status, 'a_b%') AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -20952,7 +20952,7 @@ WHERE
 == gen:075
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   CASE
     WHEN job_runs.status LIKE 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%'
     THEN 'O\'Brien'
@@ -20963,7 +20963,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c1: CASE WHEN job_runs.status LIKE 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%' THEN 'O\'Brien' ELSE 'other' END
 output c2: CONCAT(job_runs.status, 'a_b%', job_runs.dt)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -21004,7 +21004,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -21043,7 +21043,7 @@ Rows that count:
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   CASE
     WHEN job_runs.status LIKE 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%'
     THEN 'O\'Brien'
@@ -21198,20 +21198,20 @@ GROUP BY
 -- Statement 1: to_hive
 SELECT
   job_runs.dt AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   COUNT(DISTINCT job_runs.status) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.dt,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   k0 DESC
 LIMIT 48
 -- Statement 1: the Statement
 output k0: job_runs.dt
-output k1: TRUNC(job_runs.dt, 'MM')
+output k1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: COUNT(DISTINCT job_runs.status)
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
@@ -21252,7 +21252,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k1 = month_start(job_runs.dt)
@@ -21289,14 +21289,14 @@ One value for each different `job_runs.dt` and `month_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.dt AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   COUNT(DISTINCT job_runs.status) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.dt,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   k0 DESC
 LIMIT 48
@@ -22191,7 +22191,7 @@ SELECT
   job_runs.run_id AS c0,
   job_runs.status AS c1,
   UPPER(job_runs.status) AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -22208,7 +22208,7 @@ WHERE
 output c0: job_runs.run_id
 output c1: job_runs.status
 output c2: UPPER(job_runs.status)
-output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c3: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: NOT job_runs.status IN ('O\'Brien', 'FAILED', 'a_b%') AND job_runs.duration_mins < 39 AND job_runs.duration_mins >= 29
 WHERE: job_runs.duration_mins > -5 AND job_runs.status IN ('')
@@ -22279,7 +22279,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c3 = week_start(job_runs.dt)
@@ -22306,7 +22306,7 @@ SELECT
   job_runs.run_id AS c0,
   job_runs.status AS c1,
   UPPER(job_runs.status) AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -22327,7 +22327,7 @@ WHERE
 == gen:087
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS c0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c0,
   (
     (
       job_runs.duration_mins * 8
@@ -22342,7 +22342,7 @@ WHERE
   AND job_runs.duration_mins < 2
   AND NOT job_runs.avg_retry_secs IS NULL
 -- Statement 1: the Statement
-output c0: TRUNC(job_runs.dt, 'MM')
+output c0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output c1: ((job_runs.duration_mins * 8) - 5) / 5
 output c2: UPPER(job_runs.status)
 read 2 ON: jobs.job_id = job_runs.job_id
@@ -22401,7 +22401,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c0 = month_start(job_runs.dt)
@@ -22448,7 +22448,7 @@ Rows that count:
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS c0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c0,
   (
     (
       job_runs.duration_mins * 8
@@ -22578,12 +22578,12 @@ LIMIT 33
 == gen:089
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS c0
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- Statement 1: the Statement
-output c0: TRUNC(job_runs.dt, 'MM')
+output c0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -22616,7 +22616,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c0 = month_start(job_runs.dt)
@@ -22630,7 +22630,7 @@ Rows that count:
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS c0
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -22776,7 +22776,7 @@ WHERE
 == gen:091
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
@@ -22784,12 +22784,12 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   k0 DESC
 LIMIT 28
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -22837,7 +22837,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -22869,7 +22869,7 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
@@ -22877,7 +22877,7 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   k0 DESC
 LIMIT 28
@@ -23138,19 +23138,19 @@ WHERE
 == gen:094
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   a0 ASC
 LIMIT 39
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: SUM(job_runs.avg_retry_secs)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -23192,7 +23192,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -23237,14 +23237,14 @@ One value for each different `month_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   a0 ASC
 LIMIT 39
@@ -23530,10 +23530,10 @@ GROUP BY
 == gen:097
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   UPPER(job_runs.status) AS c1,
   job_runs.duration_mins + 1 AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -23546,10 +23546,10 @@ WHERE
     AND job_runs.status LIKE '%O\'Brien%'
   )
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c1: UPPER(job_runs.status)
 output c2: job_runs.duration_mins + 1
-output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c3: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status LIKE 'x%'
@@ -23609,7 +23609,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -23654,7 +23654,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c3 = week_start(job_runs.dt)
@@ -23671,10 +23671,10 @@ Rows that count:
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   UPPER(job_runs.status) AS c1,
   job_runs.duration_mins + 1 AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -24161,20 +24161,20 @@ WHERE
 -- Statement 1: to_hive
 SELECT
   job_runs.job_id AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   SUM(job_runs.avg_retry_secs) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.job_id,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   k0 DESC
 LIMIT 31
 -- Statement 1: the Statement
 output k0: job_runs.job_id
-output k1: TRUNC(job_runs.dt, 'MM')
+output k1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 WHERE: job_runs.dt = '2026-09-24'
 -- export_lineage
@@ -24216,7 +24216,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k1 = month_start(job_runs.dt)
@@ -24253,14 +24253,14 @@ One value for each different `job_runs.job_id` and `month_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.job_id AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   SUM(job_runs.avg_retry_secs) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.job_id,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ORDER BY
   k0 DESC
 LIMIT 31
@@ -24589,7 +24589,7 @@ WHERE
 == gen:106
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   AVG(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1,
   COUNT(DISTINCT job_runs.status) AS a2
@@ -24597,9 +24597,9 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: AVG(job_runs.duration_mins)
 output a1: SUM(job_runs.avg_retry_secs)
 output a2: COUNT(DISTINCT job_runs.status)
@@ -24644,7 +24644,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -24700,7 +24700,7 @@ One value for each different `month_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   AVG(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1,
   COUNT(DISTINCT job_runs.status) AS a2
@@ -24708,7 +24708,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ```
 
 ---
@@ -24813,15 +24813,15 @@ WHERE
 == gen:108
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   COUNT(*) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: COUNT(*)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
@@ -24856,7 +24856,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -24884,13 +24884,13 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   COUNT(*) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -24899,20 +24899,20 @@ GROUP BY
 == gen:109
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 HAVING
   COUNT(*) >= 4
 ORDER BY
   a0 DESC
 LIMIT 42
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: SUM(job_runs.duration_mins)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 HAVING: COUNT(*) >= 4
@@ -24954,7 +24954,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -24986,13 +24986,13 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 HAVING
   COUNT(*) >= 4
 ORDER BY
@@ -25861,7 +25861,7 @@ SELECT
     THEN 'a_b%'
     ELSE 'other'
   END AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -25873,7 +25873,7 @@ WHERE
 -- Statement 1: the Statement
 output c0: job_runs.duration_mins + 1
 output c1: CASE WHEN job_runs.status <> 'O\'Brien' OR NOT job_runs.status IN ('FAILED', 'C:\\temp', 'a_b%') OR job_runs.duration_mins > 47 THEN 'a_b%' ELSE 'other' END
-output c2: TRUNC(job_runs.dt, 'MM')
+output c2: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins > -2
@@ -25967,7 +25967,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c2 = month_start(job_runs.dt)
@@ -25993,7 +25993,7 @@ SELECT
     THEN 'a_b%'
     ELSE 'other'
   END AS c1,
-  TRUNC(job_runs.dt, 'MM') AS c2
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -26672,7 +26672,7 @@ FROM per_job
 == gen:124
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   job_runs.dt AS k1,
   MIN(job_runs.duration_mins) AS a0,
   COUNT(*) AS a1,
@@ -26681,10 +26681,10 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO'),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
   job_runs.dt
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output k1: job_runs.dt
 output a0: MIN(job_runs.duration_mins)
 output a1: COUNT(*)
@@ -26730,7 +26730,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -26792,7 +26792,7 @@ One value for each different `week_start(job_runs.dt)` and `job_runs.dt`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   job_runs.dt AS k1,
   MIN(job_runs.duration_mins) AS a0,
   COUNT(*) AS a1,
@@ -26801,7 +26801,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO'),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
   job_runs.dt
 ```
 
@@ -27073,7 +27073,7 @@ WHERE
 -- Statement 1: to_hive
 SELECT
   job_runs.dt AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   MIN(job_runs.duration_mins) AS a0,
   MIN(job_runs.duration_mins) AS a1,
   COUNT(
@@ -27087,10 +27087,10 @@ WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.dt,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
 output k0: job_runs.dt
-output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: MIN(job_runs.duration_mins)
 output a1: MIN(job_runs.duration_mins)
 output a2: COUNT(DISTINCT CASE WHEN NOT job_runs.status IN ('O\'Brien', 'Berlin – München', 'FAILED') THEN job_runs.status END)
@@ -27136,7 +27136,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k1 = week_start(job_runs.dt)
@@ -27199,7 +27199,7 @@ One value for each different `job_runs.dt` and `week_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.dt AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   MIN(job_runs.duration_mins) AS a0,
   MIN(job_runs.duration_mins) AS a1,
   COUNT(
@@ -27213,7 +27213,7 @@ WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.dt,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -27380,7 +27380,7 @@ SELECT
     ) - 3
   ) / 4 AS c1,
   CONCAT(job_runs.status, 'FAILED', job_runs.dt) AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -27399,7 +27399,7 @@ LIMIT 20
 output c0: CONCAT(job_runs.status, '', job_runs.dt)
 output c1: ((job_runs.duration_mins * 47) - 3) / 4
 output c2: CONCAT(job_runs.status, 'FAILED', job_runs.dt)
-output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c3: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins < 27 AND job_runs.duration_mins < 12
@@ -27518,7 +27518,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c3 = week_start(job_runs.dt)
@@ -27544,7 +27544,7 @@ SELECT
     ) - 3
   ) / 4 AS c1,
   CONCAT(job_runs.status, 'FAILED', job_runs.dt) AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -28532,8 +28532,8 @@ LIMIT 10
 == gen:138
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c1,
   UPPER(job_runs.status) AS c2,
   job_runs.duration_mins AS c3
 FROM ops.job_runs AS job_runs
@@ -28543,8 +28543,8 @@ WHERE
   AND NOT job_runs.avg_retry_secs IS NULL
   AND job_runs.duration_mins BETWEEN 36 AND 46
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
-output c1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
+output c1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c2: UPPER(job_runs.status)
 output c3: job_runs.duration_mins
 WHERE: job_runs.dt = '2026-09-24'
@@ -28600,7 +28600,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -28615,7 +28615,7 @@ Rows that count:
 
 #### `c1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c1 = week_start(job_runs.dt)
@@ -28653,8 +28653,8 @@ Rows that count:
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c1,
   UPPER(job_runs.status) AS c2,
   job_runs.duration_mins AS c3
 FROM ops.job_runs AS job_runs
@@ -28825,7 +28825,7 @@ LIMIT 30
 -- Statement 1: to_hive
 SELECT
   CONCAT(job_runs.status, 'a_b%', job_runs.dt) AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1,
   job_runs.duration_mins + 4 AS c2,
   COALESCE(job_runs.status, 'a_b%') AS c3
 FROM ops.job_runs AS job_runs
@@ -28837,7 +28837,7 @@ ORDER BY
 LIMIT 24
 -- Statement 1: the Statement
 output c0: CONCAT(job_runs.status, 'a_b%', job_runs.dt)
-output c1: TRUNC(job_runs.dt, 'MM')
+output c1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output c2: job_runs.duration_mins + 4
 output c3: COALESCE(job_runs.status, 'a_b%')
 WHERE: job_runs.dt = '2026-09-24'
@@ -28902,7 +28902,7 @@ Rows that count:
 
 #### `c1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c1 = month_start(job_runs.dt)
@@ -28947,7 +28947,7 @@ Rows that count:
 ```sql
 SELECT
   CONCAT(job_runs.status, 'a_b%', job_runs.dt) AS c0,
-  TRUNC(job_runs.dt, 'MM') AS c1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c1,
   job_runs.duration_mins + 4 AS c2,
   COALESCE(job_runs.status, 'a_b%') AS c3
 FROM ops.job_runs AS job_runs
@@ -29118,8 +29118,8 @@ LIMIT 37
 == gen:142
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   COUNT(
     CASE
       WHEN job_runs.duration_mins BETWEEN 40 AND 47 OR job_runs.status LIKE '%O\'Brien%'
@@ -29134,16 +29134,16 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 HAVING
   COUNT(*) >= 2
 ORDER BY
   a0 ASC
 LIMIT 39
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
-output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
+output k1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: COUNT(CASE WHEN job_runs.duration_mins BETWEEN 40 AND 47 OR job_runs.status LIKE '%O\'Brien%' THEN 1 END)
 output a1: COUNT(*)
 output a2: MAX(job_runs.duration_mins)
@@ -29203,7 +29203,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -29218,7 +29218,7 @@ Rows that count:
 
 #### `k1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k1 = week_start(job_runs.dt)
@@ -29287,8 +29287,8 @@ One value for each different `month_start(job_runs.dt)` and `week_start(job_runs
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   COUNT(
     CASE
       WHEN job_runs.duration_mins BETWEEN 40 AND 47 OR job_runs.status LIKE '%O\'Brien%'
@@ -29303,8 +29303,8 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 HAVING
   COUNT(*) >= 2
 ORDER BY
@@ -29438,14 +29438,14 @@ WHERE
 SELECT
   COALESCE(job_runs.status, 'a_b%') AS c0,
   job_runs.status AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- Statement 1: the Statement
 output c0: COALESCE(job_runs.status, 'a_b%')
 output c1: job_runs.status
-output c2: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c2: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement
@@ -29495,7 +29495,7 @@ Rows that count:
 
 #### `c2`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c2 = week_start(job_runs.dt)
@@ -29517,7 +29517,7 @@ Rows that count:
 SELECT
   COALESCE(job_runs.status, 'a_b%') AS c0,
   job_runs.status AS c1,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c2
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c2
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
@@ -29698,7 +29698,7 @@ LIMIT 4
 == gen:147
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   MIN(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
@@ -29706,12 +29706,12 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   a0 DESC
 LIMIT 39
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: MIN(job_runs.duration_mins)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
@@ -29759,7 +29759,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -29791,7 +29791,7 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   MIN(job_runs.duration_mins) AS a0
 FROM ops.job_runs AS job_runs
 LEFT JOIN ops.jobs AS jobs
@@ -29799,7 +29799,7 @@ LEFT JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   a0 DESC
 LIMIT 39
@@ -29811,7 +29811,7 @@ LIMIT 39
 == gen:148
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   job_runs.duration_mins AS c1
 FROM ops.job_runs AS job_runs
 WHERE
@@ -29820,7 +29820,7 @@ WHERE
     job_runs.duration_mins > 22 AND job_runs.duration_mins < 60
   )
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c1: job_runs.duration_mins
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE: job_runs.duration_mins > 22 AND job_runs.duration_mins < 60
@@ -29861,7 +29861,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -29882,7 +29882,7 @@ Rows that count:
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0,
   job_runs.duration_mins AS c1
 FROM ops.job_runs AS job_runs
 WHERE
@@ -29899,7 +29899,7 @@ WHERE
 -- Statement 1: to_hive
 SELECT
   job_runs.status AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   AVG(job_runs.duration_mins) AS a0,
   SUM(job_runs.duration_mins) AS a1,
   MIN(job_runs.duration_mins) AS a2
@@ -29908,10 +29908,10 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.status,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 -- Statement 1: the Statement
 output k0: job_runs.status
-output k1: TRUNC(job_runs.dt, 'MM')
+output k1: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: AVG(job_runs.duration_mins)
 output a1: SUM(job_runs.duration_mins)
 output a2: MIN(job_runs.duration_mins)
@@ -29957,7 +29957,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k1 = month_start(job_runs.dt)
@@ -30020,7 +30020,7 @@ One value for each different `job_runs.status` and `month_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.status AS k0,
-  TRUNC(job_runs.dt, 'MM') AS k1,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k1,
   AVG(job_runs.duration_mins) AS a0,
   SUM(job_runs.duration_mins) AS a1,
   MIN(job_runs.duration_mins) AS a2
@@ -30029,7 +30029,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.status,
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 ```
 
 ---
@@ -30360,7 +30360,7 @@ HAVING
 == gen:153
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS c0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c0,
   (
     (
       job_runs.duration_mins * 33
@@ -30371,7 +30371,7 @@ SELECT
       job_runs.duration_mins * 8
     ) - 4
   ) / 3 AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -30382,10 +30382,10 @@ WHERE
   )
   AND job_runs.duration_mins < 28
 -- Statement 1: the Statement
-output c0: TRUNC(job_runs.dt, 'MM')
+output c0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output c1: ((job_runs.duration_mins * 33) - 5) / 2
 output c2: ((job_runs.duration_mins * 8) - 4) / 3
-output c3: TRUNC(job_runs.dt, 'MM')
+output c3: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.duration_mins < -1 OR job_runs.duration_mins > 24 OR job_runs.duration_mins > 60
 WHERE: job_runs.duration_mins < 28
@@ -30433,7 +30433,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c0 = month_start(job_runs.dt)
@@ -30475,7 +30475,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.c3 = month_start(job_runs.dt)
@@ -30491,7 +30491,7 @@ Rows that count:
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS c0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c0,
   (
     (
       job_runs.duration_mins * 33
@@ -30502,7 +30502,7 @@ SELECT
       job_runs.duration_mins * 8
     ) - 4
   ) / 3 AS c2,
-  TRUNC(job_runs.dt, 'MM') AS c3
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -30520,19 +30520,19 @@ WHERE
 == gen:154
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   MIN(job_runs.duration_mins) AS a0,
   COUNT(DISTINCT job_runs.status) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   a0 DESC
 LIMIT 40
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: MIN(job_runs.duration_mins)
 output a1: COUNT(DISTINCT job_runs.status)
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
@@ -30575,7 +30575,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -30620,14 +30620,14 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   MIN(job_runs.duration_mins) AS a0,
   COUNT(DISTINCT job_runs.status) AS a1
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23')
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ORDER BY
   a0 DESC
 LIMIT 40
@@ -30917,7 +30917,7 @@ JOIN ops.jobs AS jobs
 == gen:157
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   COUNT(DISTINCT job_runs.status) AS a1,
   COUNT(*) AS a2
@@ -30925,9 +30925,9 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
-output k0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: SUM(job_runs.avg_retry_secs)
 output a1: COUNT(DISTINCT job_runs.status)
 output a2: COUNT(*)
@@ -30970,7 +30970,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k0 = week_start(job_runs.dt)
@@ -31026,7 +31026,7 @@ One value for each different `week_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k0,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k0,
   SUM(job_runs.avg_retry_secs) AS a0,
   COUNT(DISTINCT job_runs.status) AS a1,
   COUNT(*) AS a2
@@ -31034,7 +31034,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -31978,7 +31978,7 @@ FROM per_job
 == gen:166
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   MIN(job_runs.duration_mins) AS a0,
   SUM(job_runs.duration_mins) AS a1
 FROM ops.job_runs AS job_runs
@@ -31987,10 +31987,10 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 LIMIT 41
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output a0: MIN(job_runs.duration_mins)
 output a1: SUM(job_runs.duration_mins)
 read 2 ON: jobs.job_id = job_runs.job_id
@@ -32041,7 +32041,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -32089,7 +32089,7 @@ One value for each different `month_start(job_runs.dt)`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   MIN(job_runs.duration_mins) AS a0,
   SUM(job_runs.duration_mins) AS a1
 FROM ops.job_runs AS job_runs
@@ -32098,7 +32098,7 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM')
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 LIMIT 41
 ```
 
@@ -32586,7 +32586,7 @@ JOIN ops.jobs AS jobs
 == gen:171
 -- Statement 1: to_hive
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   jobs.team AS k1,
   SUM(job_runs.avg_retry_secs) AS a0
 FROM ops.job_runs AS job_runs
@@ -32595,13 +32595,13 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
   jobs.team
 ORDER BY
   k0 ASC
 LIMIT 48
 -- Statement 1: the Statement
-output k0: TRUNC(job_runs.dt, 'MM')
+output k0: CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
 output k1: jobs.team
 output a0: SUM(job_runs.avg_retry_secs)
 read 2 ON: jobs.job_id = job_runs.job_id
@@ -32653,7 +32653,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k0`
 
-Calculated in **statement** as `month_start(job_runs.dt)`, which is `TRUNC(job_runs.dt, 'MM')`.
+Calculated in **statement** as `month_start(job_runs.dt)`, which is `CAST(TRUNC(job_runs.dt, 'MM') AS STRING)`.
 
 ```text
 statement.k0 = month_start(job_runs.dt)
@@ -32691,7 +32691,7 @@ One value for each different `month_start(job_runs.dt)` and `jobs.team`.
 
 ```sql
 SELECT
-  TRUNC(job_runs.dt, 'MM') AS k0,
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING) AS k0,
   jobs.team AS k1,
   SUM(job_runs.avg_retry_secs) AS a0
 FROM ops.job_runs AS job_runs
@@ -32700,7 +32700,7 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
-  TRUNC(job_runs.dt, 'MM'),
+  CAST(TRUNC(job_runs.dt, 'MM') AS STRING),
   jobs.team
 ORDER BY
   k0 ASC
@@ -33137,14 +33137,14 @@ WHERE
 == gen:176
 -- Statement 1: to_hive
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
 WHERE
   job_runs.dt IN ('2026-09-24', '2026-09-23') AND job_runs.duration_mins < 16
 -- Statement 1: the Statement
-output c0: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c0: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: job_runs.duration_mins < 16
@@ -33191,7 +33191,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `c0`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c0 = week_start(job_runs.dt)
@@ -33207,7 +33207,7 @@ Rows that count:
 
 ```sql
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c0
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c0
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -33584,7 +33584,7 @@ LIMIT 30
 -- Statement 1: to_hive
 SELECT DISTINCT
   CONCAT(job_runs.status, 'O\'Brien', job_runs.dt) AS c0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c1,
   COALESCE(job_runs.status, 'O\'Brien') AS c2
 FROM ops.job_runs AS job_runs
 WHERE
@@ -33604,7 +33604,7 @@ ORDER BY
 LIMIT 45
 -- Statement 1: the Statement
 output c0: CONCAT(job_runs.status, 'O\'Brien', job_runs.dt)
-output c1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output c2: COALESCE(job_runs.status, 'O\'Brien')
 WHERE: job_runs.dt IN ('2026-09-24', '2026-09-23')
 WHERE: NOT job_runs.avg_retry_secs IS NULL AND NOT job_runs.avg_retry_secs IS NULL
@@ -33679,7 +33679,7 @@ Rows that count:
 
 #### `c1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c1 = week_start(job_runs.dt)
@@ -33714,7 +33714,7 @@ Rows that count:
 ```sql
 SELECT DISTINCT
   CONCAT(job_runs.status, 'O\'Brien', job_runs.dt) AS c0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c1,
   COALESCE(job_runs.status, 'O\'Brien') AS c2
 FROM ops.job_runs AS job_runs
 WHERE
@@ -33896,7 +33896,7 @@ HAVING
 -- Statement 1: to_hive
 SELECT
   job_runs.status AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   MIN(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1
 FROM ops.job_runs AS job_runs
@@ -33906,10 +33906,10 @@ WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.status,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 -- Statement 1: the Statement
 output k0: job_runs.status
-output k1: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output k1: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 output a0: MIN(job_runs.duration_mins)
 output a1: SUM(job_runs.avg_retry_secs)
 read 2 ON: jobs.job_id = job_runs.job_id
@@ -33962,7 +33962,7 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `k1`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.k1 = week_start(job_runs.dt)
@@ -34014,7 +34014,7 @@ One value for each different `job_runs.status` and `week_start(job_runs.dt)`.
 ```sql
 SELECT
   job_runs.status AS k0,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS k1,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS k1,
   MIN(job_runs.duration_mins) AS a0,
   SUM(job_runs.avg_retry_secs) AS a1
 FROM ops.job_runs AS job_runs
@@ -34024,7 +34024,7 @@ WHERE
   job_runs.dt = '2026-09-24'
 GROUP BY
   job_runs.status,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 ```
 
 ---
@@ -34036,7 +34036,7 @@ SELECT
   0 - job_runs.duration_mins AS c0,
   CONCAT(job_runs.status, 'FAILED', job_runs.dt) AS c1,
   0 - job_runs.duration_mins AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -34052,7 +34052,7 @@ LIMIT 21
 output c0: 0 - job_runs.duration_mins
 output c1: CONCAT(job_runs.status, 'FAILED', job_runs.dt)
 output c2: 0 - job_runs.duration_mins
-output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c3: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status LIKE '%O\'Brien%'
@@ -34169,7 +34169,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c3 = week_start(job_runs.dt)
@@ -34191,7 +34191,7 @@ SELECT
   0 - job_runs.duration_mins AS c0,
   CONCAT(job_runs.status, 'FAILED', job_runs.dt) AS c1,
   0 - job_runs.duration_mins AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
@@ -34300,7 +34300,7 @@ SELECT
     ) - 0
   ) / 4 AS c1,
   0 - job_runs.duration_mins AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24' AND job_runs.status LIKE '%C:\\\\temp%'
@@ -34311,7 +34311,7 @@ LIMIT 34
 output c0: UPPER(job_runs.status)
 output c1: ((job_runs.duration_mins * 33) - 0) / 4
 output c2: 0 - job_runs.duration_mins
-output c3: NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+output c3: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
 WHERE: job_runs.dt = '2026-09-24'
 WHERE: job_runs.status LIKE '%C:\\\\temp%'
 -- export_lineage
@@ -34400,7 +34400,7 @@ Rows that count:
 
 #### `c3`
 
-Calculated in **statement** as `week_start(job_runs.dt)`, which is `NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`.
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
 
 ```text
 statement.c3 = week_start(job_runs.dt)
@@ -34423,7 +34423,7 @@ SELECT
     ) - 0
   ) / 4 AS c1,
   0 - job_runs.duration_mins AS c2,
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS c3
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS c3
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24' AND job_runs.status LIKE '%C:\\\\temp%'

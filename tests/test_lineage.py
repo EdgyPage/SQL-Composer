@@ -306,7 +306,7 @@ def test_a_box_shows_the_call_it_was_written_with(tmp_path) -> None:
     assert re.search(r'\["week<br/><small>week_start\(job_runs\.dt\)</small>"\]', markdown)
     entry = section(markdown, "#### `week`")
     assert ("Calculated in **weekly** as `week_start(job_runs.dt)`, which is "
-            "`NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')`") in entry
+            "`CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`") in entry
     assert "One value for each different" not in entry
     runs = section(markdown, "#### `runs`")
     assert "One value for each different `week_start(job_runs.dt)`." in runs

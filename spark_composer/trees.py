@@ -125,6 +125,8 @@ KINDS = {
     "Order": ("expressions",),
     "Ordered": ("this", "desc", "nulls_first"),
     "Alias": ("this", "alias"),
+    # A value made another type, as in CAST(... AS STRING): `to` is the type as Hive writes it.
+    "Cast": ("this", "to"),
     # A call to one of Hive's date functions the Toolbox writes, such as next_day.
     "Call": ("name", "args"),
     # hive_function's call: the function's name in lower case, its arguments as written, and

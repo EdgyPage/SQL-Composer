@@ -85,7 +85,7 @@ def test_failed_by_week() -> None:
     )
     assert to_hive(failed_by_week) == """\
 SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
   jobs.region,
   COUNT(*) AS failed_runs
 FROM ops.job_runs AS job_runs
@@ -94,7 +94,7 @@ JOIN ops.jobs AS jobs
 WHERE
   job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-08-26' AND '2026-09-24'
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO'),
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
   jobs.region"""
 
 

@@ -312,6 +312,8 @@ _REPLAY = {
     "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
                                         nulls_first=node.parts["nulls_first"]),
     "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
+    "Cast": lambda node: exp.Cast(this=_built(node, "this"),
+                                  to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
     "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
                                   dialect=_DIALECT),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),

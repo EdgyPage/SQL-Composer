@@ -231,37 +231,29 @@ def week_start(column):
 
     Hive and Spark have no week function that works the same on both, so this takes the first
     Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is
-    the day seven days before. Where Hive runs the query, the result comes back as text, a day
-    like "2026-09-21"; where Spark runs it, as a date (datetime.date), which prints the same. In
-    the DataFrame you get back, a date compared with text, as == "2026-09-21", matches no row,
-    and merged with text gives no rows, with no error; inside the Statement, comparing it with
-    text works on both. So turn it into text first. If you named it week with AS, and result is
-    the DataFrame run(...) gave you, write result["week"] = result["week"].astype(str).
+    the day seven days before. The result is text, a day like "2026-09-21", wherever the query
+    runs: Spark's NEXT_DAY gives a date, so CAST(... AS STRING) makes it text, as Hive gives it.
 
     >>> week_start(job_runs.dt)
-    NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+    CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     column = _need_column(column, "week_start(...)")
     week_ago = _call("date_sub", _as_day(column), number("7"))
-    tree = _call("next_day", week_ago, string("MO"))
+    tree = Node("Cast", this=_call("next_day", week_ago, string("MO")), to="STRING")
     return Column(made_by(tree, "week_start", column), type="string")
 
 
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
-    Where Hive runs the query, the result comes back as text, a day like "2026-09-01"; where
-    Spark runs it, as a date (datetime.date), which prints the same. In the DataFrame you get
-    back, a date compared with text, as == "2026-09-01", matches no row, and merged with text
-    gives no rows, with no error; inside the Statement, comparing it with text works on both. So
-    turn it into text first. If you named it month with AS, and result is the DataFrame run(...)
-    gave you, write result["month"] = result["month"].astype(str).
+    The result is text, a day like "2026-09-01", wherever the query runs: Spark's TRUNC gives a
+    date, so CAST(... AS STRING) makes it text, as Hive gives it.
 
     >>> month_start(job_runs.dt)
-    TRUNC(job_runs.dt, 'MM')
+    CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
     """
     column = _need_column(column, "month_start(...)")
-    tree = _call("trunc", _as_day(column), string("MM"))
+    tree = Node("Cast", this=_call("trunc", _as_day(column), string("MM")), to="STRING")
     return Column(made_by(tree, "month_start", column), type="string")
 
 

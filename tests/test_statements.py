@@ -137,8 +137,8 @@ def test_a_date_partition_in_another_format_is_written_in_that_format() -> None:
     assert repr(equals(compact.day, datetime.date(2026, 9, 24))) == "compact.day = '20260924'"
     assert repr(last_n_days(compact.day, 2)) == "compact.day BETWEEN '20260923' AND '20260924'"
     assert repr(week_start(compact.day)) == (
-        "NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact.day, 'yyyyMMdd'), "
-        "'yyyy-MM-dd'), 7 * -1), 'MO')")
+        "CAST(NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact.day, 'yyyyMMdd'), "
+        "'yyyy-MM-dd'), 7 * -1), 'MO') AS STRING)")
 
 
 def test_between_refuses_days_in_the_wrong_order() -> None:

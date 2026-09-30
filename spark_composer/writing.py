@@ -536,6 +536,8 @@ _WRITE = {
     "Ordered": _ordered,
     "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "
                                    f"{_identifier(node.parts['alias'])}"),
+    # After sqlglot's Generator.cast_sql, which never lays a CAST over several lines.
+    "Cast": lambda node, pretty: f"CAST({_part(node, 'this', pretty)} AS {node.parts['to']})",
     "Call": _call,
     "HiveFunction": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Select": _select,
