@@ -33,3 +33,11 @@ Export both folders to `main` together, as 3.0.
   "<product> 3.0, exported <same time>", as one commit on top of 955dafd.
 - The user pushes `main`, copies `spark_composer/` at work, and runs the README's first
   Statement with `send=lambda hive: spark.sql(hive).toPandas()` on a table they already query.
+
+## Comments
+
+**From ticket 17 (2026-09-29).** The README section generated from `DECLARED_DIFFERENCES` is
+the only public place that explains NULLIF and `0.5D` (beginner reader, stops 12 and 17-21).
+Each row's why must be in plain words for a pandas user: NULLIF(y, 0) gives NULL where Spark
+would stop the whole query; `0.5D` is an ordinary float (a DOUBLE), and the D doesn't mean
+days. Spark Composer's `writing.py` docstring says the README gives the reasons.

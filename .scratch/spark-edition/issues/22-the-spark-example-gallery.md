@@ -27,3 +27,10 @@ examples.
 The Definition of done in `CLAUDE.md` holds, including the beginner reader over the Spark page as
 a Spark user, with its report linked; both staleness tests pass at their pins in CI; the parity
 test passes; `sql_composer/examples.html` is unchanged.
+
+## Comments
+
+**From ticket 17 (2026-09-29).** No Worked example divides by a column or uses a float, so a
+Spark user first meets NULLIF and `0.5D` in their own Statement (beginner reader, stop 23).
+Consider a ratio Worked example, such as failed runs over runs after your own GROUP_BY, so the
+Spark page shows both with its reason.
