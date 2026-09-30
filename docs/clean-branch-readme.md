@@ -17,10 +17,11 @@ Copy one, the whole folder:
   when your notebook runs Spark, with a `spark` session that reads the warehouse's tables.
 
 Both write the same Hive, except in the few places listed under
-[Where the two Editions' Hive differs](#where-the-two-editions-hive-differs), and each difference
-is for Spark. So if your query API runs Hive, SQL Composer's Hive is right for it. If it runs
-Spark, and you can install pyspark, Spark Composer's Hive fits it better, and works with any
-`send`. Pick one per notebook: the two folders' objects don't mix.
+[Where the two Editions' Hive differs](#where-the-two-editions-hive-differs). Two of them,
+dividing and a Python float, are for Spark. So if your query API runs Hive, SQL Composer's Hive
+is right for it. If it runs Spark, and you can install pyspark, Spark Composer's Hive fits it
+better, and works with any `send`. The third, a hive_function call, comes from sqlglot, which
+only SQL Composer uses. Pick one per notebook: the two folders' objects don't mix.
 
 This page writes `sql_composer`. With Spark Composer, write `spark_composer` wherever this page
 writes `sql_composer`: in your imports, in `sql_composer.VERSION`, and in paths such as
