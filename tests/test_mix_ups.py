@@ -59,6 +59,8 @@ OTHERS_TABLE = _made_by(OTHER, "Table")
 OTHERS_COLUMN = _made_by(OTHER, "Column")
 OTHERS_CONDITION = _made_by(OTHER, "Condition")
 OTHERS_STATEMENT = _made_by(OTHER, "Statement")
+OTHERS_DERIVED_TABLE = _made_by(OTHER, "Table")
+OTHERS_DERIVED_TABLE._statement = OTHERS_STATEMENT
 
 
 def _one_day(*clauses):
@@ -70,6 +72,7 @@ def _one_day(*clauses):
     (lambda: FROM(OTHERS_TABLE), "FROM", "a Table reference"),
     (lambda: JOIN(OTHERS_TABLE, ON=equals(job_runs.run_id, 1)), "JOIN", "a Table reference"),
     (lambda: JOIN(example_database.jobs, ON=OTHERS_CONDITION), "JOIN", "a condition"),
+    (lambda: FROM(OTHERS_DERIVED_TABLE), "FROM", "a Derived table"),
     (lambda: all_columns(OTHERS_TABLE), "all_columns", "a Table reference"),
     (lambda: SELECT(OTHERS_COLUMN), "SELECT", "a column"),
     (lambda: AS(OTHERS_COLUMN, "x"), "AS", "a column"),
@@ -89,7 +92,7 @@ def _one_day(*clauses):
     (lambda: export_lineage(OTHERS_STATEMENT), "export_lineage", "a Statement"),
     (lambda: check_key(OTHERS_TABLE, send=example_database.send), "check_key",
      "a Table reference"),
-], ids=["FROM", "JOIN", "JOIN ON", "all_columns", "SELECT", "AS", "WHERE", "GROUP_BY",
+], ids=["FROM", "JOIN", "JOIN ON", "FROM a Derived table", "all_columns", "SELECT", "AS", "WHERE", "GROUP_BY",
         "ORDER_BY", "equals column", "equals value", "arithmetic", "sum_of",
         "count_rows where", "if_else", "statement", "derived", "to_hive", "by_day",
         "export_lineage", "check_key"])
