@@ -15,8 +15,9 @@ uses.
 
 - **Execution override: ON.** As on the v2 map, the user chose built Editions over a spec. Each
   ticket below is a build step, and each keeps the suite green.
-- **Why two Editions.** The user hasn't settled which engine work will use, so both are to be
-  fully built: code, tests, Worked examples, gallery, lineage, docs and admin.
+- **Why two Editions.** The user hasn't settled whether the warehouse at work will run Statements on
+  Hive or on Spark, so both are to be fully built: code, tests, Worked examples, gallery, lineage,
+  docs and admin.
 - **The user's decisions (2026-09-29), which every ticket holds to:**
   - The PySpark edition is the package `spark_composer`, product "Spark Composer", beside
     `sql_composer` so both can sit side by side at work.

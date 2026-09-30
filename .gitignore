@@ -220,3 +220,8 @@ __marimo__/
 # Claude Code: agent worktrees and per-person settings
 .claude/worktrees/
 .claude/settings.local.json
+
+# Spark: what a Spark session leaves where it runs, if it runs outside its own folder
+spark-warehouse/
+metastore_db/
+derby.log
