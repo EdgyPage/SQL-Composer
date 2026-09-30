@@ -53,6 +53,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   other no longer knows its key, so a JOIN to it warns. Group by the calculation you SELECT.
 - Refusals and docstrings that described Hive alone now say what holds on Spark as well, and
   call where Statements run at work "the warehouse".
+- A refusal shows a calculation inside a Toolbox call the way you wrote it, as the lineage
+  does: `equals(fill_null(job_runs.status, "none"), None)` rather than
+  `equals(COALESCE(job_runs.status, 'none'), None)`. So an opt-out it gives can be pasted back
+  as it is.
 
 ## 2.0
 

@@ -36,6 +36,8 @@ def test_equal_nodes_have_the_same_kind_and_parts_whatever_their_notes() -> None
     assert first != Node("EQ", this=column("a"), expression=number("2"))
     assert first != Node("NEQ", this=column("a"), expression=number("1"))
     assert Node("Literal", this="A", is_string=True) != Node("Literal", this="a", is_string=True)
+    # 0.5 and Decimal("0.5") are the same number, whichever way an Edition writes them.
+    assert Node("Literal", this="0.5", is_string=False, is_float=True) == number("0.5")
     # A part holding nothing counts as left out, as sqlglot compares its trees.
     assert Node("Ordered", this=column("a"), desc=False) == Node("Ordered", this=column("a"))
 

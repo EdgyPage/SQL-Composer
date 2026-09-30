@@ -2,8 +2,8 @@
 
 `escaping_cases.py` holds the cases. Here each case goes in through the Toolbox: each comparison
 function, both ends of a range, each item of a list, a calculation and a Date partition bound,
-and a number's text is written by the Toolbox, not by its own str(). The checks that read the Hive
-back with sqlglot are in `sqlglot_edition/test_sqlglot_escaping_toolbox.py`.
+and a number's text is written by the Toolbox, not by its own str(). The last checks read a whole
+Statement's Hive back by its characters, with `hive_literals.py`, so they hold in both Editions.
 """
 
 from __future__ import annotations

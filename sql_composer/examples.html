@@ -2203,7 +2203,7 @@ WHERE
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
 <p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with its arguments escaped.</p>
-<p>In the Hive, a function may appear under its other name, as nvl as COALESCE, or without an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same.</p>
+<p>The Hive writes its name in capitals. It may also write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same.</p>
 <pre class="python">hive_function(&quot;regexp_replace&quot;, jobs.job_name, &quot;_&quot;, &quot; &quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">REGEXP_REPLACE(jobs.job_name, &#x27;_&#x27;, &#x27; &#x27;)</pre>

@@ -60,33 +60,33 @@ def made_by(tree: Node, name: str, *args, **keywords) -> Node:
     The note leaves the Hive unchanged. The lineage shows it, since it reads the way the
     Statement was written, where the Hive may be written differently.
     """
-    parts = [_argument_text(arg) for arg in args]
-    parts += [f"{key}={_argument_text(value)}" for key, value in keywords.items()
+    parts = [python_text(arg) for arg in args]
+    parts += [f"{key}={python_text(value)}" for key, value in keywords.items()
               if value is not None]
     tree.meta["call"] = f"{name}({', '.join(parts)})"
     return tree
 
 
-def _argument_text(value) -> str:
-    """One argument of a Toolbox call, written back as Python, for the lineage boxes."""
+def python_text(value) -> str:
+    """One argument of a Toolbox call, written back as Python, for the lineage and refusals."""
     # A column, condition or descending(...) is spotted by what it holds, not by its class:
     # a condition's class and descending's live in files that import this one.
     if hasattr(value, "_tree"):
         return readable(value._tree)
     if hasattr(value, "_target"):
-        return f"descending({_argument_text(value._target)})"
+        return f"descending({python_text(value._target)})"
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
     if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_argument_text(item) for item in value) + "]"
+        return "[" + ", ".join(python_text(item) for item in value) + "]"
     return repr(value)
 
 
 def readable(tree: Node) -> str:
     """A calculation or condition as it was written: its Toolbox calls, else its Hive.
 
-    It reads the same in both Editions, since writing.readable_text leaves out anything an
-    Edition adds to its Hive for its own engine.
+    It reads the same in both Editions: writing.readable_text leaves out anything one Edition
+    adds to its Hive that the other doesn't.
     """
     if "call" in tree.meta:
         return tree.meta["call"]
@@ -398,7 +398,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     text = _number_text(value)
     if text is None:
         guard_not_a_number(call, position, value)
-    return number(text, double=isinstance(value, float))
+    return number(text, is_float=isinstance(value, float))
 
 
 def _string_literal(value: str, call: str, position: str) -> Node:

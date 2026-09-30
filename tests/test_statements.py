@@ -156,7 +156,7 @@ def test_is_in_needs_a_non_empty_list() -> None:
 def test_hive_function_refuses_a_name_that_isnt_a_plain_name() -> None:
     with pytest.raises(ValueError, match="plain"):
         hive_function("upper(x); drop table y; --", jobs.team)
-    with pytest.raises(TypeError, match="don't fit"):
+    with pytest.raises(TypeError, match=r"hive_function\('regexp_extract', \.\.\.\)"):
         hive_function("regexp_extract", jobs.team)
 
 

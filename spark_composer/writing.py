@@ -1,19 +1,27 @@
-"""How Spark Composer writes a Statement as Hive text, with no package but Python's own.
+"""How Spark Composer writes a Statement as Hive text, using only Python's standard library.
 
-The other files build a Statement's parts as the Toolbox's own tree (trees.py). This file
-writes them out as Hive: the same Hive SQL Composer writes, laid out the same way, since its
-layout copies sqlglot 30.19.0's rule for rule. It also checks the text it wrote, reads a
-hive_function call's arguments against the list both Editions share, and says how a table is
-described. Each Edition of the Toolbox writes Hive its own way behind these same function names.
+The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
+one for each piece of the SQL. This file writes them out as Hive, laid out over lines as SQL
+Composer lays out its own. It also checks what it wrote, counts a hive_function call's arguments
+(HIVE_FUNCTION_ARGUMENTS in trees.py), and writes the DESCRIBE and SHOW PARTITIONS commands for
+a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
+Spark Composer, this one) writes Hive its own way behind these same function names.
 
-Where the two Editions' Hive differs on purpose, `tools/editions.py` lists why
-(`DECLARED_DIFFERENCES`): a division writes NULLIF around its divisor, since Spark refuses to
-divide by zero; a float is written as a DOUBLE, as in 0.5D, since Spark reads 0.5 as a DECIMAL;
-and a hive_function call is written as it was named.
+Its Hive is SQL Composer's but in three places, each with its reason in the README:
+
+- a division by anything that could be 0 is written x / NULLIF(y, 0). NULLIF(y, 0) is NULL when
+  y is 0, so that row gets NULL, as in Hive, where Spark would stop the whole query with an
+  error. Where y is never 0, it changes nothing;
+- a Python float, such as 0.5, is written 0.5D. The D marks a DOUBLE, SQL's float; it doesn't
+  mean days. Without it Spark reads 0.5 as a DECIMAL, an exact decimal, where Hive reads a
+  DOUBLE;
+- a hive_function call is written by the name it was given, such as NVL(...), where SQL
+  Composer may write another name that does the same, such as COALESCE(...).
 """
 
 from __future__ import annotations
 
+import contextvars
 import re
 
 from .refusals import four_part_message
@@ -26,17 +34,15 @@ WIDTH = 80
 # How far each level is indented.
 PAD = 2
 
-# How a string value is written between single quotes: the backslash first, so an escape
-# added for a quote is never itself escaped.
+# How a character of a string value is written between single quotes. Each is escaped on its
+# own, so an escape's backslash is never escaped again. BEL, FF and VT have no escape Hive and
+# Spark both read; the Toolbox refuses a value that holds one before it gets here.
 _ESCAPES = {
     "\\": "\\\\",
     "'": "\\'",
     "\n": "\\n",
     "\t": "\\t",
     "\r": "\\r",
-    "\x07": "\\a",
-    "\x0c": "\\f",
-    "\x0b": "\\v",
     "\x08": "\\b",
 }
 
@@ -60,19 +66,21 @@ def hive_statement(node: Node) -> str:
     return _sql(node, True).strip()
 
 
-def readable_text(node: Node) -> str:
-    """A part of a Statement as it was written in Python, on one line.
+# Set while readable_text writes: the Hive then leaves out what this file adds for Spark.
+_AS_WRITTEN = contextvars.ContextVar("as_written", default=False)
 
-    It leaves out what this file adds to the Hive for Spark: the NULLIF around a divisor and the
-    D after a float. So a calculation reads the same in both Editions; only its Hive differs.
+
+def readable_text(node: Node) -> str:
+    """A part of a Statement as Hive on one line, for the lineage to show how it was written.
+
+    It leaves out what this file adds to the Hive for Spark alone, the NULLIF around a divisor
+    and the D after a float, so a calculation reads the same in both Editions.
     """
-    written = node.copy()
-    for part in written.walk():
-        if part.kind == "Div":
-            part.meta["as_written"] = True
-        elif part.kind == "Literal":
-            part.set("double", False)
-    return hive_text(written)
+    token = _AS_WRITTEN.set(True)
+    try:
+        return hive_text(node)
+    finally:
+        _AS_WRITTEN.reset(token)
 
 
 # --- The layout: sqlglot's sep, seg, indent, wrap and lists ---------------------------------
@@ -149,16 +157,32 @@ def _op_list(op: str, sqls: list[str], pretty: bool, flat: bool = False) -> str:
 # --- Values and names -----------------------------------------------------------------------
 
 
-def string(text: str) -> str:
-    return "'" + "".join(_ESCAPES.get(character, character) for character in text) + "'"
+def _quoted(text: str) -> str:
+    """A string value between single quotes, checked: it must read back as the same value."""
+    written = "'" + "".join(_ESCAPES.get(character, character) for character in text) + "'"
+    if _value_at(written, 0) != (text, len(written)):
+        raise RuntimeError(_misread(text, written))
+    return written
 
 
-def name(text: str) -> str:
-    return text if plain_name(text) else "`" + text.replace("`", "``") + "`"
+def _identifier(text: str) -> str:
+    """A name, in backticks when it isn't plain, checked: it must read back as the same name."""
+    if plain_name(text):
+        return text
+    written = "`" + text.replace("`", "``") + "`"
+    if _name_at(written, 0) != (text, len(written)):
+        raise RuntimeError(_misread(text, written))
+    return written
+
+
+def _misread(text: str, written: str) -> str:
+    return (f"spark_composer wrote {text!r} as {written}, which doesn't read back the same. "
+            "This is a bug in the Toolbox, not in your Statement: nothing was sent. Please "
+            "report it with the Statement that caused it.")
 
 
 def _table_name(text: str) -> str:
-    return ".".join(name(part) for part in text.split("."))
+    return ".".join(_identifier(part) for part in text.split("."))
 
 
 # --- One function per kind of Node ----------------------------------------------------------
@@ -174,15 +198,17 @@ def _part(node: Node, part: str, pretty: bool) -> str:
 
 
 def _column(node: Node, pretty: bool) -> str:
-    return f"{name(node.table)}.{name(node.name)}" if node.table else name(node.name)
+    column = _identifier(node.name)
+    return f"{_identifier(node.table)}.{column}" if node.table else column
 
 
 def _literal(node: Node, pretty: bool) -> str:
     if node.parts.get("is_string"):
-        return string(node.parts["this"])
+        return _quoted(node.parts["this"])
     text = node.parts["this"]
-    # A Python float is a DOUBLE: Spark reads 0.5 as a DECIMAL, and 0.5D as a DOUBLE.
-    if node.parts.get("double") and not re.search(r"[eE]", text):
+    # A Python float is a DOUBLE, 0.5D. A number written with e, such as 1e-05, is a DOUBLE to
+    # Spark already, so it needs no D.
+    if node.parts.get("is_float") and not _AS_WRITTEN.get() and not re.search(r"[eE]", text):
         return f"{text}D"
     return text
 
@@ -190,9 +216,8 @@ def _literal(node: Node, pretty: bool) -> str:
 def _two_sided(node: Node, pretty: bool) -> str:
     divisor = node.parts["expression"]
     right = _part(node, "expression", pretty)
-    # Spark refuses to divide by zero where Hive gives NULL, so any divisor that could be zero
-    # goes through NULLIF, which makes it NULL instead.
-    if node.kind == "Div" and not node.meta.get("as_written") and not _nonzero_number(divisor):
+    # A divisor that could be 0 goes through NULLIF, so a division by 0 gives NULL, as in Hive.
+    if node.kind == "Div" and not _AS_WRITTEN.get() and not _nonzero_number(divisor):
         right = _func("NULLIF", [divisor, Node("Literal", this="0", is_string=False)], pretty)
     return f"{_part(node, 'this', pretty)} {_OPERATORS[node.kind]} {right}"
 
@@ -317,7 +342,7 @@ def _with_tables(node: Node, sql: str, pretty: bool) -> str:
     tables = node.parts.get("derived_tables") or []
     if not tables:
         return sql
-    listed = ", ".join(f"{name(table.parts['alias'])} AS "
+    listed = ", ".join(f"{_identifier(table.parts['alias'])} AS "
                        f"{_wrap(_part(table, 'this', pretty), pretty)}" for table in tables)
     return f"WITH {listed}{_sep(pretty)}{sql}"
 
@@ -334,13 +359,15 @@ def _join(node: Node, pretty: bool) -> str:
 
 def _table(node: Node, pretty: bool) -> str:
     database = node.parts.get("db")
-    sql = f"{name(database)}.{name(node.name)}" if database else name(node.name)
+    sql = _identifier(node.name)
+    if database:
+        sql = f"{_identifier(database)}.{sql}"
     partition = node.parts.get("partition")
     if partition is not None:
         sql += " PARTITION(" + ", ".join(
             _sql(item, pretty) for item in partition.parts["expressions"]) + ")"
     alias = node.parts.get("alias")
-    return sql if alias is None else f"{sql} AS {name(alias)}"
+    return sql if alias is None else f"{sql} AS {_identifier(alias)}"
 
 
 def _insert(node: Node, pretty: bool) -> str:
@@ -351,7 +378,7 @@ def _insert(node: Node, pretty: bool) -> str:
 
 
 def _column_def(node: Node, pretty: bool) -> str:
-    return f"{name(node.name)} {_type(node.parts['type'], pretty)}"
+    return f"{_identifier(node.name)} {_type(node.parts['type'], pretty)}"
 
 
 def _columns(defs: list[Node], pretty: bool) -> str:
@@ -463,7 +490,7 @@ _WRITE = {
     "Order": _order,
     "Ordered": _ordered,
     "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "
-                                   f"{name(node.parts['alias'])}"),
+                                   f"{_identifier(node.parts['alias'])}"),
     "Call": _call,
     "HiveFunction": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Select": _select,
@@ -478,9 +505,10 @@ _WRITE = {
 
 # --- Reading the Hive back ------------------------------------------------------------------
 
-# The escapes a value in quotes may hold, and the character each one stands for.
-_DECODED = {"\\": "\\", "'": "'", "n": "\n", "t": "\t", "r": "\r", "a": "\x07", "f": "\x0c",
-            "v": "\x0b", "b": "\x08", "%": "\\%", "_": "\\_"}
+# How Hive and Spark read a backslash in a value: before one of these it stands for a control
+# character, before % or _ it stays, for LIKE, and before any other character it stands for that
+# character. It is kept apart from _ESCAPES on purpose, so a slip there reads back wrong.
+_CONTROLS = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "0": "\0"}
 
 
 def read_back(text: str) -> str:
@@ -494,13 +522,15 @@ def _problem(text: str) -> str | None:
     while at < len(text):
         character = text[at]
         if character == "'":
-            at = _after_string(text, at)
-            if at is None:
+            value = _value_at(text, at)
+            if value is None:
                 return "a value in quotes doesn't end"
+            at = value[1]
         elif character == "`":
-            at = _after_name(text, at)
-            if at is None:
+            name = _name_at(text, at)
+            if name is None:
                 return "a name in backticks doesn't end"
+            at = name[1]
         elif text.startswith("--", at) or text.startswith("/*", at):
             return "a comment outside quotes"
         elif character == ";":
@@ -512,32 +542,44 @@ def _problem(text: str) -> str | None:
     return None
 
 
-def _after_string(text: str, start: int) -> int | None:
-    at = start + 1
-    while at < len(text):
+def _value_at(text: str, start: int) -> tuple[str, int] | None:
+    """The value in single quotes that starts at `start`, as Hive reads it, and where it ends.
+
+    None when it doesn't end on its line.
+    """
+    decoded, at = [], start + 1
+    while at < len(text) and text[at] not in "\n\r":
         character = text[at]
-        if character == "\\":
-            if at + 1 >= len(text) or text[at + 1] not in _DECODED:
-                return None
+        if character == "'":
+            return "".join(decoded), at + 1
+        if character == "\\" and at + 1 < len(text):
+            escaped = text[at + 1]
+            if escaped in "%_":
+                decoded.append("\\" + escaped)
+            else:
+                decoded.append(_CONTROLS.get(escaped, escaped))
             at += 2
-        elif character == "'":
-            return at + 1
-        elif character in "\n\r":
-            return None
         else:
+            decoded.append(character)
             at += 1
     return None
 
 
-def _after_name(text: str, start: int) -> int | None:
-    at = start + 1
+def _name_at(text: str, start: int) -> tuple[str, int] | None:
+    """The name in backticks that starts at `start`, as Hive reads it, and where it ends.
+
+    A doubled backtick is read as one. None when the name doesn't end.
+    """
+    decoded, at = [], start + 1
     while at < len(text):
-        if text[at] == "`":
-            if text.startswith("``", at):
-                at += 2
-                continue
-            return at + 1
-        at += 1
+        if text.startswith("``", at):
+            decoded.append("`")
+            at += 2
+        elif text[at] == "`":
+            return "".join(decoded), at + 1
+        else:
+            decoded.append(text[at])
+            at += 1
     return None
 
 
@@ -545,22 +587,32 @@ def _after_name(text: str, start: int) -> int | None:
 
 
 def function_adds_rows_up(name: str, args: list[Node], call: str) -> bool:
-    """Whether hive_function(name, *args) adds rows up, by the list both Editions share.
+    """Check a hive_function call's number of arguments, then say whether it adds rows up.
 
-    It raises TypeError when the function doesn't take this many arguments.
+    The counts are HIVE_FUNCTION_ARGUMENTS in trees.py, and the functions that add rows up, as
+    SUM or COUNT do, are HIVE_AGGREGATES there. It raises TypeError when the function takes
+    another number of arguments.
     """
     fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))
     if len(args) < fewest or (most is not None and len(args) > most):
-        takes = f"{fewest}" if fewest == most else (
-            f"{fewest} or more" if most is None else f"{fewest} to {most}")
+        takes = _arguments(fewest, most)
         raise TypeError(four_part_message(
-            what=f"{call} was given {len(args)} arguments, which don't fit {name}.",
-            why=f"{name} takes {takes} arguments in Hive and in Spark, so the warehouse would "
-            "refuse the call.",
-            fix=f"Check {name}'s arguments in Hive's documentation.",
+            what=f"{call} gives {name} {_arguments(len(args), len(args))}, and {name} takes "
+            f"{takes}.",
+            why="The warehouse would stop the whole Statement with an error when it runs.",
+            fix=f"Give {name} {takes} after its name.",
             opt_out=None,
         ))
     return name.lower() in HIVE_AGGREGATES
+
+
+def _arguments(fewest: int, most: int | None) -> str:
+    """How many arguments, such as "1 argument", "2 to 3 arguments" or "2 or more arguments"."""
+    if most is None:
+        return f"{fewest} or more arguments"
+    if fewest != most:
+        return f"{fewest} to {most} arguments"
+    return "1 argument" if fewest == 1 else f"{fewest} arguments"
 
 
 def hive_type(text: str) -> str:
