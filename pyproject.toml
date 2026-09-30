@@ -15,6 +15,11 @@ filterwarnings = [
     "error",
     # ...except pytest's own config-time warnings, which are about the run, not the code.
     "default::pytest.PytestConfigWarning",
+    # ...and two pyspark raises in pytest's own Python, where Spark Composer's acceptance tests
+    # ask a Spark there (tests/in_process_spark.py). pyspark 3.5.0's toPandas() uses distutils'
+    # LooseVersion, and 3.5.0 and 4.0.4 leave each collect()'s socket to the garbage collector.
+    "ignore:distutils Version classes are deprecated:DeprecationWarning:pyspark.sql.pandas.utils",
+    "ignore:unclosed <socket\\.socket[^>]*raddr=\\('127\\.0\\.0\\.1':ResourceWarning",
 ]
 
 [tool.ruff]
