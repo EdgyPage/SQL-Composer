@@ -130,7 +130,10 @@ def _rows(*outputs, where=()):
 
 
 def _width_cases() -> list:
-    """Each construct with a value one character short of wrapping, and one that wraps."""
+    """Each construct with a value one character short of wrapping, and one that wraps.
+
+    Then an IN list and a column type far too wide for one line.
+    """
     constructs = {
         "in_list": (22, lambda v: _rows(job_runs.run_id, where=[is_in(job_runs.status,
                                                                       ["a", v])])),

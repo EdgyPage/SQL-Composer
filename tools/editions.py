@@ -92,11 +92,11 @@ LAYOUT_MIRRORS_SQLGLOT = "30.19.0"
 
 @dataclass(frozen=True)
 class Difference:
-    """One place the two Editions' Hive differs on purpose.
+    """One place the two Editions differ on purpose: in the Hive they write, or in a refusal.
 
     `why` says it in plain words, for the README. `sql_composer` and `spark_composer` are the
-    same piece of Hive as each Edition writes it, as the golden corpus shows it in one of
-    `cases`, the ids of the golden cases the difference explains. `spark_composer_adds` is True
+    same piece of what each Edition shows, its Hive or its refusal, as the golden corpus shows it
+    in one of `cases`, the ids of the golden cases the difference explains. `spark_composer_adds` is True
     for text Spark Composer adds to SQL Composer's Hive, which its readable_text leaves out.
     tests/repo/test_edition_parity.py holds that the two goldens differ in no other case, that
     each listed case really differs, and that with what Spark Composer adds left out, a case
@@ -110,8 +110,8 @@ class Difference:
     spark_composer_adds: bool = False
 
 
-# Each place the two Editions' Hive differs on purpose. The last two last only until 3.0, when
-# SQL Composer checks the same way (ticket 25 of the PySpark work).
+# Each place the two Editions differ on purpose. The last two last only until 3.0, when SQL
+# Composer checks the same way (ticket 25 of the PySpark work).
 DECLARED_DIFFERENCES = {
     "division": Difference(
         why="Spark stops the whole query with an error when it divides by 0, where Hive gives "
