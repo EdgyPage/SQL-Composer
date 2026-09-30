@@ -21,6 +21,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
+import editions  # noqa: E402
 import export_clean  # noqa: E402
 
 import sql_composer  # noqa: E402
@@ -273,7 +274,7 @@ def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
         export_clean.build(source, tmp_path / "clean", WHEN)
     # The whole four-part stop, not only its last line.
     assert str(refused.value).startswith(
-        "The stamped copy of the Toolbox doesn't import, so nothing was exported:\n"
+        "The stamped copy of SQL Composer doesn't import, so nothing was exported:\n"
         "ImportError: sql_composer stopped on import:\n"
         "  What happened:  old_module.py is from Toolbox version 1.9, and __init__.py is from "
         f"{VERSION}.\n"
@@ -321,5 +322,110 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
     main_before = _main_commit(ROOT)
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
+    # Until 3.0 ships, the preview holds SQL Composer alone.
+    assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
+        ".github", "sql_composer"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
+
+
+# --- Both Editions, as the export builds them once 3.0 ships them ---------------------------------
+
+BOTH = (editions.SQL_COMPOSER, editions.SPARK_COMPOSER)
+
+
+@pytest.fixture(scope="module")
+def clean_both(tmp_path_factory) -> Path:
+    folder = tmp_path_factory.mktemp("clean_both")
+    export_clean.build(ROOT, folder, WHEN, exported=BOTH)
+    return folder
+
+
+def _files_of(folder: Path) -> list[str]:
+    return sorted(path.name for path in folder.iterdir() if path.name != "__pycache__")
+
+
+@pytest.mark.parametrize("edition", BOTH, ids=lambda edition: edition.folder)
+def test_each_edition_is_stamped_with_its_own_name_and_one_time(clean_both: Path,
+                                                                edition) -> None:
+    stamp = (f"{edition.product} {VERSION}, exported 2026-10-02 14:05 - generated from dev, do "
+             "not edit")
+    for name in _files_of(clean_both / edition.folder):
+        first = (clean_both / edition.folder / name).read_text(encoding="utf-8").split("\n")[0]
+        assert first in (f"# {stamp}", f"<!-- {stamp} -->"), name
+
+
+@pytest.mark.parametrize("edition", BOTH, ids=lambda edition: edition.folder)
+def test_each_editions_file_list_names_its_own_files(clean_both: Path, edition) -> None:
+    init = (clean_both / edition.folder / "__init__.py").read_text(encoding="utf-8")
+    assert files_list_in(init) == _files_of(ROOT / edition.folder)
+
+
+def test_both_editions_hold_only_their_folders_and_the_readme(clean_both: Path) -> None:
+    assert [path for path in export_clean.files_in(clean_both)
+            if not path.startswith(("sql_composer/", "spark_composer/"))] == [".github/README.md"]
+
+
+def dev_copy_both(folder: Path) -> Path:
+    """A copy of what the build reads from `dev` for both Editions, to spoil on purpose."""
+    dev_copy(folder)
+    shutil.copytree(ROOT / "spark_composer", folder / "spark_composer",
+                    ignore=shutil.ignore_patterns("__pycache__"))
+    return folder
+
+
+def test_an_edition_the_commit_lacks_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(export_clean.ExportRefused, match="names spark_composer, which this "
+                       "commit doesn't have"):
+        export_clean.build(dev_copy(tmp_path / "dev"), tmp_path / "clean", WHEN, exported=BOTH)
+
+
+def test_editions_of_different_versions_are_refused(tmp_path: Path) -> None:
+    source = dev_copy_both(tmp_path / "dev")
+    init = source / "spark_composer" / "__init__.py"
+    init.write_text(init.read_text(encoding="utf-8").replace(
+        f'TOOLBOX_VERSION = "{VERSION}"', 'TOOLBOX_VERSION = "9.9"'), encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match="different versions"):
+        export_clean.build(source, tmp_path / "clean", WHEN, exported=BOTH)
+
+
+def test_a_stale_copy_of_a_shared_file_is_refused(tmp_path: Path) -> None:
+    source = dev_copy_both(tmp_path / "dev")
+    tables = source / "spark_composer" / "tables.py"
+    tables.write_text(tables.read_text(encoding="utf-8") + "\n# edited by hand\n",
+                      encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match="tables.py aren't current copies"):
+        export_clean.build(source, tmp_path / "clean", WHEN, exported=BOTH)
+
+
+def test_editions_describing_their_names_differently_are_refused(tmp_path: Path,
+                                                                 monkeypatch) -> None:
+    real = export_clean.build_edition
+
+    def one_line_differs(source, into, edition, when):
+        described = real(source, into, edition, when)
+        if edition is editions.SPARK_COMPOSER:
+            described["groups"][0]["names"][0][1] = "- something else"
+        return described
+
+    monkeypatch.setattr(export_clean, "build_edition", one_line_differs)
+    with pytest.raises(export_clean.ExportRefused, match="describes its public names differently"):
+        export_clean.build(dev_copy_both(tmp_path / "dev"), tmp_path / "clean", WHEN,
+                           exported=BOTH)
+
+
+def test_a_readme_naming_an_edition_that_isnt_shipped_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    template = source / export_clean.README_TEMPLATE
+    template.write_text(template.read_text(encoding="utf-8") + "\nSee spark_composer too.\n",
+                        encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match="names Spark Composer, which this "
+                       "export doesn't ship"):
+        export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def test_the_allowlist_takes_each_exported_editions_folder() -> None:
+    paths = ["sql_composer/tables.py", "spark_composer/tables.py", ".github/README.md"]
+    assert export_clean.outside_allowlist(paths) == ["spark_composer/tables.py"]
+    assert export_clean.outside_allowlist(paths, BOTH) == []
+

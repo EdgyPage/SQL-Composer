@@ -26,6 +26,9 @@ import sys
 
 TOOLBOX_VERSION = "2.1"
 
+# The Edition this folder is, as its export stamps each of its files.
+_PRODUCT = "Spark Composer"
+
 # The export script writes the Toolbox's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.
 _FILES = None
@@ -85,9 +88,16 @@ def _stamp_of(path):
         first = file.readline().strip()
     start, end = ("# ", "") if path.endswith(".py") else ("<!-- ", " -->")
     stamp = first[len(start):len(first) - len(end)]
-    if first.startswith(start) and first.endswith(end) and stamp.startswith("Spark Composer "):
+    # Either Edition's stamp, such as "... Composer 2.1, exported 2026-10-02 14:05 - ...".
+    if first.startswith(start) and first.endswith(end) and re.match(
+            r"\w+ Composer \S+, exported ", stamp):
         return stamp
     return None
+
+
+def _product_of(stamp):
+    """The Edition a stamp names."""
+    return stamp[:stamp.index(" Composer ")] + " Composer"
 
 
 def _check_files():
@@ -138,6 +148,16 @@ def _check_files():
         name: _stamp_of(os.path.join(_HERE, name))
         for name in present if os.path.isfile(os.path.join(_HERE, name))
     }
+    for name, stamp in stamps.items():
+        if stamp is not None and _product_of(stamp) != _PRODUCT:
+            _stop(
+                what=f"{name} is from {_product_of(stamp)}, the other Edition, and this folder "
+                f"is {_PRODUCT}.",
+                why="Each Edition's files work only with the rest of its own folder, so a file "
+                "from the other one could make a Statement fail or come out wrong.",
+                fix="Delete the spark_composer folder, then copy the whole folder in again from "
+                "one download.",
+            )
     if len(set(stamps.values())) > 1:
         odd = sorted(name for name, stamp in stamps.items() if stamp != stamps["__init__.py"])
         _stop(
@@ -152,7 +172,7 @@ def _check_files():
 def _version_text():
     stamp = _stamp_of(os.path.join(_HERE, "__init__.py"))
     if stamp is None:
-        return f"Spark Composer {TOOLBOX_VERSION}, not exported (dev)"
+        return f"{_PRODUCT} {TOOLBOX_VERSION}, not exported (dev)"
     return stamp.split(" - ")[0]
 
 
