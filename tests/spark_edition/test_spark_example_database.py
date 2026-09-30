@@ -68,7 +68,7 @@ def _count_jobs() -> list:
 
 
 # What _count_jobs() gives: the Example database's jobs table holds four jobs.
-_EVERY_JOB = [4]
+_JOB_COUNT = [4]
 
 
 @pytest.fixture
@@ -182,8 +182,8 @@ def test_a_spark_home_holding_another_spark_is_named(monkeypatch, tmp_path) -> N
 
 @pytest.mark.skipif(os.name != "nt", reason="only Spark's Windows launcher can't take these")
 @pytest.mark.parametrize(("folder", "named"), [
-    ("C:\\Users\\Tom&Jerry\\Temp", "&"),
-    ("C:\\Users\\a;b\\Temp", ";"),
+    ("C:\\Users\\Tom&Jerry\\Temp", '"&"'),
+    ("C:\\Users\\a;b\\Temp", '";"'),
     # A folder Windows gives no short name, as on a drive where it makes none.
     ("C:\\No Such Folder\\Temp", "a space"),
 ], ids=["&", ";", "a space with no short name"])
@@ -191,7 +191,7 @@ def test_a_temporary_folder_the_windows_launcher_cant_take_is_named(monkeypatch,
                                                                     named: str) -> None:
     monkeypatch.setattr(tempfile, "tempdir", folder)
     reason = engine.example_database_cannot_run()
-    assert f"the temporary folder Python uses, {folder}, has {named} in its path" in reason
+    assert f"{folder}, has {named} in its path" in reason
     with pytest.raises(RuntimeError, match=r"tempfile\.tempdir = "):
         example_database.send("SELECT job_id FROM ops.jobs")
 
@@ -231,6 +231,13 @@ def test_a_java_that_couldnt_say_its_version_is_asked_again(monkeypatch) -> None
      "\tat java.base/sun.nio.ch.Net.bind0(Native Method)\n"
      "\t... 20 more\n",
      "java.net.BindException: Address already in use: bind"),
+    ("Picked up JAVA_TOOL_OPTIONS: -Xmx1k\n"
+     "Error occurred during initialization of VM\n"
+     "Too small maximum heap\n", "Too small maximum heap"),
+    ("Unrecognized VM option 'UseNothing'\n"
+     "Error: Could not create the Java Virtual Machine.\n"
+     "Error: A fatal exception has occurred. Program will exit.\n",
+     "Unrecognized VM option 'UseNothing'"),
     ("Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8\n"
      "Traceback (most recent call last):\n"
      '  File "engine.py", line 1004, in _serve\n'
@@ -243,7 +250,8 @@ def test_a_java_that_couldnt_say_its_version_is_asked_again(monkeypatch) -> None
      "Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties\n"
      "26/09/30 04:32:01 WARN Shell: Did not find winutils.exe\n", ""),
 ], ids=["the launcher's own complaint", "a Java error, under its stack and a traceback",
-        "a Python error, under a Java notice", "a Java error with no traceback",
+        "Java's reason, under its own word that it quit", "Java's reason, above that word",
+        "a Python error, under a line Java printed", "a Java error with no traceback",
         "only what a start that goes well writes"])
 def test_a_failed_starts_log_is_cut_to_what_most_likely_says_why(log: str, said: str) -> None:
     assert engine._last_words(log) == said
@@ -300,8 +308,21 @@ def test_a_launcher_that_quits_without_starting_java_is_said_to_have_quit(
     ("[ARITHMETIC_OVERFLOW] integer overflow. Use 'try_multiply' to tolerate overflow and "
      'return NULL instead. If necessary set "spark.sql.ansi.enabled" to "false" to bypass this '
      "error. SQLSTATE: 22003", "[ARITHMETIC_OVERFLOW] integer overflow"),
+    ("[CAST_INVALID_INPUT] The value 'try_again' of the type \"STRING\" cannot be cast to "
+     '"INT" because it is malformed. Correct the value as per the syntax, or change its target '
+     "type. Use `try_cast` to tolerate malformed input and return NULL instead. SQLSTATE: 22018",
+     "[CAST_INVALID_INPUT] The value 'try_again' of the type \"STRING\" cannot be cast to "
+     '"INT" because it is malformed. Correct the value as per the syntax, or change its target '
+     "type"),
+    ("[WRONG_NUM_ARGS.WITHOUT_SUGGESTION] The `try_divide` requires 2 parameters but the actual "
+     "number is 1. Please, refer to 'https://spark.apache.org/docs/latest/sql-ref-functions.html' "
+     "for a fix. SQLSTATE: 42605; line 1 pos 7",
+     "[WRONG_NUM_ARGS.WITHOUT_SUGGESTION] The `try_divide` requires 2 parameters but the actual "
+     "number is 1. Please, refer to 'https://spark.apache.org/docs/latest/sql-ref-functions.html' "
+     "for a fix"),
 ], ids=["suggestion naming a try_ column", "setting advice", "3.5.0 setting advice",
-        "3.5.0 place in the Hive", "try_ advice in single quotes"])
+        "3.5.0 place in the Hive", "try_ advice in single quotes", "a value starting try_",
+        "a try_ function called wrongly"])
 def test_what_spark_says_is_cut_to_what_names_the_problem(said: str, shown: str) -> None:
     assert engine._spark_says(said) == shown
 
@@ -444,14 +465,20 @@ def test_your_python_holds_no_spark_and_your_folder_gets_no_files() -> None:
 
 
 @pytest.mark.needs_example_database
-def test_a_kernels_hadoop_settings_dont_reach_its_spark(monkeypatch, tmp_path) -> None:
-    # What a kernel started by spark-submit, on a Spark that brings no Hadoop of its own, carries.
+def test_a_kernels_own_spark_and_hadoop_settings_dont_reach_its_spark(monkeypatch,
+                                                                       tmp_path) -> None:
+    # What a kernel started by spark-submit, on a Spark that brings no Hadoop of its own, can
+    # carry; and what a notebook whose own Spark is a Spark Connect one sets.
     (tmp_path / "core-site.xml").write_text(
         "<configuration><property><name>fs.defaultFS</name>"
         "<value>nowhere://warehouse-at-work/</value></property></configuration>")
     monkeypatch.setenv("SPARK_DIST_CLASSPATH", str(tmp_path))
+    monkeypatch.setenv("SPARK_SUBMIT_OPTS", "-Dspark.sql.caseSensitive=true")
+    monkeypatch.setenv("SPARK_CONNECT_MODE_ENABLED", "1")
     engine._stop_spark()
-    assert _count_jobs() == _EVERY_JOB
+    # With case-sensitive names, JOB_ID wouldn't be the column job_id.
+    assert list(example_database.send("SELECT count(JOB_ID) AS jobs FROM ops.jobs").jobs) == (
+        _JOB_COUNT)
 
 
 @pytest.mark.needs_example_database
@@ -467,7 +494,7 @@ def test_a_java_found_through_a_script_on_path_starts_its_spark(monkeypatch, tmp
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
     assert Path(engine._java()[0]).parent == tmp_path
     engine._stop_spark()
-    assert _count_jobs() == _EVERY_JOB
+    assert _count_jobs() == _JOB_COUNT
 
 
 @pytest.mark.needs_example_database
@@ -478,7 +505,7 @@ def test_a_relative_temporary_folder_is_taken_from_where_your_python_runs(monkey
     monkeypatch.setattr(tempfile, "tempdir", "temp")
     engine._stop_spark()
     try:
-        assert _count_jobs() == _EVERY_JOB
+        assert _count_jobs() == _JOB_COUNT
     finally:
         engine._stop_spark()
 
@@ -496,7 +523,7 @@ def test_a_killed_spark_process_starts_again() -> None:
     _count_jobs()
     engine._SPARK["process"].kill()
     engine._SPARK["process"].wait(60)
-    assert _count_jobs() == _EVERY_JOB
+    assert _count_jobs() == _JOB_COUNT
 
 
 @pytest.mark.needs_example_database
@@ -508,7 +535,7 @@ def test_a_spark_whose_java_was_killed_answers_the_next_query_from_a_new_one() -
     for pid in javas:
         # Windows has no SIGKILL: there os.kill ends a process at once, whatever the signal.
         os.kill(pid, signal.SIGTERM if os.name == "nt" else signal.SIGKILL)
-    assert _count_jobs() == _EVERY_JOB
+    assert _count_jobs() == _JOB_COUNT
     _nothing_left_of(folder)
 
 
@@ -517,7 +544,7 @@ def test_a_query_that_stops_its_spark_says_so() -> None:
     _count_jobs()
     with pytest.raises(RuntimeError, match="so the query itself seems to stop Spark"):
         example_database.send("SELECT java_method('java.lang.System', 'exit', 0) AS bye")
-    assert _count_jobs() == _EVERY_JOB
+    assert _count_jobs() == _JOB_COUNT
 
 
 @pytest.mark.needs_example_database
@@ -532,13 +559,14 @@ def test_an_interrupted_query_leaves_no_answer_for_the_next_one() -> None:
             example_database.send(slow)
     finally:
         interrupt.cancel()
-    assert _count_jobs() == _EVERY_JOB
+    assert _count_jobs() == _JOB_COUNT
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("after", [0.5, 1.0, 1.5, 2.0, 3.0])
-def test_an_interrupted_start_leaves_nothing_but_its_log(monkeypatch, own_temporary_folder,
-                                                         after: float) -> None:
+def test_an_interrupted_start_leaves_nothing_but_what_it_wrote(monkeypatch,
+                                                               own_temporary_folder,
+                                                               after: float) -> None:
     engine._stop_spark()
     made = _note_folders_made(monkeypatch)
     interrupt = threading.Timer(after, _thread.interrupt_main)
@@ -550,7 +578,36 @@ def test_an_interrupted_start_leaves_nothing_but_its_log(monkeypatch, own_tempor
         interrupt.cancel()
     assert made
     _nothing_left_of(made[0])
-    assert _kept_logs(own_temporary_folder), "the interrupted start's log wasn't kept"
+    # A start interrupted before its Spark wrote anything keeps no log.
+    assert [log for log in _kept_logs(own_temporary_folder)
+            if not log.read_text(encoding="utf-8").strip()] == [], "an empty log was kept"
+
+
+@pytest.mark.needs_example_database
+def test_a_start_interrupted_as_it_makes_its_tables_keeps_what_it_wrote(
+        monkeypatch, own_temporary_folder) -> None:
+    engine._stop_spark()
+    made = _note_folders_made(monkeypatch)
+    real_make_tables = engine._make_tables
+
+    def interrupted_while_making(tables: dict) -> None:
+        threading.Timer(0.3, _thread.interrupt_main).start()
+        real_make_tables(tables)
+        time.sleep(5)  # in case making them took less than the interrupt's wait
+
+    monkeypatch.setattr(engine, "_make_tables", interrupted_while_making)
+    with pytest.raises(KeyboardInterrupt):
+        example_database.send("SELECT job_id FROM ops.jobs")
+    _nothing_left_of(made[0])
+    kept = _kept_logs(own_temporary_folder)
+    assert kept and kept[0].read_text(encoding="utf-8").strip(), "what it wrote wasn't kept"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="only Windows has pythonw.exe")
+def test_its_python_is_a_console_python_where_yours_is_pythonw(monkeypatch) -> None:
+    python = Path(sys.executable)
+    monkeypatch.setattr(sys, "executable", str(python.with_name("pythonw.exe")))
+    assert Path(engine._python()) == python.with_name("python.exe")
 
 
 @pytest.mark.needs_example_database
@@ -623,7 +680,7 @@ def test_a_stray_connection_doesnt_hold_up_a_start(says: bool) -> None:
     knocker = threading.Thread(target=knock)
     knocker.start()
     try:
-        assert _count_jobs() == _EVERY_JOB
+        assert _count_jobs() == _JOB_COUNT
     finally:
         knocker.join()
         for stray in strays:
