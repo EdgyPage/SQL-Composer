@@ -1017,8 +1017,9 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
 def create_table(t, may_exist=False):
     """The CREATE TABLE Statement for a Saved table, from its Table reference.
 
-    Send it once with run(create_table(t), send=...). Every column needs a type. If the
-    table already exists, the warehouse refuses to create it again. Without that refusal,
+    Send it once with run(create_table(t), send=...). Every column needs a type Hive and
+    Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
+    decimal(10,2); it refuses any other, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal,
     you could edit the Table reference, send this again, and think the table had changed when
     it hadn't. Compare the two with check_table_reference(t, send=...), or, to start the
     table again, drop it with drop_table(t), which deletes every day it holds.
@@ -1079,16 +1080,31 @@ def drop_table(t):
     return s
 
 
+# Types people often write for one create_table takes, and the one to write instead.
+_NEAREST_TYPE = {
+    "integer": "int", "long": "bigint", "short": "smallint", "byte": "tinyint", "real": "float",
+    "double precision": "double", "decimal": "decimal(10,0)", "numeric": "decimal(10,0)",
+    "dec": "decimal(10,0)", "text": "string", "bool": "boolean", "datetime": "timestamp",
+    "varchar": "varchar(n), such as varchar(50)", "char": "char(n), such as char(3)",
+}
+
+
 def _column_definition(t: Table, column: str) -> Node:
     """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
-    if not is_hive_type(t._columns[column]):
+    kind = t._columns[column]
+    if not is_hive_type(kind):
+        nearest = _NEAREST_TYPE.get(" ".join(kind.lower().split()))
         _refuse_table(
-            what=f"create_table({t._alias}): {column}'s type {t._columns[column]!r} isn't one "
-            "the Toolbox can create.",
-            why="Hive and Spark each need a type they know to create a column, so create_table "
-            "takes only the types they share, written as DESCRIBE prints them.",
-            fix="Use one of string, bigint, int, smallint, tinyint, double, float, "
-            "decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an "
-            "array<string>, map<string,int> or struct<name:string,runs:int> of them.",
+            what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
+            "can use.",
+            why="create_table takes only the types Hive and Spark both have, spelled as "
+            "DESCRIBE prints them, such as int rather than integer, and with their sizes "
+            "written out, such as decimal(10,2), so the table it makes matches its Table "
+            "reference.",
+            fix=(f"For {kind!r}, write {nearest!r}. " if nearest else "")
+            + "Use string, bigint, int, smallint, tinyint, double, float, boolean, date, "
+            "timestamp or binary; decimal, varchar or char with its sizes, such as "
+            "decimal(10,2), varchar(50) or char(3); or an array, map or struct holding them, "
+            "such as array<string>, map<string,int> or struct<name:string,runs:int>.",
         )
     return Node("ColumnDef", name=column, type=t._columns[column])

@@ -122,18 +122,20 @@ def arguments_text(fewest: int, most: int | None) -> str:
 
 
 # The column types create_table takes: the ones Hive and Spark share, written as DESCRIBE
-# prints them. decimal may take (precision) or (precision,scale), varchar and char take
+# prints them. decimal takes (precision,scale), such as decimal(10,2), varchar and char take
 # (length), and array, map and struct hold other types, as in array<string>, map<string,int>
-# and struct<name:string,runs:int>.
+# and struct<name:string,runs:int>: a map's key is a single value, and a struct's names are
+# plain words, not ones Hive or Spark reserve.
 HIVE_TYPES = frozenset(
     """tinyint smallint int bigint float double decimal string varchar char boolean date
     timestamp binary array map struct""".split()
 )
 
+# The largest size each sized type takes: a decimal's precision, and a varchar's or a char's
+# length.
+_LARGEST = {"decimal": 38, "varchar": 65535, "char": 255}
 # How many types an array or a map holds; a struct holds one or more, each with a name.
 _HOLDS = {"array": 1, "map": 2}
-_SIZES = {"decimal": r"\(\s*\d+\s*(,\s*\d+\s*)?\)", "varchar": r"\(\s*\d+\s*\)",
-          "char": r"\(\s*\d+\s*\)"}
 
 
 def is_hive_type(text: str) -> bool:
@@ -148,34 +150,52 @@ def _after_type(text: str) -> str | None:
     if not found or found.group(1) not in HIVE_TYPES:
         return None
     word, rest = found.group(1), text[found.end():]
-    if word in _SIZES:
-        sizes = re.match(_SIZES[word], rest)
-        if sizes:
-            return rest[sizes.end():]
-        # decimal alone is decimal(10,0); varchar and char need their length.
-        return rest if word == "decimal" else None
+    if word in _LARGEST:
+        sizes = re.match(r"\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)", rest)
+        if sizes is None or not _sizes_fit(word, *sizes.groups()):
+            return None
+        return rest[sizes.end():]
     if word in ("array", "map", "struct"):
         return _after_held(word, rest)
     return rest
 
 
+def _sizes_fit(word: str, size: str, scale: str | None) -> bool:
+    """Whether Hive and Spark take these sizes: decimal(precision,scale), with the scale no
+    more than the precision, or varchar(length) or char(length)."""
+    if word == "decimal":
+        return scale is not None and 1 <= int(size) <= _LARGEST[word] and int(scale) <= int(size)
+    return scale is None and 1 <= int(size) <= _LARGEST[word]
+
+
 def _after_held(word: str, text: str) -> str | None:
     """What follows the <...> of an array, a map or a struct, or None when it isn't right."""
-    rest, held, opening = text, 0, "<"
-    while rest is not None and rest.startswith(opening):
-        rest, opening = rest[1:], ","
-        if word == "struct":
-            # Each type a struct holds has a name before it, as in struct<name:string>.
-            field = re.match(r"\s*[a-z_][a-z0-9_]*\s*:", rest)
-            if not field:
-                return None
-            rest = rest[field.end():]
-        rest = _after_type(rest)
-        held += 1
-        rest = None if rest is None else rest.lstrip()
-    if rest is None or not rest.startswith(">") or held != _HOLDS.get(word, max(held, 1)):
+    if not text.startswith("<"):
         return None
-    return rest[1:]
+    rest, held = text, []
+    while rest is not None and rest[:1] in ("<", ","):
+        rest = rest[1:]
+        if word == "struct":
+            rest = _after_field_name(rest)
+        elif word == "map" and not held:
+            # A map's key is a single value, not an array, a map or a struct.
+            rest = None if re.match(r"\s*(array|map|struct)\b", rest) else rest
+        rest = None if rest is None else _after_type(rest)
+        held.append(rest)
+        rest = None if rest is None else rest.lstrip()
+    if rest is None or not rest.startswith(">"):
+        return None
+    if word == "struct" or len(held) == _HOLDS[word]:
+        return rest[1:]
+    return None
+
+
+def _after_field_name(text: str) -> str | None:
+    """What follows a struct's "name:", or None when the name isn't a plain word."""
+    field = re.match(r"\s*([a-z_][a-z0-9_]*)\s*:", text)
+    if field is None or not plain_name(field.group(1)):
+        return None
+    return text[field.end():]
 
 
 def plain_name(name: str) -> bool:

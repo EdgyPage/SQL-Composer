@@ -16,10 +16,12 @@ a 2.1 re-export goes into `CHANGES.md` under 2.1 instead.
   semi and current_user, as column, table and Derived table names. Before, some of them made
   to_hive fail, and others were written plain, which Spark refuses.
 - **create_table takes only the column types Hive and Spark share** (ticket 25), written as
-  DESCRIBE prints them: string, bigint, int, smallint, tinyint, double, float, decimal,
-  boolean, date, timestamp, binary, varchar(n), char(n), and arrays, maps and structs of them.
-  Before, it took any type sqlglot knew, such as json or uuid, which neither has, and wrote
-  integer, real or numeric under other names.
+  DESCRIBE prints them: string, bigint, int, smallint, tinyint, double, float, boolean, date,
+  timestamp and binary; decimal, varchar and char with their sizes, such as decimal(10,2); and
+  arrays, maps and structs of them. Before, it took any type sqlglot knew, such as json or uuid,
+  which neither has, and wrote integer, real or numeric under other names, so the table didn't
+  match its Table reference. For a type people often write, such as integer, the refusal says
+  what to write instead.
 - **hive_function checks a call by one list** (ticket 25), for about 120 common functions,
   such as upper, substr, date_add or max: it refuses a call with the wrong number of arguments,
   and treats a function that turns many rows into one, such as collect_set or percentile, as
