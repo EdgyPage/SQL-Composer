@@ -1,7 +1,7 @@
 # The Spark Example database: a private helper Spark
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 02, 16
 
 ## Question
