@@ -18,6 +18,8 @@ and `imports_outside` lists every import that breaks it.
 from __future__ import annotations
 
 import ast
+import importlib
+import importlib.abc
 import re
 import sys
 from dataclasses import dataclass
@@ -162,3 +164,46 @@ def _verbatim(text: str, file_name: str) -> str:
 
 def _whole_word(name: str) -> re.Pattern:
     return re.compile(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])")
+
+
+# --- Running the same tests and tools against Spark Composer ------------------------------------
+
+
+class _OnlyTheAlias(importlib.abc.MetaPathFinder):
+    """Refuses any `sql_composer.*` module the alias doesn't hold, rather than load the real one."""
+
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "sql_composer" or fullname.startswith("sql_composer."):
+            raise ImportError(f"{fullname} isn't part of the Spark run's alias: only Spark "
+                              "Composer's own modules stand in for SQL Composer's.")
+        return None
+
+
+def use(edition: Edition) -> None:
+    """Make `import sql_composer` give `edition`'s modules, and make sqlglot unimportable.
+
+    The shared tests and the Worked examples say `from sql_composer import ...`; in Spark
+    Composer's run each of those names is Spark Composer's. It must run before anything imports
+    sql_composer. For SQL Composer it does nothing.
+    """
+    if edition is SQL_COMPOSER:
+        return
+    if any(name == "sql_composer" or name.startswith("sql_composer.") for name in sys.modules):
+        raise RuntimeError("editions.use: sql_composer is already imported, so the run would "
+                           "mix the two Editions. Choose the Edition before any Toolbox import.")
+    sys.modules["sqlglot"] = None  # any `import sqlglot` now fails loudly
+    sys.modules["sql_composer"] = importlib.import_module(edition.folder)
+    for name in SHARED_FILES + EDITION_FILES:
+        if name != "__init__.py":
+            stem = name.removesuffix(".py")
+            sys.modules[f"sql_composer.{stem}"] = importlib.import_module(
+                f"{edition.folder}.{stem}")
+    sys.meta_path.insert(0, _OnlyTheAlias())
+
+
+def chosen(arguments: list[str]) -> Edition:
+    """The Edition a tool's command line asks for with --edition sqlglot or --edition spark."""
+    if "--edition" not in arguments:
+        return SQL_COMPOSER
+    name = arguments[arguments.index("--edition") + 1]
+    return {"sqlglot": SQL_COMPOSER, "spark": SPARK_COMPOSER}[name]
