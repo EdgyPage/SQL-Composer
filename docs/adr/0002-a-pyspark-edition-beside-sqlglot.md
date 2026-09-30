@@ -6,12 +6,14 @@ The user hasn't settled which engine work will use, so the Toolbox is built twic
 with the same 63 public names: SQL Composer (`sql_composer`) writes its Hive with sqlglot, as ADR
 0001 decided, and Spark Composer (`spark_composer`) writes the same Hive with a printer of its own
 and runs it with `spark.sql()` on Spark with Hive support, for a work environment that has pyspark
-and not sqlglot. To share almost everything, a Statement's leaves - its columns, conditions,
-calculations and sort keys - are held in a small expression tree the Toolbox owns, instead of in
-sqlglot's. Two files are written by hand in each folder: the one that turns the tree into text,
-and the one that checks the library and runs the Example database; each Edition also generates
-its own Example gallery. Every other file of `spark_composer` is generated from `sql_composer`'s,
-and a test fails if a copy is stale.
+and not sqlglot. To share almost everything, a Statement is held in a small tree the Toolbox owns
+(`trees.py`), instead of in sqlglot's: its SELECT, write, CREATE or DROP, down to its columns,
+conditions, calculations and sort keys. SQL Composer's `writing.py` rebuilds each Node with the
+sqlglot calls it always made, so its trees, and its Hive, are what they were; Spark Composer's
+prints the Nodes itself. Two files are written by hand in each folder: the one that turns the tree
+into text, and the one that checks the library and runs the Example database; each Edition also
+generates its own Example gallery. Every other file of `spark_composer` is generated from
+`sql_composer`'s, and a test fails if a copy is stale.
 
 This supersedes ADR 0001's rejection of "a hand-rolled AST and Hive renderer" in two ways: the
 Toolbox now owns its tree in both Editions, and Spark Composer hand-writes its Hive. ADR 0001's
@@ -44,6 +46,12 @@ sqlglot.
 
 - The Spark printer copies one sqlglot version's layout, so raising the sqlglot pin can force
   printer work; a test makes that visible.
+- A calculation's Node keeps the shape of the sqlglot tree SQL Composer built for it, part for
+  part, because the lineage orders a calculation's columns by a breadth-first walk. A test holds
+  every tree in the golden corpus to its sqlglot tree.
+- hive_function is kept as written, so a call sqlglot writes in another function's form, such as
+  nvl as COALESCE, no longer equals that function's calculation.
 - Both Editions share one Toolbox version and ship together on one Clean branch.
 - The places their Hive differs are declared in one table on `dev`, each with its reason: division
-  by a column (Spark 4 refuses to divide by zero under ANSI), and `hive_function` spelled as given.
+  (Spark 4 refuses to divide by zero under ANSI), `hive_function` spelled as given, and a float
+  written as a DOUBLE literal (Spark reads `0.5` as a DECIMAL).

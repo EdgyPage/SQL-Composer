@@ -84,7 +84,8 @@ def _sqlglot_behaviour():
     from sqlglot.optimizer.qualify import qualify
 
     # Written the way the Toolbox writes, now that the sqlglot it needs is known to be here.
-    from .writing import drop, sql_text
+    from .trees import Node
+    from .writing import sql_text, to_sqlglot
 
     def written(tree) -> str:
         try:
@@ -101,7 +102,8 @@ def _sqlglot_behaviour():
     insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
     if "PARTITION(dt = '2026-01-01')" not in written(insert):
         problems.append("INSERT OVERWRITE drops its PARTITION")
-    if written(drop(exp.table_("t", db="db"))) != "DROP TABLE IF EXISTS db.t":
+    if written(to_sqlglot(Node("Drop", table=Node("Table", name="db.t")))) != (
+            "DROP TABLE IF EXISTS db.t"):
         problems.append("DROP TABLE drops its table name")
     try:
         qualify(exp.select("nope").from_("t"), schema={"t": {"a": "INT"}}, dialect="hive")

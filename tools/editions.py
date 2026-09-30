@@ -53,10 +53,6 @@ PAGES = ("examples.html",)
 
 # What every Toolbox file may import, besides the standard library and its own folder.
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
-# SQL Composer's shared files that still import sqlglot. Tickets 10-13 of the PySpark work move
-# it into writing.py and engine.py, and ticket 13 empties this list.
-STILL_IMPORTING_SQLGLOT = ("running.py", "tables.py")
-
 # The sqlglot whose layout Spark Composer's writing.py copies. Ticket 18 of the PySpark work adds
 # the test that holds it equal to the sqlglot pin in requirements-dev.txt.
 LAYOUT_MIRRORS_SQLGLOT = "30.19.0"
@@ -69,8 +65,7 @@ def may_import(edition: Edition, file_name: str) -> frozenset:
     """What a file of `edition`'s folder may import besides the standard library and itself."""
     if file_name in edition.stdlib_only_files:
         return frozenset()
-    if file_name in edition.library_files or (
-            edition is SQL_COMPOSER and file_name in STILL_IMPORTING_SQLGLOT):
+    if file_name in edition.library_files:
         return SHARED_IMPORTS | {edition.library}
     return SHARED_IMPORTS
 

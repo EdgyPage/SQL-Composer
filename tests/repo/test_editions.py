@@ -92,10 +92,10 @@ def test_what_each_file_may_import() -> None:
     assert may_import(SQL_COMPOSER, "refusals.py") == {"pandas", "numpy"}
 
 
-def test_the_sql_composer_files_still_importing_sqlglot_are_named_one_by_one() -> None:
-    for name in editions.STILL_IMPORTING_SQLGLOT:
-        assert name in editions.SHARED_FILES
-        assert may_import(SQL_COMPOSER, name) == {"pandas", "numpy", "sqlglot"}
+def test_no_shared_file_may_import_either_library() -> None:
+    for edition in (SQL_COMPOSER, SPARK_COMPOSER):
+        for name in editions.SHARED_FILES:
+            assert may_import(edition, name) == {"pandas", "numpy"}
 
 
 def test_an_import_a_file_may_not_make_is_listed(tmp_path: Path) -> None:

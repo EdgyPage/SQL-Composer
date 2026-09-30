@@ -26,12 +26,14 @@ def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
-def hive_text(node, pretty: bool = False) -> str:
-    """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive.
+def hive_text(node: Node, pretty: bool = False) -> str:
+    """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive."""
+    return sql_text(to_sqlglot(node), pretty=pretty)
 
-    A whole Statement is still built as a sqlglot tree, which is written as it is.
-    """
-    return sql_text(to_sqlglot(node) if isinstance(node, Node) else node, pretty=pretty)
+
+def hive_statement(node: Node) -> str:
+    """A whole Statement's tree as the Hive to_hive gives: laid out over several lines."""
+    return sql_text(to_sqlglot(node), pretty=True)
 
 
 def read_back(text: str) -> str:
@@ -92,16 +94,16 @@ def hive_type(text: str) -> exp.DataType:
 
 def describe_text(name: str) -> str:
     """The DESCRIBE command for one table."""
-    return sql_text(exp.Describe(this=hive_table(name)))
+    return sql_text(exp.Describe(this=_hive_table(name)))
 
 
 def show_partitions_text(name: str) -> str:
     """The SHOW PARTITIONS command for one table."""
     return sql_text(exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + sql_text(hive_table(name)))))
+        "PARTITIONS " + sql_text(_hive_table(name)))))
 
 
-def set_part(tree: exp.Expression, part: str, value) -> None:
+def _set_part(tree: exp.Expression, part: str, value) -> None:
     """Set a part of a sqlglot tree, under the name this sqlglot gives it.
 
     sqlglot version 30 renamed `from` and `with` to `from_` and `with_`.
@@ -113,32 +115,22 @@ def set_part(tree: exp.Expression, part: str, value) -> None:
     raise RuntimeError(f"sql_composer: this sqlglot has no {part!r} on {type(tree).__name__}.")
 
 
-def drop(table: exp.Table) -> exp.Drop:
-    """The DROP TABLE IF EXISTS command for one table, as a sqlglot tree to write.
-
-    sqlglot version 30 renamed the part of a DROP that holds its table from `this` to `tables`.
-    """
-    if "tables" in exp.Drop.arg_types:
-        return exp.Drop(kind="TABLE", tables=[table], exists=True)
-    return exp.Drop(kind="TABLE", this=table, exists=True)
-
-
 # --- Names ---------------------------------------------------------------------------------
 
 
-def identifier(name: str) -> exp.Identifier:
+def _identifier(name: str) -> exp.Identifier:
     """A name as Hive needs it: in backticks only when it isn't a plain word."""
     return exp.to_identifier(name, quoted=not plain_name(name))
 
 
-def hive_table(name: str, partition=None) -> exp.Table:
+def _hive_table(name: str, partition=None) -> exp.Table:
     """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
 
     A write passes the PARTITION(...) it fills, which Hive writes after the name.
     """
     parts = name.split(".")
-    database = identifier(parts[0]) if len(parts) == 2 else None
-    return exp.Table(this=identifier(parts[-1]), db=database, partition=partition)
+    database = _identifier(parts[0]) if len(parts) == 2 else None
+    return exp.Table(this=_identifier(parts[-1]), db=database, partition=partition)
 
 
 # --- The Toolbox's own tree, as a sqlglot tree ---------------------------------------------
@@ -162,8 +154,8 @@ def _all_built(node: Node, part: str) -> list[exp.Expression]:
 
 def _column(node: Node) -> exp.Column:
     if node.table:
-        return exp.column(identifier(node.name), table=identifier(node.table))
-    return exp.column(identifier(node.name))
+        return exp.column(_identifier(node.name), table=_identifier(node.table))
+    return exp.column(_identifier(node.name))
 
 
 def _literal(node: Node) -> exp.Expression:
@@ -181,6 +173,77 @@ def _case(node: Node) -> exp.Case:
 def _window(node: Node) -> exp.Window:
     return exp.Window(this=_built(node, "this"), partition_by=_all_built(node, "partition_by"),
                       order=_built(node, "order"))
+
+
+def _table(node: Node) -> exp.Expression:
+    partition = node.parts.get("partition")
+    table = _hive_table(node.name, partition=None if partition is None else to_sqlglot(partition))
+    alias = node.parts.get("alias")
+    return table if alias is None else exp.alias_(table, _identifier(alias), table=True)
+
+
+def _join(node: Node) -> exp.Join:
+    parts = {"this": _built(node, "this")}
+    if node.parts.get("on") is not None:
+        parts["on"] = _built(node, "on")
+    if node.parts.get("left"):
+        parts["side"] = "LEFT"
+    if node.parts.get("cross"):
+        parts["kind"] = "CROSS"
+    return exp.Join(**parts)
+
+
+def _select(node: Node) -> exp.Select:
+    tree = exp.Select(expressions=_all_built(node, "outputs"))
+    if node.parts.get("distinct"):
+        tree.set("distinct", exp.Distinct())
+    _set_part(tree, "from", exp.From(this=_built(node, "source")))
+    if node.parts.get("joins"):
+        tree.set("joins", _all_built(node, "joins"))
+    if node.parts.get("where") is not None:
+        tree.set("where", exp.Where(this=_built(node, "where")))
+    if node.parts.get("group_by"):
+        tree.set("group", exp.Group(expressions=_all_built(node, "group_by")))
+    if node.parts.get("having") is not None:
+        tree.set("having", exp.Having(this=_built(node, "having")))
+    if node.parts.get("order_by") is not None:
+        tree.set("order", _built(node, "order_by"))
+    if node.parts.get("limit") is not None:
+        tree.set("limit", exp.Limit(expression=exp.Literal.number(node.parts["limit"])))
+    return _with_tables(tree, node)
+
+
+def _with_tables(tree: exp.Expression, node: Node) -> exp.Expression:
+    """Put the Derived tables a query or write reads at its top, as WITH name AS (...)."""
+    tables = [to_sqlglot(table) for table in node.parts.get("with_tables") or []]
+    if tables:
+        _set_part(tree, "with", exp.With(expressions=tables))
+    return tree
+
+
+def _insert(node: Node) -> exp.Insert:
+    tree = exp.Insert(this=_built(node, "table"), expression=_built(node, "select"),
+                      overwrite=node.parts["overwrite"])
+    return _with_tables(tree, node)
+
+
+def _create(node: Node) -> exp.Create:
+    properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
+    if node.parts["partitioned_by"]:
+        partition = exp.Schema(expressions=_all_built(node, "partitioned_by"))
+        properties.insert(0, exp.PartitionedByProperty(this=partition))
+    schema = exp.Schema(this=_built(node, "table"), expressions=_all_built(node, "columns"))
+    return exp.Create(kind="TABLE", this=schema, properties=exp.Properties(expressions=properties),
+                      exists=node.parts["exists"])
+
+
+def _drop(node: Node) -> exp.Drop:
+    """sqlglot version 30 renamed the part of a DROP that holds its table from `this` to
+    `tables`."""
+    table = _built(node, "table")
+    if "tables" in exp.Drop.arg_types:
+        return exp.Drop(kind="TABLE", tables=[table], exists=True)
+    return exp.Drop(kind="TABLE", this=table, exists=True)
 
 
 def _two_sided(kind):
@@ -233,8 +296,19 @@ _REPLAY = {
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
     "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
                                         nulls_first=node.parts["nulls_first"]),
-    "Alias": lambda node: exp.alias_(_built(node, "this"), identifier(node.parts["alias"])),
+    "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
     "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
                                   dialect=_DIALECT),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
+    "Select": _select,
+    "Table": _table,
+    "Join": _join,
+    "CTE": lambda node: exp.CTE(this=_built(node, "this"),
+                                alias=exp.TableAlias(this=_identifier(node.parts["alias"]))),
+    "Partition": lambda node: exp.Partition(expressions=_all_built(node, "expressions")),
+    "Insert": _insert,
+    "Create": _create,
+    "ColumnDef": lambda node: exp.ColumnDef(this=_identifier(node.name),
+                                            kind=hive_type(node.parts["type"])),
+    "Drop": _drop,
 }
