@@ -221,8 +221,8 @@ def _call(name: str, *args: Node) -> Node:
 def week_start(column):
     """The Monday that starts each date's week, to group days into weeks.
 
-    Hive has no week function that works the same everywhere, so this takes the first
-    Monday after the day a week earlier. The result is a day like "2026-09-21".
+    There is no week function that works the same in every warehouse, so this takes the
+    first Monday after the day a week earlier. The result is a day like "2026-09-21".
 
     >>> week_start(job_runs.dt)
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
@@ -275,8 +275,8 @@ def ordered(item, call: str) -> Node:
         tree = Node("Column", name=target)
     else:
         tree = _need_column(target, call)._tree.copy()
-    # Hive puts NULL first when sorting up and last when sorting down; saying so keeps sqlglot
-    # from writing NULLS LAST or NULLS FIRST into the Hive.
+    # Hive and Spark put NULL first when sorting up and last when sorting down; saying so
+    # keeps NULLS LAST and NULLS FIRST out of the Hive.
     return Node("Ordered", this=tree, desc=descending_order, nulls_first=not descending_order)
 
 
@@ -333,9 +333,9 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
 
-    sqlglot may write a function under Hive's other name for it, or leave out an argument
-    that Hive fills in anyway: nvl comes out as COALESCE, and regexp_extract(col, pattern, 1)
-    without the 1, since group 1 is what Hive takes when none is given.
+    The Hive may call a function by its other name, as nvl comes out as COALESCE, or leave
+    out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) may come out
+    without the 1, since group 1 is what the warehouse takes when none is given.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')

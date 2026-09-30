@@ -51,6 +51,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   the same Hive: `hive_function("nvl", x, 0)` and `fill_null(x, 0)` both write COALESCE, for
   example. It matters in one place: a `derived(...)` table that SELECTs one and groups by the
   other no longer knows its key, so a JOIN to it warns. Group by the calculation you SELECT.
+- Refusals and docstrings that described Hive alone now say what holds on Spark as well, such
+  as why a sort needs a LIMIT: sorting a whole big result is slow, wherever it runs.
 
 ## 2.0
 
@@ -78,7 +80,7 @@ The first version of the new Toolbox. Everything is new:
   on days per Statement, both off to start with.
 - **Saved tables.** `INSERT_OVERWRITE(t)` writes one day of a Saved table, and
   `create_table(t)` creates it.
-- **The folder checks itself.** On import, `sql_composer` stops if a file is missing or
+- **The folder checks itself.** On import, the Toolbox's folder stops if a file is missing or
   extra, or if its files come from different versions or different exports. It also stops on a
   Python older than 3.11, and on a sqlglot outside 25.24.2 up to (not including) 31 or one
   that behaves differently. Each stop says what happened, why it matters and the usual fix, in
@@ -93,9 +95,9 @@ The first version of the new Toolbox. Everything is new:
 - **The Example database.** `example_database` holds three made-up tables and a `send` that
   runs Statements on them, to practise without touching the warehouse. What its small
   executor can't run, such as `row_number` or `week_start`, it says plainly.
-- **The Example gallery.** `sql_composer/examples.html` holds every Worked example on one
-  page: each docstring's example, and the Worked examples on their own, each showing a
+- **The Example gallery.** `examples.html`, in the Toolbox's folder, holds every Worked example
+  on one page: each docstring's example, and the Worked examples on their own, each showing a
   Statement that gives a wrong number beside its fix. Each shows its Python and, for each
-  Statement it builds, the Hive and any result: from the Example database, or computed in
-  pandas where the Example database can't run it. Open it in a browser; a box keeps only
-  the entries holding every word you type, and Ctrl+F searches it without the box.
+  Statement it builds, the Hive and any result: from the Example database, or computed in pandas
+  where the Example database can't run it. Open it in a browser; a box keeps only the entries
+  holding every word you type, and Ctrl+F searches it without the box.

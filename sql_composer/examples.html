@@ -151,8 +151,8 @@ HAVING
 </table></div><h4><code>two_longest_running_jobs()</code></h4><pre class="python">def two_longest_running_jobs():
     &quot;&quot;&quot;The 2 jobs with the most minutes in total (ORDER BY with LIMIT).
 
-    A sort needs a LIMIT: Hive sorts everything on one machine, so the Toolbox refuses a
-    sort that would bring back every row. To sort a whole result, sort it in pandas.
+    A sort needs a LIMIT: sorting a whole big result is slow, so the Toolbox refuses a sort
+    that would bring back every row. To sort a whole result, sort it in pandas.
     &quot;&quot;&quot;
     return statement(
         SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
@@ -722,7 +722,7 @@ WHERE
 <section class="entry" id="latest_and_top_n">
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
-<p>The Example database can&#x27;t run row_number, so the results of fixed() and top_runs_per_job() below are computed in pandas, not by running this Hive.</p>
+<p>Where the Example database can&#x27;t run row_number, the results of fixed() and top_runs_per_job() below are computed in pandas, not by running this Hive.</p>
 <p class="label">The top of its script, statements/latest_and_top_n.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
@@ -948,7 +948,7 @@ LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
 <p class="label">A Guard refuses it</p>
 <pre class="refusal">GuardRefused:
   What happened:  is_not_in(job_runs.job_id, ...): item 2 is nan.
-  Why it matters: Hive has no way to write NaN or infinity: NaN would turn into NULL, which matches nothing, and inf would be read as a column name.
+  Why it matters: The SQL has no plain number for NaN or infinity: inf would be read as a column&#x27;s name, and NaN can&#x27;t be written as a number at all, so the comparison couldn&#x27;t mean what you wrote.
   Usual fix:      Drop NaN and infinite values first, for example with pandas&#x27; dropna().
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p class="note">It has no opt-out, so there is no Hive to run.</p></div>
@@ -1073,7 +1073,7 @@ WHERE
 <section class="entry" id="regrouping">
 <h3>Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</h3>
 <p class="why">Why: a job that ran on two days is in both days&#x27; counts, so adding them up counts it twice.</p>
-<p>The Example database can&#x27;t run week_start, so the results below are computed in pandas, not by running this Hive.</p>
+<p>Where the Example database can&#x27;t run week_start, the results below are computed in pandas, not by running this Hive.</p>
 <p class="label">The top of its script, statements/regrouping.py</p>
 <pre class="python">import pandas as pd
 
@@ -1277,10 +1277,10 @@ WHERE
 <h2 id="docstrings">Examples from the docstrings</h2>
 <section class="entry" id="TOOLBOX_VERSION">
 <h3><code>TOOLBOX_VERSION</code> and <code>VERSION</code></h3>
-<p class="why">SQL Composer: write Hive SQL as Python, one clause function per SQL clause.</p>
+<p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, or from another version or export, or if this Python or its sqlglot won&#x27;t work with it, it stops and says what happened, why it matters and the usual fix.</p>
+<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, or from another version or export, or if this Python, or what it needs installed, won&#x27;t work with it, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
@@ -1294,7 +1294,7 @@ WHERE
 <h3><code>Table</code></h3>
 <p class="why">A Table reference: one table&#x27;s columns and types, Date partition and key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
-<ul><li><code>columns</code> maps each column to its Hive type as Hive prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
+<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;).</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
@@ -1312,7 +1312,7 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 </section>
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
-<p class="why">Write a new Table reference file for a table, from Hive&#x27;s own description of it.</p>
+<p class="why">Write a new Table reference file for a table, from what DESCRIBE says of it.</p>
 <p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
 <pre class="python">print(path.read_text())</pre>
@@ -1363,7 +1363,7 @@ LIMIT 20</pre>
 <section class="entry" id="check_key">
 <h3><code>check_key</code></h3>
 <p class="why">Check on the newest day that no two rows share the table&#x27;s declared key.</p>
-<p>JOIN relies on a declared key to warn about repeated rows, and Hive never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
+<p>JOIN relies on a declared key to warn about repeated rows, and the warehouse never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
 <pre class="python">check_key(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
@@ -1380,7 +1380,7 @@ LIMIT 20</pre>
 </section>
 <section class="entry" id="check_table_reference">
 <h3><code>check_table_reference</code></h3>
-<p class="why">Compare a Table reference with its table in Hive, and list what differs.</p>
+<p class="why">Compare a Table reference with its table as it is now, and list what differs.</p>
 <p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code>, and lists problems (which make Statements wrong) and notes (which may not matter), each with the line to change in the Table reference file. The columns and their types come from DESCRIBE, and the Date partition&#x27;s date_format is checked against the newest day SHOW PARTITIONS lists. It never edits the file and never refuses anything: a table Hive can&#x27;t describe, or a send that fails, is reported too. Comments, the key and does_not_add_up aren&#x27;t compared.</p>
 <pre class="python">check_table_reference(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
@@ -1400,7 +1400,7 @@ Notes:
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE TABLE Statement for a Saved table, from its Table reference.</p>
-<p>Send it once with run(create_table(t), send=...). Every column needs a type. If the table already exists, Hive refuses with AlreadyExistsException. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
+<p>Send it once with run(create_table(t), send=...). Every column needs a type. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(create_table(daily_runs)))</pre>
@@ -1504,7 +1504,7 @@ FROM ops.jobs AS jobs</pre>
 <section class="entry" id="AS">
 <h3><code>AS</code></h3>
 <p class="why">Give a calculation its name in the result, or a table a second name.</p>
-<p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. Hive&#x27;s / always gives a decimal number (7 / 2 is 3.5), and gives NULL rather than an error when dividing by zero.</p>
+<p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. / always gives a number with a fraction (7 / 2 is 3.5), and dividing by zero gives NULL rather than an error.</p>
 <pre class="python">AS(count_rows(), &quot;runs&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">COUNT(*) AS runs</pre>
@@ -1671,7 +1671,7 @@ WHERE
 <section class="entry" id="GROUP_BY">
 <h3><code>GROUP_BY</code></h3>
 <p class="why">Group rows that share these values, one output row per group.</p>
-<p>A calculation may be named by its output name, such as GROUP_BY(&quot;week&quot;), and the Toolbox repeats it, since Hive can&#x27;t group by a name given in SELECT.</p>
+<p>A calculation may be named by its output name, such as GROUP_BY(&quot;week&quot;), and the Toolbox writes the calculation out again in GROUP BY, which every warehouse reads: Hive can&#x27;t group by a name given in SELECT.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(AS(week_start(job_runs.dt), &quot;week&quot;), AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -1723,7 +1723,7 @@ HAVING
 <section class="entry" id="ORDER_BY">
 <h3><code>ORDER_BY</code></h3>
 <p class="why">Sort the result; it needs a LIMIT, and sorting in pandas is usually better.</p>
-<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since Hive sorts everything on one machine: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there, so a Statement that reads it can&#x27;t rely on that order.</p>
+<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since sorting a whole big result is slow and nothing comes back until it is done: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there isn&#x27;t kept, so a Statement that reads it can&#x27;t rely on that order.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
     FROM(job_runs),
@@ -1773,7 +1773,7 @@ LIMIT 2</pre>
 <section class="entry" id="INSERT_OVERWRITE">
 <h3><code>INSERT_OVERWRITE</code></h3>
 <p class="why">Write the Statement&#x27;s rows into one day of a Saved table, replacing that day.</p>
-<p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. On Hive 2.3 and 3.1 under Tez, a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
+<p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. Where the warehouse is Hive 2.3 or 3.1 under Tez, a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(
@@ -1855,7 +1855,7 @@ WHERE
 <section class="entry" id="derived">
 <h3><code>derived</code></h3>
 <p class="why">Name a Statement so another Statement can read it like a table.</p>
-<p>You then use its output columns like a Table reference&#x27;s, as runs_per_job.runs, and a typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH runs_per_job AS (...). Hive works it out again each time the Statement reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.</p>
+<p>You then use its output columns like a Table reference&#x27;s, as runs_per_job.runs, and a typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH runs_per_job AS (...). The warehouse works it out again each time the Statement reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.</p>
 <pre class="python">runs_per_job = derived(&quot;runs_per_job&quot;, statement(
     SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -2127,7 +2127,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>
 <p class="why">The Monday that starts each date&#x27;s week, to group days into weeks.</p>
-<p>Hive has no week function that works the same everywhere, so this takes the first Monday after the day a week earlier. The result is a day like &quot;2026-09-21&quot;.</p>
+<p>There is no week function that works the same in every warehouse, so this takes the first Monday after the day a week earlier. The result is a day like &quot;2026-09-21&quot;.</p>
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
@@ -2203,7 +2203,7 @@ WHERE
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
 <p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with its arguments escaped.</p>
-<p>sqlglot may write a function under Hive&#x27;s other name for it, or leave out an argument that Hive fills in anyway: nvl comes out as COALESCE, and regexp_extract(col, pattern, 1) without the 1, since group 1 is what Hive takes when none is given.</p>
+<p>The Hive may call a function by its other name, as nvl comes out as COALESCE, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) may come out without the 1, since group 1 is what the warehouse takes when none is given.</p>
 <pre class="python">hive_function(&quot;regexp_replace&quot;, jobs.job_name, &quot;_&quot;, &quot; &quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">REGEXP_REPLACE(jobs.job_name, &#x27;_&#x27;, &#x27; &#x27;)</pre>
@@ -2212,7 +2212,7 @@ WHERE
 <section class="entry" id="to_hive">
 <h3><code>to_hive</code></h3>
 <p class="why">The Hive string for a Statement, ready to send.</p>
-<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. sqlglot writes a few functions its own way, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.</p>
+<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. A few functions are written another way that means the same, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1).</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
@@ -2333,7 +2333,7 @@ GROUP BY
 ...
 sql_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
-  Why it matters: Hive would call it _c0, and that is the name pandas would show you.
+  Why it matters: Without a name, the warehouse makes one up, such as _c0, and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
   Opt-out:        none - a calculation always needs a name.</pre>
 <p class="names">Toolbox names used: <code>GuardRefused</code>, <code>SELECT</code>, <code>count_rows</code></p>
@@ -2393,7 +2393,7 @@ GROUP BY
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
 <p class="why">The Example database: three made-up tables, and a send to run Statements on.</p>
-<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on sqlglot&#x27;s own executor and returns a DataFrame, just like your own send at work. Nothing leaves Python, so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query; DESCRIBE and SHOW PARTITIONS work on any version.</p>
+<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
 <p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(

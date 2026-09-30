@@ -42,7 +42,7 @@ class GuardRefused(Exception):
     ...
     sql_composer.refusals.GuardRefused:
       What happened:  SELECT has a calculation with no name: COUNT(*).
-      Why it matters: Hive would call it _c0, and that is the name pandas would show you.
+      Why it matters: Without a name, the warehouse makes one up, such as _c0, and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
       Opt-out:        none - a calculation always needs a name.
     """
@@ -77,7 +77,8 @@ def guard_unnamed_calculation(calculation: str) -> None:
     raise GuardRefused(
         four_part_message(
             what=f"SELECT has a calculation with no name: {calculation}.",
-            why="Hive would call it _c0, and that is the name pandas would show you.",
+            why="Without a name, the warehouse makes one up, such as _c0, and that is the "
+            "name pandas would show you.",
             fix='Name it with AS, as in SELECT(AS(count_rows(), "runs")).',
             opt_out="none - a calculation always needs a name.",
         )
@@ -98,12 +99,13 @@ def guard_none_in_condition(call: str) -> None:
 
 
 def guard_not_a_number(call: str, position: str, value: object) -> None:
-    """NaN and infinity have no Hive literal. No opt-out."""
+    """NaN and infinity can't be written as values in the SQL. No opt-out."""
     raise GuardRefused(
         four_part_message(
             what=f"{call}: {position} is {value!r}.",
-            why="Hive has no way to write NaN or infinity: NaN would turn into NULL, which "
-            "matches nothing, and inf would be read as a column name.",
+            why="The SQL has no plain number for NaN or infinity: inf would be read as a "
+            "column's name, and NaN can't be written as a number at all, so the comparison "
+            "couldn't mean what you wrote.",
             fix="Drop NaN and infinite values first, for example with pandas' dropna().",
             opt_out=None,
         )
@@ -116,14 +118,14 @@ CONTROL_CHARACTERS = {"\x07": ("a bell", "a"), "\x0c": ("a form feed", "f"),
 
 
 def guard_control_character(call: str, position: str, character: str) -> None:
-    """A value holding a control character Hive would read as a letter. No opt-out."""
+    """A value holding a control character Hive and Spark would read as a letter. No opt-out."""
     name, letter = CONTROL_CHARACTERS[character]
     raise GuardRefused(
         four_part_message(
             what=f"{call}: {position} holds {name}, {character!r}, which is what \\{letter} "
             "gives in a Python string.",
-            why=f"The Hive would write it as \\{letter}, which Hive reads back as the plain "
-            f"letter {letter}, so the value would quietly be a different one.",
+            why=f"The Hive would write it as \\{letter}, which Hive and Spark read back as the "
+            f"plain letter {letter}, so the value would quietly be a different one.",
             fix=f"If you typed \\{letter} in a string, such as a Windows path, put r before "
             "the quotes, as in r'D:\\logs\\alerts', or double the backslash. If the "
             "character is really in your data, take it out of the value first.",
@@ -231,12 +233,12 @@ def guard_cross_join(call: str, table: str) -> None:
 
 
 def guard_order_by_in_derived_table(name: str) -> None:
-    """ORDER_BY without LIMIT inside a Derived table does nothing on Hive 3. No opt-out."""
+    """ORDER_BY without LIMIT inside a Derived table isn't kept. No opt-out."""
     raise GuardRefused(
         four_part_message(
             what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
-            why="Hive ignores the order of rows inside a Derived table, so any order you rely "
-            "on later would not be there.",
+            why="The warehouse doesn't keep the order of rows inside a Derived table, so any "
+            "order you rely on later may not be there.",
             fix="Sort in the outermost Statement, or number the rows with row_number(...) "
             "and keep the ones you want.",
             opt_out=None,
@@ -371,18 +373,18 @@ def load_limit_date_bound(call: str, table: str, full_name: str, date_partition:
 
 
 def load_limit_order_by(sorts_everything: bool) -> None:
-    """ORDER_BY without LIMIT sorts the whole result on one machine."""
+    """ORDER_BY without LIMIT sorts the whole result before any of it comes back."""
     if sorts_everything:
         return
     raise LoadRefused(
         four_part_message(
             what="ORDER_BY has no LIMIT.",
-            why="Hive sorts the whole result on a single machine before sending any of it, "
-            "which is slow on a big result.",
+            why="Sorting a whole big result is slow, and nothing comes back until it is "
+            "done.",
             fix="Sort in pandas after run(...), with df.sort_values(...). For a top N, add "
             "LIMIT(n).",
             opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
-            "to derived(...): Hive ignores the order of rows there, so it can't be switched "
+            "to derived(...): the order of rows there isn't kept, so it can't be switched "
             "off.",
         )
     )

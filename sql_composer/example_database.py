@@ -1,10 +1,9 @@
 """The Example database: three made-up tables, and a send to run Statements on.
 
 It holds the Table references `jobs`, `job_runs` and `run_alerts`, their rows (two days,
-2026-09-23 and 2026-09-24), and `send`, which runs a Statement's Hive on sqlglot's own
-executor and returns a DataFrame, just like your own send at work. Nothing leaves Python,
-so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query;
-DESCRIBE and SHOW PARTITIONS work on any version.
+2026-09-23 and 2026-09-24), and `send`, which runs a Statement's Hive on a small database of
+the Toolbox's own and returns a DataFrame, just like your own send at work. It never reaches
+your warehouse, so it is safe to try anything here. Where it can't run a query, it says why.
 
 Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
 ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first.
@@ -72,7 +71,7 @@ run_alerts = Table(
     key=["alert_id"],
 )
 
-# Hive's column comments, which DESCRIBE returns.
+# The column comments DESCRIBE returns.
 _COMMENTS = {
     ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
     ("run_alerts", "severity"): "low / high",
@@ -130,7 +129,7 @@ def _table(name: str) -> tuple[Table, list]:
 
 
 def _describe(name: str) -> pd.DataFrame:
-    """What Hive's DESCRIBE prints: the columns, then the partition columns again."""
+    """What DESCRIBE prints: the columns, then the partition columns again."""
     table, _ = _table(name)
     rows = [(column, kind, _COMMENTS.get((table._alias, column), ""))
             for column, kind in table._columns.items()]
@@ -145,7 +144,7 @@ def _describe(name: str) -> pd.DataFrame:
 
 
 def _show_partitions(name: str) -> pd.DataFrame:
-    """What Hive's SHOW PARTITIONS prints: one row per day, like dt=2026-09-23."""
+    """What SHOW PARTITIONS prints: one row per day, like dt=2026-09-23."""
     table, rows = _table(name)
     if table._date_partition is None:
         raise ValueError(f"Table {table._name} is not a partitioned table.")

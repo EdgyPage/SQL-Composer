@@ -58,7 +58,7 @@ def made_by(tree: Node, name: str, *args, **keywords) -> Node:
     """Note on `tree` the Toolbox call that made it, such as week_start(job_runs.dt).
 
     The note leaves the Hive unchanged. The lineage shows it, since it reads the way the
-    Statement was written, where sqlglot may have rewritten the Hive.
+    Statement was written, where the Hive may be written differently.
     """
     parts = [_argument_text(arg) for arg in args]
     parts += [f"{key}={_argument_text(value)}" for key, value in keywords.items()
@@ -281,7 +281,7 @@ def _check_type(value, column: Column | None, call: str) -> None:
     raise TypeError(
         four_part_message(
             what=f"{call} compares {column!r}, a {column._type} column, with {value!r}.",
-            why="Hive would quietly convert one side to the other's type, so the comparison "
+            why="The warehouse would convert one side to the other's type, so the comparison "
             "could match nothing or the wrong rows.",
             fix=f"Pass a value of the column's own type, such as {_example_of(family)}.",
             opt_out=None,
@@ -398,7 +398,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
 
 
 def _string_literal(value: str, call: str, position: str) -> Node:
-    """A string as a Hive literal, refused if it holds a character Hive would misread."""
+    """A string as a Hive literal, refused if it holds a character Hive or Spark would misread."""
     for character in CONTROL_CHARACTERS:
         if character in value:
             guard_control_character(call, position, character)
@@ -437,7 +437,8 @@ def _check_date_format(date_format: str) -> None:
         _refuse_table(
             what=f"date_format={date_format!r} holds a character that isn't printed, such as "
             "the bell \\a gives in a Python string.",
-            why="Hive would read it back as a plain letter, so the days would be written wrong.",
+            why="Hive and Spark would read it back as a plain letter, so the days would be "
+            "written wrong.",
             fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
             "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
         )
@@ -475,7 +476,7 @@ class Table:
     a typo stops with the list of real columns. Write one per table, generated once by
     write_table_reference(...) and then yours to edit.
 
-    - `columns` maps each column to its Hive type as Hive prints it ("bigint",
+    - `columns` maps each column to its Hive type as DESCRIBE prints it ("bigint",
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
     - `date_partition` is required: the one date column the table is partitioned by, which
       every Statement must bound at both ends, or None for a table that has none.
@@ -725,7 +726,7 @@ def _day_format_of(value: str | None) -> str | None:
 
 
 def write_table_reference(name, send):
-    '''Write a new Table reference file for a table, from Hive's own description of it.
+    '''Write a new Table reference file for a table, from what DESCRIBE says of it.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
     description, never its rows) and writes `<table>.py` in the folder you're working in. The
@@ -755,7 +756,7 @@ def write_table_reference(name, send):
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
         _refuse_table(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
-            why="It needs the name Hive knows the table by.",
+            why="It needs the name the warehouse knows the table by.",
             fix='Write it like "ops.job_runs".',
         )
     short = name.split(".")[-1]
@@ -840,7 +841,8 @@ def _real_table(t, call: str) -> Table:
 def check_key(t, send):
     """Check on the newest day that no two rows share the table's declared key.
 
-    JOIN relies on a declared key to warn about repeated rows, and Hive never enforces one.
+    JOIN relies on a declared key to warn about repeated rows, and the warehouse never
+    enforces one.
     This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows
     with no day), and shows at most 20 keys that repeat.
 
@@ -894,7 +896,7 @@ def _same_type(first: str, second: str) -> bool:
 
 
 def check_table_reference(t, send):
-    """Compare a Table reference with its table in Hive, and list what differs.
+    """Compare a Table reference with its table as it is now, and list what differs.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send`, and lists problems (which make
     Statements wrong) and notes (which may not matter), each with the line to change in the
@@ -1003,7 +1005,7 @@ def create_table(t, may_exist=False):
     """The CREATE TABLE Statement for a Saved table, from its Table reference.
 
     Send it once with run(create_table(t), send=...). Every column needs a type. If the
-    table already exists, Hive refuses with AlreadyExistsException. Without that refusal,
+    table already exists, the warehouse refuses to create it again. Without that refusal,
     you could edit the Table reference, send this again, and think the table had changed when
     it hadn't. Compare the two with check_table_reference(t, send=...), or, to start the
     table again, drop it with drop_table(t), which deletes every day it holds.
