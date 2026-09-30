@@ -169,6 +169,10 @@ uses.
 - [Build both Editions in the export](issues/24-build-both-editions-in-the-export.md): the export
   builds, stamps, imports and cross-checks every Edition EXPORTED names, still SQL Composer
   alone; a file from the other folder, `__init__.py` too, stops the import.
+- [The 3.0 Hive changes both Editions share](issues/25-the-3-0-hive-changes-both-editions-share.md): CAST around week
+  and month, Spark's reserved words in backticks, create_table's types by one list, and
+  hive_function's counts, aggregates and window functions by one list; the version items
+  wait for ticket 26.
 
 ## Not yet specified
 
