@@ -20,6 +20,7 @@ from .refusals import (
     guard_missing_group_by,
     guard_order_by_in_derived_table,
     guard_unnamed_calculation,
+    refuse_the_other_editions,
     guard_write_lines_up,
     load_limit_date_bound,
     load_limit_order_by,
@@ -150,6 +151,7 @@ def AS(expression, name):
     if isinstance(expression, Named):
         expression = expression._column
     if not isinstance(expression, Column):
+        refuse_the_other_editions(expression, "AS")
         _misuse(
             what=f"AS was given {expression!r}, which can't be named.",
             why="AS names a column or a calculation for SELECT, or a table for FROM or JOIN.",
@@ -204,6 +206,7 @@ def _outputs(items, call: str) -> list[tuple[Column, str]]:
 
 
 def _refuse_output(item, call: str) -> None:
+    refuse_the_other_editions(item, call)
     if isinstance(item, Table):
         fix = f"Name its columns, or use all_columns({item._alias})."
     elif isinstance(item, Condition):
@@ -253,6 +256,7 @@ def SELECT_DISTINCT(*columns):
 def _need_table(table, call: str) -> Table:
     if isinstance(table, Table):
         return table
+    refuse_the_other_editions(table, call)
     _misuse(
         what=f"{call} was given {table!r}, which isn't a table.",
         why="It reads a Table reference, or a Statement named with derived(...).",
@@ -285,6 +289,7 @@ def _need_on(on, call: str, table: Table):
     if on is None:
         guard_cross_join(call, table._alias)
     if not isinstance(on, Condition):
+        refuse_the_other_editions(on, call)
         _misuse(
             what=f"{call}({table._alias}, ON={on!r}): ON= isn't a condition.",
             why="ON= says which rows of the two tables belong together.",
@@ -420,6 +425,7 @@ def _conditions(items, call: str) -> list[Condition]:
     found = _flatten(items)
     for item in found:
         if not isinstance(item, Condition):
+            refuse_the_other_editions(item, call)
             _misuse(
                 what=f"{call} was given {item!r}, which isn't a condition.",
                 why="It keeps rows by conditions made with functions such as equals(...).",
@@ -455,6 +461,7 @@ def GROUP_BY(*columns):
     items = _flatten(columns)
     for item in items:
         if not isinstance(item, (Column, str)):
+            refuse_the_other_editions(item, "GROUP_BY")
             _misuse(
                 what=f"GROUP_BY was given {item!r}.",
                 why="It groups by columns, or by the name of a calculation in SELECT.",
@@ -523,6 +530,7 @@ def ORDER_BY(*columns, sorts_everything=False):
                 'ORDER_BY(descending("runs")).')
     for item in items:
         if not isinstance(item, (Column, str, Ordering)):
+            refuse_the_other_editions(item, "ORDER_BY")
             _misuse(what=f"ORDER_BY was given {item!r}.",
                     why="It sorts by columns or output names.",
                     fix="Pass a column, an output name, or descending(...).")
@@ -630,6 +638,7 @@ def INSERT_INTO(table):
 def _check_order(clauses) -> None:
     for clause in clauses:
         if not isinstance(clause, Clause):
+            refuse_the_other_editions(clause, "statement")
             _misuse(
                 what=f"statement(...) was given {clause!r}, which isn't a clause.",
                 why="A Statement is a list of clause functions such as SELECT(...) and "
@@ -923,6 +932,7 @@ def derived(name, statement):
                 fix='Use letters, digits and _, such as derived("latest", ...).',
                 error=ValueError)
     if not isinstance(statement, Statement) or statement._ddl is not None:
+        refuse_the_other_editions(statement, "derived")
         _misuse(what=f"derived({name!r}, ...) was given {statement!r}.",
                 why="derived names a Statement made by statement(...).",
                 fix="Pass statement(SELECT(...), FROM(...), ...).")

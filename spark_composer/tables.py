@@ -29,6 +29,8 @@ from .refusals import (
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
+    refuse_a_spark_dataframe,
+    refuse_the_other_editions,
 )
 from .trees import ARITHMETIC, SIMPLE_NAME, Node, number, string
 from .writing import describe_text, hive_text, hive_type, readable_text, show_partitions_text
@@ -380,6 +382,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
             guard_none_in_condition(call)
         return Node("Null")
     if not isinstance(value, SINGLE_VALUES):
+        refuse_the_other_editions(value, call)
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {value!r}, which isn't a single value.",
@@ -682,6 +685,7 @@ class Verdict:
 def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
     frame = send(describe_text(name))
+    refuse_a_spark_dataframe(frame, "DESCRIBE")
     columns, comments, partitions = {}, {}, []
     # The columns come first; each header after them, bar the partition list's own column
     # header, starts a section, and only the partition sections name partition columns.
@@ -709,6 +713,7 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
 def _newest_partition_value(name: str, column: str, send) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
     frame = send(show_partitions_text(name))
+    refuse_a_spark_dataframe(frame, "SHOW PARTITIONS")
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
@@ -831,6 +836,7 @@ def _reference_text(name, variable, columns, comments, date_lines) -> str:
 
 def _real_table(t, call: str) -> Table:
     if not isinstance(t, Table) or t._statement is not None:
+        refuse_the_other_editions(t, call)
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {t!r}.",
