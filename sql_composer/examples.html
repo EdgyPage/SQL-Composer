@@ -472,7 +472,7 @@ runs_to_review = Table(
 <h4><code>create()</code></h4><pre class="python">def create():
     &quot;&quot;&quot;Step 1, once: create the table from its Table reference.
 
-    the warehouse refuses if the table already exists. That is on purpose: after you edit the Table
+    The warehouse refuses if the table already exists. That is on purpose: after you edit the Table
     reference, sending this again can&#x27;t quietly look like it changed the real table.
     &quot;&quot;&quot;
     return create_table(runs_to_review)</pre><p class="label">Hive</p><pre class="hive">CREATE TABLE mart.runs_to_review (
