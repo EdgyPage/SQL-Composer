@@ -105,9 +105,7 @@ def test_an_object_the_other_editions_folder_made_is_named_so(call, given: str,
         message) and given in message
     # Either folder may be the one to keep: the fix says how to import from each, and where.
     assert f"`from {edition().folder} import` to `from {OTHER} import`" in message
-    made_in = ("a Table reference's file" if called in ("a Table reference", "a column")
-               else "a Building block's or a Statement's file")
-    assert f"such as {made_in}." in message
+    assert f"change that line in the file the {called.split(' ', 1)[1]} came from." in message
 
 
 def test_an_object_no_edition_made_gets_the_message_it_got_before() -> None:
