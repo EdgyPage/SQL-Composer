@@ -115,18 +115,22 @@ def _home_of(name, stamp):
 
 def _check_home(stamps):
     """Stop if a file came from another Toolbox folder than the one it sits in."""
-    folder = os.path.basename(_HERE)
+    on_disk = os.path.basename(_HERE)
     homes = {name: _home_of(name, stamp) for name, stamp in stamps.items()}
-    elsewhere = sorted(name for name, home in homes.items() if home not in (None, folder))
+    # The folder is the Toolbox folder its name and its files' stamps agree on. A folder its
+    # files' stamps don't name, such as one you renamed, is the one __init__.py belongs in.
+    this = on_disk if on_disk in homes.values() else _FOLDER
+    elsewhere = sorted(name for name, home in homes.items() if home not in (None, this))
     if elsewhere:
         home = homes[elsewhere[0]]
+        where = f"the {on_disk} folder" + ("" if on_disk == this else f", a copy of {this}")
         _stop(
             what=f"{', '.join(elsewhere)} {'is' if len(elsewhere) == 1 else 'are'} from the "
-            f"{home} folder, and this is the {folder} folder.",
+            f"{home} folder, and this is {where}.",
             why="A folder's files are made to work only with each other: a .py file from "
             "another folder could make a Statement fail or come out wrong, and an "
             "examples.html or CHANGES.md from one may not describe this folder's code.",
-            fix=f"Delete the {folder} folder, then copy it in again from the {folder} folder "
+            fix=f"Delete the {on_disk} folder, then copy it in again from the {this} folder "
             f"of one download, not from {home}.",
         )
 

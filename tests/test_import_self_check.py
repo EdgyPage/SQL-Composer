@@ -174,10 +174,43 @@ def test_the_other_folders_init_stops_the_import_naming_itself(tmp_path) -> None
     """Its own text names the other folder, so the stop goes by the folder the import found."""
     def pasted_in(copy: Path) -> None:
         shutil.copy(ROOT / OTHER.folder / "__init__.py", copy / "__init__.py")
+        from_the_other_folder(copy, "__init__.py")
 
     assert import_copy(tmp_path, pasted_in).endswith(import_stop(
         what=f"__init__.py is from the {OTHER.folder} folder, and this is the {FOLDER} folder.",
         why=FROM_ELSEWHERE_WHY, fix=FROM_ELSEWHERE_FIX) + "\n")
+
+
+def renamed_copy(tmp_path: Path, change) -> str:
+    """Copy the Toolbox as the folder my_toolbox, as its export would, apply `change`, and
+    import it."""
+    copy = tmp_path / "my_toolbox"
+    shutil.copytree(TOOLBOX, copy, ignore=shutil.ignore_patterns("__pycache__"))
+    with_file_list(copy)
+    stamp_every_file(copy)
+    change(copy)
+    return subprocess.run([sys.executable, "-c", "import my_toolbox"], cwd=tmp_path,
+                          capture_output=True, text=True).stderr
+
+
+def test_a_renamed_folder_imports(tmp_path) -> None:
+    assert renamed_copy(tmp_path, lambda copy: None) == ""
+
+
+def test_a_file_from_the_other_folder_in_a_renamed_folder_stops_the_import(tmp_path) -> None:
+    def pasted_in(copy: Path) -> None:
+        tables = copy / "tables.py"
+        tables.write_text(tables.read_text(encoding="utf-8").replace(PRODUCT, OTHER.product, 1),
+                          encoding="utf-8")
+
+    assert renamed_copy(tmp_path, pasted_in).endswith(
+        "ImportError: my_toolbox stopped on import:"
+        f"\n  What happened:  tables.py is from the {OTHER.folder} folder, and this is the "
+        f"my_toolbox folder, a copy of {FOLDER}."
+        f"\n  Why it matters: {FROM_ELSEWHERE_WHY}"
+        f"\n  Usual fix:      Delete the my_toolbox folder, then copy it in again from the {FOLDER} "
+        f"folder of one download, not from {OTHER.folder}."
+        "\n  Opt-out:        none - this one can't be switched off.\n")
 
 
 def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None:
