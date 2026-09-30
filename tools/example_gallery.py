@@ -1,12 +1,14 @@
-"""Write the Example gallery, `sql_composer/examples.html`, from the Worked examples.
+"""Write an Edition's Example gallery, `sql_composer/examples.html`, from the Worked examples.
 
 Run it on `dev` after changing a docstring's example, a Statement script in
 `worked_examples/statements/`, or anything that changes the Hive the Toolbox writes:
 
     python tools/example_gallery.py
+    python tools/example_gallery.py --edition spark
 
-A test fails while the committed page differs from what this writes. It runs every Statement
-on the Example database, so it needs sqlglot 30.19.0, the pin in requirements-dev.txt.
+The second writes `spark_composer/examples.html`. A test fails while a committed page differs
+from what this writes. It runs every Statement on the Edition's Example database, which says
+when it can't, such as on a sqlglot older than the pin in requirements-dev.txt.
 
 The page holds two kinds of Worked example:
 
@@ -43,15 +45,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKED_EXAMPLES = ROOT / "worked_examples"
-GALLERY = ROOT / "sql_composer" / "examples.html"
 sys.path[:0] = [str(ROOT), str(WORKED_EXAMPLES)]
 
+import editions  # noqa: E402
+
+if __name__ == "__main__":
+    # Before any Toolbox import: `import sql_composer` then gives the Edition asked for.
+    editions.use(editions.chosen(sys.argv))
+
 import pandas as pd  # noqa: E402
-import sqlglot  # noqa: E402
 
 import sql_composer  # noqa: E402
-from sql_composer import conditions, example_database  # noqa: E402
+from sql_composer import conditions, engine, example_database  # noqa: E402
 from sql_composer.clauses import Statement  # noqa: E402
+
+EDITION = editions.EDITIONS[sql_composer.__name__]
+GALLERY = ROOT / EDITION.folder / "examples.html"
 
 # Today on the page, as in the doctests: last_n_days(job_runs.dt, 2) reads both of the
 # Example database's days.
@@ -76,7 +85,7 @@ def statement_scripts() -> list:
 def toolbox_modules() -> list:
     return [sql_composer] + [
         importlib.import_module(f"sql_composer.{path.stem}")
-        for path in sorted((ROOT / "sql_composer").glob("*.py")) if path.stem != "__init__"
+        for path in sorted((ROOT / EDITION.folder).glob("*.py")) if path.stem != "__init__"
     ]
 
 
@@ -94,7 +103,7 @@ def docstrings() -> list[tuple[list[str], str]]:
         for test in doctest.DocTestFinder().find(module):
             doc = inspect.cleandoc(test.docstring or "")
             if test.examples and doc not in seen:
-                found.append(([test.name.removeprefix("sql_composer.")], doc))
+                found.append(([test.name.removeprefix(f"{EDITION.folder}.")], doc))
                 seen.add(doc)
     return found
 
@@ -508,10 +517,10 @@ def pandas_results_by_hive(scripts: list) -> dict:
 
 def gallery_page() -> str:
     """The whole page, as one HTML string."""
-    version = re.match(r"(\d+)\.(\d+)", sqlglot.__version__)
-    if tuple(int(n) for n in version.groups()) < (30, 19):
-        raise RuntimeError("The Example gallery runs the Example database, which needs sqlglot "
-                           f"30.19.0 or newer; this is {sqlglot.__version__}.")
+    cannot_run = engine.example_database_cannot_run()
+    if cannot_run is not None:
+        raise RuntimeError(f"The Example gallery runs every Statement on the Example database, "
+                           f"and {cannot_run}.")
     scripts = statement_scripts()
     pandas_results = pandas_results_by_hive(scripts)
     # Common jobs first, then the wrong numbers and their fixes; each list in file-name order.
@@ -528,6 +537,7 @@ def gallery_page() -> str:
     documented = [(names, docstring_entry(names, doc, pandas_results, used_by))
                   for names, doc in docstrings()]
     return PAGE.format(
+        product=escape(EDITION.product),
         version=escape(sql_composer.TOOLBOX_VERSION),
         worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
@@ -551,7 +561,7 @@ def contents_html(entries: list[tuple[str, str, str]]) -> str:
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SQL Composer {version}: Example gallery</title>
+<title>{product} {version}: Example gallery</title>
 <style>
 body{{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}}
 header,main,#filter{{max-width:1180px;margin:0 auto;padding:0 16px}} header{{padding-top:12px}}
@@ -573,7 +583,7 @@ table.result th,table.result td{{border:1px solid #ddd;padding:2px 8px;text-alig
 #filter input{{font:inherit;padding:4px 8px;width:22em;max-width:70%}}
 </style></head><body>
 <header>
-<h1>SQL Composer {version}: Example gallery</h1>
+<h1>{product} {version}: Example gallery</h1>
 <p>Every Worked example on one page: {worked_count} Worked examples on their own, and the
 {docstring_count} examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up

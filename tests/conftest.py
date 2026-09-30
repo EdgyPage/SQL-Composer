@@ -1,9 +1,11 @@
 """The test setup every Toolbox test shares.
 
-The tests run against one Edition of the Toolbox, chosen with `--edition`: `sqlglot`, for SQL
-Composer, is the only choice for now, and the default. Nothing here imports the Toolbox or sqlglot
-when the file is loaded, so the Edition is chosen before any Toolbox module is. Each run names its
-Edition at the end, so a run of the wrong one can't pass unnoticed.
+The tests run against one Edition of the Toolbox, chosen with `--edition`: `sqlglot` for SQL
+Composer, the default, or `spark` for Spark Composer. Nothing here imports the Toolbox or sqlglot
+when the file is loaded, so the Edition is chosen before any Toolbox module is. In Spark
+Composer's run, `import sql_composer` gives Spark Composer's modules and sqlglot can't be imported
+at all (`editions.use`), so the same tests run unchanged. Each run names its Edition at the end,
+so a run of the wrong one can't pass unnoticed.
 
 Today is pinned to 2026-09-25, the day after the Example database's last day, so
 `last_n_days(job_runs.dt, 2)` covers both of its days and every emitted date is fixed. The
@@ -36,9 +38,11 @@ import editions
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 TODAY = datetime.date(2026, 9, 25)
-EDITION_CHOICES = {"sqlglot": editions.SQL_COMPOSER}
-# The folder of tests only one Edition passes, by the --edition that chooses it.
-EDITION_FOLDERS = {"sqlglot": "sqlglot_edition", "spark": "spark_edition"}
+# Each --edition: the Edition it tests, and the folder of tests only that Edition passes.
+EDITION_CHOICES = {
+    "sqlglot": (editions.SQL_COMPOSER, "sqlglot_edition"),
+    "spark": (editions.SPARK_COMPOSER, "spark_edition"),
+}
 # The repo's own checks, run once, in SQL Composer's run.
 REPO_FOLDER = "repo"
 # What this run was given: its Edition, and whether its Example database must run.
@@ -47,21 +51,23 @@ _chosen: dict = {}
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--edition", choices=sorted(EDITION_CHOICES), default="sqlglot",
-                     help="the Edition of the Toolbox to test: sqlglot for SQL Composer")
+                     help="the Edition of the Toolbox to test: sqlglot for SQL Composer, "
+                     "spark for Spark Composer")
     parser.addoption("--example-database", choices=["optional", "required"], default="optional",
                      help="required: a test that needs the Example database fails where it "
                      "can't run a query, instead of skipping")
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    _chosen["edition"] = EDITION_CHOICES[config.getoption("--edition")]
+    _chosen["edition"], _ = EDITION_CHOICES[config.getoption("--edition")]
     _chosen["example_database"] = config.getoption("--example-database")
+    editions.use(_chosen["edition"])
 
 
 def folders_left_out(config: pytest.Config) -> set[str]:
     """The folders of tests this run doesn't collect: the other Edition's, and the repo's."""
     chosen = config.getoption("--edition")
-    left_out = {folder for edition, folder in EDITION_FOLDERS.items() if edition != chosen}
+    left_out = {folder for name, (_, folder) in EDITION_CHOICES.items() if name != chosen}
     if chosen != "sqlglot":
         left_out.add(REPO_FOLDER)
     return left_out

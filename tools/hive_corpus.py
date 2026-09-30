@@ -1,8 +1,9 @@
-"""Write the golden corpus, `tests/hive_corpus/sql_composer.txt`: what SQL Composer shows today.
+"""Write an Edition's golden corpus, `tests/hive_corpus/<its folder>.txt`: what it shows today.
 
 Run it on `dev` only when a change is meant to alter what the Toolbox writes, then review the diff:
 
     python tools/hive_corpus.py
+    python tools/hive_corpus.py --edition spark
 
 `tests/sqlglot_edition/test_sqlglot_hive_corpus.py` fails while the committed file differs from
 what this writes. Both work only at the sqlglot pin in requirements-dev.txt, since another sqlglot
@@ -30,17 +31,24 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GOLDEN = ROOT / "tests" / "hive_corpus" / "sql_composer.txt"
 sys.path[:0] = [str(ROOT), str(ROOT / "tools"), str(ROOT / "tests")]
 
+import editions  # noqa: E402
+
+if __name__ == "__main__":
+    # Before any Toolbox import: `import sql_composer` then gives the Edition asked for.
+    editions.use(editions.chosen(sys.argv))
+
 import pandas as pd  # noqa: E402
-import sqlglot  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
 import sql_composer  # noqa: E402
 from sql_composer import example_database  # noqa: E402
 from sql_composer.clauses import derived_tables  # noqa: E402
+
+EDITION = editions.EDITIONS[sql_composer.__name__]
+GOLDEN = ROOT / "tests" / "hive_corpus" / f"{EDITION.folder}.txt"
 
 PIN = re.search(r"^sqlglot==(\S+)$",
                 (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.MULTILINE)[1]
@@ -271,18 +279,21 @@ def tables() -> list:
 
 def corpus_text() -> str:
     """The whole golden corpus, as one string."""
-    header = ("# What SQL Composer shows today, written by tools/hive_corpus.py. Don't edit it by "
-              "hand.\n")
+    header = (f"# What {EDITION.product} shows today, written by tools/hive_corpus.py. Don't "
+              "edit it by hand.\n")
     blocks = [case_text(case_id, build) for case_id, build in cases()]
     blocks += [warehouse_text(t) for t in tables()]
     return header + "\n".join(blocks)
 
 
 def main() -> int:
-    if sqlglot.__version__ != PIN:
-        print(f"The golden is written at the sqlglot pin, {PIN}, and this is "
-              f"{sqlglot.__version__}: another sqlglot writes some Hive differently.")
-        return 1
+    if EDITION is editions.SQL_COMPOSER:
+        import sqlglot
+
+        if sqlglot.__version__ != PIN:
+            print(f"The golden is written at the sqlglot pin, {PIN}, and this is "
+                  f"{sqlglot.__version__}: another sqlglot writes some Hive differently.")
+            return 1
     text = corpus_text()
     GOLDEN.parent.mkdir(parents=True, exist_ok=True)
     with open(GOLDEN, "w", encoding="utf-8", newline="\n") as file:
