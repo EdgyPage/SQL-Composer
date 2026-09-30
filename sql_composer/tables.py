@@ -22,8 +22,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sqlglot import exp
-
 from .refusals import (
     CONTROL_CHARACTERS,
     four_part_message,
@@ -33,15 +31,7 @@ from .refusals import (
     guard_time_of_day,
 )
 from .trees import ARITHMETIC, SIMPLE_NAME, Node, number, string
-from .writing import (
-    describe_text,
-    drop,
-    hive_table,
-    hive_text,
-    hive_type,
-    identifier,
-    show_partitions_text,
-)
+from .writing import describe_text, hive_text, hive_type, show_partitions_text
 
 TOOLBOX_VERSION = "2.1"
 
@@ -609,15 +599,11 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
-def source(table: Table) -> exp.Expression:
-    """How a table is named after FROM or JOIN."""
-    if table._statement is not None:
-        base = exp.Table(this=identifier(table._name))
-        if table._alias == table._name:
-            return base
-    else:
-        base = hive_table(table._name)
-    return exp.alias_(base, identifier(table._alias), table=True)
+def source(table: Table) -> Node:
+    """How a table is named after FROM or JOIN: its name, and AS its alias where it needs one."""
+    if table._statement is not None and table._alias == table._name:
+        return Node("Table", name=table._name)
+    return Node("Table", name=table._name, alias=table._alias)
 
 
 def all_columns(t):
@@ -1039,15 +1025,12 @@ def create_table(t, may_exist=False):
             why="Hive needs every column's type to create the table.",
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
         )
-    table = hive_table(t._name)
     columns = [_column_definition(t, c) for c in t._columns if c != t._date_partition]
-    properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
-    if t._date_partition is not None:
-        partition = exp.Schema(expressions=[_column_definition(t, t._date_partition)])
-        properties.insert(0, exp.PartitionedByProperty(this=partition))
+    partitioned_by = ([] if t._date_partition is None
+                      else [_column_definition(t, t._date_partition)])
     s = Statement()
-    s._ddl = exp.Create(kind="TABLE", this=exp.Schema(this=table, expressions=columns),
-                        properties=exp.Properties(expressions=properties), exists=may_exist)
+    s._ddl = Node("Create", table=Node("Table", name=t._name), columns=columns,
+                  partitioned_by=partitioned_by, exists=may_exist)
     return s
 
 
@@ -1071,13 +1054,14 @@ def drop_table(t):
 
     t = _real_table(t, "drop_table(...)")
     s = Statement()
-    s._ddl = drop(hive_table(t._name))
+    s._ddl = Node("Drop", table=Node("Table", name=t._name))
     return s
 
 
-def _column_definition(t: Table, column: str) -> exp.ColumnDef:
+def _column_definition(t: Table, column: str) -> Node:
+    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
     try:
-        kind = hive_type(t._columns[column])
+        hive_type(t._columns[column])
     except Exception:
         _refuse_table(
             what=f"create_table({t._alias}): {column}'s type {t._columns[column]!r} isn't a "
@@ -1085,4 +1069,4 @@ def _column_definition(t: Table, column: str) -> exp.ColumnDef:
             why="Hive needs a type it knows to create the column.",
             fix='Use a Hive type such as "string", "bigint", "double" or "decimal(10,2)".',
         )
-    return exp.ColumnDef(this=identifier(column), kind=kind)
+    return Node("ColumnDef", name=column, type=t._columns[column])

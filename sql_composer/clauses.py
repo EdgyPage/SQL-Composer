@@ -116,8 +116,8 @@ class Statement:
         self._group_by = []  # GROUP_BY's columns, with output names looked up
         self._order_by = []  # ORDER_BY's sort keys
         self._limit = None  # LIMIT's row count
-        # Set instead by create_table and drop_table, whose Statement is a sqlglot tree ready
-        # to write, with none of the parts above.
+        # Set instead by create_table and drop_table, whose Statement is a CREATE or DROP
+        # tree ready to write, with none of the parts above.
         self._ddl = None
 
     def __repr__(self) -> str:

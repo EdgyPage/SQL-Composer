@@ -7,8 +7,6 @@ CSVs stay in it. The Toolbox never imports it.
 
 from __future__ import annotations
 
-from sqlglot import exp
-
 from . import writing
 from .clauses import (
     FROM,
@@ -28,7 +26,7 @@ from .refusals import (
     load_limit_rows,
 )
 from .tables import aliased, source
-from .writing import hive_table, identifier, to_sqlglot
+from .trees import Node, combined
 
 TOOLBOX_VERSION = "2.1"
 
@@ -69,60 +67,50 @@ def set_load_limits(rows=None, dates=None):
 # --- Building the Hive -----------------------------------------------------------------------
 
 
-def _output(column, name: str) -> exp.Expression:
+def _output(column, name: str) -> Node:
     """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
-        return to_sqlglot(column._tree)
-    return exp.alias_(to_sqlglot(column._tree), identifier(name))
+        return column._tree.copy()
+    return Node("Alias", this=column._tree.copy(), alias=name)
 
 
-def _join_tree(read) -> exp.Join:
-    """The sqlglot tree of one JOIN, LEFT_JOIN or CROSS_JOIN clause."""
-    parts = {"this": source(read.table)}
-    if read.on is not None:
-        parts["on"] = to_sqlglot(read.on._tree)
-    if read._name == "LEFT_JOIN":
-        parts["side"] = "LEFT"
-    if read._name == "CROSS_JOIN":
-        parts["kind"] = "CROSS"
-    return exp.Join(**parts)
+def _join_tree(read) -> Node:
+    """One JOIN, LEFT_JOIN or CROSS_JOIN clause."""
+    return Node("Join", this=source(read.table),
+                on=None if read.on is None else read.on._tree.copy(),
+                left=read._name == "LEFT_JOIN", cross=read._name == "CROSS_JOIN")
 
 
-def _select_tree(s: Statement) -> exp.Select:
-    """The sqlglot tree of a Statement's SELECT, from FROM to LIMIT, without WITH."""
+def _all_of(conditions: list) -> Node | None:
+    """The conditions of WHERE or HAVING, joined with AND, or None when there are none."""
+    return combined("And", [c._tree.copy() for c in conditions]) if conditions else None
+
+
+def _select_tree(s: Statement) -> Node:
+    """A Statement's SELECT, from FROM to LIMIT, without WITH."""
     outputs = s._outputs
     if s._write is not None:
         order = list(s._write._columns)
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
-    tree = exp.Select(expressions=[_output(column, name) for column, name in outputs])
-    if s._distinct:
-        tree.set("distinct", exp.Distinct())
-    writing.set_part(tree, "from", exp.From(this=source(s._reads[0].table)))
-    if len(s._reads) > 1:
-        tree.set("joins", [_join_tree(read) for read in s._reads[1:]])
-    if s._where:
-        tree.set("where", exp.Where(this=exp.and_(*[to_sqlglot(c._tree) for c in s._where])))
-    if s._group_by:
-        tree.set("group", exp.Group(expressions=[to_sqlglot(c._tree) for c in s._group_by]))
-    if s._having:
-        tree.set("having", exp.Having(this=exp.and_(*[to_sqlglot(c._tree)
-                                                       for c in s._having])))
-    if s._order_by:
-        tree.set("order", exp.Order(expressions=[to_sqlglot(o) for o in s._order_by]))
-    if s._limit is not None:
-        tree.set("limit", exp.Limit(expression=exp.Literal.number(s._limit)))
-    return tree
+    return Node(
+        "Select",
+        outputs=[_output(column, name) for column, name in outputs],
+        distinct=s._distinct,
+        source=source(s._reads[0].table),
+        joins=[_join_tree(read) for read in s._reads[1:]],
+        where=_all_of(s._where),
+        group_by=[c._tree.copy() for c in s._group_by],
+        having=_all_of(s._having),
+        order_by=Node("Order", expressions=[o.copy() for o in s._order_by]) if s._order_by
+        else None,
+        limit=s._limit,
+    )
 
 
-def _with(tree: exp.Expression, s: Statement) -> exp.Expression:
+def _with(tree: Node, s: Statement) -> Node:
     """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
-    parts = [
-        exp.CTE(this=_select_tree(table._statement),
-                alias=exp.TableAlias(this=identifier(table._name)))
-        for table in derived_tables(s)
-    ]
-    if parts:
-        writing.set_part(tree, "with", exp.With(expressions=parts))
+    tree.set("with_tables", [Node("CTE", this=_select_tree(table._statement), alias=table._name)
+                             for table in derived_tables(s)])
     return tree
 
 
@@ -190,20 +178,20 @@ def _bottom_read(s: Statement):
     return read.table, span
 
 
-def _write_tree(s: Statement) -> exp.Expression:
+def _write_tree(s: Statement) -> Node:
     """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
     table = s._write
     day = _written_day(s).strftime(table._date_format)
-    partition = exp.Partition(expressions=[
-        exp.EQ(this=exp.column(identifier(table._date_partition)),
-               expression=exp.Literal.string(day)),
+    partition = Node("Partition", expressions=[
+        Node("EQ", this=Node("Column", name=table._date_partition),
+             expression=Node("Literal", this=day, is_string=True)),
     ])
-    target = hive_table(table._name, partition=partition)
-    return exp.Insert(this=target, expression=_select_tree(s), overwrite=s._replaces_day)
+    return Node("Insert", table=Node("Table", name=table._name, partition=partition),
+                select=_select_tree(s), overwrite=s._replaces_day)
 
 
-def _statement_tree(s: Statement) -> exp.Expression:
-    """The whole sqlglot tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
+def _statement_tree(s: Statement) -> Node:
+    """The whole tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
     if s._ddl is not None:
         return s._ddl.copy()
     if s._write is not None:
@@ -211,7 +199,7 @@ def _statement_tree(s: Statement) -> exp.Expression:
     tree = _select_tree(s)
     limit = automatic_limit(s)
     if limit is not None:
-        tree.set("limit", exp.Limit(expression=exp.Literal.number(limit)))
+        tree.set("limit", limit)
     return _with(tree, s)
 
 
@@ -255,7 +243,7 @@ def to_hive(s):
         )
     if s._ddl is None:
         _check_dates_cap(s)
-    text = writing.hive_text(_statement_tree(s), pretty=True)
+    text = writing.hive_statement(_statement_tree(s))
     _self_check(text)
     return text
 

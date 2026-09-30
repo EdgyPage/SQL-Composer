@@ -1,11 +1,12 @@
-"""The Toolbox's own tree: what a calculation, a condition or a sort key is made of.
+"""The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
 its own, rather than in the objects of whatever package writes the Hive, so that every Edition can
 share the same tree.
 
 A column's calculation or a condition is a small tree of Nodes, such as `EQ` holding a `Column`
-and a `Literal`. `writing.py` turns a tree into Hive. Each kind of Node has fixed parts in a fixed
+and a `Literal`, and to_hive builds a whole Statement as one, from `Select` or `Insert` down.
+`writing.py` turns a tree into Hive. Each kind of Node has fixed parts in a fixed
 order, because the lineage lists a calculation's columns in the order a breadth-first walk finds
 them, and that order must not change.
 
@@ -100,6 +101,17 @@ KINDS = {
     "Call": ("name", "args"),
     # hive_function's call, kept as it was written, and whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
+    # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
+    "Select": ("with_tables", "outputs", "distinct", "source", "joins", "where", "group_by",
+               "having", "order_by", "limit"),
+    "Table": ("name", "partition", "alias"),
+    "Join": ("this", "on", "left", "cross"),
+    "CTE": ("this", "alias"),
+    "Partition": ("expressions",),
+    "Insert": ("with_tables", "table", "select", "overwrite"),
+    "Create": ("table", "columns", "partitioned_by", "exists"),
+    "ColumnDef": ("name", "type"),
+    "Drop": ("table",),
 }
 
 # The date functions a Call may name: the ones week_start and month_start write.

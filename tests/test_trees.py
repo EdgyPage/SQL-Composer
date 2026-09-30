@@ -16,8 +16,8 @@ def number(text: str) -> Node:
 
 
 def test_a_node_has_only_the_kinds_and_parts_it_knows() -> None:
-    with pytest.raises(ValueError, match="no kind of Node called 'Select'"):
-        Node("Select")
+    with pytest.raises(ValueError, match="no kind of Node called 'Update'"):
+        Node("Update")
     with pytest.raises(ValueError, match="a EQ has no part 'low'"):
         Node("EQ", this=column("a"), low=number("1"))
     with pytest.raises(ValueError, match="a Column has no part 'this'"):
