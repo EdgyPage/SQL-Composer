@@ -172,5 +172,3 @@ def test_count_distinct_is_right_on_the_executor() -> None:
 def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs), WHERE(condition))
     assert list(run(s, send=example_database.send).job_name) == names
-
-

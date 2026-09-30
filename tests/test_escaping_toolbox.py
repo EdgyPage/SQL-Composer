@@ -21,6 +21,8 @@ from escaping_cases import (
     REFUSED_CONTROL_CHARACTERS,
     SNEAKY_NUMBERS,
     STRING_CASES,
+    WRITTEN,
+    WRITTEN_IDS,
 )
 from sql_composer import (
     GuardRefused,
@@ -42,9 +44,7 @@ from sql_composer import (
 )
 from sql_composer.example_database import job_runs
 
-# The cases the Toolbox writes; the ones it refuses are checked on their own, below.
-WRITTEN = [case for case in STRING_CASES if case[0] not in REFUSED_CONTROL_CHARACTERS]
-WRITTEN_IDS = [label for label, _value, _expected in WRITTEN]
+# The cases the Toolbox refuses, checked on their own below; it writes the rest (WRITTEN).
 REFUSED = [case for case in STRING_CASES if case[0] in REFUSED_CONTROL_CHARACTERS]
 
 COMPARISONS = [
@@ -162,8 +162,3 @@ def test_a_non_finite_number_is_refused(value) -> None:
 
 def test_a_decimal_that_python_would_write_as_an_exponent_is_written_whole() -> None:
     assert repr(equals(numbers.d, decimal.Decimal("1E+3"))) == "numbers.d = 1000"
-
-
-# --- Where SQL text comes from --------------------------------------------------------------
-
-

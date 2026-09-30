@@ -24,9 +24,10 @@ ticket 15):
 database and `engine.py` use `sql_text`. `writing.py` declares TOOLBOX_VERSION and has no `>>>`
 examples.
 
-Tests: `tests/test_escaping_toolbox.py`'s single-writer rule becomes
-`("writing.py", "sql_text")`; `tests/test_statements.py:480-484` is replaced by a test that
-patches `writing.read_back`.
+Tests: the single-writer rule in `tests/sqlglot_edition/test_sqlglot_escaping_toolbox.py`
+(`test_sql_text_is_written_in_exactly_one_function`) becomes `("writing.py", "sql_text")`;
+`tests/test_statements.py::test_to_hive_stops_on_hive_that_doesnt_read_back_the_same` is
+replaced by a test that patches `writing.read_back`.
 
 ## Done when
 

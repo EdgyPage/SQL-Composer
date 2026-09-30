@@ -14,7 +14,6 @@ again, with `python tools/hive_corpus.py`, only for a change that is meant to al
 
 from __future__ import annotations
 
-
 import pytest
 import sqlglot
 
