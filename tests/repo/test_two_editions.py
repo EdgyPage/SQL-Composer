@@ -38,13 +38,7 @@ def _files(folder: Path) -> set[str]:
 def test_each_folder_holds_exactly_its_files() -> None:
     written = set(editions.SHARED_FILES + editions.EDITION_FILES + editions.VERBATIM_FILES)
     assert _files(SQL) == written | set(editions.PAGES)
-    assert _files(SPARK) - set(editions.PAGES) == written
-
-
-@pytest.mark.xfail(strict=True, reason="ticket 22 of the PySpark work writes Spark Composer's "
-                   "Example gallery")
-def test_spark_composer_has_its_example_gallery() -> None:
-    assert (SPARK / "examples.html").is_file()
+    assert _files(SPARK) == written | set(editions.PAGES)
 
 
 def test_changes_is_the_same_in_both_folders() -> None:

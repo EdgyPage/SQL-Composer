@@ -1,4 +1,4 @@
-"""Write an Edition's Example gallery, `sql_composer/examples.html`, from the Worked examples.
+"""Write an Edition's Example gallery, `examples.html` in its folder, from the Worked examples.
 
 Run it on `dev` after changing a docstring's example, a Statement script in
 `worked_examples/statements/`, or anything that changes the Hive the Toolbox writes:
@@ -6,9 +6,11 @@ Run it on `dev` after changing a docstring's example, a Statement script in
     python tools/example_gallery.py
     python tools/example_gallery.py --edition spark
 
-The second writes `spark_composer/examples.html`. A test fails while a committed page differs
-from what this writes. It runs every Statement on the Edition's Example database, which says
-when it can't, such as on a sqlglot older than the pin in requirements-dev.txt.
+The first writes `sql_composer/examples.html`, and the second `spark_composer/examples.html`,
+whose Example database needs Java 17. A test fails while a committed page differs from what
+this writes. It runs every Statement on the Edition's Example database, which says when it
+can't, such as on a sqlglot older than the pin in requirements-dev.txt. The Worked examples'
+Python is shown naming the Edition's own folder.
 
 The page holds two kinds of Worked example:
 
@@ -21,8 +23,9 @@ The page holds two kinds of Worked example:
   `run(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
-Statement, a pandas result from the Worked example that builds the same Hive stands in,
-labelled as such. Everything is plain HTML; a few lines of script add a filter box.
+Statement, as SQL Composer's can't run row_number or week_start, a pandas result from the Worked
+example that builds the same Hive stands in, labelled as such; Spark Composer's runs them all.
+Everything is plain HTML; a few lines of script add a filter box.
 """
 
 from __future__ import annotations
@@ -179,6 +182,10 @@ def label(text: str) -> str:
 
 
 def code_html(text: str, kind: str = "python") -> str:
+    """A block of code or output. Python names this Edition's folder, as the Worked examples,
+    written for SQL Composer, do once pasted into this Edition."""
+    if kind == "python":
+        text = editions.named_for(EDITION, text)
     return f'<pre class="{kind}">{escape(text.strip(chr(10)).rstrip())}</pre>'
 
 
@@ -306,7 +313,7 @@ def docstring_entry(names: list[str], doc: str, pandas_results: dict, used_by: d
     with example_setting():
         steps, sources = steps_html(doctest.DocTestParser().parse(rest), scope)
         body = [f'<p class="why">{inline(first)}</p>', *steps, *handed_html(handed, pandas_results),
-                extra_pandas_result(names)]
+                week_start_on_each_day(names)]
     used = [name for name in PUBLIC if name in names] + [
         name for name in names_in("\n".join(sources)) if name not in names]
     body.append(names_html(used))
@@ -315,15 +322,30 @@ def docstring_entry(names: list[str], doc: str, pandas_results: dict, used_by: d
     return entry_html(names[0], title, "\n".join(block for block in body if block))
 
 
-def extra_pandas_result(names: list[str]) -> str:
-    """week_start's example builds no Statement, so show what it gives each day, from pandas."""
+def week_start_on_each_day(names: list[str]) -> str:
+    """week_start's example builds no Statement, so show what it gives on each day.
+
+    The Example database runs it where it can; where it can't, pandas computes it.
+    """
     if names != ["week_start"]:
         return ""
     from statements import regrouping
 
-    weeks = regrouping.with_week(regrouping.every_run())[["dt", "week"]].drop_duplicates()
-    return (label(f"week_start(job_runs.dt) on each day of the Example database, {PANDAS_LABEL}")
-            + table_html(weeks.rename(columns={"week": "week_start(dt)"})))
+    runs = example_database.job_runs
+    s = sql_composer.statement(
+        sql_composer.SELECT_DISTINCT(runs.dt, sql_composer.AS(sql_composer.week_start(runs.dt),
+                                                              "week")),
+        sql_composer.FROM(runs),
+        sql_composer.WHERE(sql_composer.between(runs.dt, regrouping.FIRST_DAY,
+                                                regrouping.LAST_DAY)),
+    )
+    shown = "week_start(job_runs.dt) on each day of the Example database"
+    try:
+        weeks = sql_composer.run(s, send=example_database.send)
+    except (RuntimeError, ValueError):
+        weeks = regrouping.with_week(regrouping.every_run())[["dt", "week"]].drop_duplicates()
+        shown += f", {PANDAS_LABEL}"
+    return label(shown) + table_html(weeks.rename(columns={"week": "week_start(dt)"}))
 
 
 def used_by_html(found: list[list[tuple[str, str]]]) -> str:
@@ -556,6 +578,7 @@ def gallery_page() -> str:
                   for names, doc in docstrings()]
     return PAGE.format(
         product=escape(EDITION.product),
+        folder=escape(EDITION.folder),
         version=escape(sql_composer.TOOLBOX_VERSION),
         worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
@@ -612,10 +635,10 @@ run it. Press Ctrl+F to search the page.</p>
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
 to get the results shown.</p>
-<p>To paste a docstring's example, first run <code>from sql_composer import *</code> and
+<p>To paste a docstring's example, first run <code>from {folder} import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
 examples on their own are scripts kept where the Toolbox is written, not in the
-<code>sql_composer</code> folder. Each entry shows the Python that builds its Statements, but not
+<code>{folder}</code> folder. Each entry shows the Python that builds its Statements, but not
 the pandas that computes a result the Example database can't run. To try one, paste the top of
 its script, with the Table reference or Building block it imports pasted in place of its
 <code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the

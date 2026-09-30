@@ -225,8 +225,7 @@ def swap(text: str, file_name: str) -> str:
     forbidden = forbidden_words(text)
     if forbidden:
         raise SwapRefused(f"{file_name} names {', '.join(forbidden)}, which only one Edition has.")
-    swapped = _whole_word(SQL_COMPOSER.folder).sub(SPARK_COMPOSER.folder, text)
-    swapped = _whole_word(SQL_COMPOSER.product).sub(SPARK_COMPOSER.product, swapped)
+    swapped = named_for(SPARK_COMPOSER, text)
     left = sorted(set(SQL_COMPOSER_NAME.findall(swapped)))
     if left:
         raise SwapRefused(f"{file_name} would be left naming {', '.join(left)}.")
@@ -236,6 +235,12 @@ def swap(text: str, file_name: str) -> str:
         except SyntaxError as error:
             raise SwapRefused(f"{file_name} doesn't parse after the swap: {error}") from error
     return swapped
+
+
+def named_for(edition: Edition, text: str) -> str:
+    """Text written for SQL Composer, such as a Worked example, naming `edition` instead."""
+    swapped = _whole_word(SQL_COMPOSER.folder).sub(edition.folder, text)
+    return _whole_word(SQL_COMPOSER.product).sub(edition.product, swapped)
 
 
 def _verbatim(text: str, file_name: str) -> str:

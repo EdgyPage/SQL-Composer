@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SQL Composer 2.1: Example gallery</title>
+<title>Spark Composer 2.1: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,7 +23,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>SQL Composer 2.1: Example gallery</h1>
+<h1>Spark Composer 2.1: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
 63 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up
@@ -34,10 +34,10 @@ run it. Press Ctrl+F to search the page.</p>
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
 to get the results shown.</p>
-<p>To paste a docstring's example, first run <code>from sql_composer import *</code> and
+<p>To paste a docstring's example, first run <code>from spark_composer import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
 examples on their own are scripts kept where the Toolbox is written, not in the
-<code>sql_composer</code> folder. Each entry shows the Python that builds its Statements, but not
+<code>spark_composer</code> folder. Each entry shows the Python that builds its Statements, but not
 the pandas that computes a result the Example database can't run. To try one, paste the top of
 its script, with the Table reference or Building block it imports pasted in place of its
 <code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the
@@ -73,7 +73,7 @@ number beside its fix:</p>
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
 <p class="why">Why: most questions about a table are &quot;how many per something&quot;, and these are the four shapes that answer them.</p>
 <p class="label">The top of its script, statements/groups_and_top_n.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, at_least,
     between, count_distinct, count_rows, descending, example_database, statement, sum_of,
 )
@@ -182,7 +182,7 @@ LIMIT 2</pre><p class="label">Result on the Example database</p><div class="scro
 <h3>Jobs with no runs, and jobs with at least one: anti-join and semi-join.</h3>
 <p class="why">Why: a job missing from the runs is often the very problem you&#x27;re looking for, and a plain JOIN can&#x27;t show it, since JOIN keeps only the rows that match.</p>
 <p class="label">The top of its script, statements/jobs_that_never_ran.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, all_of, between, derived, equals,
     example_database, is_null, statement,
 )
@@ -260,7 +260,7 @@ JOIN ran
 <h3>Label rows with if_else, fill NULL with fill_null, and count by condition.</h3>
 <p class="why">Why: codes and NULLs make a result hard to read, and a count of each kind side by side gives one row per job instead of one row per job and status.</p>
 <p class="label">The top of its script, statements/labels_and_counts.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, equals, example_database,
     fill_null, if_else, is_null, more_than, statement,
 )
@@ -338,7 +338,7 @@ GROUP BY
 <h3>Keep rows by a list of values, by either of two conditions, or by text.</h3>
 <p class="why">Why: filters like &quot;these two jobs&quot;, &quot;failed or still running&quot; and &quot;names starting with&quot; come up in almost every Statement, and each has one trap worth knowing.</p>
 <p class="label">The top of its script, statements/lists_and_text.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     FROM, SELECT, WHERE, any_of, between, contains, equals, example_database, is_in,
     is_not_in, is_null, starts_with, statement,
 )
@@ -439,7 +439,7 @@ WHERE
 <p class="why">Why: a result that is slow to work out, or read by many notebooks, is cheaper to work out once a day and save than to work out again every time someone reads it.</p>
 <p>A Saved table is written one day at a time, and each function below is one step. The Example database can&#x27;t be written to, so the steps show their Hive but no result. At work, send each one with run(step(), send=run_query), run_query being your own send function, and loop over the ones that return a list.</p>
 <p class="label">The top of its script, statements/saved_table.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, create_table,
     drop_table, equals, example_database, statement,
 )
@@ -457,7 +457,7 @@ A Saved table&#x27;s Table reference is written by hand, since the table doesn&#
 create_table makes it from this. Each day holds the runs someone should look at that day.
 &quot;&quot;&quot;
 
-from sql_composer import Table
+from spark_composer import Table
 
 runs_to_review = Table(
     &quot;mart.runs_to_review&quot;,
@@ -611,7 +611,7 @@ STORED AS ORC</pre><p class="note">No result here. The Example database only ans
 <p class="why">Why: a query in named steps can be read, and checked, one step at a time, where the same query written as one block has to be understood all at once.</p>
 <p>Each step is a Derived table, which the Toolbox writes at the top of the Hive as a WITH ... AS (...) part (a CTE). Run a step on its own to check it before building on it.</p>
 <p class="label">The top of its script, statements/step_by_step.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, at_least, between, count_rows, derived,
     equals, example_database, statement, sum_of,
 )
@@ -724,7 +724,7 @@ WHERE
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
 <p>Where the Example database can&#x27;t run row_number, the results of fixed() and top_runs_per_job() below are computed in pandas instead, not by running this Hive.</p>
 <p class="label">The top of its script, statements/latest_and_top_n.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
     equals, example_database, max_of, row_number, run, statement,
 )
@@ -790,7 +790,7 @@ SELECT
   numbered.status
 FROM numbered
 WHERE
-  numbered.newest_first = 1</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  numbered.newest_first = 1</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
@@ -826,7 +826,7 @@ SELECT
   numbered.duration_mins
 FROM numbered
 WHERE
-  numbered.longest_first &lt;= 2</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  numbered.longest_first &lt;= 2</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>duration_mins</th></tr>
 <tr><td>1</td><td>95</td><td>12</td></tr>
 <tr><td>1</td><td>104</td><td>40</td></tr>
@@ -841,7 +841,7 @@ WHERE
 <h3>LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</h3>
 <p class="why">Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE on job_runs then throws that row away again.</p>
 <p class="label">The top of its script, statements/left_join_then_where.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, equals,
     example_database, is_not_null, statement,
 )
@@ -922,7 +922,7 @@ GROUP BY
 <p class="label">The top of its script, statements/nan_in_a_list.py</p>
 <pre class="python">import pandas as pd
 
-from sql_composer import (
+from spark_composer import (
     AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_not_in, statement,
 )
 
@@ -963,7 +963,7 @@ LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND NOT job_runs.job_id IN (2.0)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+  job_runs.dt = &#x27;2026-09-24&#x27; AND NOT job_runs.job_id IN (2.0D)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>runs</th></tr>
 <tr><td>3</td></tr>
 </table></div></div>
@@ -974,7 +974,7 @@ WHERE
 <h3>None in equals: a search for a missing status finds nothing.</h3>
 <p class="why">Why: in SQL nothing equals NULL, not even NULL, so <code>status = NULL</code> matches no rows at all.</p>
 <p class="label">The top of its script, statements/none_in_equals.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_null, statement,
 )
 
@@ -1022,7 +1022,7 @@ WHERE
 <p class="why">Why: SQL&#x27;s <code>&lt;&gt;</code> drops the rows where the column is NULL, while pandas&#x27; <code>!=</code> keeps them.</p>
 <p>No Guard catches this, since the Toolbox can&#x27;t know which columns may be NULL; not_equals&#x27; docstring says so instead.</p>
 <p class="label">The top of its script, statements/not_equals_drops_null.py</p>
-<pre class="python">from sql_composer import (
+<pre class="python">from spark_composer import (
     AS, FROM, SELECT, WHERE, any_of, count_rows, equals, example_database, is_null,
     not_equals, statement,
 )
@@ -1078,7 +1078,7 @@ WHERE
 <pre class="python">import pandas as pd
 
 from building_blocks.jobs_per_day import jobs_per_day
-from sql_composer import (
+from spark_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, between, count_distinct, example_database,
     run, statement, sum_of, week_start,
 )
@@ -1090,7 +1090,7 @@ LAST_DAY = &quot;2026-09-24&quot;</pre>
 <p class="label">The Building block it imports, building_blocks/jobs_per_day.py</p>
 <pre class="python">&quot;&quot;&quot;How many different jobs ran each day, as a Derived table other Statements can read.&quot;&quot;&quot;
 
-from sql_composer import (
+from spark_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_distinct, derived, example_database,
     statement,
 )
@@ -1145,7 +1145,7 @@ SELECT
   SUM(jobs_per_day.jobs_that_ran) AS jobs_that_ran
 FROM jobs_per_day
 GROUP BY
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>6</td></tr>
 </table></div></div>
@@ -1164,7 +1164,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>3</td></tr>
 </table></div></div>
@@ -1176,7 +1176,7 @@ GROUP BY
 <p class="why">Why: a run that raised three alerts is joined to three rows, so its minutes are added three times.</p>
 <p class="label">The top of its script, statements/repeated_rows.py</p>
 <pre class="python">from building_blocks.alerts_per_run import alerts_per_run
-from sql_composer import (
+from spark_composer import (
     AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,
     statement, sum_of,
 )
@@ -1188,7 +1188,7 @@ DAY = &quot;2026-09-24&quot;</pre>
 <p class="label">The Building block it imports, building_blocks/alerts_per_run.py</p>
 <pre class="python">&quot;&quot;&quot;Alerts counted per run, so joining them onto job_runs can&#x27;t repeat a run.&quot;&quot;&quot;
 
-from sql_composer import (
+from spark_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, example_database, statement,
 )
 
@@ -1279,15 +1279,15 @@ WHERE
 <h3><code>TOOLBOX_VERSION</code> and <code>VERSION</code></h3>
 <p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
-<pre class="python">from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, or from another version or export, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
+<pre class="python">from spark_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
+<p>To update, delete the <code>spark_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, or from another version or export, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;2.1&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;SQL Composer 2.1, ...&#x27;</pre>
+<pre class="output">&#x27;Spark Composer 2.1, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -1318,7 +1318,7 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 <pre class="python">print(path.read_text())</pre>
 <p class="label">Python shows</p>
 <pre class="output">&quot;&quot;&quot;ops.run_alerts - TODO: say in one line what one row is.&quot;&quot;&quot;
-from sql_composer import Table
+from spark_composer import Table
 
 run_alerts = Table(
     &quot;ops.run_alerts&quot;,
@@ -1687,7 +1687,10 @@ WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
   NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no NEXT_DAY.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>week</th><th>runs</th></tr>
+<tr><td>2026-09-21</td><td>9</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>GROUP_BY</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>week_start</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
@@ -2131,7 +2134,7 @@ JOIN ops.jobs AS jobs
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
-<p class="label">week_start(job_runs.dt) on each day of the Example database, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">week_start(job_runs.dt) on each day of the Example database</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>week_start(dt)</th></tr>
 <tr><td>2026-09-23</td><td>2026-09-21</td></tr>
 <tr><td>2026-09-24</td><td>2026-09-21</td></tr>
@@ -2182,7 +2185,7 @@ SELECT
 FROM numbered
 WHERE
   numbered.newest_first = 1</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
@@ -2332,7 +2335,7 @@ GROUP BY
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-sql_composer.refusals.GuardRefused:
+spark_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
   Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
@@ -2347,7 +2350,7 @@ sql_composer.refusals.GuardRefused:
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-sql_composer.refusals.LoadRefused:
+spark_composer.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).

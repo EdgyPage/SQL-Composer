@@ -10,6 +10,8 @@ case but those a row that adds nothing lists, so an added row is no waiver for a
 
 from __future__ import annotations
 
+import html
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -82,3 +84,54 @@ def test_the_spark_writer_copies_the_layout_of_the_pinned_sqlglot() -> None:
         f"copies the layout of {editions.LAYOUT_MIRRORS_SQLGLOT}. Port the new sqlglot's "
         "layout and set LAYOUT_MIRRORS_SQLGLOT in tools/editions.py, in the same change as the "
         "pin.")
+
+
+# --- The two Example galleries ---------------------------------------------------------------
+
+# On a page, each Statement's Hive, and each result: a table, "No rows.", or no result at all.
+_SHOWN = re.compile(r'<pre class="hive">(?P<hive>.*?)</pre>'
+                    r'|<table class="result">(?P<table>.*?)</table>'
+                    r'|<p class="note">(?P<note>No rows\.|No result here\.)', re.DOTALL)
+
+
+def _gallery(edition: editions.Edition) -> dict[str, list[tuple[str, str]]]:
+    """Each entry of an Edition's Example gallery: what it shows, in order, as (kind, text)."""
+    page = (ROOT / edition.folder / "examples.html").read_text(encoding="utf-8")
+    return {html.unescape(entry_id): [(found.lastgroup, found.group(found.lastgroup))
+                                      for found in _SHOWN.finditer(body)]
+            for entry_id, body in re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>',
+                                             page, re.DOTALL)}
+
+
+SQL_GALLERY = _gallery(editions.SQL_COMPOSER)
+SPARK_GALLERY = _gallery(editions.SPARK_COMPOSER)
+
+
+def _declared(entry_id: str) -> bool:
+    """Whether a declared difference lists a golden case of the entry's Statements."""
+    return any(case in (f"doc:{entry_id}",) or case.startswith(f"worked:{entry_id}:")
+               for case in _listed())
+
+
+def test_both_galleries_hold_the_same_entries() -> None:
+    assert list(SPARK_GALLERY) == list(SQL_GALLERY)
+
+
+@pytest.mark.parametrize("entry_id", list(SQL_GALLERY))
+def test_an_entry_shows_the_same_hive_and_results_on_both_pages(entry_id: str) -> None:
+    sql, spark = SQL_GALLERY[entry_id], SPARK_GALLERY[entry_id]
+    assert [kind for kind, _ in sql if kind == "hive"] == [kind for kind, _ in spark
+                                                          if kind == "hive"]
+    if not _declared(entry_id):
+        assert [text for kind, text in sql if kind == "hive"] == [
+            text for kind, text in spark if kind == "hive"]
+    sql_results = [(kind, text) for kind, text in sql if kind != "hive"]
+    spark_results = [(kind, text) for kind, text in spark if kind != "hive"]
+    assert len(sql_results) == len(spark_results)
+    for (sql_kind, sql_text), shown in zip(sql_results, spark_results):
+        # Spark runs what sqlglot's executor can't; the reverse would be a regression.
+        if (sql_kind, sql_text) != ("note", "No result here."):
+            assert shown == (sql_kind, sql_text), (
+                "A result on SQL Composer's page, from its Example database or pandas, isn't "
+                "what Spark gives")
+
