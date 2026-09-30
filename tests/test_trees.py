@@ -22,6 +22,10 @@ def test_a_node_has_only_the_kinds_and_parts_it_knows() -> None:
         Node("EQ", this=column("a"), low=number("1"))
     with pytest.raises(ValueError, match="a Column has no part 'this'"):
         column("a").set("this", "b")
+    with pytest.raises(ValueError, match="no kind of Node called 'Colum'"):
+        list(column("a").find_all("Colum"))
+    with pytest.raises(ValueError, match="'upper' isn't one of the date functions"):
+        Node("Call", name="upper", args=[column("a")])
 
 
 def test_equal_nodes_have_the_same_kind_and_parts_whatever_their_notes() -> None:

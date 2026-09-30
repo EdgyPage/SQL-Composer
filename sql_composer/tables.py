@@ -32,7 +32,7 @@ from .refusals import (
     guard_not_a_number,
     guard_time_of_day,
 )
-from .trees import ARITHMETIC, SIMPLE_NAME, Node
+from .trees import ARITHMETIC, SIMPLE_NAME, Node, number, string
 from .writing import (
     describe_text,
     drop,
@@ -400,11 +400,11 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     if isinstance(value, str):
         return _string_literal(value, call, position)
     if isinstance(value, datetime.date):
-        return Node("Literal", this=_date_text(value, column, call), is_string=True)
+        return string(_date_text(value, column, call))
     text = _number_text(value)
     if text is None:
         guard_not_a_number(call, position, value)
-    return Node("Literal", this=text, is_string=False)
+    return number(text)
 
 
 def _string_literal(value: str, call: str, position: str) -> Node:
@@ -412,7 +412,7 @@ def _string_literal(value: str, call: str, position: str) -> Node:
     for character in CONTROL_CHARACTERS:
         if character in value:
             guard_control_character(call, position, character)
-    return Node("Literal", this=str.__str__(value), is_string=True)
+    return string(str.__str__(value))
 
 
 def _date_text(value: datetime.date, column: Column | None, call: str) -> str:

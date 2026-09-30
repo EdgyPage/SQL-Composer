@@ -17,8 +17,8 @@ from .tables import (
     literal,
     made_by,
 )
-from .trees import SIMPLE_NAME, Node, has_aggregate
-from .writing import read_back_function
+from .trees import SIMPLE_NAME, Node, has_aggregate, number, string
+from .writing import function_adds_rows_up
 
 TOOLBOX_VERSION = "2.1"
 
@@ -75,7 +75,7 @@ def count_rows(where=None):
     COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END)
     """
     tree = _only_where(Node("Star"), where, "count_rows(...)",
-                       then=Node("Literal", this="1", is_string=False))
+                       then=number("1"))
     return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint",
                   aggregate=True)
 
@@ -209,17 +209,13 @@ def _as_day(column: Column) -> Node:
     pattern = hive_date_pattern(column._table._date_format)
     if pattern == DEFAULT_HIVE_PATTERN:
         return column._tree.copy()
-    unix = _call("unix_timestamp", column._tree.copy(), _text(pattern))
-    return _call("from_unixtime", unix, _text(DEFAULT_HIVE_PATTERN))
+    unix = _call("unix_timestamp", column._tree.copy(), string(pattern))
+    return _call("from_unixtime", unix, string(DEFAULT_HIVE_PATTERN))
 
 
 def _call(name: str, *args: Node) -> Node:
     """A call to one of Hive's date functions, such as next_day."""
     return Node("Call", name=name, args=list(args))
-
-
-def _text(text: str) -> Node:
-    return Node("Literal", this=text, is_string=True)
 
 
 def week_start(column):
@@ -232,8 +228,8 @@ def week_start(column):
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
     """
     column = _need_column(column, "week_start(...)")
-    week_ago = _call("date_sub", _as_day(column), Node("Literal", this="7", is_string=False))
-    tree = _call("next_day", week_ago, _text("MO"))
+    week_ago = _call("date_sub", _as_day(column), number("7"))
+    tree = _call("next_day", week_ago, string("MO"))
     return Column(made_by(tree, "week_start", column), type="string")
 
 
@@ -244,7 +240,7 @@ def month_start(column):
     TRUNC(job_runs.dt, 'MM')
     """
     column = _need_column(column, "month_start(...)")
-    tree = _call("trunc", _as_day(column), _text("MM"))
+    tree = _call("trunc", _as_day(column), string("MM"))
     return Column(made_by(tree, "month_start", column), type="string")
 
 
@@ -359,8 +355,9 @@ def hive_function(name, *args):
         literal(arg, call=call, position=f"argument {number}", in_condition=False)
         for number, arg in enumerate(args, start=1)
     ]
-    tree = Node("HiveFunction", name=name, args=trees,
-                aggregate=read_back_function(name, trees, call))
+    # Hive reads a function's name whatever its case, so "NVL" and "nvl" are one function.
+    tree = Node("HiveFunction", name=name.lower(), args=trees,
+                aggregate=function_adds_rows_up(name, trees, call))
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)

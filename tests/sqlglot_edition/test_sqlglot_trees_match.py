@@ -17,7 +17,7 @@ from sqlglot import exp
 import hive_corpus_cases
 from sql_composer import GuardRefused, LoadRefused, writing
 from sql_composer.clauses import derived_tables
-from sql_composer.trees import has_aggregate
+from sql_composer.trees import KINDS, has_aggregate
 
 
 def _trees_of(s) -> list:
@@ -48,6 +48,10 @@ TREES = _corpus_trees()
 AS_WRITTEN = [any(True for _ in tree.find_all("HiveFunction")) for tree in TREES]
 
 
+def test_every_kind_of_node_can_be_written() -> None:
+    assert set(writing._REPLAY) == set(KINDS)
+
+
 def test_the_corpus_has_trees_of_every_shape() -> None:
     kinds = {node.kind for tree in TREES for node in tree.walk()}
     assert len(TREES) > 1000
@@ -62,7 +66,7 @@ def test_a_tree_matches_its_sqlglot_tree(index: int) -> None:
     if not AS_WRITTEN[index]:
         assert ([(c.table, c.name) for c in node.find_all("Column")]
                 == [(c.table, c.name) for c in tree.find_all(exp.Column)])
-    assert has_aggregate(node) == writing._adds_rows_up(tree)
+    assert has_aggregate(node) == writing._tree_adds_rows_up(tree)
     if node.kind == "And":
         assert ([writing.hive_text(part) for part in node.flatten()]
                 == [writing.sql_text(part) for part in tree.flatten()])
@@ -74,9 +78,25 @@ def test_a_tree_matches_its_sqlglot_tree(index: int) -> None:
 
 
 def test_two_trees_are_equal_exactly_when_their_sqlglot_trees_are() -> None:
-    chosen = [tree for tree, written in zip(TREES, AS_WRITTEN) if not written][:400]
-    built = [writing.to_sqlglot(tree) for tree in chosen]
-    for first in range(len(chosen)):
-        for second in range(first, len(chosen)):
-            assert ((chosen[first] == chosen[second]) == (built[first] == built[second])), (
-                writing.hive_text(chosen[first]), writing.hive_text(chosen[second]))
+    # Trees of different kinds are never equal, in either form, so each kind is compared
+    # within itself: every pair of the corpus, without a million comparisons.
+    by_kind = {}
+    for tree, written in zip(TREES, AS_WRITTEN):
+        if not written:
+            by_kind.setdefault(tree.kind, []).append((tree, writing.to_sqlglot(tree)))
+    kinds = {kind: {type(built) for _, built in trees} for kind, trees in by_kind.items()}
+    assert all(not (first & second) for kind, first in kinds.items()
+               for other, second in kinds.items() if kind != other)
+    for trees in by_kind.values():
+        for first, (node, built) in enumerate(trees):
+            for other, other_built in trees[first:]:
+                assert (node == other) == (built == other_built), (
+                    writing.hive_text(node), writing.hive_text(other))
+
+
+def test_a_hive_function_name_is_compared_whatever_its_case() -> None:
+    from sql_composer import hive_function
+    from sql_composer.example_database import job_runs
+
+    assert (hive_function("NVL", job_runs.status, "x")._tree
+            == hive_function("nvl", job_runs.status, "x")._tree)
