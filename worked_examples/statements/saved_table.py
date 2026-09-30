@@ -25,7 +25,7 @@ LAST_DAY = "2026-09-24"
 def create():
     """Step 1, once: create the table from its Table reference.
 
-    the warehouse refuses if the table already exists. That is on purpose: after you edit the Table
+    The warehouse refuses if the table already exists. That is on purpose: after you edit the Table
     reference, sending this again can't quietly look like it changed the real table.
     """
     return create_table(runs_to_review)

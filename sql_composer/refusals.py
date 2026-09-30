@@ -232,7 +232,7 @@ def guard_cross_join(call: str, table: str) -> None:
 
 
 def guard_order_by_in_derived_table(name: str) -> None:
-    """ORDER_BY without LIMIT inside a Derived table isn't kept. No opt-out."""
+    """ORDER_BY without LIMIT inside a Derived table may not be kept. No opt-out."""
     raise GuardRefused(
         four_part_message(
             what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
