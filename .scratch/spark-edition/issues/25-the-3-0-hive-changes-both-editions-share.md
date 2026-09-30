@@ -45,6 +45,9 @@ with only the division, hive_function and float-literal rows.
   length with 2 arguments or regexp_replace with 1. SQL Composer's refusal also reads "was
   given 1 arguments"; Spark Composer's `_arguments` words the count, and SQL Composer should
   share it.
-- Ticket 18's parity test holds the 5 cases that wait for this ticket (`UNTIL_TICKET_25`): the 4
-  strict create_table types and hive_function's argument refusal. Each must still differ, so
-  this ticket takes out their lines.
+- Two rows of `DECLARED_DIFFERENCES` wait for this ticket, `create_table_types` (4 cases) and
+  `hive_function_arguments` (1). The parity test holds that each listed case still differs, so
+  this ticket takes the rows out once SQL Composer checks the same way.
+- `hive_function("date_format", dt, "YYYY-MM")`: SQL Composer writes 'yyyy-MM' (sqlglot's
+  rewrite), Spark Composer 'YYYY-MM' as given, and YYYY is the year a week belongs to, which
+  Spark 3 and later refuse in a pattern. The shared list could refuse or warn on it.

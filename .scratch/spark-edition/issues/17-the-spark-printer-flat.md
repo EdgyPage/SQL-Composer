@@ -98,8 +98,8 @@ Editions still run them.
     - "every literal and quoted name decodes to what was written": the reviewer's four breaks,
       a quote or backslash left bare, a doubled quote and a newline as a tab, passed `to_hive`.
       Each value and name is now checked as it is written, and a test breaks each.
-    - `\a`, `\f` and `\v` are no longer escapes the writer writes or the reader accepts, since
-      Hive and Spark read them as letters (finding 04). The Toolbox refuses those values first.
+    - The reader reads `\a`, `\f` and `\v` as the letters Hive and Spark read (finding 04), so
+      a BEL, FF or VT that got past the Toolbox's refusal would stop at the writer's check.
     - The commit message's "byte for byte ... except three declared differences" missed the 5
       cases that wait for ticket 25. The Answer above lists them, and ticket 18's parity test
       holds them.
@@ -108,9 +108,12 @@ Editions still run them.
       with 2 arguments). Ticket 25 makes SQL Composer count by the same list.
     - `readable_text` was judged justified.
 
-**Drift review, `ec2b4ef`:** D35-D39, all closed by `baa3052`. D35 found that the new Literal
+**Drift reviews.** `ec2b4ef`: D35-D39, all closed by `baa3052`. D35 found that the new Literal
 part made 0.5 and `Decimal("0.5")` different calculations in SQL Composer. It now isn't
-compared, so 2.1's behaviour stands.
+compared, so 2.1's behaviour stands. `baa3052`: D40-D42, closed by `3e12513`. D40: with BEL, FF
+and VT dropped from the writer's escapes, the shared refusal's "would write it as \a" was untrue
+in Spark Composer; the writer writes \a, \f and \v again, as SQL Composer does, and its check
+would stop one.
 
 **Beginner reader:** [report](../reports/17-beginner-reader.md).
 

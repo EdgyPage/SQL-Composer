@@ -144,6 +144,10 @@ uses.
   own Hive, checking each value and name as it writes it; 363 of 378 golden cases match SQL
   Composer's, the rest are the three declared differences or wait for ticket 25, and a formula
   reads the same in both Editions.
+- [The Spark printer, pretty, and the parity test](issues/18-the-spark-printer-pretty-and-the-parity-test.md):
+  Spark Composer's golden holds the same 380 cases, and the parity test lets the two differ only
+  in the cases a row of `DECLARED_DIFFERENCES` lists; with NULLIF and the D left out, Spark
+  Composer's corpus is SQL Composer's but for hive_function's spellings and ticket 25's rows.
 
 ## Not yet specified
 
