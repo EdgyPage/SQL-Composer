@@ -17,13 +17,12 @@ import os
 import re
 from pathlib import Path
 
-from sqlglot import exp
-
 from . import VERSION
 from .clauses import Statement, derived_tables
 from .refusals import GuardRefused, four_part_message
 from .running import by_day, to_hive
 from .tables import readable
+from .trees import Node
 from .writing import hive_text
 
 TOOLBOX_VERSION = "2.1"
@@ -105,7 +104,7 @@ def _resolver(graph: Graph, step: Statement, index: int):
     """A function from a column in `step` to the key of the box it reads."""
     tables = {read.table._alias: read.table for read in step._reads}
 
-    def resolve(column: exp.Column) -> str | None:
+    def resolve(column: Node) -> str | None:
         table = tables.get(column.table)
         if table is None:
             return None  # an output name, as in ORDER BY "runs"
@@ -116,7 +115,7 @@ def _resolver(graph: Graph, step: Statement, index: int):
     return resolve
 
 
-def _conditions_of(step: Statement) -> list[tuple[str, object, exp.Expression, str]]:
+def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str]]:
     """Each condition that decides which rows `step` keeps: (clause, condition, tree, then).
 
     `then` is text written after the tree: a LIMIT's count, after its ORDER BY.
@@ -126,14 +125,14 @@ def _conditions_of(step: Statement) -> list[tuple[str, object, exp.Expression, s
               for read in step._reads if read.on is not None]
     found += [("HAVING", c, c._tree, "") for c in step._having]
     if step._limit is not None:
-        order = exp.Order(expressions=[o.copy() for o in step._order_by])
+        order = Node("Order", expressions=[o.copy() for o in step._order_by])
         found.append(("LIMIT", None, order, f"LIMIT {step._limit}"))
     return found
 
 
-def _condition_text(tree: exp.Expression, then: str) -> tuple[str, str]:
+def _condition_text(tree: Node, then: str) -> tuple[str, str]:
     """A condition's Hive and how it was written, with `then` after each."""
-    if isinstance(tree, exp.Order) and not tree.expressions:
+    if tree.kind == "Order" and not tree.parts["expressions"]:
         return then, then  # a LIMIT with no ORDER BY
     return tuple(" ".join(x for x in (text.strip(), then) if x)
                  for text in (hive_text(tree), readable(tree)))
@@ -151,14 +150,14 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     made = []
     for column, name in step._outputs:
         tree = column._tree
-        sources = [resolve(used) for used in tree.find_all(exp.Column)]
+        sources = [resolve(used) for used in tree.find_all("Column")]
         if kind == "output":
             key, shown = _box_key("output", index, name), name
         else:
             key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
         graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
                   type=column._type, sql=hive_text(tree), formula=readable(tree),
-                  calculated=not isinstance(tree, exp.Column),
+                  calculated=tree.kind != "Column",
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
                   else [], statement=index)
         for source in sources:
@@ -172,7 +171,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         # `conditions` is filled in here for the caller, which passes it on to _add_write so
         # a write's date bound can find its condition's box.
         conditions[(id(step), id(condition))] = key
-        for used in tree.find_all(exp.Column):
+        for used in tree.find_all("Column"):
             graph.arrow(resolve(used), key, "rows")
         for target in made:
             graph.arrow(key, target, "rows")

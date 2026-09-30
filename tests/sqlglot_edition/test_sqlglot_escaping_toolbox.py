@@ -136,13 +136,13 @@ def test_only_the_edition_files_read_hive_or_name_its_dialect() -> None:
 
 
 def test_no_sql_text_is_built_with_an_f_string() -> None:
-    """No f-string or .format() is handed to sqlglot, so no value can be pasted into SQL."""
+    """No f-string or .format() is handed to sqlglot or a Node, so no value is pasted into SQL."""
     for name, tree in _toolbox_trees().items():
         for call in ast.walk(tree):
             if not isinstance(call, ast.Call):
                 continue
             target = ast.unparse(call.func)
-            if not target.startswith(("exp.", "sqlglot.")):
+            if not target.startswith(("exp.", "sqlglot.", "Node", "trees.")):
                 continue
             for argument in [*call.args, *(k.value for k in call.keywords)]:
                 assert not isinstance(argument, ast.JoinedStr), f"{name}: {ast.unparse(call)}"

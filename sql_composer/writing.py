@@ -14,6 +14,7 @@ from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .refusals import four_part_message
+from .trees import HIVE_AGGREGATES, Node, plain_name
 
 TOOLBOX_VERSION = "2.1"
 
@@ -25,9 +26,12 @@ def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
-def hive_text(node: exp.Expression, pretty: bool = False) -> str:
-    """A Statement, or one part of it, as Hive."""
-    return sql_text(node, pretty=pretty)
+def hive_text(node, pretty: bool = False) -> str:
+    """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive.
+
+    A whole Statement is still built as a sqlglot tree, which is written as it is.
+    """
+    return sql_text(to_sqlglot(node) if isinstance(node, Node) else node, pretty=pretty)
 
 
 def read_back(text: str) -> str:
@@ -35,31 +39,50 @@ def read_back(text: str) -> str:
     return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
 
 
-def hive_call(name: str, *arguments: exp.Expression) -> exp.Expression:
-    """A call to one of Hive's built-in functions, as sqlglot builds it."""
-    return exp.func(name, *arguments, dialect=_DIALECT)
-
-
-def read_back_function(name: str, arguments: list, call: str) -> exp.Expression:
-    """The call hive_function(name, ...) writes, read back once as to_hive will read it.
+def read_back_function(name: str, args: list[Node], call: str) -> bool:
+    """Whether hive_function(name, *args) adds rows up, as sqlglot reads the call.
 
     It raises TypeError when sqlglot can't build the call from these arguments.
     """
     try:
-        tree = hive_call(name, *arguments)
-        # Read the call back once, as to_hive's self-check will: a few functions come back in
-        # sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot), which is then stable.
-        return sqlglot.parse_one(sql_text(tree), read=_DIALECT)
+        tree = _read_back_call(name, [to_sqlglot(arg) for arg in args])
     except (ValueError, TypeError, sqlglot.errors.ParseError) as error:
         raise TypeError(
             four_part_message(
-                what=f"{call} was given {len(arguments)} arguments, which don't fit {name}.",
+                what=f"{call} was given {len(args)} arguments, which don't fit {name}.",
                 why="sqlglot knows this Hive function and couldn't build it from these "
                 "arguments.",
                 fix=f"Check {name}'s arguments in Hive's documentation.",
                 opt_out=None,
             )
         ) from error
+    return _adds_rows_up(tree)
+
+
+# Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
+_READ_BACK = {}
+
+
+def _read_back_call(name: str, arguments: list) -> exp.Expression:
+    """hive_function's call as sqlglot builds it, then read back as to_hive's self-check will.
+
+    A few functions come back in sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot),
+    which is then stable.
+    """
+    text = sql_text(exp.func(name, *arguments, dialect=_DIALECT))
+    if text not in _READ_BACK:
+        _READ_BACK[text] = sqlglot.parse_one(text, read=_DIALECT)
+    return _READ_BACK[text].copy()
+
+
+def _adds_rows_up(tree: exp.Expression) -> bool:
+    """True when a sqlglot tree adds rows up (COUNT, SUM, ...) outside a window."""
+    for node in tree.find_all(exp.AggFunc, exp.Anonymous):
+        if node.find_ancestor(exp.Window):
+            continue
+        if isinstance(node, exp.AggFunc) or str(node.name).lower() in HIVE_AGGREGATES:
+            return True
+    return False
 
 
 def hive_type(text: str) -> exp.DataType:
@@ -69,15 +92,11 @@ def hive_type(text: str) -> exp.DataType:
 
 def describe_text(name: str) -> str:
     """The DESCRIBE command for one table."""
-    from .tables import hive_table  # here, not at the top: tables.py imports this file
-
     return sql_text(exp.Describe(this=hive_table(name)))
 
 
 def show_partitions_text(name: str) -> str:
     """The SHOW PARTITIONS command for one table."""
-    from .tables import hive_table  # here, not at the top: tables.py imports this file
-
     return sql_text(exp.Command(this="SHOW", expression=exp.Literal.string(
         "PARTITIONS " + sql_text(hive_table(name)))))
 
@@ -102,3 +121,120 @@ def drop(table: exp.Table) -> exp.Drop:
     if "tables" in exp.Drop.arg_types:
         return exp.Drop(kind="TABLE", tables=[table], exists=True)
     return exp.Drop(kind="TABLE", this=table, exists=True)
+
+
+# --- Names ---------------------------------------------------------------------------------
+
+
+def identifier(name: str) -> exp.Identifier:
+    """A name as Hive needs it: in backticks only when it isn't a plain word."""
+    return exp.to_identifier(name, quoted=not plain_name(name))
+
+
+def hive_table(name: str, partition=None) -> exp.Table:
+    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
+
+    A write passes the PARTITION(...) it fills, which Hive writes after the name.
+    """
+    parts = name.split(".")
+    database = identifier(parts[0]) if len(parts) == 2 else None
+    return exp.Table(this=identifier(parts[-1]), db=database, partition=partition)
+
+
+# --- The Toolbox's own tree, as a sqlglot tree ---------------------------------------------
+
+
+def to_sqlglot(node: Node) -> exp.Expression:
+    """The sqlglot tree for a Node, built by the calls SQL Composer has always made.
+
+    Built the same way, the tree is the same, so sqlglot writes the same Hive.
+    """
+    return _BUILDERS[node.kind](node)
+
+
+def _built(node: Node, part: str) -> exp.Expression:
+    return to_sqlglot(node.parts[part])
+
+
+def _all_built(node: Node, part: str) -> list[exp.Expression]:
+    return [to_sqlglot(item) for item in node.parts[part]]
+
+
+def _column(node: Node) -> exp.Column:
+    if node.table:
+        return exp.column(identifier(node.name), table=identifier(node.table))
+    return exp.column(identifier(node.name))
+
+
+def _literal(node: Node) -> exp.Expression:
+    if node.parts.get("is_string"):
+        return exp.Literal.string(node.parts["this"])
+    return exp.Literal.number(node.parts["this"])
+
+
+def _case(node: Node) -> exp.Case:
+    if node.parts.get("default") is None:
+        return exp.Case(ifs=_all_built(node, "ifs"))
+    return exp.Case(ifs=_all_built(node, "ifs"), default=_built(node, "default"))
+
+
+def _window(node: Node) -> exp.Window:
+    return exp.Window(this=_built(node, "this"), partition_by=_all_built(node, "partition_by"),
+                      order=_built(node, "order"))
+
+
+def _two_sided(kind):
+    return lambda node: kind(this=_built(node, "this"), expression=_built(node, "expression"))
+
+
+def _one_sided(kind):
+    return lambda node: kind(this=_built(node, "this"))
+
+
+_BUILDERS = {
+    "Column": _column,
+    "Literal": _literal,
+    "Null": lambda node: exp.Null(),
+    "Boolean": lambda node: exp.true() if node.parts["this"] else exp.false(),
+    "Star": lambda node: exp.Star(),
+    "Var": lambda node: exp.Var(this=node.parts["this"]),
+    "RowNumber": lambda node: exp.RowNumber(),
+    "EQ": _two_sided(exp.EQ),
+    "NEQ": _two_sided(exp.NEQ),
+    "GT": _two_sided(exp.GT),
+    "GTE": _two_sided(exp.GTE),
+    "LT": _two_sided(exp.LT),
+    "LTE": _two_sided(exp.LTE),
+    "Like": _two_sided(exp.Like),
+    "Is": _two_sided(exp.Is),
+    "Add": _two_sided(exp.Add),
+    "Sub": _two_sided(exp.Sub),
+    "Mul": _two_sided(exp.Mul),
+    "Div": _two_sided(exp.Div),
+    "And": _two_sided(exp.And),
+    "Or": _two_sided(exp.Or),
+    "Paren": _one_sided(exp.Paren),
+    "Not": _one_sided(exp.Not),
+    "Count": _one_sided(exp.Count),
+    "Sum": _one_sided(exp.Sum),
+    "Avg": _one_sided(exp.Avg),
+    "Min": _one_sided(exp.Min),
+    "Max": _one_sided(exp.Max),
+    "Between": lambda node: exp.Between(this=_built(node, "this"), low=_built(node, "low"),
+                                        high=_built(node, "high")),
+    "In": lambda node: exp.In(this=_built(node, "this"),
+                              expressions=_all_built(node, "expressions")),
+    "Case": _case,
+    "If": lambda node: exp.If(this=_built(node, "this"), true=_built(node, "true")),
+    "Coalesce": lambda node: exp.Coalesce(this=_built(node, "this"),
+                                          expressions=_all_built(node, "expressions")),
+    "Distinct": lambda node: exp.Distinct(expressions=_all_built(node, "expressions")),
+    "Window": _window,
+    "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
+    "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
+                                        nulls_first=node.parts["nulls_first"]),
+    "Alias": lambda node: exp.alias_(_built(node, "this"), identifier(node.parts["alias"])),
+    "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
+                                  dialect=_DIALECT),
+    "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
+}
