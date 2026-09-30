@@ -32,8 +32,8 @@ from .refusals import (
     refuse_a_spark_dataframe,
     refuse_what_the_other_edition_made,
 )
-from .trees import ARITHMETIC, SIMPLE_NAME, Node, number, string
-from .writing import describe_text, hive_text, hive_type, readable_text, show_partitions_text
+from .trees import ARITHMETIC, SIMPLE_NAME, Node, is_hive_type, number, string
+from .writing import describe_text, hive_text, readable_text, show_partitions_text
 
 TOOLBOX_VERSION = "2.1"
 
@@ -1081,13 +1081,14 @@ def drop_table(t):
 
 def _column_definition(t: Table, column: str) -> Node:
     """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
-    try:
-        hive_type(t._columns[column])
-    except Exception:
+    if not is_hive_type(t._columns[column]):
         _refuse_table(
-            what=f"create_table({t._alias}): {column}'s type {t._columns[column]!r} isn't a "
-            "Hive type.",
-            why="Hive needs a type it knows to create the column.",
-            fix='Use a Hive type such as "string", "bigint", "double" or "decimal(10,2)".',
+            what=f"create_table({t._alias}): {column}'s type {t._columns[column]!r} isn't one "
+            "the Toolbox can create.",
+            why="Hive and Spark each need a type they know to create a column, so create_table "
+            "takes only the types they share, written as DESCRIBE prints them.",
+            fix="Use one of string, bigint, int, smallint, tinyint, double, float, "
+            "decimal(10,2), boolean, date, timestamp, binary, varchar(20) and char(3), or an "
+            "array<string>, map<string,int> or struct<name:string,runs:int> of them.",
         )
     return Node("ColumnDef", name=column, type=t._columns[column])

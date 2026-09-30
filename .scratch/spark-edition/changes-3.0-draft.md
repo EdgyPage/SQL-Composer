@@ -15,6 +15,11 @@ a 2.1 re-export goes into `CHANGES.md` under 2.1 instead.
 - **The words Spark reserves go in backticks too** (ticket 25), such as any, except, minus,
   semi and current_user, as column, table and Derived table names. Before, some of them made
   to_hive fail, and others were written plain, which Spark refuses.
+- **create_table takes only the column types Hive and Spark share** (ticket 25), written as
+  DESCRIBE prints them: string, bigint, int, smallint, tinyint, double, float, decimal,
+  boolean, date, timestamp, binary, varchar(n), char(n), and arrays, maps and structs of them.
+  Before, it took any type sqlglot knew, such as json or uuid, which neither has, and wrote
+  integer, real or numeric under other names.
 - **A file from the other folder stops the import** (ticket 24). A file copied in from the
   other folder by mistake, even `__init__.py`, is named with the folder it came from, and the
   fix says to copy this folder in again from its own folder of the download.

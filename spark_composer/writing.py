@@ -26,7 +26,7 @@ import contextvars
 import re
 
 from .refusals import four_part_message
-from .trees import HIVE_AGGREGATES, HIVE_FUNCTION_ARGUMENTS, Node, plain_name
+from .trees import HIVE_AGGREGATES, HIVE_FUNCTION_ARGUMENTS, HIVE_TYPES, Node, plain_name
 
 TOOLBOX_VERSION = "2.1"
 
@@ -443,17 +443,8 @@ def _drop(node: Node, pretty: bool) -> str:
 
 # --- Column types, as CREATE TABLE writes them ----------------------------------------------
 
-_TYPE_NAMES = {
-    "tinyint": "TINYINT", "smallint": "SMALLINT", "int": "INT", "integer": "INT",
-    "bigint": "BIGINT", "float": "FLOAT", "real": "FLOAT", "double": "DOUBLE",
-    "double precision": "DOUBLE", "decimal": "DECIMAL", "numeric": "DECIMAL", "dec": "DECIMAL",
-    "string": "STRING", "varchar": "VARCHAR", "char": "CHAR", "boolean": "BOOLEAN",
-    "date": "DATE", "timestamp": "TIMESTAMP", "binary": "BINARY",
-    "array": "ARRAY", "map": "MAP", "struct": "STRUCT",
-}
-
-
-# After sqlglot's Generator.datatype_sql.
+# After sqlglot's Generator.datatype_sql. create_table has checked the type against
+# HIVE_TYPES in trees.py already, so it reads.
 def _type(text: str, pretty: bool) -> str:
     written, rest = _parse_type(text.strip(), pretty)
     if rest.strip():
@@ -463,13 +454,11 @@ def _type(text: str, pretty: bool) -> str:
 
 # Part of _type, after sqlglot's Generator.datatype_sql.
 def _parse_type(text: str, pretty: bool) -> tuple[str, str]:
-    found = re.match(r"\s*([A-Za-z_]+(?: precision)?)\s*", text, re.IGNORECASE)
-    if not found:
+    found = re.match(r"\s*([A-Za-z_]+)\s*", text)
+    word = found.group(1).lower() if found else ""
+    if word not in HIVE_TYPES:
         raise ValueError(f"can't read the type {text!r}")
-    word = found.group(1).lower()
-    if word not in _TYPE_NAMES:
-        raise ValueError(f"can't read the type {text!r}")
-    written, rest = _TYPE_NAMES[word], text[found.end():]
+    written, rest = word.upper(), text[found.end():]
     if rest.startswith("("):
         close = rest.index(")")
         params = [part.strip() for part in rest[1:close].split(",")]
@@ -661,11 +650,6 @@ def _arguments(fewest: int, most: int | None) -> str:
     if fewest != most:
         return f"{fewest} to {most} arguments"
     return "1 argument" if fewest == 1 else f"{fewest} arguments"
-
-
-def hive_type(text: str) -> str:
-    """A column's type for CREATE TABLE, as it is written; raises when it isn't one."""
-    return _type(text, False)
 
 
 # After sqlglot's Generator.describe_sql.
