@@ -498,6 +498,8 @@ class Table:
       uses; the Toolbox doesn't convert it.
 
     A column whose name is a Python word, such as `from`, is reached with getattr(t, "from").
+    You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such
+    as `from`, `any` or `two words`, and leaves a plain name, such as dt, as it is.
 
     >>> job_runs
     Table('ops.job_runs', columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)
@@ -1019,10 +1021,12 @@ def create_table(t, may_exist=False):
 
     Send it once with run(create_table(t), send=...). Every column needs a type Hive and
     Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
-    decimal(10,2); it refuses any other, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal,
-    you could edit the Table reference, send this again, and think the table had changed when
-    it hadn't. Compare the two with check_table_reference(t, send=...), or, to start the
-    table again, drop it with drop_table(t), which deletes every day it holds.
+    decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and
+    says what to write. If the table already exists, the warehouse refuses to create it
+    again. Without that refusal, you could edit the Table reference, send this again, and
+    think the table had changed when it hadn't. Compare the two with
+    check_table_reference(t, send=...), or, to start the table again, drop it with
+    drop_table(t), which deletes every day it holds.
     may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -1085,15 +1089,19 @@ _NEAREST_TYPE = {
     "integer": "int", "long": "bigint", "short": "smallint", "byte": "tinyint", "real": "float",
     "double precision": "double", "decimal": "decimal(10,0)", "numeric": "decimal(10,0)",
     "dec": "decimal(10,0)", "text": "string", "bool": "boolean", "datetime": "timestamp",
-    "varchar": "varchar(n), such as varchar(50)", "char": "char(n), such as char(3)",
+    "varchar": "varchar(50)", "char": "char(3)",
 }
+# Of those, the ones whose fix is to write their length.
+_NEEDS_LENGTH = ("varchar", "char")
 
 
 def _column_definition(t: Table, column: str) -> Node:
     """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
     kind = t._columns[column]
     if not is_hive_type(kind):
-        nearest = _NEAREST_TYPE.get(" ".join(kind.lower().split()))
+        written = " ".join(kind.lower().split())
+        nearest = _NEAREST_TYPE.get(written)
+        length = "its length, such as " if written in _NEEDS_LENGTH else ""
         _refuse_table(
             what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
             "can use.",
@@ -1101,10 +1109,13 @@ def _column_definition(t: Table, column: str) -> Node:
             "DESCRIBE prints them, such as int rather than integer, and with their sizes "
             "written out, such as decimal(10,2), so the table it makes matches its Table "
             "reference.",
-            fix=(f"For {kind!r}, write {nearest!r}. " if nearest else "")
+            fix=(f"For {kind!r}, write {length}{nearest!r}. " if nearest else "")
             + "Use string, bigint, int, smallint, tinyint, double, float, boolean, date, "
             "timestamp or binary; decimal, varchar or char with its sizes, such as "
-            "decimal(10,2), varchar(50) or char(3); or an array, map or struct holding them, "
-            "such as array<string>, map<string,int> or struct<name:string,runs:int>.",
+            "decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and "
+            "char(255); or an array, map or struct holding them, such as array<string>, "
+            "map<string,int> or struct<name:string,runs:int>. A map's key is a single value, "
+            "such as string, and a struct's names are plain words, not ones Hive or Spark "
+            "reserve, such as date or user.",
         )
     return Node("ColumnDef", name=column, type=t._columns[column])

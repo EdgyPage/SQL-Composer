@@ -3,8 +3,8 @@
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
 one for each piece of the SQL. This file writes them out as Hive, laid out over lines as SQL
 Composer lays out its own: each function below that copies sqlglot's layout names the sqlglot
-code it copies. It also checks what it wrote, and writes the DESCRIBE and SHOW PARTITIONS commands for a
-table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
+code it copies. It also checks what it wrote, and writes the DESCRIBE and SHOW PARTITIONS
+commands for a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
 Spark Composer, this one) writes Hive its own way behind these same function names.
 
 Its Hive is SQL Composer's but in three places:

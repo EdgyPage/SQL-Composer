@@ -241,8 +241,10 @@ def week_start(column):
 
     Hive and Spark have no week function that works the same on both, so this takes the first
     Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is
-    the day seven days before. The result is text, a day like "2026-09-21", wherever the query
-    runs: Spark's NEXT_DAY gives a date, so CAST(... AS STRING) makes it text, as Hive gives it.
+    the day seven days before. The result is text, a day like "2026-09-21", whether your
+    warehouse runs the query on Hive or on Spark: Hive's NEXT_DAY gives text already, and
+    Spark's gives a date, so CAST(... AS STRING) makes it text there too. A Saved table's column
+    for it is typed "string".
 
     >>> week_start(job_runs.dt)
     CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
@@ -256,8 +258,9 @@ def week_start(column):
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
-    The result is text, a day like "2026-09-01", wherever the query runs: Spark's TRUNC gives a
-    date, so CAST(... AS STRING) makes it text, as Hive gives it.
+    The result is text, a day like "2026-09-01", whether your warehouse runs the query on Hive
+    or on Spark: Hive's TRUNC gives text already, and Spark's gives a date, so CAST(... AS
+    STRING) makes it text there too. A Saved table's column for it is typed "string".
 
     >>> month_start(job_runs.dt)
     CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
@@ -417,7 +420,8 @@ def _check_function(name: str, count: int, call: str) -> None:
     if count < fewest or (most is not None and count > most):
         takes = arguments_text(fewest, most)
         raise TypeError(four_part_message(
-            what=f"{call} gives {name} {arguments_text(count, count)}, and {name} takes {takes}.",
+            what=f"{call} gives {name} {arguments_text(count, count)}, and {name} takes "
+            f"{takes}.",
             why="The warehouse would stop the whole Statement with an error when it runs.",
             fix=f'Give hive_function {takes} after "{name}".',
             opt_out=None,
@@ -425,20 +429,17 @@ def _check_function(name: str, count: int, call: str) -> None:
 
 
 # What to do instead of a window function, where pandas has a plain way.
+_IN_PANDAS = "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
 _WINDOW_FIXES = {
     "row_number": "Use row_number(PARTITION_BY=..., ORDER_BY=...), which writes OVER itself.",
-    "lag": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
-    'df.sort_values("dt").groupby("job_id")["runs"].shift(1) gives each row the value of the '
-    "row before it in its group.",
-    "lead": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
-    'df.sort_values("dt").groupby("job_id")["runs"].shift(-1) gives each row the value of the '
-    "row after it in its group.",
-    "rank": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
-    'df.groupby("job_id")["runs"].rank(method="min", ascending=False) ranks each row in its '
-    "group.",
-    "dense_rank": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives "
-    'back: df.groupby("job_id")["runs"].rank(method="dense", ascending=False) ranks each row in '
-    "its group.",
+    "lag": _IN_PANDAS + 'df.sort_values("dt").groupby("job_id")["runs"].shift(1) gives each '
+    "row the value of the row before it in its group.",
+    "lead": _IN_PANDAS + 'df.sort_values("dt").groupby("job_id")["runs"].shift(-1) gives each '
+    "row the value of the row after it in its group.",
+    "rank": _IN_PANDAS + 'df.groupby("job_id")["runs"].rank(method="min", ascending=False) '
+    "ranks each row in its group.",
+    "dense_rank": _IN_PANDAS + 'df.groupby("job_id")["runs"].rank(method="dense", '
+    'ascending=False) ranks each row in its group.',
 }
 
 
