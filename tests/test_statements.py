@@ -45,7 +45,7 @@ from sql_composer import (
     to_hive,
     week_start,
 )
-from sql_composer import running
+from sql_composer import writing
 from sql_composer.example_database import job_runs, jobs, run_alerts
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
@@ -473,9 +473,9 @@ def test_by_day_splits_a_list_of_days() -> None:
 
 
 def test_to_hive_stops_on_hive_that_doesnt_read_back_the_same(monkeypatch) -> None:
-    written = iter(["SELECT 1", "SELECT 2"])
-    monkeypatch.setattr(running, "hive_text", lambda tree, pretty=False: next(written))
-    with pytest.raises(RuntimeError, match="bug in the Toolbox"):
+    monkeypatch.setattr(writing, "read_back", lambda text: text + " ")
+    with pytest.raises(RuntimeError, match="bug in the Toolbox, not in your Statement: "
+                       "nothing was sent"):
         to_hive(statement(SELECT(jobs.team), FROM(jobs)))
 
 

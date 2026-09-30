@@ -4,8 +4,8 @@ A Table reference is one `Table(...)` call describing one table: its columns and
 types, its Date partition, its key, and the columns that don't add up. Its columns are its
 attributes (`job_runs.status`), so a typo fails at once, with the column list.
 
-This file also holds the column object those attributes return, the one place values become
-Hive literals, and the one place the Toolbox writes SQL text (`hive_text`).
+This file also holds the column object those attributes return, and the one place values become
+Hive literals. `writing.py` writes them as Hive text.
 """
 
 from __future__ import annotations
@@ -23,7 +23,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sqlglot import exp
-from sqlglot.errors import ErrorLevel
 
 from .refusals import (
     CONTROL_CHARACTERS,
@@ -33,10 +32,10 @@ from .refusals import (
     guard_not_a_number,
     guard_time_of_day,
 )
+from .writing import describe_text, drop, hive_text, hive_type, show_partitions_text
 
 TOOLBOX_VERSION = "2.1"
 
-HIVE = "hive"
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
@@ -77,12 +76,7 @@ NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "dou
 STRING_TYPES = ("string", "varchar", "char")
 
 
-# --- The one place the Toolbox writes SQL text ---------------------------------------------
-
-
-def hive_text(tree: exp.Expression, pretty: bool = False) -> str:
-    """Write a sqlglot tree as Hive. Nothing else in the Toolbox calls `.sql()`."""
-    return tree.sql(dialect=HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
+# --- Names -----------------------------------------------------------------------------------
 
 
 def identifier(name: str) -> exp.Identifier:
@@ -731,7 +725,7 @@ class Verdict:
 
 def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
-    frame = send(hive_text(exp.Describe(this=hive_table(name))))
+    frame = send(describe_text(name))
     columns, comments, partitions = {}, {}, []
     # The columns come first; each header after them, bar the partition list's own column
     # header, starts a section, and only the partition sections name partition columns.
@@ -758,9 +752,7 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
 
 def _newest_partition_value(name: str, column: str, send) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
-    command = exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + hive_text(hive_table(name))))
-    frame = send(hive_text(command))
+    frame = send(show_partitions_text(name))
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
@@ -1120,20 +1112,14 @@ def drop_table(t):
     from .clauses import Statement  # here, not at the top: clauses.py imports this file
 
     t = _real_table(t, "drop_table(...)")
-    table = hive_table(t._name)
-    # sqlglot 30 renamed the part of a DROP that holds the table from `this` to `tables`.
-    if "tables" in exp.Drop.arg_types:
-        drop = exp.Drop(kind="TABLE", tables=[table], exists=True)
-    else:
-        drop = exp.Drop(kind="TABLE", this=table, exists=True)
     s = Statement()
-    s._ddl = drop
+    s._ddl = drop(hive_table(t._name))
     return s
 
 
 def _column_definition(t: Table, column: str) -> exp.ColumnDef:
     try:
-        kind = exp.DataType.build(t._columns[column], dialect=HIVE)
+        kind = hive_type(t._columns[column])
     except Exception:
         _refuse_table(
             what=f"create_table({t._alias}): {column}'s type {t._columns[column]!r} isn't a "

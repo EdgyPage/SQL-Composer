@@ -27,7 +27,8 @@ from .refusals import (
     load_limit_order_by,
     warning_repeated_rows,
 )
-from .tables import SIMPLE_NAME, Column, Table, aliased, hive_text, identifier
+from .tables import SIMPLE_NAME, Column, Table, aliased, identifier
+from .writing import hive_text
 
 TOOLBOX_VERSION = "2.1"
 
