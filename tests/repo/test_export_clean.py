@@ -314,9 +314,7 @@ def test_the_export_refuses_while_main_is_checked_out_in_a_worktree(repo: Path) 
 
 def _main_commit(repo: Path) -> str:
     """The commit `main` points at, or "" where there is no local `main`, as in CI's checkout."""
-    found = subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", "--quiet",
-                            "refs/heads/main"], capture_output=True, text=True, encoding="utf-8")
-    return found.stdout.strip()
+    return git(repo, "for-each-ref", "--format=%(objectname)", "refs/heads/main")
 
 
 def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys) -> None:

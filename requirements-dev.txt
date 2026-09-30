@@ -8,8 +8,8 @@
 # suite on 25.24.2, the bottom of that range.
 sqlglot==30.19.0
 
-# Spark Composer's pin. It supports pyspark 3.5.0 up to (not including) 4.1; its Example
-# database also needs Java 17.
+# Spark Composer's pin. It supports pyspark 3.5.0 up to (not including) 4.1; CI also runs the
+# suite on 3.5.0, the bottom of that range. Its Example database also needs Java 17.
 pyspark==4.0.4
 
 pandas==2.0.3
