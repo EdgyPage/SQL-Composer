@@ -32,6 +32,8 @@ WHEN = datetime.datetime(2026, 10, 2, 14, 5)
 VERSION = sql_composer.TOOLBOX_VERSION
 VERSION_TEXT = f"SQL Composer {VERSION}, exported 2026-10-02 14:05"
 STAMP = f"{VERSION_TEXT} - generated from dev, do not edit"
+# What main's commit and the README say the tree is: both Editions, at one version and time.
+SHIPPED = f"SQL Composer and Spark Composer {VERSION}, exported 2026-10-02 14:05"
 
 
 def dev_toolbox_files() -> list[str]:
@@ -68,11 +70,13 @@ def test_the_file_list_in_init_names_every_toolbox_file(clean: Path) -> None:
     assert "_FILES = None" not in init
 
 
-@pytest.mark.parametrize("name", dev_toolbox_files())
+@pytest.mark.parametrize("name", [
+    f"{edition.folder}/{path.name}" for edition in editions.EDITIONS.values()
+    for path in sorted((ROOT / edition.folder).iterdir()) if path.name != "__pycache__"])
 def test_below_the_stamp_each_file_is_devs_own(clean: Path, name: str) -> None:
-    exported = (clean / "sql_composer" / name).read_text(encoding="utf-8").split("\n", 1)[1]
-    dev = (ROOT / "sql_composer" / name).read_text(encoding="utf-8")
-    if name == "__init__.py":
+    exported = (clean / name).read_text(encoding="utf-8").split("\n", 1)[1]
+    dev = (ROOT / name).read_text(encoding="utf-8")
+    if name.endswith("/__init__.py"):
         written = re.search(r"^_FILES = \[.*?\]$", exported, re.MULTILINE | re.DOTALL).group(0)
         exported = exported.replace(written, "_FILES = None")
     assert exported == dev
@@ -84,8 +88,8 @@ def readme(clean: Path) -> str:
 
 def test_the_readme_says_which_copy_it_came_with(clean: Path) -> None:
     text = readme(clean)
-    assert text.splitlines()[0] == f"<!-- {STAMP} -->"
-    assert f"This is version {VERSION_TEXT.removeprefix('SQL Composer ')}." in text
+    assert text.splitlines()[0] == f"<!-- {SHIPPED} - generated from dev, do not edit -->"
+    assert f"This is version {VERSION}, exported 2026-10-02 14:05." in text
     assert "<!-- VERSION -->" not in text and "<!-- CHEAT SHEET -->" not in text
 
 
@@ -219,8 +223,7 @@ def test_the_export_commits_the_clean_tree_on_top_of_main(repo: Path) -> None:
     assert git(repo, "rev-parse", "main~1") == old_main
     held = git(repo, "ls-tree", "-r", "--name-only", "main").splitlines()
     assert held == exported_files()
-    assert git(repo, "log", "-1", "--format=%s", "main") == (
-        VERSION_TEXT)
+    assert git(repo, "log", "-1", "--format=%s", "main") == SHIPPED
     assert dev in git(repo, "log", "-1", "--format=%b", "main")
     assert git(repo, "rev-parse", "--abbrev-ref", "HEAD") == "dev"
     assert git(repo, "rev-parse", "dev") == dev
@@ -259,8 +262,7 @@ def dev_copy(folder: Path) -> Path:
 
 
 def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
-    version = export_clean.build(ROOT, tmp_path / "clean", WHEN)
-    assert version == VERSION_TEXT
+    assert export_clean.build(ROOT, tmp_path / "clean", WHEN) == SHIPPED
 
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
@@ -329,10 +331,6 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
 BOTH = tuple(editions.EDITIONS.values())
 
 
-def test_the_export_ships_every_edition() -> None:
-    assert editions.EXPORTED == BOTH
-
-
 def _files_of(folder: Path) -> list[str]:
     return sorted(path.name for path in folder.iterdir() if path.name != "__pycache__")
 
@@ -356,10 +354,11 @@ def test_the_readme_lists_where_the_editions_hive_differs(clean: Path) -> None:
     section = readme(clean).split("## Where the two Editions' Hive differs\n", 1)[1]
     section = section.split("\n## ", 1)[0]
     items = [line for line in section.splitlines() if line.startswith("- **")]
-    assert items == [
-        f"- **{row.title}** {row.why} SQL Composer writes `{row.sql_composer}` where Spark "
-        f"Composer writes `{row.spark_composer}`."
-        for row in editions.DECLARED_DIFFERENCES.values()]
+    assert [item.split("**")[1] for item in items] == [
+        row.title for row in editions.DECLARED_DIFFERENCES.values()]
+    assert items[0].endswith(" SQL Composer writes `SUM(job_runs.duration_mins) / COUNT(*)` "
+                             "where Spark Composer writes "
+                             "`SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)`.")
 
 
 def _range_of(folder: str) -> dict[str, str]:
@@ -383,11 +382,18 @@ def test_the_readme_says_what_each_edition_needs_as_its_engine_checks_it() -> No
     java = dict(re.findall(r"^(_JAVA_\w+) = (\d+)$",
                            (ROOT / "spark_composer" / "engine.py").read_text(encoding="utf-8"),
                            re.MULTILINE))
+    python = re.search(r"^_PYTHON_NEEDED = \((\d+), (\d+)\)$",
+                       (ROOT / "sql_composer" / "__init__.py").read_text(encoding="utf-8"),
+                       re.MULTILINE).groups()
+    assert f"Each Edition needs Python {'.'.join(python)} or newer" in template
     assert (f"SQL Composer: sqlglot {sql['_LOWEST']} or newer, below {_short(sql['_BELOW'])}. "
-            f"Its Example database runs queries on sqlglot {sql['_EXECUTOR_NEEDS']} or newer."
+            f"Its Example database runs queries on sqlglot {sql['_EXECUTOR_NEEDS']} or newer"
             ) in template
+    assert (f'`%pip install "sqlglot>={sql["_EXECUTOR_NEEDS"]},<{_short(sql["_BELOW"])}"`'
+            in template)
     assert (f"Spark Composer: pyspark {spark['_LOWEST']} or newer, below "
-            f"{_short(spark['_BELOW'])}.") in template
+            f"{_short(spark['_BELOW'])}: `%pip install "
+            f'"pyspark>={spark["_LOWEST"]},<{_short(spark["_BELOW"])}"`') in template
     assert f"needs Java {java['_JAVA_NEEDED']} to {java['_JAVA_NEWEST']}" in template
 
 

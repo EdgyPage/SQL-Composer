@@ -2235,7 +2235,7 @@ WHERE
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
 <p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with its arguments escaped.</p>
-<p>The Hive writes its name in capitals. It may also write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same.</p>
+<p>The Hive writes its name in capitals. It may also write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
 <p>It checks the call before writing it:</p>
 <ul><li>it refuses a call with the wrong number of arguments, for the functions it knows, such as upper, substr or date_add;</li><li>a function that turns many rows into one, such as collect_set or percentile, is treated as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;</li><li>it refuses a function that works only over a window of rows, written OVER (...) after it, such as lag or rank, since it can&#x27;t write OVER.</li></ul>
 <pre class="python">hive_function(&quot;regexp_replace&quot;, jobs.job_name, &quot;_&quot;, &quot; &quot;)</pre>

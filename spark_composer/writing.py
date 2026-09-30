@@ -17,6 +17,9 @@ Its Hive is SQL Composer's but in three places:
   DOUBLE;
 - a hive_function call is written by the name it was given, such as NVL(...), where SQL
   Composer may write another name that does the same, such as COALESCE(...).
+
+The README gives the reasons, under "Where the two Editions' Hive differs", from
+DECLARED_DIFFERENCES in tools/editions.py.
 """
 
 from __future__ import annotations
