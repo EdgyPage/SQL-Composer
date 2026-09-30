@@ -599,11 +599,17 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
+def table_node(name: str, **parts) -> Node:
+    """A table as a Node, "ops.job_runs" split into its database and its name."""
+    database, _, table = name.rpartition(".")
+    return Node("Table", db=database or None, name=table, **parts)
+
+
 def source(table: Table) -> Node:
     """How a table is named after FROM or JOIN: its name, and AS its alias where it needs one."""
     if table._statement is not None and table._alias == table._name:
-        return Node("Table", name=table._name)
-    return Node("Table", name=table._name, alias=table._alias)
+        return table_node(table._name)
+    return table_node(table._name, alias=table._alias)
 
 
 def all_columns(t):
@@ -1029,7 +1035,7 @@ def create_table(t, may_exist=False):
     partitioned_by = ([] if t._date_partition is None
                       else [_column_definition(t, t._date_partition)])
     s = Statement()
-    s._ddl = Node("Create", table=Node("Table", name=t._name), columns=columns,
+    s._ddl = Node("Create", target=table_node(t._name), columns=columns,
                   partitioned_by=partitioned_by, exists=may_exist)
     return s
 
@@ -1054,7 +1060,7 @@ def drop_table(t):
 
     t = _real_table(t, "drop_table(...)")
     s = Statement()
-    s._ddl = Node("Drop", table=Node("Table", name=t._name))
+    s._ddl = Node("Drop", target=table_node(t._name))
     return s
 
 

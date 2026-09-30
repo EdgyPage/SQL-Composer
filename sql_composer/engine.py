@@ -102,7 +102,7 @@ def _sqlglot_behaviour():
     insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
     if "PARTITION(dt = '2026-01-01')" not in written(insert):
         problems.append("INSERT OVERWRITE drops its PARTITION")
-    if written(to_sqlglot(Node("Drop", table=Node("Table", name="db.t")))) != (
+    if written(to_sqlglot(Node("Drop", target=Node("Table", db="db", name="t")))) != (
             "DROP TABLE IF EXISTS db.t"):
         problems.append("DROP TABLE drops its table name")
     try:

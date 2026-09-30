@@ -26,9 +26,9 @@ def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
-def hive_text(node: Node, pretty: bool = False) -> str:
-    """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive."""
-    return sql_text(to_sqlglot(node), pretty=pretty)
+def hive_text(node: Node) -> str:
+    """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive on one line."""
+    return sql_text(to_sqlglot(node))
 
 
 def hive_statement(node: Node) -> str:
@@ -94,13 +94,13 @@ def hive_type(text: str) -> exp.DataType:
 
 def describe_text(name: str) -> str:
     """The DESCRIBE command for one table."""
-    return sql_text(exp.Describe(this=_hive_table(name)))
+    return sql_text(exp.Describe(this=_named_table(name)))
 
 
 def show_partitions_text(name: str) -> str:
     """The SHOW PARTITIONS command for one table."""
     return sql_text(exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + sql_text(_hive_table(name)))))
+        "PARTITIONS " + sql_text(_named_table(name)))))
 
 
 def _set_part(tree: exp.Expression, part: str, value) -> None:
@@ -123,14 +123,19 @@ def _identifier(name: str) -> exp.Identifier:
     return exp.to_identifier(name, quoted=not plain_name(name))
 
 
-def _hive_table(name: str, partition=None) -> exp.Table:
-    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
+def _hive_table(name: str, database: str | None = None, partition=None) -> exp.Table:
+    """A table's name as sqlglot holds it: the table job_runs in the database ops.
 
     A write passes the PARTITION(...) it fills, which Hive writes after the name.
     """
-    parts = name.split(".")
-    database = _identifier(parts[0]) if len(parts) == 2 else None
-    return exp.Table(this=_identifier(parts[-1]), db=database, partition=partition)
+    return exp.Table(this=_identifier(name), db=_identifier(database) if database else None,
+                     partition=partition)
+
+
+def _named_table(name: str) -> exp.Table:
+    """A table by its full name, "ops.job_runs", for DESCRIBE and SHOW PARTITIONS."""
+    database, _, table = name.rpartition(".")
+    return _hive_table(table, database or None)
 
 
 # --- The Toolbox's own tree, as a sqlglot tree ---------------------------------------------
@@ -177,7 +182,8 @@ def _window(node: Node) -> exp.Window:
 
 def _table(node: Node) -> exp.Expression:
     partition = node.parts.get("partition")
-    table = _hive_table(node.name, partition=None if partition is None else to_sqlglot(partition))
+    table = _hive_table(node.name, node.parts.get("db"),
+                        partition=None if partition is None else to_sqlglot(partition))
     alias = node.parts.get("alias")
     return table if alias is None else exp.alias_(table, _identifier(alias), table=True)
 
@@ -186,9 +192,9 @@ def _join(node: Node) -> exp.Join:
     parts = {"this": _built(node, "this")}
     if node.parts.get("on") is not None:
         parts["on"] = _built(node, "on")
-    if node.parts.get("left"):
+    if node.parts["how"] == "LEFT JOIN":
         parts["side"] = "LEFT"
-    if node.parts.get("cross"):
+    if node.parts["how"] == "CROSS JOIN":
         parts["kind"] = "CROSS"
     return exp.Join(**parts)
 
@@ -206,8 +212,8 @@ def _select(node: Node) -> exp.Select:
         tree.set("group", exp.Group(expressions=_all_built(node, "group_by")))
     if node.parts.get("having") is not None:
         tree.set("having", exp.Having(this=_built(node, "having")))
-    if node.parts.get("order_by") is not None:
-        tree.set("order", _built(node, "order_by"))
+    if node.parts.get("order_by"):
+        tree.set("order", exp.Order(expressions=_all_built(node, "order_by")))
     if node.parts.get("limit") is not None:
         tree.set("limit", exp.Limit(expression=exp.Literal.number(node.parts["limit"])))
     return _with_tables(tree, node)
@@ -215,14 +221,14 @@ def _select(node: Node) -> exp.Select:
 
 def _with_tables(tree: exp.Expression, node: Node) -> exp.Expression:
     """Put the Derived tables a query or write reads at its top, as WITH name AS (...)."""
-    tables = [to_sqlglot(table) for table in node.parts.get("with_tables") or []]
+    tables = [to_sqlglot(table) for table in node.parts.get("derived_tables") or []]
     if tables:
         _set_part(tree, "with", exp.With(expressions=tables))
     return tree
 
 
 def _insert(node: Node) -> exp.Insert:
-    tree = exp.Insert(this=_built(node, "table"), expression=_built(node, "select"),
+    tree = exp.Insert(this=_built(node, "target"), expression=_built(node, "select"),
                       overwrite=node.parts["overwrite"])
     return _with_tables(tree, node)
 
@@ -232,7 +238,7 @@ def _create(node: Node) -> exp.Create:
     if node.parts["partitioned_by"]:
         partition = exp.Schema(expressions=_all_built(node, "partitioned_by"))
         properties.insert(0, exp.PartitionedByProperty(this=partition))
-    schema = exp.Schema(this=_built(node, "table"), expressions=_all_built(node, "columns"))
+    schema = exp.Schema(this=_built(node, "target"), expressions=_all_built(node, "columns"))
     return exp.Create(kind="TABLE", this=schema, properties=exp.Properties(expressions=properties),
                       exists=node.parts["exists"])
 
@@ -240,7 +246,7 @@ def _create(node: Node) -> exp.Create:
 def _drop(node: Node) -> exp.Drop:
     """sqlglot version 30 renamed the part of a DROP that holds its table from `this` to
     `tables`."""
-    table = _built(node, "table")
+    table = _built(node, "target")
     if "tables" in exp.Drop.arg_types:
         return exp.Drop(kind="TABLE", tables=[table], exists=True)
     return exp.Drop(kind="TABLE", this=table, exists=True)
