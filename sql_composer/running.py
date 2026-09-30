@@ -216,8 +216,8 @@ def to_hive(s):
     """The Hive string for a Statement, ready to send.
 
     It checks itself by reading the string back, and refuses what would read too many days
-    (see set_load_limits) or write more than one day. sqlglot writes a few functions its own
-    way, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.
+    (see set_load_limits) or write more than one day. A few functions are written another
+    way that means the same, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1).
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),

@@ -107,7 +107,6 @@ def test_an_import_a_file_may_not_make_is_listed(tmp_path: Path) -> None:
                                                 "writing.py imports pandas"]
 
 
-@pytest.mark.xfail(strict=True, reason="ticket 14 of the PySpark work rewords the shared files")
 def test_no_canonical_shared_file_names_what_only_one_edition_has() -> None:
     found = {name: editions.forbidden_words((ROOT / "sql_composer" / name).read_text("utf-8"))
              for name in editions.SHARED_FILES}

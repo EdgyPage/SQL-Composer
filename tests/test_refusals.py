@@ -219,7 +219,7 @@ def test_guard_cross_join_opt_out() -> None:
 def test_guard_order_by_in_derived_table_refuses() -> None:
     inner = statement(SELECT(jobs.job_name), FROM(jobs), ORDER_BY(jobs.job_name,
                                                                    sorts_everything=True))
-    with pytest.raises(GuardRefused, match="Hive ignores the order"):
+    with pytest.raises(GuardRefused, match="doesn't keep the order"):
         derived("sorted_jobs", inner)
 
 
