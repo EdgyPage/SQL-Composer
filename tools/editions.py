@@ -85,21 +85,55 @@ PAGES = ("examples.html",)
 
 # What every Toolbox file may import, besides the standard library and its own folder.
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
-# The sqlglot whose layout Spark Composer's writing.py copies. Ticket 18 of the PySpark work adds
-# the test that holds it equal to the sqlglot pin in requirements-dev.txt.
+# The sqlglot whose layout Spark Composer's writing.py copies, which
+# tests/repo/test_edition_parity.py holds equal to the sqlglot pin in requirements-dev.txt.
 LAYOUT_MIRRORS_SQLGLOT = "30.19.0"
-# Each place the two Editions' Hive differs on purpose, with its reason. A case of the golden
-# corpus may differ between them only where one of these holds in one of its trees.
-DECLARED_DIFFERENCES = {
-    "division": "Spark refuses to divide by zero under ANSI, where Hive gives NULL, so Spark "
-    "Composer divides by NULLIF(divisor, 0) unless the divisor is a number other than 0.",
-    "float": "Spark reads 0.5 as a DECIMAL, where Hive reads a DOUBLE, so Spark Composer "
-    "writes a Python float as a DOUBLE: 0.5D.",
-    "hive_function": "SQL Composer checks a hive_function call by having sqlglot read it "
-    "back, and writes the call as sqlglot does, such as nvl as COALESCE. Spark Composer has no "
-    "sqlglot, so it writes the call as it was named. Both call the same function.",
-}
 
+
+@dataclass(frozen=True)
+class Difference:
+    """One place the two Editions' Hive differs on purpose.
+
+    `why` says it in plain words, for the README. `example` is the same Hive as each Edition
+    writes it, SQL Composer's first, as the golden corpus shows it in one of `cases`, the ids of
+    the golden cases the difference explains. tests/repo/test_edition_parity.py holds that the
+    two goldens differ in no other case, and that each listed case really differs.
+    """
+
+    why: str
+    example: tuple[str, str]
+    cases: tuple[str, ...]
+
+
+# Each place the two Editions' Hive differs on purpose.
+DECLARED_DIFFERENCES = {
+    "division": Difference(
+        why="Spark stops the whole query with an error when it divides by 0, where Hive gives "
+        "NULL. So Spark Composer divides by NULLIF(y, 0), which is NULL when y is 0: that row "
+        "gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.",
+        example=("SUM(job_runs.duration_mins) / COUNT(*)",
+                 "SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)"),
+        cases=("edge:brackets:nested", "edge:brackets:aggregates"),
+    ),
+    "float": Difference(
+        why="Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, "
+        "where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python float as "
+        "0.5D: the D marks a DOUBLE, and doesn't mean days. A number written with e, such as "
+        "1e-05, is a DOUBLE already.",
+        example=("COALESCE(job_runs.avg_retry_secs, 0.1)",
+                 "COALESCE(job_runs.avg_retry_secs, 0.1D)"),
+        cases=("worked:nan_in_a_list:fixed", "edge:calculations:values"),
+    ),
+    "hive_function": Difference(
+        why="SQL Composer checks a hive_function call by having sqlglot read it back, and "
+        "writes the call as sqlglot does, such as nvl as COALESCE. Spark Composer has no "
+        "sqlglot, so it writes the call by the name it was given. Both call the same function.",
+        example=("COALESCE(job_runs.status, 'none')", "NVL(job_runs.status, 'none')"),
+        cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
+               "edge:hive_function:regexp_extract", "edge:hive_function:date_format",
+               "edge:hive_function:substr", "edge:hive_function:instr"),
+    ),
+}
 
 
 def may_import(edition: Edition, file_name: str) -> frozenset:

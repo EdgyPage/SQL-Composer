@@ -5,10 +5,14 @@ Run it on `dev` only when a change is meant to alter what the Toolbox writes, th
     python tools/hive_corpus.py
     python tools/hive_corpus.py --edition spark
 
-`tests/sqlglot_edition/test_sqlglot_hive_corpus.py` fails while SQL Composer's committed file
-differs from what this writes. SQL Composer's is written only at the sqlglot pin in
-requirements-dev.txt, since another sqlglot writes some Hive differently. The file pins, for each case under a stable id, what the Toolbox shows through its
-public names:
+`tests/test_hive_corpus.py` fails while the committed file of the Edition it tests differs from
+what this writes. SQL Composer's is written only at the sqlglot pin in requirements-dev.txt,
+since another sqlglot writes some Hive differently; Spark Composer's needs no Java.
+`tests/repo/test_edition_parity.py` holds that the two differ only where `DECLARED_DIFFERENCES`
+in `tools/editions.py` says they do.
+
+The file pins, for each case under a stable id, what the Toolbox shows through its public
+names:
 
 - each Statement's Hive, from `to_hive(...)`, or the refusal it stops with;
 - the repr of each output and condition, of the Statement and of each Derived table it reads;
@@ -49,6 +53,8 @@ from sql_composer.clauses import derived_tables  # noqa: E402
 
 EDITION = editions.EDITIONS[sql_composer.__name__]
 GOLDEN = ROOT / "tests" / "hive_corpus" / f"{EDITION.folder}.txt"
+# The command that writes this Edition's golden.
+COMMAND = f"python tools/hive_corpus.py --edition {EDITION.option}"
 
 PIN = re.search(r"^sqlglot==(\S+)$",
                 (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.MULTILINE)[1]
@@ -286,14 +292,22 @@ def corpus_text() -> str:
     return header + "\n".join(blocks)
 
 
-def main() -> int:
+def cannot_write() -> str | None:
+    """Why this Python can't write the Edition's golden, or None when it can."""
     if EDITION is editions.SQL_COMPOSER:
         import sqlglot
 
         if sqlglot.__version__ != PIN:
-            print(f"The golden is written at the sqlglot pin, {PIN}, and this is "
-                  f"{sqlglot.__version__}: another sqlglot writes some Hive differently.")
-            return 1
+            return (f"the golden is written at the sqlglot pin, {PIN}, and this is "
+                    f"{sqlglot.__version__}: another sqlglot writes some Hive differently")
+    return None
+
+
+def main() -> int:
+    reason = cannot_write()
+    if reason is not None:
+        print(f"Nothing was written: {reason}.")
+        return 1
     text = corpus_text()
     GOLDEN.parent.mkdir(parents=True, exist_ok=True)
     with open(GOLDEN, "w", encoding="utf-8", newline="\n") as file:

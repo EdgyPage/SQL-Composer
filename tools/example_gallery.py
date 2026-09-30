@@ -42,6 +42,7 @@ import textwrap
 import warnings
 from html import escape
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKED_EXAMPLES = ROOT / "worked_examples"
@@ -438,15 +439,32 @@ def builds_statements(value) -> bool:
     return isinstance(value, Statement)
 
 
+class _SentAQuery(Exception):
+    """What the Example database's send raises while other_statements looks at a function."""
+
+
+def _refuse_to_send(text: str):
+    raise _SentAQuery(text)
+
+
 def other_statements(module) -> list[tuple[str, object]]:
-    """The script's other Statement functions besides careless() and fixed(), in file order."""
+    """The script's other Statement functions besides careless() and fixed(), in file order.
+
+    A function that sends a query, such as the every_run() a pandas twin reads, isn't one. Its
+    query isn't run: the Example database's send refuses while each function is looked at.
+    """
     found = []
     for name, function in inspect.getmembers(module, inspect.isfunction):
         if (function.__module__ != module.__name__ or name in {"careless", "fixed"}
                 or name.endswith("_in_pandas")):
             continue
         if all(p.default is not p.empty for p in inspect.signature(function).parameters.values()):
-            if builds_statements(function()):
+            with mock.patch.object(example_database, "send", _refuse_to_send):
+                try:
+                    value = function()
+                except _SentAQuery:
+                    continue
+            if builds_statements(value):
                 found.append((name, function))
     return sorted(found, key=lambda pair: pair[1].__code__.co_firstlineno)
 
