@@ -163,6 +163,9 @@ uses.
   every golden, runs every Spark Composer query at both ANSI settings, reads every value
   back and checks hive_function's list; on Linux, real Hive tables take create_table,
   INSERT_OVERWRITE, INSERT_INTO and drop_table and give the Example database's rows.
+- [Refuse the two mix-ups](issues/23-refuse-the-two-mix-ups.md): an object the other
+  Edition's folder made, and a send that gives back Spark's DataFrame, are each refused
+  saying what went wrong and what to paste; a write's frame isn't, as Spark has done it.
 
 ## Not yet specified
 
