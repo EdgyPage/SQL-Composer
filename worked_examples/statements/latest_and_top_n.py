@@ -3,8 +3,8 @@
 Why: to keep whole rows, since max_of on each column can take the status from a different
 run than the newest one.
 
-Where the Example database can't run row_number, the results of fixed() and
-top_runs_per_job() below are computed in pandas, not by running this Hive.
+The results of fixed() and top_runs_per_job() below are computed in pandas, not by running
+this Hive, so they show even where the Example database can't run row_number.
 """
 
 from sql_composer import (

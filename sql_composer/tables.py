@@ -282,7 +282,7 @@ def _check_type(value, column: Column | None, call: str) -> None:
         four_part_message(
             what=f"{call} compares {column!r}, a {column._type} column, with {value!r}.",
             why="The warehouse would convert one side to the other's type, so the comparison "
-            "could match nothing or the wrong rows.",
+            "could quietly match nothing or the wrong rows, or stop with an error.",
             fix=f"Pass a value of the column's own type, such as {_example_of(family)}.",
             opt_out=None,
         )
@@ -398,7 +398,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
 
 
 def _string_literal(value: str, call: str, position: str) -> Node:
-    """A string as a Hive literal, refused if it holds a character Hive or Spark would misread."""
+    """A string as a Hive literal, refused if it holds a character the warehouse misreads."""
     for character in CONTROL_CHARACTERS:
         if character in value:
             guard_control_character(call, position, character)
@@ -476,7 +476,8 @@ class Table:
     a typo stops with the list of real columns. Write one per table, generated once by
     write_table_reference(...) and then yours to edit.
 
-    - `columns` maps each column to its Hive type as DESCRIBE prints it ("bigint",
+    - `columns` maps each column to its Hive type as DESCRIBE, the command that lists a
+      table's columns, prints it ("bigint",
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
     - `date_partition` is required: the one date column the table is partitioned by, which
       every Statement must bound at both ends, or None for a table that has none.
@@ -901,9 +902,9 @@ def check_table_reference(t, send):
     It sends DESCRIBE and SHOW PARTITIONS through your `send`, and lists problems (which make
     Statements wrong) and notes (which may not matter), each with the line to change in the
     Table reference file. The columns and their types come from DESCRIBE, and the Date
-    partition's date_format is checked against the newest day SHOW PARTITIONS lists. It never edits the file and never refuses anything: a table Hive
-    can't describe, or a send that fails, is reported too. Comments, the key and
-    does_not_add_up aren't compared.
+    partition's date_format is checked against the newest day SHOW PARTITIONS lists. It never
+    edits the file and never refuses anything: a table the warehouse can't describe, or a send
+    that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
 
     >>> check_table_reference(job_runs, send=example_database.send)
     ops.job_runs matches its Table reference.

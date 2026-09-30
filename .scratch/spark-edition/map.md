@@ -129,6 +129,9 @@ uses.
 - [Build Statements and DDL as Toolbox trees](issues/13-build-statements-and-ddl-as-toolbox-trees.md):
   a whole Statement is a Node, from Select or Insert down; only writing.py and engine.py import
   sqlglot.
+- [Say only what is true of both Editions](issues/14-say-only-what-is-true-of-both-editions.md):
+  every Hive-only claim in a shared file holds on Spark too, "the warehouse" is a glossary word,
+  and no shared file names sqlglot.
 
 ## Not yet specified
 

@@ -22,7 +22,7 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - A value holding a bell, a form feed or a vertical tab is now refused, and so is a
   `date_format` holding one. In a Python string these are what `\a`, `\f` and `\v` give, as
   in a Windows path like `'D:\logs\alerts'`. The Hive would write them as `\a`, `\f` and
-  `\v`, which Hive reads back as the plain letters a, f and v, so the value would quietly be
+  `\v`, which Hive and Spark read back as the plain letters a, f and v, so the value would quietly be
   a different one. Write such a path with r before the quotes: `r'D:\logs\alerts'`.
 - `write_table_reference`, `check_table_reference` and `check_key` now read a day written
   like 2026/09/24, which SHOW PARTITIONS lists as `2026%2F09%2F24`. Before, for such a table,
@@ -51,8 +51,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   the same Hive: `hive_function("nvl", x, 0)` and `fill_null(x, 0)` both write COALESCE, for
   example. It matters in one place: a `derived(...)` table that SELECTs one and groups by the
   other no longer knows its key, so a JOIN to it warns. Group by the calculation you SELECT.
-- Refusals and docstrings that described Hive alone now say what holds on Spark as well, such
-  as why a sort needs a LIMIT: sorting a whole big result is slow, wherever it runs.
+- Refusals and docstrings that described Hive alone now say what holds on Spark as well, and
+  call where Statements run at work "the warehouse".
 
 ## 2.0
 

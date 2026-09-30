@@ -33,6 +33,11 @@ _Avoid_: release branch, prod branch, copy branch
 The branch where all work happens: the Toolbox plus its tests, agents and tracker.
 _Avoid_: develop, internal branch, testing branch
 
+**Warehouse**:
+Where Statements run at work: the tables, and the Hive or Spark that runs a Statement's Hive on
+them. Each Toolbox user has one; the Example database stands in for it.
+_Avoid_: backend, engine, server, platform
+
 ### The user's own scripts
 
 **Level**:

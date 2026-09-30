@@ -221,8 +221,8 @@ def _call(name: str, *args: Node) -> Node:
 def week_start(column):
     """The Monday that starts each date's week, to group days into weeks.
 
-    There is no week function that works the same in every warehouse, so this takes the
-    first Monday after the day a week earlier. The result is a day like "2026-09-21".
+    Hive and Spark have no week function that works the same on both, so this takes the first
+    Monday after the day a week earlier. The result is a day like "2026-09-21".
 
     >>> week_start(job_runs.dt)
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
@@ -333,9 +333,9 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
 
-    The Hive may call a function by its other name, as nvl comes out as COALESCE, or leave
-    out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) may come out
-    without the 1, since group 1 is what the warehouse takes when none is given.
+    In the Hive, a function may appear under its other name, as nvl as COALESCE, or without
+    an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1:
+    group 1 is what the warehouse takes when none is given. Either way it does the same.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')

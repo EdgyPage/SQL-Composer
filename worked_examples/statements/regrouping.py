@@ -2,8 +2,8 @@
 
 Why: a job that ran on two days is in both days' counts, so adding them up counts it twice.
 
-Where the Example database can't run week_start, the results below are computed in pandas,
-not by running this Hive.
+The results below are computed in pandas, not by running this Hive, so they show even where
+the Example database can't run week_start.
 """
 
 import pandas as pd
