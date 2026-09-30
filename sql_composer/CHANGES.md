@@ -30,7 +30,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   count_rows() is treated. A function that works only over a window of rows, such as lag or
   rank, is refused, since hive_function can't write OVER, and the refusal says how pandas does
   it. Before, sqlglot checked the call, and let through some counts Hive and Spark refuse, such
-  as length with 2 arguments. sqlglot still checks a function the list doesn't hold.
+  as length with 2 arguments. For a function the list doesn't hold, the Edition that writes its
+  Hive with sqlglot still has sqlglot check the call; the other writes it as given, and Spark
+  checks it when it runs.
 - **An object from the other Edition's folder is refused plainly**. Given, say, a
   Table reference whose file imports the other folder, each function says which folder made
   the object, and how to import from one folder only, whichever your notebook uses.
