@@ -828,6 +828,10 @@ def _environment(folder: Path) -> dict:
         environment[name] = str(folder / "tmp")
     environment.update(SPARK_CONF_DIR=str(folder / "conf"), SPARK_LOCAL_IP="127.0.0.1",
                        PYSPARK_PYTHON=_python(), TZ="UTC")
+    # Spark's launcher runs a Java of its own first, which leaves a folder in the system's
+    # temporary folder unless told not to; on Windows TMP keeps it in this one.
+    if _JAVA_TMP:
+        environment["SPARK_LAUNCHER_OPTS"] = "-XX:-UsePerfData"
     program, _ = _java()
     if program is not None and not os.environ.get("JAVA_HOME"):
         # The Java's own folder, which a script found on PATH in its place doesn't show:
