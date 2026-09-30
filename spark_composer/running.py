@@ -25,7 +25,7 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
     refuse_a_spark_dataframe,
-    refuse_the_other_editions,
+    refuse_what_the_other_edition_made,
 )
 from .tables import aliased, source, table_node
 from .trees import Node, combined
@@ -234,7 +234,7 @@ def to_hive(s):
       job_runs.dt = '2026-09-24'
     """
     if not isinstance(s, Statement):
-        refuse_the_other_editions(s, "to_hive")
+        refuse_what_the_other_edition_made(s, "to_hive")
         raise TypeError(
             four_part_message(
                 what=f"to_hive was given {s!r}, which isn't a Statement.",
@@ -253,8 +253,10 @@ def to_hive(s):
 def run(s, send):
     """Send a Statement's Hive through your `send` function and return what comes back.
 
-    `send` is your own function from a Hive string to a DataFrame. At work it calls the
-    query API; example_database.send runs the Example database instead.
+    `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
+    the query API, or, where your notebook runs Spark, is
+    lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
+    instead.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -277,7 +279,9 @@ def run(s, send):
         )
     text = to_hive(s)
     result = send(text)
-    refuse_a_spark_dataframe(result, "a Statement's Hive")
+    # A write has already been carried out when its send returns, so only a read's rows matter.
+    if s._ddl is None and s._write is None:
+        refuse_a_spark_dataframe(result)
     limit = automatic_limit(s) if s._ddl is None else None
     if limit is not None and hasattr(result, "__len__"):
         load_limit_rows(len(result), limit)
@@ -384,7 +388,7 @@ def by_day(s):
       job_runs.status
     """
     if not isinstance(s, Statement) or s._ddl is not None:
-        refuse_the_other_editions(s, "by_day")
+        refuse_what_the_other_edition_made(s, "by_day")
         raise TypeError(
             four_part_message(
                 what=f"by_day was given {s!r}, which isn't a Statement that reads a table.",

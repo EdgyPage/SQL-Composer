@@ -40,6 +40,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   what they send. Your Table reference names the table as before, `Table("ops.order", ...)`.
 - When DESCRIBE lists more after a table's partition columns, such as the columns' default
   values, that is no longer taken for more partition columns.
+- A send that gives back a Spark DataFrame, as `send=spark.sql` does without `.toPandas()`,
+  is now refused wherever its rows are read, saying to make it give back pandas:
+  `send=lambda hive: spark.sql(hive).toPandas()`. Before, `run` gave such a frame back without
+  its row limit, and `write_table_reference` and `check_key` stopped with Python's own error,
+  which `check_table_reference` reported. A write's frame is still given back, since Spark
+  has carried out the write by then.
 - A table Spark describes with a "# Partitioning" section, such as a Delta or Iceberg table,
   now has its partition column read from it. Before, `check_table_reference` said to change
   its line to `date_partition="Part 0",` and `write_table_reference` wrote
