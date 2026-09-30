@@ -118,7 +118,6 @@ def _make_tables(spark) -> None:
 # What waits for ticket 25 of the PySpark work, by the change it waits for.
 TYPES = ("ticket 25 of the PySpark work has create_table take only types on a Hive list; until "
          "then SQL Composer writes JSON and UUID, which Spark doesn't have")
-BACKTICKS = "ticket 25 of the PySpark work writes every word Spark reserves in backticks"
 
 
 def _parse_cases() -> list:
@@ -258,7 +257,6 @@ def _keywords(spark) -> list[str]:
     return [row.keyword for row in spark.sql("SELECT keyword FROM sql_keywords()").collect()]
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=BACKTICKS)
 def test_every_word_spark_reserves_is_written_in_backticks(spark) -> None:
     _set_modes(spark, ansi=True, keywords=True)
     reserved = {row.keyword for row in
@@ -266,7 +264,6 @@ def test_every_word_spark_reserves_is_written_in_backticks(spark) -> None:
     assert sorted(word for word in reserved if word.upper() not in HIVE_RESERVED) == []
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=BACKTICKS)
 def test_every_word_spark_wont_take_as_a_tables_name_is_written_in_backticks(spark) -> None:
     # Spark's own defaults: some words it doesn't reserve still can't name a table.
     _set_modes(spark, ansi=False)
