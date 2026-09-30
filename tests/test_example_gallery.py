@@ -258,7 +258,7 @@ def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days(
     from sql_composer import between, example_database, last_n_days
 
     shown = page_text(GALLERY.read_text(encoding="utf-8"))
-    assert 'write between(job_runs.dt, "2026-09-23", "2026-09-24") in their place' in shown
+    assert 'write between(job_runs.dt, "2026-09-23", "2026-09-24") in its place' in shown
     runs = example_database.job_runs
     assert repr(between(runs.dt, "2026-09-23", "2026-09-24")) == repr(last_n_days(runs.dt, 2))
 
