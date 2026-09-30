@@ -60,8 +60,8 @@ def busy_jobs():
 def two_longest_running_jobs():
     """The 2 jobs with the most minutes in total (ORDER BY with LIMIT).
 
-    A sort needs a LIMIT: sorting a whole big result is slow, so the Toolbox refuses a sort
-    that would bring back every row. To sort a whole result, sort it in pandas.
+    A sort needs a LIMIT: without one, the warehouse puts every row in order before any comes
+    back, so the Toolbox refuses a sort that would bring back every row. To sort a whole result, sort it in pandas.
     """
     return statement(
         SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),

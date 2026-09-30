@@ -98,7 +98,7 @@ def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(_label
                  lambda: hive_function("upper", value),
                  lambda: contains(job_runs.status, value),
                  lambda: starts_with(job_runs.status, value)):
-        with pytest.raises(GuardRefused, match="read back as the plain letter"):
+        with pytest.raises(GuardRefused, match="reads back as the plain letter"):
             make()
 
 

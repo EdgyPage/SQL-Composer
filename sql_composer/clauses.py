@@ -134,8 +134,8 @@ def AS(expression, name):
     """Give a calculation its name in the result, or a table a second name.
 
     Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
-    uses Python's + - * / and comes out bracketed. / always gives a number with a fraction
-    (7 / 2 is 3.5), and dividing by zero gives NULL rather than an error.
+    uses Python's + - * / and comes out bracketed. / divides as Python's / does, so 7 / 2 is
+    3.5, and dividing by zero gives NULL rather than an error.
 
     >>> AS(count_rows(), "runs")
     COUNT(*) AS runs
@@ -435,8 +435,7 @@ def GROUP_BY(*columns):
     """Group rows that share these values, one output row per group.
 
     A calculation may be named by its output name, such as GROUP_BY("week"), and the
-    Toolbox writes the calculation out again in GROUP BY, which every warehouse reads: Hive
-    can't group by a name given in SELECT.
+    Toolbox repeats it, since Hive can't group by a name given in SELECT.
 
     >>> print(to_hive(statement(
     ...     SELECT(AS(week_start(job_runs.dt), "week"), AS(count_rows(), "runs")),
@@ -492,10 +491,10 @@ def ORDER_BY(*columns, sorts_everything=False):
     """Sort the result; it needs a LIMIT, and sorting in pandas is usually better.
 
     Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
-    sorting a whole big result is slow and nothing comes back until it is done: sort in pandas
-    after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
+    it makes the warehouse put every row in order before any comes back: sort in pandas after
+    run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
     ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there
-    isn't kept, so a Statement that reads it can't rely on that order.
+    may not be kept, so a Statement that reads it can't rely on that order.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),
@@ -568,8 +567,8 @@ def INSERT_OVERWRITE(table):
     over by_day(s) to write several. Columns are matched to the Saved table by name, and the
     Toolbox puts them in the table's order, leaving out its Date partition. Re-running a day
     replaces it rather than adding to it, so a day can safely be sent again; to add rows to a
-    day instead, use INSERT_INTO. Where the warehouse is Hive 2.3 or 3.1 under Tez, a day that
-    now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
+    day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever
+    looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
     reference, check it with check_table_reference(t, send=...).
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -886,8 +885,9 @@ def derived(name, statement):
 
     You then use its output columns like a Table reference's, as runs_per_job.runs, and a typo
     in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH
-    runs_per_job AS (...). The warehouse works it out again each time the Statement reads it, so
-    if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.
+    runs_per_job AS (...). The warehouse usually works it out again each time the Statement
+    reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY
+    columns.
 
     >>> runs_per_job = derived("runs_per_job", statement(
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),

@@ -6,8 +6,8 @@ Import everything from here, never from a file inside the folder:
 
 To update, delete the `sql_composer` folder, copy in the new one and restart the kernel. The
 folder checks itself when imported. If a file is missing, extra, or from another version or
-export, or if this Python, or what it needs installed, won't work with it, it stops and says
-what happened, why it matters and the usual fix.
+export, or if this Python can't run the Toolbox, it stops and says what happened, why it
+matters and the usual fix.
 
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
 full text, which also says when this copy was exported.

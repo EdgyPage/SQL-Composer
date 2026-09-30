@@ -42,7 +42,7 @@ class GuardRefused(Exception):
     ...
     sql_composer.refusals.GuardRefused:
       What happened:  SELECT has a calculation with no name: COUNT(*).
-      Why it matters: Without a name, the warehouse makes one up, such as _c0, and that is the name pandas would show you.
+      Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
       Opt-out:        none - a calculation always needs a name.
     """
@@ -59,7 +59,7 @@ class LoadRefused(Exception):
     ...
     sql_composer.refusals.LoadRefused:
       What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
-      Why it matters: Hive would read every day the table holds, which can stall the cluster for everyone.
+      Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
       Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).
       Opt-out:        FROM(job_runs, reads_all_partitions=True)
     """
@@ -77,8 +77,8 @@ def guard_unnamed_calculation(calculation: str) -> None:
     raise GuardRefused(
         four_part_message(
             what=f"SELECT has a calculation with no name: {calculation}.",
-            why="Without a name, the warehouse makes one up, such as _c0, and that is the "
-            "name pandas would show you.",
+            why="Without a name, the warehouse makes one up, such as _c0 or count(1), and "
+            "that is the name pandas would show you.",
             fix='Name it with AS, as in SELECT(AS(count_rows(), "runs")).',
             opt_out="none - a calculation always needs a name.",
         )
@@ -99,13 +99,12 @@ def guard_none_in_condition(call: str) -> None:
 
 
 def guard_not_a_number(call: str, position: str, value: object) -> None:
-    """NaN and infinity can't be written as values in the SQL. No opt-out."""
+    """NaN and infinity can't be written as numbers in the Hive. No opt-out."""
     raise GuardRefused(
         four_part_message(
             what=f"{call}: {position} is {value!r}.",
-            why="The SQL has no plain number for NaN or infinity: inf would be read as a "
-            "column's name, and NaN can't be written as a number at all, so the comparison "
-            "couldn't mean what you wrote.",
+            why="There is no way to write NaN or infinity as a number in the Hive: inf would "
+            "be read as a column's name, and NaN has no spelling at all.",
             fix="Drop NaN and infinite values first, for example with pandas' dropna().",
             opt_out=None,
         )
@@ -124,8 +123,8 @@ def guard_control_character(call: str, position: str, character: str) -> None:
         four_part_message(
             what=f"{call}: {position} holds {name}, {character!r}, which is what \\{letter} "
             "gives in a Python string.",
-            why=f"The Hive would write it as \\{letter}, which Hive and Spark read back as the "
-            f"plain letter {letter}, so the value would quietly be a different one.",
+            why=f"The Toolbox would write it as \\{letter}, which the warehouse reads back as "
+            f"the plain letter {letter}, so the value would quietly be a different one.",
             fix=f"If you typed \\{letter} in a string, such as a Windows path, put r before "
             "the quotes, as in r'D:\\logs\\alerts', or double the backslash. If the "
             "character is really in your data, take it out of the value first.",
@@ -237,8 +236,8 @@ def guard_order_by_in_derived_table(name: str) -> None:
     raise GuardRefused(
         four_part_message(
             what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
-            why="The warehouse doesn't keep the order of rows inside a Derived table, so any "
-            "order you rely on later may not be there.",
+            why="The warehouse may not keep the order of rows inside a Derived table (Hive "
+            "never does), so any order you rely on later may not be there.",
             fix="Sort in the outermost Statement, or number the rows with row_number(...) "
             "and keep the ones you want.",
             opt_out=None,
@@ -257,7 +256,7 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
     raise GuardRefused(
         four_part_message(
             what=f"{call}: " + ", and ".join(problems) + ".",
-            why="Hive fills a table's columns by position, not by name, so a missing or extra "
+            why="The warehouse fills a table's columns by position, not by name, so a missing or extra "
             "column would put values in the wrong columns.",
             fix=f"SELECT every column of {table}'s Table reference except its Date partition, "
             "each under its own name. The Toolbox puts them in the right order.",
@@ -364,8 +363,8 @@ def load_limit_date_bound(call: str, table: str, full_name: str, date_partition:
         four_part_message(
             what=f"{call} reads {full_name}, but nothing bounds its Date partition "
             f"{date_partition} at both ends.",
-            why="Hive would read every day the table holds, which can stall the cluster for "
-            "everyone.",
+            why="The warehouse would read every day the table holds, which can stall the "
+            "cluster for everyone.",
             fix=fix,
             opt_out=f"{call[:-1]}, reads_all_partitions=True)",
         )
@@ -379,13 +378,14 @@ def load_limit_order_by(sorts_everything: bool) -> None:
     raise LoadRefused(
         four_part_message(
             what="ORDER_BY has no LIMIT.",
-            why="Sorting a whole big result is slow, and nothing comes back until it is "
-            "done.",
+            why="Sorting the whole result makes the warehouse put every row in order before "
+            "any comes back, which is slow on a big result; pandas can sort the rows once you "
+            "have them.",
             fix="Sort in pandas after run(...), with df.sort_values(...). For a top N, add "
             "LIMIT(n).",
             opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
-            "to derived(...): the order of rows there isn't kept, so it can't be switched "
-            "off.",
+            "to derived(...), where the order of rows may not be kept anyway, so this "
+            "refusal can't be switched off there.",
         )
     )
 

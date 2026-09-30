@@ -3534,7 +3534,7 @@ WHERE
 -- refused
 GuardRefused:
   What happened:  is_not_in(job_runs.job_id, ...): item 2 is nan.
-  Why it matters: The SQL has no plain number for NaN or infinity: inf would be read as a column's name, and NaN can't be written as a number at all, so the comparison couldn't mean what you wrote.
+  Why it matters: There is no way to write NaN or infinity as a number in the Hive: inf would be read as a column's name, and NaN has no spelling at all.
   Usual fix:      Drop NaN and infinite values first, for example with pandas' dropna().
   Opt-out:        none - this one can't be switched off.
 
