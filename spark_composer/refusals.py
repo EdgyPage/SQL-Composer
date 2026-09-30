@@ -369,6 +369,10 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
     if getattr(value, "_statement", None) is not None:  # a Table made by derived(...)
         called = "Derived table"
     article = "an" if called[0] in "aeiou" else "a"
+    # A Table reference and its columns come from a Table reference's file; anything else a
+    # Statement is made of, from a Building block's or a Statement's file.
+    made_in = ("a Table reference's file" if called in ("Table reference", "column")
+               else "a Building block's or a Statement's file")
     raise TypeError(four_part_message(
         what=f"{call} was given {article} {called} made by {made_by}, but you called it from "
         f"{this}.",
@@ -376,7 +380,7 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
         "functions.",
         fix=f"Import from one folder only, the one your notebook uses. For {made_by}, change "
         f"your notebook's `from {this} import` to `from {made_by} import`. For {this}, change "
-        f"that line in the file the {called} came from, such as a Table reference's file.",
+        f"that line in the file the {called} came from, such as {made_in}.",
         opt_out=None,
     ))
 
