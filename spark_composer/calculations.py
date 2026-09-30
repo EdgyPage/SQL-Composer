@@ -28,11 +28,12 @@ from .trees import (
     SIMPLE_NAME,
     WINDOW_FUNCTIONS,
     Node,
+    arguments_text,
     has_aggregate,
     number,
     string,
 )
-from .writing import check_call
+from .writing import check_writable_call
 
 TOOLBOX_VERSION = "2.1"
 
@@ -360,9 +361,14 @@ def hive_function(name, *args):
     regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none
     is given. Either way it does the same.
 
-    It counts the arguments of the functions it knows Hive and Spark both have, such as upper
-    or substr, and knows which functions add rows up, as first and count_if do. It refuses a
-    function that works only over a window, such as lag or rank, since it can't write OVER.
+    It checks the call before writing it:
+
+    - it refuses a call with the wrong number of arguments, for the functions it knows, such as
+      upper, substr or date_add;
+    - a function that turns many rows into one, such as collect_set or percentile, is treated
+      as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;
+    - it refuses a function that works only over a window of rows, written OVER (...) after
+      it, such as lag or rank, since it can't write OVER.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')
@@ -383,7 +389,7 @@ def hive_function(name, *args):
         for number, arg in enumerate(args, start=1)
     ]
     _check_function(name, len(trees), call)
-    check_call(name, trees, call)
+    check_writable_call(name, trees, call)
     # Hive reads a function's name whatever its case, so "NVL" and "nvl" are one function.
     tree = Node("HiveFunction", name=name.lower(), args=trees,
                 aggregate=name.lower() in HIVE_AGGREGATES)
@@ -399,33 +405,41 @@ def _check_function(name: str, count: int, call: str) -> None:
     HIVE_FUNCTION_ARGUMENTS in trees.py says the function doesn't take."""
     if name.lower() in WINDOW_FUNCTIONS:
         raise ValueError(four_part_message(
-            what=f"{call} calls {name}, which works only over a window, as in "
+            what=f"{call} calls {name}, which works only over a window of rows, written "
             f"{name.upper()}(...) OVER (...).",
             why="hive_function can't write OVER, and without it Hive and Spark stop the whole "
             "Statement with an error.",
-            fix="For each row's number in its group, use row_number(PARTITION_BY=..., "
-            "ORDER_BY=...). For the others, such as lag or rank, work it out in pandas on what "
-            "run(...) gives back.",
+            fix=_WINDOW_FIXES.get(name.lower(), "SELECT the columns it needs, and work it out "
+                                  "in pandas on the DataFrame run(...) gives back."),
             opt_out=None,
         ))
     fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))
     if count < fewest or (most is not None and count > most):
-        takes = _arguments(fewest, most)
+        takes = arguments_text(fewest, most)
         raise TypeError(four_part_message(
-            what=f"{call} gives {name} {_arguments(count, count)}, and {name} takes {takes}.",
+            what=f"{call} gives {name} {arguments_text(count, count)}, and {name} takes {takes}.",
             why="The warehouse would stop the whole Statement with an error when it runs.",
-            fix=f"Give {name} {takes} after its name.",
+            fix=f'Give hive_function {takes} after "{name}".',
             opt_out=None,
         ))
 
 
-def _arguments(fewest: int, most: int | None) -> str:
-    """How many arguments, such as "1 argument", "2 to 3 arguments" or "2 or more arguments"."""
-    if most is None:
-        return f"{fewest} or more arguments"
-    if fewest != most:
-        return f"{fewest} to {most} arguments"
-    return "1 argument" if fewest == 1 else f"{fewest} arguments"
+# What to do instead of a window function, where pandas has a plain way.
+_WINDOW_FIXES = {
+    "row_number": "Use row_number(PARTITION_BY=..., ORDER_BY=...), which writes OVER itself.",
+    "lag": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
+    'df.sort_values("dt").groupby("job_id")["runs"].shift(1) gives each row the value of the '
+    "row before it in its group.",
+    "lead": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
+    'df.sort_values("dt").groupby("job_id")["runs"].shift(-1) gives each row the value of the '
+    "row after it in its group.",
+    "rank": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
+    'df.groupby("job_id")["runs"].rank(method="min", ascending=False) ranks each row in its '
+    "group.",
+    "dense_rank": "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives "
+    'back: df.groupby("job_id")["runs"].rank(method="dense", ascending=False) ranks each row in '
+    "its group.",
+}
 
 
 __all__ = [
