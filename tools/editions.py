@@ -69,7 +69,7 @@ EDITION_INTERFACE = {
         "hive_statement": ["node"],
         "readable_text": ["node"],
         "read_back": ["text"],
-        "function_adds_rows_up": ["name", "args", "call"],
+        "check_call": ["name", "args", "call"],
         "describe_text": ["name"],
         "show_partitions_text": ["name"],
     },
@@ -146,14 +146,6 @@ DECLARED_DIFFERENCES = {
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
                "edge:hive_function:regexp_extract", "edge:hive_function:date_format",
                "edge:hive_function:substr", "edge:hive_function:instr"),
-    ),
-    "hive_function_arguments": Difference(
-        why="Until 3.0, SQL Composer has sqlglot check a hive_function call's arguments, and "
-        "Spark Composer counts them by the list in trees.py, so their refusals read "
-        "differently.",
-        sql_composer="couldn't build it from these arguments",
-        spark_composer="and upper takes 1 argument",
-        cases=("edge:hive_function:too_many_arguments",),
     ),
 }
 

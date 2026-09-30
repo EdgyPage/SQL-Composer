@@ -10,7 +10,8 @@ own Python set up as the Example database's is:
 - every value the Toolbox writes reads back as itself, and so does each name, and contains and
   starts_with match their text as it is;
 - every function in hive_function's shared list is one Spark has, and takes every count of
-  arguments the list lets through, and every one it calls an aggregate is one;
+  arguments the list lets through; the list calls every aggregate Spark has one, and no other
+  function Spark has; and the window functions it refuses are exactly Spark's;
 - every word Spark reserves, or won't take as a table's name, is one the Toolbox writes in
   backticks;
 - what each declared difference says of Spark holds;
@@ -61,6 +62,7 @@ from sql_composer.trees import (
     HIVE_FUNCTION_ARGUMENTS,
     HIVE_RESERVED,
     HIVE_TYPES,
+    WINDOW_FUNCTIONS,
     Node,
 )
 from sql_composer.trees import string as string_value
@@ -235,16 +237,35 @@ def test_spark_has_each_function_and_takes_every_count_the_shared_list_lets_thro
     assert refused == [], f"Spark refuses {name} with these counts of arguments"
 
 
-# What an aggregate is given besides its column, where it needs more.
-_AGGREGATE_EXTRA = {"corr": ", x", "covar_pop": ", x", "covar_samp": ", x",
-                    "histogram_numeric": ", 3", "percentile": ", 0.5D",
-                    "percentile_approx": ", 0.5D"}
+def _function_groups(spark) -> dict[str, set[str]]:
+    """Spark's functions by the group its own list of them puts each in, such as agg_funcs."""
+    functions = spark._jvm.org.apache.spark.sql.catalyst.analysis.FunctionRegistry.expressions()
+    groups, names = {}, functions.keysIterator()
+    while names.hasNext():
+        name = names.next()
+        groups.setdefault(functions.apply(name)._1().getGroup(), set()).add(name)
+    return groups
 
 
-@pytest.mark.parametrize("name", sorted(HIVE_AGGREGATES))
-def test_every_function_the_shared_list_calls_an_aggregate_is_one(spark, name: str) -> None:
-    rows = spark.sql(f"SELECT {name}(x{_AGGREGATE_EXTRA.get(name, '')}) AS a "
-                     "FROM VALUES (1), (2), (3) AS t(x)").collect()
+def test_the_shared_list_calls_every_aggregate_spark_has_one(spark) -> None:
+    assert sorted(_function_groups(spark)["agg_funcs"] - HIVE_AGGREGATES) == []
+
+
+def test_every_function_the_shared_list_calls_an_aggregate_is_one_where_spark_has_it(
+        spark) -> None:
+    groups = _function_groups(spark)
+    known = set().union(*groups.values())
+    assert sorted(name for name in HIVE_AGGREGATES
+                  if name in known and name not in groups["agg_funcs"]) == []
+
+
+def test_hive_function_refuses_every_window_function_spark_has_and_no_other(spark) -> None:
+    assert _function_groups(spark)["window_funcs"] == WINDOW_FUNCTIONS
+
+
+@pytest.mark.parametrize("name", ["collect_set", "first", "count_if"])
+def test_an_aggregate_gives_one_row(spark, name: str) -> None:
+    rows = spark.sql(f"SELECT {name}(x > 1) AS a FROM VALUES (1), (2), (3) AS t(x)").collect()
     assert len(rows) == 1, f"{name} gave a row for each row it read, as a scalar does"
 
 
