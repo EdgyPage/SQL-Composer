@@ -152,6 +152,10 @@ uses.
   Example database runs each query on a private Spark in a second Python, which never touches
   your own `spark` and ends with your Python however it stops; each thing it needs is checked
   first, with a fix to paste, and the Spark run holds only named strict xfails.
+- [The Spark Example gallery, and gallery parity](issues/22-the-spark-example-gallery.md):
+  Spark Composer's page runs every Statement on its own Spark, explains NULLIF and the D
+  where they show, and matches SQL Composer's page block for block once they are left out;
+  a new Worked example divides one count by another.
 
 ## Not yet specified
 
