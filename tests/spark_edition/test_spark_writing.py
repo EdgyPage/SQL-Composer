@@ -2,7 +2,8 @@
 
 SQL Composer's check is sqlglot reading its Hive back; Spark Composer has no sqlglot, so its
 writer reads each value and name back by its characters as it writes them. These break the
-writer on purpose and hold that the check catches it.
+writer on purpose and hold that the check catches it; the last holds how the writer's own
+refusal, for hive_function's arguments, words the count.
 """
 
 from __future__ import annotations
