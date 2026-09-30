@@ -16,10 +16,11 @@ Each run collects the shared tests directly in `tests/` and its own Edition's fo
 `tests/sqlglot_edition/` or `tests/spark_edition/`; SQL Composer's run also collects the repo's own
 checks in `tests/repo/`, which run once.
 
-A test marked `needs_example_database` runs a query on the Example database, and skips where it
-can't, saying why; whether it can is asked once a run, by sending it one query.
-`--example-database required` turns that skip into a failure, for a CI job whose Example
-database must run.
+A test marked `needs_example_database` runs a query on the Example database. Where this computer
+can't run one, because something it needs is missing or its Spark couldn't start, the test
+skips, saying why; whether it can is asked once a run, by sending it one query. Anything else
+that stops that query is a bug, and fails the test. `--example-database required` turns every
+such skip into a failure too, for a CI job whose Example database must run.
 """
 
 from __future__ import annotations
@@ -77,14 +78,30 @@ def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool 
     return None
 
 
+# The tests besides the gallery's own that read an Edition's Example gallery.
+_READ_THE_GALLERY = ("test_a_missing_example_gallery_stops_the_import",
+                     "test_files_from_two_exports_stop_the_import[examples.html]",
+                     "test_a_file_unstamped_among_exported_ones_stops_the_import")
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
-    """Stop a run given a folder its Edition doesn't collect, rather than run the wrong one."""
+    """Stop a run given a folder its Edition doesn't collect, rather than run the wrong one.
+
+    Until ticket 22 of the PySpark work writes Spark Composer's Example gallery, the tests that
+    read it wait for it.
+    """
     named = sorted({item.path.parent.name for item in items
                     if item.path.parent.parent == TESTS
                     and item.path.parent.name in folders_left_out(config)})
     if named:
         raise pytest.UsageError(f"tests/{named[0]}/ doesn't run with --edition "
                                 f"{config.getoption('--edition')}.")
+    if not (toolbox_folder() / "examples.html").is_file():
+        waiting = pytest.mark.xfail(strict=True, reason="ticket 22 of the PySpark work writes "
+                                    "this Edition's Example gallery")
+        for item in items:
+            if item.path.name == "test_example_gallery.py" or item.name in _READ_THE_GALLERY:
+                item.add_marker(waiting)
 
 
 def pytest_report_header(config: pytest.Config) -> str:

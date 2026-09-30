@@ -161,7 +161,8 @@ def _ask_java(program: str) -> tuple[int | None, str | None, str]:
     if version is None:
         lines = [line.strip() for line in said.splitlines()
                  if line.strip() and not line.startswith("Picked up")]
-        return None, None, "it said " + ". ".join(line.rstrip(".") for line in lines[:2])
+        return None, None, ("it said " + ". ".join(line.rstrip(".") for line in lines[:2])
+                            if lines else "")
     home = re.search(r"^\s*java\.home = (.+?)\s*$", said, re.MULTILINE)
     # Java 8 and older call themselves 1.8 and so on.
     number = int(version[2]) if version[1] == "1" and version[2] else int(version[1])
@@ -258,8 +259,9 @@ def _java_lacking() -> tuple[str, str] | None:
         return (f"{needs}, and {program} didn't say which Java it is"
                 + (f": {why_not.rstrip('.')}" if why_not else ""),
                 "See what it says, in this notebook: import subprocess; print(subprocess.run("
-                f'[r"{program}", "-version"], capture_output=True, text=True).stderr). Or point '
-                f"this Python at another {_JAVAS}: {_POINT_AT_JAVA}")
+                f'[r"{program}", "-version"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, '
+                f"text=True).stdout). Or point this Python at another {_JAVAS}: "
+                f"{_POINT_AT_JAVA}")
     return f"{needs}, and {program} is Java {version}", install
 
 

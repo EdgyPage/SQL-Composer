@@ -8,7 +8,7 @@ testpaths = ["tests"]
 pythonpath = [".", "worked_examples", "tools"]
 addopts = "-q --strict-markers --strict-config"
 markers = [
-    "needs_example_database: runs a query on the Example database, so skips where it can't",
+    "needs_example_database: runs a query on the Example database: skips where this computer can't, and fails on a bug",
 ]
 filterwarnings = [
     # A warning nobody reads is indistinguishable from success, so the suite fails on one.
