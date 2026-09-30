@@ -1172,11 +1172,11 @@ def jobs_per_day(first_day, last_day):
     job_runs.dt
 )
 SELECT
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS week,
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
   SUM(jobs_per_day.jobs_that_ran) AS jobs_that_ran
 FROM jobs_per_day
 GROUP BY
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>6</td></tr>
 </table></div></div>
@@ -1189,13 +1189,13 @@ GROUP BY
         WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),
         GROUP_BY(&quot;week&quot;),
     )</pre><p class="label">Hive</p><pre class="hive">SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
   COUNT(DISTINCT job_runs.job_id) AS jobs_that_ran
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>3</td></tr>
 </table></div></div>
@@ -1711,13 +1711,13 @@ WHERE
 )))</pre>
 <p class="label">Hive</p>
 <pre class="output">SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no NEXT_DAY.</p>
 <p class="names">Toolbox names used: <code>GROUP_BY</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>week_start</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
@@ -2158,10 +2158,10 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>
 <p class="why">The Monday that starts each date&#x27;s week, to group days into weeks.</p>
-<p>Hive and Spark have no week function that works the same on both, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. Where Hive runs the query, the result comes back as text, a day like &quot;2026-09-21&quot;; where Spark runs it, as a date (datetime.date), which prints the same. In the DataFrame you get back, a date compared with text, as == &quot;2026-09-21&quot;, matches no row, and merged with text gives no rows, with no error; inside the Statement, comparing it with text works on both. So turn it into text first. If you named it week with AS, and result is the DataFrame run(...) gave you, write result[&quot;week&quot;] = result[&quot;week&quot;].astype(str).</p>
+<p>Hive and Spark have no week function that works the same on both, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;, wherever the query runs: Spark&#x27;s NEXT_DAY gives a date, so CAST(... AS STRING) makes it text, as Hive gives it.</p>
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
-<pre class="output">NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
+<pre class="output">CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
 <p class="label">week_start(job_runs.dt) on each day of the Example database, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>week_start(dt)</th></tr>
 <tr><td>2026-09-23</td><td>2026-09-21</td></tr>
@@ -2173,10 +2173,10 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="month_start">
 <h3><code>month_start</code></h3>
 <p class="why">The first day of each date&#x27;s month, to group days into months.</p>
-<p>Where Hive runs the query, the result comes back as text, a day like &quot;2026-09-01&quot;; where Spark runs it, as a date (datetime.date), which prints the same. In the DataFrame you get back, a date compared with text, as == &quot;2026-09-01&quot;, matches no row, and merged with text gives no rows, with no error; inside the Statement, comparing it with text works on both. So turn it into text first. If you named it month with AS, and result is the DataFrame run(...) gave you, write result[&quot;month&quot;] = result[&quot;month&quot;].astype(str).</p>
+<p>The result is text, a day like &quot;2026-09-01&quot;, wherever the query runs: Spark&#x27;s TRUNC gives a date, so CAST(... AS STRING) makes it text, as Hive gives it.</p>
 <pre class="python">month_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
-<pre class="output">TRUNC(job_runs.dt, &#x27;MM&#x27;)</pre>
+<pre class="output">CAST(TRUNC(job_runs.dt, &#x27;MM&#x27;) AS STRING)</pre>
 <p class="names">Toolbox names used: <code>month_start</code></p>
 </section>
 <section class="entry" id="row_number">

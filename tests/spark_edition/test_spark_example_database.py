@@ -88,10 +88,6 @@ def _kept_logs(folder: Path) -> list[Path]:
 
 
 @pytest.mark.needs_example_database
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="ticket 25 of the PySpark work writes week_start as CAST(... AS "
-                   "STRING), so Spark gives the week as text, as pandas does; until then "
-                   "NEXT_DAY gives a DATE")
 def test_the_regrouping_hive_gives_the_same_numbers_as_pandas() -> None:
     careless = run(regrouping.careless(adds_up=True), send=example_database.send)
     fixed = run(regrouping.fixed(), send=example_database.send)
@@ -134,10 +130,6 @@ def test_each_kind_of_column_comes_back_as_the_python_type_pandas_shows() -> Non
 
 
 @pytest.mark.needs_example_database
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="ticket 25 of the PySpark work writes week_start and month_start as "
-                   "CAST(... AS STRING); until then NEXT_DAY and TRUNC give a date, as their "
-                   "docstrings say")
 def test_week_start_and_month_start_come_back_as_text() -> None:
     s = _both_days(AS(week_start(job_runs.dt), "week"), AS(month_start(job_runs.dt), "month"))
     first = run(s, send=example_database.send).iloc[0].to_dict()

@@ -450,13 +450,13 @@ def GROUP_BY(*columns):
     ...     GROUP_BY("week"),
     ... )))
     SELECT
-      NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+      CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
       COUNT(*) AS runs
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     GROUP BY
-      NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+      CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     items = _flatten(columns)
     for item in items:

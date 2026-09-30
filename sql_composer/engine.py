@@ -168,6 +168,19 @@ def _like_spelled_out(tree):
     return tree
 
 
+def _plain_casts(tree):
+    """Make each CAST a plain one, which is all sqlglot's executor knows.
+
+    sqlglot reads Hive's CAST as a TRY_CAST, since Hive gives NULL for a value it can't cast.
+    Plain, the executor gets as far as what it really lacks, such as week_start's NEXT_DAY.
+    """
+    from sqlglot import exp
+
+    for cast in list(tree.find_all(exp.TryCast)):
+        cast.replace(exp.Cast(this=cast.this, to=cast.args["to"]))
+    return tree
+
+
 def _matching_text(column, pattern: str):
     """The same test as `column LIKE pattern`, for a pattern of text between optional %."""
     parts, i = [], 0
@@ -243,7 +256,8 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     if tree.find(exp.Window):
         _cant_run("window functions such as row_number")
     try:
-        result = execute(_like_spelled_out(tree), schema=schema, tables=rows, dialect="hive")
+        result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,
+                         dialect="hive")
     except sqlglot.errors.ExecuteError as error:
         _cant_run(_missing_function(tree, str(error)), error)
     return list(result.columns), list(result.rows)
