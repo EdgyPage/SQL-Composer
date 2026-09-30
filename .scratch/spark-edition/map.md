@@ -148,6 +148,10 @@ uses.
   Spark Composer's golden holds the same 380 cases, and the parity test lets the two differ only
   in the cases a row of `DECLARED_DIFFERENCES` lists; with NULLIF and the D left out, Spark
   Composer's corpus is SQL Composer's but for hive_function's spellings and ticket 25's rows.
+- [The Spark Example database](issues/19-the-spark-example-database.md): Spark Composer's
+  Example database runs each query on a private Spark in a second Python, which never touches
+  your own `spark` and ends with your Python however it stops; each thing it needs is checked
+  first, with a fix to paste, and the Spark run holds only named strict xfails.
 
 ## Not yet specified
 
@@ -159,6 +163,10 @@ uses.
   README names them for a one-time check by hand.
 - **Whether Hive at work is 2.2 or newer.** If so, `NULLIF` can move into both Editions and the
   division row goes.
+- **Docstring examples on a day other than the doctests' own.** Examples sent to the Example
+  database use `last_n_days(...)`, which counts from today, while its rows are from 2026-09-23
+  and 2026-09-24; pasted on another day, they give no rows (ticket 19's beginner reader). It
+  is shared by both Editions, and older than this work.
 - **Lineage for SQL the Toolbox didn't build** (still unspecified on the v2 map). It can only
   ever exist in the sqlglot edition.
 
