@@ -9,7 +9,11 @@ from __future__ import annotations
 
 import datetime
 
-from .refusals import four_part_message, guard_none_in_condition, refuse_the_other_editions
+from .refusals import (
+    four_part_message,
+    guard_none_in_condition,
+    refuse_what_the_other_edition_made,
+)
 from .tables import (
     Column,
     as_date,
@@ -125,7 +129,7 @@ def _no_combining(symbol: str, instead: str) -> None:
 def _need_column(column, call: str) -> Column:
     if isinstance(column, Column):
         return column
-    refuse_the_other_editions(column, call)
+    refuse_what_the_other_edition_made(column, call)
     raise TypeError(
         four_part_message(
             what=f"{call} was given {column!r} where a column goes.",
@@ -435,7 +439,7 @@ def _conditions(items, call: str) -> list[Condition]:
         elif isinstance(item, Condition):
             found.append(item)
         else:
-            refuse_the_other_editions(item, call)
+            refuse_what_the_other_edition_made(item, call)
             raise TypeError(
                 four_part_message(
                     what=f"{call} was given {item!r}, which isn't a condition.",

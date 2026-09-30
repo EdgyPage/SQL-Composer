@@ -2268,7 +2268,7 @@ WHERE
 <section class="entry" id="run">
 <h3><code>run</code></h3>
 <p class="why">Send a Statement&#x27;s Hive through your <code>send</code> function and return what comes back.</p>
-<p><code>send</code> is your own function from a Hive string to a DataFrame. At work it calls the query API; example_database.send runs the Example database instead.</p>
+<p><code>send</code> is your own function from a Hive string to a pandas DataFrame. At work it calls the query API, or, where your notebook runs Spark, is lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database instead.</p>
 <pre class="python">run(statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     FROM(job_runs),

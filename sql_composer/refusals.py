@@ -345,46 +345,55 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     )
 
 
-# --- Load limits: each protects the cluster or the notebook --------------------------------
+# --- Mix-ups between the two Editions --------------------------------------------------------
+
+# What each kind of object is called in a message, by its class's name.
+_CALLED = {"Table": "Table reference", "Column": "column", "Named": "column named with AS",
+           "Condition": "condition", "Clause": "clause", "Ordering": "descending(...)",
+           "Statement": "Statement"}
 
 
-# --- Mix-ups between the two Editions ----------------------------------------------------------
+def refuse_what_the_other_edition_made(value, call: str) -> None:
+    """Refuse an object the other Edition's folder made, before it is called the wrong kind of
+    thing.
 
-
-def refuse_the_other_editions(value, call: str) -> None:
-    """Refuse an object the other Edition's folder made, as a Table reference whose file
-    imports that folder.
-
-    It says so before anything calls the object the wrong kind of thing. Each folder is known by
-    the module the object's class is in, so this names neither Edition.
+    The usual cause is a notebook that imports one folder, and a Table reference file that
+    imports the other. Each folder is known by the module the object's class is in, so this
+    names neither.
     """
     made_by = type(value).__module__.split(".")[0]
     this = __name__.split(".")[0]
     if made_by == this or not made_by.endswith("_composer"):
         return
-    kind = type(value).__name__
+    called = _CALLED.get(type(value).__name__, "object")
+    article = "an" if called[0] in "aeiou" else "a"
     raise TypeError(four_part_message(
-        what=f"{call} was given a {kind} from {made_by}, and {call} is from {this}.",
-        why="Each Edition's objects work only with its own functions, since each writes its "
-        "own Hive, so one Statement can't mix the two.",
-        fix=f"Import from one folder only. Where the {kind} is made, as in a Table reference's "
-        f"file, write from {this} import ... where it says from {made_by} import ....",
+        what=f"{call} was given {article} {called} made by {made_by}, but you called it from "
+        f"{this}.",
+        why="The two folders' objects don't mix: each works only with its own folder's "
+        "functions.",
+        fix=f"Import from one folder only, the one your notebook uses. For {made_by}, change "
+        f"your notebook's `from {this} import` to `from {made_by} import`. For {this}, change "
+        f"that line in the file the {called} came from, such as a Table reference's file.",
         opt_out=None,
     ))
 
 
-def refuse_a_spark_dataframe(result, sent: str) -> None:
-    """Refuse what a send gave back for `sent` when it is Spark's own DataFrame, not pandas'."""
-    if not hasattr(result, "toPandas"):
+def refuse_a_spark_dataframe(result) -> None:
+    """Refuse what a send gave back when it is Spark's own DataFrame, where pandas' goes."""
+    # Asked of the class, since a pandas DataFrame gives any column as an attribute.
+    if not hasattr(type(result), "toPandas"):
         return
     raise TypeError(four_part_message(
-        what=f"Your send gave back a Spark DataFrame for {sent}, where a pandas DataFrame goes.",
+        what="Your send gave back a Spark DataFrame, where a pandas DataFrame goes.",
         why="A Spark DataFrame hasn't fetched its rows yet, so there are none to count or to "
         "read.",
-        fix="End your send with .toPandas(), as in "
-        "send=lambda hive: spark.sql(hive).toPandas().",
+        fix="Make your send give back pandas: send=lambda hive: spark.sql(hive).toPandas().",
         opt_out=None,
     ))
+
+
+# --- Load limits: each protects the cluster or the notebook --------------------------------
 
 
 def load_limit_date_bound(call: str, table: str, full_name: str, date_partition: str,

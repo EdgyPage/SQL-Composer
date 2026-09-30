@@ -30,7 +30,7 @@ from .refusals import (
     guard_not_a_number,
     guard_time_of_day,
     refuse_a_spark_dataframe,
-    refuse_the_other_editions,
+    refuse_what_the_other_edition_made,
 )
 from .trees import ARITHMETIC, SIMPLE_NAME, Node, number, string
 from .writing import describe_text, hive_text, hive_type, readable_text, show_partitions_text
@@ -217,6 +217,7 @@ def arithmetic(left, right, kind: str, symbol: str) -> Column:
             continue
         if isinstance(side, bool) or not isinstance(side, (int, float, decimal.Decimal,
                                                                np.number)):
+            refuse_what_the_other_edition_made(side, symbol)
             raise TypeError(
                 four_part_message(
                     what=f"{symbol} was used with {side!r}.",
@@ -382,7 +383,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
             guard_none_in_condition(call)
         return Node("Null")
     if not isinstance(value, SINGLE_VALUES):
-        refuse_the_other_editions(value, call)
+        refuse_what_the_other_edition_made(value, call)
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {value!r}, which isn't a single value.",
@@ -635,6 +636,7 @@ def all_columns(t):
     FROM ops.jobs AS jobs
     LIMIT 20
     """
+    refuse_what_the_other_edition_made(t, "all_columns(...)")
     return [getattr(t, column) for column in t._columns]
 
 
@@ -685,7 +687,7 @@ class Verdict:
 def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
     frame = send(describe_text(name))
-    refuse_a_spark_dataframe(frame, "DESCRIBE")
+    refuse_a_spark_dataframe(frame)
     columns, comments, partitions = {}, {}, []
     # The columns come first; each header after them, bar the partition list's own column
     # header, starts a section, and only the partition sections name partition columns.
@@ -713,7 +715,7 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
 def _newest_partition_value(name: str, column: str, send) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
     frame = send(show_partitions_text(name))
-    refuse_a_spark_dataframe(frame, "SHOW PARTITIONS")
+    refuse_a_spark_dataframe(frame)
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
@@ -836,7 +838,7 @@ def _reference_text(name, variable, columns, comments, date_lines) -> str:
 
 def _real_table(t, call: str) -> Table:
     if not isinstance(t, Table) or t._statement is not None:
-        refuse_the_other_editions(t, call)
+        refuse_what_the_other_edition_made(t, call)
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {t!r}.",
