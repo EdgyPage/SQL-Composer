@@ -1,5 +1,7 @@
-# Runs pytest on every push to `dev`, on Python 3.11, once at each end of the sqlglot range
-# the Toolbox supports: 25.24.2 (the bottom) and 30.19.0 (the pin in requirements-dev.txt).
+# Runs pytest on every push to `dev`, on Python 3.11, for each Edition at both ends of the range
+# it supports: SQL Composer at sqlglot 25.24.2 (the bottom) and 30.19.0 (its pin in
+# requirements-dev.txt), and Spark Composer at pyspark 3.5.0 (the bottom) and 4.0.4 (its pin),
+# on Java 17, with sqlglot uninstalled and its Example database required to run.
 # `main` has no CI: a workflow file there would sit outside its allowlist.
 name: dev
 
@@ -10,13 +12,13 @@ on:
     branches: [dev]
 
 jobs:
-  pytest:
+  sql-composer:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         sqlglot: ["25.24.2", "30.19.0"]
-    name: pytest (sqlglot ${{ matrix.sqlglot }})
+    name: SQL Composer (sqlglot ${{ matrix.sqlglot }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,3 +27,26 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pip install "sqlglot==${{ matrix.sqlglot }}"
       - run: python -m pytest
+
+  spark-composer:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pyspark: ["3.5.0", "4.0.4"]
+    name: Spark Composer (pyspark ${{ matrix.pyspark }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: pip install -r requirements-dev.txt
+      - run: pip install "pyspark==${{ matrix.pyspark }}"
+      - run: pip uninstall --yes sqlglot
+      - name: sqlglot is gone
+        run: python -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('sqlglot') is not None)"
+      - run: python -m pytest --edition spark --example-database required
