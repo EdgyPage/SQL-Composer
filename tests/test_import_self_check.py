@@ -13,11 +13,14 @@ from pathlib import Path
 
 import pytest
 
+import editions
 import sql_composer
 from conftest import edition, import_stop, toolbox_folder
 
 TOOLBOX = toolbox_folder()
 FOLDER, PRODUCT = edition().folder, edition().product
+OTHER_PRODUCT = next(other.product for other in editions.EDITIONS.values()
+                     if other is not edition())
 VERSION = sql_composer.TOOLBOX_VERSION
 FILES = sorted(p.name for p in TOOLBOX.iterdir() if p.name != "__pycache__")
 
@@ -131,6 +134,24 @@ def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
         what=f"{odd} came from a different export than __init__.py.",
         why="Two exports of the same Toolbox version can differ, so the code, the Example "
         "gallery and the change notes in this folder may not match each other.",
+        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from one "
+        "download.",
+    ) + "\n")
+
+
+def test_a_file_from_the_other_editions_export_stops_the_import(tmp_path) -> None:
+    def pasted_in(copy: Path) -> None:
+        stamp_every_file(copy)
+        tables = copy / "tables.py"
+        # Its stamp, on line 1, names the other Edition: it came from that Edition's folder.
+        tables.write_text(tables.read_text(encoding="utf-8").replace(PRODUCT, OTHER_PRODUCT, 1),
+                          encoding="utf-8")
+
+    assert import_copy(tmp_path, pasted_in).endswith(import_stop(
+        what=f"tables.py is from {OTHER_PRODUCT}, the other Edition, and this folder is "
+        f"{PRODUCT}.",
+        why="Each Edition's files work only with the rest of its own folder, so a file from the "
+        "other one could make a Statement fail or come out wrong.",
         fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from one "
         "download.",
     ) + "\n")
