@@ -5,9 +5,9 @@ Run it on `dev` only when a change is meant to alter what the Toolbox writes, th
     python tools/hive_corpus.py
     python tools/hive_corpus.py --edition spark
 
-`tests/sqlglot_edition/test_sqlglot_hive_corpus.py` fails while the committed file differs from
-what this writes. Both work only at the sqlglot pin in requirements-dev.txt, since another sqlglot
-writes some Hive differently. The file pins, for each case under a stable id, what the Toolbox shows through its
+`tests/sqlglot_edition/test_sqlglot_hive_corpus.py` fails while SQL Composer's committed file
+differs from what this writes. SQL Composer's is written only at the sqlglot pin in
+requirements-dev.txt, since another sqlglot writes some Hive differently. The file pins, for each case under a stable id, what the Toolbox shows through its
 public names:
 
 - each Statement's Hive, from `to_hive(...)`, or the refusal it stops with;
@@ -37,7 +37,7 @@ import editions  # noqa: E402
 
 if __name__ == "__main__":
     # Before any Toolbox import: `import sql_composer` then gives the Edition asked for.
-    editions.use(editions.chosen(sys.argv))
+    editions.use(editions.edition_on_command_line(sys.argv))
 
 import pandas as pd  # noqa: E402
 

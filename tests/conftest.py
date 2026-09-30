@@ -38,11 +38,6 @@ import editions
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 TODAY = datetime.date(2026, 9, 25)
-# Each --edition: the Edition it tests, and the folder of tests only that Edition passes.
-EDITION_CHOICES = {
-    "sqlglot": (editions.SQL_COMPOSER, "sqlglot_edition"),
-    "spark": (editions.SPARK_COMPOSER, "spark_edition"),
-}
 # The repo's own checks, run once, in SQL Composer's run.
 REPO_FOLDER = "repo"
 # What this run was given: its Edition, and whether its Example database must run.
@@ -50,7 +45,8 @@ _chosen: dict = {}
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--edition", choices=sorted(EDITION_CHOICES), default="sqlglot",
+    parser.addoption("--edition", choices=sorted(editions.BY_OPTION),
+                     default=editions.SQL_COMPOSER.option,
                      help="the Edition of the Toolbox to test: sqlglot for SQL Composer, "
                      "spark for Spark Composer")
     parser.addoption("--example-database", choices=["optional", "required"], default="optional",
@@ -59,7 +55,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    _chosen["edition"], _ = EDITION_CHOICES[config.getoption("--edition")]
+    _chosen["edition"] = editions.BY_OPTION[config.getoption("--edition")]
     _chosen["example_database"] = config.getoption("--example-database")
     editions.use(_chosen["edition"])
 
@@ -67,7 +63,8 @@ def pytest_configure(config: pytest.Config) -> None:
 def folders_left_out(config: pytest.Config) -> set[str]:
     """The folders of tests this run doesn't collect: the other Edition's, and the repo's."""
     chosen = config.getoption("--edition")
-    left_out = {folder for name, (_, folder) in EDITION_CHOICES.items() if name != chosen}
+    left_out = {edition.tests_folder for option, edition in editions.BY_OPTION.items()
+                if option != chosen}
     if chosen != "sqlglot":
         left_out.add(REPO_FOLDER)
     return left_out
