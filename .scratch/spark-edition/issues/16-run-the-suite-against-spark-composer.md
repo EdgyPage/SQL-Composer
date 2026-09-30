@@ -1,7 +1,7 @@
 # Run the suite against `spark_composer`
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 08, 15
 
 ## Question
@@ -53,10 +53,21 @@ ticket for tickets 17-19; the default run is green at both ends.
   run, and take the folder, the product and the golden's path from the package they import.
   SQL Composer's gallery and golden are unchanged.
 
-**Not yet met: "collects with no errors".** Four shared test modules build Hive while they load,
-and Spark Composer's writer was still a stub, so the Spark run stopped at collection. The alias
-tests themselves pass. Ticket 17's writer is what the collection needs, and it comes right after,
-with the run's remaining failures listed there.
+**"Collects with no errors": met with ticket 17** (`ec2b4ef`, `baa3052`). Four shared test modules
+build Hive while they load, so the Spark run first collected once Spark Composer's writer did.
+It then gave 171 failed, 672 passed and 47 skipped. Every failure waits for Spark Composer's
+Example gallery, `spark_composer/examples.html`, which ticket 22 writes (not 17-19, as this
+ticket guessed):
+
+- 168 in `tests/test_example_gallery.py`, which reads the page (`FileNotFoundError`);
+- 3 in `tests/test_import_self_check.py`, which copies the Toolbox folder with its page and
+  finds none: `test_a_missing_example_gallery_stops_the_import`,
+  `test_files_from_two_exports_stop_the_import[examples.html]` and
+  `test_a_file_unstamped_among_exported_ones_stops_the_import`.
+
+Every skip is an Example database test, whose reason names ticket 19. The Spark CI jobs of
+ticket 20 need these failures gone first, as strict xfails naming ticket 22 or by ticket 22
+itself.
 
 ## Comments
 

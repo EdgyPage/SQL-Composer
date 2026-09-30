@@ -35,3 +35,16 @@ and 26 back to back.
 The Definition of done in `CLAUDE.md` holds, except the open version items this ticket lists for
 26; both runs and all four CI jobs are green with no strict xfail left; the parity test passes
 with only the division, hive_function and float-literal rows.
+
+## Comments
+
+**From ticket 17 (2026-09-29).**
+
+- Spark Composer already counts hive_function's arguments by `trees.HIVE_FUNCTION_ARGUMENTS`;
+  SQL Composer checks through sqlglot. Until this ticket they refuse different calls, such as
+  length with 2 arguments or regexp_replace with 1. SQL Composer's refusal also reads "was
+  given 1 arguments"; Spark Composer's `_arguments` words the count, and SQL Composer should
+  share it.
+- Ticket 18's parity test holds the 5 cases that wait for this ticket (`UNTIL_TICKET_25`): the 4
+  strict create_table types and hive_function's argument refusal. Each must still differ, so
+  this ticket takes out their lines.

@@ -136,6 +136,14 @@ uses.
 - [Generate spark_composer](issues/15-generate-spark-composer.md): `tools/make_spark_edition.py`
   writes Spark Composer's shared files from SQL Composer's; its engine checks pyspark on import,
   and repo tests hold the copies current, the versions in lockstep and the interface the same.
+- [Run the suite against spark_composer](issues/16-run-the-suite-against-spark-composer.md):
+  `--edition spark` aliases `sql_composer` to Spark Composer and blocks sqlglot, guard tests stop
+  a failed alias passing as a sqlglot run, and the tools take `--edition`; the run's only
+  failures wait for ticket 22's gallery.
+- [The Spark printer, flat](issues/17-the-spark-printer-flat.md): Spark Composer writes its
+  own Hive, checking each value and name as it writes it; 363 of 378 golden cases match SQL
+  Composer's, the rest are the three declared differences or wait for ticket 25, and a formula
+  reads the same in both Editions.
 
 ## Not yet specified
 
