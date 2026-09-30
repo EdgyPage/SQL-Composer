@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import datetime
 import doctest
+import importlib.util
 import re
 import shutil
 import subprocess
@@ -23,6 +24,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import editions  # noqa: E402
 import export_clean  # noqa: E402
+import make_spark_edition  # noqa: E402
 
 import sql_composer  # noqa: E402
 from conftest import skip_unless_the_example_database_runs  # noqa: E402
@@ -177,19 +179,24 @@ def git(repo: Path, *args: str) -> str:
 @pytest.fixture
 def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A throwaway clone-alike: a v1 `main`, and `dev` checked out holding the Toolbox."""
+    return make_repo(tmp_path, monkeypatch, dev_copy, autocrlf="false")
+
+
+def make_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, copy, autocrlf: str) -> Path:
+    """A v1 `main`, and `dev` checked out holding what `copy` puts in a folder."""
     for who in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{who}_NAME", "Test")
         monkeypatch.setenv(f"GIT_{who}_EMAIL", "test@example.com")
     folder = tmp_path / "repo"
     folder.mkdir()
     git(folder, "init", "-q", "-b", "main")
-    git(folder, "config", "core.autocrlf", "false")
+    git(folder, "config", "core.autocrlf", autocrlf)
     (folder / "README.md").write_text("v1\n")
     git(folder, "add", "-A")
     git(folder, "commit", "-q", "-m", "v1")
     git(folder, "checkout", "-q", "-b", "dev")
     git(folder, "rm", "-q", "README.md")
-    dev_copy(folder)
+    copy(folder)
     (folder / ".scratch").mkdir()
     (folder / ".scratch" / "drift.md").write_text(DRIFT_TEXT.replace("- [ ] D5", "- [x] D5"))
     git(folder, "add", "-A")
@@ -285,7 +292,7 @@ def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
 def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
     (source / "sql_composer" / "notes.txt").write_text("scratch\n")
-    with pytest.raises(export_clean.ExportRefused, match="notes.txt"):
+    with pytest.raises(export_clean.ExportRefused, match="sql_composer/notes.txt"):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
@@ -334,10 +341,18 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
 BOTH = (editions.SQL_COMPOSER, editions.SPARK_COMPOSER)
 
 
+@pytest.fixture
+def both_exported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """EXPORTED as ticket 26 sets it: both Editions."""
+    monkeypatch.setattr(editions, "EXPORTED", BOTH)
+
+
 @pytest.fixture(scope="module")
 def clean_both(tmp_path_factory) -> Path:
     folder = tmp_path_factory.mktemp("clean_both")
-    export_clean.build(ROOT, folder, WHEN, exported=BOTH)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(editions, "EXPORTED", BOTH)
+        export_clean.build(ROOT, folder, WHEN)
     return folder
 
 
@@ -374,58 +389,90 @@ def dev_copy_both(folder: Path) -> Path:
     return folder
 
 
-def test_an_edition_the_commit_lacks_is_refused(tmp_path: Path) -> None:
+def test_both_editions_are_exported_from_a_checkout_that_writes_crlf(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, both_exported) -> None:
+    """git archive writes CRLF under core.autocrlf, which a fresh Windows install sets."""
+    repo = make_repo(tmp_path, monkeypatch, dev_copy_both, autocrlf="true")
+    export_clean.export(repo, WHEN)
+    held = git(repo, "ls-tree", "-r", "--name-only", "main").splitlines()
+    assert held == ([".github/README.md"]
+                    + [f"spark_composer/{name}" for name in _files_of(ROOT / "spark_composer")]
+                    + [f"sql_composer/{name}" for name in dev_toolbox_files()])
+
+
+def test_an_edition_the_commit_lacks_is_refused(repo: Path, both_exported) -> None:
     with pytest.raises(export_clean.ExportRefused, match="names spark_composer, which this "
-                       "commit doesn't have"):
-        export_clean.build(dev_copy(tmp_path / "dev"), tmp_path / "clean", WHEN, exported=BOTH)
+                       "commit doesn't have. Commit the folder on dev, or take it out"):
+        export_clean.export(repo, WHEN)
 
 
-def test_editions_of_different_versions_are_refused(tmp_path: Path) -> None:
+def test_editions_of_different_versions_are_refused(tmp_path: Path, both_exported) -> None:
     source = dev_copy_both(tmp_path / "dev")
     init = source / "spark_composer" / "__init__.py"
     init.write_text(init.read_text(encoding="utf-8").replace(
         f'TOOLBOX_VERSION = "{VERSION}"', 'TOOLBOX_VERSION = "9.9"'), encoding="utf-8")
-    with pytest.raises(export_clean.ExportRefused, match="different versions"):
-        export_clean.build(source, tmp_path / "clean", WHEN, exported=BOTH)
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    assert str(refused.value) == (
+        f"The Editions share one version, but SQL Composer is {VERSION} and Spark Composer is "
+        "9.9. Set TOOLBOX_VERSION in every .py file of sql_composer/, run python "
+        "tools/make_spark_edition.py, then set it in writing.py and engine.py of "
+        "spark_composer/ by hand, and commit.")
 
 
-def test_a_stale_copy_of_a_shared_file_is_refused(tmp_path: Path) -> None:
+def test_a_stale_copy_of_a_shared_file_is_refused(tmp_path: Path, both_exported) -> None:
     source = dev_copy_both(tmp_path / "dev")
     tables = source / "spark_composer" / "tables.py"
     tables.write_text(tables.read_text(encoding="utf-8") + "\n# edited by hand\n",
                       encoding="utf-8")
-    with pytest.raises(export_clean.ExportRefused, match="tables.py aren't current copies"):
-        export_clean.build(source, tmp_path / "clean", WHEN, exported=BOTH)
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "tables.py in spark_composer/ is not a current copy of sql_composer/'s. Run python "
+            "tools/make_spark_edition.py and commit what it writes.")):
+        export_clean.build(source, tmp_path / "clean", WHEN)
 
 
 def test_editions_describing_their_names_differently_are_refused(tmp_path: Path,
-                                                                 monkeypatch) -> None:
-    real = export_clean.build_edition
+                                                                 both_exported) -> None:
+    source = dev_copy_both(tmp_path / "dev")
+    # A first line that names its Edition reads differently in the other one's copy.
+    running = source / "sql_composer" / "running.py"
+    running.write_text(running.read_text(encoding="utf-8").replace('"""', '"""SQL Composer: ', 1),
+                       encoding="utf-8")
+    for name, text in make_spark_edition.generated(source).items():
+        (source / "spark_composer" / name).write_text(text, encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "Spark Composer's cheat sheet differs from SQL Composer's: it has 'running.py: Spark "
+            "Composer: Running: ")):
+        export_clean.build(source, tmp_path / "clean", WHEN)
 
-    def one_line_differs(source, into, edition, when):
-        described = real(source, into, edition, when)
-        if edition is editions.SPARK_COMPOSER:
-            described["groups"][0]["names"][0][1] = "- something else"
-        return described
 
-    monkeypatch.setattr(export_clean, "build_edition", one_line_differs)
-    with pytest.raises(export_clean.ExportRefused, match="describes its public names differently"):
-        export_clean.build(dev_copy_both(tmp_path / "dev"), tmp_path / "clean", WHEN,
-                           exported=BOTH)
+def test_the_stamped_copy_cannot_import_the_other_editions_library(tmp_path: Path) -> None:
+    if importlib.util.find_spec("pyspark") is None:
+        pytest.skip("pyspark isn't installed, so there is nothing for the check to block")
+    source = dev_copy(tmp_path / "dev")
+    engine = source / "sql_composer" / "engine.py"
+    # Written so the check of each file's imports doesn't see it: only the import can.
+    engine.write_text(engine.read_text(encoding="utf-8") + '\n__import__("pyspark")\n',
+                      encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match="import of pyspark halted"):
+        export_clean.build(source, tmp_path / "clean", WHEN)
 
 
-def test_a_readme_naming_an_edition_that_isnt_shipped_is_refused(tmp_path: Path) -> None:
+@pytest.mark.parametrize("spelling", ["Spark Composer", "spark_composer", "spark-composer",
+                                      "SparkComposer"])
+def test_a_readme_naming_an_edition_that_isnt_shipped_is_refused(tmp_path: Path,
+                                                                 spelling: str) -> None:
     source = dev_copy(tmp_path / "dev")
     template = source / export_clean.README_TEMPLATE
-    template.write_text(template.read_text(encoding="utf-8") + "\nSee spark_composer too.\n",
+    template.write_text(template.read_text(encoding="utf-8") + f"\nSee {spelling} too.\n",
                         encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused, match="names Spark Composer, which this "
                        "export doesn't ship"):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
-def test_the_allowlist_takes_each_exported_editions_folder() -> None:
+def test_the_allowlist_takes_each_exported_editions_folder(monkeypatch) -> None:
     paths = ["sql_composer/tables.py", "spark_composer/tables.py", ".github/README.md"]
     assert export_clean.outside_allowlist(paths) == ["spark_composer/tables.py"]
-    assert export_clean.outside_allowlist(paths, BOTH) == []
-
+    monkeypatch.setattr(editions, "EXPORTED", BOTH)
+    assert export_clean.outside_allowlist(paths) == []

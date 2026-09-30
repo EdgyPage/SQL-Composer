@@ -18,9 +18,9 @@ import sql_composer
 from conftest import edition, import_stop, toolbox_folder
 
 TOOLBOX = toolbox_folder()
+ROOT = TOOLBOX.parent
 FOLDER, PRODUCT = edition().folder, edition().product
-OTHER_PRODUCT = next(other.product for other in editions.EDITIONS.values()
-                     if other is not edition())
+OTHER = next(other for other in editions.EDITIONS.values() if other is not edition())
 VERSION = sql_composer.TOOLBOX_VERSION
 FILES = sorted(p.name for p in TOOLBOX.iterdir() if p.name != "__pycache__")
 
@@ -139,22 +139,45 @@ def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
     ) + "\n")
 
 
-def test_a_file_from_the_other_editions_export_stops_the_import(tmp_path) -> None:
+def from_the_other_folder(copy: Path, *names: str) -> None:
+    """Stamp every file, then make `names` read as the same export's files of the other folder."""
+    stamp_every_file(copy)
+    for name in names:
+        path = copy / name
+        # The stamp, on line 1, names the folder the file came from.
+        path.write_text(path.read_text(encoding="utf-8").replace(PRODUCT, OTHER.product, 1),
+                        encoding="utf-8")
+
+
+FROM_ELSEWHERE_WHY = (
+    "A folder's files are made to work only with each other: a .py file from another folder "
+    "could make a Statement fail or come out wrong, and an examples.html or CHANGES.md from one "
+    "may not describe this folder's code.")
+FROM_ELSEWHERE_FIX = (f"Delete the {FOLDER} folder, then copy it in again from the {FOLDER} "
+                      f"folder of one download, not from {OTHER.folder}.")
+
+
+@pytest.mark.parametrize("odd", ["tables.py", "examples.html", "CHANGES.md"])
+def test_a_file_from_the_other_folder_stops_the_import(tmp_path, odd: str) -> None:
+    assert import_copy(tmp_path, lambda copy: from_the_other_folder(copy, odd)).endswith(
+        import_stop(what=f"{odd} is from the {OTHER.folder} folder, and this is the {FOLDER} "
+                    "folder.", why=FROM_ELSEWHERE_WHY, fix=FROM_ELSEWHERE_FIX) + "\n")
+
+
+def test_every_file_from_the_other_folder_is_named(tmp_path) -> None:
+    pasted = import_copy(tmp_path,
+                         lambda copy: from_the_other_folder(copy, "tables.py", "running.py"))
+    assert f"What happened:  running.py, tables.py are from the {OTHER.folder} folder" in pasted
+
+
+def test_the_other_folders_init_stops_the_import_naming_itself(tmp_path) -> None:
+    """Its own text names the other folder, so the stop goes by the folder the import found."""
     def pasted_in(copy: Path) -> None:
-        stamp_every_file(copy)
-        tables = copy / "tables.py"
-        # Its stamp, on line 1, names the other Edition: it came from that Edition's folder.
-        tables.write_text(tables.read_text(encoding="utf-8").replace(PRODUCT, OTHER_PRODUCT, 1),
-                          encoding="utf-8")
+        shutil.copy(ROOT / OTHER.folder / "__init__.py", copy / "__init__.py")
 
     assert import_copy(tmp_path, pasted_in).endswith(import_stop(
-        what=f"tables.py is from {OTHER_PRODUCT}, the other Edition, and this folder is "
-        f"{PRODUCT}.",
-        why="Each Edition's files work only with the rest of its own folder, so a file from the "
-        "other one could make a Statement fail or come out wrong.",
-        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from one "
-        "download.",
-    ) + "\n")
+        what=f"__init__.py is from the {OTHER.folder} folder, and this is the {FOLDER} folder.",
+        why=FROM_ELSEWHERE_WHY, fix=FROM_ELSEWHERE_FIX) + "\n")
 
 
 def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None:

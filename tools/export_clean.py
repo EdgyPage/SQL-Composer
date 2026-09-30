@@ -46,6 +46,7 @@ import tempfile
 from pathlib import Path
 
 import editions
+import make_spark_edition
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIFT_LIST = ".scratch/drift.md"
@@ -145,6 +146,7 @@ def import_stamped(into: Path, edition: editions.Edition) -> dict:
     blocked = [other.library for other in editions.EDITIONS.values() if other is not edition]
     environment = dict(os.environ, PYTHONPATH=str(Path(__file__).parent), PYTHONIOENCODING="utf-8")
     done = subprocess.run(
+        # A None in sys.modules makes any import of that library fail loudly.
         [sys.executable, "-B", "-c",
          f"import json, sys; sys.modules.update(dict.fromkeys({blocked!r})); "
          f"import export_clean; print(json.dumps(export_clean.describe_toolbox({edition.folder!r})))"],
@@ -182,10 +184,10 @@ def files_in(folder: Path) -> list[str]:
                   if path.is_file())
 
 
-def outside_allowlist(paths: list[str], exported=editions.EXPORTED) -> list[str]:
+def outside_allowlist(paths: list[str]) -> list[str]:
     """The paths `main` may not hold: it holds each exported Edition's flat folder and the
     README."""
-    folders = {edition.folder for edition in exported}
+    folders = {edition.folder for edition in editions.EXPORTED}
     return [path for path in paths
             if path != README and not (path.count("/") == 1 and path.split("/")[0] in folders)]
 
@@ -216,52 +218,85 @@ def readme_text(template: str, described: dict, stamp: str) -> str:
 # --- Checks across the exported Editions -----------------------------------------------------
 
 
-def check_editions(source: Path, exported) -> None:
+def check_editions(source: Path) -> None:
     """Refuse an export whose Editions don't belong together.
 
     Each must be in the commit; they must have one version; and Spark Composer's shared files
     must be the copies tools/make_spark_edition.py writes of SQL Composer's.
     """
-    missing = [edition.folder for edition in exported if not (source / edition.folder).is_dir()]
+    missing = [edition.folder for edition in editions.EXPORTED
+               if not (source / edition.folder).is_dir()]
     if missing:
         raise ExportRefused(
             f"EXPORTED in tools/editions.py names {', '.join(missing)}, which this commit "
-            "doesn't have.")
-    versions = {edition.product: toolbox_version_of(source, edition) for edition in exported}
+            "doesn't have. Commit the folder on dev, or take it out of EXPORTED.")
+    versions = {edition: toolbox_version_of(source, edition) for edition in editions.EXPORTED}
     if len(set(versions.values())) > 1:
+        said = " and ".join(f"{edition.product} is {version}"
+                            for edition, version in versions.items())
         raise ExportRefused(
-            f"The Editions have different versions: {versions}. They share one version, so "
-            "raise it in every file of both folders together.")
-    if editions.SPARK_COMPOSER in exported and editions.SQL_COMPOSER in exported:
-        stale = [name for name in editions.SHARED_FILES + editions.VERBATIM_FILES
-                 if _copy_of(source, name) != (source / editions.SPARK_COMPOSER.folder
-                                               / name).read_bytes()]
+            f"The Editions share one version, but {said}. Set "
+            f"TOOLBOX_VERSION in every .py file of {editions.SQL_COMPOSER.folder}/, run "
+            f"{make_spark_edition.COMMAND}, then set it in "
+            f"{' and '.join(editions.EDITION_FILES)} of {editions.SPARK_COMPOSER.folder}/ by "
+            "hand, and commit.")
+    if set(editions.EDITIONS.values()) <= set(editions.EXPORTED):
+        stale = [name for name, text in _generated(source).items()
+                 # read_text reads CRLF as LF, since git may have written either.
+                 if text != (source / editions.SPARK_COMPOSER.folder / name).read_text(
+                     encoding="utf-8")]
         if stale:
             raise ExportRefused(
-                f"Spark Composer's {', '.join(stale)} aren't current copies of SQL Composer's. "
-                "Run python tools/make_spark_edition.py and commit what it writes.")
+                f"{', '.join(stale)} in {editions.SPARK_COMPOSER.folder}/ "
+                f"{'is not a current copy' if len(stale) == 1 else 'are not current copies'} "
+                f"of {editions.SQL_COMPOSER.folder}/'s. Run {make_spark_edition.COMMAND} and "
+                "commit what it writes.")
 
 
-def _copy_of(source: Path, name: str) -> bytes:
-    """What tools/make_spark_edition.py writes into Spark Composer's folder for a file."""
-    original = source / editions.SQL_COMPOSER.folder / name
-    if name in editions.VERBATIM_FILES:
-        return original.read_bytes()
-    return editions.swap(original.read_text(encoding="utf-8"), name).encode("utf-8")
+def _generated(source: Path) -> dict[str, str]:
+    try:
+        return make_spark_edition.generated(source)
+    except editions.SwapRefused as refused:
+        raise ExportRefused(f"{refused} Fix it in {editions.SQL_COMPOSER.folder}/, run "
+                            f"{make_spark_edition.COMMAND}, and commit.") from None
 
 
-def _without_version(described: dict) -> list:
-    """The cheat sheet a description gives, less the one line that holds VERSION's value."""
-    return [[group["file"], group["about"],
-             [line for line in group["names"] if line[0] != "VERSION"]]
-            for group in described["groups"]]
+def cheat_sheet_lines(described: dict) -> list[str]:
+    """Each line of the cheat sheet a description gives, less the one holding VERSION's value."""
+    lines = []
+    for group in described["groups"]:
+        lines.append(f"{group['file']}: {group['about']}")
+        lines += [f"{group['file']}: `{name}` {line}" for name, line in group["names"]
+                  if name != "VERSION"]
+    return lines
 
 
-def check_readme(template: str, exported) -> None:
+def check_described_alike(described: list[dict]) -> None:
+    """Refuse Editions whose cheat sheets would differ: the README shows only the first's."""
+    first = cheat_sheet_lines(described[0])
+    for edition, one in zip(editions.EXPORTED[1:], described[1:]):
+        theirs = cheat_sheet_lines(one)
+        if theirs != first:
+            ours = next((line for line in first if line not in theirs), "(nothing)")
+            differs = next((line for line in theirs if line not in first), "(nothing)")
+            raise ExportRefused(
+                f"{edition.product}'s cheat sheet differs from "
+                f"{editions.EXPORTED[0].product}'s: it has {differs!r} where "
+                f"{editions.EXPORTED[0].product} has {ours!r}. The README shows one cheat sheet "
+                "for both, from each file's and each name's docstring's first line, so reword "
+                f"that line in {editions.SQL_COMPOSER.folder}/ to read the same in both, run "
+                f"{make_spark_edition.COMMAND}, and commit.")
+
+
+# How any spelling of each Edition's name is found, such as "Spark Composer" or "spark_composer".
+_NAMED = {editions.SQL_COMPOSER: editions.SQL_COMPOSER_NAME,
+          editions.SPARK_COMPOSER: editions.SPARK_COMPOSER_NAME}
+
+
+def check_readme(template: str) -> None:
     """Refuse a README template that names an Edition this export doesn't ship."""
     unshipped = [edition.product for edition in editions.EDITIONS.values()
-                 if edition not in exported
-                 and (edition.product in template or edition.folder in template)]
+                 if edition not in editions.EXPORTED and _NAMED[edition].search(template)]
     if unshipped:
         raise ExportRefused(
             f"{README_TEMPLATE} names {', '.join(unshipped)}, which this export doesn't ship. "
@@ -271,60 +306,52 @@ def check_readme(template: str, exported) -> None:
 # --- Building and committing ---------------------------------------------------------------------
 
 
-def build_edition(source: Path, into: Path, edition: editions.Edition,
-                  when: datetime.datetime) -> dict:
+def build_edition(source: Path, into: Path, edition: editions.Edition, stamp: str) -> dict:
     """Copy and stamp one Edition's folder into `into`, check its imports, and import it."""
     folder = edition.folder
-    stamp = stamp_text(edition.product, toolbox_version_of(source, edition), when)
     names = sorted(path.name for path in (source / folder).iterdir()
                    if path.name != "__pycache__")
     folders = [name for name in names if (source / folder / name).is_dir()]
     if folders:
-        raise ExportRefused(f"The Toolbox is one flat folder, but {folder}/ holds {folders}.")
+        raise ExportRefused(f"The Toolbox is one flat folder, but {folder}/ holds {folders}. "
+                            "Move them out of it on dev.")
     (into / folder).mkdir(parents=True)
     for name in names:
         text = (source / folder / name).read_text(encoding="utf-8")
         if name == "__init__.py":
             text = with_file_list(text, names, folder)
-        (into / folder / name).write_text(stamped(name, text, stamp), encoding="utf-8",
-                                          newline="\n")
+        (into / folder / name).write_text(stamped(f"{folder}/{name}", text, stamp),
+                                          encoding="utf-8", newline="\n")
     bad_imports = editions.imports_outside(into / folder)
     if bad_imports:
         raise ExportRefused(
             f"The Toolbox may import only the standard library, pandas, numpy and its "
             f"Edition's library where tools/editions.py allows it, which is all work has: "
-            f"{'; '.join(bad_imports)}."
+            f"{'; '.join(f'{folder}/{bad}' for bad in bad_imports)}."
         )
-    described = import_stamped(into, edition)
-    described["stamp"] = stamp
-    return described
+    return import_stamped(into, edition)
 
 
-def build(source: Path, into: Path, when: datetime.datetime,
-          exported=editions.EXPORTED) -> str:
-    """Build the Clean tree from the `dev` folder `source` into the folder `into`.
+def build(source: Path, into: Path, when: datetime.datetime) -> str:
+    """Build the Clean tree from the `dev` folder `source` into the folder `into`, with each
+    Edition EXPORTED in tools/editions.py names.
 
     Returns the first exported Edition's copy's `VERSION`.
     """
     if into.exists() and any(into.iterdir()):
         raise ExportRefused(f"{into} isn't empty. Build the Clean tree into an empty folder.")
-    check_editions(source, exported)
+    check_editions(source)
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
-    check_readme(template, exported)
-    described = [build_edition(source, into, edition, when) for edition in exported]
-    different = [exported[n].product for n, one in enumerate(described)
-                 if _without_version(one) != _without_version(described[0])]
-    if different:
-        raise ExportRefused(
-            f"{', '.join(different)} describes its public names differently from "
-            f"{exported[0].product}. Both Editions have the same names, each with the same "
-            "first line.")
+    check_readme(template)
+    stamps = [stamp_text(edition.product, toolbox_version_of(source, edition), when)
+              for edition in editions.EXPORTED]
+    described = [build_edition(source, into, edition, stamp)
+                 for edition, stamp in zip(editions.EXPORTED, stamps)]
+    check_described_alike(described)
     (into / README).parent.mkdir()
-    (into / README).write_text(
-        readme_text(template, described[0], described[0]["stamp"]), encoding="utf-8",
-        newline="\n"
-    )
-    outside = outside_allowlist(files_in(into), exported)
+    (into / README).write_text(readme_text(template, described[0], stamps[0]),
+                               encoding="utf-8", newline="\n")
+    outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
     return described[0]["version"]
@@ -356,7 +383,7 @@ def refusal_before_export(repo: Path) -> str | None:
     return None
 
 
-def tree_of(repo: Path, into: Path, index: Path, exported=editions.EXPORTED) -> str:
+def tree_of(repo: Path, into: Path, index: Path) -> str:
     """Store the Clean tree in `into` in the repo's objects, and return the tree's hash.
 
     It uses its own index file, so the index of the `dev` checkout is never touched.
@@ -368,18 +395,21 @@ def tree_of(repo: Path, into: Path, index: Path, exported=editions.EXPORTED) -> 
     tree = git(into, *where, "write-tree", env=environment)
     built = files_in(into)
     stored = git(repo, "ls-tree", "-r", "--name-only", tree).splitlines()
-    if stored != built or outside_allowlist(stored, exported):
+    if stored != built or outside_allowlist(stored):
         raise ExportRefused(f"git stored {stored}, but the export built {built}.")
     return tree
 
 
-def committed_files(repo: Path, commit: str, into: Path, exported=editions.EXPORTED) -> Path:
+def committed_files(repo: Path, commit: str, into: Path) -> Path:
     """Write what `commit` holds of the exported Editions and the README template into `into`.
 
     The build reads these rather than the checkout, so a file git ignores (a stray log, say)
-    can never reach `main`.
+    can never reach `main`. An Edition's folder the commit lacks is left out, for the build to
+    refuse.
     """
-    paths = [edition.folder for edition in exported] + [README_TEMPLATE]
+    held = git(repo, "ls-tree", "--name-only", commit).splitlines()
+    paths = [edition.folder for edition in editions.EXPORTED if edition.folder in held]
+    paths.append(README_TEMPLATE)
     archive = subprocess.run(
         ["git", "-C", str(repo), "archive", "--format=tar", commit, *paths],
         capture_output=True,
@@ -391,7 +421,7 @@ def committed_files(repo: Path, commit: str, into: Path, exported=editions.EXPOR
     return into
 
 
-def export(repo: Path, when: datetime.datetime, exported=editions.EXPORTED) -> str:
+def export(repo: Path, when: datetime.datetime) -> str:
     """Build the Clean tree from `dev` and commit it to `main`; return the new commit's hash."""
     why = refusal_before_export(repo)
     if why:
@@ -402,9 +432,9 @@ def export(repo: Path, when: datetime.datetime, exported=editions.EXPORTED) -> s
         capture_output=True, text=True, encoding="utf-8",
     ).stdout.strip()
     with tempfile.TemporaryDirectory() as temporary:
-        committed = committed_files(repo, dev, Path(temporary) / "dev", exported)
-        version = build(committed, Path(temporary) / "clean", when, exported)
-        tree = tree_of(repo, Path(temporary) / "clean", Path(temporary) / "index", exported)
+        committed = committed_files(repo, dev, Path(temporary) / "dev")
+        version = build(committed, Path(temporary) / "clean", when)
+        tree = tree_of(repo, Path(temporary) / "clean", Path(temporary) / "index")
     message = (f"{version}\n\nGenerated from dev {dev} by tools/export_clean.py. "
                "Never edit this branch by hand.")
     parent = ["-p", old_main] if old_main else []

@@ -20,9 +20,13 @@ ROOT = Path(__file__).resolve().parent.parent
 COMMAND = "python tools/make_spark_edition.py"
 
 
-def generated() -> dict[str, str]:
-    """Each generated file of Spark Composer's folder, by name, as it should read."""
-    source = ROOT / editions.SQL_COMPOSER.folder
+def generated(root: Path = ROOT) -> dict[str, str]:
+    """Each generated file of Spark Composer's folder, by name, as it should read.
+
+    `root` is the folder that holds `sql_composer/`: this checkout, or the export's copy of a
+    commit.
+    """
+    source = root / editions.SQL_COMPOSER.folder
     return {name: editions.swap((source / name).read_text(encoding="utf-8"), name)
             for name in editions.SHARED_FILES + editions.VERBATIM_FILES}
 
