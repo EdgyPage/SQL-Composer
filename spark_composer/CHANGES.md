@@ -2,29 +2,48 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
-## 2.1
+## 3.0
 
-- **Adding to a day.** `INSERT_INTO(t)` adds a Statement's rows to one day of a Saved
-  table and keeps the rows already there, for a day filled from more than one source. It
-  follows every rule of `INSERT_OVERWRITE`, but sending it twice adds its rows twice, so
-  the first write of a day is still `INSERT_OVERWRITE`.
-- **Dropping a table.** `drop_table(t)` writes `DROP TABLE IF EXISTS` for a table, to
-  send with `run`. It deletes every day of the table, and is for rebuilding a Saved table
-  after changing its columns: drop it, create it again, and write its days again.
-- **More Worked examples.** The Example gallery now starts with common jobs, each built in
-  steps that say why: building a Saved table (create it, write a day, add to a day,
-  backfill, drop and rebuild it), jobs with no runs, labels and counts by condition, one
-  count divided by another as a percent, counts per group with `HAVING` and the top N,
-  filters by a list or by text, and a long Statement built from named steps. The Statements
-  that give a wrong number beside their fix follow.
-- A Statement with both `INSERT_OVERWRITE` and `INSERT_INTO`, or with both `SELECT` and
-  `SELECT_DISTINCT`, is now refused.
-- A write that reads a table with no Date partition now says so plainly.
+- **Two Editions.** The Toolbox now comes as two folders, with the same functions and
+  version: one writes its Hive with the sqlglot package, as before, and the other writes the
+  same Hive itself, for a notebook that runs Spark, and runs its Example database on a Spark of
+  its own. Copy one, the whole folder. The README says which to copy, what each needs, and the
+  few places their Hive differs.
+- **week_start and month_start give text on Spark too**. Their Hive is now
+  `CAST(NEXT_DAY(...) AS STRING)` and `CAST(TRUNC(...) AS STRING)`: Spark's NEXT_DAY and TRUNC
+  give a date, and the CAST makes it text, a day like "2026-09-21", as Hive gives it. On Hive
+  the result is the same as before. On Spark, a Saved table's column for either is typed
+  "string": Spark won't write text into a date column.
+- **The words Spark reserves go in backticks too**, such as any, except, minus,
+  semi and current_user, as column, table and Derived table names. Before, some of them made
+  to_hive fail, and others were written plain, which Spark refuses.
+- **create_table takes only the column types Hive and Spark share**, written as
+  DESCRIBE prints them: string, bigint, int, smallint, tinyint, double, float, boolean, date,
+  timestamp and binary; decimal, varchar and char with their sizes, such as decimal(10,2); and
+  arrays, maps and structs of them. Before, it took any type sqlglot knew, such as json or uuid,
+  which neither has, and wrote integer, real or numeric under other names, so the table didn't
+  match its Table reference. For a type people often write, such as integer, the refusal says
+  what to write instead.
+- **hive_function checks a call by one list**, for about 110 common functions,
+  such as upper, substr, date_add or max: it refuses a call with the wrong number of arguments,
+  and treats a function that turns many rows into one, such as collect_set or percentile, as
+  count_rows() is treated. A function that works only over a window of rows, such as lag or
+  rank, is refused, since hive_function can't write OVER, and the refusal says how pandas does
+  it. Before, sqlglot checked the call, and let through some counts Hive and Spark refuse, such
+  as length with 2 arguments. sqlglot still checks a function the list doesn't hold.
+- **An object from the other Edition's folder is refused plainly**. Given, say, a
+  Table reference whose file imports the other folder, each function says which folder made
+  the object, and how to import from one folder only, whichever your notebook uses.
+- **A file from the other folder stops the import**. A file copied in from the
+  other folder by mistake, even `__init__.py`, is named with the folder it came from, and the
+  fix says to copy this folder in again from its own folder of the download.
+- **One more Worked example:** one count divided by another as a percent.
 - A value holding a bell, a form feed or a vertical tab is now refused, and so is a
   `date_format` holding one. In a Python string these are what `\a`, `\f` and `\v` give, as
   in a Windows path like `'D:\logs\alerts'`. The Hive would write them as `\a`, `\f` and
-  `\v`, which Hive and Spark read back as the plain letters a, f and v, so the value would quietly be
-  a different one. Write such a path with r before the quotes: `r'D:\logs\alerts'`.
+  `\v`, which Hive and Spark read back as the plain letters a, f and v, so the value would
+  quietly be a different one. Write such a path with r before the quotes:
+  `r'D:\logs\alerts'`.
 - `write_table_reference`, `check_table_reference` and `check_key` now read a day written
   like 2026/09/24, which SHOW PARTITIONS lists as `2026%2F09%2F24`. Before, for such a table,
   `check_table_reference` said to change its line to `date_partition=None,` and
@@ -64,6 +83,24 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   does: `equals(fill_null(job_runs.status, "none"), None)` rather than
   `equals(COALESCE(job_runs.status, 'none'), None)`. So an opt-out it gives can be pasted back
   as it is.
+
+## 2.1
+
+- **Adding to a day.** `INSERT_INTO(t)` adds a Statement's rows to one day of a Saved
+  table and keeps the rows already there, for a day filled from more than one source. It
+  follows every rule of `INSERT_OVERWRITE`, but sending it twice adds its rows twice, so
+  the first write of a day is still `INSERT_OVERWRITE`.
+- **Dropping a table.** `drop_table(t)` writes `DROP TABLE IF EXISTS` for a table, to
+  send with `run`. It deletes every day of the table, and is for rebuilding a Saved table
+  after changing its columns: drop it, create it again, and write its days again.
+- **More Worked examples.** The Example gallery now starts with common jobs, each built in
+  steps that say why: building a Saved table (create it, write a day, add to a day,
+  backfill, drop and rebuild it), jobs with no runs, labels and counts by condition, counts
+  per group with `HAVING` and the top N, filters by a list or by text, and a long Statement
+  built from named steps. The Statements that give a wrong number beside their fix follow.
+- A Statement with both `INSERT_OVERWRITE` and `INSERT_INTO`, or with both `SELECT` and
+  `SELECT_DISTINCT`, is now refused.
+- A write that reads a table with no Date partition now says so plainly.
 
 ## 2.0
 

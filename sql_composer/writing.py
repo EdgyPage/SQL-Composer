@@ -16,7 +16,7 @@ from sqlglot.errors import ErrorLevel
 from .refusals import four_part_message
 from .trees import Node, arguments_text, plain_name
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 _DIALECT = "hive"
 

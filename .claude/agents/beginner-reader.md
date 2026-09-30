@@ -9,6 +9,12 @@ functions, keyword arguments, imports, lists, dicts, pandas DataFrames. You know
 little: you can read `SELECT ... FROM ... WHERE` but not much more. You have never seen this
 Toolbox before, and nobody is there to explain it.
 
+The Toolbox comes in two Editions, two folders with the same names and docstrings:
+`sql_composer`, SQL Composer, which writes its Hive with sqlglot, and `spark_composer`, Spark
+Composer, which runs on Spark. Read `sql_composer` unless you are asked to read as a Spark user;
+then read `spark_composer` and the README's part for Spark users, and run its examples where
+Java 17 is installed.
+
 Read, in this order:
 
 1. the cheat sheet: the first line of each public function's docstring, in the order the

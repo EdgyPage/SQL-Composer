@@ -41,7 +41,7 @@ if __package__:
     from . import _four_part_message as four_part_message
     from . import _stop
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 _LOWEST = (3, 5, 0)
 _BELOW = (4, 1, 0)
