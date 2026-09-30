@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from conftest import in_this_edition
 from sql_composer import (
     AS,
     FROM,
@@ -81,7 +82,9 @@ def test_python_operators_that_would_mislead_are_refused(write, points_to) -> No
 def test_arithmetic_comes_out_bracketed() -> None:
     minutes, retries = job_runs.duration_mins, job_runs.avg_retry_secs
     assert repr((minutes + 1) / 2) == "(job_runs.duration_mins + 1) / 2"
-    assert repr(minutes / (retries + 1)) == "job_runs.duration_mins / (job_runs.avg_retry_secs + 1)"
+    assert repr(minutes / (retries + 1)) == in_this_edition(
+        "job_runs.duration_mins / (job_runs.avg_retry_secs + 1)",
+        "job_runs.duration_mins / NULLIF((job_runs.avg_retry_secs + 1), 0)")
     assert repr(60 * minutes - 1) == "(60 * job_runs.duration_mins) - 1"
     assert repr(-minutes) == "0 - job_runs.duration_mins"
 

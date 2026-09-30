@@ -143,19 +143,20 @@ NON_FINITE_NUMBERS: tuple[object, ...] = (
 """Values the Toolbox must refuse rather than write. `exp.convert(nan)` is `NULL`, so
 `amount > NULL` is never true and a Statement quietly returns no rows."""
 
-NUMBER_CASES: tuple[tuple[str, object, str], ...] = (
-    # (Hive type, value, the Hive text the Toolbox should write for it)
-    ("BIGINT", 0, "0"),
-    ("BIGINT", -12, "-12"),
-    ("DECIMAL(18,2)", decimal.Decimal("1.50"), "1.50"),
+NUMBER_CASES: tuple[tuple[str, object, str, str], ...] = (
+    # (Hive type, value, the Hive text SQL Composer writes for it, and Spark Composer's: Spark
+    # reads 0.1 as a DECIMAL, so there a float is a DOUBLE, 0.1D)
+    ("BIGINT", 0, "0", "0"),
+    ("BIGINT", -12, "-12", "-12"),
+    ("DECIMAL(18,2)", decimal.Decimal("1.50"), "1.50", "1.50"),
     # `1E+3` would read as an identifier in Hive.
-    ("DECIMAL(18,2)", decimal.Decimal("1E+3"), "1000"),
-    ("DOUBLE", 0.1, "0.1"),
-    ("DOUBLE", 1e-5, "1e-05"),
-    ("DOUBLE", -0.0, "-0.0"),
+    ("DECIMAL(18,2)", decimal.Decimal("1E+3"), "1000", "1000"),
+    ("DOUBLE", 0.1, "0.1", "0.1D"),
+    ("DOUBLE", 1e-5, "1e-05", "1e-05"),
+    ("DOUBLE", -0.0, "-0.0", "-0.0D"),
 )
 
-NUMBER_TEXT = r"^-?\d+(\.\d+)?([eE][+-]?\d+)?$"
+NUMBER_TEXT = r"^-?\d+(\.\d+)?([eE][+-]?\d+)?D?$"
 """The shape every number the Toolbox writes must match."""
 
 

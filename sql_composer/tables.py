@@ -31,7 +31,7 @@ from .refusals import (
     guard_time_of_day,
 )
 from .trees import ARITHMETIC, SIMPLE_NAME, Node, number, string
-from .writing import describe_text, hive_text, hive_type, show_partitions_text
+from .writing import describe_text, hive_text, hive_type, readable_text, show_partitions_text
 
 TOOLBOX_VERSION = "2.1"
 
@@ -83,10 +83,14 @@ def _argument_text(value) -> str:
 
 
 def readable(tree: Node) -> str:
-    """A calculation or condition as it was written: its Toolbox calls, else its Hive."""
+    """A calculation or condition as it was written: its Toolbox calls, else its Hive.
+
+    It reads the same in both Editions, since writing.readable_text leaves out anything an
+    Edition adds to its Hive for its own engine.
+    """
     if "call" in tree.meta:
         return tree.meta["call"]
-    return hive_text(tree.replaced(_call_shown))
+    return readable_text(tree.replaced(_call_shown))
 
 
 def _call_shown(node: Node) -> Node | None:
@@ -394,7 +398,7 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     text = _number_text(value)
     if text is None:
         guard_not_a_number(call, position, value)
-    return number(text)
+    return number(text, double=isinstance(value, float))
 
 
 def _string_literal(value: str, call: str, position: str) -> Node:

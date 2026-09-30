@@ -31,6 +31,11 @@ def hive_text(node: Node) -> str:
     return sql_text(to_sqlglot(node))
 
 
+def readable_text(node: Node) -> str:
+    """A part of a Statement as it was written in Python, on one line: here, just its Hive."""
+    return hive_text(node)
+
+
 def hive_statement(node: Node) -> str:
     """A whole Statement's tree as the Hive to_hive gives: laid out over several lines."""
     return sql_text(to_sqlglot(node), pretty=True)

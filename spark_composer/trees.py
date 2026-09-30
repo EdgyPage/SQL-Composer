@@ -47,6 +47,31 @@ HIVE_AGGREGATES = frozenset(
 )
 
 
+# How many arguments Hive and Spark both take for a function hive_function may call: the fewest
+# and the most, None for no most. A function not listed is written as it is given.
+HIVE_FUNCTION_ARGUMENTS = {
+    "upper": (1, 1),
+    "lower": (1, 1),
+    "trim": (1, 1),
+    "length": (1, 1),
+    "concat_ws": (2, None),
+    "nvl": (2, 2),
+    "coalesce": (1, None),
+    "regexp_extract": (2, 3),
+    "date_format": (2, 2),
+    "datediff": (2, 2),
+    "substr": (2, 3),
+    "substring": (2, 3),
+    "instr": (2, 2),
+    "collect_set": (1, 1),
+    "round": (1, 2),
+    "abs": (1, 1),
+    "split": (2, 2),
+    "lpad": (3, 3),
+    "rpad": (3, 3),
+}
+
+
 def plain_name(name: str) -> bool:
     """Whether Hive can take the name as it is; any other name goes in backticks."""
     return bool(SIMPLE_NAME.fullmatch(name)) and name.upper() not in HIVE_RESERVED
@@ -59,7 +84,8 @@ def plain_name(name: str) -> bool:
 KINDS = {
     # Leaves: a column, a value, and the pieces with no parts.
     "Column": ("name", "table"),
-    "Literal": ("this", "is_string"),
+    # A value: its text, whether it is a string, and whether a number is a Python float.
+    "Literal": ("this", "is_string", "double"),
     "Null": (),
     "Boolean": ("this",),
     "Star": (),
@@ -262,9 +288,9 @@ def string(text: str) -> Node:
     return Node("Literal", this=text, is_string=True)
 
 
-def number(text: str) -> Node:
-    """A number, written as the Toolbox formats it, such as 42 or 0.5."""
-    return Node("Literal", this=text, is_string=False)
+def number(text: str, double: bool = False) -> Node:
+    """A number, written as the Toolbox formats it, such as 42 or 0.5; double for a float."""
+    return Node("Literal", this=text, is_string=False, double=double)
 
 
 def combined(kind: str, nodes: list[Node]) -> Node:

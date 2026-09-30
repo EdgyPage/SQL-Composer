@@ -8,13 +8,17 @@ back with sqlglot are in `sqlglot_edition/test_sqlglot_escaping_toolbox.py`.
 
 from __future__ import annotations
 
+import datetime
 import decimal
 import re
 
 import pytest
 
+import hive_literals
+from conftest import in_this_edition
 from escaping_cases import (
     IDENTIFIER_CASES,
+    INJECTION_PAYLOADS,
     NON_FINITE_NUMBERS,
     NUMBER_CASES,
     NUMBER_TEXT,
@@ -25,12 +29,19 @@ from escaping_cases import (
     WRITTEN_IDS,
 )
 from sql_composer import (
+    AS,
+    FROM,
+    GROUP_BY,
+    INSERT_OVERWRITE,
+    SELECT,
+    WHERE,
     GuardRefused,
     Table,
     at_least,
     at_most,
     between,
     contains,
+    count_rows,
     equals,
     fill_null,
     hive_function,
@@ -41,6 +52,8 @@ from sql_composer import (
     more_than,
     not_equals,
     starts_with,
+    statement,
+    to_hive,
 )
 from sql_composer.example_database import job_runs
 
@@ -138,11 +151,11 @@ numbers = Table(
 COLUMN_OF = {"BIGINT": numbers.b, "DECIMAL(18,2)": numbers.d, "DOUBLE": numbers.x}
 
 
-@pytest.mark.parametrize(("hive_type", "value", "expected"), NUMBER_CASES)
-def test_a_number_is_written_like_this(hive_type, value, expected) -> None:
+@pytest.mark.parametrize(("hive_type", "value", "sql_composer", "spark_composer"), NUMBER_CASES)
+def test_a_number_is_written_like_this(hive_type, value, sql_composer, spark_composer) -> None:
     column = COLUMN_OF[hive_type]
     written = repr(equals(column, value)).split(" = ")[1]
-    assert written == expected
+    assert written == in_this_edition(sql_composer, spark_composer)
     assert re.fullmatch(NUMBER_TEXT, written)
 
 
@@ -162,3 +175,47 @@ def test_a_non_finite_number_is_refused(value) -> None:
 
 def test_a_decimal_that_python_would_write_as_an_exponent_is_written_whole() -> None:
     assert repr(equals(numbers.d, decimal.Decimal("1E+3"))) == "numbers.d = 1000"
+
+
+# --- A value stays one value in a whole Statement, read back by its characters -------------
+
+
+def _statement_with(condition) -> str:
+    return to_hive(statement(
+        SELECT(job_runs.run_id),
+        FROM(job_runs),
+        WHERE(condition, equals(job_runs.dt, "2026-09-24")),
+    ))
+
+
+@pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
+@pytest.mark.parametrize("function", [contains, starts_with])
+def test_a_like_pattern_keeps_the_value_whole(function, _label, value, _expected) -> None:
+    hive = _statement_with(function(job_runs.status, value))
+    patterns = [found for found in hive_literals.values(hive) if found != "2026-09-24"]
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    assert escaped in patterns[0]
+
+
+@pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+@pytest.mark.parametrize(("function", "_operator"), COMPARISONS,
+                         ids=[f.__name__ for f, _ in COMPARISONS])
+def test_an_injection_payload_stays_one_value_in_a_whole_statement(function, _operator,
+                                                                    payload) -> None:
+    hive = _statement_with(function(job_runs.status, payload))
+    assert payload in hive_literals.values(hive)
+    assert " OR " not in hive_literals.outside_values(hive), "the payload became an OR"
+
+
+def test_the_partition_of_a_write_is_the_day_the_toolbox_formats() -> None:
+    saved = Table("mart.odd", columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                  date_partition="dt")
+    hive = to_hive(statement(
+        INSERT_OVERWRITE(saved),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, datetime.date(2026, 9, 24))),
+        GROUP_BY(job_runs.dt, job_runs.job_id),
+    ))
+    assert "PARTITION(dt = '2026-09-24')" in hive
+    assert hive_literals.values(hive) == ["2026-09-24", "2026-09-24"]
