@@ -203,14 +203,32 @@ def test_a_file_from_the_other_folder_in_a_renamed_folder_stops_the_import(tmp_p
         tables.write_text(tables.read_text(encoding="utf-8").replace(PRODUCT, OTHER.product, 1),
                           encoding="utf-8")
 
-    assert renamed_copy(tmp_path, pasted_in).endswith(
-        "ImportError: my_toolbox stopped on import:"
-        f"\n  What happened:  tables.py is from the {OTHER.folder} folder, and this is the "
-        f"my_toolbox folder, a copy of {FOLDER}."
-        f"\n  Why it matters: {FROM_ELSEWHERE_WHY}"
-        f"\n  Usual fix:      Delete the my_toolbox folder, then copy it in again from the {FOLDER} "
-        f"folder of one download, not from {OTHER.folder}."
-        "\n  Opt-out:        none - this one can't be switched off.\n")
+    assert renamed_copy(tmp_path, pasted_in).endswith(renamed_stop("tables.py"))
+
+
+def test_the_other_folders_init_in_a_renamed_folder_stops_the_import_naming_itself(
+        tmp_path) -> None:
+    """The folder is what most of its files' stamps say, whatever the pasted __init__.py says."""
+    def pasted_in(copy: Path) -> None:
+        shutil.copy(ROOT / OTHER.folder / "__init__.py", copy / "__init__.py")
+        with_file_list(copy)
+        stamp_line = f"# {OTHER.product} {VERSION}, exported 2026-10-02 14:05 - generated from dev"
+        init = copy / "__init__.py"
+        init.write_text(f"{stamp_line}, do not edit\n" + init.read_text(encoding="utf-8"),
+                        encoding="utf-8")
+
+    assert renamed_copy(tmp_path, pasted_in).endswith(renamed_stop("__init__.py"))
+
+
+def renamed_stop(odd: str) -> str:
+    """The stop for `odd`, from the other folder, in the folder my_toolbox, a copy of this one."""
+    return ("ImportError: my_toolbox stopped on import:"
+            f"\n  What happened:  {odd} is from the {OTHER.folder} folder, and this is the "
+            f"my_toolbox folder, a copy of {FOLDER}."
+            f"\n  Why it matters: {FROM_ELSEWHERE_WHY}"
+            f"\n  Usual fix:      Delete the my_toolbox folder, then copy it in again from the "
+            f"{FOLDER} folder of one download, not from {OTHER.folder}."
+            "\n  Opt-out:        none - this one can't be switched off.\n")
 
 
 def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None:
