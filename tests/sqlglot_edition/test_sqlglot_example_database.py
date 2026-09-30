@@ -47,3 +47,10 @@ def test_it_says_plainly_what_its_executor_cant_run(calculation, missing) -> Non
     assert f"The Example database can't run this Hive: its executor has no {missing}." in message
     assert "Usual fix:" in message
     assert "to_hive(...)" in message
+
+
+@pytest.mark.needs_example_database
+def test_a_cast_to_anything_but_text_is_one_its_executor_cant_run() -> None:
+    """Hive gives NULL for a value it can't cast, where the executor's own CAST would stop."""
+    with pytest.raises(RuntimeError, match="its executor has no CAST"):
+        example_database.send("SELECT CAST(jobs.team AS INT) AS n FROM ops.jobs AS jobs")

@@ -1326,7 +1326,7 @@ WHERE
 <p class="why">A Table reference: one table&#x27;s columns and types, Date partition and key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
 <ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
-<p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;).</p>
+<p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
 <pre class="output">Table(&#x27;ops.job_runs&#x27;, columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)</pre>
@@ -1431,7 +1431,7 @@ Notes:
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE TABLE Statement for a Saved table, from its Table reference.</p>
-<p>Send it once with run(create_table(t), send=...). Every column needs a type Hive and Spark both have, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
+<p>Send it once with run(create_table(t), send=...). Every column needs a type Hive and Spark both have, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(create_table(daily_runs)))</pre>
@@ -2158,7 +2158,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>
 <p class="why">The Monday that starts each date&#x27;s week, to group days into weeks.</p>
-<p>Hive and Spark have no week function that works the same on both, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;, wherever the query runs: Spark&#x27;s NEXT_DAY gives a date, so CAST(... AS STRING) makes it text, as Hive gives it.</p>
+<p>Hive and Spark have no week function that works the same on both, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;, whether your warehouse runs the query on Hive or on Spark: Hive&#x27;s NEXT_DAY gives text already, and Spark&#x27;s gives a date, so CAST(... AS STRING) makes it text there too. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
@@ -2173,7 +2173,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="month_start">
 <h3><code>month_start</code></h3>
 <p class="why">The first day of each date&#x27;s month, to group days into months.</p>
-<p>The result is text, a day like &quot;2026-09-01&quot;, wherever the query runs: Spark&#x27;s TRUNC gives a date, so CAST(... AS STRING) makes it text, as Hive gives it.</p>
+<p>The result is text, a day like &quot;2026-09-01&quot;, whether your warehouse runs the query on Hive or on Spark: Hive&#x27;s TRUNC gives text already, and Spark&#x27;s gives a date, so CAST(... AS STRING) makes it text there too. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
 <pre class="python">month_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">CAST(TRUNC(job_runs.dt, &#x27;MM&#x27;) AS STRING)</pre>

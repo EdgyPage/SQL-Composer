@@ -55,6 +55,8 @@ def _adds_rows_up(tree: exp.Expression) -> bool:
         if isinstance(node, exp.AggFunc) or str(node.name).lower() in HIVE_AGGREGATES:
             return True
     return False
+
+
 # The trees whose columns sqlglot might have rewritten: those holding a hive_function call.
 AS_WRITTEN = [any(True for _ in tree.find_all("HiveFunction")) for tree in TREES]
 

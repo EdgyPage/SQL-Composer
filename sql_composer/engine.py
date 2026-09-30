@@ -169,15 +169,18 @@ def _like_spelled_out(tree):
 
 
 def _plain_casts(tree):
-    """Make each CAST a plain one, which is all sqlglot's executor knows.
+    """Make each CAST to text a plain one, which is all sqlglot's executor knows.
 
     sqlglot reads Hive's CAST as a TRY_CAST, since Hive gives NULL for a value it can't cast.
-    Plain, the executor gets as far as what it really lacks, such as week_start's NEXT_DAY.
+    Any value can be made text, so a CAST to text is the same plain, and the executor gets as
+    far as what it really lacks, such as week_start's NEXT_DAY. A CAST to any other type stays
+    as it is, so the executor says it has no CAST rather than failing on a value Hive makes NULL.
     """
     from sqlglot import exp
 
     for cast in list(tree.find_all(exp.TryCast)):
-        cast.replace(exp.Cast(this=cast.this, to=cast.args["to"]))
+        if cast.to.is_type(*exp.DataType.TEXT_TYPES):
+            cast.replace(exp.Cast(this=cast.this, to=cast.args["to"]))
     return tree
 
 

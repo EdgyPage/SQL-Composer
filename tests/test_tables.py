@@ -302,12 +302,15 @@ def test_create_table_refuses_a_type_hive_and_spark_dont_share(kind: str) -> Non
         create_table(t)
 
 
-@pytest.mark.parametrize(("kind", "nearest"), [("integer", "int"), ("Long", "bigint"),
-                                              ("decimal", "decimal(10,0)")])
+@pytest.mark.parametrize(("kind", "fix"), [
+    ("integer", "For 'integer', write 'int'."), ("Long", "For 'Long', write 'bigint'."),
+    ("decimal", "For 'decimal', write 'decimal(10,0)'."),
+    ("varchar", "For 'varchar', write its length, such as 'varchar(50)'."),
+])
 def test_create_tables_refusal_says_what_to_write_for_a_type_people_often_use(
-        kind: str, nearest: str) -> None:
+        kind: str, fix: str) -> None:
     t = Table("mart.t", columns={"a": kind}, date_partition=None)
-    with pytest.raises(ValueError, match=re.escape(f"For {kind!r}, write {nearest!r}.")):
+    with pytest.raises(ValueError, match=re.escape(fix)):
         create_table(t)
 
 
