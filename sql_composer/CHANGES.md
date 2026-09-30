@@ -46,9 +46,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - The Example database gives a Statement's rows in the same order every time. When the
   Statement has no `ORDER_BY`, they are sorted by its first column, then its second, and so on,
   with None first. At work, rows still come back in no fixed order.
-- A `hive_function(...)` call is now compared as you wrote it, so it no longer counts as the same
-  calculation as another one that writes the same Hive: `hive_function("nvl", x, 0)` and
-  `fill_null(x, 0)` both write COALESCE, for example. It matters in one place: a `derived(...)`
+- A `hive_function(...)` call is now compared by the function you name, whatever its case, and by
+  its arguments, so it no longer counts as the same calculation as another one that writes the
+  same Hive: `hive_function("nvl", x, 0)` and `fill_null(x, 0)` both write COALESCE, for example. It matters in one place: a `derived(...)`
   table that SELECTs one and groups by the other no longer knows its key, so a JOIN to it warns.
   Group by the calculation you SELECT.
 
