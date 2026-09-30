@@ -109,8 +109,7 @@ class Difference:
     spark_composer_adds: bool = False
 
 
-# Each place the two Editions differ on purpose. The last one lasts only until 3.0, when SQL
-# Composer counts a hive_function call's arguments the same way (ticket 25 of the PySpark work).
+# Each place the two Editions differ on purpose.
 DECLARED_DIFFERENCES = {
     "division": Difference(
         why="Spark stops the whole query with an error when it divides by 0, where Hive gives "

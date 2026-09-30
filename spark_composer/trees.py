@@ -10,8 +10,9 @@ and a `Literal`, and to_hive builds a whole Statement as one, from `Select` or `
 order, because the lineage lists a calculation's columns in the order a breadth-first walk finds
 them, and that order must not change.
 
-This file also says which names Hive and Spark need in backticks, and which of Hive's
-functions add rows up.
+This file also says which names Hive and Spark need in backticks, which functions
+hive_function knows add rows up, which it refuses because they work only over a window, and how
+many arguments it lets some functions take.
 """
 
 from __future__ import annotations
