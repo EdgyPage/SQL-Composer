@@ -140,8 +140,9 @@ DECLARED_DIFFERENCES = {
         "written 'yyyy-MM', which isn't the same: YYYY is the year a week belongs to. Spark "
         "Composer has no sqlglot, so it writes the call by the name and the arguments it was "
         "given. And for a function hive_function's own list doesn't count, SQL Composer refuses "
-        "a call sqlglot can't build, such as nvl2 with 1 argument, which Spark Composer writes "
-        "as given, and Spark refuses when it runs.",
+        "a call sqlglot can't build, which Spark Composer writes as given. Spark refuses some of "
+        "these when it runs, such as nvl2 with 1 argument, and runs others, such as "
+        "unix_timestamp with none or approx_count_distinct with 2.",
         sql_composer="COALESCE(job_runs.status, 'none')",
         spark_composer="NVL(job_runs.status, 'none')",
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
