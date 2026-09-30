@@ -244,7 +244,8 @@ def _java_lacking() -> tuple[str, str] | None:
     needs = f"needs {_JAVAS}"
     install = (f"Install Java {_JAVA_NEEDED}, then set JAVA_HOME to its folder: "
                f"{_POINT_AT_JAVA} If you can't install it, ask whoever looks after your "
-               "environment.")
+               "environment. Meanwhile, examples.html in the spark_composer folder shows each "
+               "Worked example's Hive and what it gives.")
     if program is None:
         found = f"{needs}, and {missing}"
         if os.environ.get("JAVA_HOME"):

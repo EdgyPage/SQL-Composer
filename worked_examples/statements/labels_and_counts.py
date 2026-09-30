@@ -1,4 +1,4 @@
-"""Label rows with if_else, fill NULL with fill_null, and count by condition.
+"""Label with if_else, fill NULL with fill_null, count by condition, and divide.
 
 Why: codes and NULLs make a result hard to read, and a count of each kind side by side gives
 one row per job instead of one row per job and status.
@@ -45,6 +45,25 @@ def outcomes_per_job():
             AS(count_rows(where=equals(job_runs.status, "SUCCESS")), "succeeded"),
             AS(count_rows(where=equals(job_runs.status, "FAILED")), "failed"),
             AS(count_rows(where=is_null(job_runs.status)), "still_running"),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),
+        GROUP_BY(job_runs.job_id),
+    )
+
+
+def failed_share_per_job():
+    """Each job's failed runs as a percent of its runs: one count divided by another.
+
+    Divide after GROUP_BY, as one count by another, not an average of per-row values. Times
+    100.0, not 100, so the percent keeps its decimals. A division by 0 gives NULL, which pandas
+    shows as NaN; COUNT(*) of a group is never 0, so it can't happen here.
+    """
+    return statement(
+        SELECT(
+            job_runs.job_id,
+            AS(count_rows(where=equals(job_runs.status, "FAILED")) * 100.0 / count_rows(),
+               "failed_percent"),
         ),
         FROM(job_runs),
         WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),

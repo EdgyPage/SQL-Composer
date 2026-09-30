@@ -190,15 +190,19 @@ def page_text(html_text: str) -> str:
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", text)).split())
 
 
+def gallery_sections(folder: Path) -> dict[str, str]:
+    """Each entry on the Example gallery in an Edition's folder, by its id: its HTML."""
+    page = (folder / "examples.html").read_text(encoding="utf-8")
+    return dict(re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>', page,
+                           re.DOTALL))
+
+
 def gallery_entries() -> dict[str, tuple[str, str]]:
     """Each entry on the Edition's Example gallery, by its id: its title and all its text."""
-    found = re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>',
-                       (toolbox_folder() / "examples.html").read_text(encoding="utf-8"),
-                       re.DOTALL)
     return {
         entry_id: (page_text(re.search(r"<h3>(.*?)</h3>", body, re.DOTALL).group(1)),
                    page_text(body))
-        for entry_id, body in found
+        for entry_id, body in gallery_sections(toolbox_folder()).items()
     }
 
 

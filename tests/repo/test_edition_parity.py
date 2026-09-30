@@ -1,4 +1,5 @@
-"""The two Editions show the same, except where `DECLARED_DIFFERENCES` says they differ.
+"""The two Editions show the same, except where `DECLARED_DIFFERENCES` says they differ, and
+where Spark Composer's Example database runs what SQL Composer's can't.
 
 Each Edition's golden corpus, in `tests/hive_corpus/`, holds what it shows for the same cases.
 The two may differ only in the cases a row of `DECLARED_DIFFERENCES` in `tools/editions.py`
@@ -6,6 +7,10 @@ lists. Each listed case must really differ, and each row's example must be found
 so a row can't outlive what it explains. With what Spark Composer adds to SQL Composer's Hive
 left out (NULLIF around a divisor, the D of a float), its corpus must be SQL Composer's in every
 case but those a row that adds nothing lists, so an added row is no waiver for anything else.
+
+Each Edition's Example gallery shows the same entries, each with the same blocks of Python, Hive
+and output, and the same results, once what Spark Composer adds to its Hive is left out. Where
+SQL Composer's Example database can't run a Statement, Spark Composer's page shows its result.
 """
 
 from __future__ import annotations
@@ -20,6 +25,7 @@ import pytest
 
 import editions
 import hive_corpus
+from conftest import gallery_sections
 from editions import DECLARED_DIFFERENCES
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -88,29 +94,50 @@ def test_the_spark_writer_copies_the_layout_of_the_pinned_sqlglot() -> None:
 
 # --- The two Example galleries ---------------------------------------------------------------
 
-# On a page, each Statement's Hive, and each result: a table, "No rows.", or no result at all.
-_SHOWN = re.compile(r'<pre class="hive">(?P<hive>.*?)</pre>'
+# On a page, each block of Python, Hive or output, each result table, and each note that
+# there are no rows or no result.
+_SHOWN = re.compile(r'<pre class="(?P<kind>[a-z]+)">(?P<block>.*?)</pre>'
                     r'|<table class="result">(?P<table>.*?)</table>'
-                    r'|<p class="note">(?P<note>No rows\.|No result here\.)', re.DOTALL)
+                    r'|<p class="note">(?P<note>No rows\.|No result here\.[^<]*)</p>', re.DOTALL)
+# What SQL Composer's page says where its Example database can't run a Statement.
+_CANT_RUN = "No result here. The Example database can&#x27;t run this Hive"
+
+
+def _shown(body: str) -> list[tuple[str, str]]:
+    """What an entry shows, in order, as (kind, its text as the page holds it)."""
+    return [(found["kind"], found["block"]) if found["block"] is not None
+            else ("table", found["table"]) if found["table"] is not None
+            else ("note", found["note"]) for found in _SHOWN.finditer(body)]
 
 
 def _gallery(edition: editions.Edition) -> dict[str, list[tuple[str, str]]]:
-    """Each entry of an Edition's Example gallery: what it shows, in order, as (kind, text)."""
-    page = (ROOT / edition.folder / "examples.html").read_text(encoding="utf-8")
-    return {html.unescape(entry_id): [(found.lastgroup, found.group(found.lastgroup))
-                                      for found in _SHOWN.finditer(body)]
-            for entry_id, body in re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>',
-                                             page, re.DOTALL)}
+    return {html.unescape(entry_id): _shown(body)
+            for entry_id, body in gallery_sections(ROOT / edition.folder).items()}
 
 
 SQL_GALLERY = _gallery(editions.SQL_COMPOSER)
 SPARK_GALLERY = _gallery(editions.SPARK_COMPOSER)
 
 
-def _declared(entry_id: str) -> bool:
-    """Whether a declared difference lists a golden case of the entry's Statements."""
-    return any(case in (f"doc:{entry_id}",) or case.startswith(f"worked:{entry_id}:")
-               for case in _listed())
+def _without_what_spark_composer_adds(text: str) -> str:
+    """Spark Composer's text, less the D of a float and the NULLIF(..., 0) around a divisor."""
+    text = re.sub(r"\b(\d+\.\d+)D\b", r"\1", text)
+    while (start := text.find("/ NULLIF(")) != -1:
+        depth = 0
+        for end in range(start + len("/ NULLIF"), len(text)):
+            depth += {"(": 1, ")": -1}.get(text[end], 0)
+            if depth == 0:
+                break
+        divisor = text[start + len("/ NULLIF("):end]
+        assert divisor.endswith(", 0"), f"a NULLIF that isn't around a divisor: {divisor}"
+        text = text[:start] + "/ " + divisor.removesuffix(", 0") + text[end + 1:]
+    return text
+
+
+def _differs_on_purpose(entry_id: str) -> bool:
+    """Whether a row that adds nothing to the Hive lists a golden case of the entry."""
+    return any(case == f"doc:{entry_id}" or case.startswith(f"worked:{entry_id}:")
+               for case in _listed(adds=False))
 
 
 def test_both_galleries_hold_the_same_entries() -> None:
@@ -118,20 +145,19 @@ def test_both_galleries_hold_the_same_entries() -> None:
 
 
 @pytest.mark.parametrize("entry_id", list(SQL_GALLERY))
-def test_an_entry_shows_the_same_hive_and_results_on_both_pages(entry_id: str) -> None:
-    sql, spark = SQL_GALLERY[entry_id], SPARK_GALLERY[entry_id]
-    assert [kind for kind, _ in sql if kind == "hive"] == [kind for kind, _ in spark
-                                                          if kind == "hive"]
-    if not _declared(entry_id):
-        assert [text for kind, text in sql if kind == "hive"] == [
-            text for kind, text in spark if kind == "hive"]
-    sql_results = [(kind, text) for kind, text in sql if kind != "hive"]
-    spark_results = [(kind, text) for kind, text in spark if kind != "hive"]
-    assert len(sql_results) == len(spark_results)
-    for (sql_kind, sql_text), shown in zip(sql_results, spark_results):
-        # Spark runs what sqlglot's executor can't; the reverse would be a regression.
-        if (sql_kind, sql_text) != ("note", "No result here."):
-            assert shown == (sql_kind, sql_text), (
-                "A result on SQL Composer's page, from its Example database or pandas, isn't "
-                "what Spark gives")
+def test_an_entry_shows_the_same_on_both_pages(entry_id: str) -> None:
+    sql = [(kind, editions.named_for(editions.SPARK_COMPOSER, text))
+           for kind, text in SQL_GALLERY[entry_id]]
+    spark = [(kind, _without_what_spark_composer_adds(text))
+             for kind, text in SPARK_GALLERY[entry_id]]
+    assert [kind for kind, _ in spark] == [
+        "table" if text.startswith(_CANT_RUN) else kind for kind, text in sql], (
+        "The two pages show this entry's blocks and results in different places")
+    for (kind, sql_text), (_, spark_text) in zip(sql, spark):
+        if sql_text.startswith(_CANT_RUN) or (kind == "hive"
+                                              and _differs_on_purpose(entry_id)):
+            continue
+        assert spark_text == sql_text, (
+            f"A {kind} block differs from SQL Composer's page, beyond what Spark Composer adds "
+            "to the Hive")
 
