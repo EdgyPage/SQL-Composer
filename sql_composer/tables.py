@@ -1,12 +1,12 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
 types, its Date partition, its key, and the columns that don't add up. Its columns are its
 attributes (`job_runs.status`), so a typo fails at once, with the column list.
 
-This file also holds the column object those attributes return, the one place values become
-Hive literals, and the one place the Toolbox writes SQL text (`hive_text`).
+This file also holds the column object those attributes return, and `literal(...)`, the one
+place a Python value, such as "FAILED" or 42, enters a Statement.
 """
 
 from __future__ import annotations
@@ -18,109 +18,87 @@ import difflib
 import json
 import keyword
 import re
+import urllib.parse
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sqlglot import exp
-from sqlglot.errors import ErrorLevel
-
 from .refusals import (
+    CONTROL_CHARACTERS,
     four_part_message,
+    guard_control_character,
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
+    refuse_a_spark_dataframe,
+    refuse_what_the_other_edition_made,
 )
+from .trees import ARITHMETIC, SIMPLE_NAME, Node, is_hive_type, number, string
+from .writing import describe_text, hive_text, readable_text, show_partitions_text
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
-HIVE = "hive"
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
-SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
-# Hive's reserved words: a column with one of these names must be written in backticks.
-HIVE_RESERVED = frozenset(
-    """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
-    CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
-    CURRENT_TIMESTAMP CURSOR DATABASE DATE DAYOFWEEK DECIMAL DELETE DESCRIBE DISTINCT DOUBLE
-    DROP ELSE END EXCHANGE EXISTS EXTENDED EXTERNAL EXTRACT FALSE FETCH FLOAT FLOOR FOLLOWING
-    FOR FOREIGN FROM FULL FUNCTION GRANT GROUP GROUPING HAVING IF IMPORT IN INNER INSERT INT
-    INTEGER INTERSECT INTERVAL INTO IS JOIN LATERAL LEFT LESS LIKE LOCAL MACRO MAP MORE NONE
-    NOT NULL NUMERIC OF ON ONLY OR ORDER OUT OUTER OVER PARTIALSCAN PARTITION PERCENT
-    PRECEDING PRECISION PRESERVE PRIMARY PROCEDURE RANGE READS REDUCE REFERENCES REGEXP
-    REVOKE RIGHT RLIKE ROLLBACK ROLLUP ROW ROWS SELECT SET SMALLINT START SYNC TABLE
-    TABLESAMPLE THEN TIME TIMESTAMP TO TRANSFORM TRIGGER TRUE TRUNCATE UNBOUNDED UNION
-    UNIQUEJOIN UPDATE USER USING UTC_TMESTAMP VALUES VARCHAR VIEWS WHEN WHERE WINDOW
-    WITH""".split()
-)
-
-# Hive aggregate functions that sqlglot may not know as aggregates when named in hive_function.
-HIVE_AGGREGATES = frozenset(
-    """avg collect_list collect_set corr count covar_pop covar_samp histogram_numeric max min
-    percentile percentile_approx stddev stddev_pop stddev_samp sum var_pop var_samp variance
-    """.split()
-)
+# The partition Hive and Spark list for the rows with no day: their partition column is NULL.
+ROWS_WITH_NO_DAY = "__HIVE_DEFAULT_PARTITION__"
+# DESCRIBE's headers: the partition list and its own column header, and the partitioning Spark
+# lists for a newer kind of table, one row per column or function of a column.
+PARTITION_INFORMATION = "# partition information"
+COLUMN_HEADER = "# col_name"
+PARTITIONING = "# partitioning"
 
 NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "decimal",
                 "numeric", "real")
 STRING_TYPES = ("string", "varchar", "char")
 
 
-# --- The one place the Toolbox writes SQL text ---------------------------------------------
-
-
-def hive_text(tree: exp.Expression, pretty: bool = False) -> str:
-    """Write a sqlglot tree as Hive. Nothing else in the Toolbox calls `.sql()`."""
-    return tree.sql(dialect=HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
-
-
-def identifier(name: str) -> exp.Identifier:
-    """A name as Hive needs it: in backticks only when it isn't a plain word."""
-    plain = SIMPLE_NAME.fullmatch(name) and name.upper() not in HIVE_RESERVED
-    return exp.to_identifier(name, quoted=not plain)
-
-
 # --- The call that made a calculation or condition, for the lineage -------------------------
 
 
-def made_by(tree: exp.Expression, name: str, *args, **keywords) -> exp.Expression:
+def made_by(tree: Node, name: str, *args, **keywords) -> Node:
     """Note on `tree` the Toolbox call that made it, such as week_start(job_runs.dt).
 
     The note leaves the Hive unchanged. The lineage shows it, since it reads the way the
-    Statement was written, where sqlglot may have rewritten the Hive.
+    Statement was written, where the Hive may be written differently.
     """
-    parts = [_argument_text(arg) for arg in args]
-    parts += [f"{key}={_argument_text(value)}" for key, value in keywords.items()
+    parts = [python_text(arg) for arg in args]
+    parts += [f"{key}={python_text(value)}" for key, value in keywords.items()
               if value is not None]
     tree.meta["call"] = f"{name}({', '.join(parts)})"
     return tree
 
 
-def _argument_text(value) -> str:
-    """One argument of a Toolbox call, written back as Python, for the lineage boxes."""
+def python_text(value) -> str:
+    """One argument of a Toolbox call, written back as Python, for the lineage and refusals."""
     # A column, condition or descending(...) is spotted by what it holds, not by its class:
     # a condition's class and descending's live in files that import this one.
     if hasattr(value, "_tree"):
         return readable(value._tree)
     if hasattr(value, "_target"):
-        return f"descending({_argument_text(value._target)})"
+        return f"descending({python_text(value._target)})"
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
     if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_argument_text(item) for item in value) + "]"
+        return "[" + ", ".join(python_text(item) for item in value) + "]"
     return repr(value)
 
 
-def readable(tree: exp.Expression) -> str:
-    """A calculation or condition as it was written: its Toolbox calls, else its Hive."""
+def readable(tree: Node) -> str:
+    """A calculation or condition as it was written: its Toolbox calls, else its Hive.
+
+    It reads the same in both Editions: writing.readable_text leaves out anything one Edition
+    adds to its Hive that the other doesn't.
+    """
     if "call" in tree.meta:
         return tree.meta["call"]
-    copied = tree.copy()
-    for node in list(copied.find_all(exp.Expression)):
-        if node is not copied and "call" in node.meta:
-            node.replace(exp.Var(this=node.meta["call"]))
-    return hive_text(copied)
+    return readable_text(tree.replaced(_call_shown))
+
+
+def _call_shown(node: Node) -> Node | None:
+    """The Toolbox call that made a Node, to be written in its place, or None if none did."""
+    return Node("Var", this=node.meta["call"]) if "call" in node.meta else None
 
 
 # --- Columns and calculations --------------------------------------------------------------
@@ -198,40 +176,40 @@ class Column:
         _no_operator("if, and, or or not", "a condition such as equals(...)")
 
     def __add__(self, other):
-        return arithmetic(self, other, exp.Add, "+")
+        return arithmetic(self, other, "Add", "+")
 
     def __radd__(self, other):
-        return arithmetic(other, self, exp.Add, "+")
+        return arithmetic(other, self, "Add", "+")
 
     def __sub__(self, other):
-        return arithmetic(self, other, exp.Sub, "-")
+        return arithmetic(self, other, "Sub", "-")
 
     def __rsub__(self, other):
-        return arithmetic(other, self, exp.Sub, "-")
+        return arithmetic(other, self, "Sub", "-")
 
     def __mul__(self, other):
-        return arithmetic(self, other, exp.Mul, "*")
+        return arithmetic(self, other, "Mul", "*")
 
     def __rmul__(self, other):
-        return arithmetic(other, self, exp.Mul, "*")
+        return arithmetic(other, self, "Mul", "*")
 
     def __truediv__(self, other):
-        return arithmetic(self, other, exp.Div, "/")
+        return arithmetic(self, other, "Div", "/")
 
     def __rtruediv__(self, other):
-        return arithmetic(other, self, exp.Div, "/")
+        return arithmetic(other, self, "Div", "/")
 
     def __neg__(self):
-        return arithmetic(0, self, exp.Sub, "-")
+        return arithmetic(0, self, "Sub", "-")
 
 
-def _bracketed(tree: exp.Expression) -> exp.Expression:
-    if isinstance(tree, (exp.Add, exp.Sub, exp.Mul, exp.Div)):
-        return exp.Paren(this=tree)
+def _bracketed(tree: Node) -> Node:
+    if tree.kind in ARITHMETIC:
+        return Node("Paren", this=tree)
     return tree
 
 
-def arithmetic(left, right, node, symbol: str) -> Column:
+def arithmetic(left, right, kind: str, symbol: str) -> Column:
     """Build `left <symbol> right`, bracketing each side that is itself arithmetic."""
     sides = []
     for side in (left, right):
@@ -240,6 +218,7 @@ def arithmetic(left, right, node, symbol: str) -> Column:
             continue
         if isinstance(side, bool) or not isinstance(side, (int, float, decimal.Decimal,
                                                                np.number)):
+            refuse_what_the_other_edition_made(side, symbol)
             raise TypeError(
                 four_part_message(
                     what=f"{symbol} was used with {side!r}.",
@@ -250,26 +229,17 @@ def arithmetic(left, right, node, symbol: str) -> Column:
             )
         sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False)))
     left, right = sides
-    adds_up = left._adds_up and right._adds_up and node is not exp.Div
-    because = "a division" if node is exp.Div else (
+    adds_up = left._adds_up and right._adds_up and kind != "Div"
+    because = "a division" if kind == "Div" else (
         left._not_adding_up_because or right._not_adding_up_because)
     return Column(
-        node(this=_bracketed(left._tree.copy()), expression=_bracketed(right._tree.copy())),
+        Node(kind, this=_bracketed(left._tree.copy()),
+             expression=_bracketed(right._tree.copy())),
         adds_up=adds_up,
         not_adding_up_because=None if adds_up else because,
         aggregate=left._aggregate or right._aggregate,
         window=left._window or right._window,
     )
-
-
-def has_aggregate(tree: exp.Expression) -> bool:
-    """True when the tree adds rows up (COUNT, SUM, ...) outside a window."""
-    for node in tree.find_all(exp.AggFunc, exp.Anonymous):
-        if node.find_ancestor(exp.Window):
-            continue
-        if isinstance(node, exp.AggFunc) or str(node.name).lower() in HIVE_AGGREGATES:
-            return True
-    return False
 
 
 # --- Values ------------------------------------------------------------------------------
@@ -319,8 +289,8 @@ def _check_type(value, column: Column | None, call: str) -> None:
     raise TypeError(
         four_part_message(
             what=f"{call} compares {column!r}, a {column._type} column, with {value!r}.",
-            why="Hive would quietly convert one side to the other's type, so the comparison "
-            "could match nothing or the wrong rows.",
+            why="The warehouse would convert one side to the other's type, so the comparison "
+            "could quietly match nothing or the wrong rows, or stop with an error.",
             fix=f"Pass a value of the column's own type, such as {_example_of(family)}.",
             opt_out=None,
         )
@@ -404,7 +374,7 @@ def _python_value(value):
 
 
 def literal(value, *, call: str, column: Column | None = None, position: str = "the value",
-            in_condition: bool = True) -> exp.Expression:
+            in_condition: bool = True) -> Node:
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
         return value._tree.copy()
@@ -412,8 +382,9 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
     if value is None:
         if in_condition:
             guard_none_in_condition(call)
-        return exp.Null()
+        return Node("Null")
     if not isinstance(value, SINGLE_VALUES):
+        refuse_what_the_other_edition_made(value, call)
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {value!r}, which isn't a single value.",
@@ -424,15 +395,23 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
         )
     _check_type(value, column, call)
     if isinstance(value, bool):
-        return exp.true() if value else exp.false()
+        return Node("Boolean", this=value)
     if isinstance(value, str):
-        return exp.Literal.string(str.__str__(value))
+        return _string_literal(value, call, position)
     if isinstance(value, datetime.date):
-        return exp.Literal.string(_date_text(value, column, call))
+        return string(_date_text(value, column, call))
     text = _number_text(value)
     if text is None:
         guard_not_a_number(call, position, value)
-    return exp.Literal.number(text)
+    return number(text, is_float=isinstance(value, float))
+
+
+def _string_literal(value: str, call: str, position: str) -> Node:
+    """A string as a Hive literal, refused if it holds a character the warehouse misreads."""
+    for character in CONTROL_CHARACTERS:
+        if character in value:
+            guard_control_character(call, position, character)
+    return string(str.__str__(value))
 
 
 def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
@@ -463,7 +442,16 @@ def _check_date_format(date_format: str) -> None:
                 fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
             )
         rest = rest.replace(directive, "")
-    if "%" in rest or "'" in rest:
+    if any(character in rest for character in CONTROL_CHARACTERS):
+        _refuse_table(
+            what=f"date_format={date_format!r} holds a character that isn't printed, such as "
+            "the bell \\a gives in a Python string.",
+            why="Hive and Spark would read it back as a plain letter, so the days would be "
+            "written wrong.",
+            fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
+            "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
+        )
+    if "%" in rest or "'" in rest or not rest.isprintable():
         _refuse_table(
             what=f"date_format={date_format!r} has something other than %Y, %m and %d.",
             why="Only the year, month and day can be turned into Hive's own pattern.",
@@ -497,7 +485,8 @@ class Table:
     a typo stops with the list of real columns. Write one per table, generated once by
     write_table_reference(...) and then yours to edit.
 
-    - `columns` maps each column to its Hive type as Hive prints it ("bigint",
+    - `columns` maps each column to its Hive type as DESCRIBE, the command that lists a
+      table's columns, prints it ("bigint",
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
     - `date_partition` is required: the one date column the table is partitioned by, which
       every Statement must bound at both ends, or None for a table that has none.
@@ -510,6 +499,8 @@ class Table:
       uses; the Toolbox doesn't convert it.
 
     A column whose name is a Python word, such as `from`, is reached with getattr(t, "from").
+    You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such
+    as `from`, `any` or `two words`, and leaves a plain name, such as dt, as it is.
 
     >>> job_runs
     Table('ops.job_runs', columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)
@@ -589,7 +580,7 @@ class Table:
     def _column(self, name: str) -> Column:
         because = self._not_adding_up_because.get(name)
         return Column(
-            exp.column(identifier(name), table=identifier(self._alias)),
+            Node("Column", name=name, table=self._alias),
             table=self,
             name=name,
             type=self._columns[name],
@@ -621,25 +612,17 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
-def hive_table(name: str, partition=None) -> exp.Table:
-    """A table's name as sqlglot holds it: "ops.job_runs" is the table job_runs in ops.
-
-    A write passes the PARTITION(...) it fills, which Hive writes after the name.
-    """
-    parts = name.split(".")
-    database = identifier(parts[0]) if len(parts) == 2 else None
-    return exp.Table(this=identifier(parts[-1]), db=database, partition=partition)
+def table_node(name: str, **parts) -> Node:
+    """A table as a Node, "ops.job_runs" split into its database and its name."""
+    database, _, table = name.rpartition(".")
+    return Node("Table", db=database or None, name=table, **parts)
 
 
-def source(table: Table) -> exp.Expression:
-    """How a table is named after FROM or JOIN."""
-    if table._statement is not None:
-        base = exp.Table(this=identifier(table._name))
-        if table._alias == table._name:
-            return base
-    else:
-        base = hive_table(table._name)
-    return exp.alias_(base, identifier(table._alias), table=True)
+def source(table: Table) -> Node:
+    """How a table is named after FROM or JOIN: its name, and AS its alias where it needs one."""
+    if table._statement is not None and table._alias == table._name:
+        return table_node(table._name)
+    return table_node(table._name, alias=table._alias)
 
 
 def all_columns(t):
@@ -656,6 +639,7 @@ def all_columns(t):
     FROM ops.jobs AS jobs
     LIMIT 20
     """
+    refuse_what_the_other_edition_made(t, "all_columns(...)")
     return [getattr(t, column) for column in t._columns]
 
 
@@ -705,37 +689,43 @@ class Verdict:
 
 def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
-    frame = send(hive_text(exp.Describe(this=exp.to_table(name))))
+    frame = send(describe_text(name))
+    refuse_a_spark_dataframe(frame)
     columns, comments, partitions = {}, {}, []
-    in_partitions = False
+    # The columns come first; each header after them, bar the partition list's own column
+    # header, starts a section, and only the partition sections name partition columns.
+    section = "columns"
     for row in frame.itertuples(index=False):
         column = str(row[0] or "").strip()
         kind = str(row[1] or "").strip()
         comment = str(row[2] or "").strip() if len(row) > 2 else ""
         if column.startswith("#"):
-            in_partitions = in_partitions or "partition" in column.lower()
+            if column.lower() != COLUMN_HEADER:
+                section = column.lower()
             continue
         if not column:
             continue
-        if in_partitions:
-            partitions.append(column)
-        elif column not in columns:
+        if section == "columns" and column not in columns:
             columns[column] = kind
             comments[column] = "" if comment in ("None", "nan") else comment
+        elif section == PARTITION_INFORMATION:
+            partitions.append(column)
+        elif section == PARTITIONING and SIMPLE_NAME.fullmatch(kind):
+            partitions.append(kind)
     return columns, comments, partitions
 
 
 def _newest_partition_value(name: str, column: str, send) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
-    command = exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + hive_text(exp.to_table(name))))
-    frame = send(hive_text(command))
+    frame = send(show_partitions_text(name))
+    refuse_a_spark_dataframe(frame)
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
             key, _, value = part.partition("=")
-            if key == column:
-                values.append(value)
+            # The warehouse escapes a partition value: 2026/09/24 is listed as 2026%2F09%2F24.
+            if key == column and value != ROWS_WITH_NO_DAY:
+                values.append(urllib.parse.unquote(value))
     return max(values) if values else None
 
 
@@ -751,12 +741,13 @@ def _day_format_of(value: str | None) -> str | None:
 
 
 def write_table_reference(name, send):
-    '''Write a new Table reference file for a table, from Hive's own description of it.
+    '''Write a new Table reference file for a table, from what DESCRIBE says of it.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
-    description, never its rows) and writes `<table>.py` in the folder you're working in.
-    It never guesses the key or which columns don't add up: those are TODOs for you. The file
-    is yours from then on, and this refuses to overwrite it.
+    description, never its rows) and writes `<table>.py` in the folder you're working in. The
+    newest day SHOW PARTITIONS lists gives the Date partition's date_format. It never guesses
+    the key or which columns don't add up: those are TODOs for you. The file is yours from then
+    on, and this refuses to overwrite it.
 
     >>> path = write_table_reference("ops.run_alerts", send=example_database.send)
     >>> print(path.read_text())
@@ -780,7 +771,7 @@ def write_table_reference(name, send):
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
         _refuse_table(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
-            why="It needs the name Hive knows the table by.",
+            why="It needs the name the warehouse knows the table by.",
             fix='Write it like "ops.job_runs".',
         )
     short = name.split(".")[-1]
@@ -850,6 +841,7 @@ def _reference_text(name, variable, columns, comments, date_lines) -> str:
 
 def _real_table(t, call: str) -> Table:
     if not isinstance(t, Table) or t._statement is not None:
+        refuse_what_the_other_edition_made(t, call)
         raise TypeError(
             four_part_message(
                 what=f"{call} was given {t!r}.",
@@ -865,8 +857,10 @@ def _real_table(t, call: str) -> Table:
 def check_key(t, send):
     """Check on the newest day that no two rows share the table's declared key.
 
-    JOIN relies on a declared key to warn about repeated rows, and Hive never enforces one.
-    This counts rows per key over one day (the newest in SHOW PARTITIONS), 20 at most.
+    JOIN relies on a declared key to warn about repeated rows, and the warehouse never
+    enforces one.
+    This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows
+    with no day), and shows at most 20 keys that repeat.
 
     >>> check_key(job_runs, send=example_database.send)
     ops.job_runs: the key (run_id) holds on 2026-09-24.
@@ -918,13 +912,14 @@ def _same_type(first: str, second: str) -> bool:
 
 
 def check_table_reference(t, send):
-    """Compare a Table reference with its table in Hive, and list what differs.
+    """Compare a Table reference with its table as it is now, and list what differs.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send`, and lists problems (which make
     Statements wrong) and notes (which may not matter), each with the line to change in the
-    Table reference file. It never edits the file and never refuses anything: a table Hive
-    can't describe, or a send that fails, is reported too. Comments, the key and
-    does_not_add_up aren't compared.
+    Table reference file. The columns and their types come from DESCRIBE, and the Date
+    partition's date_format is checked against the newest day SHOW PARTITIONS lists. It never
+    edits the file and never refuses anything: a table the warehouse can't describe, or a send
+    that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
 
     >>> check_table_reference(job_runs, send=example_database.send)
     ops.job_runs matches its Table reference.
@@ -1025,11 +1020,14 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
 def create_table(t, may_exist=False):
     """The CREATE TABLE Statement for a Saved table, from its Table reference.
 
-    Send it once with run(create_table(t), send=...). Every column needs a type. If the
-    table already exists, Hive refuses with AlreadyExistsException. Without that refusal,
-    you could edit the Table reference, send this again, and think the table had changed when
-    it hadn't. Compare the two with check_table_reference(t, send=...), or, to start the
-    table again, drop it with drop_table(t), which deletes every day it holds.
+    Send it once with run(create_table(t), send=...). Every column needs a type Hive and
+    Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
+    decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and
+    says what to write. If the table already exists, the warehouse refuses to create it
+    again. Without that refusal, you could edit the Table reference, send this again, and
+    think the table had changed when it hadn't. Compare the two with
+    check_table_reference(t, send=...), or, to start the table again, drop it with
+    drop_table(t), which deletes every day it holds.
     may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -1054,15 +1052,12 @@ def create_table(t, may_exist=False):
             why="Hive needs every column's type to create the table.",
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
         )
-    table = hive_table(t._name)
     columns = [_column_definition(t, c) for c in t._columns if c != t._date_partition]
-    properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
-    if t._date_partition is not None:
-        partition = exp.Schema(expressions=[_column_definition(t, t._date_partition)])
-        properties.insert(0, exp.PartitionedByProperty(this=partition))
+    partitioned_by = ([] if t._date_partition is None
+                      else [_column_definition(t, t._date_partition)])
     s = Statement()
-    s._ddl = exp.Create(kind="TABLE", this=exp.Schema(this=table, expressions=columns),
-                        properties=exp.Properties(expressions=properties), exists=may_exist)
+    s._ddl = Node("Create", target=table_node(t._name), columns=columns,
+                  partitioned_by=partitioned_by, exists=may_exist)
     return s
 
 
@@ -1085,25 +1080,43 @@ def drop_table(t):
     from .clauses import Statement  # here, not at the top: clauses.py imports this file
 
     t = _real_table(t, "drop_table(...)")
-    table = hive_table(t._name)
-    # sqlglot 30 renamed the part of a DROP that holds the table from `this` to `tables`.
-    if "tables" in exp.Drop.arg_types:
-        drop = exp.Drop(kind="TABLE", tables=[table], exists=True)
-    else:
-        drop = exp.Drop(kind="TABLE", this=table, exists=True)
     s = Statement()
-    s._ddl = drop
+    s._ddl = Node("Drop", target=table_node(t._name))
     return s
 
 
-def _column_definition(t: Table, column: str) -> exp.ColumnDef:
-    try:
-        kind = exp.DataType.build(t._columns[column], dialect=HIVE)
-    except Exception:
+# Types people often write for one create_table takes, and the one to write instead.
+_NEAREST_TYPE = {
+    "integer": "int", "long": "bigint", "short": "smallint", "byte": "tinyint", "real": "float",
+    "double precision": "double", "decimal": "decimal(10,0)", "numeric": "decimal(10,0)",
+    "dec": "decimal(10,0)", "text": "string", "bool": "boolean", "datetime": "timestamp",
+    "varchar": "varchar(50)", "char": "char(3)",
+}
+# Of those, the ones whose fix is to write their length.
+_NEEDS_LENGTH = ("varchar", "char")
+
+
+def _column_definition(t: Table, column: str) -> Node:
+    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
+    kind = t._columns[column]
+    if not is_hive_type(kind):
+        written = " ".join(kind.lower().split())
+        nearest = _NEAREST_TYPE.get(written)
+        length = "its length, such as " if written in _NEEDS_LENGTH else ""
         _refuse_table(
-            what=f"create_table({t._alias}): {column}'s type {t._columns[column]!r} isn't a "
-            "Hive type.",
-            why="Hive needs a type it knows to create the column.",
-            fix='Use a Hive type such as "string", "bigint", "double" or "decimal(10,2)".',
+            what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
+            "can use.",
+            why="create_table takes only the types Hive and Spark both have, spelled as "
+            "DESCRIBE prints them, such as int rather than integer, and with their sizes "
+            "written out, such as decimal(10,2), so the table it makes matches its Table "
+            "reference.",
+            fix=(f"For {kind!r}, write {length}{nearest!r}. " if nearest else "")
+            + "Use string, bigint, int, smallint, tinyint, double, float, boolean, date, "
+            "timestamp or binary; decimal, varchar or char with its sizes, such as "
+            "decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and "
+            "char(255); or an array, map or struct holding them, such as array<string>, "
+            "map<string,int> or struct<name:string,runs:int>. A map's key is a single value, "
+            "such as string, and a struct's names are plain words, not ones Hive or Spark "
+            "reserve, such as date or user.",
         )
-    return exp.ColumnDef(this=identifier(column), kind=kind)
+    return Node("ColumnDef", name=column, type=t._columns[column])

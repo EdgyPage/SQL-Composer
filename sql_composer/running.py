@@ -1,4 +1,4 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
 run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own
@@ -8,9 +8,7 @@ CSVs stay in it. The Toolbox never imports it.
 
 from __future__ import annotations
 
-import sqlglot
-from sqlglot import exp
-
+from . import writing
 from .clauses import (
     FROM,
     WHERE,
@@ -27,10 +25,13 @@ from .refusals import (
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
+    refuse_a_spark_dataframe,
+    refuse_what_the_other_edition_made,
 )
-from .tables import aliased, hive_table, hive_text, identifier, source
+from .tables import aliased, source, table_node
+from .trees import Node, combined
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}
@@ -69,68 +70,48 @@ def set_load_limits(rows=None, dates=None):
 # --- Building the Hive -----------------------------------------------------------------------
 
 
-def _set_part(tree: exp.Expression, part: str, value) -> None:
-    """Set a part of a sqlglot tree. sqlglot 30 renamed `from` and `with` to `from_`, `with_`."""
-    for key in (part, part + "_"):
-        if key in type(tree).arg_types:
-            tree.set(key, value)
-            return
-    raise RuntimeError(f"sql_composer: this sqlglot has no {part!r} on {type(tree).__name__}.")
-
-
-def _output(column, name: str) -> exp.Expression:
+def _output(column, name: str) -> Node:
     """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
         return column._tree.copy()
-    return exp.alias_(column._tree.copy(), identifier(name))
+    return Node("Alias", this=column._tree.copy(), alias=name)
 
 
-def _join_tree(read) -> exp.Join:
-    """The sqlglot tree of one JOIN, LEFT_JOIN or CROSS_JOIN clause."""
-    parts = {"this": source(read.table)}
-    if read.on is not None:
-        parts["on"] = read.on._tree.copy()
-    if read._name == "LEFT_JOIN":
-        parts["side"] = "LEFT"
-    if read._name == "CROSS_JOIN":
-        parts["kind"] = "CROSS"
-    return exp.Join(**parts)
+def _join_tree(read) -> Node:
+    """One JOIN, LEFT_JOIN or CROSS_JOIN clause."""
+    return Node("Join", how=read._name.replace("_", " "), this=source(read.table),
+                on=None if read.on is None else read.on._tree.copy())
 
 
-def _select_tree(s: Statement) -> exp.Select:
-    """The sqlglot tree of a Statement's SELECT, from FROM to LIMIT, without WITH."""
+def _all_of(conditions: list) -> Node | None:
+    """The conditions of WHERE or HAVING, joined with AND, or None when there are none."""
+    return combined("And", [c._tree.copy() for c in conditions]) if conditions else None
+
+
+def _select_tree(s: Statement) -> Node:
+    """A Statement's SELECT, from FROM to LIMIT, without WITH."""
     outputs = s._outputs
     if s._write is not None:
         order = list(s._write._columns)
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
-    tree = exp.Select(expressions=[_output(column, name) for column, name in outputs])
-    if s._distinct:
-        tree.set("distinct", exp.Distinct())
-    _set_part(tree, "from", exp.From(this=source(s._reads[0].table)))
-    if len(s._reads) > 1:
-        tree.set("joins", [_join_tree(read) for read in s._reads[1:]])
-    if s._where:
-        tree.set("where", exp.Where(this=exp.and_(*[c._tree.copy() for c in s._where])))
-    if s._group_by:
-        tree.set("group", exp.Group(expressions=[c._tree.copy() for c in s._group_by]))
-    if s._having:
-        tree.set("having", exp.Having(this=exp.and_(*[c._tree.copy() for c in s._having])))
-    if s._order_by:
-        tree.set("order", exp.Order(expressions=[o.copy() for o in s._order_by]))
-    if s._limit is not None:
-        tree.set("limit", exp.Limit(expression=exp.Literal.number(s._limit)))
-    return tree
+    return Node(
+        "Select",
+        outputs=[_output(column, name) for column, name in outputs],
+        distinct=s._distinct,
+        source=source(s._reads[0].table),
+        joins=[_join_tree(read) for read in s._reads[1:]],
+        where=_all_of(s._where),
+        group_by=[c._tree.copy() for c in s._group_by],
+        having=_all_of(s._having),
+        order_by=[o.copy() for o in s._order_by],
+        limit=s._limit,
+    )
 
 
-def _with(tree: exp.Expression, s: Statement) -> exp.Expression:
+def _with(tree: Node, s: Statement) -> Node:
     """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
-    parts = [
-        exp.CTE(this=_select_tree(table._statement),
-                alias=exp.TableAlias(this=identifier(table._name)))
-        for table in derived_tables(s)
-    ]
-    if parts:
-        _set_part(tree, "with", exp.With(expressions=parts))
+    tree.set("derived_tables", [Node("CTE", this=_select_tree(table._statement),
+                                     alias=table._name) for table in derived_tables(s)])
     return tree
 
 
@@ -198,20 +179,20 @@ def _bottom_read(s: Statement):
     return read.table, span
 
 
-def _write_tree(s: Statement) -> exp.Expression:
+def _write_tree(s: Statement) -> Node:
     """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
     table = s._write
     day = _written_day(s).strftime(table._date_format)
-    partition = exp.Partition(expressions=[
-        exp.EQ(this=exp.column(identifier(table._date_partition)),
-               expression=exp.Literal.string(day)),
+    partition = Node("Partition", expressions=[
+        Node("EQ", this=Node("Column", name=table._date_partition),
+             expression=Node("Literal", this=day, is_string=True)),
     ])
-    target = hive_table(table._name, partition=partition)
-    return exp.Insert(this=target, expression=_select_tree(s), overwrite=s._replaces_day)
+    return Node("Insert", target=table_node(table._name, partition=partition),
+                select=_select_tree(s), overwrite=s._replaces_day)
 
 
-def _statement_tree(s: Statement) -> exp.Expression:
-    """The whole sqlglot tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
+def _statement_tree(s: Statement) -> Node:
+    """The whole tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
     if s._ddl is not None:
         return s._ddl.copy()
     if s._write is not None:
@@ -219,13 +200,13 @@ def _statement_tree(s: Statement) -> exp.Expression:
     tree = _select_tree(s)
     limit = automatic_limit(s)
     if limit is not None:
-        tree.set("limit", exp.Limit(expression=exp.Literal.number(limit)))
+        tree.set("limit", limit)
     return _with(tree, s)
 
 
 def _self_check(text: str) -> None:
-    """Parse the Hive back and write it again: it must come out the same."""
-    again = hive_text(sqlglot.parse_one(text, read="hive"), pretty=True)
+    """The Hive must read back as the same text (writing.read_back), or nothing is sent."""
+    again = writing.read_back(text)
     if again != text:
         raise RuntimeError(
             "sql_composer wrote Hive that doesn't read back the same. This is a bug in the "
@@ -238,8 +219,9 @@ def to_hive(s):
     """The Hive string for a Statement, ready to send.
 
     It checks itself by reading the string back, and refuses what would read too many days
-    (see set_load_limits) or write more than one day. sqlglot writes a few functions its own
-    way, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.
+    (see set_load_limits) or write more than one day. The Hive may write a function
+    differently from how you would by hand, for example DATE_SUB(dt, 7) as
+    DATE_ADD(dt, 7 * -1), which means the same.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
@@ -253,6 +235,7 @@ def to_hive(s):
       job_runs.dt = '2026-09-24'
     """
     if not isinstance(s, Statement):
+        refuse_what_the_other_edition_made(s, "to_hive")
         raise TypeError(
             four_part_message(
                 what=f"to_hive was given {s!r}, which isn't a Statement.",
@@ -263,7 +246,7 @@ def to_hive(s):
         )
     if s._ddl is None:
         _check_dates_cap(s)
-    text = hive_text(_statement_tree(s), pretty=True)
+    text = writing.hive_statement(_statement_tree(s))
     _self_check(text)
     return text
 
@@ -271,8 +254,10 @@ def to_hive(s):
 def run(s, send):
     """Send a Statement's Hive through your `send` function and return what comes back.
 
-    `send` is your own function from a Hive string to a DataFrame. At work it calls the
-    query API; example_database.send runs the Example database instead.
+    `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
+    the query API, or, where your notebook runs Spark, is
+    lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
+    instead.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -295,6 +280,9 @@ def run(s, send):
         )
     text = to_hive(s)
     result = send(text)
+    # A write has already been carried out when its send returns, so only a read's rows matter.
+    if s._ddl is None and s._write is None:
+        refuse_a_spark_dataframe(result)
     limit = automatic_limit(s) if s._ddl is None else None
     if limit is not None and hasattr(result, "__len__"):
         load_limit_rows(len(result), limit)
@@ -317,9 +305,8 @@ def _check_splittable(s: Statement, date_partition: str, step: str) -> None:
     if grouping is not None and date_partition not in grouping:
         guard_by_day_grouping(step, date_partition)
     for column in outputs:
-        for window in column._tree.find_all(exp.Window):
-            names = [c.name for c in window.args.get("partition_by") or []
-                     if isinstance(c, exp.Column)]
+        for window in column._tree.find_all("Window"):
+            names = [c.name for c in window.parts["partition_by"] if c.kind == "Column"]
             if date_partition not in names:
                 guard_by_day_grouping(step, date_partition)
 
@@ -402,6 +389,7 @@ def by_day(s):
       job_runs.status
     """
     if not isinstance(s, Statement) or s._ddl is not None:
+        refuse_what_the_other_edition_made(s, "by_day")
         raise TypeError(
             four_part_message(
                 what=f"by_day was given {s!r}, which isn't a Statement that reads a table.",

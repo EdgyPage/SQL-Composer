@@ -1,4 +1,4 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:
@@ -12,8 +12,6 @@ another Statement can read it like a table.
 
 from __future__ import annotations
 
-from sqlglot import exp
-
 from .calculations import Ordering, ordered
 from .conditions import Condition, combined_spans
 from .refusals import (
@@ -23,14 +21,17 @@ from .refusals import (
     guard_missing_group_by,
     guard_order_by_in_derived_table,
     guard_unnamed_calculation,
+    refuse_what_the_other_edition_made,
     guard_write_lines_up,
     load_limit_date_bound,
     load_limit_order_by,
     warning_repeated_rows,
 )
-from .tables import SIMPLE_NAME, Column, Table, aliased, hive_text, identifier
+from .tables import Column, Table, aliased
+from .trees import SIMPLE_NAME, Node
+from .writing import hive_text
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -66,7 +67,7 @@ class Clause:
         # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
         self.conditions = conditions
         self.group_columns = group_columns
-        # ORDER_BY: the sqlglot trees to sort by, and its opt-out. LIMIT: the row count.
+        # ORDER_BY: the sort keys, and its opt-out. LIMIT: the row count.
         self.sort_keys = sort_keys
         self.sorts_everything = sorts_everything
         self.n = n
@@ -96,7 +97,7 @@ class Named:
         self._name = name
 
     def __repr__(self) -> str:
-        return hive_text(exp.alias_(self._column._tree.copy(), identifier(self._name)))
+        return hive_text(Node("Alias", this=self._column._tree.copy(), alias=self._name))
 
 
 class Statement:
@@ -115,10 +116,10 @@ class Statement:
         self._where = []  # WHERE's conditions
         self._having = []  # HAVING's conditions
         self._group_by = []  # GROUP_BY's columns, with output names looked up
-        self._order_by = []  # ORDER_BY's sqlglot trees
+        self._order_by = []  # ORDER_BY's sort keys
         self._limit = None  # LIMIT's row count
-        # Set instead by create_table and drop_table, whose Statement is a sqlglot tree ready
-        # to write, with none of the parts above.
+        # Set instead by create_table and drop_table, whose Statement is a CREATE or DROP
+        # tree ready to write, with none of the parts above.
         self._ddl = None
 
     def __repr__(self) -> str:
@@ -135,8 +136,8 @@ def AS(expression, name):
     """Give a calculation its name in the result, or a table a second name.
 
     Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
-    uses Python's + - * / and comes out bracketed. Hive's / always gives a decimal number
-    (7 / 2 is 3.5), and gives NULL rather than an error when dividing by zero.
+    uses Python's + - * / and comes out bracketed. / divides as Python's / does, so 7 / 2 is
+    3.5, and dividing by zero gives NULL rather than an error.
 
     >>> AS(count_rows(), "runs")
     COUNT(*) AS runs
@@ -151,6 +152,7 @@ def AS(expression, name):
     if isinstance(expression, Named):
         expression = expression._column
     if not isinstance(expression, Column):
+        refuse_what_the_other_edition_made(expression, "AS")
         _misuse(
             what=f"AS was given {expression!r}, which can't be named.",
             why="AS names a column or a calculation for SELECT, or a table for FROM or JOIN.",
@@ -205,6 +207,7 @@ def _outputs(items, call: str) -> list[tuple[Column, str]]:
 
 
 def _refuse_output(item, call: str) -> None:
+    refuse_what_the_other_edition_made(item, call)
     if isinstance(item, Table):
         fix = f"Name its columns, or use all_columns({item._alias})."
     elif isinstance(item, Condition):
@@ -254,6 +257,7 @@ def SELECT_DISTINCT(*columns):
 def _need_table(table, call: str) -> Table:
     if isinstance(table, Table):
         return table
+    refuse_what_the_other_edition_made(table, call)
     _misuse(
         what=f"{call} was given {table!r}, which isn't a table.",
         why="It reads a Table reference, or a Statement named with derived(...).",
@@ -286,6 +290,7 @@ def _need_on(on, call: str, table: Table):
     if on is None:
         guard_cross_join(call, table._alias)
     if not isinstance(on, Condition):
+        refuse_what_the_other_edition_made(on, call)
         _misuse(
             what=f"{call}({table._alias}, ON={on!r}): ON= isn't a condition.",
             why="ON= says which rows of the two tables belong together.",
@@ -296,14 +301,15 @@ def _need_on(on, call: str, table: Table):
 
 def _matched_columns(table: Table, on: Condition) -> list[str]:
     """The columns of `table` that ON= pins with an equals at its top level."""
-    parts = list(on._tree.flatten()) if isinstance(on._tree, exp.And) else [on._tree]
+    parts = list(on._tree.flatten()) if on._tree.kind == "And" else [on._tree]
     matched = set()
     for part in parts:
-        if not isinstance(part, exp.EQ):
+        if part.kind != "EQ":
             continue
-        for mine, other in ((part.this, part.expression), (part.expression, part.this)):
-            if isinstance(mine, exp.Column) and mine.table == table._alias and not (
-                    isinstance(other, exp.Column) and other.table == table._alias):
+        sides = (part.parts["this"], part.parts["expression"])
+        for mine, other in (sides, sides[::-1]):
+            if mine.kind == "Column" and mine.table == table._alias and not (
+                    other.kind == "Column" and other.table == table._alias):
                 matched.add(mine.name)
     return sorted(matched)
 
@@ -420,6 +426,7 @@ def _conditions(items, call: str) -> list[Condition]:
     found = _flatten(items)
     for item in found:
         if not isinstance(item, Condition):
+            refuse_what_the_other_edition_made(item, call)
             _misuse(
                 what=f"{call} was given {item!r}, which isn't a condition.",
                 why="It keeps rows by conditions made with functions such as equals(...).",
@@ -444,17 +451,18 @@ def GROUP_BY(*columns):
     ...     GROUP_BY("week"),
     ... )))
     SELECT
-      NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS week,
+      CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS week,
       COUNT(*) AS runs
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     GROUP BY
-      NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+      CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     items = _flatten(columns)
     for item in items:
         if not isinstance(item, (Column, str)):
+            refuse_what_the_other_edition_made(item, "GROUP_BY")
             _misuse(
                 what=f"GROUP_BY was given {item!r}.",
                 why="It groups by columns, or by the name of a calculation in SELECT.",
@@ -491,10 +499,10 @@ def ORDER_BY(*columns, sorts_everything=False):
     """Sort the result; it needs a LIMIT, and sorting in pandas is usually better.
 
     Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
-    Hive sorts everything on one machine: sort in pandas after run(...), or pass
-    sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without
-    LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there,
-    so a Statement that reads it can't rely on that order.
+    it makes the warehouse put every row in order before any comes back: sort in pandas after
+    run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
+    ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there
+    may not be kept, so a Statement that reads it can't rely on that order.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),
@@ -523,6 +531,7 @@ def ORDER_BY(*columns, sorts_everything=False):
                 'ORDER_BY(descending("runs")).')
     for item in items:
         if not isinstance(item, (Column, str, Ordering)):
+            refuse_what_the_other_edition_made(item, "ORDER_BY")
             _misuse(what=f"ORDER_BY was given {item!r}.",
                     why="It sorts by columns or output names.",
                     fix="Pass a column, an output name, or descending(...).")
@@ -563,13 +572,13 @@ def _write_clause(call: str, table) -> Clause:
 def INSERT_OVERWRITE(table):
     """Write the Statement's rows into one day of a Saved table, replacing that day.
 
-    It goes first, before SELECT. The day written is the one day the Statement reads, so
-    loop over by_day(s) to write several. Columns are matched to the Saved table by name,
-    and the Toolbox puts them in the table's order, leaving out its Date partition.
-    Re-running a day replaces it rather than adding to it, so a day can safely be sent
-    again; to add rows to a day instead, use INSERT_INTO. On Hive 2.3 and 3.1 under Tez, a
-    day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved
-    table's Table reference, check it with check_table_reference(t, send=...).
+    It goes first, before SELECT. The day written is the one day the Statement reads, so loop
+    over by_day(s) to write several. Columns are matched to the Saved table by name, and the
+    Toolbox puts them in the table's order, leaving out its Date partition. Re-running a day
+    replaces it rather than adding to it, so a day can safely be sent again; to add rows to a
+    day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever
+    looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
+    reference, check it with check_table_reference(t, send=...).
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
@@ -630,6 +639,7 @@ def INSERT_INTO(table):
 def _check_order(clauses) -> None:
     for clause in clauses:
         if not isinstance(clause, Clause):
+            refuse_what_the_other_edition_made(clause, "statement")
             _misuse(
                 what=f"statement(...) was given {clause!r}, which isn't a clause.",
                 why="A Statement is a list of clause functions such as SELECT(...) and "
@@ -764,7 +774,7 @@ def _check_tables(s: Statement) -> None:
         names[table._name] = table._statement
     used = set()
     for tree in _trees(s):
-        used |= {column.table for column in tree.find_all(exp.Column) if column.table}
+        used |= {column.table for column in tree.find_all("Column") if column.table}
     unread = sorted(used - set(aliases))
     if unread:
         _misuse(
@@ -783,7 +793,7 @@ def _check_tables(s: Statement) -> None:
             )
 
 
-def _trees(s: Statement) -> list[exp.Expression]:
+def _trees(s: Statement) -> list[Node]:
     trees = [column._tree for column, _ in s._outputs]
     trees += [c._tree for c in s._where + s._having]
     trees += [read.on._tree for read in s._reads if read.on is not None]
@@ -815,12 +825,12 @@ def _guard_group_by(s: Statement) -> None:
     if not (aggregates or s._group_by or s._having):
         return
     groups = [column._tree for column in s._group_by]
-    grouped = {(c.table, c.name) for tree in groups for c in tree.find_all(exp.Column)}
+    grouped = {(c.table, c.name) for tree in groups for c in tree.find_all("Column")}
     missing = []
     for column, _ in s._outputs:
         if column._aggregate or any(column._tree == tree for tree in groups):
             continue
-        used = {(c.table, c.name) for c in column._tree.find_all(exp.Column)}
+        used = {(c.table, c.name) for c in column._tree.find_all("Column")}
         if not used <= grouped:
             missing.append(repr(column))
     if missing:
@@ -883,10 +893,11 @@ def _derived_key(s: Statement) -> list[str] | None:
 def derived(name, statement):
     """Name a Statement so another Statement can read it like a table.
 
-    You then use its output columns like a Table reference's, as runs_per_job.runs, and a
-    typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as
-    WITH runs_per_job AS (...). Hive works it out again each time the Statement reads it,
-    so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.
+    You then use its output columns like a Table reference's, as runs_per_job.runs, and a typo
+    in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH
+    runs_per_job AS (...). The warehouse usually works it out again each time the Statement
+    reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY
+    columns.
 
     >>> runs_per_job = derived("runs_per_job", statement(
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -922,6 +933,7 @@ def derived(name, statement):
                 fix='Use letters, digits and _, such as derived("latest", ...).',
                 error=ValueError)
     if not isinstance(statement, Statement) or statement._ddl is not None:
+        refuse_what_the_other_edition_made(statement, "derived")
         _misuse(what=f"derived({name!r}, ...) was given {statement!r}.",
                 why="derived names a Statement made by statement(...).",
                 fix="Pass statement(SELECT(...), FROM(...), ...).")

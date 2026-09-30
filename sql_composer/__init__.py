@@ -1,22 +1,22 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
-"""SQL Composer: write Hive SQL as Python, one clause function per SQL clause.
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+"""Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
 
     from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
 To update, delete the `sql_composer` folder, copy in the new one and restart the kernel. The
-folder checks itself when imported. If a file is missing, extra, or from another version or
-export, or if this Python or its sqlglot won't work with it, it stops and says what happened,
-why it matters and the usual fix.
+folder checks itself when imported. If a file is missing, extra, from another version or
+export, or from another Toolbox folder, or if this Python can't run the Toolbox, it stops and
+says what happened, why it matters and the usual fix.
 
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'2.1'
+'3.0'
 >>> VERSION
-'SQL Composer 2.1, ...'
+'SQL Composer 3.0, ...'
 """
 
 from __future__ import annotations
@@ -25,7 +25,12 @@ import os
 import re
 import sys
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
+
+# The folder this file belongs in, and the name its export stamps on each of that folder's
+# files.
+_FOLDER = "sql_composer"
+_PRODUCT = "SQL Composer"
 
 # The export script writes the Toolbox's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.
@@ -35,18 +40,18 @@ _FILES = [
     "calculations.py",
     "clauses.py",
     "conditions.py",
+    "engine.py",
     "example_database.py",
     "examples.html",
     "lineage.py",
     "refusals.py",
     "running.py",
     "tables.py",
+    "trees.py",
+    "writing.py",
 ]
 
 _PYTHON_NEEDED = (3, 11)
-_SQLGLOT_LOWEST = (25, 24, 2)
-_SQLGLOT_BELOW = (31, 0, 0)
-_SQLGLOT_NEWEST_TESTED = (30, 19, 0)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -69,7 +74,8 @@ def _four_part_message(what: str, why: str, fix: str, opt_out: str | None) -> st
 
 def _stop(what, why, fix):
     """Stop the import with the four-part message. No import stop can be switched off."""
-    raise ImportError("sql_composer stopped on import:"
+    # The folder the import found, which a __init__.py pasted in from another folder can't know.
+    raise ImportError(f"{os.path.basename(_HERE)} stopped on import:"
                       + _four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
@@ -91,6 +97,11 @@ def _version_of(path):
     return found.group(1) if found else None
 
 
+# Any Toolbox folder's stamp, such as "SQL Composer 3.0, exported 2026-10-02 14:05 - ...",
+# whose first words name the folder its file belongs in.
+_STAMP = re.compile(r"(\w+ Composer) \S+, exported ")
+
+
 def _stamp_of(path):
     """The export stamp on line 1, or None.
 
@@ -101,17 +112,61 @@ def _stamp_of(path):
         first = file.readline().strip()
     start, end = ("# ", "") if path.endswith(".py") else ("<!-- ", " -->")
     stamp = first[len(start):len(first) - len(end)]
-    if first.startswith(start) and first.endswith(end) and stamp.startswith("SQL Composer "):
+    if first.startswith(start) and first.endswith(end) and _STAMP.match(stamp):
         return stamp
     return None
 
 
+def _home_of(name, stamp):
+    """The folder a file belongs in: __init__.py knows its own, and a stamp names any other's.
+
+    None for an unstamped file other than __init__.py.
+    """
+    if name == "__init__.py":
+        return _FOLDER
+    if stamp is None:
+        return None
+    return _STAMP.match(stamp).group(1).lower().replace(" ", "_")
+
+
+def _check_home(stamps):
+    """Stop if a file came from another Toolbox folder than the one it sits in."""
+    on_disk = os.path.basename(_HERE)
+    homes = {name: _home_of(name, stamp) for name, stamp in stamps.items()}
+    # The folder is the Toolbox folder its name and its files' stamps agree on. A folder its
+    # files don't name, such as one you renamed, is the one most of its other files' stamps
+    # name, so a __init__.py pasted in can't decide it; unstamped, as on dev, __init__.py's.
+    stamped = [home for name, home in homes.items() if name != "__init__.py" and home]
+    this = on_disk if on_disk in homes.values() else max(stamped, key=stamped.count,
+                                                          default=_FOLDER)
+    elsewhere = sorted(name for name, home in homes.items() if home not in (None, this))
+    if elsewhere:
+        home = homes[elsewhere[0]]
+        where = f"the {on_disk} folder" + ("" if on_disk == this else f", a copy of {this}")
+        _stop(
+            what=f"{', '.join(elsewhere)} {'is' if len(elsewhere) == 1 else 'are'} from the "
+            f"{home} folder, and this is {where}.",
+            why="A folder's files are made to work only with each other: a .py file from "
+            "another folder could make a Statement fail or come out wrong, and an "
+            "examples.html or CHANGES.md from one may not describe this folder's code.",
+            fix=f"Delete the {on_disk} folder, then copy it in again from the {this} folder "
+            f"of one download, not from {home}.",
+        )
+
+
 def _check_files():
-    """Stop if the pasted folder is missing a file, has an extra one, or mixes versions."""
+    """Stop if the pasted folder is missing a file, has an extra one, or mixes versions,
+    exports or Toolbox folders."""
     present = sorted(
         name for name in os.listdir(_HERE)
         if name != "__pycache__" and not name.startswith(".")
     )
+    stamps = {
+        name: _stamp_of(os.path.join(_HERE, name))
+        for name in present if os.path.isfile(os.path.join(_HERE, name))
+    }
+    # First, since a __init__.py from another folder brings that folder's file list and names.
+    _check_home(stamps)
     if _FILES is not None:
         extra = [name for name in present if name not in _FILES]
         missing = [name for name in _FILES if name not in present]
@@ -150,10 +205,6 @@ def _check_files():
                 fix="Delete the sql_composer folder, then copy the whole folder in again from "
                 "one download.",
             )
-    stamps = {
-        name: _stamp_of(os.path.join(_HERE, name))
-        for name in present if os.path.isfile(os.path.join(_HERE, name))
-    }
     if len(set(stamps.values())) > 1:
         odd = sorted(name for name, stamp in stamps.items() if stamp != stamps["__init__.py"])
         _stop(
@@ -165,98 +216,20 @@ def _check_files():
         )
 
 
-def _dotted(numbers):
-    return ".".join(str(n) for n in numbers)
-
-
-def _numbers(text):
-    found = re.match(r"(\d+)\.(\d+)\.(\d+)", text)
-    return tuple(int(n) for n in found.groups()) if found else None
-
-
-_IN_RANGE = f'"sqlglot>={_dotted(_SQLGLOT_LOWEST)},<{_dotted(_SQLGLOT_BELOW)}"'
-_NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
-
-
-def _check_sqlglot():
-    """Refuse a sqlglot outside the supported range, or one that behaves differently."""
-    try:
-        import sqlglot
-    except ImportError:
-        _stop(
-            what="SQL Composer needs sqlglot, and this Python can't import it.",
-            why="SQL Composer writes every Statement as Hive through sqlglot, and reads the "
-            "Hive back to check it, so it can't build anything without it.",
-            fix=f"Install sqlglot from a notebook cell with %pip install {_IN_RANGE}, then "
-            f"restart the kernel. {_NO_INSTALLING}",
-        )
-    found = getattr(sqlglot, "__version__", "unknown")
-    version = _numbers(found)
-    if version is None or not _SQLGLOT_LOWEST <= version < _SQLGLOT_BELOW:
-        _stop(
-            what=f"SQL Composer needs sqlglot {_dotted(_SQLGLOT_LOWEST)} or newer, below "
-            f"{_dotted(_SQLGLOT_BELOW)}, and this Python has sqlglot {found}.",
-            why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can "
-            "write Hive differently, so a Statement could come out wrong without anything "
-            "saying so.",
-            fix="Install a sqlglot in that range from a notebook cell with %pip install "
-            f"{_IN_RANGE}, then restart the kernel. {_NO_INSTALLING}",
-        )
-    problems = _sqlglot_behaviour()
-    if problems:
-        _stop(
-            what=f"sqlglot {found} is in the supported range, but behaves differently: "
-            + "; ".join(problems) + ". Nothing has been built or sent.",
-            why="SQL Composer relies on this behaviour to write Hive safely, so a Statement "
-            "could come out wrong.",
-            fix="Install again the sqlglot SQL Composer is tested on, from a notebook cell "
-            f'with %pip install --force-reinstall "sqlglot=={_dotted(_SQLGLOT_NEWEST_TESTED)}", '
-            f"then restart the kernel. {_NO_INSTALLING}",
-        )
-    if version > _SQLGLOT_NEWEST_TESTED:
-        print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
-              f"({_dotted(_SQLGLOT_NEWEST_TESTED)}). Its behaviour checks passed.")
-
-
-def _sqlglot_behaviour():
-    from sqlglot import exp
-    from sqlglot.errors import OptimizeError
-    from sqlglot.optimizer.qualify import qualify
-
-    problems = []
-    if exp.convert("O'Brien\\").sql("hive") != "'O\\'Brien\\\\'":
-        problems.append("Hive string escaping has changed")
-    table = exp.table_("t", db="db")
-    table.set("partition", exp.Partition(
-        expressions=[exp.column("dt").eq(exp.Literal.string("2026-01-01"))]))
-    insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
-    if "PARTITION(dt = '2026-01-01')" not in insert.sql("hive"):
-        problems.append("INSERT OVERWRITE drops its PARTITION")
-    # Built the way drop_table builds it: sqlglot 30 renamed a DROP's `this` to `tables`.
-    if "tables" in exp.Drop.arg_types:
-        drop = exp.Drop(kind="TABLE", tables=[exp.table_("t", db="db")], exists=True)
-    else:
-        drop = exp.Drop(kind="TABLE", this=exp.table_("t", db="db"), exists=True)
-    if drop.sql("hive") != "DROP TABLE IF EXISTS db.t":
-        problems.append("DROP TABLE drops its table name")
-    try:
-        qualify(exp.select("nope").from_("t"), schema={"t": {"a": "INT"}}, dialect="hive")
-        problems.append("qualify no longer refuses an unknown column")
-    except OptimizeError:
-        pass
-    return problems
-
-
 def _version_text():
     stamp = _stamp_of(os.path.join(_HERE, "__init__.py"))
     if stamp is None:
-        return f"SQL Composer {TOOLBOX_VERSION}, not exported (dev)"
+        return f"{_PRODUCT} {TOOLBOX_VERSION}, not exported (dev)"
     return stamp.split(" - ")[0]
 
 
 _check_python()
 _check_files()
-_check_sqlglot()
+# engine.py, one file per Edition, checks what the Edition needs installed. It is imported only
+# once the folder is known to be whole.
+from . import engine  # noqa: E402
+
+engine.check_installed()
 
 VERSION = _version_text()
 

@@ -1,4 +1,4 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
@@ -28,7 +28,7 @@ import warnings
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 
 class GuardRefused(Exception):
@@ -43,7 +43,7 @@ class GuardRefused(Exception):
     ...
     sql_composer.refusals.GuardRefused:
       What happened:  SELECT has a calculation with no name: COUNT(*).
-      Why it matters: Hive would call it _c0, and that is the name pandas would show you.
+      Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
       Opt-out:        none - a calculation always needs a name.
     """
@@ -60,7 +60,7 @@ class LoadRefused(Exception):
     ...
     sql_composer.refusals.LoadRefused:
       What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
-      Why it matters: Hive would read every day the table holds, which can stall the cluster for everyone.
+      Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
       Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).
       Opt-out:        FROM(job_runs, reads_all_partitions=True)
     """
@@ -78,7 +78,8 @@ def guard_unnamed_calculation(calculation: str) -> None:
     raise GuardRefused(
         four_part_message(
             what=f"SELECT has a calculation with no name: {calculation}.",
-            why="Hive would call it _c0, and that is the name pandas would show you.",
+            why="Without a name, the warehouse makes one up, such as _c0 or count(1), and "
+            "that is the name pandas would show you.",
             fix='Name it with AS, as in SELECT(AS(count_rows(), "runs")).',
             opt_out="none - a calculation always needs a name.",
         )
@@ -99,13 +100,35 @@ def guard_none_in_condition(call: str) -> None:
 
 
 def guard_not_a_number(call: str, position: str, value: object) -> None:
-    """NaN and infinity have no Hive literal. No opt-out."""
+    """NaN and infinity can't be written as numbers in the Hive. No opt-out."""
     raise GuardRefused(
         four_part_message(
             what=f"{call}: {position} is {value!r}.",
-            why="Hive has no way to write NaN or infinity: NaN would turn into NULL, which "
-            "matches nothing, and inf would be read as a column name.",
+            why="There is no way to write NaN or infinity as a number in the Hive: inf would "
+            "be read as a column's name, and NaN has no spelling at all.",
             fix="Drop NaN and infinite values first, for example with pandas' dropna().",
+            opt_out=None,
+        )
+    )
+
+
+# The control characters Hive and Spark would read back as letters: each one's name and letter.
+CONTROL_CHARACTERS = {"\x07": ("a bell", "a"), "\x0c": ("a form feed", "f"),
+                      "\x0b": ("a vertical tab", "v")}
+
+
+def guard_control_character(call: str, position: str, character: str) -> None:
+    """A value holding a control character Hive and Spark would read as a letter. No opt-out."""
+    name, letter = CONTROL_CHARACTERS[character]
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call}: {position} holds {name}, {character!r}, which is what \\{letter} "
+            "gives in a Python string.",
+            why=f"The Toolbox would write it as \\{letter}, which the warehouse reads back as "
+            f"the plain letter {letter}, so the value would quietly be a different one.",
+            fix=f"If you typed \\{letter} in a string, such as a Windows path, put r before "
+            "the quotes, as in r'D:\\logs\\alerts', or double the backslash. If the "
+            "character is really in your data, take it out of the value first.",
             opt_out=None,
         )
     )
@@ -210,12 +233,12 @@ def guard_cross_join(call: str, table: str) -> None:
 
 
 def guard_order_by_in_derived_table(name: str) -> None:
-    """ORDER_BY without LIMIT inside a Derived table does nothing on Hive 3. No opt-out."""
+    """ORDER_BY without LIMIT inside a Derived table may not be kept. No opt-out."""
     raise GuardRefused(
         four_part_message(
             what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
-            why="Hive ignores the order of rows inside a Derived table, so any order you rely "
-            "on later would not be there.",
+            why="The warehouse may not keep the order of rows inside a Derived table (Hive "
+            "never does), so any order you rely on later may not be there.",
             fix="Sort in the outermost Statement, or number the rows with row_number(...) "
             "and keep the ones you want.",
             opt_out=None,
@@ -234,7 +257,7 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
     raise GuardRefused(
         four_part_message(
             what=f"{call}: " + ", and ".join(problems) + ".",
-            why="Hive fills a table's columns by position, not by name, so a missing or extra "
+            why="The warehouse fills a table's columns by position, not by name, so a missing or extra "
             "column would put values in the wrong columns.",
             fix=f"SELECT every column of {table}'s Table reference except its Date partition, "
             "each under its own name. The Toolbox puts them in the right order.",
@@ -323,6 +346,56 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     )
 
 
+# --- Mix-ups between the two Editions --------------------------------------------------------
+
+# What each kind of object is called in a message, by its class's name.
+_CALLED = {"Table": "Table reference", "Column": "column", "Named": "column named with AS",
+           "Condition": "condition", "Clause": "clause", "Ordering": "descending(...)",
+           "Statement": "Statement"}
+
+
+def refuse_what_the_other_edition_made(value, call: str) -> None:
+    """Refuse an object the other Edition's folder made, before it is called the wrong kind of
+    thing.
+
+    The usual cause is a notebook that imports one folder, and a Table reference file that
+    imports the other. Each folder is known by the module the object's class is in, so this
+    names neither.
+    """
+    made_by = type(value).__module__.split(".")[0]
+    this = __name__.split(".")[0]
+    if made_by == this or not made_by.endswith("_composer"):
+        return
+    called = _CALLED.get(type(value).__name__, "object")
+    if getattr(value, "_statement", None) is not None:  # a Table made by derived(...)
+        called = "Derived table"
+    article = "an" if called[0] in "aeiou" else "a"
+    raise TypeError(four_part_message(
+        what=f"{call} was given {article} {called} made by {made_by}, but you called it from "
+        f"{this}.",
+        why="The two folders' objects don't mix: each works only with its own folder's "
+        "functions.",
+        fix=f"Import from one folder only, the one your notebook uses. For {made_by}, change "
+        f"your notebook's `from {this} import` to `from {made_by} import`. For {this}, change "
+        f"that line in the file the {called} came from.",
+        opt_out=None,
+    ))
+
+
+def refuse_a_spark_dataframe(result) -> None:
+    """Refuse what a send gave back when it is Spark's own DataFrame, where pandas' goes."""
+    # Asked of the class, since a pandas DataFrame gives any column as an attribute.
+    if not hasattr(type(result), "toPandas"):
+        return
+    raise TypeError(four_part_message(
+        what="Your send gave back a Spark DataFrame, where a pandas DataFrame goes.",
+        why="A Spark DataFrame hasn't fetched its rows yet, so there are none to count or to "
+        "read.",
+        fix="Make your send give back pandas: send=lambda hive: spark.sql(hive).toPandas().",
+        opt_out=None,
+    ))
+
+
 # --- Load limits: each protects the cluster or the notebook --------------------------------
 
 
@@ -341,8 +414,8 @@ def load_limit_date_bound(call: str, table: str, full_name: str, date_partition:
         four_part_message(
             what=f"{call} reads {full_name}, but nothing bounds its Date partition "
             f"{date_partition} at both ends.",
-            why="Hive would read every day the table holds, which can stall the cluster for "
-            "everyone.",
+            why="The warehouse would read every day the table holds, which can stall the "
+            "cluster for everyone.",
             fix=fix,
             opt_out=f"{call[:-1]}, reads_all_partitions=True)",
         )
@@ -350,19 +423,20 @@ def load_limit_date_bound(call: str, table: str, full_name: str, date_partition:
 
 
 def load_limit_order_by(sorts_everything: bool) -> None:
-    """ORDER_BY without LIMIT sorts the whole result on one machine."""
+    """ORDER_BY without LIMIT sorts the whole result before any of it comes back."""
     if sorts_everything:
         return
     raise LoadRefused(
         four_part_message(
             what="ORDER_BY has no LIMIT.",
-            why="Hive sorts the whole result on a single machine before sending any of it, "
-            "which is slow on a big result.",
+            why="Sorting the whole result makes the warehouse put every row in order before "
+            "any comes back, which is slow on a big result; pandas can sort the rows once you "
+            "have them.",
             fix="Sort in pandas after run(...), with df.sort_values(...). For a top N, add "
             "LIMIT(n).",
             opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
-            "to derived(...): Hive ignores the order of rows there, so it can't be switched "
-            "off.",
+            "to derived(...), where the order of rows may not be kept anyway, so this "
+            "refusal can't be switched off there.",
         )
     )
 

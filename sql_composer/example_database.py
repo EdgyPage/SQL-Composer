@@ -1,11 +1,14 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """The Example database: three made-up tables, and a send to run Statements on.
 
 It holds the Table references `jobs`, `job_runs` and `run_alerts`, their rows (two days,
-2026-09-23 and 2026-09-24), and `send`, which runs a Statement's Hive on sqlglot's own
-executor and returns a DataFrame, just like your own send at work. Nothing leaves Python,
-so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query;
-DESCRIBE and SHOW PARTITIONS work on any version.
+2026-09-23 and 2026-09-24), and `send`, which runs a Statement's Hive on a small database of
+the Toolbox's own and returns a DataFrame, just like your own send at work. It never reaches
+your warehouse, so it is safe to try anything here. Where it can't run a query, it says why.
+
+Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
+ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first.
+At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.
 
 >>> runs = example_database.job_runs
 >>> run(statement(
@@ -26,13 +29,12 @@ from __future__ import annotations
 import re
 
 import pandas as pd
-import sqlglot
-from sqlglot import exp
 
+from . import engine
 from .refusals import four_part_message
-from .tables import Table, hive_text
+from .tables import Table
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 # --- The Table references -----------------------------------------------------------------
 
@@ -70,7 +72,7 @@ run_alerts = Table(
     key=["alert_id"],
 )
 
-# Hive's column comments, which DESCRIBE returns.
+# The column comments DESCRIBE returns.
 _COMMENTS = {
     ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
     ("run_alerts", "severity"): "low / high",
@@ -115,9 +117,6 @@ _RUN_ALERTS = [
 _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "run_alerts": (run_alerts, _RUN_ALERTS)}
 
-_EXECUTOR_NEEDS = (30, 19, 0)
-
-
 def _table(name: str) -> tuple[Table, list]:
     short = name.strip().strip("`").split(".")[-1].strip("`")
     if short not in _TABLES:
@@ -131,7 +130,7 @@ def _table(name: str) -> tuple[Table, list]:
 
 
 def _describe(name: str) -> pd.DataFrame:
-    """What Hive's DESCRIBE prints: the columns, then the partition columns again."""
+    """What DESCRIBE prints: the columns, then the partition columns again."""
     table, _ = _table(name)
     rows = [(column, kind, _COMMENTS.get((table._alias, column), ""))
             for column, kind in table._columns.items()]
@@ -146,7 +145,7 @@ def _describe(name: str) -> pd.DataFrame:
 
 
 def _show_partitions(name: str) -> pd.DataFrame:
-    """What Hive's SHOW PARTITIONS prints: one row per day, like dt=2026-09-23."""
+    """What SHOW PARTITIONS prints: one row per day, like dt=2026-09-23."""
     table, rows = _table(name)
     if table._date_partition is None:
         raise ValueError(f"Table {table._name} is not a partitioned table.")
@@ -155,91 +154,63 @@ def _show_partitions(name: str) -> pd.DataFrame:
     return pd.DataFrame({"partition": [f"{table._date_partition}={day}" for day in days]})
 
 
-def _executor_ready() -> None:
-    """Stop with a plain message when sqlglot's executor would give wrong answers."""
-    found = sqlglot.__version__
-    numbers = re.match(r"(\d+)\.(\d+)\.(\d+)", found)
-    version = tuple(int(n) for n in numbers.groups()) if numbers else (0, 0, 0)
-    # Imported only when a query runs: the rest of the Toolbox never needs the executor.
-    from sqlglot.executor import execute
-
-    if version >= _EXECUTOR_NEEDS:
-        check = execute("SELECT COUNT(DISTINCT x) AS n FROM t", dialect="hive",
-                        tables={"t": [{"x": "a"}, {"x": "a"}, {"x": "b"}, {"x": None}]})
-        if check.rows == [(2,)]:
-            return
-    raise RuntimeError(four_part_message(
-        what="The Example database runs queries on sqlglot's own executor, which needs "
-        f"sqlglot 30.19.0 or newer to count correctly. This Python has sqlglot {found}.",
-        why="An older executor counts COUNT(DISTINCT ...) wrong, and says nothing.",
-        fix="The rest of the Toolbox works as usual: to_hive(...) still shows a Statement's "
-        "Hive. Only running queries on the Example database stops.",
-        opt_out=None,
-    ))
+# A string in single or double quotes, a name in backticks, or a comment to the end of its
+# line: what a query says, as opposed to what it is. Whichever starts first wins, as when Hive
+# reads it, so a -- inside a string is part of the string.
+_SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
 
 
-def _like_spelled_out(tree: exp.Expression) -> exp.Expression:
-    """Rewrite each escaped LIKE, since sqlglot's executor ignores LIKE's backslash.
+def _outside_brackets(text: str) -> str:
+    """The Hive with its comments, quoted text and everything inside brackets blanked out.
 
-    starts_with and contains put a backslash before % and _ so they match themselves. Hive
-    reads them that way, but the executor would still take _ for any one character.
+    What is left is the query itself: a window's OVER (...) and a Derived table's
+    WITH ... AS (...) are inside brackets, and a string can say anything.
     """
-    for like in list(tree.find_all(exp.Like)):
-        pattern = like.expression
-        if isinstance(pattern, exp.Literal) and pattern.is_string and "\\" in pattern.this:
-            like.replace(_matching_text(like.this, pattern.this))
-    return tree
+    said = _SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
+    depth, outside = 0, []
+    for character in said:
+        depth += {"(": 1, ")": -1}.get(character, 0)
+        outside.append(character if depth == 0 else " ")
+    return "".join(outside)
 
 
-def _matching_text(column: exp.Expression, pattern: str) -> exp.Expression:
-    """The same test as `column LIKE pattern`, for a pattern of text between optional %."""
-    parts, i = [], 0
-    while i < len(pattern):
-        if pattern[i] == "\\" and i + 1 < len(pattern):
-            parts.append(("text", pattern[i + 1]))
-            i += 2
-        else:
-            parts.append(("wild" if pattern[i] in "%_" else "text", pattern[i]))
-            i += 1
-    # Take a % off each end; what is left in the middle must be plain text.
-    leading = bool(parts) and parts[0] == ("wild", "%")
-    middle = parts[1:] if leading else parts
-    trailing = bool(middle) and middle[-1] == ("wild", "%")
-    middle = middle[:-1] if trailing else middle
-    if any(kind == "wild" for kind, _ in middle):
-        _cant_run(f"LIKE with a % or _ in the middle ({pattern!r})")
-    text = "".join(char for _, char in middle)
-    found = exp.Literal.string(text)
-    size = exp.Literal.number(len(text))
-    if leading and trailing:
-        return exp.GT(this=exp.StrPosition(this=column, substr=found),
-                      expression=exp.Literal.number(0))
-    if leading:
-        return exp.EQ(this=exp.Right(this=column, expression=size), expression=found)
-    if trailing:
-        return exp.EQ(this=exp.Left(this=column, expression=size), expression=found)
-    return exp.EQ(this=column, expression=found)
+def _command(words: list[str]) -> str:
+    """The word a query's command starts with: the first, or the first after WITH's tables.
+
+    After WITH come the Derived tables, `name AS (...)`, with a comma between each; the first
+    word after a closing bracket with no comma after it starts the command.
+    """
+    if words[:1] != ["WITH"]:
+        return words[0] if words else ""
+    for before, word in zip(words, words[1:]):
+        if before == ")" and word != ",":
+            return word
+    return ""
 
 
-def _missing_function(tree: exp.Expression, error: str) -> str:
-    """The Hive name of the function the executor didn't know, from its error."""
-    found = re.search(r"name '(\w+)' is not defined", error)
-    if found is not None:
-        for function in tree.find_all(exp.Func):
-            if function.key.upper() == found.group(1):
-                return hive_text(function).split("(")[0]
-    return f"what this needs ({error})"
+def _is_query(text: str) -> bool:
+    """Whether the Hive is one query that only reads.
+
+    Its command must be SELECT, and nothing may follow a `;`: a write, even after WITH, and a
+    second command are not queries.
+    """
+    words = [word.upper() for word in
+             re.findall(r"[A-Za-z_]+|[;),]", _outside_brackets(text).rstrip().rstrip(";"))]
+    return ";" not in words and _command(words) == "SELECT"
 
 
-def _cant_run(missing: str, error: Exception | None = None) -> None:
-    raise RuntimeError(four_part_message(
-        what=f"The Example database can't run this Hive: its executor has no {missing}.",
-        why="The Example database runs Hive on sqlglot's own small executor, which knows only "
-        "part of Hive. Hive at work knows all of it.",
-        fix="See the Hive with to_hive(...), and run it at work with your own send; or try "
-        "the Statement here without that part.",
-        opt_out=None,
-    )) from error
+def _sorts_itself(text: str) -> bool:
+    """Whether the Hive sorts its own rows: an ORDER BY outside every bracket.
+
+    An ORDER BY inside brackets belongs to a window or to a Derived table, and neither orders
+    the rows that come back.
+    """
+    return re.search(r"\bORDER\s+BY\b", _outside_brackets(text), re.IGNORECASE) is not None
+
+
+def _in_order(row: tuple) -> tuple:
+    """A row's place when the rows are sorted by every column, with NULL first."""
+    return tuple((value is not None, value) for value in row)
 
 
 def send(hive):
@@ -258,26 +229,18 @@ def send(hive):
         return _describe(words[-1])
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
         return _show_partitions(words[-1])
-    tree = sqlglot.parse_one(text, read="hive")
-    if not isinstance(tree, exp.Select):
+    if not _is_query(text):
         raise ValueError(four_part_message(
             what="The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it "
             "can't be written to.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers.",
-            fix="A write's Hive can still be shown with to_hive(...).",
+            fix="to_hive(...) shows a write's Hive without sending it, as in "
+            "to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) "
+            "builds, not text.",
             opt_out=None,
         ))
-    _executor_ready()
-    from sqlglot.executor import execute  # only when a query runs, as in _executor_ready
-
-    schema = {"ops": {name: dict(table._columns) for name, (table, _) in _TABLES.items()}}
-    tables = {"ops": {name: [dict(zip(table._columns, row)) for row in rows]
-                      for name, (table, rows) in _TABLES.items()}}
-    if tree.find(exp.Window):
-        _cant_run("window functions such as row_number")
-    try:
-        result = execute(_like_spelled_out(tree), schema=schema, tables=tables, dialect="hive")
-    except sqlglot.errors.ExecuteError as error:
-        _cant_run(_missing_function(tree, str(error)), error)
-    return pd.DataFrame(result.rows, columns=result.columns)
+    columns, rows = engine.run_query(text, _TABLES)
+    if not _sorts_itself(text):
+        rows = sorted(rows, key=_in_order)
+    return pd.DataFrame(rows, columns=columns)

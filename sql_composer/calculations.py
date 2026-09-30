@@ -1,4 +1,4 @@
-# SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit
+# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own
@@ -9,24 +9,34 @@ max. Each takes `where=` to count or add up only some rows.
 
 from __future__ import annotations
 
-import sqlglot
-from sqlglot import exp
-
 from .conditions import Condition
-from .refusals import four_part_message, guard_unsafe_regrouping
+from .refusals import (
+    four_part_message,
+    guard_unsafe_regrouping,
+    refuse_what_the_other_edition_made,
+)
 from .tables import (
     Column,
-    SIMPLE_NAME,
-    has_aggregate,
     hive_date_pattern,
-    hive_text,
-    identifier,
     is_date_partition,
     literal,
     made_by,
+    python_text,
 )
+from .trees import (
+    HIVE_AGGREGATES,
+    HIVE_FUNCTION_ARGUMENTS,
+    SIMPLE_NAME,
+    WINDOW_FUNCTIONS,
+    Node,
+    arguments_text,
+    has_aggregate,
+    number,
+    string,
+)
+from .writing import check_writable_call
 
-TOOLBOX_VERSION = "2.1"
+TOOLBOX_VERSION = "3.0"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 
@@ -34,6 +44,7 @@ DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 def _need_column(column, call: str) -> Column:
     if isinstance(column, Column):
         return column
+    refuse_what_the_other_edition_made(column, call)
     raise TypeError(
         four_part_message(
             what=f"{call} was given {column!r} where a column goes.",
@@ -44,11 +55,12 @@ def _need_column(column, call: str) -> Column:
     )
 
 
-def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expression:
+def _only_where(tree: Node, where, call: str, then=None) -> Node:
     """`tree`, or CASE WHEN where THEN tree END when only some rows count."""
     if where is None:
         return tree
     if not isinstance(where, Condition):
+        refuse_what_the_other_edition_made(where, call)
         raise TypeError(
             four_part_message(
                 what=f"{call}: where={where!r} isn't a condition.",
@@ -57,15 +69,17 @@ def _only_where(tree: exp.Expression, where, call: str, then=None) -> exp.Expres
                 opt_out=None,
             )
         )
-    return exp.Case(ifs=[exp.If(this=where._tree.copy(), true=then or tree)])
+    return Node("Case", ifs=[Node("If", this=where._tree.copy(), true=then or tree)])
 
 
-def _aggregate(name, node, column, where, *, adds_up=True, because=None,
+def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
-    call = f"{name}({column!r})"
+    call = f"{name}({python_text(column)})"
     column = _need_column(column, call)
     inner = _only_where(column._tree.copy(), where, call)
-    tree = node(this=exp.Distinct(expressions=[inner])) if distinct else node(this=inner)
+    if distinct:
+        inner = Node("Distinct", expressions=[inner])
+    tree = Node(kind, this=inner)
     made_by(tree, name, column, where=where)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
 
@@ -78,8 +92,9 @@ def count_rows(where=None):
     >>> count_rows(where=equals(job_runs.status, "FAILED"))
     COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END)
     """
-    tree = _only_where(exp.Star(), where, "count_rows(...)", then=exp.Literal.number(1))
-    return Column(made_by(exp.Count(this=tree), "count_rows", where=where), type="bigint",
+    tree = _only_where(Node("Star"), where, "count_rows(...)",
+                       then=number("1"))
+    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint",
                   aggregate=True)
 
 
@@ -92,7 +107,7 @@ def count_distinct(column, where=None):
     >>> count_distinct(job_runs.job_id)
     COUNT(DISTINCT job_runs.job_id)
     """
-    return _aggregate("count_distinct", exp.Count, column, where, adds_up=False,
+    return _aggregate("count_distinct", "Count", column, where, adds_up=False,
                       because="a distinct count", distinct=True)
 
 
@@ -108,10 +123,10 @@ def sum_of(column, where=None, adds_up=False):
     >>> sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))
     SUM(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END)
     """
-    call = f"sum_of({column!r})"
+    call = f"sum_of({python_text(column)})"
     column = _need_column(column, call)
-    guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate("sum_of", exp.Sum, column, where)
+    guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
+    return _aggregate("sum_of", "Sum", column, where)
 
 
 def average_of(column, where=None, adds_up=False):
@@ -125,10 +140,10 @@ def average_of(column, where=None, adds_up=False):
     >>> average_of(job_runs.duration_mins)
     AVG(job_runs.duration_mins)
     """
-    call = f"average_of({column!r})"
+    call = f"average_of({python_text(column)})"
     column = _need_column(column, call)
-    guard_unsafe_regrouping(call, repr(column), column._not_adding_up_because, adds_up)
-    return _aggregate("average_of", exp.Avg, column, where, adds_up=False,
+    guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
+    return _aggregate("average_of", "Avg", column, where, adds_up=False,
                       because="an average")
 
 
@@ -138,7 +153,7 @@ def min_of(column, where=None):
     >>> min_of(job_runs.duration_mins)
     MIN(job_runs.duration_mins)
     """
-    return _aggregate("min_of", exp.Min, column, where)
+    return _aggregate("min_of", "Min", column, where)
 
 
 def max_of(column, where=None):
@@ -147,7 +162,7 @@ def max_of(column, where=None):
     >>> max_of(job_runs.duration_mins)
     MAX(job_runs.duration_mins)
     """
-    return _aggregate("max_of", exp.Max, column, where)
+    return _aggregate("max_of", "Max", column, where)
 
 
 def _as_column(value, call: str) -> Column:
@@ -164,6 +179,7 @@ def if_else(condition, then, otherwise):
     """
     call = "if_else(...)"
     if not isinstance(condition, Condition):
+        refuse_what_the_other_edition_made(condition, call)
         raise TypeError(
             four_part_message(
                 what=f"if_else was given {condition!r} where a condition goes.",
@@ -174,8 +190,9 @@ def if_else(condition, then, otherwise):
             )
         )
     first, second = _as_column(then, call), _as_column(otherwise, call)
-    tree = exp.Case(
-        ifs=[exp.If(this=condition._tree.copy(), true=first._tree.copy())],
+    tree = Node(
+        "Case",
+        ifs=[Node("If", this=condition._tree.copy(), true=first._tree.copy())],
         default=second._tree.copy(),
     )
     made_by(tree, "if_else", condition, then, otherwise)
@@ -191,11 +208,11 @@ def fill_null(column, value):
     >>> fill_null(job_runs.status, "RUNNING")
     COALESCE(job_runs.status, 'RUNNING')
     """
-    call = f"fill_null({column!r}, ...)"
+    call = f"fill_null({python_text(column)}, ...)"
     column = _need_column(column, call)
     other = _as_column(value, call)
     return Column(
-        made_by(exp.Coalesce(this=column._tree.copy(), expressions=[other._tree.copy()]),
+        made_by(Node("Coalesce", this=column._tree.copy(), expressions=[other._tree.copy()]),
                 "fill_null", column, value),
         type=column._type,
         adds_up=column._adds_up,
@@ -204,42 +221,53 @@ def fill_null(column, value):
     )
 
 
-def _as_day(column: Column) -> exp.Expression:
+def _as_day(column: Column) -> Node:
     """A date column as a day Hive's date functions read ("2026-09-25")."""
     if not is_date_partition(column):
         return column._tree.copy()
     pattern = hive_date_pattern(column._table._date_format)
     if pattern == DEFAULT_HIVE_PATTERN:
         return column._tree.copy()
-    unix = exp.func("unix_timestamp", column._tree.copy(), exp.Literal.string(pattern),
-                    dialect="hive")
-    return exp.func("from_unixtime", unix, exp.Literal.string(DEFAULT_HIVE_PATTERN),
-                    dialect="hive")
+    unix = _call("unix_timestamp", column._tree.copy(), string(pattern))
+    return _call("from_unixtime", unix, string(DEFAULT_HIVE_PATTERN))
+
+
+def _call(name: str, *args: Node) -> Node:
+    """A call to one of Hive's date functions, such as next_day."""
+    return Node("Call", name=name, args=list(args))
 
 
 def week_start(column):
     """The Monday that starts each date's week, to group days into weeks.
 
-    Hive has no week function that works the same everywhere, so this takes the first
-    Monday after the day a week earlier. The result is a day like "2026-09-21".
+    Hive and Spark have no week function that works the same on both, so this takes the first
+    Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is
+    the day seven days before. The result is text, a day like "2026-09-21", whether your
+    warehouse runs the query on Hive or on Spark: Hive's NEXT_DAY gives text already, and
+    Spark's gives a date, so CAST(... AS STRING) makes it text there too. A Saved table's column
+    for it is typed "string".
 
     >>> week_start(job_runs.dt)
-    NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
+    CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     column = _need_column(column, "week_start(...)")
-    week_ago = exp.func("date_sub", _as_day(column), exp.Literal.number(7), dialect="hive")
-    tree = exp.func("next_day", week_ago, exp.Literal.string("MO"), dialect="hive")
+    week_ago = _call("date_sub", _as_day(column), number("7"))
+    tree = Node("Cast", this=_call("next_day", week_ago, string("MO")), to="STRING")
     return Column(made_by(tree, "week_start", column), type="string")
 
 
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
+    The result is text, a day like "2026-09-01", whether your warehouse runs the query on Hive
+    or on Spark: Hive's TRUNC gives text already, and Spark's gives a date, so CAST(... AS
+    STRING) makes it text there too. A Saved table's column for it is typed "string".
+
     >>> month_start(job_runs.dt)
-    TRUNC(job_runs.dt, 'MM')
+    CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
     """
     column = _need_column(column, "month_start(...)")
-    tree = exp.func("trunc", _as_day(column), exp.Literal.string("MM"), dialect="hive")
+    tree = Node("Cast", this=_call("trunc", _as_day(column), string("MM")), to="STRING")
     return Column(made_by(tree, "month_start", column), type="string")
 
 
@@ -266,17 +294,17 @@ def descending(column):
     return Ordering(column)
 
 
-def ordered(item, call: str) -> exp.Ordered:
+def ordered(item, call: str) -> Node:
     """The ORDER BY entry for a column, an output name or descending(...)."""
     descending_order = isinstance(item, Ordering)
     target = item._target if descending_order else item
     if isinstance(target, str):
-        tree = exp.column(identifier(target))
+        tree = Node("Column", name=target)
     else:
         tree = _need_column(target, call)._tree.copy()
-    # Hive puts NULL first when sorting up and last when sorting down; saying so keeps sqlglot
-    # from writing NULLS LAST or NULLS FIRST into the Hive.
-    return exp.Ordered(this=tree, desc=descending_order, nulls_first=not descending_order)
+    # Hive and Spark put NULL first when sorting up and last when sorting down; saying so
+    # keeps NULLS LAST and NULLS FIRST out of the Hive.
+    return Node("Ordered", this=tree, desc=descending_order, nulls_first=not descending_order)
 
 
 def _listed(items) -> list:
@@ -323,8 +351,8 @@ def row_number(*, PARTITION_BY, ORDER_BY):
     """
     call = "row_number(...)"
     groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
-    order = exp.Order(expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
-    tree = exp.Window(this=exp.RowNumber(), partition_by=groups, order=order)
+    order = Node("Order", expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
+    tree = Node("Window", this=Node("RowNumber"), partition_by=groups, order=order)
     made_by(tree, "row_number", PARTITION_BY=PARTITION_BY, ORDER_BY=ORDER_BY)
     return Column(tree, type="int", window=True)
 
@@ -332,9 +360,20 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
 
-    sqlglot may write a function under Hive's other name for it, or leave out an argument
-    that Hive fills in anyway: nvl comes out as COALESCE, and regexp_extract(col, pattern, 1)
-    without the 1, since group 1 is what Hive takes when none is given.
+    The Hive writes its name in capitals. It may also write another name that does the same,
+    as COALESCE for nvl, or leave out an argument that is filled in anyway, as
+    regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none
+    is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not
+    YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.
+
+    It checks the call before writing it:
+
+    - it refuses a call with the wrong number of arguments, for the functions it knows, such as
+      upper, substr or date_add;
+    - a function that turns many rows into one, such as collect_set or percentile, is treated
+      as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;
+    - it refuses a function that works only over a window of rows, written OVER (...) after
+      it, such as lag or rank, since it can't write OVER.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')
@@ -354,26 +393,56 @@ def hive_function(name, *args):
         literal(arg, call=call, position=f"argument {number}", in_condition=False)
         for number, arg in enumerate(args, start=1)
     ]
-    try:
-        tree = exp.func(name, *trees, dialect="hive")
-        # Read the call back once, as to_hive's self-check will: a few functions come back in
-        # sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot), which is then stable.
-        tree = sqlglot.parse_one(hive_text(tree), read="hive")
-    except (ValueError, TypeError, sqlglot.errors.ParseError) as error:
-        raise TypeError(
-            four_part_message(
-                what=f"{call} was given {len(args)} arguments, which don't fit {name}.",
-                why="sqlglot knows this Hive function and couldn't build it from these "
-                "arguments.",
-                fix=f"Check {name}'s arguments in Hive's documentation.",
-                opt_out=None,
-            )
-        ) from error
+    _check_function(name, len(trees), call)
+    check_writable_call(name, trees, call)
+    # Hive reads a function's name whatever its case, so "NVL" and "nvl" are one function.
+    tree = Node("HiveFunction", name=name.lower(), args=trees,
+                aggregate=name.lower() in HIVE_AGGREGATES)
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)
     return Column(tree, aggregate=has_aggregate(tree), window=any(p._window for p in parts),
                   adds_up=because is None, not_adding_up_because=because)
+
+
+def _check_function(name: str, count: int, call: str) -> None:
+    """Refuse a call Hive and Spark would stop on: a window function, or a count of arguments
+    HIVE_FUNCTION_ARGUMENTS in trees.py says the function doesn't take."""
+    if name.lower() in WINDOW_FUNCTIONS:
+        raise ValueError(four_part_message(
+            what=f"{call} calls {name}, which works only over a window of rows, written "
+            f"{name.upper()}(...) OVER (...).",
+            why="hive_function can't write OVER, and without it Hive and Spark stop the whole "
+            "Statement with an error.",
+            fix=_WINDOW_FIXES.get(name.lower(), "SELECT the columns it needs, and work it out "
+                                  "in pandas on the DataFrame run(...) gives back."),
+            opt_out=None,
+        ))
+    fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))
+    if count < fewest or (most is not None and count > most):
+        takes = arguments_text(fewest, most)
+        raise TypeError(four_part_message(
+            what=f"{call} gives {name} {arguments_text(count, count)}, and {name} takes "
+            f"{takes}.",
+            why="The warehouse would stop the whole Statement with an error when it runs.",
+            fix=f'Give hive_function {takes} after "{name}".',
+            opt_out=None,
+        ))
+
+
+# What to do instead of a window function, where pandas has a plain way.
+_IN_PANDAS = "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
+_WINDOW_FIXES = {
+    "row_number": "Use row_number(PARTITION_BY=..., ORDER_BY=...), which writes OVER itself.",
+    "lag": _IN_PANDAS + 'df.sort_values("dt").groupby("job_id")["runs"].shift(1) gives each '
+    "row the value of the row before it in its group.",
+    "lead": _IN_PANDAS + 'df.sort_values("dt").groupby("job_id")["runs"].shift(-1) gives each '
+    "row the value of the row after it in its group.",
+    "rank": _IN_PANDAS + 'df.groupby("job_id")["runs"].rank(method="min", ascending=False) '
+    "ranks each row in its group.",
+    "dense_rank": _IN_PANDAS + 'df.groupby("job_id")["runs"].rank(method="dense", '
+    'ascending=False) ranks each row in its group.',
+}
 
 
 __all__ = [

@@ -1,8 +1,8 @@
-<!-- SQL Composer 2.1, exported 2026-09-29 12:54 - generated from dev, do not edit -->
+<!-- SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SQL Composer 2.1: Example gallery</title>
+<title>SQL Composer 3.0: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -24,7 +24,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>SQL Composer 2.1: Example gallery</h1>
+<h1>SQL Composer 3.0: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
 63 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up
@@ -34,12 +34,14 @@ run it. Press Ctrl+F to search the page.</p>
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
-to get the results shown.</p>
+to get the results shown. <code>first_look(t)</code> reads your own yesterday too, so pasted, it
+shows no rows here.</p>
 <p>To paste a docstring's example, first run <code>from sql_composer import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
-examples on their own are scripts kept where the Toolbox is written, not in the
+examples on their own are scripts kept with the Toolbox's own source, not in the
 <code>sql_composer</code> folder. Each entry shows the Python that builds its Statements, but not
-the pandas that computes a result the Example database can't run. To try one, paste the top of
+the pandas that computes a result the Example database can't run.
+To try one, paste the top of
 its script, with the Table reference or Building block it imports pasted in place of its
 <code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the
 functions.</p>
@@ -52,7 +54,7 @@ functions.</p>
 <ul>
 <li><a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a></li>
 <li><a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a></li>
-<li><a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></li>
+<li><a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></li>
 <li><a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></li>
 <li><a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></li>
 <li><a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a></li>
@@ -152,8 +154,8 @@ HAVING
 </table></div><h4><code>two_longest_running_jobs()</code></h4><pre class="python">def two_longest_running_jobs():
     &quot;&quot;&quot;The 2 jobs with the most minutes in total (ORDER BY with LIMIT).
 
-    A sort needs a LIMIT: Hive sorts everything on one machine, so the Toolbox refuses a
-    sort that would bring back every row. To sort a whole result, sort it in pandas.
+    A sort needs a LIMIT: without one, the warehouse puts every row in order before any comes
+    back, so the Toolbox refuses a sort that would bring back every row. To sort a whole result, sort it in pandas.
     &quot;&quot;&quot;
     return statement(
         SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
@@ -258,7 +260,7 @@ JOIN ran
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>all_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="labels_and_counts">
-<h3>Label rows with if_else, fill NULL with fill_null, and count by condition.</h3>
+<h3>Label with if_else, fill NULL with fill_null, count by condition, and divide.</h3>
 <p class="why">Why: codes and NULLs make a result hard to read, and a count of each kind side by side gives one row per job instead of one row per job and status.</p>
 <p class="label">The top of its script, statements/labels_and_counts.py</p>
 <pre class="python">from sql_composer import (
@@ -332,6 +334,37 @@ GROUP BY
 <tr><td>1</td><td>3</td><td>0</td><td>0</td></tr>
 <tr><td>2</td><td>1</td><td>1</td><td>1</td></tr>
 <tr><td>3</td><td>1</td><td>1</td><td>0</td></tr>
+</table></div><h4><code>failed_share_per_job()</code></h4><pre class="python">def failed_share_per_job():
+    &quot;&quot;&quot;Each job&#x27;s failed runs as a percent of its runs: one count divided by another.
+
+    Divide after GROUP_BY, as one count by another, not an average of per-row values. Times
+    100.0 for a percent; / keeps the decimals even between two counts, in Hive and Spark alike
+    (DIV is the one that drops them). A division by 0 gives NULL, which pandas shows as NaN;
+    COUNT(*) of a group is never 0, so it can&#x27;t happen here.
+    &quot;&quot;&quot;
+    return statement(
+        SELECT(
+            job_runs.job_id,
+            AS(count_rows(where=equals(job_runs.status, &quot;FAILED&quot;)) * 100.0 / count_rows(),
+               &quot;failed_percent&quot;),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),
+        GROUP_BY(job_runs.job_id),
+    )</pre><p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.job_id,
+  (
+    COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END) * 100.0
+  ) / COUNT(*) AS failed_percent
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>failed_percent</th></tr>
+<tr><td>1</td><td>0.0</td></tr>
+<tr><td>2</td><td>33.333333333333336</td></tr>
+<tr><td>3</td><td>50.0</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>if_else</code>, <code>fill_null</code>, <code>example_database</code></p>
 </section>
@@ -473,7 +506,7 @@ runs_to_review = Table(
 <h4><code>create()</code></h4><pre class="python">def create():
     &quot;&quot;&quot;Step 1, once: create the table from its Table reference.
 
-    Hive refuses if the table already exists. That is on purpose: after you edit the Table
+    The warehouse refuses if the table already exists. That is on purpose: after you edit the Table
     reference, sending this again can&#x27;t quietly look like it changed the real table.
     &quot;&quot;&quot;
     return create_table(runs_to_review)</pre><p class="label">Hive</p><pre class="hive">CREATE TABLE mart.runs_to_review (
@@ -723,7 +756,6 @@ WHERE
 <section class="entry" id="latest_and_top_n">
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
-<p>The Example database can&#x27;t run row_number, so the results of fixed() and top_runs_per_job() below are computed in pandas, not by running this Hive.</p>
 <p class="label">The top of its script, statements/latest_and_top_n.py</p>
 <pre class="python">from sql_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
@@ -829,10 +861,10 @@ FROM numbered
 WHERE
   numbered.longest_first &lt;= 2</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>duration_mins</th></tr>
-<tr><td>1</td><td>104</td><td>40</td></tr>
 <tr><td>1</td><td>95</td><td>12</td></tr>
-<tr><td>2</td><td>102</td><td>20</td></tr>
+<tr><td>1</td><td>104</td><td>40</td></tr>
 <tr><td>2</td><td>96</td><td>18</td></tr>
+<tr><td>2</td><td>102</td><td>20</td></tr>
 <tr><td>3</td><td>97</td><td>30</td></tr>
 <tr><td>3</td><td>103</td><td>30</td></tr>
 </table></div>
@@ -949,7 +981,7 @@ LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
 <p class="label">A Guard refuses it</p>
 <pre class="refusal">GuardRefused:
   What happened:  is_not_in(job_runs.job_id, ...): item 2 is nan.
-  Why it matters: Hive has no way to write NaN or infinity: NaN would turn into NULL, which matches nothing, and inf would be read as a column name.
+  Why it matters: There is no way to write NaN or infinity as a number in the Hive: inf would be read as a column&#x27;s name, and NaN has no spelling at all.
   Usual fix:      Drop NaN and infinite values first, for example with pandas&#x27; dropna().
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p class="note">It has no opt-out, so there is no Hive to run.</p></div>
@@ -1074,7 +1106,6 @@ WHERE
 <section class="entry" id="regrouping">
 <h3>Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</h3>
 <p class="why">Why: a job that ran on two days is in both days&#x27; counts, so adding them up counts it twice.</p>
-<p>The Example database can&#x27;t run week_start, so the results below are computed in pandas, not by running this Hive.</p>
 <p class="label">The top of its script, statements/regrouping.py</p>
 <pre class="python">import pandas as pd
 
@@ -1142,11 +1173,11 @@ def jobs_per_day(first_day, last_day):
     job_runs.dt
 )
 SELECT
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS week,
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
   SUM(jobs_per_day.jobs_that_ran) AS jobs_that_ran
 FROM jobs_per_day
 GROUP BY
-  NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  CAST(NEXT_DAY(DATE_ADD(jobs_per_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>6</td></tr>
 </table></div></div>
@@ -1159,13 +1190,13 @@ GROUP BY
         WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),
         GROUP_BY(&quot;week&quot;),
     )</pre><p class="label">Hive</p><pre class="hive">SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
   COUNT(DISTINCT job_runs.job_id) AS jobs_that_ran
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>3</td></tr>
 </table></div></div>
@@ -1278,25 +1309,25 @@ WHERE
 <h2 id="docstrings">Examples from the docstrings</h2>
 <section class="entry" id="TOOLBOX_VERSION">
 <h3><code>TOOLBOX_VERSION</code> and <code>VERSION</code></h3>
-<p class="why">SQL Composer: write Hive SQL as Python, one clause function per SQL clause.</p>
+<p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, or from another version or export, or if this Python or its sqlglot won&#x27;t work with it, it stops and says what happened, why it matters and the usual fix.</p>
+<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;2.1&#x27;</pre>
+<pre class="output">&#x27;3.0&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;SQL Composer 2.1, ...&#x27;</pre>
+<pre class="output">&#x27;SQL Composer 3.0, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
 <h3><code>Table</code></h3>
 <p class="why">A Table reference: one table&#x27;s columns and types, Date partition and key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
-<ul><li><code>columns</code> maps each column to its Hive type as Hive prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
-<p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;).</p>
+<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
+<p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
 <pre class="output">Table(&#x27;ops.job_runs&#x27;, columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)</pre>
@@ -1313,8 +1344,8 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 </section>
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
-<p class="why">Write a new Table reference file for a table, from Hive&#x27;s own description of it.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
+<p class="why">Write a new Table reference file for a table, from what DESCRIBE says of it.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
 <pre class="python">print(path.read_text())</pre>
 <p class="label">Python shows</p>
@@ -1364,7 +1395,7 @@ LIMIT 20</pre>
 <section class="entry" id="check_key">
 <h3><code>check_key</code></h3>
 <p class="why">Check on the newest day that no two rows share the table&#x27;s declared key.</p>
-<p>JOIN relies on a declared key to warn about repeated rows, and Hive never enforces one. This counts rows per key over one day (the newest in SHOW PARTITIONS), 20 at most.</p>
+<p>JOIN relies on a declared key to warn about repeated rows, and the warehouse never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
 <pre class="python">check_key(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
@@ -1381,8 +1412,8 @@ LIMIT 20</pre>
 </section>
 <section class="entry" id="check_table_reference">
 <h3><code>check_table_reference</code></h3>
-<p class="why">Compare a Table reference with its table in Hive, and list what differs.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code>, and lists problems (which make Statements wrong) and notes (which may not matter), each with the line to change in the Table reference file. It never edits the file and never refuses anything: a table Hive can&#x27;t describe, or a send that fails, is reported too. Comments, the key and does_not_add_up aren&#x27;t compared.</p>
+<p class="why">Compare a Table reference with its table as it is now, and list what differs.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code>, and lists problems (which make Statements wrong) and notes (which may not matter), each with the line to change in the Table reference file. The columns and their types come from DESCRIBE, and the Date partition&#x27;s date_format is checked against the newest day SHOW PARTITIONS lists. It never edits the file and never refuses anything: a table the warehouse can&#x27;t describe, or a send that fails, is reported too. Comments, the key and does_not_add_up aren&#x27;t compared.</p>
 <pre class="python">check_table_reference(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.job_runs matches its Table reference.</pre>
@@ -1401,7 +1432,7 @@ Notes:
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE TABLE Statement for a Saved table, from its Table reference.</p>
-<p>Send it once with run(create_table(t), send=...). Every column needs a type. If the table already exists, Hive refuses with AlreadyExistsException. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
+<p>Send it once with run(create_table(t), send=...). Every column needs a type Hive and Spark both have, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(create_table(daily_runs)))</pre>
@@ -1475,10 +1506,10 @@ GROUP BY
   job_runs.status</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>status</th><th>runs</th></tr>
+<tr><td><i>NULL</i></td><td>1</td></tr>
 <tr><td>FAILED</td><td>2</td></tr>
 <tr><td>SUCCESS</td><td>5</td></tr>
 <tr><td>TEST</td><td>1</td></tr>
-<tr><td><i>NULL</i></td><td>1</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
@@ -1505,7 +1536,7 @@ FROM ops.jobs AS jobs</pre>
 <section class="entry" id="AS">
 <h3><code>AS</code></h3>
 <p class="why">Give a calculation its name in the result, or a table a second name.</p>
-<p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. Hive&#x27;s / always gives a decimal number (7 / 2 is 3.5), and gives NULL rather than an error when dividing by zero.</p>
+<p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. / divides as Python&#x27;s / does, so 7 / 2 is 3.5, and dividing by zero gives NULL rather than an error.</p>
 <pre class="python">AS(count_rows(), &quot;runs&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">COUNT(*) AS runs</pre>
@@ -1514,7 +1545,7 @@ FROM ops.jobs AS jobs</pre>
 <pre class="output">job_runs.duration_mins / 60 AS hours</pre>
 <p>A table named twice in one Statement, such as a table joined to itself, needs a second name for one of them: AS(job_runs, &quot;earlier&quot;) is read as FROM ops.job_runs AS earlier.</p>
 <p class="names">Toolbox names used: <code>AS</code>, <code>count_rows</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="FROM">
 <h3><code>FROM</code></h3>
@@ -1567,14 +1598,14 @@ WHERE
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>team</th></tr>
 <tr><td>95</td><td>data</td></tr>
+<tr><td>96</td><td>finance</td></tr>
+<tr><td>97</td><td>finance</td></tr>
+<tr><td>98</td><td>finance</td></tr>
 <tr><td>99</td><td>data</td></tr>
 <tr><td>101</td><td>data</td></tr>
-<tr><td>104</td><td>data</td></tr>
-<tr><td>96</td><td>finance</td></tr>
-<tr><td>98</td><td>finance</td></tr>
 <tr><td>102</td><td>finance</td></tr>
-<tr><td>97</td><td>finance</td></tr>
 <tr><td>103</td><td>finance</td></tr>
+<tr><td>104</td><td>data</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>JOIN</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
@@ -1629,22 +1660,22 @@ FROM ops.jobs AS jobs
 CROSS JOIN ops.jobs AS other</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_name</th><th>other_job</th></tr>
-<tr><td>nightly_load</td><td>nightly_load</td></tr>
-<tr><td>nightly_load</td><td>invoice_sync</td></tr>
-<tr><td>nightly_load</td><td>report_build</td></tr>
-<tr><td>nightly_load</td><td>cache_warm</td></tr>
-<tr><td>invoice_sync</td><td>nightly_load</td></tr>
-<tr><td>invoice_sync</td><td>invoice_sync</td></tr>
-<tr><td>invoice_sync</td><td>report_build</td></tr>
-<tr><td>invoice_sync</td><td>cache_warm</td></tr>
-<tr><td>report_build</td><td>nightly_load</td></tr>
-<tr><td>report_build</td><td>invoice_sync</td></tr>
-<tr><td>report_build</td><td>report_build</td></tr>
-<tr><td>report_build</td><td>cache_warm</td></tr>
-<tr><td>cache_warm</td><td>nightly_load</td></tr>
-<tr><td>cache_warm</td><td>invoice_sync</td></tr>
-<tr><td>cache_warm</td><td>report_build</td></tr>
 <tr><td>cache_warm</td><td>cache_warm</td></tr>
+<tr><td>cache_warm</td><td>invoice_sync</td></tr>
+<tr><td>cache_warm</td><td>nightly_load</td></tr>
+<tr><td>cache_warm</td><td>report_build</td></tr>
+<tr><td>invoice_sync</td><td>cache_warm</td></tr>
+<tr><td>invoice_sync</td><td>invoice_sync</td></tr>
+<tr><td>invoice_sync</td><td>nightly_load</td></tr>
+<tr><td>invoice_sync</td><td>report_build</td></tr>
+<tr><td>nightly_load</td><td>cache_warm</td></tr>
+<tr><td>nightly_load</td><td>invoice_sync</td></tr>
+<tr><td>nightly_load</td><td>nightly_load</td></tr>
+<tr><td>nightly_load</td><td>report_build</td></tr>
+<tr><td>report_build</td><td>cache_warm</td></tr>
+<tr><td>report_build</td><td>invoice_sync</td></tr>
+<tr><td>report_build</td><td>nightly_load</td></tr>
+<tr><td>report_build</td><td>report_build</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>CROSS_JOIN</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>statement</code>, <code>to_hive</code></p>
 </section>
@@ -1681,16 +1712,16 @@ WHERE
 )))</pre>
 <p class="label">Hive</p>
 <pre class="output">SELECT
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS week,
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no NEXT_DAY.</p>
 <p class="names">Toolbox names used: <code>GROUP_BY</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>week_start</code>, <code>to_hive</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="HAVING">
 <h3><code>HAVING</code></h3>
@@ -1724,7 +1755,7 @@ HAVING
 <section class="entry" id="ORDER_BY">
 <h3><code>ORDER_BY</code></h3>
 <p class="why">Sort the result; it needs a LIMIT, and sorting in pandas is usually better.</p>
-<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since Hive sorts everything on one machine: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: Hive ignores the order of rows there, so a Statement that reads it can&#x27;t rely on that order.</p>
+<p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since it makes the warehouse put every row in order before any comes back: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there may not be kept, so a Statement that reads it can&#x27;t rely on that order.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
     FROM(job_runs),
@@ -1765,8 +1796,8 @@ FROM ops.jobs AS jobs
 LIMIT 2</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_name</th></tr>
-<tr><td>nightly_load</td></tr>
 <tr><td>invoice_sync</td></tr>
+<tr><td>nightly_load</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>LIMIT</code>, <code>SELECT</code>, <code>FROM</code>, <code>statement</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a></p>
@@ -1774,7 +1805,7 @@ LIMIT 2</pre>
 <section class="entry" id="INSERT_OVERWRITE">
 <h3><code>INSERT_OVERWRITE</code></h3>
 <p class="why">Write the Statement&#x27;s rows into one day of a Saved table, replacing that day.</p>
-<p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. On Hive 2.3 and 3.1 under Tez, a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
+<p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(
@@ -1856,7 +1887,7 @@ WHERE
 <section class="entry" id="derived">
 <h3><code>derived</code></h3>
 <p class="why">Name a Statement so another Statement can read it like a table.</p>
-<p>You then use its output columns like a Table reference&#x27;s, as runs_per_job.runs, and a typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH runs_per_job AS (...). Hive works it out again each time the Statement reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.</p>
+<p>You then use its output columns like a Table reference&#x27;s, as runs_per_job.runs, and a typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH runs_per_job AS (...). The warehouse usually works it out again each time the Statement reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.</p>
 <pre class="python">runs_per_job = derived(&quot;runs_per_job&quot;, statement(
     SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -1887,8 +1918,8 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = runs_per_job.job_id</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_name</th><th>runs</th></tr>
-<tr><td>nightly_load</td><td>4</td></tr>
 <tr><td>invoice_sync</td><td>3</td></tr>
+<tr><td>nightly_load</td><td>4</td></tr>
 <tr><td>report_build</td><td>2</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code></p>
@@ -1905,7 +1936,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.status = &#x27;O\&#x27;Brien&#x27;</pre>
 <p class="names">Toolbox names used: <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="not_equals">
 <h3><code>not_equals</code></h3>
@@ -1924,7 +1955,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.status IS NULL</pre>
 <p class="names">Toolbox names used: <code>is_null</code></p>
-<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a></p>
+<p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a></p>
 </section>
 <section class="entry" id="is_not_null">
 <h3><code>is_not_null</code></h3>
@@ -1960,7 +1991,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.duration_mins &gt; 30</pre>
 <p class="names">Toolbox names used: <code>more_than</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
 <section class="entry" id="less_than">
 <h3><code>less_than</code></h3>
@@ -1978,7 +2009,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">job_runs.dt BETWEEN &#x27;2026-09-01&#x27; AND &#x27;2026-09-24&#x27;</pre>
 <p class="names">Toolbox names used: <code>between</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="last_n_days">
 <h3><code>last_n_days</code></h3>
@@ -2056,7 +2087,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END)</pre>
 <p class="names">Toolbox names used: <code>count_rows</code>, <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="count_distinct">
 <h3><code>count_distinct</code></h3>
@@ -2114,7 +2145,7 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 ELSE 0 END</pre>
 <p class="names">Toolbox names used: <code>if_else</code>, <code>equals</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
 <section class="entry" id="fill_null">
 <h3><code>fill_null</code></h3>
@@ -2123,15 +2154,15 @@ JOIN ops.jobs AS jobs
 <p class="label">Hive</p>
 <pre class="output">COALESCE(job_runs.status, &#x27;RUNNING&#x27;)</pre>
 <p class="names">Toolbox names used: <code>fill_null</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label rows with if_else, fill NULL with fill_null, and count by condition.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>
 <p class="why">The Monday that starts each date&#x27;s week, to group days into weeks.</p>
-<p>Hive has no week function that works the same everywhere, so this takes the first Monday after the day a week earlier. The result is a day like &quot;2026-09-21&quot;.</p>
+<p>Hive and Spark have no week function that works the same on both, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;, whether your warehouse runs the query on Hive or on Spark: Hive&#x27;s NEXT_DAY gives text already, and Spark&#x27;s gives a date, so CAST(... AS STRING) makes it text there too. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
-<pre class="output">NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;)</pre>
+<pre class="output">CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
 <p class="label">week_start(job_runs.dt) on each day of the Example database, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>week_start(dt)</th></tr>
 <tr><td>2026-09-23</td><td>2026-09-21</td></tr>
@@ -2143,9 +2174,10 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="month_start">
 <h3><code>month_start</code></h3>
 <p class="why">The first day of each date&#x27;s month, to group days into months.</p>
+<p>The result is text, a day like &quot;2026-09-01&quot;, whether your warehouse runs the query on Hive or on Spark: Hive&#x27;s TRUNC gives text already, and Spark&#x27;s gives a date, so CAST(... AS STRING) makes it text there too. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
 <pre class="python">month_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
-<pre class="output">TRUNC(job_runs.dt, &#x27;MM&#x27;)</pre>
+<pre class="output">CAST(TRUNC(job_runs.dt, &#x27;MM&#x27;) AS STRING)</pre>
 <p class="names">Toolbox names used: <code>month_start</code></p>
 </section>
 <section class="entry" id="row_number">
@@ -2204,7 +2236,9 @@ WHERE
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
 <p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with its arguments escaped.</p>
-<p>sqlglot may write a function under Hive&#x27;s other name for it, or leave out an argument that Hive fills in anyway: nvl comes out as COALESCE, and regexp_extract(col, pattern, 1) without the 1, since group 1 is what Hive takes when none is given.</p>
+<p>The Hive writes its name in capitals. It may also write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
+<p>It checks the call before writing it:</p>
+<ul><li>it refuses a call with the wrong number of arguments, for the functions it knows, such as upper, substr or date_add;</li><li>a function that turns many rows into one, such as collect_set or percentile, is treated as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;</li><li>it refuses a function that works only over a window of rows, written OVER (...) after it, such as lag or rank, since it can&#x27;t write OVER.</li></ul>
 <pre class="python">hive_function(&quot;regexp_replace&quot;, jobs.job_name, &quot;_&quot;, &quot; &quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">REGEXP_REPLACE(jobs.job_name, &#x27;_&#x27;, &#x27; &#x27;)</pre>
@@ -2213,7 +2247,7 @@ WHERE
 <section class="entry" id="to_hive">
 <h3><code>to_hive</code></h3>
 <p class="why">The Hive string for a Statement, ready to send.</p>
-<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. sqlglot writes a few functions its own way, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.</p>
+<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. The Hive may write a function differently from how you would by hand, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
@@ -2237,7 +2271,7 @@ WHERE
 <section class="entry" id="run">
 <h3><code>run</code></h3>
 <p class="why">Send a Statement&#x27;s Hive through your <code>send</code> function and return what comes back.</p>
-<p><code>send</code> is your own function from a Hive string to a DataFrame. At work it calls the query API; example_database.send runs the Example database instead.</p>
+<p><code>send</code> is your own function from a Hive string to a pandas DataFrame. At work it calls the query API, or, where your notebook runs Spark, is lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database instead.</p>
 <pre class="python">run(statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     FROM(job_runs),
@@ -2300,10 +2334,10 @@ GROUP BY
   job_runs.status</pre>
 <p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>status</th><th>runs</th></tr>
+<tr><td>2026-09-23</td><td><i>NULL</i></td><td>1</td></tr>
 <tr><td>2026-09-23</td><td>FAILED</td><td>1</td></tr>
 <tr><td>2026-09-23</td><td>SUCCESS</td><td>2</td></tr>
 <tr><td>2026-09-23</td><td>TEST</td><td>1</td></tr>
-<tr><td>2026-09-23</td><td><i>NULL</i></td><td>1</td></tr>
 </table></div>
 <p class="label">Result of Statement 2 of 2 on the Example database</p><div class="scroll"><table class="result">
 <tr><th>dt</th><th>status</th><th>runs</th></tr>
@@ -2334,7 +2368,7 @@ GROUP BY
 ...
 sql_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
-  Why it matters: Hive would call it _c0, and that is the name pandas would show you.
+  Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
   Opt-out:        none - a calculation always needs a name.</pre>
 <p class="names">Toolbox names used: <code>GuardRefused</code>, <code>SELECT</code>, <code>count_rows</code></p>
@@ -2349,7 +2383,7 @@ sql_composer.refusals.GuardRefused:
 ...
 sql_composer.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
-  Why it matters: Hive would read every day the table holds, which can stall the cluster for everyone.
+  Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
   Opt-out:        FROM(job_runs, reads_all_partitions=True)</pre>
 <p class="names">Toolbox names used: <code>LoadRefused</code>, <code>SELECT</code>, <code>FROM</code>, <code>statement</code></p>
@@ -2394,7 +2428,8 @@ GROUP BY
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
 <p class="why">The Example database: three made-up tables, and a send to run Statements on.</p>
-<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on sqlglot&#x27;s own executor and returns a DataFrame, just like your own send at work. Nothing leaves Python, so it is safe to try anything here. It needs sqlglot 30.19.0 or newer to run a query; DESCRIBE and SHOW PARTITIONS work on any version.</p>
+<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
+<p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(
     SELECT(runs.run_id, runs.status, runs.duration_mins),
