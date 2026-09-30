@@ -22,7 +22,7 @@ def test_each_edition_has_its_folder_product_and_library() -> None:
     assert list(editions.EDITIONS) == ["sql_composer", "spark_composer"]
     assert (SQL_COMPOSER.product, SQL_COMPOSER.library) == ("SQL Composer", "sqlglot")
     assert (SPARK_COMPOSER.product, SPARK_COMPOSER.library) == ("Spark Composer", "pyspark")
-    assert editions.EXPORTED == (SQL_COMPOSER,)
+    assert editions.EXPORTED == (SQL_COMPOSER, SPARK_COMPOSER)
 
 
 def test_every_file_in_the_sql_composer_folder_is_classified() -> None:

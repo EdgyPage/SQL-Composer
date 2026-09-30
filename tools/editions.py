@@ -54,8 +54,8 @@ EDITIONS = {edition.folder: edition for edition in (SQL_COMPOSER, SPARK_COMPOSER
 # Each Edition by its `--edition` name.
 BY_OPTION = {edition.option: edition for edition in EDITIONS.values()}
 
-# The Editions the export ships to `main`. Spark Composer joins them in 3.0.
-EXPORTED = (SQL_COMPOSER,)
+# The Editions the export ships to `main`: both, from 3.0.
+EXPORTED = (SQL_COMPOSER, SPARK_COMPOSER)
 
 SHARED_FILES = ("__init__.py", "calculations.py", "clauses.py", "conditions.py",
                 "example_database.py", "lineage.py", "refusals.py", "running.py", "tables.py",
@@ -99,9 +99,11 @@ class Difference:
     for text Spark Composer adds to SQL Composer's Hive, which its readable_text leaves out.
     tests/repo/test_edition_parity.py holds that the two goldens differ in no other case, that
     each listed case really differs, and that with what Spark Composer adds left out, a case
-    differs only if a row that adds nothing lists it.
+    differs only if a row that adds nothing lists it. `title` names what differs, for the
+    README's list.
     """
 
+    title: str
     why: str
     sql_composer: str
     spark_composer: str
@@ -112,6 +114,7 @@ class Difference:
 # Each place the two Editions differ on purpose.
 DECLARED_DIFFERENCES = {
     "division": Difference(
+        title="Dividing by a column.",
         why="Spark stops the whole query with an error when it divides by 0, where Hive gives "
         "NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when "
         "y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is "
@@ -123,6 +126,7 @@ DECLARED_DIFFERENCES = {
         spark_composer_adds=True,
     ),
     "float": Difference(
+        title="A Python float.",
         why="Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, "
         "where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python float as "
         "0.5D: the D marks a DOUBLE, and doesn't mean days. A number written with e, such as "
@@ -134,6 +138,7 @@ DECLARED_DIFFERENCES = {
         spark_composer_adds=True,
     ),
     "hive_function": Difference(
+        title="A hive_function call.",
         why="SQL Composer has sqlglot read a hive_function call back, and writes the call as "
         "sqlglot does: sometimes by another name that does the same, such as COALESCE for nvl, "
         "and sometimes with an argument changed, such as a date_format pattern 'YYYY-MM' "
