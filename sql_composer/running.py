@@ -25,7 +25,7 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
 )
-from .tables import aliased, source
+from .tables import aliased, source, table_node
 from .trees import Node, combined
 
 TOOLBOX_VERSION = "2.1"
@@ -76,9 +76,8 @@ def _output(column, name: str) -> Node:
 
 def _join_tree(read) -> Node:
     """One JOIN, LEFT_JOIN or CROSS_JOIN clause."""
-    return Node("Join", this=source(read.table),
-                on=None if read.on is None else read.on._tree.copy(),
-                left=read._name == "LEFT_JOIN", cross=read._name == "CROSS_JOIN")
+    return Node("Join", how=read._name.replace("_", " "), this=source(read.table),
+                on=None if read.on is None else read.on._tree.copy())
 
 
 def _all_of(conditions: list) -> Node | None:
@@ -101,16 +100,15 @@ def _select_tree(s: Statement) -> Node:
         where=_all_of(s._where),
         group_by=[c._tree.copy() for c in s._group_by],
         having=_all_of(s._having),
-        order_by=Node("Order", expressions=[o.copy() for o in s._order_by]) if s._order_by
-        else None,
+        order_by=[o.copy() for o in s._order_by],
         limit=s._limit,
     )
 
 
 def _with(tree: Node, s: Statement) -> Node:
     """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
-    tree.set("with_tables", [Node("CTE", this=_select_tree(table._statement), alias=table._name)
-                             for table in derived_tables(s)])
+    tree.set("derived_tables", [Node("CTE", this=_select_tree(table._statement),
+                                     alias=table._name) for table in derived_tables(s)])
     return tree
 
 
@@ -186,7 +184,7 @@ def _write_tree(s: Statement) -> Node:
         Node("EQ", this=Node("Column", name=table._date_partition),
              expression=Node("Literal", this=day, is_string=True)),
     ])
-    return Node("Insert", table=Node("Table", name=table._name, partition=partition),
+    return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
 
 

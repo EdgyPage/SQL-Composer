@@ -54,7 +54,8 @@ def plain_name(name: str) -> bool:
 
 # --- The kinds of Node ---------------------------------------------------------------------
 
-# Each kind, and the parts it holds, in the order they are written and walked.
+# Each kind, and the parts it holds, in the order they are written. A walk goes through the
+# parts that hold Nodes in this order.
 KINDS = {
     # Leaves: a column, a value, and the pieces with no parts.
     "Column": ("name", "table"),
@@ -103,16 +104,19 @@ KINDS = {
     # whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
     # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
-    "Select": ("with_tables", "outputs", "distinct", "source", "joins", "where", "group_by",
+    # A Select's parts are its clauses; group_by and order_by are lists, and limit a number.
+    "Select": ("derived_tables", "outputs", "distinct", "source", "joins", "where", "group_by",
                "having", "order_by", "limit"),
-    "Table": ("name", "partition", "alias"),
-    "Join": ("this", "on", "left", "cross"),
+    # A table by its database and its name, as in ops.job_runs, and the name FROM gives it.
+    "Table": ("db", "name", "partition", "alias"),
+    # how: "JOIN", "LEFT JOIN" or "CROSS JOIN".
+    "Join": ("how", "this", "on"),
     "CTE": ("this", "alias"),
     "Partition": ("expressions",),
-    "Insert": ("with_tables", "table", "select", "overwrite"),
-    "Create": ("table", "columns", "partitioned_by", "exists"),
+    "Insert": ("derived_tables", "target", "select", "overwrite"),
+    "Create": ("target", "columns", "partitioned_by", "exists"),
     "ColumnDef": ("name", "type"),
-    "Drop": ("table",),
+    "Drop": ("target",),
 }
 
 # The date functions a Call may name: the ones week_start and month_start write.
