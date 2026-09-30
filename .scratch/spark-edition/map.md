@@ -133,6 +133,9 @@ uses.
 - [Say only what is true of both Editions](issues/14-say-only-what-is-true-of-both-editions.md):
   every Hive-only claim in a shared file holds on Spark too, "the warehouse" is a glossary word,
   and no shared file names sqlglot.
+- [Generate spark_composer](issues/15-generate-spark-composer.md): `tools/make_spark_edition.py`
+  writes Spark Composer's shared files from SQL Composer's; its engine checks pyspark on import,
+  and repo tests hold the copies current, the versions in lockstep and the interface the same.
 
 ## Not yet specified
 

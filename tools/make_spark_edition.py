@@ -3,10 +3,10 @@
     python tools/make_spark_edition.py
 
 Each shared file goes through `editions.swap()`, which changes the folder's and the product's
-names and refuses anything it can't be sure of; `CHANGES.md` is copied as it is. The Edition
-files, `writing.py` and `engine.py`, are Spark Composer's own and are left alone, and so is its
-`examples.html`, which `tools/example_gallery.py --edition spark` writes. Running this twice
-changes nothing. A test fails while a copy is stale, and names this command.
+names and refuses anything it can't be sure of; `CHANGES.md` is copied byte for byte. The
+Edition files, `writing.py` and `engine.py`, are Spark Composer's own and are left alone, and so
+is its `examples.html`, the Example gallery page, which this tool never writes. Running this
+twice changes nothing. A test fails while a copy is stale, and names this command.
 """
 
 from __future__ import annotations
@@ -35,8 +35,13 @@ def main() -> int:
     except editions.SwapRefused as refused:
         print(f"Nothing was written: {refused}", file=sys.stderr)
         return 1
+    source = ROOT / editions.SQL_COMPOSER.folder
     for name, text in files.items():
-        (target / name).write_text(text, encoding="utf-8", newline="\n")
+        if name in editions.VERBATIM_FILES:
+            # Byte for byte, whatever line endings this checkout gave the original.
+            (target / name).write_bytes((source / name).read_bytes())
+        else:
+            (target / name).write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {len(files)} files in {editions.SPARK_COMPOSER.folder}/.")
     return 0
 

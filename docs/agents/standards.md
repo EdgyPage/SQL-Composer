@@ -32,4 +32,5 @@ Both Editions show a user the same thing: the same names, messages, docstrings a
 examples, and the same Hive. A change to one Edition's writing or engine file, such as
 `sql_composer/writing.py`, is made in the other's too, unless the Hive has to differ; then the
 difference is a row of `DECLARED_DIFFERENCES` in `tools/editions.py`, with its reason, and nowhere
-else.
+else. Only what concerns an Edition's own library may differ otherwise: the checks and messages
+that name sqlglot or pyspark, and how its Example database runs.

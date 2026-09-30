@@ -47,7 +47,9 @@ PUBLIC_NAMES = [
 
 
 def toolbox_files() -> list[Path]:
-    return sorted(TOOLBOX.glob("*.py"))
+    """Every .py file of both Editions: they share one TOOLBOX_VERSION."""
+    return [path for folder in editions.EDITIONS if (ROOT / folder).is_dir()
+            for path in sorted((ROOT / folder).glob("*.py"))]
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
@@ -71,8 +73,8 @@ def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> Non
     assert editions.imports_outside(ROOT / folder) == []
 
 
-@pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: p.name)
-def test_every_file_declares_the_same_toolbox_version(path: Path) -> None:
+@pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: f"{p.parent.name}/{p.name}")
+def test_every_file_of_both_editions_declares_the_same_toolbox_version(path: Path) -> None:
     found = re.findall(r'^TOOLBOX_VERSION = "([^"]+)"$', path.read_text(encoding="utf-8"),
                        re.MULTILINE)
     assert found == [sql_composer.TOOLBOX_VERSION]

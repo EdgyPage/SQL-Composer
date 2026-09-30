@@ -30,12 +30,14 @@ def test_every_generated_file_is_current() -> None:
                          f"{make_spark_edition.COMMAND}")
 
 
-@pytest.mark.parametrize("folder", [SQL, SPARK], ids=lambda folder: folder.name)
-def test_each_folder_holds_its_files_and_no_other(folder: Path) -> None:
-    needed = set(editions.SHARED_FILES + editions.EDITION_FILES + editions.VERBATIM_FILES)
-    present = {path.name for path in folder.iterdir() if path.name != "__pycache__"}
-    assert needed <= present
-    assert present - needed <= set(editions.PAGES)
+def _files(folder: Path) -> set[str]:
+    return {path.name for path in folder.iterdir() if path.name != "__pycache__"}
+
+
+def test_each_folder_holds_exactly_its_files() -> None:
+    written = set(editions.SHARED_FILES + editions.EDITION_FILES + editions.VERBATIM_FILES)
+    assert _files(SQL) == written | set(editions.PAGES)
+    assert _files(SPARK) - set(editions.PAGES) == written
 
 
 @pytest.mark.xfail(strict=True, reason="ticket 22 of the PySpark work writes Spark Composer's "
@@ -46,21 +48,6 @@ def test_spark_composer_has_its_example_gallery() -> None:
 
 def test_changes_is_the_same_in_both_folders() -> None:
     assert (SPARK / "CHANGES.md").read_bytes() == (SQL / "CHANGES.md").read_bytes()
-
-
-def _toolbox_version(path: Path) -> str | None:
-    for node in ast.parse(path.read_text(encoding="utf-8")).body:
-        if (isinstance(node, ast.Assign)
-                and [getattr(target, "id", None) for target in node.targets]
-                == ["TOOLBOX_VERSION"]):
-            return node.value.value
-    return None
-
-
-def test_both_editions_have_one_toolbox_version() -> None:
-    versions = {path.relative_to(ROOT).as_posix(): _toolbox_version(path)
-                for folder in (SQL, SPARK) for path in sorted(folder.glob("*.py"))}
-    assert len(set(versions.values())) == 1, versions
 
 
 def _functions(path: Path) -> dict[str, list[str]]:

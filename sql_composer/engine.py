@@ -43,6 +43,8 @@ def check_installed():
     try:
         import sqlglot
     except ImportError:
+        sqlglot = None
+    if sqlglot is None:
         _stop(
             what="SQL Composer needs sqlglot, and this Python can't import it.",
             why="SQL Composer writes every Statement as Hive through sqlglot, and reads the "
