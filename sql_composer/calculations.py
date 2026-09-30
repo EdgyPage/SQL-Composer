@@ -223,9 +223,11 @@ def week_start(column):
     """The Monday that starts each date's week, to group days into weeks.
 
     Hive and Spark have no week function that works the same on both, so this takes the first
-    Monday after the day a week earlier: DATE_ADD(day, 7 * -1) is the day seven days before.
-    The result is a day like "2026-09-21". On Spark it comes back as a date (datetime.date),
-    which prints the same: use .astype(str) on its column before comparing it with text.
+    Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is
+    the day seven days before. The result is a day like "2026-09-21". Spark, at work or running
+    an Example database, gives it back as a date (datetime.date), which prints the same: turn
+    that column of the result into text, as frame["week"].astype(str), before comparing it or
+    merging on it with text.
 
     >>> week_start(job_runs.dt)
     NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO')
@@ -239,8 +241,10 @@ def week_start(column):
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
-    The result is a day like "2026-09-01". On Spark it comes back as a date (datetime.date),
-    which prints the same: use .astype(str) on its column before comparing it with text.
+    The result is a day like "2026-09-01". Spark, at work or running an Example database,
+    gives it back as a date (datetime.date), which prints the same: turn that column of the
+    result into text, as frame["month"].astype(str), before comparing it or merging on it with
+    text.
 
     >>> month_start(job_runs.dt)
     TRUNC(job_runs.dt, 'MM')
