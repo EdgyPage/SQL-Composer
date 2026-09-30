@@ -159,6 +159,10 @@ uses.
 - [Spark CI and pins](issues/20-spark-ci-and-pins.md): CI runs both Editions at both ends of
   their ranges, Spark Composer on Java 17 without sqlglot and with its Example database
   required; the tests read each job's own steps, and all four jobs are green on `dev`.
+- [Spark acceptance tests](issues/21-spark-acceptance-tests.md): Spark's own parser reads
+  every golden, runs every Spark Composer query at both ANSI settings, reads every value
+  back and checks hive_function's list; on Linux, real Hive tables take create_table,
+  INSERT_OVERWRITE, INSERT_INTO and drop_table and give the Example database's rows.
 
 ## Not yet specified
 
