@@ -1,9 +1,10 @@
-"""How SQL Composer writes Hive: every step only sqlglot can take.
+"""How SQL Composer writes a Statement as Hive text, with the sqlglot package.
 
-The other files build a Statement's parts; this file writes them as Hive text with sqlglot,
-reads the text back to check it, and builds the pieces sqlglot must build itself: Hive's own
-functions, column types, and the commands that describe a table. Each Edition has a file of
-this name with the same functions.
+The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
+reads the Hive back to check it, and builds the few pieces sqlglot has to build itself: calls to
+Hive's built-in functions, column types, and the commands that describe a table. sqlglot holds
+what it writes as a tree of its own objects, a "sqlglot tree". Each Edition of the Toolbox
+writes Hive its own way behind these same function names.
 """
 
 from __future__ import annotations
@@ -30,17 +31,20 @@ def hive_text(node: exp.Expression, pretty: bool = False) -> str:
 
 
 def read_back(text: str) -> str:
-    """The Hive read back and written again, to compare with the Hive as it was written."""
+    """The Hive read back and written again. to_hive compares the two, to check its own Hive."""
     return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
 
 
 def hive_call(name: str, *arguments: exp.Expression) -> exp.Expression:
-    """A call to one of Hive's own functions, as sqlglot builds it."""
+    """A call to one of Hive's built-in functions, as sqlglot builds it."""
     return exp.func(name, *arguments, dialect=_DIALECT)
 
 
 def read_back_function(name: str, arguments: list, call: str) -> exp.Expression:
-    """hive_function's call, built and read back once, or why its arguments don't fit."""
+    """The call hive_function(name, ...) writes, read back once as to_hive will read it.
+
+    It raises TypeError when sqlglot can't build the call from these arguments.
+    """
     try:
         tree = hive_call(name, *arguments)
         # Read the call back once, as to_hive's self-check will: a few functions come back in
@@ -79,7 +83,10 @@ def show_partitions_text(name: str) -> str:
 
 
 def set_part(tree: exp.Expression, part: str, value) -> None:
-    """Set a part of a sqlglot tree. sqlglot 30 renamed `from` and `with` to `from_`, `with_`."""
+    """Set a part of a sqlglot tree, under the name this sqlglot gives it.
+
+    sqlglot version 30 renamed `from` and `with` to `from_` and `with_`.
+    """
     for key in (part, part + "_"):
         if key in type(tree).arg_types:
             tree.set(key, value)
@@ -88,7 +95,10 @@ def set_part(tree: exp.Expression, part: str, value) -> None:
 
 
 def drop(table: exp.Table) -> exp.Drop:
-    """DROP TABLE IF EXISTS for one table. sqlglot 30 renamed a DROP's `this` to `tables`."""
+    """The DROP TABLE IF EXISTS command for one table, as a sqlglot tree to write.
+
+    sqlglot version 30 renamed the part of a DROP that holds its table from `this` to `tables`.
+    """
     if "tables" in exp.Drop.arg_types:
         return exp.Drop(kind="TABLE", tables=[table], exists=True)
     return exp.Drop(kind="TABLE", this=table, exists=True)

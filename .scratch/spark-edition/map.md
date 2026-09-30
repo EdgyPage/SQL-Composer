@@ -120,6 +120,9 @@ uses.
 - [Split the suite into shared, sqlglot-edition and repo tests](issues/08-split-the-suite.md):
   shared tests in `tests/` run in every Edition; `tests/sqlglot_edition/` and `tests/repo/` hold
   the rest, and a layout test holds the split, the unique names and the collection rules.
+- [Put every sqlglot-only step behind `sql_composer/writing.py`](issues/11-put-every-sqlglot-step-behind-writing-py.md):
+  one file writes, reads back and builds what only sqlglot can; no shared file names the
+  dialect, and the Hive is byte-identical.
 
 ## Not yet specified
 

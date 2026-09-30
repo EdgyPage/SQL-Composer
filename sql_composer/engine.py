@@ -80,22 +80,28 @@ def check_installed():
 
 def _sqlglot_behaviour():
     from sqlglot import exp
-    from sqlglot.errors import OptimizeError
+    from sqlglot.errors import OptimizeError, UnsupportedError
     from sqlglot.optimizer.qualify import qualify
 
     # Written the way the Toolbox writes, now that the sqlglot it needs is known to be here.
     from .writing import drop, sql_text
 
+    def written(tree) -> str:
+        try:
+            return sql_text(tree)
+        except UnsupportedError:
+            return ""  # a sqlglot that can no longer write it behaves differently too
+
     problems = []
-    if sql_text(exp.convert("O'Brien\\")) != "'O\\'Brien\\\\'":
+    if written(exp.convert("O'Brien\\")) != "'O\\'Brien\\\\'":
         problems.append("Hive string escaping has changed")
     table = exp.table_("t", db="db")
     table.set("partition", exp.Partition(
         expressions=[exp.column("dt").eq(exp.Literal.string("2026-01-01"))]))
     insert = exp.Insert(this=table, expression=exp.select("a").from_("s"), overwrite=True)
-    if "PARTITION(dt = '2026-01-01')" not in sql_text(insert):
+    if "PARTITION(dt = '2026-01-01')" not in written(insert):
         problems.append("INSERT OVERWRITE drops its PARTITION")
-    if sql_text(drop(exp.table_("t", db="db"))) != "DROP TABLE IF EXISTS db.t":
+    if written(drop(exp.table_("t", db="db"))) != "DROP TABLE IF EXISTS db.t":
         problems.append("DROP TABLE drops its table name")
     try:
         qualify(exp.select("nope").from_("t"), schema={"t": {"a": "INT"}}, dialect="hive")
