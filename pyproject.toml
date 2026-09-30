@@ -6,7 +6,7 @@
 minversion = "9.0"
 testpaths = ["tests"]
 pythonpath = [".", "worked_examples", "tools"]
-addopts = "-q --strict-markers --strict-config"
+addopts = "-q --strict-markers --strict-config -rs"
 markers = [
     "needs_example_database: runs a query on the Example database: skips where this computer can't, and fails on a bug",
 ]

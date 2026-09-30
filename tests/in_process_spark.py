@@ -12,10 +12,16 @@ import os
 import re
 import signal
 from pathlib import Path
+from typing import NamedTuple
 from unittest import mock
 
 import editions
 import hive_corpus
+
+# Spark can't make a database, or a Hive table, on Windows without winutils.
+ON_WINDOWS = os.name == "nt"
+NEEDS_WINUTILS = ("Spark can't make a database on Windows without winutils, so this runs on "
+                  "Linux, as in CI")
 
 # The folder the in-process Spark writes to, the same for the whole run: the Java Spark runs
 # on starts with the first Spark, and keeps the folder it started with.
@@ -23,6 +29,8 @@ _FOLDER: dict = {}
 
 
 def spark_folder(tmp_path_factory) -> Path:
+    """The in-process Spark's folder, with the folders the Example database's settings name,
+    and Derby's and Hive's."""
     if "folder" not in _FOLDER:
         folder = tmp_path_factory.mktemp("in_process_spark")
         for name in ("warehouse", "local", "tmp", "conf", "java-tmp", "derby", "hive"):
@@ -49,6 +57,11 @@ def in_process_spark(folder: Path, **settings):
     return session
 
 
+def parse(spark, text: str) -> None:
+    """Have Spark's parser read a piece of Hive, without running it."""
+    spark._jsparkSession.sessionState().sqlParser().parsePlan(text)
+
+
 def spark_says(error: Exception) -> str:
     """The first line of what Spark said, without Java's stack of calls."""
     return str(error).strip().splitlines()[0] if str(error).strip() else type(error).__name__
@@ -56,29 +69,42 @@ def spark_says(error: Exception) -> str:
 
 # --- The Hive in a golden corpus ---------------------------------------------------------------
 
+
+class Hive(NamedTuple):
+    """One piece of Hive in a golden: its case, the part of the case it is, and its text."""
+
+    case: str
+    part: str
+    text: str
+
+    @property
+    def where(self) -> str:
+        return f"{self.case} {self.part}"
+
+
 # The words a piece of Hive starts with; a part that starts otherwise is a Toolbox refusal.
-_HIVE = ("SELECT", "WITH", "INSERT", "CREATE", "DROP", "DESCRIBE", "SHOW")
+_HIVE_STARTS = ("SELECT", "WITH", "INSERT", "CREATE", "DROP", "DESCRIBE", "SHOW")
 # Where one command the warehouse was sent starts, within a part of a warehouse case.
 _COMMAND = re.compile(r"\n(?=(?:DESCRIBE|SHOW|SELECT|WITH)\b)")
 
 
-def hive_texts(edition: editions.Edition) -> list[tuple[str, str]]:
-    """Each piece of Hive an Edition's golden holds, as (where it is, its text).
+def hive_texts(edition: editions.Edition) -> list[Hive]:
+    """Each piece of Hive an Edition's golden holds.
 
-    Where it is names the case and the part, such as "gen:17 Statement 1"; a warehouse case's
-    parts are the commands each warehouse function sent. A refusal in their place is left out.
+    A warehouse case's parts are the commands that write_table_reference, check_table_reference
+    and check_key each sent. A refusal in a piece of Hive's place is left out.
     """
     golden = hive_corpus.cases_in(hive_corpus.golden_path(edition).read_text(encoding="utf-8"))
     found = []
-    for case_id, block in golden.items():
+    for case, block in golden.items():
         for part in re.split(r"\n(?=-- )", block)[1:]:
             name, _, text = part.removeprefix("-- ").partition("\n")
             if name.endswith(": to_hive"):
-                found.append((f"{case_id} {name.removesuffix(': to_hive')}", text.strip()))
-            elif case_id.startswith("warehouse:"):
-                found += [(f"{case_id} {name} {n}", command.strip())
+                found.append(Hive(case, name.removesuffix(": to_hive"), text.strip()))
+            elif case.startswith("warehouse:"):
+                found += [Hive(case, f"{name} {n}", command.strip())
                           for n, command in enumerate(_COMMAND.split(text.strip()), 1)]
-    return [(where, text) for where, text in found if text.startswith(_HIVE)]
+    return [hive for hive in found if hive.text.startswith(_HIVE_STARTS)]
 
 
 # The queries Spark refuses as it should, by their case in the golden, with what it says.
@@ -88,14 +114,11 @@ def hive_texts(edition: editions.Edition) -> list[tuple[str, str]]:
 REFUSED = {"edge:hive_function:date_format": "DATETIME_PATTERN_RECOGNITION"}
 
 
-def wide_table():
-    """The table the corpus's width cases read, with a key column as long as each needs."""
-    from sql_composer import Table
+def queries(edition: editions.Edition) -> list[Hive]:
+    """Each query an Edition's golden holds: its SELECTs and WITHs."""
+    from sql_composer.example_database import _is_query
 
-    keys = {key for _, text in hive_texts(editions.SPARK_COMPOSER)
-            for key in re.findall(r"\bwide\.(kx+)\b", text)}
-    return Table("ops.wide", columns={**dict.fromkeys(sorted(keys), "string"), "v": "bigint",
-                                      "dt": "string"}, date_partition="dt")
+    return [hive for hive in hive_texts(edition) if _is_query(hive.text)]
 
 
 _TABLE_READ = re.compile(r"\b(?:FROM|JOIN)\s+(`?\w+`?\.`?\w+`?)")
@@ -106,8 +129,11 @@ def tables_read(text: str) -> set[str]:
     return set(_TABLE_READ.findall(text))
 
 
-def queries(edition: editions.Edition) -> list[tuple[str, str]]:
-    """Each query an Edition's golden holds, as hive_texts gives it: its SELECTs and WITHs."""
-    from sql_composer.example_database import _is_query
+def wide_table():
+    """The table the corpus's width cases read, with a key column as long as each needs."""
+    from sql_composer import Table
 
-    return [(where, text) for where, text in hive_texts(edition) if _is_query(text)]
+    keys = {key for hive in hive_texts(editions.SPARK_COMPOSER)
+            for key in re.findall(r"\bwide\.(kx+)\b", hive.text)}
+    return Table("ops.wide", columns={**dict.fromkeys(sorted(keys), "string"), "v": "bigint",
+                                      "dt": "string"}, date_partition="dt")
