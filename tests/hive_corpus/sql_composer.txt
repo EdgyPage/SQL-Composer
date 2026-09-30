@@ -9220,7 +9220,7 @@ GROUP BY
 TypeError:
   What happened:  hive_function('upper', ...) gives upper 2 arguments, and upper takes 1 argument.
   Why it matters: The warehouse would stop the whole Statement with an error when it runs.
-  Usual fix:      Give upper 1 argument after its name.
+  Usual fix:      Give hive_function 1 argument after "upper".
   Opt-out:        none - this one can't be switched off.
 
 == edge:reads:left_join_keeps_only_matches

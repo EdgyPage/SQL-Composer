@@ -14,7 +14,7 @@ from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .refusals import four_part_message
-from .trees import Node, plain_name
+from .trees import Node, arguments_text, plain_name
 
 TOOLBOX_VERSION = "2.1"
 
@@ -50,7 +50,7 @@ def read_back(text: str) -> str:
     return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
 
 
-def check_call(name: str, args: list[Node], call: str) -> None:
+def check_writable_call(name: str, args: list[Node], call: str) -> None:
     """Refuse a hive_function call sqlglot can't build from its arguments.
 
     calculations.py has checked the call against the list Hive and Spark share already. sqlglot
@@ -58,11 +58,11 @@ def check_call(name: str, args: list[Node], call: str) -> None:
     """
     try:
         _read_back_call(name, [to_sqlglot(arg) for arg in args])
-    except (ValueError, TypeError, sqlglot.errors.ParseError) as error:
+    except (ValueError, TypeError, KeyError, IndexError, sqlglot.errors.SqlglotError) as error:
         raise TypeError(
             four_part_message(
-                what=f"{call} was given {len(args)} argument{'' if len(args) == 1 else 's'}, "
-                f"which don't fit {name}.",
+                what=f"{call} gives {name} {arguments_text(len(args), len(args))}, and sqlglot "
+                f"can't write {name} with {'it' if len(args) == 1 else 'them'}.",
                 why="sqlglot knows this Hive function and couldn't build it from these "
                 "arguments.",
                 fix=f"Check {name}'s arguments in Hive's documentation.",

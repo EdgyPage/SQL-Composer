@@ -26,7 +26,7 @@ SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # Hive's and Spark's reserved words: a name that is one of these must be written in backticks.
 # The last three lines are the words Spark reserves in any of its keyword modes, or won't take
-# as a table's name, and Hive doesn't reserve.
+# as the name FROM gives a table, and Hive doesn't reserve.
 HIVE_RESERVED = frozenset(
     """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
     CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
@@ -45,14 +45,16 @@ HIVE_RESERVED = frozenset(
     SESSION_USER SOME SQL TRAILING UNIQUE UNKNOWN WITHIN""".split()
 )
 
-# The functions hive_function may be given by name that add rows up, as SUM and COUNT do: every
-# aggregate Spark has, at the versions the Toolbox takes, and Hive's, which are among them.
+# The functions hive_function may be given by name that turn many rows into one, as SUM and
+# COUNT do: every one Spark's own list of functions puts among its aggregates at 3.5.0 and 4.0.4,
+# and Hive's, most of which are among them.
 HIVE_AGGREGATES = frozenset(
     """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
-    bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set corr count
-    count_if count_min_sketch covar_pop covar_samp every first first_value grouping grouping_id
+    bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set context_ngrams
+    corr count count_if count_min_sketch covar_pop covar_samp every first first_value grouping
+    grouping_id
     histogram_numeric hll_sketch_agg hll_union_agg kurtosis last last_value listagg max max_by
-    mean median min min_by mode percentile percentile_approx percentile_cont percentile_disc
+    mean median min min_by mode ngrams percentile percentile_approx percentile_cont percentile_disc
     regr_avgx regr_avgy regr_count regr_intercept regr_r2 regr_slope regr_sxx regr_sxy regr_syy
     skewness some std stddev stddev_pop stddev_samp string_agg sum try_avg try_sum var_pop
     var_samp variance
@@ -66,30 +68,57 @@ WINDOW_FUNCTIONS = frozenset(
 )
 
 
-# How many arguments Hive and Spark both take for a function hive_function may call: (fewest,
-# most), with most None when there is no upper limit. hive_function counts a call's arguments by
-# this list in both Editions; a function not listed here isn't counted.
+# How many arguments a function hive_function may call takes: (fewest, most), with most None
+# when there is no upper limit. Where Hive and Spark both have the function, it is the count both
+# take; where only Spark has it, such as count_if, the count Spark takes at 3.5.0 and 4.0.4.
+# hive_function counts a call's arguments by this list in both Editions; a function not listed
+# here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {
-    "upper": (1, 1),
-    "lower": (1, 1),
-    "trim": (1, 1),
-    "length": (1, 1),
-    "concat_ws": (2, None),
-    "nvl": (2, 2),
-    "coalesce": (1, None),
-    "regexp_extract": (2, 3),
-    "date_format": (2, 2),
-    "datediff": (2, 2),
-    "substr": (2, 3),
-    "substring": (2, 3),
-    "instr": (2, 2),
-    "collect_set": (1, 1),
-    "round": (1, 2),
-    "abs": (1, 1),
-    "split": (2, 2),
-    "lpad": (3, 3),
-    "rpad": (3, 3),
+    # Text.
+    "upper": (1, 1), "lower": (1, 1), "trim": (1, 1), "ltrim": (1, 1), "rtrim": (1, 1),
+    "length": (1, 1), "concat": (1, None), "concat_ws": (2, None), "substr": (2, 3),
+    "substring": (2, 3), "instr": (2, 2), "locate": (2, 3), "split": (2, 2), "lpad": (3, 3),
+    "rpad": (3, 3), "regexp_extract": (2, 3), "regexp_replace": (3, 3), "rlike": (2, 2),
+    "translate": (3, 3), "reverse": (1, 1), "repeat": (2, 2), "initcap": (1, 1),
+    "ascii": (1, 1), "space": (1, 1), "base64": (1, 1), "unbase64": (1, 1), "md5": (1, 1),
+    "sha2": (2, 2), "get_json_object": (2, 2), "format_number": (2, 2),
+    # NULL and choosing.
+    "nvl": (2, 2), "coalesce": (1, None), "nullif": (2, 2), "if": (3, 3),
+    "greatest": (2, None), "least": (2, None),
+    # Dates.
+    "date_format": (2, 2), "datediff": (2, 2), "date_add": (2, 2), "date_sub": (2, 2),
+    "add_months": (2, 2), "months_between": (2, 2), "next_day": (2, 2), "trunc": (2, 2),
+    "date_trunc": (2, 2), "last_day": (1, 1), "to_date": (1, 1), "from_unixtime": (1, 2),
+    "unix_timestamp": (1, 2), "year": (1, 1), "quarter": (1, 1), "month": (1, 1),
+    "weekofyear": (1, 1), "day": (1, 1), "dayofmonth": (1, 1), "hour": (1, 1),
+    "minute": (1, 1), "second": (1, 1),
+    # Numbers.
+    "abs": (1, 1), "round": (1, 2), "bround": (1, 2), "floor": (1, 1), "ceil": (1, 1),
+    "ceiling": (1, 1), "sqrt": (1, 1), "exp": (1, 1), "ln": (1, 1), "log": (2, 2),
+    "log10": (1, 1), "log2": (1, 1), "pow": (2, 2), "power": (2, 2), "pmod": (2, 2),
+    "sign": (1, 1), "negative": (1, 1), "positive": (1, 1), "rand": (0, 1), "hex": (1, 1),
+    "unhex": (1, 1), "hash": (1, None),
+    # Arrays and maps.
+    "size": (1, 1), "array_contains": (2, 2), "sort_array": (1, 2), "str_to_map": (1, 3),
+    # Functions that turn many rows into one.
+    "count": (1, None), "sum": (1, 1), "avg": (1, 1), "min": (1, 1), "max": (1, 1),
+    "collect_set": (1, 1), "collect_list": (1, 1), "variance": (1, 1), "var_pop": (1, 1),
+    "var_samp": (1, 1), "stddev": (1, 1), "stddev_pop": (1, 1), "stddev_samp": (1, 1),
+    "corr": (2, 2), "covar_pop": (2, 2), "covar_samp": (2, 2), "percentile": (2, 2),
+    "percentile_approx": (2, 3), "histogram_numeric": (2, 2), "any": (1, 1), "some": (1, 1),
+    "every": (1, 1), "bool_and": (1, 1), "bool_or": (1, 1), "count_if": (1, 1),
+    "first": (1, 1), "last": (1, 1), "first_value": (1, 1), "last_value": (1, 1),
+    "max_by": (2, 2), "min_by": (2, 2), "median": (1, 1), "approx_count_distinct": (1, 1),
 }
+
+
+def arguments_text(fewest: int, most: int | None) -> str:
+    """How many arguments, such as "1 argument", "2 to 3 arguments" or "2 or more arguments"."""
+    if most is None:
+        return f"{fewest} or more arguments"
+    if fewest != most:
+        return f"{fewest} to {most} arguments"
+    return "1 argument" if fewest == 1 else f"{fewest} arguments"
 
 
 # The column types create_table takes: the ones Hive and Spark share, written as DESCRIBE

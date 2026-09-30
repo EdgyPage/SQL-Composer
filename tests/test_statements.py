@@ -48,6 +48,7 @@ from sql_composer import (
     week_start,
 )
 from sql_composer import writing
+from sql_composer.trees import HIVE_FUNCTION_ARGUMENTS
 from sql_composer.example_database import job_runs, jobs, run_alerts
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
@@ -174,11 +175,33 @@ def test_hive_function_counts_arguments_by_the_list_hive_and_spark_share(call, s
         call()
 
 
+@pytest.mark.parametrize(("name", "count"), [
+    (name, count) for name, (fewest, most) in sorted(HIVE_FUNCTION_ARGUMENTS.items())
+    for count in range(fewest, (fewest + 2 if most is None else most) + 1)])
+def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str,
+                                                                       count: int) -> None:
+    """So a call one Edition writes, the other writes too."""
+    call = hive_function(name, *[job_runs.status] * count)
+    to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
+
+
+def test_hive_function_counts_min_and_max_as_one_argument() -> None:
+    """With two, SQL Composer's sqlglot writes GREATEST, which doesn't turn rows into one."""
+    with pytest.raises(TypeError, match=re.escape("gives max 2 arguments, and max takes 1")):
+        hive_function("max", job_runs.run_id, job_runs.duration_mins)
+
+
 @pytest.mark.parametrize("name", ["lag", "RANK", "row_number"])
 def test_hive_function_refuses_a_function_that_needs_a_window(name: str) -> None:
     with pytest.raises(ValueError, match=re.escape(
             f"hive_function({name!r}, ...) calls {name}, which works only over a window")):
         hive_function(name, jobs.team)
+
+
+def test_the_window_refusal_says_how_pandas_does_it() -> None:
+    with pytest.raises(ValueError, match=re.escape(
+            'df.sort_values("dt").groupby("job_id")["runs"].shift(1)')):
+        hive_function("lag", jobs.team)
 
 
 @pytest.mark.parametrize("name", ["first", "count_if", "any_value", "collect_set", "SUM"])

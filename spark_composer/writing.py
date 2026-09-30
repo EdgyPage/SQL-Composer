@@ -618,10 +618,10 @@ def _name_at(text: str, start: int) -> tuple[str, int] | None:
     return None
 
 
-# --- hive_function, column types, and describing a table ------------------------------------
+# --- hive_function, and describing a table ------------------------------------
 
 
-def check_call(name: str, args: list[Node], call: str) -> None:
+def check_writable_call(name: str, args: list[Node], call: str) -> None:
     """Refuse nothing more: Spark Composer writes a hive_function call as it was given, so the
     checks calculations.py makes by the list in trees.py are all it needs."""
 

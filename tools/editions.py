@@ -69,7 +69,7 @@ EDITION_INTERFACE = {
         "hive_statement": ["node"],
         "readable_text": ["node"],
         "read_back": ["text"],
-        "check_call": ["name", "args", "call"],
+        "check_writable_call": ["name", "args", "call"],
         "describe_text": ["name"],
         "show_partitions_text": ["name"],
     },
@@ -139,7 +139,9 @@ DECLARED_DIFFERENCES = {
         "and sometimes with an argument changed, such as a date_format pattern 'YYYY-MM' "
         "written 'yyyy-MM', which isn't the same: YYYY is the year a week belongs to. Spark "
         "Composer has no sqlglot, so it writes the call by the name and the arguments it was "
-        "given.",
+        "given. And for a function hive_function's own list doesn't count, SQL Composer refuses "
+        "a call sqlglot can't build, such as nvl2 with 1 argument, which Spark Composer writes "
+        "as given, and Spark refuses when it runs.",
         sql_composer="COALESCE(job_runs.status, 'none')",
         spark_composer="NVL(job_runs.status, 'none')",
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
