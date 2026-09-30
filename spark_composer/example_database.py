@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """The Example database: three made-up tables, and a send to run Statements on.
 
 It holds the Table references `jobs`, `job_runs` and `run_alerts`, their rows (two days,

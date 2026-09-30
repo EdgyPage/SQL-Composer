@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
@@ -41,7 +41,7 @@ class GuardRefused(Exception):
     >>> SELECT(count_rows())
     Traceback (most recent call last):
     ...
-    sql_composer.refusals.GuardRefused:
+    spark_composer.refusals.GuardRefused:
       What happened:  SELECT has a calculation with no name: COUNT(*).
       Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
@@ -58,7 +58,7 @@ class LoadRefused(Exception):
     >>> statement(SELECT(job_runs.run_id), FROM(job_runs))
     Traceback (most recent call last):
     ...
-    sql_composer.refusals.LoadRefused:
+    spark_composer.refusals.LoadRefused:
       What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
       Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
       Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).

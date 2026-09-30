@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
 run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own
@@ -209,7 +209,7 @@ def _self_check(text: str) -> None:
     again = writing.read_back(text)
     if again != text:
         raise RuntimeError(
-            "sql_composer wrote Hive that doesn't read back the same. This is a bug in the "
+            "spark_composer wrote Hive that doesn't read back the same. This is a bug in the "
             "Toolbox, not in your Statement: nothing was sent. Please report it with the "
             f"Statement that caused it.\n\nWritten:\n{text}\n\nRead back:\n{again}"
         )

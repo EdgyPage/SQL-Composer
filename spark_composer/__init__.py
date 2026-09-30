@@ -1,11 +1,11 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
 
-    from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
+    from spark_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
-To update, delete the `sql_composer` folder, copy in the new one and restart the kernel. The
+To update, delete the `spark_composer` folder, copy in the new one and restart the kernel. The
 folder checks itself when imported. If a file is missing, extra, from another version or
 export, or from another Toolbox folder, or if this Python can't run the Toolbox, it stops and
 says what happened, why it matters and the usual fix.
@@ -16,7 +16,7 @@ full text, which also says when this copy was exported.
 >>> TOOLBOX_VERSION
 '3.0'
 >>> VERSION
-'SQL Composer 3.0, ...'
+'Spark Composer 3.0, ...'
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ TOOLBOX_VERSION = "3.0"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
-_FOLDER = "sql_composer"
-_PRODUCT = "SQL Composer"
+_FOLDER = "spark_composer"
+_PRODUCT = "Spark Composer"
 
 # The export script writes the Toolbox's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.
@@ -82,9 +82,9 @@ def _stop(what, why, fix):
 def _check_python():
     if sys.version_info[:2] < _PYTHON_NEEDED:
         _stop(
-            what="SQL Composer needs Python 3.11 or newer, and this is Python "
+            what="Spark Composer needs Python 3.11 or newer, and this is Python "
             + ".".join(str(n) for n in sys.version_info[:3]) + ".",
-            why="SQL Composer is tested only on Python 3.11 and newer, and parts of it may not "
+            why="Spark Composer is tested only on Python 3.11 and newer, and parts of it may not "
             "work on an older one.",
             fix="Choose a Python 3.11 or newer kernel (Kernel > Change Kernel in JupyterLab), "
             "or ask whoever looks after your environment to add one.",
@@ -97,7 +97,7 @@ def _version_of(path):
     return found.group(1) if found else None
 
 
-# Any Toolbox folder's stamp, such as "SQL Composer 3.0, exported 2026-10-02 14:05 - ...",
+# Any Toolbox folder's stamp, such as "Spark Composer 3.0, exported 2026-10-02 14:05 - ...",
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer) \S+, exported ")
 
@@ -173,23 +173,23 @@ def _check_files():
         if extra:
             _stop(
                 what=f"{', '.join(extra)} {'is' if len(extra) == 1 else 'are'} in the "
-                f"sql_composer folder, but not part of SQL Composer {TOOLBOX_VERSION}.",
+                f"spark_composer folder, but not part of Spark Composer {TOOLBOX_VERSION}.",
                 why="A file left over from an earlier Toolbox version can still be imported, "
                 "and would quietly run old code. A script of your own inside the folder would "
                 "be deleted with it at the next update.",
-                fix="Move any of your own scripts out first: they sit beside the sql_composer "
-                "folder, never inside it. Then delete the sql_composer folder, and copy the "
+                fix="Move any of your own scripts out first: they sit beside the spark_composer "
+                "folder, never inside it. Then delete the spark_composer folder, and copy the "
                 f"whole folder in again from the {TOOLBOX_VERSION} download.",
             )
         if missing:
             _stop(
                 what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
-                "from the sql_composer folder.",
-                why=f"Every file of SQL Composer {TOOLBOX_VERSION} is needed: a missing .py "
+                "from the spark_composer folder.",
+                why=f"Every file of Spark Composer {TOOLBOX_VERSION} is needed: a missing .py "
                 "file would make a part of it fail later, far from the cause, and a missing "
                 "examples.html or CHANGES.md leaves you without the Example gallery or the "
                 "change notes.",
-                fix="Delete the sql_composer folder, then copy the whole folder in again from "
+                fix="Delete the spark_composer folder, then copy the whole folder in again from "
                 f"the {TOOLBOX_VERSION} download.",
             )
     python_files = [name for name in present if name.endswith(".py")]
@@ -202,7 +202,7 @@ def _check_files():
                 + f", and __init__.py is from {TOOLBOX_VERSION}.",
                 why="Files from different Toolbox versions weren't written to work together, "
                 "so a Statement could fail or come out wrong.",
-                fix="Delete the sql_composer folder, then copy the whole folder in again from "
+                fix="Delete the spark_composer folder, then copy the whole folder in again from "
                 "one download.",
             )
     if len(set(stamps.values())) > 1:
@@ -211,7 +211,7 @@ def _check_files():
             what=f"{', '.join(odd)} came from a different export than __init__.py.",
             why="Two exports of the same Toolbox version can differ, so the code, the Example "
             "gallery and the change notes in this folder may not match each other.",
-            fix="Delete the sql_composer folder, then copy the whole folder in again from one "
+            fix="Delete the spark_composer folder, then copy the whole folder in again from one "
             "download.",
         )
 

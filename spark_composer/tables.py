@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
@@ -752,7 +752,7 @@ def write_table_reference(name, send):
     >>> path = write_table_reference("ops.run_alerts", send=example_database.send)
     >>> print(path.read_text())
     """ops.run_alerts - TODO: say in one line what one row is."""
-    from sql_composer import Table
+    from spark_composer import Table
     <BLANKLINE>
     run_alerts = Table(
         "ops.run_alerts",
@@ -814,7 +814,7 @@ def _date_partition_lines(name: str, partitions: list[str], send) -> list[str]:
 def _reference_text(name, variable, columns, comments, date_lines) -> str:
     lines = [
         f'"""{name} - TODO: say in one line what one row is."""',
-        "from sql_composer import Table",
+        "from spark_composer import Table",
         "",
         f"{variable} = Table(",
         f'    "{name}",',
