@@ -1,10 +1,11 @@
-"""What Spark Composer runs on: the pyspark it needs, and the Spark of its Example database.
+"""What Spark Composer runs on: the pyspark it needs, and the Spark its Example database uses.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
 any other file. It reads pyspark's version without starting Spark, so importing Spark Composer
-needs no Java. The Example database hands `run_query` a query's Hive and its tables, and gets
-back the query's column names and rows. This file imports pyspark only inside its functions, so
-it can be imported to check pyspark before pyspark is trusted.
+starts nothing, not even the Java that Spark itself runs on. The Example database hands
+`run_query` a query's Hive and its tables, and gets back the query's column names and rows. This
+file imports pyspark only inside its functions, so pyspark can be checked before anything relies
+on it.
 """
 
 from __future__ import annotations
@@ -42,12 +43,16 @@ def check_installed():
     try:
         import pyspark
     except ImportError:
+        pyspark = None
+    if pyspark is None:
         _stop(
             what="Spark Composer needs pyspark, and this Python can't import it.",
-            why="Spark Composer runs every Statement's Hive on Spark, and its Example database "
-            "is a Spark of its own, so it can't run anything without it.",
-            fix=f"Install pyspark from a notebook cell with %pip install {_IN_RANGE}, then "
-            f"restart the kernel. {_NO_INSTALLING}",
+            why="Spark Composer is the Edition for a notebook that runs Spark, and it is checked "
+            "only there: the Hive it writes is meant for spark.sql(...), and its Example "
+            "database runs on Spark too.",
+            fix="In a notebook that runs Spark, install pyspark from a notebook cell with %pip "
+            f"install {_IN_RANGE}, then restart the kernel. {_NO_INSTALLING} Without Spark, use "
+            "SQL Composer, the Edition that needs none.",
         )
     found = getattr(pyspark, "__version__", "unknown")
     version = _numbers(found)
@@ -58,12 +63,14 @@ def check_installed():
             why="Spark Composer is checked only on that range of pyspark. Another Spark can "
             "read the same Hive differently, so a Statement could come out wrong without "
             "anything saying so.",
-            fix="Install a pyspark in that range from a notebook cell with %pip install "
-            f"{_IN_RANGE}, then restart the kernel. {_NO_INSTALLING}",
+            fix="Use a notebook whose Spark is in that range, or ask whoever looks after "
+            "your environment for one. Installing pyspark yourself may not change the Spark "
+            "that runs your Hive.",
         )
     if version > _NEWEST_TESTED:
         print(f"Note: pyspark {found} is newer than any version Spark Composer was tested on "
-              f"({_dotted(_NEWEST_TESTED)}).")
+              f"({_dotted(_NEWEST_TESTED)}). Nothing is refused; if a result looks wrong, tell "
+              "whoever looks after the Toolbox.")
 
 
 # --- The Example database's Spark -----------------------------------------------------------
