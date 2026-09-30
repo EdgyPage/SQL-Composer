@@ -2,9 +2,10 @@
 
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
 one for each piece of the SQL. This file writes them out as Hive, laid out over lines as SQL
-Composer lays out its own: each helper below names the sqlglot code it copies. It also checks
-what it wrote, counts a hive_function call's arguments (HIVE_FUNCTION_ARGUMENTS in trees.py),
-and writes the DESCRIBE and SHOW PARTITIONS commands for a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
+Composer lays out its own: each function below that copies sqlglot's layout names the sqlglot
+code it copies. It also checks what it wrote, counts a hive_function call's arguments
+(HIVE_FUNCTION_ARGUMENTS in trees.py), and writes the DESCRIBE and SHOW PARTITIONS commands for
+a table. Each Edition of the Toolbox (SQL Composer, which writes its Hive with sqlglot, and
 Spark Composer, this one) writes Hive its own way behind these same function names.
 
 Its Hive is SQL Composer's but in three places:
@@ -35,8 +36,8 @@ WIDTH = 80
 PAD = 2
 
 # How a character of a string value is written between single quotes. Each is escaped on its
-# own, so an escape's backslash is never escaped again. BEL, FF and VT are written \a, \f and \v,
-# as SQL Composer writes them, which Hive and Spark read back as the letters a, f and v: the
+# own, so an escape's backslash is never escaped again. BEL, FF and VT are written \a, \f and
+# \v, as SQL Composer writes them, which Hive and Spark read back as the letters a, f and v: the
 # Toolbox refuses a value that holds one before it gets here, and _quoted would stop it if one
 # did.
 _ESCAPES = {
@@ -332,7 +333,7 @@ def _ordered(node: Node, pretty: bool) -> str:
     return _part(node, "this", pretty) + {True: " DESC", False: " ASC", None: ""}[desc]
 
 
-# After sqlglot's the Hive dialect's date functions, date_sub as DATE_ADD with * -1.
+# After _add_date_sql in sqlglot's Hive dialect, which writes date_sub as DATE_ADD with * -1.
 def _call(node: Node, pretty: bool) -> str:
     args = node.parts["args"]
     if node.name == "date_sub":
@@ -460,6 +461,7 @@ def _type(text: str, pretty: bool) -> str:
     return written
 
 
+# Part of _type, after sqlglot's Generator.datatype_sql.
 def _parse_type(text: str, pretty: bool) -> tuple[str, str]:
     found = re.match(r"\s*([A-Za-z_]+(?: precision)?)\s*", text, re.IGNORECASE)
     if not found:
@@ -479,6 +481,7 @@ def _parse_type(text: str, pretty: bool) -> tuple[str, str]:
     return written, rest
 
 
+# Part of _type: an ARRAY, MAP or STRUCT's types, after sqlglot's Generator.datatype_sql.
 def _nested(text: str, word: str, pretty: bool) -> tuple[str, str]:
     parts, rest = [], text
     while True:
@@ -503,6 +506,9 @@ def _nested(text: str, word: str, pretty: bool) -> tuple[str, str]:
         raise ValueError(f"can't read the type {text!r}")
 
 
+# Each kind of Node, and the function that writes it. The one-line ones are after sqlglot's
+# Generator method for the same kind, such as not_sql, between_sql and alias_sql; COALESCE and a
+# hive_function call are after its function_fallback_sql and anonymous_sql.
 _WRITE = {
     "Column": _column,
     "Literal": _literal,
@@ -546,8 +552,8 @@ _WRITE = {
 
 # How Hive and Spark read a backslash in a value: before one of these it stands for a control
 # character, before % or _ it stays, for LIKE, and before any other character this file writes
-# it stands for that character. (Spark also reads \Z, \u and octal escapes, which this file never
-# writes.) It is kept apart from _ESCAPES on purpose, so a slip there reads back wrong.
+# it stands for that character. (Spark also reads \Z, \u and octal escapes, which this file
+# never writes.) It is kept apart from _ESCAPES on purpose, so a slip there reads back wrong.
 _CONTROLS = {"n": "\n", "t": "\t", "r": "\r", "b": "\b", "0": "\0"}
 
 
@@ -660,11 +666,13 @@ def hive_type(text: str) -> str:
     return _type(text, False)
 
 
+# After sqlglot's Generator.describe_sql.
 def describe_text(name: str) -> str:
     """The DESCRIBE command for one table."""
     return f"DESCRIBE {_table_name(name)}"
 
 
+# sqlglot keeps SHOW PARTITIONS as a Command, written as it is given.
 def show_partitions_text(name: str) -> str:
     """The SHOW PARTITIONS command for one table."""
     return f"SHOW PARTITIONS {_table_name(name)}"

@@ -94,44 +94,73 @@ LAYOUT_MIRRORS_SQLGLOT = "30.19.0"
 class Difference:
     """One place the two Editions' Hive differs on purpose.
 
-    `why` says it in plain words, for the README. `example` is the same Hive as each Edition
-    writes it, SQL Composer's first, as the golden corpus shows it in one of `cases`, the ids of
-    the golden cases the difference explains. tests/repo/test_edition_parity.py holds that the
-    two goldens differ in no other case, and that each listed case really differs.
+    `why` says it in plain words, for the README. `sql_composer` and `spark_composer` are the
+    same piece of Hive as each Edition writes it, as the golden corpus shows it in one of
+    `cases`, the ids of the golden cases the difference explains. `spark_composer_adds` is True
+    for text Spark Composer adds to SQL Composer's Hive, which its readable_text leaves out.
+    tests/repo/test_edition_parity.py holds that the two goldens differ in no other case, that
+    each listed case really differs, and that with what Spark Composer adds left out, a case
+    differs only if a row that adds nothing lists it.
     """
 
     why: str
-    example: tuple[str, str]
+    sql_composer: str
+    spark_composer: str
     cases: tuple[str, ...]
+    spark_composer_adds: bool = False
 
 
-# Each place the two Editions' Hive differs on purpose.
+# Each place the two Editions' Hive differs on purpose. The last two last only until 3.0, when
+# SQL Composer checks the same way (ticket 25 of the PySpark work).
 DECLARED_DIFFERENCES = {
     "division": Difference(
         why="Spark stops the whole query with an error when it divides by 0, where Hive gives "
-        "NULL. So Spark Composer divides by NULLIF(y, 0), which is NULL when y is 0: that row "
-        "gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.",
-        example=("SUM(job_runs.duration_mins) / COUNT(*)",
-                 "SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)"),
+        "NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when "
+        "y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is "
+        "written as it is.",
+        sql_composer="SUM(job_runs.duration_mins) / COUNT(*)",
+        spark_composer="SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)",
         cases=("edge:brackets:nested", "edge:brackets:aggregates"),
+        spark_composer_adds=True,
     ),
     "float": Difference(
         why="Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, "
         "where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python float as "
         "0.5D: the D marks a DOUBLE, and doesn't mean days. A number written with e, such as "
         "1e-05, is a DOUBLE already.",
-        example=("COALESCE(job_runs.avg_retry_secs, 0.1)",
-                 "COALESCE(job_runs.avg_retry_secs, 0.1D)"),
+        sql_composer="COALESCE(job_runs.avg_retry_secs, 0.1)",
+        spark_composer="COALESCE(job_runs.avg_retry_secs, 0.1D)",
         cases=("worked:nan_in_a_list:fixed", "edge:calculations:values"),
+        spark_composer_adds=True,
     ),
     "hive_function": Difference(
-        why="SQL Composer checks a hive_function call by having sqlglot read it back, and "
-        "writes the call as sqlglot does, such as nvl as COALESCE. Spark Composer has no "
-        "sqlglot, so it writes the call by the name it was given. Both call the same function.",
-        example=("COALESCE(job_runs.status, 'none')", "NVL(job_runs.status, 'none')"),
+        why="SQL Composer has sqlglot read a hive_function call back, and writes the call as "
+        "sqlglot does: sometimes by another name that does the same, such as COALESCE for nvl, "
+        "and sometimes with an argument changed, such as a date_format pattern 'YYYY-MM' "
+        "written 'yyyy-MM', which isn't the same: YYYY is the year a week belongs to. Spark "
+        "Composer has no sqlglot, so it writes the call by the name and the arguments it was "
+        "given.",
+        sql_composer="COALESCE(job_runs.status, 'none')",
+        spark_composer="NVL(job_runs.status, 'none')",
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
                "edge:hive_function:regexp_extract", "edge:hive_function:date_format",
                "edge:hive_function:substr", "edge:hive_function:instr"),
+    ),
+    "create_table_types": Difference(
+        why="Until 3.0, SQL Composer writes a create_table column type sqlglot knows, such as "
+        "json, even where Hive and Spark have no such type; Spark Composer already refuses it.",
+        sql_composer="c JSON",
+        spark_composer="c's type 'json' isn't a Hive type",
+        cases=("edge:create_table:bigint unsigned", "edge:create_table:json",
+               "edge:create_table:uuid", "edge:create_table:interval"),
+    ),
+    "hive_function_arguments": Difference(
+        why="Until 3.0, SQL Composer has sqlglot check a hive_function call's arguments, and "
+        "Spark Composer counts them by the list in trees.py, so their refusals read "
+        "differently.",
+        sql_composer="couldn't build it from these arguments",
+        spark_composer="and upper takes 1 argument",
+        cases=("edge:hive_function:too_many_arguments",),
     ),
 }
 
