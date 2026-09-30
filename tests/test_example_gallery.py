@@ -1,4 +1,4 @@
-"""The Example gallery, `sql_composer/examples.html`: every Worked example on one page.
+"""The Example gallery, each Edition's `examples.html`: every Worked example on one page.
 
 `tools/example_gallery.py` writes it from the docstrings' examples and the Statement scripts in
 `worked_examples/statements/`, running each Statement on the Example database. The page is
@@ -18,8 +18,9 @@ from pathlib import Path
 
 import pytest
 
+import editions
 import sql_composer
-from conftest import gallery_entries, page_text, toolbox_folder, toolbox_module
+from conftest import edition, gallery_entries, page_text, toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
 GALLERY = toolbox_folder() / "examples.html"
@@ -33,7 +34,7 @@ def test_the_committed_gallery_is_what_the_generator_writes() -> None:
     committed = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
     assert example_gallery.gallery_page() == committed, (
         f"{GALLERY.relative_to(ROOT).as_posix()} is out of date: run python "
-        "tools/example_gallery.py"
+        f"tools/example_gallery.py --edition {edition().option}"
     )
 
 
@@ -264,3 +265,10 @@ def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days(
 
 def test_the_page_names_no_folder_a_toolbox_user_does_not_have() -> None:
     assert "worked_examples/" not in GALLERY.read_text(encoding="utf-8")
+
+
+def test_the_page_names_only_its_own_edition() -> None:
+    page = GALLERY.read_text(encoding="utf-8")
+    others = [other for other in editions.EDITIONS.values() if other is not edition()]
+    assert [name for other in others for name in (other.folder, other.product)
+            if name in page] == []

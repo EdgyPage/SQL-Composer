@@ -3,8 +3,8 @@
 Why: to keep whole rows, since max_of on each column can take the status from a different
 run than the newest one.
 
-The results of fixed() and top_runs_per_job() below are computed in pandas, not by running
-this Hive, so they show even where the Example database can't run row_number.
+Where the Example database can't run row_number, the results of fixed() and
+top_runs_per_job() below are computed in pandas instead, not by running this Hive.
 """
 
 from sql_composer import (
@@ -83,9 +83,12 @@ def fixed_in_pandas():
 
 
 def top_runs_per_job_in_pandas(n=2):
-    """top_runs_per_job(n)'s result, computed in pandas, not by running this Hive."""
-    longest_first = every_run().sort_values("duration_mins", ascending=False)
+    """top_runs_per_job(n)'s result, computed in pandas, not by running this Hive.
+
+    Its rows are in the Example database's order for a Statement with no ORDER_BY: by the first
+    column, then the second, and so on.
+    """
+    longest_first = every_run().sort_values("duration_mins", ascending=False, kind="stable")
     top = longest_first.groupby("job_id").head(n)
     top = top[["job_id", "run_id", "duration_mins"]]
-    top = top.sort_values(["job_id", "duration_mins"], ascending=[True, False])
-    return top.reset_index(drop=True)
+    return top.sort_values(["job_id", "run_id", "duration_mins"]).reset_index(drop=True)
