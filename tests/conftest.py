@@ -18,8 +18,8 @@ checks in `tests/repo/`, which run once.
 
 A test marked `needs_example_database` runs a query on the Example database, and skips where it
 can't, saying why; whether it can is asked once a run, by sending it one query.
-`--example-database required` turns that skip into a failure, for a CI job
-whose Example database must run.
+`--example-database required` turns that skip into a failure, for a CI job whose Example
+database must run.
 """
 
 from __future__ import annotations

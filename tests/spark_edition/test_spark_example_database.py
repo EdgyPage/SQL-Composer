@@ -121,16 +121,30 @@ def test_a_java_home_that_holds_no_java_is_named(monkeypatch, tmp_path) -> None:
     with pytest.raises(RuntimeError) as refused:
         example_database.send("SELECT job_id FROM ops.jobs")
     message = str(refused.value)
-    assert "The Example database's Spark needs Java 17 or newer, and JAVA_HOME is " in message
-    assert 'Set JAVA_HOME to the folder of a Java 17 or newer' in message
+    assert "The Example database's Spark needs Java 17 to 21, and JAVA_HOME is " in message
+    assert "Set JAVA_HOME to the folder of your Java 17 to 21" in message
 
 
-def test_a_spark_home_that_holds_no_spark_is_named(monkeypatch, tmp_path) -> None:
+@pytest.mark.parametrize("holds", [[], ["bin"], ["bin/java.exe"]], ids=["empty", "bin", "java"])
+def test_a_spark_home_that_holds_no_spark_is_named(monkeypatch, tmp_path, holds) -> None:
+    for name in holds:
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        if "." in name:
+            (tmp_path / name).touch()
+        else:
+            (tmp_path / name).mkdir(exist_ok=True)
     monkeypatch.setenv("SPARK_HOME", str(tmp_path))
     reason = engine.example_database_cannot_run()
     assert f"SPARK_HOME is {tmp_path}, which has no Spark in it" in reason
     with pytest.raises(RuntimeError, match=r'os\.environ\.pop\("SPARK_HOME"\)'):
         example_database.send("SELECT job_id FROM ops.jobs")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="only Spark's Windows launcher can't take these")
+def test_a_temporary_folder_the_windows_launcher_cant_take_is_named(monkeypatch) -> None:
+    monkeypatch.setattr(engine, "_temporary_folder", lambda: "C:\\Users\\Tom&Jerry\\Temp")
+    reason = engine.example_database_cannot_run()
+    assert "the path of the temporary folder, C:\\Users\\Tom&Jerry\\Temp, has one of" in reason
 
 
 @pytest.mark.needs_example_database
@@ -159,6 +173,34 @@ def test_a_query_spark_refuses_while_running_it_is_answered_and_its_spark_goes_o
         example_database.send(sql)
     assert f"Spark couldn't run this Hive on the Example database: {said}" in str(refused.value)
     assert engine._SPARK["process"] is process, "a query Spark refused stopped its Spark"
+
+
+@pytest.mark.needs_example_database
+def test_a_value_python_cant_hold_is_answered_and_its_spark_goes_on() -> None:
+    example_database.send("SELECT job_id FROM ops.jobs")
+    process = engine._SPARK["process"]
+    with pytest.raises(RuntimeError, match="Example database: ValueError: year 10001"):
+        example_database.send("SELECT make_date(10001, 1, 1) AS d FROM ops.jobs")
+    assert engine._SPARK["process"] is process, "a value Python can't hold stopped its Spark"
+
+
+@pytest.mark.needs_example_database
+def test_queries_from_two_threads_each_get_their_own_answer() -> None:
+    example_database.send("SELECT job_id FROM ops.jobs")
+    wrong = []
+
+    def ask(start: int) -> None:
+        for k in range(start, start + 20):
+            got = list(example_database.send(f"SELECT {k} AS k FROM ops.jobs LIMIT 1").k)
+            if got != [k]:
+                wrong.append((k, got))
+
+    threads = [threading.Thread(target=ask, args=(start,)) for start in (1000, 2000)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert wrong == []
 
 
 # --- Its own process -------------------------------------------------------------------------
@@ -196,6 +238,53 @@ def test_an_interrupted_query_leaves_no_answer_for_the_next_one() -> None:
     finally:
         interrupt.cancel()
     assert list(example_database.send("SELECT count(*) AS jobs FROM ops.jobs").jobs) == [4]
+
+
+@pytest.mark.needs_example_database
+def test_an_interrupted_start_leaves_nothing_running_and_no_folder() -> None:
+    engine._stop_spark()
+    made = []
+    real_mkdtemp = engine.tempfile.mkdtemp
+
+    def noting(*args, **kwargs):
+        made.append(Path(real_mkdtemp(*args, **kwargs)))
+        return str(made[-1])
+
+    interrupt = threading.Timer(2, _thread.interrupt_main)
+    engine.tempfile.mkdtemp = noting
+    interrupt.start()
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            example_database.send("SELECT job_id FROM ops.jobs")
+    finally:
+        interrupt.cancel()
+        engine.tempfile.mkdtemp = real_mkdtemp
+    # Only a folder nothing holds can be deleted: a Java left running would hold its log.
+    assert made and not made[0].exists()
+    assert list(example_database.send("SELECT count(*) AS jobs FROM ops.jobs").jobs) == [4]
+
+
+@pytest.mark.needs_example_database
+def test_a_stray_knock_on_the_start_doesnt_stop_it() -> None:
+    import socket
+
+    engine._stop_spark()
+    knocked = threading.Event()
+
+    def knock() -> None:
+        for _ in range(200):
+            listener = engine._SPARK.get("listener")
+            if listener is not None:
+                socket.create_connection(listener.address).close()
+                knocked.set()
+                return
+            time.sleep(0.05)
+
+    knocker = threading.Thread(target=knock)
+    knocker.start()
+    rows = example_database.send("SELECT count(*) AS jobs FROM ops.jobs")
+    knocker.join()
+    assert knocked.is_set() and list(rows.jobs) == [4]
 
 
 @pytest.mark.needs_example_database
@@ -275,5 +364,9 @@ def test_a_folder_a_live_python_holds_is_left_alone() -> None:
         finally:
             child.kill()
     _made_old(folder)
-    engine._delete_left_over()
+    for _ in range(50):  # a venv's python.exe starts the real Python, which ends a moment after
+        engine._delete_left_over()
+        if not folder.exists():
+            break
+        time.sleep(0.2)
     assert not folder.exists(), "once its Python stopped, the folder was left over"
