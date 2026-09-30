@@ -13,7 +13,9 @@ own Python set up as the Example database's is:
   arguments the list lets through, and every one it calls an aggregate is one;
 - every word Spark reserves, or won't take as a table's name, is one the Toolbox writes in
   backticks;
-- what each declared difference says of Spark holds.
+- what each declared difference says of Spark holds;
+- Spark takes the CREATE TABLE the Toolbox writes for each type create_table takes, and has no
+  JSON or UUID, which it refuses.
 
 """
 
@@ -47,13 +49,20 @@ from sql_composer import (
     WHERE,
     Table,
     contains,
+    create_table,
     engine,
     example_database,
     starts_with,
     statement,
     to_hive,
 )
-from sql_composer.trees import HIVE_AGGREGATES, HIVE_FUNCTION_ARGUMENTS, HIVE_RESERVED, Node
+from sql_composer.trees import (
+    HIVE_AGGREGATES,
+    HIVE_FUNCTION_ARGUMENTS,
+    HIVE_RESERVED,
+    HIVE_TYPES,
+    Node,
+)
 from sql_composer.trees import string as string_value
 from sql_composer.writing import hive_text
 
@@ -298,9 +307,21 @@ def test_hive_function_written_as_given_runs_on_spark(spark) -> None:
                      "LIMIT 1").collect()[0][0] is not None
 
 
+# --- create_table's types -----------------------------------------------------------------
+
+# A type of each word on HIVE_TYPES, with what goes in its brackets.
+_TYPES = {"decimal": "decimal(10,2)", "varchar": "varchar(20)", "char": "char(3)",
+          "array": "array<string>", "map": "map<string,int>", "struct": "struct<a:int,b:string>"}
+
+
+@pytest.mark.parametrize("word", sorted(HIVE_TYPES))
+def test_spark_takes_the_create_table_the_toolbox_writes_for_each_type(spark, word: str) -> None:
+    t = Table("mart.typed", columns={"c": _TYPES.get(word, word)}, date_partition=None)
+    parse(spark, to_hive(create_table(t)))
+
+
 @pytest.mark.parametrize("kind", ["json", "uuid"])
-def test_a_type_spark_composer_refuses_as_spark_does(spark, kind: str) -> None:
-    # The create_table_types row: Spark has no JSON or UUID. It has INTERVAL, which the row
-    # lists too: Spark Composer refuses that as Hive can't store it.
+def test_spark_has_no_json_or_uuid_type(spark, kind: str) -> None:
+    # So HIVE_TYPES in trees.py leaves them out, and create_table refuses them in both Editions.
     with pytest.raises(Exception, match="UNSUPPORTED_DATATYPE"):
         parse(spark, f"CREATE TABLE mart.typed (c {kind.upper()}) STORED AS ORC")
