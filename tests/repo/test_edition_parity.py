@@ -1,4 +1,4 @@
-"""The two Editions show the same, except where `DECLARED_DIFFERENCES` says their Hive differs.
+"""The two Editions show the same, except where `DECLARED_DIFFERENCES` says they differ.
 
 Each Edition's golden corpus, in `tests/hive_corpus/`, holds what it shows for the same cases.
 The two may differ only in the cases a row of `DECLARED_DIFFERENCES` in `tools/editions.py`
