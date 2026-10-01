@@ -13,6 +13,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
+from .engine import _INSTALL_NEWER
 from .refusals import four_part_message
 from .trees import Node, arguments_text, plain_name
 
@@ -71,27 +72,24 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
         ) from error
 
 
-def check_writable_type(text: str, call: str) -> None:
+def check_writable_type(text: str, subject: str) -> None:
     """Refuse a column type sqlglot would write wrong: a struct, where this sqlglot leaves out
-    the colons Hive's STRUCT<name: type> needs.
+    the colons Hive's STRUCT<name: type> needs. `subject` names the type, as the refusal does.
 
     create_table has checked the type against HIVE_TYPES in trees.py already.
     """
-    # Only a struct, or a type holding one, can name "struct": its fields' names are plain
-    # words, which take no part of a type's name.
-    if "struct" not in text.lower() or _writes_struct_colons():
+    built = _hive_type(text)
+    holds_struct = any(part.is_type(exp.DataType.Type.STRUCT)
+                       for part in built.find_all(exp.DataType))
+    if not holds_struct or _writes_struct_colons():
         return
-    from .engine import _BELOW, _NEWEST_TESTED, _dotted
-
     raise ValueError(
         four_part_message(
-            what=f"{call} holds a struct, and the sqlglot this Python has, {sqlglot.__version__}, "
-            "writes a struct without the colons Hive needs: STRUCT<name STRING> where Hive "
-            "reads STRUCT<name: STRING>.",
+            what=f"{subject} holds a struct, and the sqlglot this Python has, "
+            f"{sqlglot.__version__}, writes a struct without the colons Hive needs: "
+            "STRUCT<name STRING> where Hive reads STRUCT<name: STRING>.",
             why="Hive would refuse the CREATE TABLE.",
-            fix=f'Install a newer sqlglot from a notebook cell with %pip install "sqlglot>='
-            f'{_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the kernel. If you '
-            "can't install packages, ask whoever looks after your environment.",
+            fix=_INSTALL_NEWER,
             opt_out=None,
         )
     )

@@ -1323,7 +1323,7 @@ WHERE
 </section>
 <section class="entry" id="Table">
 <h3><code>Table</code></h3>
-<p class="why">A Table reference: one table&#x27;s columns and types, Date partition and key.</p>
+<p class="why">A Table reference: a table&#x27;s columns, the day column it&#x27;s split by, and its key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
 <ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
@@ -1393,7 +1393,7 @@ LIMIT 20</pre>
 </section>
 <section class="entry" id="check_key">
 <h3><code>check_key</code></h3>
-<p class="why">Check on the newest day that no two rows share the table&#x27;s declared key.</p>
+<p class="why">Check on the newest day that no two rows share the Table reference&#x27;s key.</p>
 <p>JOIN relies on a declared key to warn about repeated rows, and the warehouse never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
 <pre class="python">check_key(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
@@ -1534,7 +1534,7 @@ FROM ops.jobs AS jobs</pre>
 </section>
 <section class="entry" id="AS">
 <h3><code>AS</code></h3>
-<p class="why">Name a calculation in the result, as AS(count_rows(), &quot;runs&quot;), or name a table.</p>
+<p class="why">Name a calculation, as AS(count_rows(), &quot;runs&quot;), or give a table a second name.</p>
 <p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. / divides as Python&#x27;s / does, so 7 / 2 is 3.5, and dividing by zero gives NULL rather than an error.</p>
 <pre class="python">AS(count_rows(), &quot;runs&quot;)</pre>
 <p class="label">Hive</p>
@@ -1577,7 +1577,7 @@ WHERE
 </section>
 <section class="entry" id="JOIN">
 <h3><code>JOIN</code></h3>
-<p class="why">Add a second table&#x27;s columns to each row, matching rows as JOIN(t, ON=...) says.</p>
+<p class="why">Add a second table&#x27;s columns to the rows its ON= condition matches.</p>
 <p>When ON= doesn&#x27;t pin down the joined table&#x27;s whole key, one row can match several, and sums over them come out too big. The Statement is still built, with a warning at your JOIN line; many_matches=True says you mean it and silences it.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id, jobs.team),
@@ -1753,7 +1753,7 @@ HAVING
 </section>
 <section class="entry" id="ORDER_BY">
 <h3><code>ORDER_BY</code></h3>
-<p class="why">Sort the result; it needs a LIMIT, and sorting in pandas is usually better.</p>
+<p class="why">Sort the result; it needs a LIMIT, as sorting every row is slow, or use pandas.</p>
 <p>Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since it makes the warehouse put every row in order before any comes back: sort in pandas after run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there may not be kept, so a Statement that reads it can&#x27;t rely on that order.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
@@ -2040,16 +2040,21 @@ JOIN ops.jobs AS jobs
 </section>
 <section class="entry" id="contains">
 <h3><code>contains</code></h3>
-<p class="why">Rows where the column contains your text, a % or _ in it taken as typed.</p>
+<p class="why">Rows where the column contains your text, a % or _ in it matched as % or _.</p>
+<p>It writes SQL&#x27;s LIKE, which reads % as any run of characters and _ as any one character. So the Hive puts a backslash before each % or _ of your own text, for it to match just itself, and writes that backslash as \\ inside the quotes.</p>
 <pre class="python">contains(jobs.job_name, &quot;sync&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">jobs.job_name LIKE &#x27;%sync%&#x27;</pre>
+<pre class="python">contains(jobs.job_name, &quot;a_b&quot;)</pre>
+<p class="label">Hive</p>
+<pre class="output">jobs.job_name LIKE &#x27;%a\\_b%&#x27;</pre>
 <p class="names">Toolbox names used: <code>contains</code></p>
 <p class="names">Worked examples that use it: <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></p>
 </section>
 <section class="entry" id="starts_with">
 <h3><code>starts_with</code></h3>
-<p class="why">Rows where the column starts with your text, a % or _ in it taken as typed.</p>
+<p class="why">Rows where the column starts with your text, a % or _ in it matched as % or _.</p>
+<p>As in contains(...), a backslash before your own % or _ makes LIKE match it as itself.</p>
 <pre class="python">starts_with(jobs.job_name, &quot;invoice_&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">jobs.job_name LIKE &#x27;invoice\\_%&#x27;</pre>
@@ -2113,7 +2118,7 @@ JOIN ops.jobs AS jobs
 </section>
 <section class="entry" id="average_of">
 <h3><code>average_of</code></h3>
-<p class="why">The average of a column; it refuses an average, a ratio or a distinct count.</p>
+<p class="why">The average of a column that isn&#x27;t a division, an average or a distinct count.</p>
 <p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column, since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
 <pre class="python">average_of(job_runs.duration_mins)</pre>
 <p class="label">Hive</p>
@@ -2181,7 +2186,7 @@ JOIN ops.jobs AS jobs
 </section>
 <section class="entry" id="row_number">
 <h3><code>row_number</code></h3>
-<p class="why">Number the rows within each group from 1, in the order you give.</p>
+<p class="why">Number the rows of each PARTITION_BY group from 1, in ORDER_BY&#x27;s order.</p>
 <p>Keeping the rows numbered 1 gives the latest row per key; keeping those up to N gives the top N per group. Hive can&#x27;t filter on a row number in the SELECT that makes it, so number the rows in a derived(...) table and keep the ones you want in the Statement that reads it. Here is the latest run of each job:</p>
 <pre class="python">numbered = derived(&quot;numbered&quot;, statement(
     SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
@@ -2234,8 +2239,8 @@ WHERE
 </section>
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
-<p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with your values quoted for you.</p>
-<p>The Hive writes its name in capitals. It may also write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
+<p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with your text quoted for you.</p>
+<p>The Hive writes its name in capitals. One Edition may write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. The README&#x27;s list of where the two Editions&#x27; Hive differs says which. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
 <p>It checks the call before writing it:</p>
 <ul><li>it refuses a call with the wrong number of arguments, for the functions it knows, such as upper, substr or date_add;</li><li>a function that turns many rows into one, such as collect_set or percentile, is treated as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;</li><li>it refuses a function that works only over a window of rows, written OVER (...) after it, such as lag or rank, since it can&#x27;t write OVER.</li></ul>
 <pre class="python">hive_function(&quot;regexp_replace&quot;, jobs.job_name, &quot;_&quot;, &quot; &quot;)</pre>
@@ -2297,7 +2302,7 @@ WHERE
 </section>
 <section class="entry" id="by_day">
 <h3><code>by_day</code></h3>
-<p class="why">Split a Statement into one Statement per day it reads, oldest first.</p>
+<p class="why">Split a Statement into one Statement per day its FROM table reads, oldest first.</p>
 <p>Use it to read a long range a day at a time, or to write a Saved table day by day:</p>
 <pre class="python">for day in by_day(s):
     df = run(day, send=run_query)</pre>

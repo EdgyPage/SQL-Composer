@@ -484,7 +484,7 @@ def _names(value, argument: str) -> list[str]:
 
 
 class Table:
-    """A Table reference: one table's columns and types, Date partition and key.
+    """A Table reference: a table's columns, the day column it's split by, and its key.
 
     Its columns become attributes, so `job_runs.status` is checked when your script runs:
     a typo stops with the list of real columns. Write one per table, generated once by
@@ -860,7 +860,7 @@ def _real_table(t, call: str) -> Table:
 
 
 def check_key(t, send):
-    """Check on the newest day that no two rows share the table's declared key.
+    """Check on the newest day that no two rows share the Table reference's key.
 
     JOIN relies on a declared key to warn about repeated rows, and the warehouse never
     enforces one.

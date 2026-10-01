@@ -70,7 +70,7 @@ EDITION_INTERFACE = {
         "readable_text": ["node"],
         "read_back": ["text"],
         "check_writable_call": ["name", "args", "call"],
-        "check_writable_type": ["text", "call"],
+        "check_writable_type": ["text", "subject"],
         "describe_text": ["name"],
         "show_partitions_text": ["name"],
     },

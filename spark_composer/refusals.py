@@ -1,4 +1,4 @@
-"""The Guards and Load limits that stop a Statement, and the Warnings that don't.
+"""Guards and Load limits stop a Statement; a Warning just shows at your JOIN line.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
 that would read or return more than the cluster or the notebook can take. A Warning lets the
