@@ -30,7 +30,7 @@ from .tables import Column, Table, aliased
 from .trees import SIMPLE_NAME, Node
 from .writing import hive_text
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]

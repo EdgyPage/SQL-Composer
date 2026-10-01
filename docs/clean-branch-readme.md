@@ -117,9 +117,10 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 ```
 
 The examples take today as 2026-09-25, the day after the Example database's last day.
-`last_n_days(...)` and `first_look(...)` count back from your own today, so in a pasted
-example that uses one, write `between(...)` with the days the example's Hive shows in its place,
-such as `between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
+`last_n_days(...)` counts back from your own today, so in a pasted example that uses it, write
+`between(...)` with the days the example's Hive shows in its place, such as
+`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows. `first_look(...)`
+reads your own yesterday too, so pasted, its Hive shows another day, and no rows.
 
 ## The Example gallery
 

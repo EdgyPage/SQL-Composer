@@ -41,7 +41,7 @@ from .writing import (
     show_partitions_text,
 )
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
