@@ -98,7 +98,7 @@ user and as a Spark Composer user, each finding checked by a second reader.
     line pinned as text, the README's Python and pip lines against the constants).
 - **Answered, not changed:** the items above under Not done; and the cheat-sheet first lines
   both readers stopped on (write_table_reference, contains, average_of and others), which
-  predate this ticket and read the same in both Editions: they are for a pass of their own.
+  predate this ticket and read the same in both Editions: the follow-ups below rework them.
 
 **Drift reviews.**
 
@@ -128,3 +128,47 @@ user](../reports/26-beginner-reader-spark.md).
     three CHANGES lines.
 - **Answered, not changed:** the cheat-sheet first lines, as above; the Example database's
   made-up tables at work, which the README now answers by pointing to write_table_reference.
+
+## Follow-ups, and 3.1
+
+The user pushed main as 3.0 (`dcb698f`), then asked for the two follow-ups this record left
+open, before main is re-exported. Since 3.0 was already pushed, they ship as 3.1, which the user
+chose on 2026-09-30 when asked which version the re-export should carry (D93).
+
+- **A struct column at sqlglot 25.24.2** (`426e4ea`, `7355bfb`). sqlglot 25.24.2 writes
+  STRUCT<name STRING>, without the colons Hive's grammar needs, and drops them again when
+  to_hive reads its own Hive back, so writing them can't work there. SQL Composer refuses a
+  struct column where its sqlglot writes none, found by writing one, and says which sqlglot to
+  install; `check_writable_type` joins the Editions' interface beside `check_writable_call`,
+  and Spark Composer's refuses nothing. The README says a struct column needs sqlglot 30.19.0
+  or newer.
+- **The cheat-sheet first lines** both beginner readers stopped on (`426e4ea`, reworked in
+  `7355bfb` after the review and two new readings found some rewordings made new stops):
+  write_table_reference, contains, starts_with, average_of, Table, check_key, create_table,
+  AS, FROM, JOIN, ORDER_BY, row_number, hive_function, by_day and refusals.py. contains'
+  docstring says why LIKE needs your % and _ escaped, with an example; hive_function's says
+  only one Edition renames a call.
+- **3.1** (`7d66dd6`): TOOLBOX_VERSION in every .py of both folders; CHANGES' 3.1 section with the
+  two follow-ups' lines, its 3.0 section again what main shipped.
+
+**Code review (2026-09-30), `426e4ea`,** with the beginner reader as both kinds of user
+([SQL Composer](../reports/26-followups-beginner-reader-sql.md),
+[Spark Composer](../reports/26-followups-beginner-reader-spark.md)), each finding checked by a
+second reader. Fixed in `7355bfb`: average_of's line, which read as the average function
+refusing itself; "taken as typed", where "typed" means a data type elsewhere; AS's "name a
+table"; JOIN's self-definition; hive_function's "your values"; by_day's "per day it reads";
+the stops left (Table and check_key's key, ORDER_BY's LIMIT, row_number's group, where a
+Warning shows); hive_function's docstring; first_look and the struct in the README; and the
+struct check's substring test, retyped install advice and parameter name. Answered, not
+changed: the type refusal's struct example, which a sqlglot below 30.19.0 then refuses, is
+followed by a refusal that says what to install; `hive_function("struct", ...)` and
+`named_struct`, which predate these follow-ups, are left for a ticket of their own; the CHANGES
+lines the readers stopped on under 3.0 are as 3.0 shipped them.
+
+| Items | Opened by | Closed by |
+|---|---|---|
+| D93 (version) | `426e4ea` | `7d66dd6` |
+| D94, D95 | `7355bfb` | `7d66dd6` |
+
+**Left to the user:** push main again, now 3.1, and try spark_composer at work as above.
+
