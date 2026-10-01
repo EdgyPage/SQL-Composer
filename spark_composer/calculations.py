@@ -129,7 +129,7 @@ def sum_of(column, where=None, adds_up=False):
 
 
 def average_of(column, where=None, adds_up=False):
-    """The average of a column; it refuses an average, a ratio or a distinct count.
+    """The average of a column that isn't a division, an average or a distinct count.
 
     An average itself doesn't add up: the average of two daily averages isn't the average
     over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column,
@@ -311,7 +311,7 @@ def _listed(items) -> list:
 
 
 def row_number(*, PARTITION_BY, ORDER_BY):
-    """Number the rows within each group from 1, in the order you give.
+    """Number the rows of each PARTITION_BY group from 1, in ORDER_BY's order.
 
     Keeping the rows numbered 1 gives the latest row per key; keeping those up to N gives
     the top N per group. Hive can't filter on a row number in the SELECT that makes it, so
@@ -357,13 +357,14 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 
 
 def hive_function(name, *args):
-    """Call a Hive function the Toolbox doesn't wrap, with your values quoted for you.
+    """Call a Hive function the Toolbox doesn't wrap, with your text quoted for you.
 
-    The Hive writes its name in capitals. It may also write another name that does the same,
-    as COALESCE for nvl, or leave out an argument that is filled in anyway, as
+    The Hive writes its name in capitals. One Edition may write another name that does the
+    same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as
     regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none
-    is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not
-    YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.
+    is given. The README's list of where the two Editions' Hive differs says which. Either way
+    it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the
+    year a week belongs to, which Spark refuses in a pattern.
 
     It checks the call before writing it:
 

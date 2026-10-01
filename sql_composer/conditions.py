@@ -414,16 +414,24 @@ def _like(name: str, column, text: str, pattern) -> Condition:
 
 
 def contains(column, text):
-    """Rows where the column contains your text, a % or _ in it taken as typed.
+    """Rows where the column contains your text, a % or _ in it matched as % or _.
+
+    It writes SQL's LIKE, which reads % as any run of characters and _ as any one character.
+    So the Hive puts a backslash before each % or _ of your own text, for it to match just
+    itself, and writes that backslash as \\\\ inside the quotes.
 
     >>> contains(jobs.job_name, "sync")
     jobs.job_name LIKE '%sync%'
+    >>> contains(jobs.job_name, "a_b")
+    jobs.job_name LIKE '%a\\\\_b%'
     """
     return _like("contains", column, text, lambda escaped: f"%{escaped}%")
 
 
 def starts_with(column, text):
-    """Rows where the column starts with your text, a % or _ in it taken as typed.
+    """Rows where the column starts with your text, a % or _ in it matched as % or _.
+
+    As in contains(...), a backslash before your own % or _ makes LIKE match it as itself.
 
     >>> starts_with(jobs.job_name, "invoice_")
     jobs.job_name LIKE 'invoice\\\\_%'

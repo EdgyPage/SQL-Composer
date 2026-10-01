@@ -36,6 +36,11 @@ def _numbers(text):
 
 _IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
+# What to install where an older sqlglot writes something wrong: the one the Toolbox is tested on,
+# or a newer one in its range.
+_INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
+                  f'"sqlglot>={_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the '
+                  f"kernel. {_NO_INSTALLING}")
 
 
 def check_installed():

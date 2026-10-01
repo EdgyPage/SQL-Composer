@@ -32,7 +32,8 @@ writes `sql_composer`: in your imports, in `sql_composer.VERSION`, and in paths 
 Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
 
 - SQL Composer: sqlglot 25.24.2 or newer, below 31. Its Example database runs queries on
-  sqlglot 30.19.0 or newer, so for both: `%pip install "sqlglot>=30.19.0,<31"`.
+  sqlglot 30.19.0 or newer, and so does a struct column in create_table, so install that:
+  `%pip install "sqlglot>=30.19.0,<31"`.
 - Spark Composer: pyspark 3.5.0 or newer, below 4.1: `%pip install "pyspark>=3.5.0,<4.1"`. Its
   Example database starts a Spark of its own, in a second Python in the background, so your
   `spark` is never touched. That Spark needs Java 17 to 21: set JAVA_HOME to it, or have `java`
@@ -116,9 +117,9 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 ```
 
 The examples take today as 2026-09-25, the day after the Example database's last day.
-`last_n_days(...)` counts back from your own today, so in a pasted example that uses it, write
-`between(...)` with the days the example's Hive shows in its place, such as
-`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
+`last_n_days(...)` and `first_look(...)` count back from your own today, so in a pasted
+example that uses one, write `between(...)` with the days the example's Hive shows in its place,
+such as `between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
 
 ## The Example gallery
 
