@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from collections import deque
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 

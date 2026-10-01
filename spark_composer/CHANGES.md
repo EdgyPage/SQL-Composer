@@ -2,6 +2,15 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 3.1
+
+- The first lines of some docstrings, which the README's cheat sheet shows, say more
+  plainly what a function does, such as where `write_table_reference` writes its file.
+- With a sqlglot that writes a struct without the colons Hive needs, as 25.24.2 does, the
+  Edition that writes its Hive with sqlglot refuses a struct column in `create_table`, and
+  says which sqlglot to install. Before, it wrote `STRUCT<name STRING>`, which Hive refuses,
+  where Hive reads `STRUCT<name: STRING>`.
+
 ## 3.0
 
 - **Two Editions.** The Toolbox now comes as two folders, with the same functions and
@@ -41,12 +50,6 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   other folder by mistake, even `__init__.py`, is named with the folder it came from, and the
   fix says to copy this folder in again from its own folder of the download.
 - **One more Worked example:** one count divided by another as a percent.
-- The first lines of some docstrings, which the README's cheat sheet shows, say more
-  plainly what a function does, such as where `write_table_reference` writes its file.
-- With a sqlglot that writes a struct without the colons Hive needs, as 25.24.2 does, the
-  Edition that writes its Hive with sqlglot refuses a struct column in `create_table`, and
-  says which sqlglot to install. Before, it wrote `STRUCT<name STRING>`, which Hive refuses,
-  where Hive reads `STRUCT<name: STRING>`.
 - A value holding a bell, a form feed or a vertical tab is now refused, and so is a
   `date_format` holding one. In a Python string these are what `\a`, `\f` and `\v` give, as
   in a Windows path like `'D:\logs\alerts'`. The Hive would write them as `\a`, `\f` and

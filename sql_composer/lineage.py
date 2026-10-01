@@ -29,7 +29,7 @@ from .tables import readable
 from .trees import Node
 from .writing import hive_text
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------

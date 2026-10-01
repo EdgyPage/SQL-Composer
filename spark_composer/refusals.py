@@ -1,4 +1,4 @@
-"""Guards and Load limits stop a Statement; a Warning just shows at your JOIN line.
+"""Guards and Load limits stop a Statement; a Warning shows at the join it's about.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
 that would read or return more than the cluster or the notebook can take. A Warning lets the
@@ -27,7 +27,7 @@ import warnings
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 
 class GuardRefused(Exception):

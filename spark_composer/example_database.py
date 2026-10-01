@@ -33,7 +33,7 @@ from . import engine
 from .refusals import four_part_message
 from .tables import Table
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 # --- The Table references -----------------------------------------------------------------
 
