@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """How SQL Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
@@ -14,10 +14,11 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
+from .engine import _INSTALL_NEWER
 from .refusals import four_part_message
 from .trees import Node, arguments_text, plain_name
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 _DIALECT = "hive"
 
@@ -70,6 +71,35 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
                 opt_out=None,
             )
         ) from error
+
+
+def check_writable_type(text: str, subject: str) -> None:
+    """Refuse a column type sqlglot would write wrong: a struct, where this sqlglot leaves out
+    the colons Hive's STRUCT<name: type> needs. `subject` names the type, as the refusal does.
+
+    create_table has checked the type against HIVE_TYPES in trees.py already.
+    """
+    built = _hive_type(text)
+    holds_struct = any(part.is_type(exp.DataType.Type.STRUCT)
+                       for part in built.find_all(exp.DataType))
+    if not holds_struct or _writes_struct_colons():
+        return
+    raise ValueError(
+        four_part_message(
+            what=f"{subject} holds a struct, and the sqlglot this Python has, "
+            f"{sqlglot.__version__}, writes a struct without the colons Hive needs: "
+            "STRUCT<name STRING> where Hive reads STRUCT<name: STRING>.",
+            why="Hive would refuse the CREATE TABLE.",
+            fix=_INSTALL_NEWER,
+            opt_out=None,
+        )
+    )
+
+
+def _writes_struct_colons() -> bool:
+    """Whether this sqlglot writes a struct's fields with the colons Hive needs."""
+    built = exp.DataType.build("struct<a:int>", dialect=_DIALECT)
+    return sql_text(built) == "STRUCT<a: INT>"
 
 
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.

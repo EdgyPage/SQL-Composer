@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """Lineage: draw where each column comes from, as an HTML page and as Markdown.
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,
@@ -30,7 +30,7 @@ from .tables import readable
 from .trees import Node
 from .writing import hive_text
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------

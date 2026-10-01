@@ -1,4 +1,4 @@
-# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
@@ -14,9 +14,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'3.0'
+'3.1'
 >>> VERSION
-'Spark Composer 3.0, ...'
+'Spark Composer 3.1, ...'
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import os
 import re
 import sys
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
@@ -97,7 +97,7 @@ def _version_of(path):
     return found.group(1) if found else None
 
 
-# Any Toolbox folder's stamp, such as "Spark Composer 3.0, exported 2026-10-02 14:05 - ...",
+# Any Toolbox folder's stamp, such as "Spark Composer 3.1, exported 2026-10-02 14:05 - ...",
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer) \S+, exported ")
 

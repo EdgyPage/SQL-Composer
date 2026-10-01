@@ -1,4 +1,4 @@
-# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
@@ -34,9 +34,15 @@ from .refusals import (
     refuse_what_the_other_edition_made,
 )
 from .trees import ARITHMETIC, SIMPLE_NAME, Node, is_hive_type, number, string
-from .writing import describe_text, hive_text, readable_text, show_partitions_text
+from .writing import (
+    check_writable_type,
+    describe_text,
+    hive_text,
+    readable_text,
+    show_partitions_text,
+)
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
@@ -479,7 +485,7 @@ def _names(value, argument: str) -> list[str]:
 
 
 class Table:
-    """A Table reference: one table's columns and types, Date partition and key.
+    """A Table reference: a table's columns, the day column it's split by, and its key.
 
     Its columns become attributes, so `job_runs.status` is checked when your script runs:
     a typo stops with the list of real columns. Write one per table, generated once by
@@ -741,7 +747,7 @@ def _day_format_of(value: str | None) -> str | None:
 
 
 def write_table_reference(name, send):
-    '''Write a new Table reference file for a table, from what DESCRIBE says of it.
+    '''Write a table's Table reference as `<table>.py` in the folder you're working in.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
     description, never its rows) and writes `<table>.py` in the folder you're working in. The
@@ -855,7 +861,7 @@ def _real_table(t, call: str) -> Table:
 
 
 def check_key(t, send):
-    """Check on the newest day that no two rows share the table's declared key.
+    """Check on the newest day that no two rows share the Table reference's key.
 
     JOIN relies on a declared key to warn about repeated rows, and the warehouse never
     enforces one.
@@ -1018,7 +1024,7 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
 
 
 def create_table(t, may_exist=False):
-    """The CREATE TABLE Statement for a Saved table, from its Table reference.
+    """The CREATE TABLE Statement for a Saved table, one your Statements write into.
 
     Send it once with run(create_table(t), send=...). Every column needs a type Hive and
     Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
@@ -1119,4 +1125,5 @@ def _column_definition(t: Table, column: str) -> Node:
             "such as string, and a struct's names are plain words, not ones Hive or Spark "
             "reserve, such as date or user.",
         )
-    return Node("ColumnDef", name=column, type=t._columns[column])
+    check_writable_type(kind, f"create_table({t._alias}): {column}'s type {kind!r}")
+    return Node("ColumnDef", name=column, type=kind)

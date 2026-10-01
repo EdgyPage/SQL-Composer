@@ -1,4 +1,4 @@
-# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
 run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own
@@ -31,7 +31,7 @@ from .refusals import (
 from .tables import aliased, source, table_node
 from .trees import Node, combined
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}
@@ -348,7 +348,7 @@ def _one_day(step: Statement, day) -> Statement:
 
 
 def by_day(s):
-    """Split a Statement into one Statement per day of its date bound, oldest first.
+    """Split a Statement into one Statement per day its FROM table reads, oldest first.
 
     Use it to read a long range a day at a time, or to write a Saved table day by day:
 

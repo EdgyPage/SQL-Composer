@@ -1,7 +1,16 @@
-<!-- SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit -->
+<!-- SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit -->
 # Changes
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
+
+## 3.1
+
+- The first lines of some docstrings, which the README's cheat sheet shows, say more
+  plainly what a function does, such as where `write_table_reference` writes its file.
+- With a sqlglot that writes a struct without the colons Hive needs, as 25.24.2 does, the
+  Edition that writes its Hive with sqlglot refuses a struct column in `create_table`, and
+  says which sqlglot to install. Before, it wrote `STRUCT<name STRING>`, which Hive refuses,
+  where Hive reads `STRUCT<name: STRING>`.
 
 ## 3.0
 

@@ -1,4 +1,4 @@
-# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """How Spark Composer writes a Statement as Hive text, using only Python's standard library.
 
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
@@ -30,7 +30,7 @@ import re
 
 from .trees import HIVE_TYPES, Node, plain_name
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 # The width past which a list of pieces, or a call's arguments, go one to a line.
 WIDTH = 80
@@ -628,6 +628,11 @@ def _name_at(text: str, start: int) -> tuple[str, int] | None:
 def check_writable_call(name: str, args: list[Node], call: str) -> None:
     """Refuse nothing more: Spark Composer writes a hive_function call as it was given, so the
     checks calculations.py makes by the list in trees.py are all it needs."""
+
+
+def check_writable_type(text: str, subject: str) -> None:
+    """Refuse nothing more: this file writes every type on HIVE_TYPES in trees.py, a struct's
+    colons included, so create_table's own check is all it needs."""
 
 
 # After sqlglot's Generator.describe_sql.

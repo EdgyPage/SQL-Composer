@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """What SQL Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
@@ -14,7 +14,7 @@ import re
 from . import _four_part_message as four_part_message
 from . import _stop
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 _LOWEST = (25, 24, 2)
 _BELOW = (31, 0, 0)
@@ -37,6 +37,11 @@ def _numbers(text):
 
 _IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
+# What to install where an older sqlglot writes something wrong: the one the Toolbox is tested on,
+# or a newer one in its range.
+_INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
+                  f'"sqlglot>={_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the '
+                  f"kernel. {_NO_INSTALLING}")
 
 
 def check_installed():

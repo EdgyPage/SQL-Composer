@@ -1,7 +1,7 @@
-<!-- SQL Composer and Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit -->
+<!-- SQL Composer and Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit -->
 # SQL Composer and Spark Composer
 
-This is version 3.0, exported 2026-09-30 18:29.
+This is version 3.1, exported 2026-09-30 20:19.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -33,7 +33,8 @@ writes `sql_composer`: in your imports, in `sql_composer.VERSION`, and in paths 
 Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
 
 - SQL Composer: sqlglot 25.24.2 or newer, below 31. Its Example database runs queries on
-  sqlglot 30.19.0 or newer, so for both: `%pip install "sqlglot>=30.19.0,<31"`.
+  sqlglot 30.19.0 or newer, and so does a struct column in create_table, so install that:
+  `%pip install "sqlglot>=30.19.0,<31"`.
 - Spark Composer: pyspark 3.5.0 or newer, below 4.1: `%pip install "pyspark>=3.5.0,<4.1"`. Its
   Example database starts a Spark of its own, in a second Python in the background, so your
   `spark` is never touched. That Spark needs Java 17 to 21: set JAVA_HOME to it, or have `java`
@@ -119,7 +120,8 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 The examples take today as 2026-09-25, the day after the Example database's last day.
 `last_n_days(...)` counts back from your own today, so in a pasted example that uses it, write
 `between(...)` with the days the example's Hive shows in its place, such as
-`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
+`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows. `first_look(...)`
+reads your own yesterday too, so pasted, its Hive shows another day, and no rows.
 
 ## The Example gallery
 
@@ -177,19 +179,19 @@ Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'3.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'SQL Composer 3.0, exported 2026-09-30 18:29'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'3.1'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'SQL Composer 3.1, exported 2026-09-30 20:19'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
 Table references: Table, and the functions that read, write and check one.
 
-- `Table` - A Table reference: one table's columns and types, Date partition and key.
-- `write_table_reference` - Write a new Table reference file for a table, from what DESCRIBE says of it.
+- `Table` - A Table reference: a table's columns, the day column it's split by, and its key.
+- `write_table_reference` - Write a table's Table reference as `<table>.py` in the folder you're working in.
 - `first_look` - A first look at a table: all its columns, and 20 of yesterday's rows.
-- `check_key` - Check on the newest day that no two rows share the table's declared key.
+- `check_key` - Check on the newest day that no two rows share the Table reference's key.
 - `check_table_reference` - Compare a Table reference with its table as it is now, and list what differs.
-- `create_table` - The CREATE TABLE Statement for a Saved table, from its Table reference.
+- `create_table` - The CREATE TABLE Statement for a Saved table, one your Statements write into.
 - `drop_table` - The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
 - `all_columns` - Every column of a Table reference, in its order, for SELECT instead of `*`.
 
@@ -199,15 +201,15 @@ Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement
 
 - `SELECT` - The columns and named calculations a Statement returns; takes a list too.
 - `SELECT_DISTINCT` - Like SELECT, but each different row comes back once.
-- `AS` - Give a calculation its name in the result, or a table a second name.
-- `FROM` - The table a Statement reads; its Date partition must be bounded in WHERE.
-- `JOIN` - Add a second table's columns to each row, matching rows by ON=.
+- `AS` - Name a calculation, as AS(count_rows(), "runs"), or give a table a second name.
+- `FROM` - The table a Statement reads; WHERE must bound its Date partition at both ends.
+- `JOIN` - Add a second table's columns to the rows its ON= condition matches.
 - `LEFT_JOIN` - Like JOIN, but rows with no match are kept, with NULL in the joined columns.
 - `CROSS_JOIN` - Pair every row with every row of another table, with no ON=.
 - `WHERE` - Keep only the rows where every condition holds (they are joined with AND).
 - `GROUP_BY` - Group rows that share these values, one output row per group.
 - `HAVING` - Keep only the groups where every condition holds, tested after GROUP_BY.
-- `ORDER_BY` - Sort the result; it needs a LIMIT, and sorting in pandas is usually better.
+- `ORDER_BY` - Sort the result; it needs a LIMIT, as sorting every row is slow, or use pandas.
 - `LIMIT` - Return at most n rows.
 - `INSERT_OVERWRITE` - Write the Statement's rows into one day of a Saved table, replacing that day.
 - `INSERT_INTO` - Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
@@ -230,8 +232,8 @@ Conditions: the tests that go in WHERE, HAVING and JOIN's ON=.
 - `last_n_days` - Rows from the n days before today; today itself isn't included.
 - `is_in` - Rows where the column is one of the values in a list.
 - `is_not_in` - Rows where the column is none of the values; rows where it is NULL drop out.
-- `contains` - Rows where the column contains the text, with % and _ matched as themselves.
-- `starts_with` - Rows where the column starts with the text, with % and _ matched as themselves.
+- `contains` - Rows where the column contains your text, a % or _ in it matched as % or _.
+- `starts_with` - Rows where the column starts with your text, a % or _ in it matched as % or _.
 - `any_of` - Rows where at least one of the conditions holds (OR); takes a list too.
 - `all_of` - Rows where every one of the conditions holds (AND), for use inside any_of.
 
@@ -242,16 +244,16 @@ Calculations: counts and sums, row-level functions, and dates grouped into weeks
 - `count_rows` - The number of rows, or of the rows where a condition holds.
 - `count_distinct` - The number of different values in a column, leaving out NULL.
 - `sum_of` - The total of a column, or of its rows where a condition holds.
-- `average_of` - The average of a column; it refuses to average something that doesn't add up.
+- `average_of` - The average of a column that isn't a division, an average or a distinct count.
 - `min_of` - The smallest value in a column.
 - `max_of` - The largest value in a column.
 - `if_else` - One value where a condition holds and another where it doesn't (CASE WHEN).
 - `fill_null` - The column, with a value put in where it is NULL (COALESCE).
 - `week_start` - The Monday that starts each date's week, to group days into weeks.
 - `month_start` - The first day of each date's month, to group days into months.
-- `row_number` - Number the rows within each group from 1, in the order you give.
+- `row_number` - Number the rows of each PARTITION_BY group from 1, in ORDER_BY's order.
 - `descending` - Sort by a column from largest to smallest, in ORDER_BY or row_number.
-- `hive_function` - Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
+- `hive_function` - Call a Hive function the Toolbox doesn't wrap, with your text quoted for you.
 
 ### `running.py`
 
@@ -259,12 +261,12 @@ Running: turn a Statement into Hive, send it, split it by day, and set the load 
 
 - `to_hive` - The Hive string for a Statement, ready to send.
 - `run` - Send a Statement's Hive through your `send` function and return what comes back.
-- `by_day` - Split a Statement into one Statement per day of its date bound, oldest first.
+- `by_day` - Split a Statement into one Statement per day its FROM table reads, oldest first.
 - `set_load_limits` - Switch on an automatic LIMIT and a cap on days per Statement; both start off.
 
 ### `refusals.py`
 
-Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
+Guards and Load limits stop a Statement; a Warning shows at the join it's about.
 
 - `GuardRefused` - A Guard stopped a Statement that would silently give a wrong answer.
 - `LoadRefused` - A Load limit stopped a Statement that would read or return too much.
