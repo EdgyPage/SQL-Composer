@@ -1,4 +1,4 @@
-# Spark Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:
@@ -31,7 +31,7 @@ from .tables import Column, Table, aliased
 from .trees import SIMPLE_NAME, Node
 from .writing import hive_text
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -133,7 +133,7 @@ class Statement:
 
 
 def AS(expression, name):
-    """Give a calculation its name in the result, or a table a second name.
+    """Name a calculation, as AS(count_rows(), "runs"), or give a table a second name.
 
     Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
     uses Python's + - * / and comes out bracketed. / divides as Python's / does, so 7 / 2 is
@@ -266,7 +266,7 @@ def _need_table(table, call: str) -> Table:
 
 
 def FROM(table, reads_all_partitions=False):
-    """The table a Statement reads; its Date partition must be bounded in WHERE.
+    """The table a Statement reads; WHERE must bound its Date partition at both ends.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
@@ -327,7 +327,7 @@ def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> C
 
 
 def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False):
-    """Add a second table's columns to each row, matching rows by ON=.
+    """Add a second table's columns to the rows its ON= condition matches.
 
     When ON= doesn't pin down the joined table's whole key, one row can match several, and
     sums over them come out too big. The Statement is still built, with a warning at your
@@ -496,7 +496,7 @@ def HAVING(*conditions):
 
 
 def ORDER_BY(*columns, sorts_everything=False):
-    """Sort the result; it needs a LIMIT, and sorting in pandas is usually better.
+    """Sort the result; it needs a LIMIT, as sorting every row is slow, or use pandas.
 
     Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
     it makes the warehouse put every row in order before any comes back: sort in pandas after

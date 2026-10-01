@@ -1,5 +1,5 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
-"""Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
+# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+"""Guards and Load limits stop a Statement; a Warning shows at the join it's about.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
 that would read or return more than the cluster or the notebook can take. A Warning lets the
@@ -28,7 +28,7 @@ import warnings
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 
 class GuardRefused(Exception):

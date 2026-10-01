@@ -1,4 +1,4 @@
-# SQL Composer 3.0, exported 2026-09-30 18:29 - generated from dev, do not edit
+# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from collections import deque
 
-TOOLBOX_VERSION = "3.0"
+TOOLBOX_VERSION = "3.1"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
