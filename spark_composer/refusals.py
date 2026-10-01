@@ -1,4 +1,4 @@
-"""Every Guard, Load limit and Warning in one file, with GuardRefused and LoadRefused.
+"""The Guards and Load limits that stop a Statement, and the Warnings that don't.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
 that would read or return more than the cluster or the notebook can take. A Warning lets the

@@ -1344,7 +1344,7 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 </section>
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
-<p class="why">Write a new Table reference file for a table, from what DESCRIBE says of it.</p>
+<p class="why">Write a table&#x27;s Table reference as <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in.</p>
 <p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
 <pre class="python">print(path.read_text())</pre>
@@ -1431,7 +1431,7 @@ Notes:
 </section>
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
-<p class="why">The CREATE TABLE Statement for a Saved table, from its Table reference.</p>
+<p class="why">The CREATE TABLE Statement for a Saved table, one your Statements write into.</p>
 <p>Send it once with run(create_table(t), send=...). Every column needs a type Hive and Spark both have, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
@@ -1535,7 +1535,7 @@ FROM ops.jobs AS jobs</pre>
 </section>
 <section class="entry" id="AS">
 <h3><code>AS</code></h3>
-<p class="why">Give a calculation its name in the result, or a table a second name.</p>
+<p class="why">Name a calculation in the result, as AS(count_rows(), &quot;runs&quot;), or name a table.</p>
 <p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. / divides as Python&#x27;s / does, so 7 / 2 is 3.5, and dividing by zero gives NULL rather than an error.</p>
 <pre class="python">AS(count_rows(), &quot;runs&quot;)</pre>
 <p class="label">Hive</p>
@@ -1549,7 +1549,7 @@ FROM ops.jobs AS jobs</pre>
 </section>
 <section class="entry" id="FROM">
 <h3><code>FROM</code></h3>
-<p class="why">The table a Statement reads; its Date partition must be bounded in WHERE.</p>
+<p class="why">The table a Statement reads; WHERE must bound its Date partition at both ends.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
@@ -1578,7 +1578,7 @@ WHERE
 </section>
 <section class="entry" id="JOIN">
 <h3><code>JOIN</code></h3>
-<p class="why">Add a second table&#x27;s columns to each row, matching rows by ON=.</p>
+<p class="why">Add a second table&#x27;s columns to each row, matching rows as JOIN(t, ON=...) says.</p>
 <p>When ON= doesn&#x27;t pin down the joined table&#x27;s whole key, one row can match several, and sums over them come out too big. The Statement is still built, with a warning at your JOIN line; many_matches=True says you mean it and silences it.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id, jobs.team),
@@ -2044,7 +2044,7 @@ JOIN ops.jobs AS jobs
 </section>
 <section class="entry" id="contains">
 <h3><code>contains</code></h3>
-<p class="why">Rows where the column contains the text, with % and _ matched as themselves.</p>
+<p class="why">Rows where the column contains your text, a % or _ in it taken as typed.</p>
 <pre class="python">contains(jobs.job_name, &quot;sync&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">jobs.job_name LIKE &#x27;%sync%&#x27;</pre>
@@ -2053,7 +2053,7 @@ JOIN ops.jobs AS jobs
 </section>
 <section class="entry" id="starts_with">
 <h3><code>starts_with</code></h3>
-<p class="why">Rows where the column starts with the text, with % and _ matched as themselves.</p>
+<p class="why">Rows where the column starts with your text, a % or _ in it taken as typed.</p>
 <pre class="python">starts_with(jobs.job_name, &quot;invoice_&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">jobs.job_name LIKE &#x27;invoice\\_%&#x27;</pre>
@@ -2117,7 +2117,7 @@ JOIN ops.jobs AS jobs
 </section>
 <section class="entry" id="average_of">
 <h3><code>average_of</code></h3>
-<p class="why">The average of a column; it refuses to average something that doesn&#x27;t add up.</p>
+<p class="why">The average of a column; it refuses an average, a ratio or a distinct count.</p>
 <p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column, since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
 <pre class="python">average_of(job_runs.duration_mins)</pre>
 <p class="label">Hive</p>
@@ -2238,7 +2238,7 @@ WHERE
 </section>
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
-<p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with its arguments escaped.</p>
+<p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with your values quoted for you.</p>
 <p>The Hive writes its name in capitals. It may also write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
 <p>It checks the call before writing it:</p>
 <ul><li>it refuses a call with the wrong number of arguments, for the functions it knows, such as upper, substr or date_add;</li><li>a function that turns many rows into one, such as collect_set or percentile, is treated as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;</li><li>it refuses a function that works only over a window of rows, written OVER (...) after it, such as lag or rank, since it can&#x27;t write OVER.</li></ul>
@@ -2301,7 +2301,7 @@ WHERE
 </section>
 <section class="entry" id="by_day">
 <h3><code>by_day</code></h3>
-<p class="why">Split a Statement into one Statement per day of its date bound, oldest first.</p>
+<p class="why">Split a Statement into one Statement per day it reads, oldest first.</p>
 <p>Use it to read a long range a day at a time, or to write a Saved table day by day:</p>
 <pre class="python">for day in by_day(s):
     df = run(day, send=run_query)</pre>

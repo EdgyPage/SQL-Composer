@@ -414,7 +414,7 @@ def _like(name: str, column, text: str, pattern) -> Condition:
 
 
 def contains(column, text):
-    """Rows where the column contains the text, with % and _ matched as themselves.
+    """Rows where the column contains your text, a % or _ in it taken as typed.
 
     >>> contains(jobs.job_name, "sync")
     jobs.job_name LIKE '%sync%'
@@ -423,7 +423,7 @@ def contains(column, text):
 
 
 def starts_with(column, text):
-    """Rows where the column starts with the text, with % and _ matched as themselves.
+    """Rows where the column starts with your text, a % or _ in it taken as typed.
 
     >>> starts_with(jobs.job_name, "invoice_")
     jobs.job_name LIKE 'invoice\\\\_%'

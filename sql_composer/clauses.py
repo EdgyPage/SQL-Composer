@@ -132,7 +132,7 @@ class Statement:
 
 
 def AS(expression, name):
-    """Give a calculation its name in the result, or a table a second name.
+    """Name a calculation in the result, as AS(count_rows(), "runs"), or name a table.
 
     Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
     uses Python's + - * / and comes out bracketed. / divides as Python's / does, so 7 / 2 is
@@ -265,7 +265,7 @@ def _need_table(table, call: str) -> Table:
 
 
 def FROM(table, reads_all_partitions=False):
-    """The table a Statement reads; its Date partition must be bounded in WHERE.
+    """The table a Statement reads; WHERE must bound its Date partition at both ends.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
@@ -326,7 +326,7 @@ def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> C
 
 
 def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False):
-    """Add a second table's columns to each row, matching rows by ON=.
+    """Add a second table's columns to each row, matching rows as JOIN(t, ON=...) says.
 
     When ON= doesn't pin down the joined table's whole key, one row can match several, and
     sums over them come out too big. The Statement is still built, with a warning at your

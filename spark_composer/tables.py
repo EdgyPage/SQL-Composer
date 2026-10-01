@@ -33,7 +33,13 @@ from .refusals import (
     refuse_what_the_other_edition_made,
 )
 from .trees import ARITHMETIC, SIMPLE_NAME, Node, is_hive_type, number, string
-from .writing import describe_text, hive_text, readable_text, show_partitions_text
+from .writing import (
+    check_writable_type,
+    describe_text,
+    hive_text,
+    readable_text,
+    show_partitions_text,
+)
 
 TOOLBOX_VERSION = "3.0"
 
@@ -740,7 +746,7 @@ def _day_format_of(value: str | None) -> str | None:
 
 
 def write_table_reference(name, send):
-    '''Write a new Table reference file for a table, from what DESCRIBE says of it.
+    '''Write a table's Table reference as `<table>.py` in the folder you're working in.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
     description, never its rows) and writes `<table>.py` in the folder you're working in. The
@@ -1017,7 +1023,7 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
 
 
 def create_table(t, may_exist=False):
-    """The CREATE TABLE Statement for a Saved table, from its Table reference.
+    """The CREATE TABLE Statement for a Saved table, one your Statements write into.
 
     Send it once with run(create_table(t), send=...). Every column needs a type Hive and
     Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
@@ -1118,4 +1124,5 @@ def _column_definition(t: Table, column: str) -> Node:
             "such as string, and a struct's names are plain words, not ones Hive or Spark "
             "reserve, such as date or user.",
         )
-    return Node("ColumnDef", name=column, type=t._columns[column])
+    check_writable_type(kind, f"create_table({t._alias}): {column}'s type {kind!r}")
+    return Node("ColumnDef", name=column, type=kind)

@@ -347,7 +347,7 @@ def _one_day(step: Statement, day) -> Statement:
 
 
 def by_day(s):
-    """Split a Statement into one Statement per day of its date bound, oldest first.
+    """Split a Statement into one Statement per day it reads, oldest first.
 
     Use it to read a long range a day at a time, or to write a Saved table day by day:
 

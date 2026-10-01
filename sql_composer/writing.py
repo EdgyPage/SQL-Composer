@@ -71,6 +71,38 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
         ) from error
 
 
+def check_writable_type(text: str, call: str) -> None:
+    """Refuse a column type sqlglot would write wrong: a struct, where this sqlglot leaves out
+    the colons Hive's STRUCT<name: type> needs.
+
+    create_table has checked the type against HIVE_TYPES in trees.py already.
+    """
+    # Only a struct, or a type holding one, can name "struct": its fields' names are plain
+    # words, which take no part of a type's name.
+    if "struct" not in text.lower() or _writes_struct_colons():
+        return
+    from .engine import _BELOW, _NEWEST_TESTED, _dotted
+
+    raise ValueError(
+        four_part_message(
+            what=f"{call} holds a struct, and the sqlglot this Python has, {sqlglot.__version__}, "
+            "writes a struct without the colons Hive needs: STRUCT<name STRING> where Hive "
+            "reads STRUCT<name: STRING>.",
+            why="Hive would refuse the CREATE TABLE.",
+            fix=f'Install a newer sqlglot from a notebook cell with %pip install "sqlglot>='
+            f'{_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the kernel. If you '
+            "can't install packages, ask whoever looks after your environment.",
+            opt_out=None,
+        )
+    )
+
+
+def _writes_struct_colons() -> bool:
+    """Whether this sqlglot writes a struct's fields with the colons Hive needs."""
+    built = exp.DataType.build("struct<a:int>", dialect=_DIALECT)
+    return sql_text(built) == "STRUCT<a: INT>"
+
+
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
 _READ_BACK = {}
 
