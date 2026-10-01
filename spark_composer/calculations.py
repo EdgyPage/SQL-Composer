@@ -129,7 +129,7 @@ def sum_of(column, where=None, adds_up=False):
 
 
 def average_of(column, where=None, adds_up=False):
-    """The average of a column; it refuses to average something that doesn't add up.
+    """The average of a column; it refuses an average, a ratio or a distinct count.
 
     An average itself doesn't add up: the average of two daily averages isn't the average
     over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column,
@@ -357,7 +357,7 @@ def row_number(*, PARTITION_BY, ORDER_BY):
 
 
 def hive_function(name, *args):
-    """Call a Hive function the Toolbox doesn't wrap, with its arguments escaped.
+    """Call a Hive function the Toolbox doesn't wrap, with your values quoted for you.
 
     The Hive writes its name in capitals. It may also write another name that does the same,
     as COALESCE for nvl, or leave out an argument that is filled in anyway, as

@@ -629,6 +629,11 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
     checks calculations.py makes by the list in trees.py are all it needs."""
 
 
+def check_writable_type(text: str, call: str) -> None:
+    """Refuse nothing more: this file writes every type on HIVE_TYPES in trees.py, a struct's
+    colons included, so create_table's own check is all it needs."""
+
+
 # After sqlglot's Generator.describe_sql.
 def describe_text(name: str) -> str:
     """The DESCRIBE command for one table."""
