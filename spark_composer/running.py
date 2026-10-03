@@ -413,7 +413,20 @@ def by_day(s):
         )
     for step, described in steps:
         _check_splittable(step, table._date_partition, described)
-    return [_split(steps, day) for day in span.dates()]
+    days = span.dates()
+    if not days:
+        raise ValueError(
+            four_part_message(
+                what=f"by_day can't split this Statement: its WHERE leaves no day of "
+                f"{table._alias}.{table._date_partition} to read.",
+                why="No day is inside every bound, so there would be no Statement to send, "
+                "and nothing would be read or written.",
+                fix="Check the days in its WHERE: at_least's day may be later than "
+                "at_most's, or not_equals or is_not_in may leave out the only day.",
+                opt_out=None,
+            )
+        )
+    return [_split(steps, day) for day in days]
 
 
 def _split(steps, day) -> Statement:
