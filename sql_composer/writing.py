@@ -17,7 +17,7 @@ from .engine import _INSTALL_NEWER
 from .refusals import four_part_message
 from .trees import Node, arguments_text, plain_name
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 _DIALECT = "hive"
 

@@ -35,7 +35,7 @@ from .trees import (
 )
 from .writing import check_writable_call
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 
