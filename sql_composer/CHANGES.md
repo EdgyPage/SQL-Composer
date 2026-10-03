@@ -13,10 +13,11 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   called.
 - **A FROM table with no Date partition is named plainly** when by_day or a write needs its
   days. by_day's fix named a column the table doesn't have.
-- **export_lineage shows a write over several days with set_load_limits(dates=...)**, by its
-  first day's Hive, as it does without it. Before, the dates Load limit refused it.
-- **The dates Load limit's fix for a joined table** says to narrow that table's own days. It
-  said to use by_day, which splits only the table in FROM.
+- **export_lineage shows a write over several days even with set_load_limits(dates=...)**,
+  using the first day's Hive, as it does without it. Before, set_load_limits(dates=...)
+  refused it.
+- **set_load_limits(dates=...)'s fix for a joined table** says to narrow that table's own
+  days. It said to use by_day, which splits only the table in FROM.
 - **A Date partition's day must be written exactly as its date_format writes it.** Before,
   `equals(job_runs.dt, "2026-9-24")` was taken as 2026-09-24, but Hive compared the text
   '2026-9-24', which matches no day, so the answer was empty. Now it is refused.

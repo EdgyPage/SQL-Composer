@@ -8,8 +8,8 @@ Each Guard and Load limit stops as soon as it can tell. One that sees a single c
 calculation with no name or None in a comparison, stops at that call. One that needs the whole
 Statement, like a GROUP_BY that leaves a column out or a Date partition with no bound, stops
 at statement(...). The dates Load limit and a write that covers more than one day stop at
-to_hive, the row limit stops at run once the rows are back, and by_day stops at any LIMIT and
-at a grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every
+to_hive, the row limit stops at run once the rows are back, and by_day(...) refuses any LIMIT
+and any grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every
 opt-out is a keyword on one of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
@@ -292,16 +292,18 @@ def guard_by_day_limit(step: str, limit: int) -> None:
     )
 
 
-def guard_by_day_grouping(step: str, date_partition: str) -> None:
-    """by_day can't split a Statement that groups across days. No opt-out."""
+def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
+    """by_day can't split a Statement that groups across days. No opt-out.
+
+    `keeping` names the Date partition as the step sees it, and `add` says where it goes.
+    """
     raise GuardRefused(
         four_part_message(
             what=f"by_day can't split this Statement: {step} groups rows without keeping "
-            f"the Date partition {date_partition}.",
+            f"{keeping}.",
             why="Each day's Statement would give partial groups, and those can't always be "
             "added back up (a distinct count, for one, can't).",
-            fix=f"Add {date_partition} to that GROUP_BY or PARTITION_BY, or run the Statement "
-            "whole with run(...).",
+            fix=f"{add}, or run the Statement whole with run(...).",
             opt_out=None,
         )
     )

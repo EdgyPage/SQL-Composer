@@ -305,28 +305,42 @@ def run(s, send):
 # --- by_day ----------------------------------------------------------------------------------
 
 
-def _check_splittable(s: Statement, step: str, dates: list, named: str) -> None:
+def _check_splittable(s: Statement, step: str, dates: list, partition: str,
+                      below: str) -> None:
     """A step may group or pick rows only if it keeps the Date partition, and may have no
     LIMIT.
 
-    `dates` holds the Date partition as this step sees it, under each name the step below
-    gave it, and `named` is how a refusal names it.
+    `dates` holds the Date partition as this step sees it, under each name the step below,
+    `below`, gave it; `partition` is the Date partition at the bottom step.
     """
     if s._limit is not None:
         guard_by_day_limit(step, s._limit)
-    grouping = None
     if s._distinct:
-        grouping = [column._tree for column, _ in s._outputs]
-    elif s._group_by:
-        grouping = [column._tree for column in s._group_by]
-    elif any(column._aggregate for column, _ in s._outputs):
-        grouping = []
+        grouping, clause = [column._tree for column, _ in s._outputs], "SELECT_DISTINCT(...)"
+    elif s._group_by or any(column._aggregate for column, _ in s._outputs):
+        grouping, clause = [column._tree for column in s._group_by], "GROUP_BY(...)"
+    else:
+        grouping, clause = None, ""
     if grouping is not None and not any(date in grouping for date in dates):
-        guard_by_day_grouping(step, named)
+        _refuse_grouping(step, dates, partition, below, clause)
     for column, _ in s._outputs:
         for window in column._tree.find_all("Window"):
             if not any(date in window.parts["partition_by"] for date in dates):
-                guard_by_day_grouping(step, named)
+                _refuse_grouping(step, dates, partition, below,
+                                 "the PARTITION_BY of row_number(...)")
+
+
+def _refuse_grouping(step: str, dates: list, partition: str, below: str, clause: str):
+    """Refuse a step for leaving the Date partition out of `clause`, naming it as the step
+    sees it, or saying where to keep it when the step below dropped it."""
+    if not dates:
+        guard_by_day_grouping(step, f"the Date partition {partition}",
+                              f"Keep {partition} in the SELECT of {below}, then add it to "
+                              f"{clause} here")
+    name = f"{dates[0].table}.{dates[0].name}"
+    keeping = (f"the Date partition {partition}" if name == partition
+               else f"{name} ({partition}, the Date partition)")
+    guard_by_day_grouping(step, keeping, f"Add {name} to {clause}")
 
 
 def _dates_above(below: Statement, table, dates: list) -> list:
@@ -421,15 +435,14 @@ def by_day(s):
         "by_day makes one Statement for each day its FROM table reads.",
         "Run it whole with run(...): by_day splits only a table with days.")
     # Follow the Date partition up from the bottom step, under each name a step gives it.
-    dates, below = [Node("Column", name=table._date_partition, table=table._alias)], None
+    partition = f"{table._alias}.{table._date_partition}"
+    dates = [Node("Column", name=table._date_partition, table=table._alias)]
+    below, below_described = None, ""
     for step, described in reversed(found):
         if below is not None:
             dates = _dates_above(below, step._reads[0].table, dates)
-        shown = dates[0] if dates else Node("Column", name=table._date_partition,
-                                            table=table._alias)
-        named = f"{shown.table}.{shown.name}"
-        _check_splittable(step, described, dates, named)
-        below = step
+        _check_splittable(step, described, dates, partition, below_described)
+        below, below_described = step, described
     days = span.dates()
     if not days:
         raise ValueError(
