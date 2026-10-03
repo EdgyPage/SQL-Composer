@@ -4,13 +4,13 @@ A Guard refuses a Statement that would silently give a wrong answer. A Load limi
 that would read or return more than the cluster or the notebook can take. A Warning lets the
 Statement through but says why a number may come out wrong.
 
-Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a calculation with
-no name or None in a comparison, stops at that call. One that needs the whole Statement, like
-a GROUP_BY that leaves a column out or a Date partition with no bound, stops at
-statement(...). The dates cap and a write that covers more than one day stop at to_hive, the
-row limit stops at run once the rows are back, and by_day stops at any LIMIT and at a
-grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every opt-out is a keyword on one
-of your own calls.
+Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a
+calculation with no name or None in a comparison, stops at that call. One that needs the whole
+Statement, like a GROUP_BY that leaves a column out or a Date partition with no bound, stops
+at statement(...). The dates Load limit and a write that covers more than one day stop at
+to_hive, the row limit stops at run once the rows are back, and by_day stops at any LIMIT and
+at a grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every
+opt-out is a keyword on one of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
 code to paste, or none. `four_part_message` builds all of them, so they all read the same way,
@@ -472,7 +472,8 @@ def load_limit_rows(rows: int, limit: int) -> None:
 
 def load_limit_dates(call: str, full_name: str, days: int, cap: int,
                      reads_all_partitions: bool, split_by_day: bool) -> None:
-    """With a dates cap set, one Statement may read at most that many days of a table.
+    """With set_load_limits(dates=...), one Statement may read at most that many days of a
+    table.
 
     `split_by_day` is whether by_day splits this table's days: only the table in FROM's.
     """

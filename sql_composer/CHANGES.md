@@ -2,24 +2,21 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
-## Not yet numbered
+## 3.2
 
-- **by_day refuses a LIMIT**, in your Statement or in any Derived table. LIMIT keeps rows of
-  the whole Statement: split by day, a top 10 over a week became the top 10 of each day, 70
-  rows.
+- **by_day refuses a LIMIT**, in your Statement or in a Derived table it reads through FROM.
+  LIMIT keeps rows of the whole Statement: split by day, a top 10 over a week became the top
+  10 of each day, 70 rows.
 - **by_day follows the Date partition itself, not its name.** It checked only the name dt, so
   grouping by any column called dt passed, and each day got part of a total; a dt renamed
   with AS in a Derived table was refused. Now it follows job_runs.dt itself, whatever it's
   called.
 - **A FROM table with no Date partition is named plainly** when by_day or a write needs its
   days. by_day's fix named a column the table doesn't have.
-- **export_lineage shows a write over several days with a dates cap set**, by its first day's
-  Hive, as it does without one. Before, the dates cap refused it.
-- **The dates cap's fix for a joined table** says to narrow that table's own days. It said to
-  use by_day, which splits only the table in FROM.
-
-## 3.2
-
+- **export_lineage shows a write over several days with set_load_limits(dates=...)**, by its
+  first day's Hive, as it does without it. Before, the dates Load limit refused it.
+- **The dates Load limit's fix for a joined table** says to narrow that table's own days. It
+  said to use by_day, which splits only the table in FROM.
 - **A Date partition's day must be written exactly as its date_format writes it.** Before,
   `equals(job_runs.dt, "2026-9-24")` was taken as 2026-09-24, but Hive compared the text
   '2026-9-24', which matches no day, so the answer was empty. Now it is refused.

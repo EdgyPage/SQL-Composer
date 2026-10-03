@@ -25,7 +25,7 @@ from .refusals import (
     four_part_message,
     refuse_what_the_other_edition_made,
 )
-from .running import by_day, steps, to_hive
+from .running import bottom_read, by_day, steps, to_hive
 from .tables import readable
 from .trees import Node
 from .writing import hive_text
@@ -416,12 +416,13 @@ def _about(s: Statement, index: int, ordered) -> str:
 
 
 def _submitted(s: Statement, name: str) -> tuple[str, str]:
-    """The Hive as submitted; for a write over several days, the first day's, even when the
-    dates cap refuses the whole write."""
+    """The Hive as submitted; for a write over several days, the first day's, even when
+    set_load_limits(dates=...) refuses the whole write."""
     try:
         return to_hive(s), ""
     except (GuardRefused, LoadRefused):
-        if s._write is None:
+        _, span = bottom_read(s)
+        if s._write is None or span is None or not span.is_bounded() or len(span.dates()) < 2:
             raise
     days = by_day(s)
     return to_hive(days[0]), (

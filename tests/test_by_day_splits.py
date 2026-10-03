@@ -51,14 +51,14 @@ def test_by_day_refuses_a_limit_inside_a_derived_table() -> None:
 
 def test_by_day_refuses_a_distinct_without_the_date() -> None:
     s = statement(SELECT_DISTINCT(job_runs.status), FROM(job_runs), WHERE(DAYS))
-    with pytest.raises(GuardRefused, match="without keeping the Date partition dt"):
+    with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(s)
 
 
 def test_by_day_refuses_a_total_over_the_days() -> None:
     s = statement(SELECT(AS(count_distinct(job_runs.job_id), "jobs")), FROM(job_runs),
                   WHERE(DAYS))
-    with pytest.raises(GuardRefused, match="without keeping the Date partition dt"):
+    with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(s)
 
 
@@ -70,14 +70,15 @@ def test_by_day_refuses_grouping_by_another_tables_dt() -> None:
         WHERE(DAYS, between(run_alerts.dt, "2026-09-23", "2026-09-24")),
         GROUP_BY(run_alerts.dt),
     )
-    with pytest.raises(GuardRefused, match="without keeping the Date partition dt"):
+    with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(s)
 
 
 def test_by_day_refuses_an_output_only_named_like_the_date() -> None:
-    teams = per_day(SELECT(job_runs.job_id, AS(job_runs.status, "dt")))
-    s = statement(SELECT(teams.dt, AS(count_rows(), "runs")), FROM(teams), GROUP_BY(teams.dt))
-    with pytest.raises(GuardRefused, match="without keeping the Date partition dt"):
+    looks_alike = per_day(SELECT(job_runs.job_id, AS(job_runs.status, "dt")))
+    s = statement(SELECT(looks_alike.dt, AS(count_rows(), "runs")), FROM(looks_alike),
+                  GROUP_BY(looks_alike.dt))
+    with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(s)
 
 
@@ -104,6 +105,20 @@ def test_by_day_follows_a_renamed_date_up_through_a_derived_table() -> None:
     s = statement(SELECT(renamed.day, AS(count_rows(), "runs")), FROM(renamed),
                   GROUP_BY(renamed.day))
     assert [to_hive(day).count("job_runs.dt = '2026-09-2") for day in by_day(s)] == [1, 1]
+
+
+def test_by_day_names_the_date_as_the_step_it_refuses_names_it() -> None:
+    renamed = per_day(SELECT(AS(job_runs.dt, "day"), job_runs.status))
+    s = statement(SELECT(renamed.status, AS(count_rows(), "runs")), FROM(renamed),
+                  GROUP_BY(renamed.status))
+    with pytest.raises(GuardRefused, match="without keeping the Date partition per_day.day"):
+        by_day(s)
+
+
+def test_by_day_follows_every_name_a_derived_table_gives_the_date() -> None:
+    twice = per_day(SELECT(AS(job_runs.dt, "d1"), AS(job_runs.dt, "d2"), job_runs.job_id))
+    s = statement(SELECT(twice.d2, AS(count_rows(), "runs")), FROM(twice), GROUP_BY(twice.d2))
+    assert len(by_day(s)) == 2
 
 
 def test_by_day_splits_a_distinct_that_keeps_the_date() -> None:
