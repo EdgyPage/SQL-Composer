@@ -11434,7 +11434,7 @@ WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GuardRefused:
   What happened:  by_day can't split this Statement: it groups rows without keeping the Date partition job_runs.dt.
   Why it matters: Each day's Statement would give partial groups, and those can't always be added back up (a distinct count, for one, can't).
-  Usual fix:      Add job_runs.dt to that GROUP_BY or PARTITION_BY, or run the Statement whole with run(...).
+  Usual fix:      Add job_runs.dt to GROUP_BY(...), or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.
 
 == edge:drop_table:odd

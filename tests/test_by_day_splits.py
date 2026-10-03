@@ -111,7 +111,16 @@ def test_by_day_names_the_date_as_the_step_it_refuses_names_it() -> None:
     renamed = per_day(SELECT(AS(job_runs.dt, "day"), job_runs.status))
     s = statement(SELECT(renamed.status, AS(count_rows(), "runs")), FROM(renamed),
                   GROUP_BY(renamed.status))
-    with pytest.raises(GuardRefused, match="without keeping the Date partition per_day.day"):
+    with pytest.raises(GuardRefused, match=r"without keeping per_day.day \(job_runs.dt, the Date partition\)"):
+        by_day(s)
+
+
+def test_by_day_says_to_keep_the_date_in_the_derived_table_that_dropped_it() -> None:
+    dropped = per_day(SELECT(job_runs.status))
+    s = statement(SELECT(dropped.status, AS(count_rows(), "runs")), FROM(dropped),
+                  GROUP_BY(dropped.status))
+    with pytest.raises(GuardRefused, match=r"Keep job_runs.dt in the SELECT of "
+                       r"derived\('per_day', \.\.\.\), then add it to GROUP_BY\(\.\.\.\) here"):
         by_day(s)
 
 
