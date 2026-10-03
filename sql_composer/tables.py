@@ -345,9 +345,8 @@ def as_date(value, column: Column, call: str) -> datetime.date:
     # Python also reads "2026-9-24", but Hive compares the text, which matches no day.
     if day is not None and day_text(day, pattern) == str(value):
         return day
-    # Your own day, written as it should be, if Python could read it. Python reads
-    # "0026-9-24" as the year 26, which isn't a Date partition's day, so that gets the example.
-    shown = day if day is not None and day.year >= 1000 else datetime.date(2026, 9, 25)
+    # Your own day, written as it should be, if Python could read it.
+    shown = day if day is not None else datetime.date(2026, 9, 25)
     example = day_text(shown, pattern)
     raise ValueError(
         four_part_message(
