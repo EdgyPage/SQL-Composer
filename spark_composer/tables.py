@@ -345,7 +345,8 @@ def as_date(value, column: Column, call: str) -> datetime.date:
     # Python also reads "2026-9-24", but Hive compares the text, which matches no day.
     if day is not None and day_text(day, pattern) == str(value):
         return day
-    # Your own day, written as it should be, if Python could read it.
+    # Your own day, written as it should be, if Python could read it. Python reads
+    # "26-09-24" as the year 26, which would show as "0026-09-24", so that gets the example.
     shown = day if day is not None and day.year >= 1000 else datetime.date(2026, 9, 25)
     example = day_text(shown, pattern)
     raise ValueError(
@@ -457,7 +458,7 @@ def _check_date_format(date_format: str) -> None:
                 fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
             )
         rest = rest.replace(directive, "")
-    other_days = ("If the table's days really are written another way, leave its Date "
+    without_a_date_partition = ("If the table's days really are written another way, leave its Date "
                   "partition out with date_partition=None, and filter that column with "
                   "equals(...) or is_in(...), not at_least(...) or between(...), which compare "
                   "text.")
@@ -468,7 +469,7 @@ def _check_date_format(date_format: str) -> None:
             why="Hive compares a Date partition's days as text, and only days written year "
             "first sort in date order, so BETWEEN, last_n_days and check_key's newest day "
             "would read the wrong days.",
-            fix=f'Use a pattern such as "%Y-%m-%d" or "%Y%m%d". {other_days}',
+            fix=f'Use a pattern such as "%Y-%m-%d" or "%Y%m%d". {without_a_date_partition}',
         )
     if any(character in rest for character in CONTROL_CHARACTERS):
         _refuse_table(
@@ -479,20 +480,17 @@ def _check_date_format(date_format: str) -> None:
             fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
             "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
         )
-    if "%" in rest or "'" in rest or not rest.isprintable():
+    # A letter means a part of a date in Hive's pattern too, and % or ' would end it.
+    odd = [c for c in rest if c.isalpha() or c in "%'" or not c.isprintable()]
+    if odd:
         _refuse_table(
-            what=f"date_format={date_format!r} has something other than %Y, %m and %d.",
-            why="Only the year, month and day can be turned into Hive's own pattern.",
-            fix='Use only %Y, %m, %d and separators, such as "%Y%m%d" or "%Y/%m/%d".',
-        )
-    letters = [character for character in rest if character.isalpha()]
-    if letters:
-        _refuse_table(
-            what=f"date_format={date_format!r} has a letter besides %Y, %m and %d: "
-            f"{', '.join(repr(letter) for letter in letters)}.",
-            why="The Toolbox turns the pattern into Hive's own, where a letter means a part "
-            "of a date (H is the hour), so the days would be read wrong.",
-            fix=f'Use only %Y, %m, %d and separators such as - or /. {other_days}',
+            what=f"date_format={date_format!r} has something besides %Y, %m, %d and "
+            f"separators: {', '.join(repr(character) for character in odd)}.",
+            why="The Toolbox turns the pattern into Hive's own, where only the year, month "
+            "and day can go, and a letter means a part of a date (H is the hour), so the "
+            "days would be read wrong.",
+            fix='Use only %Y, %m, %d and separators such as - or /, as in "%Y/%m/%d". '
+            f"{without_a_date_partition}",
         )
 
 

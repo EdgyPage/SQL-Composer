@@ -35,30 +35,45 @@ def today() -> datetime.date:
 
 
 class Span:
-    """The days a condition lets through for one Date partition: from low to high, or only
-    the days in a list, but never the days it leaves out."""
+    """The days a condition lets through for one Date partition.
 
-    def __init__(self, low=None, high=None, days=None, left_out=frozenset()):
+    A condition's own Span runs from low to high, or holds only the days in a list, and
+    never the days it leaves out. Spans joined with AND or OR keep the two they were made
+    from, so a day is let through exactly when the conditions would let it through.
+    """
+
+    def __init__(self, low=None, high=None, days=None, left_out=frozenset(), *, both=(),
+                 either=()):
         self.low = low
         self.high = high
         self.days = days
         # The days not_equals and is_not_in leave out, which by_day and the Load limits skip.
         self.left_out = left_out
+        self.both = both
+        self.either = either
 
     def is_bounded(self) -> bool:
         return self.days is not None or (self.low is not None and self.high is not None)
 
+    def lets_through(self, day) -> bool:
+        if self.low is not None and day < self.low:
+            return False
+        if self.high is not None and day > self.high:
+            return False
+        if (self.days is not None and day not in self.days) or day in self.left_out:
+            return False
+        if self.both and not all(span.lets_through(day) for span in self.both):
+            return False
+        return not self.either or any(span.lets_through(day) for span in self.either)
+
     def dates(self) -> list[datetime.date]:
-        """Every day in the span, oldest first."""
+        """Every day in the span, oldest first. Only for a bounded span."""
         if self.days is not None:
             found = sorted(self.days)
         else:
             count = (self.high - self.low).days + 1
             found = [self.low + datetime.timedelta(days=n) for n in range(max(count, 0))]
-        return [day for day in found if self._inside(day) and day not in self.left_out]
-
-    def _inside(self, day) -> bool:
-        return (self.low is None or day >= self.low) and (self.high is None or day <= self.high)
+        return [day for day in found if self.lets_through(day)]
 
 
 def days_in_both(first: Span, second: Span) -> Span:
@@ -67,18 +82,15 @@ def days_in_both(first: Span, second: Span) -> Span:
     high = min((s.high for s in (first, second) if s.high is not None), default=None)
     sets = [s.days for s in (first, second) if s.days is not None]
     days = frozenset.intersection(*sets) if sets else None
-    return Span(low, high, days, first.left_out | second.left_out)
+    return Span(low, high, days, both=(first, second))
 
 
 def days_in_either(first: Span, second: Span) -> Span:
     """The days two conditions joined with OR let through between them."""
-    if first.is_bounded() and second.is_bounded():
-        days = frozenset(first.dates()) | frozenset(second.dates())
-        return Span(min(days, default=None), max(days, default=None), days)
-    # Unbounded, so it bounds nothing alone; ANDed with a bound, it may read a day too many.
     low = None if None in (first.low, second.low) else min(first.low, second.low)
     high = None if None in (first.high, second.high) else max(first.high, second.high)
-    return Span(low, high, None, first.left_out & second.left_out)
+    days = None if None in (first.days, second.days) else first.days | second.days
+    return Span(low, high, days, either=(first, second))
 
 
 class Condition:
@@ -349,7 +361,7 @@ def _in(name: str, column, values, negated: bool) -> Condition:
     if negated:
         tree = Node("Not", this=tree)
     made_by(tree, name, column, values)
-    if not is_date_partition(column) or any(isinstance(value, Column) for value in values):
+    if not is_date_partition(column):
         return Condition(tree)
     days = frozenset(as_date(value, column, call) for value in values)
     span = Span(left_out=days) if negated else Span(min(days), max(days), days)
