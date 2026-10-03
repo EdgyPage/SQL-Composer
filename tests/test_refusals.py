@@ -259,7 +259,7 @@ def test_guard_by_day_grouping_refuses() -> None:
         WHERE(DAYS),
         GROUP_BY(job_runs.status),
     )
-    with pytest.raises(GuardRefused, match="without keeping the Date partition dt"):
+    with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(weekly)
 
 

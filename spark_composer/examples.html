@@ -2310,7 +2310,7 @@ WHERE
 <p>Use it to read a long range a day at a time, or to write a Saved table day by day:</p>
 <pre class="python">for day in by_day(s):
     df = run(day, send=run_query)</pre>
-<p>It splits on the Date partition of the table in FROM, following Derived tables down to it; a joined table keeps its own bound. It refuses a Statement that groups rows without keeping that date, since each day&#x27;s partial groups couldn&#x27;t be added back up.</p>
+<p>It splits on the Date partition of the table in FROM, following Derived tables down to it; a joined table keeps its own bound. It refuses a Statement that groups rows without keeping that date, since each day&#x27;s partial groups couldn&#x27;t be added back up, and one with a LIMIT, which would keep that many rows of each day.</p>
 <pre class="python">days = by_day(statement(
     SELECT(job_runs.dt, job_runs.status, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),

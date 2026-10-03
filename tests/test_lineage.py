@@ -30,6 +30,7 @@ from sql_composer import (
     ORDER_BY,
     SELECT,
     WHERE,
+    LoadRefused,
     Table,
     at_least,
     between,
@@ -533,6 +534,23 @@ def test_a_write_over_more_days_than_the_dates_cap_shows_its_first_days_hive(
     hive = section(markdown, "### Hive as submitted")
     assert "This write covers 2 days" in hive
     assert "PARTITION(dt = '2026-09-23')" in hive
+
+
+def test_a_one_day_write_over_the_dates_cap_is_refused_as_to_hive_refuses_it(
+        tmp_path) -> None:
+    set_load_limits(dates=1)
+    alerts = statement(
+        INSERT_OVERWRITE(daily_runs),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        JOIN(example_database.run_alerts,
+             ON=equals(example_database.run_alerts.run_id, job_runs.run_id), many_matches=True),
+        WHERE(equals(job_runs.dt, "2026-09-24"),
+              between(example_database.run_alerts.dt, "2026-09-23", "2026-09-24")),
+        GROUP_BY(job_runs.job_id),
+    )
+    with pytest.raises(LoadRefused, match="reads 2 days of ops.run_alerts"):
+        export_lineage(alerts, to=tmp_path / "lineage.html")
 
 
 def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path) -> None:
