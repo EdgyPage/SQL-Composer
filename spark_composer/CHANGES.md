@@ -2,7 +2,7 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
-## Not yet numbered
+## 3.2
 
 - **A Date partition's day must be written exactly as its date_format writes it.** Before,
   `equals(job_runs.dt, "2026-9-24")` was taken as 2026-09-24, but Hive compared the text
@@ -18,8 +18,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **by_day reads only the days an any_of lets through.** Before,
   `any_of(equals(job_runs.dt, "2026-09-01"), between(job_runs.dt, "2026-09-23", "2026-09-24"))`
   counted every day from the first to the last: by_day gave 24 Statements, most reading no
-  rows, and set_load_limits(dates=...) counted 24 days. Now both count 3. For a write, the
-  days between were each written with no rows, which replaced what those days held.
+  rows, and set_load_limits(dates=...) counted 24 days. Now both count 3. Split by day, an
+  INSERT_OVERWRITE wrote each day between with no rows, which replaced what it held.
 
 ## 3.1
 

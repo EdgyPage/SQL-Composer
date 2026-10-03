@@ -20,7 +20,7 @@ Spark. They can sit side by side.
 _Avoid_: flavour, variant, port, fork, backend, dialect
 
 **Toolbox version**:
-The feature number of the Toolbox (`3.1`), raised only when a big feature lands, and shared by both
+The feature number of the Toolbox (`3.2`), raised only when a big feature lands, and shared by both
 Editions. Two copies of the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 

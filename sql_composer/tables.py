@@ -41,7 +41,7 @@ from .writing import (
     show_partitions_text,
 )
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
@@ -346,7 +346,7 @@ def as_date(value, column: Column, call: str) -> datetime.date:
     if day is not None and day_text(day, pattern) == str(value):
         return day
     # Your own day, written as it should be, if Python could read it. Python reads
-    # "26-09-24" as the year 26, which would show as "0026-09-24", so that gets the example.
+    # "0026-9-24" as the year 26, which isn't a Date partition's day, so that gets the example.
     shown = day if day is not None and day.year >= 1000 else datetime.date(2026, 9, 25)
     example = day_text(shown, pattern)
     raise ValueError(

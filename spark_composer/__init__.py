@@ -13,9 +13,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'3.1'
+'3.2'
 >>> VERSION
-'Spark Composer 3.1, ...'
+'Spark Composer 3.2, ...'
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import os
 import re
 import sys
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
@@ -81,7 +81,7 @@ def _version_of(path):
     return found.group(1) if found else None
 
 
-# Any Toolbox folder's stamp, such as "Spark Composer 3.1, exported 2026-10-02 14:05 - ...",
+# Any Toolbox folder's stamp, such as "Spark Composer 3.2, exported 2026-10-02 14:05 - ...",
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer) \S+, exported ")
 

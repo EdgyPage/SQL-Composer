@@ -13,7 +13,7 @@ import re
 from . import _four_part_message as four_part_message
 from . import _stop
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 _LOWEST = (25, 24, 2)
 _BELOW = (31, 0, 0)

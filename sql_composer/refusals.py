@@ -27,7 +27,7 @@ import warnings
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 
 class GuardRefused(Exception):
