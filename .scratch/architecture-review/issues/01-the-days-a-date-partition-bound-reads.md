@@ -1,7 +1,7 @@
 # The days a Date partition bound reads
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -85,5 +85,7 @@ Built in `2639af8`, then reworked after the review (see below).
 
 | Items | Opened by | Closed by |
 |---|---|---|
-| D96 (version) | `2639af8` | waits for the user |
-| D97 | `2639af8` | the review fix |
+| D96 (version) | `2639af8` | `58ba2d7`, 3.2, which the user chose on 2026-10-03 |
+| D97 | `2639af8` | `b2d9afd` |
+| D98, D99 | `b2d9afd` | `58ba2d7` |
+| D100 | `58ba2d7` | `7622c32` |

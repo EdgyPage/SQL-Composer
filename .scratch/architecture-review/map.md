@@ -26,8 +26,14 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
   run when a refusal or docstring changes.
 - **The version.** These tickets change what the Toolbox refuses, so the drift reviewer will
   open version items. Only the user raises TOOLBOX_VERSION; the items wait for their answer.
+  Ticket 01 is 3.2 (the user's choice, 2026-10-03).
 
 ## Decisions so far
+
+- [The days a Date partition bound reads](issues/01-the-days-a-date-partition-bound-reads.md):
+  a day must be written exactly as the date_format writes it, date_format must be year first,
+  and a Span gives exactly the days its conditions let through, left-out days and any_of
+  included; shipped as 3.2, which the user chose.
 
 ## Candidates not yet ticketed
 
