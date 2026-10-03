@@ -306,13 +306,13 @@ def run(s, send):
 
 
 def _check_splittable(s: Statement, step: str, dates: list, partition: str,
-                      dropped: tuple) -> None:
+                      lost_in: list) -> None:
     """A step may group or pick rows only if it keeps the Date partition, and may have no
     LIMIT.
 
     `dates` holds the Date partition as this step sees it, under each name the step below
-    gave it; `partition` is the Date partition at the bottom step, and `dropped` says which
-    step dropped it, if one did.
+    gave it; `partition` is the Date partition at the bottom step, and `lost_in` lists the
+    step that dropped it, if one did, then each step above that one.
     """
     if s._limit is not None:
         guard_by_day_limit(step, s._limit)
@@ -323,22 +323,19 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
     else:
         grouping, clause = None, ""
     if grouping is not None and not any(date in grouping for date in dates):
-        _refuse_grouping(step, dates, partition, dropped, clause)
+        _refuse_grouping(step, dates, partition, lost_in, clause)
     for column, _ in s._outputs:
         for window in column._tree.find_all("Window"):
             if not any(date in window.parts["partition_by"] for date in dates):
-                _refuse_grouping(step, dates, partition, dropped,
+                _refuse_grouping(step, dates, partition, lost_in,
                                  "the PARTITION_BY of row_number(...)")
 
 
-def _refuse_grouping(step: str, dates: list, partition: str, dropped: tuple, clause: str):
+def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clause: str):
     """Refuse a step for leaving the Date partition out of `clause`, naming it as the step
-    sees it, or saying where to keep it when a step below dropped it.
-
-    `dropped` is (the step that dropped it, the Derived tables between that one and here).
-    """
+    sees it, or saying where to keep it when a step below dropped it."""
     if not dates:
-        by, between = dropped
+        by, between = lost_in[0], lost_in[1:]
         also = ""
         if between:
             reads = "reads" if len(between) == 1 else "read"
@@ -446,14 +443,15 @@ def by_day(s):
     # Follow the Date partition up from the bottom step, under each name a step gives it.
     partition = f"{table._alias}.{table._date_partition}"
     dates = [Node("Column", name=table._date_partition, table=table._alias)]
-    below, below_described, dropped = None, "", ("", [])
+    below, below_described = None, ""
+    lost_in = []  # the step that dropped the Date partition, then each step above that one
     for step, described in reversed(found):
         if below is not None:
-            had_it, dates = bool(dates), _dates_above(below, step._reads[0].table, dates)
-            # Remember the step that dropped it, and the steps between that one and here.
-            dropped = (below_described, []) if had_it else (dropped[0],
-                                                             [*dropped[1], below_described])
-        _check_splittable(step, described, dates, partition, dropped)
+            had_it = bool(dates)
+            dates = _dates_above(below, step._reads[0].table, dates)
+            if not dates:
+                lost_in = [below_described] if had_it else [*lost_in, below_described]
+        _check_splittable(step, described, dates, partition, lost_in)
         below, below_described = step, described
     days = span.dates()
     if not days:

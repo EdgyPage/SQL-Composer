@@ -37,7 +37,6 @@ from .trees import (
     SIMPLE_NAME,
     Node,
     has_aggregate,
-    has_window,
     is_hive_type,
     number,
     string,
@@ -153,11 +152,6 @@ class Column:
     def _aggregate(self) -> bool:
         """Whether it adds rows up, such as count_rows() or a sum inside a calculation."""
         return has_aggregate(self._tree)
-
-    @property
-    def _window(self) -> bool:
-        """Whether it numbers rows, as row_number(...) does."""
-        return has_window(self._tree)
 
     # Defining __eq__ below would make Python drop hashing; keep it, so a column can still
     # be a dict key or go in a set.

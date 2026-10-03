@@ -207,7 +207,7 @@ def test_the_window_refusal_says_how_pandas_does_it() -> None:
 @pytest.mark.parametrize("name", ["first", "count_if", "any_value", "collect_set", "SUM"])
 def test_hive_function_knows_the_functions_that_add_rows_up(name: str) -> None:
     """A function that adds rows up needs GROUP_BY beside a column, as count_rows() does."""
-    with pytest.raises(GuardRefused, match="and the Statement has no GROUP_BY"):
+    with pytest.raises(GuardRefused, match="counts or adds up rows and has no GROUP_BY"):
         statement(SELECT(jobs.region, AS(hive_function(name, jobs.team), "x")), FROM(jobs))
 
 
