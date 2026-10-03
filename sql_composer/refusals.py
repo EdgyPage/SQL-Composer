@@ -8,8 +8,8 @@ Each Guard and Load limit stops as soon as it can tell. One that sees a single c
 no name or None in a comparison, stops at that call. One that needs the whole Statement, like
 a GROUP_BY that leaves a column out or a Date partition with no bound, stops at
 statement(...). The dates cap and a write that covers more than one day stop at to_hive, the
-row limit stops at run once the rows are back, and a grouping by_day can't split stops at
-by_day. A Warning shows at your own JOIN or LEFT_JOIN line. Every opt-out is a keyword on one
+row limit stops at run once the rows are back, and by_day stops at any LIMIT and at a
+grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every opt-out is a keyword on one
 of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
@@ -278,6 +278,20 @@ def guard_one_day_per_write(call: str, days: int) -> None:
     )
 
 
+def guard_by_day_limit(step: str, limit: int) -> None:
+    """by_day can't split a Statement whose LIMIT picks rows across days. No opt-out."""
+    raise GuardRefused(
+        four_part_message(
+            what=f"by_day can't split this Statement: {step} has LIMIT {limit}.",
+            why=f"LIMIT keeps {limit} rows of the whole Statement. Split by day, each day "
+            f"would keep {limit} rows of its own, not the {limit} you asked for.",
+            fix="Run the Statement whole with run(...). If set_load_limits(dates=...) refuses "
+            "it, read fewer days.",
+            opt_out=None,
+        )
+    )
+
+
 def guard_by_day_grouping(step: str, date_partition: str) -> None:
     """by_day can't split a Statement that groups across days. No opt-out."""
     raise GuardRefused(
@@ -457,16 +471,25 @@ def load_limit_rows(rows: int, limit: int) -> None:
 
 
 def load_limit_dates(call: str, full_name: str, days: int, cap: int,
-                     reads_all_partitions: bool) -> None:
-    """With a dates cap set, one Statement may read at most that many days of a table."""
+                     reads_all_partitions: bool, split_by_day: bool) -> None:
+    """With a dates cap set, one Statement may read at most that many days of a table.
+
+    `split_by_day` is whether by_day splits this table's days: only the table in FROM's.
+    """
     if reads_all_partitions or days <= cap:
         return
+    if split_by_day:
+        fix = "Send one day at a time: for day in by_day(s): run(day, send=...)."
+    else:
+        fix = (f"Narrow the between(...) or last_n_days(...) on {full_name}'s Date "
+               f"partition, in WHERE or ON=, to {cap} or fewer days. by_day won't help: it "
+               "splits only the days of the table in FROM.")
     raise LoadRefused(
         four_part_message(
             what=f"{call} reads {days} days of {full_name}, more than the {cap} set by "
             "set_load_limits(dates=...).",
             why="One Statement over many days can run for a long time and stall the cluster.",
-            fix="Send one day at a time: for day in by_day(s): run(day, send=...).",
+            fix=fix,
             opt_out=f"{call[:-1]}, reads_all_partitions=True)",
         )
     )

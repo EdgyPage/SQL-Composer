@@ -21,10 +21,11 @@ from . import VERSION
 from .clauses import Statement, derived_tables
 from .refusals import (
     GuardRefused,
+    LoadRefused,
     four_part_message,
     refuse_what_the_other_edition_made,
 )
-from .running import by_day, to_hive
+from .running import by_day, steps, to_hive
 from .tables import readable
 from .trees import Node
 from .writing import hive_text
@@ -183,9 +184,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
 
 def _date_bounds(s: Statement) -> tuple[Statement, list]:
     """The step that reads a write's real table through FROM, and its date-bound conditions."""
-    step = s
-    while step._reads[0].table._statement is not None:
-        step = step._reads[0].table._statement
+    step = steps(s)[-1][0]
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]
     key = (table._alias, table._date_partition)
@@ -417,10 +416,11 @@ def _about(s: Statement, index: int, ordered) -> str:
 
 
 def _submitted(s: Statement, name: str) -> tuple[str, str]:
-    """The Hive as submitted; for a write over several days, the first day's."""
+    """The Hive as submitted; for a write over several days, the first day's, even when the
+    dates cap refuses the whole write."""
     try:
         return to_hive(s), ""
-    except GuardRefused:
+    except (GuardRefused, LoadRefused):
         if s._write is None:
             raise
     days = by_day(s)

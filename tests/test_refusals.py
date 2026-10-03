@@ -245,6 +245,13 @@ def test_guard_one_day_per_write_refuses() -> None:
         to_hive(backfill)
 
 
+def test_guard_by_day_limit_refuses() -> None:
+    top = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS),
+                    ORDER_BY(descending(job_runs.duration_mins)), LIMIT(10))
+    with pytest.raises(GuardRefused, match="this Statement: it has LIMIT 10"):
+        by_day(top)
+
+
 def test_guard_by_day_grouping_refuses() -> None:
     weekly = statement(
         SELECT(job_runs.status, AS(count_distinct(job_runs.job_id), "jobs")),

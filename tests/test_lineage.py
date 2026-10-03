@@ -16,9 +16,9 @@ import subprocess
 import textwrap
 
 import pytest
+from conftest import in_this_edition
 
 import sql_composer
-from conftest import in_this_edition
 from sql_composer import (
     AS,
     FROM,
@@ -43,6 +43,7 @@ from sql_composer import (
     last_n_days,
     not_equals,
     row_number,
+    set_load_limits,
     statement,
     sum_of,
     to_hive,
@@ -522,6 +523,16 @@ def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(tmp
     in_weekly = section(section(markdown, "## weekly"), "#### `runs`")
     assert '- WHERE in fill: `not_equals(job_runs.status, "TEST")`' in in_weekly
     assert "equals(job_runs.dt" not in in_weekly
+
+
+def test_a_write_over_more_days_than_the_dates_cap_shows_its_first_days_hive(
+        tmp_path) -> None:
+    set_load_limits(dates=1)
+    fill = fill_daily_runs("2026-09-23", "2026-09-24")
+    markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
+    hive = section(markdown, "### Hive as submitted")
+    assert "This write covers 2 days" in hive
+    assert "PARTITION(dt = '2026-09-23')" in hive
 
 
 def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path) -> None:
