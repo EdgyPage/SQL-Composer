@@ -27,7 +27,7 @@ from .refusals import (
     warning_repeated_rows,
 )
 from .tables import Column, Table, aliased
-from .trees import SIMPLE_NAME, Node
+from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .writing import hive_text
 
 TOOLBOX_VERSION = "3.2"
@@ -459,6 +459,9 @@ def GROUP_BY(*columns):
       CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     items = _flatten(columns)
+    if not items:
+        _misuse(what="GROUP_BY was given nothing to group by.", why="It needs a column.",
+                fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").')
     for item in items:
         if not isinstance(item, (Column, str)):
             refuse_what_the_other_edition_made(item, "GROUP_BY")
@@ -782,12 +785,48 @@ def _check_tables(s: Statement) -> None:
             fix=f"Add {unread[0]} with FROM(...) or JOIN(...), or use another table's column.",
             error=ValueError,
         )
-    for condition in s._where:
-        if condition._aggregate:
+    _check_placement(s)
+    names = [name for _, name in s._outputs]
+    for key in s._order_by:
+        sorted_by = key.parts["this"]
+        if sorted_by.kind == "Column" and not sorted_by.table and sorted_by.name not in names:
+            written = repr(sorted_by.name)
+            if key.parts["desc"]:
+                written = f"descending({written})"
             _misuse(
-                what=f"WHERE has {condition!r}, which tests a count or a sum.",
-                why="WHERE tests single rows, before any counting; Hive would refuse it.",
-                fix="Move it to HAVING(...), which tests groups after GROUP_BY.",
+                what=f"ORDER_BY({written}): SELECT has no column called {sorted_by.name!r}.",
+                why="A name in ORDER_BY stands for a column or a calculation named in SELECT.",
+                fix=f"Use one of: {', '.join(names)}.",
+                error=ValueError,
+            )
+
+
+def _check_placement(s: Statement) -> None:
+    """Refuse a count, a sum or a row number where Hive can't work it out yet."""
+    places = [("WHERE", c) for c in s._where] + [("HAVING", c) for c in s._having]
+    places += [("ON=", read.on) for read in s._reads if read.on is not None]
+    places += [("GROUP_BY", column) for column in s._group_by]
+    for place, part in places:
+        if place != "HAVING" and has_aggregate(part._tree):
+            fix = "Test a count or a sum in HAVING(...), which tests groups after GROUP_BY."
+            if place == "GROUP_BY":
+                fix = ("Group by the columns themselves. To group by a count, make it in a "
+                       "derived(...) table, and group by its column in the Statement that "
+                       "reads it.")
+            _misuse(
+                what=f"{place} has {part!r}, which counts or adds up rows.",
+                why=f"Rows are counted after {place} has done its work, so Hive would refuse "
+                "it there.",
+                fix=fix,
+                error=ValueError,
+            )
+        if has_window(part._tree):
+            _misuse(
+                what=f"{place} has {part!r}, which numbers rows.",
+                why="Rows are numbered last, after the rows are picked and grouped, so Hive "
+                f"can't use the number in {place} of the SELECT that makes it.",
+                fix="Number the rows in a derived(...) table, then use the number in the "
+                "Statement that reads it; help(row_number) shows how.",
                 error=ValueError,
             )
 
@@ -820,20 +859,37 @@ def _run_guards(s: Statement) -> None:
 
 
 def _guard_group_by(s: Statement) -> None:
+    """When a Statement groups or counts, every column it shows, tests or sorts by must be in
+    GROUP_BY, or inside a count or a sum."""
     aggregates = any(column._aggregate for column, _ in s._outputs)
     if not (aggregates or s._group_by or s._having):
         return
     groups = [column._tree for column in s._group_by]
-    grouped = {(c.table, c.name) for tree in groups for c in tree.find_all("Column")}
-    missing = []
-    for column, _ in s._outputs:
-        if column._aggregate or any(column._tree == tree for tree in groups):
-            continue
-        used = {(c.table, c.name) for c in column._tree.find_all("Column")}
-        if not used <= grouped:
-            missing.append(repr(column))
-    if missing:
-        guard_missing_group_by(missing)
+    names = [name for _, name in s._outputs]
+    places = [
+        ("SELECT", [column._tree for column, _ in s._outputs]),
+        ("HAVING", [condition._tree for condition in s._having]),
+        ("ORDER_BY", [key.parts["this"] for key in s._order_by]),
+    ]
+    for place, trees in places:
+        missing = []
+        for tree in trees:
+            for column in _ungrouped(tree, groups):
+                text = hive_text(column)
+                is_a_name = place == "ORDER_BY" and not column.table and column.name in names
+                if not is_a_name and text not in missing:
+                    missing.append(text)
+        if missing:
+            guard_missing_group_by(place, missing, bool(s._group_by))
+
+
+def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:
+    """The columns in `tree` that are neither inside a GROUP_BY part nor counted or summed."""
+    if tree in groups or is_aggregate(tree):
+        return []
+    if tree.kind == "Column":
+        return [tree]
+    return [column for child in tree.children() for column in _ungrouped(child, groups)]
 
 
 def read_spans(s: Statement) -> list[tuple[Clause, object]]:

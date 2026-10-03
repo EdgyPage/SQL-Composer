@@ -34,13 +34,15 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
   a day must be written exactly as the date_format writes it, date_format must be year first,
   and a Span gives exactly the days its conditions let through, left-out days and any_of
   included; shipped as 3.2, which the user chose.
+- [One bottom read for by_day, writes and lineage](issues/02-one-bottom-read-for-by-day-writes-and-lineage.md):
+  one walk down FROM; by_day follows the Date partition as a column under every name it is
+  given, refuses a LIMIT, and says where a dropped Date partition goes; part of 3.2, which
+  isn't exported yet.
 
 ## Candidates not yet ticketed
 
 In the report's order, with its strength:
 
-2. **One bottom read for by_day, writes and lineage** (Strong): by_day splits a top-N per day,
-   and matches the Date partition by bare name.
 3. **Aggregate and window placement from the tree** (Strong): the GROUP BY Guard's misses,
    row_number in WHERE, ORDER_BY names, the dead `_window` flag, fill_null's flag.
 4. **One `refuse()` for misuse refusals** (Strong): three hand-made shapes, about 35 untested

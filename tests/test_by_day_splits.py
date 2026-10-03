@@ -174,3 +174,14 @@ def test_the_dates_cap_sends_the_from_table_to_by_day() -> None:
     set_load_limits(dates=1)
     with pytest.raises(LoadRefused, match=r"for day in by_day\(s\)"):
         to_hive(statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS)))
+
+
+def test_by_day_names_the_derived_table_that_dropped_the_date_further_down() -> None:
+    lower = per_day(SELECT(job_runs.job_id, job_runs.status))
+    upper = derived("upper", statement(SELECT(lower.job_id, lower.status), FROM(lower)))
+    s = statement(SELECT(upper.status, AS(count_rows(), "runs")), FROM(upper),
+                  GROUP_BY(upper.status))
+    with pytest.raises(GuardRefused, match=r"Keep job_runs.dt in the SELECT of "
+                       r"derived\('per_day', \.\.\.\), and in derived\('upper', \.\.\.\), "
+                       r"which reads it"):
+        by_day(s)

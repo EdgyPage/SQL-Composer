@@ -436,11 +436,19 @@ def _bracketed_connector(node: Node) -> Node:
     return Node("Paren", this=node) if node.kind in CONNECTORS else node
 
 
+def is_aggregate(node: Node) -> bool:
+    """True when this Node itself adds rows up: COUNT, SUM, ... or an aggregate hive_function."""
+    return node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"])
+
+
 def has_aggregate(node: Node) -> bool:
     """True when the tree adds rows up (COUNT, SUM, ...) outside a window, the
     ROW_NUMBER() OVER (...) that row_number(...) writes."""
     if node.kind == "Window":
         return False
-    if node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"]):
-        return True
-    return any(has_aggregate(child) for child in node.children())
+    return is_aggregate(node) or any(has_aggregate(child) for child in node.children())
+
+
+def has_window(node: Node) -> bool:
+    """True when the tree numbers rows: the ROW_NUMBER() OVER (...) of row_number(...)."""
+    return node.kind == "Window" or any(has_window(child) for child in node.children())

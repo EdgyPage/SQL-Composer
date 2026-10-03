@@ -30,6 +30,7 @@ from .trees import (
     Node,
     arguments_text,
     has_aggregate,
+    has_window,
     number,
     string,
 )
@@ -68,19 +69,37 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
                 opt_out=None,
             )
         )
+    _not_inside(call, where)
     return Node("Case", ifs=[Node("If", this=where._tree.copy(), true=then or tree)])
+
+
+def _not_inside(call: str, inner) -> None:
+    """Refuse a count, a sum or a row number inside a count or a sum."""
+    if has_aggregate(inner._tree) or has_window(inner._tree):
+        made = "a row number" if has_window(inner._tree) else "a total, such as a count"
+        raise ValueError(
+            four_part_message(
+                what=f"{call} has {inner!r} inside it, which is itself {made}.",
+                why="Hive can't put one total, such as a count, a sum or a max, or a row "
+                "number inside another in the same SELECT.",
+                fix="Make the inner one in a derived(...) table, then count or add up its "
+                "column in the Statement that reads it.",
+                opt_out=None,
+            )
+        )
 
 
 def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
     call = f"{name}({python_text(column)})"
     column = _need_column(column, call)
+    _not_inside(call, column)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
         inner = Node("Distinct", expressions=[inner])
     tree = Node(kind, this=inner)
     made_by(tree, name, column, where=where)
-    return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
+    return Column(tree, adds_up=adds_up, not_adding_up_because=because)
 
 
 def count_rows(where=None):
@@ -93,8 +112,7 @@ def count_rows(where=None):
     """
     tree = _only_where(Node("Star"), where, "count_rows(...)",
                        then=number("1"))
-    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint",
-                  aggregate=True)
+    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint")
 
 
 def count_distinct(column, where=None):
@@ -197,8 +215,7 @@ def if_else(condition, then, otherwise):
     made_by(tree, "if_else", condition, then, otherwise)
     adds_up = first._adds_up and second._adds_up
     because = first._not_adding_up_because or second._not_adding_up_because
-    return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because,
-                  aggregate=has_aggregate(tree))
+    return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because)
 
 
 def fill_null(column, value):
@@ -216,7 +233,6 @@ def fill_null(column, value):
         type=column._type,
         adds_up=column._adds_up,
         not_adding_up_because=column._not_adding_up_because,
-        aggregate=column._aggregate,
     )
 
 
@@ -283,7 +299,7 @@ class Ordering:
 def descending(column):
     """Sort by a column from largest to smallest, in ORDER_BY or row_number.
 
-    Pass a column, or the name of an output column as a string.
+    Pass a column; in ORDER_BY(...), the name of an output column as a string works too.
 
     >>> row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
     ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
@@ -350,10 +366,26 @@ def row_number(*, PARTITION_BY, ORDER_BY):
     """
     call = "row_number(...)"
     groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
-    order = Node("Order", expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
+    sorts = _listed(ORDER_BY)
+    by_name = [s for s in sorts
+               if isinstance(s, str) or (isinstance(s, Ordering) and isinstance(s._target, str))]
+    if not sorts or by_name:
+        why = "It numbers each group's rows in the order of one or more columns."
+        if by_name:
+            why = "Inside row_number, Hive can't see the names given in SELECT."
+        raise ValueError(
+            four_part_message(
+                what=f"row_number(...) was given ORDER_BY={ORDER_BY!r}.",
+                why=why,
+                fix="Pass the columns themselves, such as "
+                "ORDER_BY=descending(job_runs.run_id).",
+                opt_out=None,
+            )
+        )
+    order = Node("Order", expressions=[ordered(item, call) for item in sorts])
     tree = Node("Window", this=Node("RowNumber"), partition_by=groups, order=order)
     made_by(tree, "row_number", PARTITION_BY=PARTITION_BY, ORDER_BY=ORDER_BY)
-    return Column(tree, type="int", window=True)
+    return Column(tree, type="int")
 
 
 def hive_function(name, *args):
@@ -401,8 +433,7 @@ def hive_function(name, *args):
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)
-    return Column(tree, aggregate=has_aggregate(tree), window=any(p._window for p in parts),
-                  adds_up=because is None, not_adding_up_because=because)
+    return Column(tree, adds_up=because is None, not_adding_up_because=because)
 
 
 def _check_function(name: str, count: int, call: str) -> None:

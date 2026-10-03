@@ -32,7 +32,16 @@ from .refusals import (
     refuse_a_spark_dataframe,
     refuse_what_the_other_edition_made,
 )
-from .trees import ARITHMETIC, SIMPLE_NAME, Node, is_hive_type, number, string
+from .trees import (
+    ARITHMETIC,
+    SIMPLE_NAME,
+    Node,
+    has_aggregate,
+    has_window,
+    is_hive_type,
+    number,
+    string,
+)
 from .writing import (
     check_writable_type,
     describe_text,
@@ -129,18 +138,26 @@ class Column:
     """
 
     def __init__(self, tree, *, table=None, name=None, type=None, adds_up=True,
-                 not_adding_up_because=None, aggregate=False, window=False):
+                 not_adding_up_because=None):
         self._tree = tree
         self._table = table
         self._name = name
         self._type = type
         self._adds_up = adds_up
         self._not_adding_up_because = not_adding_up_because
-        self._aggregate = aggregate
-        self._window = window
 
     def __repr__(self) -> str:
         return hive_text(self._tree)
+
+    @property
+    def _aggregate(self) -> bool:
+        """Whether it adds rows up, such as count_rows() or a sum inside a calculation."""
+        return has_aggregate(self._tree)
+
+    @property
+    def _window(self) -> bool:
+        """Whether it numbers rows, as row_number(...) does."""
+        return has_window(self._tree)
 
     # Defining __eq__ below would make Python drop hashing; keep it, so a column can still
     # be a dict key or go in a set.
@@ -242,8 +259,6 @@ def arithmetic(left, right, kind: str, symbol: str) -> Column:
              expression=_bracketed(right._tree.copy())),
         adds_up=adds_up,
         not_adding_up_because=None if adds_up else because,
-        aggregate=left._aggregate or right._aggregate,
-        window=left._window or right._window,
     )
 
 

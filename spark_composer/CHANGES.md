@@ -4,6 +4,19 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 3.2
 
+- **The GROUP BY Guard checks every column a grouped Statement shows, tests or sorts by.** It
+  missed a column inside a grouped calculation, a column beside a count or a sum in one
+  output, and the columns in HAVING and ORDER_BY, which Hive then refused.
+- **A count or a sum is refused in ON= and GROUP_BY, and a row number in WHERE, HAVING, ON=
+  and GROUP_BY**, as a count already was in WHERE. Each fix says where it goes instead. A
+  count, a sum or a row number inside a count or a sum is refused when it is made.
+- **ORDER_BY's names are checked**, as GROUP_BY's are: a name SELECT doesn't have is refused.
+- **row_number sorts by columns only.** Its ORDER_BY= refuses an empty list, and a name,
+  which Hive can't see inside row_number. Before, the empty list gave a raw error.
+- **GROUP_BY() with nothing to group by is refused**, as ORDER_BY() is. It was dropped.
+- **fill_null with a count or a sum in it is checked by the GROUP BY Guard.**
+- **When a Derived table deeper down drops the Date partition**, by_day names it, and says to
+  keep the Date partition in every Derived table that reads from it.
 - **by_day refuses a LIMIT**, in your Statement or in a Derived table it reads through FROM.
   LIMIT keeps rows of the whole Statement: split by day, a top 10 over a week became the top
   10 of each day, 70 rows.
