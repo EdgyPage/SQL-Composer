@@ -53,3 +53,37 @@ Smaller, in the same module:
 - Both runs pass, and the goldens and galleries are regenerated if their text changed.
 - The code-review skill has run with this ticket as its spec, the drift items are closed, and
   the beginner reader has read the new refusal text.
+
+## Answer
+
+Built in `2639af8`, then reworked after the review (see below).
+
+- `as_date` takes a day only if it reads back exactly as written (`day_text`, which always
+  writes a four-digit year). The refusal shows the user's own day written that way.
+- `_check_date_format` refuses a pattern that isn't year first, then month, then day, and
+  anything besides %Y, %m, %d and separators, naming what it found. Both refusals say how to
+  read such a table with `date_partition=None`.
+- `Span` holds the days `not_equals` and `is_not_in` leave out. Spans joined with AND or OR
+  keep the two they were made from, so `dates()` gives exactly the days the conditions let
+  through. Before, an OR was widened to every day from its first to its last.
+- by_day refuses a WHERE that leaves no day; `days_in_either`'s unreachable branch is gone.
+- `tests/test_date_partition_days.py` pins every case through by_day, a write and
+  `set_load_limits(dates=...)`, in both Editions.
+
+**Beginner reader** ([report](../reports/01-beginner-reader.md)): 9 stops, all reworded.
+
+**Code review (2026-10-03), `2639af8`.**
+- *Standards:* no hard violations. Fixed: the `1000` in `as_date` explained, `other_days`
+  renamed `without_a_date_partition`, the two "something besides %Y, %m and %d" refusals made
+  one that names the characters, the test table as `pytest.param`, and a plainer Load-limit
+  test.
+- *Spec:* an OR with an open-ended side, ANDed with a range, still widened to the days
+  between, so a write split by day replaced those days with no rows. Fixed by making Span
+  exact (above), with tests for that write and for days both sides of an `any_of` leave out.
+  The Column guard added to `is_in` went back out: a column in `is_in` on a Date partition is
+  refused, as before. The PARTITION day of a write is written with `day_text` too.
+
+| Items | Opened by | Closed by |
+|---|---|---|
+| D96 (version) | `2639af8` | waits for the user |
+| D97 | `2639af8` | the review fix |

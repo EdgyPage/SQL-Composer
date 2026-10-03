@@ -27,7 +27,7 @@ from .refusals import (
     refuse_a_spark_dataframe,
     refuse_what_the_other_edition_made,
 )
-from .tables import aliased, source, table_node
+from .tables import aliased, day_text, source, table_node
 from .trees import Node, combined
 
 TOOLBOX_VERSION = "3.1"
@@ -181,7 +181,7 @@ def _bottom_read(s: Statement):
 def _write_tree(s: Statement) -> Node:
     """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
     table = s._write
-    day = _written_day(s).strftime(table._date_format)
+    day = day_text(_written_day(s), table._date_format)
     partition = Node("Partition", expressions=[
         Node("EQ", this=Node("Column", name=table._date_partition),
              expression=Node("Literal", this=day, is_string=True)),
@@ -421,8 +421,9 @@ def by_day(s):
                 f"{table._alias}.{table._date_partition} to read.",
                 why="No day is inside every bound, so there would be no Statement to send, "
                 "and nothing would be read or written.",
-                fix="Check the days in its WHERE: at_least's day may be later than "
-                "at_most's, or not_equals or is_not_in may leave out the only day.",
+                fix="Check the days in its WHERE: a low end may be later than a high end, "
+                "as at_least's day after at_most's, or not_equals or is_not_in may leave "
+                "out the only day.",
                 opt_out=None,
             )
         )

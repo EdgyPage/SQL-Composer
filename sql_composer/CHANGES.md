@@ -15,6 +15,11 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   and read or wrote that day anyway. set_load_limits(dates=...) doesn't count that day
   either. by_day now refuses a WHERE that leaves no day to read, where it gave back an empty
   list.
+- **by_day reads only the days an any_of lets through.** Before,
+  `any_of(equals(job_runs.dt, "2026-09-01"), between(job_runs.dt, "2026-09-23", "2026-09-24"))`
+  counted every day from the first to the last: by_day gave 24 Statements, most reading no
+  rows, and set_load_limits(dates=...) counted 24 days. Now both count 3. For a write, the
+  days between were each written with no rows, which replaced what those days held.
 
 ## 3.1
 
