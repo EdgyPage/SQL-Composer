@@ -786,6 +786,11 @@ def _check_tables(s: Statement) -> None:
             error=ValueError,
         )
     _check_placement(s)
+    _check_order_names(s)
+
+
+def _check_order_names(s: Statement) -> None:
+    """Refuse an ORDER_BY name that SELECT hasn't got, as GROUP_BY does."""
     names = [name for _, name in s._outputs]
     for key in s._order_by:
         sorted_by = key.parts["this"]
@@ -861,8 +866,9 @@ def _run_guards(s: Statement) -> None:
 def _guard_group_by(s: Statement) -> None:
     """When a Statement groups or counts, every column it shows, tests or sorts by must be in
     GROUP_BY, or inside a count or a sum."""
-    aggregates = any(column._aggregate for column, _ in s._outputs)
-    if not (aggregates or s._group_by or s._having):
+    counted = [column._tree for column, _ in s._outputs]
+    counted += [key.parts["this"] for key in s._order_by]
+    if not (any(has_aggregate(tree) for tree in counted) or s._group_by or s._having):
         return
     groups = [column._tree for column in s._group_by]
     names = [name for _, name in s._outputs]

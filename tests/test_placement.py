@@ -20,11 +20,13 @@ from sql_composer import (
     descending,
     equals,
     fill_null,
+    hive_function,
     max_of,
     more_than,
     row_number,
     statement,
     sum_of,
+    to_hive,
     week_start,
 )
 from sql_composer.example_database import job_runs, jobs
@@ -61,8 +63,15 @@ def per_job(*clauses):
                  "ORDER_BY has job_runs.duration_mins", id="order_by"),
     pytest.param(lambda: statement(SELECT(AS(fill_null(job_runs.status, max_of(job_runs.status)),
                                              "status")), FROM(job_runs), WHERE(DAYS)),
-                 "SELECT has job_runs.status beside a count or a sum, and the Statement "
-                 "has no GROUP_BY", id="fill_null_beside_an_aggregate"),
+                 "SELECT has job_runs.status, but the Statement counts or adds up rows "
+                 "and has no GROUP_BY", id="fill_null_beside_an_aggregate"),
+    pytest.param(lambda: statement(SELECT(job_runs.job_id), FROM(job_runs), WHERE(DAYS),
+                                   HAVING(more_than(count_rows(), 1))),
+                 "SELECT has job_runs.job_id, but the Statement counts", id="having_alone"),
+    pytest.param(lambda: statement(SELECT(job_runs.job_id), FROM(job_runs), WHERE(DAYS),
+                                   ORDER_BY(sum_of(job_runs.duration_mins)), LIMIT(3)),
+                 "SELECT has job_runs.job_id, but the Statement counts",
+                 id="a_count_only_in_order_by"),
 ])
 def test_the_group_by_guard_refuses_what_hive_refuses(make, said) -> None:
     with pytest.raises(GuardRefused, match=said):
@@ -95,6 +104,14 @@ def test_the_group_by_guard_takes_what_hive_takes() -> None:
     pytest.param(lambda: per_job(SELECT(job_runs.job_id, AS(count_rows(), "runs")),
                                  HAVING(equals(numbered(), 1))),
                  "HAVING has", id="a_row_number_in_having"),
+    pytest.param(lambda: statement(SELECT(job_runs.run_id), FROM(job_runs),
+                                   JOIN(jobs, ON=all_of(equals(jobs.job_id, job_runs.job_id),
+                                                        equals(numbered(), 1))),
+                                   WHERE(DAYS)),
+                 "ON= has", id="a_row_number_in_on"),
+    pytest.param(lambda: statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS),
+                                   GROUP_BY(numbered())),
+                 "GROUP_BY has", id="a_row_number_in_group_by"),
 ])
 def test_a_count_or_a_row_number_is_refused_where_hive_refuses_it(make, said) -> None:
     with pytest.raises(ValueError, match=said):
@@ -111,6 +128,10 @@ def test_a_row_number_in_where_is_sent_to_a_derived_table() -> None:
     pytest.param(lambda: max_of(max_of(job_runs.duration_mins)), id="an_aggregate_in_an_aggregate"),
     pytest.param(lambda: count_rows(where=more_than(count_rows(), 1)),
                  id="an_aggregate_in_where_of_an_aggregate"),
+    pytest.param(lambda: hive_function("collect_set", sum_of(job_runs.duration_mins)),
+                 id="an_aggregate_in_an_aggregate_hive_function"),
+    pytest.param(lambda: hive_function("collect_set", numbered()),
+                 id="a_row_number_in_an_aggregate_hive_function"),
 ])
 def test_a_count_or_a_row_number_inside_a_count_is_refused(make) -> None:
     with pytest.raises(ValueError, match="inside"):
@@ -130,6 +151,12 @@ def test_order_by_refuses_a_name_select_has_not() -> None:
 def test_row_number_orders_by_columns_only(order) -> None:
     with pytest.raises((TypeError, ValueError), match="row_number"):
         row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=order)
+
+
+def test_row_number_numbers_every_row_with_no_partition() -> None:
+    s = statement(SELECT(job_runs.run_id, AS(row_number(PARTITION_BY=[], ORDER_BY=job_runs.run_id),
+                                             "rn")), FROM(job_runs), WHERE(DAYS))
+    assert "ROW_NUMBER() OVER (ORDER BY job_runs.run_id ASC) AS rn" in to_hive(s)
 
 
 def test_group_by_refuses_nothing_to_group_by() -> None:

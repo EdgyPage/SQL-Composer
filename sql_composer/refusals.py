@@ -197,8 +197,8 @@ def guard_missing_group_by(place: str, columns: list[str], grouped: bool) -> Non
         what = f"{place} has {listed}, which GROUP_BY leaves out."
         fix = f"Add {listed} to GROUP_BY."
     else:
-        what = (f"{place} has {listed} beside a count or a sum, and the Statement has no "
-                "GROUP_BY.")
+        what = (f"{place} has {listed}, but the Statement counts or adds up rows and has "
+                "no GROUP_BY.")
         fix = f"Add GROUP_BY({listed}), or put {listed} inside a count or a sum."
     if place == "SELECT":
         fix += (" To keep one whole row per group instead, such as each job's latest run, "

@@ -75,13 +75,14 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
 
 def _not_inside(call: str, inner) -> None:
     """Refuse a count, a sum or a row number inside a count or a sum."""
-    if has_aggregate(inner._tree) or has_window(inner._tree):
-        made = "a row number" if has_window(inner._tree) else "a total, such as a count"
+    window = has_window(inner._tree)
+    if window or has_aggregate(inner._tree):
+        made = "a row number" if window else "itself works over many rows, as a count does"
         raise ValueError(
             four_part_message(
-                what=f"{call} has {inner!r} inside it, which is itself {made}.",
-                why="Hive can't put one total, such as a count, a sum or a max, or a row "
-                "number inside another in the same SELECT.",
+                what=f"{call} has {inner!r} inside it, which is {made}.",
+                why="In one SELECT, Hive can't put a count, a sum or a row number inside a "
+                "count, a sum or a max.",
                 fix="Make the inner one in a derived(...) table, then count or add up its "
                 "column in the Statement that reads it.",
                 opt_out=None,
@@ -432,6 +433,9 @@ def hive_function(name, *args):
                 aggregate=name.lower() in HIVE_AGGREGATES)
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
+    if tree.parts["aggregate"]:
+        for part in parts:
+            _not_inside(call, part)
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)
     return Column(tree, adds_up=because is None, not_adding_up_because=because)
 
