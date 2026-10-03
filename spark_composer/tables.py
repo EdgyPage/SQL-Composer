@@ -326,6 +326,11 @@ def is_date_partition(column: Column | None) -> bool:
         table._date_partition == column._name)
 
 
+def day_text(day: datetime.date, pattern: str) -> str:
+    """A day written in a date_format, its year always in four digits."""
+    return day.strftime(pattern.replace("%Y", f"{day.year:04d}"))
+
+
 def as_date(value, column: Column, call: str) -> datetime.date:
     """A value compared with a Date partition, as a Python date. Refuses what isn't a day."""
     if isinstance(value, datetime.datetime):
@@ -334,10 +339,15 @@ def as_date(value, column: Column, call: str) -> datetime.date:
         return value
     pattern = column._table._date_format
     try:
-        return datetime.datetime.strptime(str(value), pattern).date()
+        day = datetime.datetime.strptime(str(value), pattern).date()
     except ValueError:
-        pass
-    example = datetime.date(2026, 9, 25).strftime(pattern)
+        day = None
+    # Python also reads "2026-9-24", but Hive compares the text, which matches no day.
+    if day is not None and day_text(day, pattern) == str(value):
+        return day
+    # Your own day, written as it should be, if Python could read it.
+    shown = day if day is not None and day.year >= 1000 else datetime.date(2026, 9, 25)
+    example = day_text(shown, pattern)
     raise ValueError(
         four_part_message(
             what=f"{call} compares the Date partition {column!r} with {value!r}, which isn't "
@@ -422,12 +432,12 @@ def _string_literal(value: str, call: str, position: str) -> Node:
 def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
     """A date as its day, or a timestamp in full when the column is typed as a timestamp."""
     if not isinstance(value, datetime.datetime):
-        return value.strftime(date_format_of(column))
+        return day_text(value, date_format_of(column))
     if type_family(column._type if column is not None else None) == "timestamp":
         return value.isoformat(sep=" ")
     if value.time() != datetime.time(0, 0):
         guard_time_of_day(call, value)
-    return value.date().strftime(date_format_of(column))
+    return day_text(value.date(), date_format_of(column))
 
 
 # --- Table ---------------------------------------------------------------------------------
@@ -447,6 +457,19 @@ def _check_date_format(date_format: str) -> None:
                 fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
             )
         rest = rest.replace(directive, "")
+    other_days = ("If the table's days really are written another way, leave its Date "
+                  "partition out with date_partition=None, and filter that column with "
+                  "equals(...) or is_in(...), not at_least(...) or between(...), which compare "
+                  "text.")
+    if not date_format.index("%Y") < date_format.index("%m") < date_format.index("%d"):
+        _refuse_table(
+            what=f"date_format={date_format!r} doesn't write the year first, then the month, "
+            "then the day.",
+            why="Hive compares a Date partition's days as text, and only days written year "
+            "first sort in date order, so BETWEEN, last_n_days and check_key's newest day "
+            "would read the wrong days.",
+            fix=f'Use a pattern such as "%Y-%m-%d" or "%Y%m%d". {other_days}',
+        )
     if any(character in rest for character in CONTROL_CHARACTERS):
         _refuse_table(
             what=f"date_format={date_format!r} holds a character that isn't printed, such as "
@@ -461,6 +484,15 @@ def _check_date_format(date_format: str) -> None:
             what=f"date_format={date_format!r} has something other than %Y, %m and %d.",
             why="Only the year, month and day can be turned into Hive's own pattern.",
             fix='Use only %Y, %m, %d and separators, such as "%Y%m%d" or "%Y/%m/%d".',
+        )
+    letters = [character for character in rest if character.isalpha()]
+    if letters:
+        _refuse_table(
+            what=f"date_format={date_format!r} has a letter besides %Y, %m and %d: "
+            f"{', '.join(repr(letter) for letter in letters)}.",
+            why="The Toolbox turns the pattern into Hive's own, where a letter means a part "
+            "of a date (H is the hour), so the days would be read wrong.",
+            fix=f'Use only %Y, %m, %d and separators such as - or /. {other_days}',
         )
 
 
@@ -500,8 +532,9 @@ class Table:
     - `does_not_add_up` lists columns that are averages, ratios or distinct counts, which
       sum_of(...) and average_of(...) refuse to add up.
     - `date_format` is needed only when the Date partition's days aren't written like
-      "2026-09-25", for example date_format="%Y%m%d". The time zone is whatever the table
-      uses; the Toolbox doesn't convert it.
+      "2026-09-25", for example date_format="%Y%m%d". It must put the year first, then the
+      month, then the day: Hive compares the days as text, and only year-first text sorts in
+      date order. The time zone is whatever the table uses; the Toolbox doesn't convert it.
 
     A column whose name is a Python word, such as `from`, is reached with getattr(t, "from").
     You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such

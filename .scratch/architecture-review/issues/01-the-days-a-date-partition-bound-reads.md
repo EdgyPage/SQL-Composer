@@ -1,0 +1,55 @@
+# The days a Date partition bound reads
+
+Type: task
+Status: claimed
+Blocked by: -
+
+## Question
+
+Every Guard and Load limit about days, by_day and the one-day-per-write Guard reads one thing:
+the days a Statement's conditions let through on a Date partition (`Span`, in
+`sql_composer/conditions.py`). The review found three ways that answer is wrong, each a silent
+wrong answer with no refusal:
+
+1. **A day not written exactly like the pattern.** `as_date` (`tables.py:329`) accepts any text
+   `strptime` reads, so `equals(job_runs.dt, "2026-9-24")` counts as 2026-09-24. But the Hive
+   compares the text `'2026-9-24'`, which matches no partition, and the answer comes back empty.
+2. **A date_format that doesn't sort as text.** `_check_date_format` (`tables.py:440`) takes
+   `"%d-%m-%Y"` or `"%m/%d/%Y"`. Hive compares these days as text, so BETWEEN and
+   last_n_days take days from other months and years, and the newest day check_key and
+   check_table_reference pick is the greatest text, not the newest day. A letter between the
+   directives, as in `"%Y%m%dT"`, becomes a letter of Hive's own date pattern.
+3. **not_equals on the Date partition.** It is marked as doing nothing but bounding the day, so
+   by_day drops it and reads the day it excluded.
+
+Smaller, in the same module:
+
+4. by_day returns an empty list, with no message, when its bounds hold no day.
+5. `days_in_either` has a branch that can't be reached (`conditions.py:76-77`).
+6. `days_in_both`, which ANDs two bounds on one Date partition, has never run in any test.
+
+## Decisions (made under "Follow your heart", 2026-10-03)
+
+- **A day must be written exactly as the pattern writes it**, a four-digit year included. The
+  refusal is the one `as_date` already gives.
+- **date_format must put the year first, then the month, then the day**, and the separators
+  between them can't be letters. A table whose days are written another way can still be read
+  without a Date partition (`date_partition=None`), which the fix says. Refusing it at the Table
+  reference is simpler than refusing only the range conditions, and partitions written day first
+  are rare.
+- **An excluded day is part of the span.** `Span` gains the days it leaves out: not_equals and
+  is_not_in on a Date partition exclude their days, by_day skips them, and the Load limits don't
+  count them. Then not_equals can stay something by_day replaces, and each day's Statement reads
+  only `dt = '<day>'`. A write split by day never writes an excluded day. Keeping not_equals in
+  each day's WHERE instead would overwrite the excluded day's partition with nothing.
+- **by_day refuses bounds that hold no day**, as between refuses a range that ends before it
+  starts. Contradictory bounds outside by_day are left alone: SQL gives no rows, and that's no
+  silent wrong number.
+
+## Done when
+
+- Each of 1-6 has a test through the public names, run in both Editions, and every new
+  refusal is four-part.
+- Both runs pass, and the goldens and galleries are regenerated if their text changed.
+- The code-review skill has run with this ticket as its spec, the drift items are closed, and
+  the beginner reader has read the new refusal text.

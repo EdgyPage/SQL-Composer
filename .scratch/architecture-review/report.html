@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Architecture review for SQL Composer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { useMaxWidth: true } });
+</script>
+<style>
+  .seam { border-style: dashed; }
+  .deep { background: linear-gradient(135deg, #0f172a, #1e293b); color: #f8fafc; }
+  .mermaid { display: flex; justify-content: center; }
+  .lbl { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+</style>
+</head>
+<body class="bg-stone-50 text-slate-900 font-sans">
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-12 space-y-14">
+
+<header class="space-y-4">
+  <p class="lbl text-slate-500">dev @ 33f8f3b · 2026-10-03 · both Editions</p>
+  <h1 class="font-serif text-4xl">Architecture review: SQL Composer and Spark Composer</h1>
+  <p class="text-sm text-slate-600 max-w-3xl">7 read-only explorers (tables, composing, running, the Edition seam, tools, tests, audience), each followed by a skeptical second reader who reproduced the bugs. 90 findings, all confirmed, many with a lower severity after checking. Grouped below into 11 deepening candidates. Coverage of the shared and sqlglot tests is 96% of <code>sql_composer/</code>; the 4% left is mostly refusals and Guard branches a beginner is likely to hit.</p>
+  <div class="flex flex-wrap gap-4 text-xs text-slate-600 items-center">
+    <span class="flex items-center gap-2"><span class="inline-block w-5 h-4 border-2 border-slate-500 bg-white"></span>module</span>
+    <span class="flex items-center gap-2"><span class="inline-block w-6 border-t-2 border-dashed border-slate-500"></span>seam</span>
+    <span class="flex items-center gap-2"><span class="inline-block w-6 border-t-2 border-red-600"></span>leak / bug</span>
+    <span class="flex items-center gap-2"><span class="inline-block w-5 h-4 deep"></span>deep module</span>
+    <span class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Strong</span><span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800">Worth exploring</span><span class="px-2 py-0.5 rounded bg-slate-200 text-slate-700">Speculative</span></span>
+  </div>
+  <nav class="text-sm flex flex-wrap gap-x-4 gap-y-1 text-indigo-700">
+    <a href="#errors">Errors found</a><a href="#c1">1 Date partition days</a><a href="#c2">2 by_day's bottom read</a><a href="#c3">3 Placement from the tree</a><a href="#c4">4 One refuse()</a><a href="#c5">5 Warehouse answers</a><a href="#c6">6 Example database refusals</a><a href="#c7">7 Join Guards</a><a href="#c8">8 Edition seam</a><a href="#c9">9 Plain-code pass</a><a href="#c10">10 Repo guards</a><a href="#c11">11 lineage page</a><a href="#top">Top recommendation</a>
+  </nav>
+</header>
+
+<!-- ============ ERRORS ============ -->
+<section id="errors" class="space-y-4">
+  <h2 class="font-serif text-2xl">Errors found (confirmed)</h2>
+  <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+  <table class="w-full text-sm">
+    <thead class="bg-stone-100 text-left"><tr><th class="p-2">Sev.</th><th class="p-2">What goes wrong</th><th class="p-2">Where</th><th class="p-2">Card</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      <tr><td class="p-2 text-red-700 font-semibold">high</td><td class="p-2"><code>equals(dt, "2026-9-24")</code> passes the Guard (strptime takes unpadded days) and matches no partition: an empty answer with no refusal.</td><td class="p-2 font-mono text-xs">tables.py:329 as_date</td><td class="p-2">1</td></tr>
+      <tr><td class="p-2 text-red-700 font-semibold">high</td><td class="p-2"><code>date_format="%d-%m-%Y"</code> is accepted, but Hive compares days as text, so BETWEEN, last_n_days and "newest day" use the wrong order.</td><td class="p-2 font-mono text-xs">tables.py:440 _check_date_format</td><td class="p-2">1</td></tr>
+      <tr><td class="p-2 text-red-700 font-semibold">high</td><td class="p-2">by_day drops a <code>not_equals(dt, day)</code>, which is marked as a pure bound, so it reads the day the user excluded.</td><td class="p-2 font-mono text-xs">conditions.py:149 _compare</td><td class="p-2">1</td></tr>
+      <tr><td class="p-2 text-red-700 font-semibold">high</td><td class="p-2">by_day splits a top-N (ORDER_BY + LIMIT) into N rows per day.</td><td class="p-2 font-mono text-xs">running.py:294 _check_splittable</td><td class="p-2">2</td></tr>
+      <tr><td class="p-2 text-red-700 font-semibold">high</td><td class="p-2">by_day's grouping check matches <code>dt</code> by bare name: any table's dt, or any output named dt, passes, while a renamed dt is refused.</td><td class="p-2 font-mono text-xs">running.py:294</td><td class="p-2">2</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">The GROUP BY Guard misses outputs Hive rejects: a column inside a grouped calculation, mixed aggregate/plain, HAVING and ORDER BY.</td><td class="p-2 font-mono text-xs">clauses.py:822 _guard_group_by</td><td class="p-2">3</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">row_number in WHERE, HAVING or inside an aggregate isn't refused; <code>Column._window</code> is threaded through 4 functions and never read.</td><td class="p-2 font-mono text-xs">clauses.py:754, tables.py</td><td class="p-2">3</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2"><code>row_number(ORDER_BY=[])</code> leaks a raw sqlglot ParseError; ORDER_BY output names are never checked (GROUP_BY's are).</td><td class="p-2 font-mono text-xs">calculations.py row_number</td><td class="p-2">3</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">A LEFT_JOIN Guard refuses <code>any_of(is_null(joined.col), ...)</code>, the standard anti-join, and its fix changes the answer.</td><td class="p-2 font-mono text-xs">clauses.py, conditions.py</td><td class="p-2">7</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">ON= built from an <code>all_of</code> Building block gets a false RepeatedRowsWarning (flatten doesn't look through the Paren).</td><td class="p-2 font-mono text-xs">trees.py flatten</td><td class="p-2">7</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">check_table_reference tells a fresh, empty Saved table to set <code>date_partition=None</code> and prints "None".</td><td class="p-2 font-mono text-xs">tables.py:919</td><td class="p-2">5</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2"><code>first_look("ops.jobs")</code> / <code>all_columns("...")</code> and <code>Table(columns={"x": int})</code> leak raw AttributeErrors.</td><td class="p-2 font-mono text-xs">tables.py</td><td class="p-2">5</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">write_table_reference names <code>dim.calendar</code> <code>calendar.py</code>, which shadows the stdlib on the next kernel start.</td><td class="p-2 font-mono text-xs">tables.py write_table_reference</td><td class="p-2">5</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">SQL Composer's Example database leaks sqlglot's ParseError/OptimizeError and a garbled "has no what this needs" message; Spark Composer gives a four-part refusal. Only Spark's tests pin it.</td><td class="p-2 font-mono text-xs">sql_composer/engine.py:249</td><td class="p-2">6</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">export_lineage refuses under a <code>dates</code> cap, even for the multi-day write it was built to show.</td><td class="p-2 font-mono text-xs">lineage.py _submitted</td><td class="p-2">2</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">The dates-cap refusal tells a JOINed read to use by_day, which can't narrow a joined table. by_day's "no bounded Date partition" fix names a column that doesn't exist.</td><td class="p-2 font-mono text-xs">refusals.py, running.py:349</td><td class="p-2">2</td></tr>
+      <tr><td class="p-2 text-amber-700 font-semibold">med</td><td class="p-2">protect_main lets <code>checkout -B main</code>, <code>switch -C main</code> and <code>branch -D main</code> through; the drift review never sees a merge commit, and sees only the last commit of a rebase.</td><td class="p-2 font-mono text-xs">.claude/hooks/</td><td class="p-2">10</td></tr>
+      <tr><td class="p-2 text-slate-600">low</td><td class="p-2">fill_null takes its aggregate flag from its first argument only. GROUP_BY() with nothing is silently dropped. by_day returns [] when its bounds hold no day. check_key on an outdated date_format refuses with a call the user never wrote. A send returning an empty frame or None leaks StopIteration/IndexError.</td><td class="p-2 font-mono text-xs">various</td><td class="p-2">3, 5, 1</td></tr>
+      <tr><td class="p-2 text-slate-600">low</td><td class="p-2">Spark's date-call writer would print the wrong precedence for a computed day count (latent: no caller passes one). <code>sort_array</code> is allowed 2 arguments, which Hive may refuse: check against Hive's source first. Import stops name "sql_composer" in a renamed folder.</td><td class="p-2 font-mono text-xs">spark writing.py, trees.py, __init__.py</td><td class="p-2">8</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="text-sm text-slate-600"><b>Test gaps with no bug behind them yet:</b> Python's <code>cond and cond</code>, <code>~cond</code>, <code>&lt;</code>, <code>&gt;=</code>, and reflected <code>100 - col</code> / <code>1 / col</code>. days_in_both has never run in any test. by_day on DISTINCT or a total. About 35 misuse refusals in clauses and conditions. Three of the four sqlglot behaviour probes. The hooks' main() glue. About 760 lines of the lineage page's JavaScript. Several <code>pytest.raises</code> with no <code>match=</code>.</p>
+</section>
+
+<section id="candidates" class="space-y-12">
+
+<!-- ============ C1 ============ -->
+<article id="c1" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">1 · Deepen the Date partition days module</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Strong</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/tables.py (as_date, _check_date_format) · conditions.py (Span, _compare, days_in_both, days_in_either) · running.py (by_day)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: four places decide what a day is</p>
+<pre class="mermaid">
+flowchart TB
+  T["Table date_format<br/>(checks %Y %m %d appear)"] --> A["as_date<br/>strptime, no round-trip"]
+  A --> C["_compare<br/>marks not_equals as a bound"]
+  C --> S["Span algebra<br/>days_in_both never tested"]
+  S --> L["Load limit"]
+  S --> B["by_day"]
+  S --> G["one-day-per-write Guard"]
+  A -. "'2026-9-24' passes" .-> X(("silent<br/>empty answer"))
+  C -. "excluded day comes back" .-> X
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class X leak
+</pre></div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: one module owns "which days does this read"</p>
+<pre class="mermaid">
+flowchart TB
+  D["<b>Date partition days</b><br/>format must sort as text (year, month, day)<br/>a day must round-trip exactly as written<br/>only real bounds become a Span (not_equals doesn't)<br/>a Span with no days refuses"]
+  D --> L["Load limit"]
+  D --> B["by_day"]
+  D --> G["write Guard"]
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class D deep
+</pre></div>
+  </div>
+  <p><b>Problem.</b> The Guards trust a day that only Python can read, and the rules for what counts as a day are spread across four functions. Three of the review's five high bugs come from this.</p>
+  <p><b>Solution.</b> Gather the day rules (format order, exact round-trip, which conditions bound, empty spans) behind the Span interface the Load limits and by_day already use.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5">
+    <li>Three silent wrong answers refused</li><li>One place for the day rules</li><li>Tests at Span, not per Guard</li><li>Delete the dead days_in_either branch</li><li>Pin days_in_both, now run</li><li>by_day stops returning [] silently</li>
+  </ul>
+  <p class="text-sm text-slate-600"><b>Tests:</b> one parametrized table of (condition, the days it reads), run in both Editions: unpadded day, %d-%m-%Y, not_equals under by_day, at_least + at_most, is_in + between, contradictory bounds.</p>
+</article>
+
+<!-- ============ C2 ============ -->
+<article id="c2" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">2 · One bottom read for by_day, writes and lineage</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Strong</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/running.py (_steps, _bottom_read, _written_day, _check_splittable, by_day) · lineage.py (_date_bounds, _submitted) · refusals.py (load_limit_dates)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: the walk down FROM is written 3 times, and checks compare names</p>
+      <div class="space-y-1 text-xs">
+        <div class="h-10 border-l-4 border-slate-400 bg-stone-50 px-3 flex items-center justify-between"><span>by_day → _steps</span><span class="text-red-700">matches "dt" by name</span></div>
+        <div class="h-10 border-l-4 border-slate-400 bg-stone-50 px-3 flex items-center justify-between"><span>_written_day → own walk</span><span class="text-slate-500">same 2 checks, better words</span></div>
+        <div class="h-10 border-l-4 border-slate-400 bg-stone-50 px-3 flex items-center justify-between"><span>_bottom_read → own walk</span><span></span></div>
+        <div class="h-10 border-l-4 border-slate-400 bg-stone-50 px-3 flex items-center justify-between"><span>lineage._date_bounds → own walk</span><span class="text-red-700">refused by a dates cap</span></div>
+        <div class="h-10 border-l-4 border-red-500 bg-red-50 px-3 flex items-center"><span class="text-red-700">LIMIT never looked at → top-N split per day</span></div>
+      </div>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: one module answers "which table and column hold the day"</p>
+      <div class="deep rounded-md p-4 space-y-2">
+        <p class="lbl text-slate-300">bottom read (table, date column as a tree, Span)</p>
+        <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
+          <div class="border border-slate-600 rounded p-2 opacity-70">walk FROM through Derived tables, once</div>
+          <div class="border border-slate-600 rounded p-2 opacity-70">follow dt through AS and Derived outputs</div>
+          <div class="border border-slate-600 rounded p-2 opacity-70">refuse LIMIT, DISTINCT, totals that drop dt</div>
+          <div class="border border-slate-600 rounded p-2 opacity-70">one wording for "no bounded Date partition"</div>
+        </div>
+      </div>
+      <div class="flex justify-around text-xs mt-3"><span class="border-2 border-slate-500 px-2 py-1 rounded">by_day</span><span class="border-2 border-slate-500 px-2 py-1 rounded">write Guard</span><span class="border-2 border-slate-500 px-2 py-1 rounded">export_lineage</span></div>
+    </div>
+  </div>
+  <p><b>Problem.</b> by_day's split Guard checks names and skips LIMIT, so it allows splits that change the answer and refuses safe ones. Each caller walks FROM its own way.</p>
+  <p><b>Solution.</b> One module finds the bottom table's date column as a tree and checks every step above it against that column. by_day, the write Guard and lineage all use it.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5">
+    <li>Two high bugs closed</li><li>Three walks become one</li><li>Lineage stops tripping the dates cap</li><li>Right fix for JOINed reads</li><li>Rename-safe by_day</li><li>~10 lines lighter</li>
+  </ul>
+  <p class="text-sm text-slate-600"><b>Tests:</b> by_day over an outer LIMIT, a Derived LIMIT, SELECT_DISTINCT, a total count_distinct, a dt renamed with AS, another table's dt, and export_lineage under <code>set_load_limits(dates=...)</code>.</p>
+</article>
+
+<!-- ============ C3 ============ -->
+<article id="c3" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">3 · Read aggregate and window placement from the tree</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Strong</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/tables.py (Column aggregate=, window=) · calculations.py (8 call sites, fill_null, row_number, descending) · clauses.py (_check_tables, _guard_group_by, ORDER_BY, GROUP_BY)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: two flags threaded by hand, checked in one place</p>
+<pre class="mermaid">
+flowchart LR
+  calc["8 calculations<br/>pass aggregate=, window="] --> col["Column<br/>_aggregate · _window"]
+  fill["fill_null<br/>first arg only"] -. wrong flag .-> col
+  col --> w["WHERE check<br/>aggregates only"]
+  col -. never read .-> dead["_window"]
+  col --> gb["GROUP BY Guard<br/>set containment"]
+  gb -. misses .-> hive(("Warehouse<br/>rejects"))
+  ob["ORDER_BY names<br/>row_number lists"] -. unchecked .-> hive
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class dead,hive leak
+</pre></div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: the tree is the one source; one placement check</p>
+<pre class="mermaid">
+flowchart LR
+  calc["calculations<br/>build trees only"] --> col["Column<br/>aggregate / window read from tree"]
+  col --> P["placement check<br/>WHERE · ON · GROUP BY · HAVING · ORDER BY<br/>one recursive walk"]
+  P --> ok["Hive the Warehouse takes"]
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class P deep
+</pre></div>
+  </div>
+  <p><b>Problem.</b> A fact the tree already holds is copied by hand into two flags. One flag is computed wrongly and the other is never read, so Hive the Warehouse rejects gets past statement().</p>
+  <p><b>Solution.</b> Derive "has an aggregate" and "has a window" from the tree, and run one placement check over every clause of the Statement, so these mistakes are refused before the Warehouse sees them.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5">
+    <li>Delete 2 flags, 8 threadings</li><li>fill_null fixed by construction</li><li>row_number in WHERE refused</li><li>ORDER_BY typos refused like GROUP_BY</li><li>No raw ParseError from row_number</li><li>Same refusal in both Editions</li>
+  </ul>
+  <p class="text-sm text-slate-600"><b>Tests:</b> one table of Statements Hive rejects (a column inside a grouped calculation, a mixed output, HAVING/ORDER BY on ungrouped columns, row_number in WHERE, a nested aggregate, ORDER_BY typo, an empty row_number list, GROUP_BY()), each refused with "What happened:".</p>
+</article>
+
+<!-- ============ C4 ============ -->
+<article id="c4" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">4 · One refuse() for misuse refusals</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Strong</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-indigo-100 text-indigo-800">most compaction: ~80-110 lines</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/refusals.py · clauses.py (_misuse) · tables.py (_refuse_table, inline raises) · conditions.py (_conditions, _need_column) · calculations.py (_need_column) · running.py · lineage.py · tests/test_refusals.py (source-counting test)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: mass of each refusal site (interface ≈ implementation)</p>
+      <div class="flex items-end gap-3 h-48">
+        <div class="flex flex-col items-center gap-1"><div class="w-14 bg-slate-300" style="height:120px"></div><div class="w-14 bg-slate-500" style="height:30px"></div><span class="text-[10px]">inline raise ×~35</span></div>
+        <div class="flex flex-col items-center gap-1"><div class="w-14 bg-slate-300" style="height:70px"></div><div class="w-14 bg-slate-500" style="height:30px"></div><span class="text-[10px]">_misuse</span></div>
+        <div class="flex flex-col items-center gap-1"><div class="w-14 bg-slate-300" style="height:70px"></div><div class="w-14 bg-slate-500" style="height:30px"></div><span class="text-[10px]">_refuse_table</span></div>
+        <div class="flex flex-col items-center gap-1"><div class="w-14 bg-red-200" style="height:50px"></div><div class="w-14 bg-red-400" style="height:20px"></div><span class="text-[10px]">other-Edition check, copied</span></div>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">light = wrapping a reader must parse · dark = the three sentences that matter. Two <code>_need_column</code>s and two <code>_conditions</code>s with different words.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: one small interface, the words stay at the call site</p>
+      <div class="flex items-end gap-6 h-48">
+        <div class="flex flex-col items-center gap-1"><div class="w-44 bg-indigo-200 text-[10px] p-1" style="height:22px">refuse(what, why, fix, error=, given=)</div><div class="w-44 deep" style="height:110px"></div><span class="text-[10px]">refusals.refuse</span></div>
+        <div class="text-xs text-slate-600 space-y-1">
+          <p>Each site: 4-5 lines, all of them words.</p>
+          <p>The other-Edition check runs inside, on <code>given</code>.</p>
+          <p>One <code>need_column</code>, one <code>need_conditions</code>.</p>
+          <p>The source-counting test becomes a behavioural four-part check.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p><b>Problem.</b> Misuse refusals are raised in three hand-made shapes, plus a copied other-Edition check, so each refusal is mostly wrapping and reads differently in each file.</p>
+  <p><b>Solution.</b> One plain <code>refuse()</code> in refusals.py that every <code>opt_out=None</code> refusal uses. The import stops in <code>__init__.py</code> and the per-Edition files stay as they are.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5">
+    <li>~80-110 lines go</li><li>One shape a reader learns once</li><li>Mix-up check can't be forgotten</li><li>One table-driven refusal test</li><li>Duplicate helpers merged</li><li>Generated in both Editions</li>
+  </ul>
+  <p class="text-sm text-slate-600"><b>Tests:</b> a parametrized (call, error type, words) table covering about 35 misuse refusals no test enters today, asserting all four parts.</p>
+</article>
+
+<!-- ============ C5 ============ -->
+<article id="c5" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">5 · Warehouse answers through one module</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Strong</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">local-substitutable (fake send)</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/tables.py :679-1022 (_describe, _newest_partition_value, write_table_reference, check_key, check_table_reference, first_look, all_columns, Table.__init__)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: each tool sends and trusts what comes back</p>
+<pre class="mermaid">
+flowchart TB
+  wtr["write_table_reference"] --> s1["send + Spark check"]
+  ck["check_key"] --> s2["send + Spark check"]
+  ctr["check_table_reference"] --> s1
+  s1 -. "empty / None" .-> e1(("StopIteration<br/>IndexError"))
+  s2 -. "no days" .-> e2(("'date_partition=None'"))
+  fl["first_look('ops.jobs')"] -. text, not a Table .-> e3(("AttributeError"))
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class e1,e2,e3 leak
+</pre></div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: one seam between the tools and the Warehouse</p>
+<pre class="mermaid">
+flowchart TB
+  wtr["write_table_reference"] --> A
+  ck["check_key"] --> A
+  ctr["check_table_reference"] --> A
+  A["warehouse answer<br/>callable send · not Spark · has columns<br/>DESCRIBE parsed · newest day or none yet"] --> W[("Warehouse / fake send")]
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class A deep
+</pre></div>
+  </div>
+  <p><b>Problem.</b> The warehouse tools each check the Warehouse's answer their own way, and the edges they skip (an empty table, no days yet, a name given as text, a Python type) end in raw errors or wrong advice.</p>
+  <p><b>Solution.</b> Put one "ask the Warehouse" module in front of DESCRIBE and SHOW PARTITIONS. It also takes in the two pass-through Edition functions (card 8), and each tool checks the argument it was given.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5">
+    <li>Five raw-error leaks refused</li><li>Empty Saved table checks clean</li><li>calendar.py can't shadow stdlib</li><li>Fake send tests every branch</li><li>Seam shrinks by two functions</li><li>Optional: own file, checking.py</li>
+  </ul>
+  <p class="text-sm text-slate-600"><b>Tests:</b> with the existing <code>describing()</code>/<code>answering()</code> fakes: SHOW PARTITIONS failing, no days, <code>dt=latest</code>, an empty frame, None, an extra partition column, and <code>first_look("ops.jobs")</code>.</p>
+  <p class="text-sm rounded bg-amber-50 border border-amber-200 px-3 py-2">Splitting tables.py into a new shared <code>checking.py</code> also changes SHARED_FILES, <code>_FILES</code> and the export; it moves lines rather than saving them. Treat it as optional.</p>
+</article>
+
+<!-- ============ C6 ============ -->
+<article id="c6" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">6 · Both Example database adapters refuse the same way</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800">Strong</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">ports &amp; adapters</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/engine.py (run_query :249, _cant_run :238, _executor_ready :136) · sql_composer/example_database.py (_table, send) · spark_composer/engine.py · tests/test_example_database.py</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: one seam, two contracts</p>
+<pre class="mermaid">
+flowchart LR
+  ex["example_database.send"] --- seam{{"run_query"}}
+  seam --> sq["sqlglot adapter"]
+  seam --> sp["Spark adapter"]
+  sq -. "ParseError, OptimizeError,<br/>'has no what this needs'" .-> u1(("raw error"))
+  sp --> u2["four-part refusal"]
+  t["only Spark's tests<br/>pin the refusal"] -.-> sp
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class u1 leak
+</pre></div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: the contract lives in the shared tests</p>
+<pre class="mermaid">
+flowchart LR
+  ex["example_database.send<br/>refuses a non-str"] --- seam{{"run_query<br/>full names: 'ops.jobs'"}}
+  seam --> sq["sqlglot adapter"]
+  seam --> sp["Spark adapter"]
+  sq --> r["four-part refusal"]
+  sp --> r
+  t["one shared test,<br/>both Editions"] -.-> r
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class r deep
+</pre></div>
+  </div>
+  <p><b>Problem.</b> The run_query seam has two adapters, but only one of them keeps the refusal contract, and only that Edition's tests check it.</p>
+  <p><b>Solution.</b> Catch sqlglot's errors in SQL Composer's adapter, name the missing table, pass full table names across the seam, and move the contract test into the shared suite.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5">
+    <li>Beginner sees one message, not a traceback</li><li>Contract tested in both runs</li><li>'ops' stops being hard-coded twice</li><li>_executor_ready reuses the version gate</li>
+  </ul>
+</article>
+
+<!-- ============ C7 ============ -->
+<article id="c7" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">7 · Join Guards read the condition tree</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800">Worth exploring</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/clauses.py (LEFT_JOIN guard, repeated-rows check) · conditions.py (Condition null-test flag) · trees.py (flatten)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: a yes/no flag and a shallow flatten</p>
+<pre class="mermaid">
+flowchart LR
+  a["any_of(is_null(j.x), j.y > 3)"] --> f["Condition: tests null? one bool"]
+  f -. "false refusal" .-> lj["LEFT_JOIN Guard"]
+  b["ON=all_of(key_block, ...)"] --> fl["flatten stops at Paren"]
+  fl -. "false RepeatedRowsWarning" .-> rr["repeated-rows check"]
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class lj,rr leak
+</pre></div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: each Guard asks the tree</p>
+<pre class="mermaid">
+flowchart LR
+  a["any_of(is_null(j.x), ...)"] --> f["Condition knows which tables<br/>it keeps unmatched rows of"]
+  f --> lj["LEFT_JOIN Guard: passes"]
+  b["ON=all_of(key_block, ...)"] --> fl["flatten looks through<br/>AND inside AND"]
+  fl --> rr["key found: no warning"]
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class f,fl deep
+</pre></div>
+  </div>
+  <p><b>Problem.</b> Two join Guards fire on correct Statements: the standard anti-join, and an ON= built from a Building block. That teaches users to opt out by reflex.</p>
+  <p><b>Solution.</b> Have the Guards ask the condition tree which table's null rows it keeps, and flatten AND through brackets.</p>
+  <ul class="text-sm list-disc pl-5"><li>Fewer reflex opt-outs</li><li>Building blocks reusable in ON=</li></ul>
+</article>
+
+<!-- ============ C8 ============ -->
+<article id="c8" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">8 · Narrow the Edition seam</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800">Worth exploring</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">ports &amp; adapters</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">tools/editions.py (EDITION_INTERFACE) · sql_composer/writing.py · spark_composer/writing.py · trees.py (Ordered, DATE_CALLS, type grammar) · tools/hive_corpus.py</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: 8 + 3 functions; some carry nothing per Edition</p>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="border-2 border-slate-500 rounded p-2">hive_text</div><div class="border-2 border-slate-500 rounded p-2">read_back · read_back_function</div>
+        <div class="border-2 border-red-400 rounded p-2 text-red-700">describe_text (pass-through)</div><div class="border-2 border-red-400 rounded p-2 text-red-700">show_partitions_text (pass-through)</div>
+        <div class="border-2 border-slate-500 rounded p-2">check_writable_call · _type</div><div class="border-2 border-red-400 rounded p-2 text-red-700">Ordered.nulls_first: always <code>not desc</code>, one adapter ignores it</div>
+        <div class="border-2 border-red-400 rounded p-2 text-red-700">Spark keeps its own DATE_CALLS + type parser</div><div class="border-2 border-red-400 rounded p-2 text-red-700">hive_corpus sets Spark's private ContextVar</div>
+      </div>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After: every function on the seam differs per Edition</p>
+      <div class="border-2 border-dashed border-slate-500 rounded p-3 space-y-2">
+        <div class="deep rounded p-3 text-xs">hive_text · read_back · read_back_function · check_writable_call · check_writable_type · a public "as SQL Composer writes it" switch</div>
+        <p class="text-xs text-slate-600">DESCRIBE text built in shared code from <code>hive_text(table_node(name))</code>. Spark reads DATE_CALLS from trees.py and wraps a computed day count in brackets.</p>
+      </div>
+    </div>
+  </div>
+  <p><b>Problem.</b> Some of the seam's functions and parts do the same thing in both Editions, or are honoured by only one adapter. That widens what each hand-written file must keep in step, with no test to notice.</p>
+  <p><b>Solution.</b> Keep only what genuinely differs on the seam: about 20 lines leave each writing.py, and the latent date_sub precedence bug closes.</p>
+  <ul class="text-sm grid sm:grid-cols-2 gap-x-6 list-disc pl-5"><li>Seam: 8 → 6 writer functions</li><li>~40 lines across both writers</li><li>Tools stop reading private names</li><li>Golden corpus holds the bytes</li></ul>
+  <p class="text-sm rounded bg-amber-50 border border-amber-200 px-3 py-2">Consistent with ADR 0002 (two adapters, one shared tree); this only narrows the seam it records.</p>
+</article>
+
+<!-- ============ C9 ============ -->
+<article id="c9" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">9 · Plain-code pass for the intermediate reader</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800">Worth exploring</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">clauses.py statement() · trees.py _after_held · lineage.py (comprehensions, name_line, dead checks) · __init__.py _check_home vote · spark_composer/writing.py (_connector stack, closure factories, dead _indent params) · spark_composer/engine.py (_SPARK dict) · tools/example_gallery.py</p>
+  <div class="overflow-x-auto"><table class="w-full text-sm">
+    <thead class="text-left text-slate-500"><tr><th class="p-1">Spot</th><th class="p-1">Above the reader</th><th class="p-1">Plain shape</th><th class="p-1">Lines</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">
+      <tr><td class="p-1 font-mono text-xs">statement()</td><td class="p-1"><code>next(gen, default)</code> per clause plus a pass-through</td><td class="p-1">one <code>by_place</code> dict</td><td class="p-1">−6</td></tr>
+      <tr><td class="p-1 font-mono text-xs">trees._after_held</td><td class="p-1">None threaded through a loop</td><td class="p-1">return as soon as a step fails</td><td class="p-1">−4</td></tr>
+      <tr><td class="p-1 font-mono text-xs">lineage.py</td><td class="p-1">double-for dict comprehensions, next() over nested generators</td><td class="p-1">for loops; drop name_line and 3 dead checks</td><td class="p-1">−10</td></tr>
+      <tr><td class="p-1 font-mono text-xs">__init__._check_home</td><td class="p-1"><code>max(stamped, key=stamped.count)</code></td><td class="p-1">a counting loop</td><td class="p-1">±0</td></tr>
+      <tr><td class="p-1 font-mono text-xs">spark writing.py</td><td class="p-1">closure factories, dict splats, sqlglot's unused flags</td><td class="p-1">explicit tables; drop dead params</td><td class="p-1">−15</td></tr>
+      <tr><td class="p-1 font-mono text-xs">spark engine.py</td><td class="p-1">untyped <code>_SPARK</code> state dict</td><td class="p-1">a small dataclass</td><td class="p-1">±0</td></tr>
+      <tr><td class="p-1 font-mono text-xs">example_gallery.py</td><td class="p-1">nested comprehensions, one-key dict, branch tested twice</td><td class="p-1">named strings first</td><td class="p-1">−12</td></tr>
+    </tbody></table></div>
+  <p><b>Problem.</b> Function length is fine (only <code>_check_files</code> is over 40 lines), but a few clever idioms sit exactly where a user lands when a refusal surprises them.</p>
+  <p><b>Solution.</b> Rewrite them as plain loops and plain data, with behaviour pinned by the golden corpus and the gallery.</p>
+  <ul class="text-sm list-disc pl-5"><li>~45 lines lighter</li><li>No behaviour change; goldens hold it</li></ul>
+</article>
+
+<!-- ============ C10 ============ -->
+<article id="c10" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">10 · Repo guards: protect_main, drift review, export</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-800">Worth exploring</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">local-substitutable (tmp git repo)</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">.claude/hooks/protect_main.py · drift_review.py · drift_list.py · drift_stop.py · tools/export_clean.py (EXPORTED, check_readme, _NAMED) · tools/example_gallery.py (toolbox_modules)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before</p>
+<pre class="mermaid">
+flowchart LR
+  cmd["git checkout -B main · branch -D main"] -. passes .-> pm["protect_main regex"]
+  m["merge / rebase A..B"] -. "HEAD only" .-> dr["drift review"]
+  dl["open-item parser ×2<br/>(hook, export)"] -. disagree .-> x(("malformed item"))
+  ex["EXPORTED, check_readme<br/>(one-Edition export)"] -.-> dead["can't happen since 3.0"]
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class pm,dr,x leak
+</pre></div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After</p>
+<pre class="mermaid">
+flowchart LR
+  cmd["any git verb + flags + main"] --> pm["protect_main"]
+  m["every new commit since last HEAD"] --> dr["drift review"]
+  dl["one parser in drift_list"] --> both["hook and export agree"]
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class pm,dr,both deep
+</pre></div>
+  </div>
+  <p><b>Problem.</b> The guards that keep main clean and the drift log honest have holes in exactly the glue that no test drives.</p>
+  <p><b>Solution.</b> Test the hooks' main() against a tmp git repo, widen the main-moving patterns, review every new commit, share one open-item parser, and drop the one-Edition export branches.</p>
+  <ul class="text-sm list-disc pl-5"><li>main can't be moved by -B/-C/-D</li><li>Merged work gets reviewed</li><li>~30 lines of pre-3.0 generality go</li></ul>
+</article>
+
+<!-- ============ C11 ============ -->
+<article id="c11" class="rounded-xl border border-slate-200 bg-white p-6 space-y-5 shadow-sm">
+  <div class="flex flex-wrap items-baseline gap-3">
+    <h2 class="font-serif text-2xl">11 · Take the lineage page out of Python</h2>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-700">Speculative</span>
+    <span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">in-process</span>
+  </div>
+  <p class="font-mono text-sm text-slate-600">sql_composer/lineage.py (1607 lines: PAGE string ≈ 810, .git reader, frame scan, _how / _how_html)</p>
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">Before: lineage.py by content</p>
+      <div class="flex h-10 rounded overflow-hidden text-[10px] text-white">
+        <div class="bg-slate-700 flex items-center justify-center" style="width:49%">Python ~790</div>
+        <div class="bg-amber-600 flex items-center justify-center" style="width:51%">HTML/CSS/JS string ~810, no test runs it</div>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">A fifth of the Toolbox for one public name. Report sentences written twice (Markdown and HTML).</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-3"><p class="lbl text-slate-500 mb-2">After</p>
+      <div class="flex h-10 rounded overflow-hidden text-[10px] text-white">
+        <div class="bg-slate-700 flex items-center justify-center" style="width:49%">lineage.py ~770</div>
+        <div class="bg-amber-600/70 flex items-center justify-center border-l-2 border-dashed border-white" style="width:51%">lineage.html (stamped, node --check test)</div>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">One _how() with a code wrapper for both reports.</p>
+    </div>
+  </div>
+  <p><b>Problem.</b> The largest Toolbox file is half JavaScript that a Python-first reader won't read and no test runs.</p>
+  <p><b>Solution.</b> Ship the page as its own stamped file in the folder, and give the two reports one source of sentences. This changes the shipped file list, so it needs its own ticket.</p>
+  <ul class="text-sm list-disc pl-5"><li>lineage.py halves (lines move, not vanish)</li><li>JS syntax checked in CI</li></ul>
+</article>
+
+</section>
+
+<!-- ============ TOP ============ -->
+<section id="top" class="rounded-2xl deep p-8 space-y-3">
+  <p class="lbl text-slate-400">Top recommendation</p>
+  <h2 class="font-serif text-3xl"><a href="#c1" class="underline decoration-emerald-400">1 · Deepen the Date partition days module</a></h2>
+  <p class="text-slate-300 max-w-3xl">The silent wrong answers come from here (an unpadded day, a day-first format, an excluded day that by_day brings back), and every Guard, Load limit and by_day reads it. Deepening it closes three high bugs behind one interface that one table of tests can pin in both Editions. It is also the base card 2 builds on.</p>
+  <p class="text-slate-400 text-sm">Then 2 (by_day's bottom read) and 3 (placement from the tree), which close the other high and medium bugs. 4 gives the most compaction and makes 1–3's new refusals cheaper to write.</p>
+</section>
+
+</main>
+</body>
+</html>

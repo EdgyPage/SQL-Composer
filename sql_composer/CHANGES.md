@@ -2,6 +2,20 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## Not yet numbered
+
+- **A Date partition's day must be written exactly as its date_format writes it.** Before,
+  `equals(job_runs.dt, "2026-9-24")` was taken as 2026-09-24, but Hive compared the text
+  '2026-9-24', which matches no day, so the answer was empty. Now it is refused.
+- **date_format must put the year first, then the month, then the day**, and hold no other
+  letter. Hive compares a Date partition's days as text, so with the day first, BETWEEN,
+  last_n_days and check_key's newest day read the wrong days. A table whose days are
+  written another way can still be read with date_partition=None.
+- **by_day skips a day not_equals or is_not_in leaves out.** Before, it dropped the condition
+  and read or wrote that day anyway. set_load_limits(dates=...) doesn't count that day
+  either. by_day now refuses a WHERE that leaves no day to read, where it gave back an empty
+  list.
+
 ## 3.1
 
 - The first lines of some docstrings, which the README's cheat sheet shows, say more
