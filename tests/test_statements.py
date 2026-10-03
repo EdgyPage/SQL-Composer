@@ -424,7 +424,7 @@ def test_a_write_with_no_bound_on_its_day_is_refused() -> None:
         FROM(job_runs, reads_all_partitions=True),
         GROUP_BY(job_runs.dt, job_runs.job_id),
     )
-    with pytest.raises(ValueError, match="the day to write isn't known"):
+    with pytest.raises(ValueError, match="can't tell which day to write"):
         to_hive(unbounded)
 
 
@@ -475,7 +475,7 @@ def test_a_write_from_a_table_with_no_date_partition_says_so() -> None:
     per_team = Table("mart.per_team", columns={"jobs": "bigint", "dt": "string"},
                      date_partition="dt")
     s = statement(INSERT_OVERWRITE(per_team), SELECT(AS(count_rows(), "jobs")), FROM(jobs))
-    with pytest.raises(ValueError, match="reads ops.jobs, which has no Date partition") as refused:
+    with pytest.raises(ValueError, match="its FROM table ops.jobs has no Date partition") as refused:
         to_hive(s)
     assert "None" not in str(refused.value)
 
@@ -512,7 +512,7 @@ def test_by_day_refuses_a_derived_table_that_picks_rows_across_days() -> None:
 
 
 def test_by_day_needs_a_bounded_date_partition() -> None:
-    with pytest.raises(ValueError, match="no bounded Date partition"):
+    with pytest.raises(ValueError, match="ops.jobs has no Date partition"):
         by_day(statement(SELECT(jobs.team), FROM(jobs)))
 
 

@@ -11432,7 +11432,7 @@ output runs: COUNT(*)
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 GuardRefused:
-  What happened:  by_day can't split this Statement: the outer Statement groups rows without keeping the Date partition dt.
+  What happened:  by_day can't split this Statement: it groups rows without keeping the Date partition dt.
   Why it matters: Each day's Statement would give partial groups, and those can't always be added back up (a distinct count, for one, can't).
   Usual fix:      Add dt to that GROUP_BY or PARTITION_BY, or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.

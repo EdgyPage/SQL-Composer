@@ -21,6 +21,7 @@ from .conditions import equals
 from .refusals import (
     four_part_message,
     guard_by_day_grouping,
+    guard_by_day_limit,
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
@@ -133,49 +134,57 @@ def _check_dates_cap(s: Statement) -> None:
     cap = _limits["dates"]
     if cap is None:
         return
+    split_by_day = steps(s)[-1][0]._reads[0]
     for read, span in _days_read(s):
         if span is not None and span.is_bounded():
             load_limit_dates(read._call(), read.table._name, len(span.dates()), cap,
-                             read.reads_all_partitions)
+                             read.reads_all_partitions, read is split_by_day)
+
+
+def steps(s: Statement) -> list[tuple[Statement, str]]:
+    """The Statement and each Derived table below it through FROM, top first, each with the
+    words a refusal names it by. The last reads a real table in FROM: the one with the days."""
+    found = [(s, "the outer Statement")]
+    while found[-1][0]._reads[0].table._statement is not None:
+        table = found[-1][0]._reads[0].table
+        found.append((table._statement, f"derived({table._name!r}, ...)"))
+    if len(found) == 1:
+        found[0] = (s, "it")
+    return found
+
+
+def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
+    """The real table at the bottom of FROM and the days its bound reads, or a refusal."""
+    step = steps(s)[-1][0]
+    read = step._reads[0]
+    table = read.table
+    span = next((found for r, found in read_spans(step) if r is read), None)
+    column = f"{table._alias}.{table._date_partition}"
+    bound_it = f"Bound {column} in WHERE, such as between({column}, ...)."
+    if table._date_partition is None:
+        what, fix = f"its FROM table {table._name} has no Date partition", no_days_fix
+    elif read.reads_all_partitions and (span is None or not span.is_bounded()):
+        what = (f"FROM({table._alias}, reads_all_partitions=True) reads every day of "
+                f"{table._name}, so there are no days to go by")
+        fix = bound_it
+    elif span is None or not span.is_bounded():
+        what, fix = f"nothing bounds the days of its FROM table {table._name}", bound_it
+    else:
+        return table, span
+    raise ValueError(four_part_message(what=f"{who}: {what}.", why=why, fix=fix, opt_out=None))
 
 
 def _written_day(s: Statement):
     """The one day a write covers, from the date bound of the table it reads from."""
-    table, span = _bottom_read(s)
-    if table._date_partition is None:
-        raise _day_unknown(s, f"reads {table._name}, which has no Date partition",
-                     "A Saved table is filled one day at a time from a table with days: "
-                     "read one with a Date partition in FROM, bounded to one day in WHERE.")
-    if span is None or not span.is_bounded():
-        raise _day_unknown(s, f"reads {table._name} without a bound on its Date partition",
-                     f"Bound {table._alias}.{table._date_partition} in WHERE, and send one day "
-                     "at a time with by_day(...).")
+    _, span = _bottom_days(
+        s, f"{s._write_call} can't tell which day to write",
+        "A write fills the one day its FROM table reads.",
+        "A Saved table is filled from a table with days: put one in FROM, bounded to one day "
+        "in WHERE.")
     days = span.dates()
     if len(days) != 1:
         guard_one_day_per_write(s._write_call, len(days))
     return days[0]
-
-
-def _day_unknown(s: Statement, what: str, fix: str) -> ValueError:
-    """The error for a write whose day isn't known; the caller raises it."""
-    return ValueError(
-        four_part_message(
-            what=f"{s._write_call} {what}, so the day to write isn't known.",
-            why="A write fills the one day its Statement reads.",
-            fix=fix,
-            opt_out=None,
-        )
-    )
-
-
-def _bottom_read(s: Statement):
-    """The real table under FROM, following Derived tables down, and its date bound."""
-    step = s
-    while step._reads[0].table._statement is not None:
-        step = step._reads[0].table._statement
-    read = step._reads[0]
-    span = next((found for r, found in read_spans(step) if r is read), None)
-    return read.table, span
 
 
 def _write_tree(s: Statement) -> Node:
@@ -291,32 +300,36 @@ def run(s, send):
 # --- by_day ----------------------------------------------------------------------------------
 
 
-def _check_splittable(s: Statement, date_partition: str, step: str) -> None:
-    """A step may aggregate or pick rows only if it keeps the date in its grouping."""
-    outputs = [column for column, _ in s._outputs]
+def _check_splittable(s: Statement, step: str, date, date_partition: str) -> None:
+    """A step may group or pick rows only if it keeps the date, and may have no LIMIT.
+
+    `date` is the Date partition column as this step sees it, or None if the step below
+    didn't pass it up.
+    """
+    if s._limit is not None:
+        guard_by_day_limit(step, s._limit)
     grouping = None
     if s._distinct:
-        grouping = [name for _, name in s._outputs]
+        grouping = [column._tree for column, _ in s._outputs]
     elif s._group_by:
-        grouping = [c._name for c in s._group_by if c._name is not None]
-    elif any(column._aggregate for column in outputs):
+        grouping = [column._tree for column in s._group_by]
+    elif any(column._aggregate for column, _ in s._outputs):
         grouping = []
-    if grouping is not None and date_partition not in grouping:
+    if grouping is not None and date not in grouping:
         guard_by_day_grouping(step, date_partition)
-    for column in outputs:
+    for column, _ in s._outputs:
         for window in column._tree.find_all("Window"):
-            names = [c.name for c in window.parts["partition_by"] if c.kind == "Column"]
-            if date_partition not in names:
+            if date not in window.parts["partition_by"]:
                 guard_by_day_grouping(step, date_partition)
 
 
-def _steps(s: Statement) -> list[tuple[Statement, str]]:
-    """The Statement and each Derived table below it through FROM, top first."""
-    steps = [(s, "the outer Statement")]
-    while steps[-1][0]._reads[0].table._statement is not None:
-        table = steps[-1][0]._reads[0].table
-        steps.append((table._statement, f"derived({table._name!r}, ...)"))
-    return steps
+def _date_above(below: Statement, table, date):
+    """The date column as the step reading `below` as `table` sees it: the output of `below`
+    whose calculation is the date column, under that output's name, or None."""
+    for column, name in below._outputs:
+        if date is not None and column._tree == date:
+            return Node("Column", name=name, table=table._alias)
+    return None
 
 
 def _reading(step: Statement, new_from) -> Statement:
@@ -397,22 +410,18 @@ def by_day(s):
                 opt_out=None,
             )
         )
-    steps = _steps(s)
-    table, span = _bottom_read(s)
-    if table._date_partition is None or span is None or not span.is_bounded():
-        raise ValueError(
-            four_part_message(
-                what=f"by_day can't split this Statement: {table._name} has no bounded Date "
-                "partition.",
-                why="It makes one Statement per day of the bound on the FROM table's Date "
-                "partition.",
-                fix=f"Bound its Date partition in WHERE, such as between({table._alias}."
-                f"{table._date_partition or 'dt'}, ...).",
-                opt_out=None,
-            )
-        )
-    for step, described in steps:
-        _check_splittable(step, table._date_partition, described)
+    found = steps(s)
+    table, span = _bottom_days(
+        s, "by_day can't split this Statement",
+        "by_day makes one Statement for each day its FROM table reads.",
+        "Run it whole with run(...): by_day splits only a table with days.")
+    # Follow the date column up from the bottom step, under whatever name each step gives it.
+    date, below = Node("Column", name=table._date_partition, table=table._alias), None
+    for step, described in reversed(found):
+        if below is not None:
+            date = _date_above(below, step._reads[0].table, date)
+        _check_splittable(step, described, date, table._date_partition)
+        below = step
     days = span.dates()
     if not days:
         raise ValueError(
@@ -427,7 +436,7 @@ def by_day(s):
                 opt_out=None,
             )
         )
-    return [_split(steps, day) for day in days]
+    return [_split(found, day) for day in days]
 
 
 def _split(steps, day) -> Statement:
