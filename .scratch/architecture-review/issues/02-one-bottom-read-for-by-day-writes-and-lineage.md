@@ -1,7 +1,7 @@
 # One bottom read for by_day, writes and lineage
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 01
 
 ## Question
@@ -51,3 +51,47 @@ own way, and that by_day's check on the steps above compares names:
 - Both runs pass; goldens and galleries regenerated if their text changed.
 - The code-review skill has run with this ticket as its spec, the drift items are closed, and
   the beginner reader has read the new refusal text.
+
+## Answer
+
+Built in `69f3089`, reworked after the review in `52c2ba3` and after a second beginner reading
+in `8a13bda`.
+
+- `running.steps(s)` is the one walk down FROM, and `bottom_read(s)` the FROM read at its
+  bottom with its days; by_day, a write, the dates Load limit and lineage all use them.
+  `_bottom_days` is the one check that the FROM table has a bounded Date partition. by_day and
+  a write share its "what"; each keeps its own "who", "why" and fix for a table with no days,
+  which the beginner reader asked for, since by_day can run whole and a write can't. An
+  opted-out read (`reads_all_partitions=True`) is named as one, also at the reader's asking.
+- by_day follows the Date partition as a column up through each Derived table, under every
+  name a step gives it, and refuses a step that drops it from its GROUP_BY, SELECT_DISTINCT or
+  row_number's PARTITION_BY, naming it as that step sees it (`per_day.day (job_runs.dt, the
+  Date partition)`), or saying to keep it in the SELECT of the Derived table that dropped it.
+- `guard_by_day_limit` refuses a LIMIT in the Statement or a Derived table by_day reads
+  through FROM; a joined Derived table's LIMIT isn't split, so it is let through.
+- export_lineage falls back to the first day only for a write over several days, so a one-day
+  write over the dates Load limit is refused as to_hive refuses it.
+- The dates Load limit's fix sends the FROM table to by_day and any other table to its own
+  between(...) or last_n_days(...).
+- `tests/test_by_day_splits.py` pins items 1-3 and 5-7 in both Editions. Item 4, the single
+  walk, is internal: what it holds is that by_day, writes and lineage agree, which those tests
+  see.
+
+**Beginner reader:** [first reading](../reports/02-beginner-reader.md), 9 stops; a second
+reading of the reworded grouping refusal had 6 stops, all answered: the fix for a Derived
+table that dropped the date, the partition named as the step sees it, the clause named
+(GROUP_BY(...), SELECT_DISTINCT(...) or row_number's PARTITION_BY), refusals.py's "by_day(...)
+refuses any LIMIT", and CHANGES' wording for set_load_limits(dates=...).
+
+**Code review (2026-10-03), `69f3089`.**
+- *Standards:* "date column", which the glossary rules out, removed; "dates cap" replaced in
+  what a user reads; local names; the walk hidden behind `bottom_read`. Kept: `steps` returns
+  each step with the words a refusal names it by, since only refusals use them.
+- *Spec:* a one-day write over the dates Load limit got by_day's refusal from export_lineage;
+  the grouping refusal named `dt` where the step calls it something else; only the first
+  output carrying the date was followed. All three fixed, with tests.
+
+| Items | Opened by | Closed by |
+|---|---|---|
+| D101-D104 | `69f3089` | `52c2ba3` |
+| D105 | `52c2ba3` | `8a13bda` |

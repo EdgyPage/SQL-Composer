@@ -186,17 +186,32 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     )
 
 
-def guard_missing_group_by(columns: list[str]) -> None:
-    """A selected column must be grouped when the Statement aggregates. No opt-out."""
+def guard_missing_group_by(place: str, columns: list[str], grouped: bool) -> None:
+    """A column shown, tested or sorted by must be grouped when the Statement aggregates.
+    No opt-out.
+
+    `grouped` is whether the Statement has a GROUP_BY at all.
+    """
     listed = ", ".join(columns)
+    if grouped:
+        what = f"{place} has {listed}, which GROUP_BY leaves out."
+        fix = f"Add {listed} to GROUP_BY."
+    else:
+        what = (f"{place} has {listed} beside a count or a sum, and the Statement has no "
+                "GROUP_BY.")
+        fix = f"Add GROUP_BY({listed}), or put {listed} inside a count or a sum."
+    if place == "SELECT":
+        fix += (" To keep one whole row per group instead, such as each job's latest run, "
+                "number the rows with row_number(...) inside derived(...), then keep number 1 "
+                "with WHERE(equals(..., 1)); help(row_number) shows how.")
+    elif place == "ORDER_BY":
+        fix += ' Or sort by an output name, such as ORDER_BY(descending("runs")).'
     raise GuardRefused(
         four_part_message(
-            what=f"SELECT has {listed}, which GROUP_BY leaves out.",
+            what=what,
             why="Each output row is one group, so a column that isn't grouped has no single "
             "value to show. Hive would refuse the Statement.",
-            fix=f"Add {listed} to GROUP_BY. To keep one whole row per group instead, such as "
-            "each job's latest run, number the rows with row_number(...) inside derived(...), "
-            "then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.",
+            fix=fix,
             opt_out=None,
         )
     )
