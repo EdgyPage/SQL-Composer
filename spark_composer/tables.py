@@ -923,8 +923,8 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
                 "run check_table_reference"]
     pattern = _day_format_of(newest)
     if pattern is None:
-        return [f"    date_partition=None,  # TODO: partitioned by {', '.join(partitions)}; "
-                "name the date one if there is one"]
+        return [f"    date_partition=None,  # TODO: partitioned by {', '.join(partitions)}; its "
+                f"newest {first}, {newest!r}, isn't a day the Toolbox can bound"]
     lines = [f'    date_partition="{first}",{also}']
     if pattern != DEFAULT_DATE_FORMAT:
         lines.append(f'    date_format="{pattern}",')
