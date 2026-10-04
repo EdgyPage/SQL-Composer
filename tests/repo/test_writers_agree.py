@@ -1,4 +1,4 @@
-"""The two Editions' writers write the same Hive for a tree the golden corpus doesn't hold."""
+"""The two Editions' writers write the same Hive for trees the golden corpus doesn't hold."""
 
 from __future__ import annotations
 
@@ -13,15 +13,32 @@ import sql_composer.trees as sql_trees  # noqa: E402
 import sql_composer.writing as sql_writing  # noqa: E402
 
 
-def a_date_sub_of_a_sum(trees):
-    """date_sub(dt, 1 + 2), whose day count is a calculation, not a plain number."""
-    days = trees.Node("Add", this=trees.number("1"), expression=trees.number("2"))
-    return trees.Node("Call", name="date_sub",
-                      args=[trees.Node("Column", name="dt", table="t"), days])
+def a_sum(trees):
+    return trees.Node("Add", this=trees.number("1"), expression=trees.number("2"))
 
 
-def test_a_computed_day_count_is_written_in_brackets_by_both() -> None:
-    sql = sql_writing.hive_text(a_date_sub_of_a_sum(sql_trees))
-    spark = spark_writing.hive_text(a_date_sub_of_a_sum(spark_trees))
-    assert sql == spark
-    assert "(1 + 2) * -1" in spark
+def a_column(trees):
+    return trees.Node("Column", name="n", table="t")
+
+
+def a_cast(trees):
+    return trees.Node("Cast", this=a_column(trees), to="STRING")  # as week_start writes one
+
+
+def in_brackets(trees):
+    return trees.Node("Paren", this=a_sum(trees))
+
+
+@pytest.mark.parametrize("days", [a_sum, a_column, a_cast, in_brackets])
+def test_date_sub_is_written_the_same_by_both_whatever_its_day_count(days) -> None:
+    def date_sub(trees):
+        return trees.Node("Call", name="date_sub",
+                          args=[trees.Node("Column", name="dt", table="t"), days(trees)])
+
+    assert sql_writing.hive_text(date_sub(sql_trees)) == spark_writing.hive_text(
+        date_sub(spark_trees))
+
+
+def test_a_type_create_table_didnt_check_stops_spark_composers_writer() -> None:
+    with pytest.raises(ValueError, match="without create_table's check"):
+        spark_writing._type("map<string", False)

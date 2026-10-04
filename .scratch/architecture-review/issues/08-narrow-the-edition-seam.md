@@ -25,10 +25,12 @@ besides:
 
 - **`nulls_first` leaves the tree**: SQL Composer's writer derives it from `desc`, as Hive's
   default is; Spark Composer's writes ASC or DESC.
-- **Spark Composer writes a date call's name from the node** and puts a day count that isn't
-  a plain number in brackets, as sqlglot does; a test runs both writers on such a call.
+- **Spark Composer writes a date call's name from the node** and puts a day count that is a
+  calculation in brackets, as sqlglot does; a test runs both writers on a calculation, a
+  column, a CAST and a bracketed count.
 - **The unreachable type errors become one**: a single line saying the type wasn't checked.
 - **The interface comment says who calls it**: the shared files, and the dev tools and tests.
+  A comment has no test; the code review checked it against who calls the function.
 - **Not done, as not worth it:** making Spark Composer's "as SQL Composer writes it" switch
   public for tools/hive_corpus.py, which would add a function to both writing.py files to save
   one tool's reach into a private name; and one parser for the type grammar, which would grow
