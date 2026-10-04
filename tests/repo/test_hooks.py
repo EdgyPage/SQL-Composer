@@ -6,6 +6,8 @@ The hooks live in `.claude/hooks/` and import each other by name, so that folder
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -38,6 +40,14 @@ DRIFT_TEXT = """\
 def test_a_commit_command_is_recognised() -> None:
     assert MAKES_A_COMMIT.search('git commit -m "x"')
     assert MAKES_A_COMMIT.search("git -C repo merge dev")
+    assert MAKES_A_COMMIT.search("git -c user.name=x cherry-pick a..b")
+    assert MAKES_A_COMMIT.search("cd repo && git pull")
+
+
+def test_a_command_that_only_mentions_a_commit_word_is_not_one() -> None:
+    for command in ("git log --grep=revert", "git show HEAD --stat -- commit.txt",
+                    "git branch --merged"):
+        assert not MAKES_A_COMMIT.search(command), command
     assert not MAKES_A_COMMIT.search("git status && git log --oneline")
 
 
@@ -85,6 +95,7 @@ def test_an_unreviewed_commit_blocks_stopping() -> None:
 
 def test_switching_to_main_to_commit_is_refused_but_reading_is_not() -> None:
     assert refusal("Bash", {"command": "git checkout main && git commit -m x"}, str(ROOT))
+    assert refusal("Bash", {"command": "git checkout -q main && git commit -m x"}, str(ROOT))
     assert refusal("Bash", {"command": "git log main"}, str(ROOT)) is None
 
 
@@ -111,6 +122,13 @@ def test_moving_main_by_hand_is_refused() -> None:
         "git branch main -f",
         "git fetch . dev:main",
         "git push . HEAD:refs/heads/main",
+        "git checkout -B main dev",
+        "git switch -C main",
+        "git switch --force-create main HEAD",
+        "git branch -D main",
+        "git branch --delete main",
+        "git branch -m main old-main",
+        "git branch -m dev main",
     ):
         assert refusal("Bash", {"command": command}, str(ROOT)), command
     for command in (
@@ -119,3 +137,72 @@ def test_moving_main_by_hand_is_refused() -> None:
         "git branch -f main-old dev",
     ):
         assert refusal("Bash", {"command": command}, str(ROOT)) is None, command
+
+
+# --- The review hook, run as Claude Code runs it ---------------------------------------------
+
+
+def run(folder: Path, *args: str) -> str:
+    done = subprocess.run(["git", "-C", str(folder), *args], capture_output=True, text=True,
+                          check=True)
+    return done.stdout.strip()
+
+
+def commit(folder: Path, path: str, text: str) -> str:
+    (folder / path).parent.mkdir(parents=True, exist_ok=True)
+    (folder / path).write_text(text, encoding="utf-8")
+    run(folder, "add", path)
+    run(folder, "commit", "-q", "-m", f"change {path}")
+    return run(folder, "rev-parse", "HEAD")
+
+
+def a_clone_on_dev(tmp_path: Path) -> Path:
+    """A clone whose dev branch has an upstream, with one commit already pushed."""
+    remote, clone = tmp_path / "remote.git", tmp_path / "clone"
+    subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+    subprocess.run(["git", "clone", "-q", str(remote), str(clone)], check=True,
+                   capture_output=True)
+    run(clone, "config", "user.email", "test@example.com")
+    run(clone, "config", "user.name", "Test")
+    run(clone, "checkout", "-q", "-b", "dev")
+    commit(clone, "README.md", "start")
+    run(clone, "push", "-q", "-u", "origin", "dev")
+    return clone
+
+
+def review_hook(clone: Path, command: str) -> str:
+    hook = ROOT / ".claude" / "hooks" / "drift_review.py"
+    given = {"tool_input": {"command": command}, "cwd": str(clone), "session_id": "test"}
+    done = subprocess.run([sys.executable, str(hook)], input=json.dumps(given),
+                          capture_output=True, text=True, check=True)
+    if not done.stdout.strip():
+        return ""
+    return json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    first = commit(clone, "sql_composer/a.py", "a")
+    commit(clone, ".scratch/notes.md", "not watched")
+    second = commit(clone, "docs/b.md", "b")
+    asked = review_hook(clone, "git rebase origin/dev")
+    assert f"for commit {first[:7]}" in asked
+    assert f"for commit {second[:7]}" in asked
+    assert review_hook(clone, "git commit --amend") == ""  # each is asked about only once
+
+
+def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    run(clone, "checkout", "-q", "-b", "work")
+    commit(clone, "sql_composer/c.py", "c")
+    run(clone, "checkout", "-q", "dev")
+    run(clone, "merge", "-q", "--no-ff", "-m", "merge work", "work")
+    merge = run(clone, "rev-parse", "HEAD")
+    asked = review_hook(clone, "git merge --no-ff work")
+    assert f"Commit {merge[:7]} touches sql_composer/c.py" in asked
+
+
+def test_a_command_that_makes_no_commit_asks_for_nothing(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    commit(clone, "sql_composer/a.py", "a")
+    assert review_hook(clone, "git log --grep=revert") == ""

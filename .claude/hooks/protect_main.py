@@ -2,8 +2,8 @@
 
 `main` is the Clean branch, written only by the export script. This refuses Claude's Edit,
 Write and NotebookEdit on a file in a checkout of `main`, any git command that would make a
-commit there, and moving `main` by hand with `git update-ref` or `git branch -f`, which is how
-the export writes it. A command that only runs `tools/export_clean.py` goes through; naming the
+commit there, and moving `main` by hand: with `git update-ref` or `git branch -f`, which is how
+the export writes it, a forced checkout or switch, or deleting or renaming it. A command that only runs `tools/export_clean.py` goes through; naming the
 script in a longer command excuses nothing. The user's own edits are theirs to make; this only
 stops agents.
 """
@@ -22,18 +22,20 @@ RUNS_THE_EXPORT = re.compile(
     r"""^\s*(python3?|py)(\.exe)?\s+["']?([^\s"';&|]*[/\\])?tools[/\\]export_clean\.py["']?"""
     r"""(\s+[^;&|<>`$\n]*)?$"""
 )
-# Moving `main` without checking it out, the way the export writes it: update-ref, a forced
-# branch, or fetching or pushing into it from this repo (`.`).
+# Moving `main` by hand: update-ref, the way the export writes it; a forced, deleted or
+# renamed branch; a forced checkout or switch; or fetching or pushing into it from this repo.
 MAIN = r"(refs/heads/)?main(?![\w./-])"
 MOVES_MAIN = re.compile(
     r"\bgit\b[^;&|\n]*\b("
     rf"update-ref\s+(-d\s+|--no-deref\s+|-m\s+\S+\s+)*{MAIN}"
-    rf"|branch\s+((-f|--force|-M|-C)\s+{MAIN}|{MAIN}\s+(-f|--force))"
+    rf"|branch\s+((-f|--force|-M|-C|-D|-d|-m|--delete|--move)\s+{MAIN}|{MAIN}\s+(-f|--force))"
+    rf"|branch\s+(-m|-M|--move)\s+\S+\s+{MAIN}"
+    rf"|checkout\s+(-\S+\s+)*-B\s+{MAIN}|switch\s+(-\S+\s+)*(-C|--force-create)\s+{MAIN}"
     rf"|(fetch|push)\s+\.\s+\S*:{MAIN}"
     r")"
 )
 FILE_TOOLS = frozenset({"Edit", "Write", "NotebookEdit"})
-SWITCHES_TO_MAIN = re.compile(r"\bgit\b[^;&|\n]*\b(checkout|switch)\s+main\b")
+SWITCHES_TO_MAIN = re.compile(r"\bgit\b[^;&|\n]*\b(checkout|switch)(\s+-\S+)*\s+main\b")
 
 
 def branch_at(path: Path) -> str:

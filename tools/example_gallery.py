@@ -498,7 +498,8 @@ def other_statements(module) -> list[tuple[str, object]]:
                 or name.endswith("_in_pandas")):
             continue
         if all(p.default is not p.empty for p in inspect.signature(function).parameters.values()):
-            with mock.patch.object(example_database, "send", _refuse_to_send):
+            with example_setting(), mock.patch.object(example_database, "send",
+                                                      _refuse_to_send):
                 try:
                     value = function()
                 except _SentAQuery:

@@ -28,7 +28,12 @@ REQUESTS_FILE = "sql-composer-drift-requests"
 WATCHED_FOLDERS = ("sql_composer/", "spark_composer/", "worked_examples/", "docs/")
 WATCHED_FILES = frozenset({"CONTEXT.md", "CLAUDE.md", "requirements-dev.txt"})
 
-MAKES_A_COMMIT = re.compile(r"\bgit\b[^;&|\n]*\b(commit|merge|cherry-pick|revert|am|rebase)\b")
+# git, its own options (such as -C <folder> or -c <name>=<value>), then a subcommand that
+# makes a commit. `git log --grep=revert` names no such subcommand.
+MAKES_A_COMMIT = re.compile(
+    r"\bgit(\s+-[Cc]\s+\S+|\s+--?[\w-]+(=\S+)?)*\s+"
+    r"(commit|merge|pull|cherry-pick|revert|am|rebase)\b"
+)
 OPEN_ITEM = re.compile(r"^- \[ \] (D\d+) \| ([0-9a-f]{7,40}) \|", re.MULTILINE)
 REVIEWED = re.compile(r"^- ([0-9a-f]{7,40}):", re.MULTILINE)
 
@@ -55,6 +60,25 @@ def needs_review(changed_paths: list[str], message: str) -> list[str]:
     if not watched and "No-drift:" in message:
         return ["No-drift"]
     return watched
+
+
+def new_commits(repo: str | Path) -> list[str]:
+    """The commits on this branch that its upstream hasn't got, oldest first, following each
+    merge's first parent; HEAD alone when the branch has no upstream."""
+    listed = git(repo, "rev-list", "--reverse", "--first-parent", "@{upstream}..HEAD")
+    if listed:
+        return listed.split()
+    head = git(repo, "rev-parse", "HEAD")
+    return [head] if head else []
+
+
+def changed_paths(repo: str | Path, commit: str) -> list[str]:
+    """The files a commit changes against its first parent, which for a merge is what was
+    merged in; for the first commit, every file it adds."""
+    changed = git(repo, "diff", "--name-only", f"{commit}^1", commit)
+    if not changed and not git(repo, "rev-parse", "--verify", "--quiet", f"{commit}^1"):
+        changed = git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", commit)
+    return changed.splitlines()
 
 
 def same_commit(a: str, b: str) -> bool:
