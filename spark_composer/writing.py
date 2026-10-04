@@ -28,7 +28,7 @@ import contextvars
 import re
 from typing import NoReturn
 
-from .trees import ARITHMETIC, HIVE_TYPES, Node, plain_name
+from .trees import HIVE_TYPES, Node, plain_name
 
 TOOLBOX_VERSION = "3.2"
 
@@ -335,10 +335,10 @@ def _ordered(node: Node, pretty: bool) -> str:
 def _call(node: Node, pretty: bool) -> str:
     args = node.parts["args"]
     if node.name == "date_sub":
-        # A day count that is a calculation goes in brackets, so * -1 takes all of it, as
-        # sqlglot does; a number, a column or a CAST is written as it is.
+        # A sum, a difference or a quotient goes in brackets, so * -1 takes all of it, as
+        # sqlglot does; a product, a number, a column or a CAST is written as it is.
         days = args[1]
-        if days.kind in ARITHMETIC:
+        if days.kind in ("Add", "Sub", "Div"):
             days = Node("Paren", this=days)
         back = Node("Mul", this=days, expression=Node("Literal", this="-1", is_string=False))
         return _func("DATE_ADD", [args[0], back], pretty)

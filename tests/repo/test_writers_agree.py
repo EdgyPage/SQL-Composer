@@ -17,6 +17,13 @@ def a_sum(trees):
     return trees.Node("Add", this=trees.number("1"), expression=trees.number("2"))
 
 
+def a_calculation(kind):
+    def made(trees):
+        return trees.Node(kind, this=trees.number("6"), expression=trees.number("2"))
+    made.__name__ = kind
+    return made
+
+
 def a_column(trees):
     return trees.Node("Column", name="n", table="t")
 
@@ -29,7 +36,9 @@ def in_brackets(trees):
     return trees.Node("Paren", this=a_sum(trees))
 
 
-@pytest.mark.parametrize("days", [a_sum, a_column, a_cast, in_brackets])
+@pytest.mark.parametrize("days", [a_calculation("Add"), a_calculation("Sub"),
+                                  a_calculation("Mul"), a_calculation("Div"), a_column,
+                                  a_cast, in_brackets])
 def test_date_sub_is_written_the_same_by_both_whatever_its_day_count(days) -> None:
     def date_sub(trees):
         return trees.Node("Call", name="date_sub",
