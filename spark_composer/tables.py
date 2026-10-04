@@ -22,13 +22,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
 from .refusals import (
     CONTROL_CHARACTERS,
-    four_part_message,
     guard_control_character,
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
+    refuse,
     refuse_a_spark_dataframe,
     refuse_what_the_other_edition_made,
 )
@@ -118,14 +119,11 @@ def _call_shown(node: Node) -> Node | None:
 
 
 def _no_operator(symbol: str, instead: str) -> None:
-    raise TypeError(
-        four_part_message(
-            what=f"A column was used with Python's {symbol}.",
-            why="Python would compare the Python objects, not the values in the table, and "
-            "the result would quietly be True or False instead of a condition.",
-            fix=f"Use {instead}.",
-            opt_out=None,
-        )
+    refuse(
+        what=f"A column was used with Python's {symbol}.",
+        why="Python would compare the Python objects, not the values in the table, and "
+        "the result would quietly be True or False instead of a condition.",
+        fix=f"Use {instead}.",
     )
 
 
@@ -234,14 +232,11 @@ def arithmetic(left, right, kind: str, symbol: str) -> Column:
             continue
         if isinstance(side, bool) or not isinstance(side, (int, float, decimal.Decimal,
                                                                np.number)):
-            refuse_what_the_other_edition_made(side, symbol)
-            raise TypeError(
-                four_part_message(
-                    what=f"{symbol} was used with {side!r}.",
-                    why="Arithmetic on a column needs a number or another column.",
-                    fix="Use a number, such as job_runs.duration_mins / 60.",
-                    opt_out=None,
-                )
+            refuse(
+                what=f"{symbol} was used with {side!r}.",
+                why="Arithmetic on a column needs a number or another column.",
+                fix="Use a number, such as job_runs.duration_mins / 60.",
+                given=side, call=symbol,
             )
         sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False)))
     left, right = sides
@@ -300,14 +295,11 @@ def _check_type(value, column: Column | None, call: str) -> None:
     family = type_family(column._type) if column is not None else None
     if family is None or _python_family(value) in COMPARABLE_VALUES[family]:
         return
-    raise TypeError(
-        four_part_message(
-            what=f"{call} compares {column!r}, a {column._type} column, with {value!r}.",
-            why="The warehouse would convert one side to the other's type, so the comparison "
-            "could quietly match nothing or the wrong rows, or stop with an error.",
-            fix=f"Pass a value of the column's own type, such as {_example_of(family)}.",
-            opt_out=None,
-        )
+    refuse(
+        what=f"{call} compares {column!r}, a {column._type} column, with {value!r}.",
+        why="The warehouse would convert one side to the other's type, so the comparison "
+        "could quietly match nothing or the wrong rows, or stop with an error.",
+        fix=f"Pass a value of the column's own type, such as {_example_of(family)}.",
     )
 
 
@@ -357,15 +349,13 @@ def as_date(value, column: Column, call: str) -> datetime.date:
     # Your own day, written as it should be, if Python could read it.
     shown = day if day is not None else datetime.date(2026, 9, 25)
     example = day_text(shown, pattern)
-    raise ValueError(
-        four_part_message(
-            what=f"{call} compares the Date partition {column!r} with {value!r}, which isn't "
-            f"a day written like {example!r}.",
-            why="Hive compares Date partition values as text, so a differently written day "
-            "would match no days, or the wrong ones.",
-            fix=f"Write the day as {example!r}, or pass a datetime.date.",
-            opt_out=None,
-        )
+    refuse(
+        what=f"{call} compares the Date partition {column!r} with {value!r}, which isn't "
+        f"a day written like {example!r}.",
+        why="Hive compares Date partition values as text, so a differently written day "
+        "would match no days, or the wrong ones.",
+        fix=f"Write the day as {example!r}, or pass a datetime.date.",
+        error=ValueError,
     )
 
 
@@ -408,14 +398,11 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
             guard_none_in_condition(call)
         return Node("Null")
     if not isinstance(value, SINGLE_VALUES):
-        refuse_what_the_other_edition_made(value, call)
-        raise TypeError(
-            four_part_message(
-                what=f"{call} was given {value!r}, which isn't a single value.",
-                why="A column is compared with one number, string, date or bool at a time.",
-                fix="For several values use is_in(column, [...]); for a column pass the column.",
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call} was given {value!r}, which isn't a single value.",
+            why="A column is compared with one number, string, date or bool at a time.",
+            fix="For several values use is_in(column, [...]); for a column pass the column.",
+            given=value, call=call,
         )
     _check_type(value, column, call)
     if isinstance(value, bool):
@@ -452,18 +439,16 @@ def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
 # --- Table ---------------------------------------------------------------------------------
 
 
-def _refuse_table(what: str, why: str, fix: str):
-    raise ValueError(four_part_message(what=what, why=why, fix=fix, opt_out=None))
-
 
 def _check_date_format(date_format: str) -> None:
     rest = date_format
     for directive in ("%Y", "%m", "%d"):
         if rest.count(directive) != 1:
-            _refuse_table(
+            refuse(
                 what=f"date_format={date_format!r} doesn't have {directive} exactly once.",
                 why="A Date partition's pattern needs the year, the month and the day.",
                 fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
+                error=ValueError,
             )
         rest = rest.replace(directive, "")
     without_a_date_partition = ("If the table's days really are written another way, leave its Date "
@@ -471,27 +456,29 @@ def _check_date_format(date_format: str) -> None:
                   "equals(...) or is_in(...), not at_least(...) or between(...), which compare "
                   "text.")
     if not date_format.index("%Y") < date_format.index("%m") < date_format.index("%d"):
-        _refuse_table(
+        refuse(
             what=f"date_format={date_format!r} doesn't write the year first, then the month, "
             "then the day.",
             why="Hive compares a Date partition's days as text, and only days written year "
             "first sort in date order, so BETWEEN, last_n_days and check_key's newest day "
             "would read the wrong days.",
             fix=f'Use a pattern such as "%Y-%m-%d" or "%Y%m%d". {without_a_date_partition}',
+            error=ValueError,
         )
     if any(character in rest for character in CONTROL_CHARACTERS):
-        _refuse_table(
+        refuse(
             what=f"date_format={date_format!r} holds a character that isn't printed, such as "
             "the bell \\a gives in a Python string.",
             why="Hive and Spark would read it back as a plain letter, so the days would be "
             "written wrong.",
             fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
             "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
+            error=ValueError,
         )
     # A letter means a part of a date in Hive's pattern too, and % or ' would end it.
     odd = [c for c in rest if c.isalpha() or c in "%'" or not c.isprintable()]
     if odd:
-        _refuse_table(
+        refuse(
             what=f"date_format={date_format!r} has something besides %Y, %m, %d and "
             f"separators: {', '.join(repr(character) for character in odd)}.",
             why="The Toolbox turns the pattern into Hive's own, where only the year, month "
@@ -499,6 +486,7 @@ def _check_date_format(date_format: str) -> None:
             "days would be read wrong.",
             fix='Use only %Y, %m, %d and separators such as - or /, as in "%Y/%m/%d". '
             f"{without_a_date_partition}",
+            error=ValueError,
         )
 
 
@@ -513,10 +501,11 @@ def _names(value, argument: str) -> list[str]:
     if isinstance(value, str):
         return [value]
     if not isinstance(value, (list, tuple)):
-        _refuse_table(
+        refuse(
             what=f"{argument}={value!r} isn't a list of column names.",
             why="The Toolbox reads it as the names of columns in this table.",
             fix=f'Write it as a list, such as {argument}=["run_id"].',
+            error=ValueError,
         )
     return list(value)
 
@@ -559,17 +548,19 @@ class Table:
     def __init__(self, name, columns, date_partition, key=None, does_not_add_up=(),
                  date_format=None):
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
-            _refuse_table(
+            refuse(
                 what=f"Table({name!r}, ...) isn't a table name.",
                 why="A Hive table name is letters, digits and _, optionally after a database "
                 "name and a dot.",
                 fix='Write it like "ops.job_runs".',
+                error=ValueError,
             )
         if not isinstance(columns, dict) or not columns:
-            _refuse_table(
+            refuse(
                 what=f"Table({name!r}, columns=...) needs a dict of column names and types.",
                 why="The columns are what a Statement can use.",
                 fix='Write columns={"run_id": "bigint", "status": "string", ...}.',
+                error=ValueError,
             )
         self._name = name
         self._alias = name.split(".")[-1]
@@ -593,18 +584,20 @@ class Table:
         for argument, names in named.items():
             for column in names:
                 if column not in self._columns:
-                    _refuse_table(
+                    refuse(
                         what=f"Table({self._name!r}): {argument} names {column!r}, which isn't "
                         "one of its columns.",
                         why="Every name there must be a column in columns={...}.",
                         fix=f"Use one of: {', '.join(self._columns)}.",
+                        error=ValueError,
                     )
         if date_format is not None:
             if self._date_partition is None:
-                _refuse_table(
+                refuse(
                     what=f"Table({self._name!r}) has a date_format but no date_partition.",
                     why="date_format says how the Date partition's days are written.",
                     fix="Remove date_format, or name the date_partition.",
+                    error=ValueError,
                 )
             _check_date_format(date_format)
 
@@ -643,13 +636,11 @@ class Table:
 def aliased(table: Table, name: str) -> Table:
     """A copy of a table called `name` in the SQL, for AS(table, name)."""
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
-        raise ValueError(
-            four_part_message(
-                what=f"AS({table._alias}, {name!r}): {name!r} can't name a table.",
-                why="A table's second name is a plain word in the SQL.",
-                fix='Use letters, digits and _, such as AS(job_runs, "earlier").',
-                opt_out=None,
-            )
+        refuse(
+            what=f"AS({table._alias}, {name!r}): {name!r} can't name a table.",
+            why="A table's second name is a plain word in the SQL.",
+            fix='Use letters, digits and _, such as AS(job_runs, "earlier").',
+            error=ValueError,
         )
     copied = copy.copy(table)
     copied._alias = name
@@ -813,24 +804,23 @@ def write_table_reference(name, send):
     <BLANKLINE>
     '''
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
-        _refuse_table(
+        refuse(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
             why="It needs the name the warehouse knows the table by.",
             fix='Write it like "ops.job_runs".',
+            error=ValueError,
         )
     short = name.split(".")[-1]
     variable = short if short.isidentifier() and not keyword.iskeyword(short) else f"t_{short}"
     path = Path(f"{variable}.py")
     if path.exists():
-        raise FileExistsError(
-            four_part_message(
-                what=f"{path.resolve()} already exists, so nothing was written.",
-                why="A Table reference is yours once written, and rewriting it would lose "
-                "your key, filters and notes.",
-                fix="Edit that file, or check it against the table with "
-                "check_table_reference(t, send=...).",
-                opt_out=None,
-            )
+        refuse(
+            what=f"{path.resolve()} already exists, so nothing was written.",
+            why="A Table reference is yours once written, and rewriting it would lose "
+            "your key, filters and notes.",
+            fix="Edit that file, or check it against the table with "
+            "check_table_reference(t, send=...).",
+            error=FileExistsError,
         )
     columns, comments, partitions = _describe(name, send)
     date_lines = _date_partition_lines(name, partitions, send)
@@ -885,15 +875,12 @@ def _reference_text(name, variable, columns, comments, date_lines) -> str:
 
 def _real_table(t, call: str) -> Table:
     if not isinstance(t, Table) or t._statement is not None:
-        refuse_what_the_other_edition_made(t, call)
-        raise TypeError(
-            four_part_message(
-                what=f"{call} was given {t!r}.",
-                why="It works on a real table's Table reference, not on a table's name as "
-                "text or on a Derived table.",
-                fix="Pass a Table reference, such as job_runs.",
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call} was given {t!r}.",
+            why="It works on a real table's Table reference, not on a table's name as "
+            "text or on a Derived table.",
+            fix="Pass a Table reference, such as job_runs.",
+            given=t, call=call,
         )
     return t
 
@@ -926,10 +913,11 @@ def check_key(t, send):
 
     t = _real_table(t, "check_key(...)")
     if not t._key:
-        _refuse_table(
+        refuse(
             what=f"check_key({t._alias}): its Table reference declares no key.",
             why="There is nothing to check.",
             fix='Add key=[...] to its Table(...) call, such as key=["run_id"].',
+            error=ValueError,
         )
     key = [getattr(t, column) for column in t._key]
     clauses = [SELECT(key, AS(count_rows(), "copies")), FROM(t)]
@@ -1091,10 +1079,11 @@ def create_table(t, may_exist=False):
     t = _real_table(t, "create_table(...)")
     untyped = [column for column, kind in t._columns.items() if not kind]
     if untyped:
-        _refuse_table(
+        refuse(
             what=f"create_table({t._alias}): {', '.join(untyped)} has no type.",
             why="Hive needs every column's type to create the table.",
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
+            error=ValueError,
         )
     columns = [_column_definition(t, c) for c in t._columns if c != t._date_partition]
     partitioned_by = ([] if t._date_partition is None
@@ -1147,7 +1136,7 @@ def _column_definition(t: Table, column: str) -> Node:
         written = " ".join(kind.lower().split())
         nearest = _NEAREST_TYPE.get(written)
         length = "its length, such as " if written in _NEEDS_LENGTH else ""
-        _refuse_table(
+        refuse(
             what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
             "can use.",
             why="create_table takes only the types Hive and Spark both have, spelled as "
@@ -1162,6 +1151,7 @@ def _column_definition(t: Table, column: str) -> Node:
             "map<string,int> or struct<name:string,runs:int>. A map's key is a single value, "
             "such as string, and a struct's names are plain words, not ones Hive or Spark "
             "reserve, such as date or user.",
+            error=ValueError,
         )
     check_writable_type(kind, f"create_table({t._alias}): {column}'s type {kind!r}")
     return Node("ColumnDef", name=column, type=kind)

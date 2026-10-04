@@ -30,7 +30,7 @@ import re
 import pandas as pd
 
 from . import engine
-from .refusals import four_part_message
+from .refusals import refuse
 from .tables import Table
 
 TOOLBOX_VERSION = "3.2"
@@ -119,12 +119,12 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
 def _table(name: str) -> tuple[Table, list]:
     short = name.strip().strip("`").split(".")[-1].strip("`")
     if short not in _TABLES:
-        raise ValueError(four_part_message(
+        refuse(
             what=f"The Example database has no table {name!r}.",
             why="It holds only three made-up tables.",
             fix="Use ops.jobs, ops.job_runs or ops.run_alerts.",
-            opt_out=None,
-        ))
+            error=ValueError,
+        )
     return _TABLES[short]
 
 
@@ -229,7 +229,7 @@ def send(hive):
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
         return _show_partitions(words[-1])
     if not _is_query(text):
-        raise ValueError(four_part_message(
+        refuse(
             what="The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it "
             "can't be written to.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
@@ -237,8 +237,8 @@ def send(hive):
             fix="to_hive(...) shows a write's Hive without sending it, as in "
             "to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) "
             "builds, not text.",
-            opt_out=None,
-        ))
+            error=ValueError,
+        )
     columns, rows = engine.run_query(text, _TABLES)
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)

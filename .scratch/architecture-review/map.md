@@ -38,13 +38,15 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
   one walk down FROM; by_day follows the Date partition as a column under every name it is
   given, refuses a LIMIT, and says where a dropped Date partition goes; part of 3.2, which
   isn't exported yet.
+- [Aggregate and window placement from the tree](issues/03-aggregate-and-window-placement-from-the-tree.md):
+  a Column's counts and row numbers are read from its tree; one placement check; the GROUP BY
+  Guard walks SELECT, HAVING and ORDER_BY; ORDER_BY names and row_number's sort keys checked;
+  part of 3.2.
 
 ## Candidates not yet ticketed
 
 In the report's order, with its strength:
 
-3. **Aggregate and window placement from the tree** (Strong): the GROUP BY Guard's misses,
-   row_number in WHERE, ORDER_BY names, the dead `_window` flag, fill_null's flag.
 4. **One `refuse()` for misuse refusals** (Strong): three hand-made shapes, about 35 untested
    refusals, about 80-110 lines.
 5. **Warehouse answers through one module** (Strong): the empty Saved table's advice, raw

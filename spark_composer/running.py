@@ -19,14 +19,13 @@ from .clauses import (
 )
 from .conditions import equals
 from .refusals import (
-    four_part_message,
     guard_by_day_grouping,
     guard_by_day_limit,
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
+    refuse,
     refuse_a_spark_dataframe,
-    refuse_what_the_other_edition_made,
 )
 from .tables import aliased, day_text, source, table_node
 from .trees import Node, combined
@@ -54,14 +53,12 @@ def set_load_limits(rows=None, dates=None):
     for name, value in (("rows", rows), ("dates", dates)):
         if value is not None and (isinstance(value, bool) or not isinstance(value, int)
                                   or value < 1):
-            raise ValueError(
-                four_part_message(
-                    what=f"set_load_limits({name}={value!r}): a limit must be a whole number, "
-                    "1 or more, or None for no limit.",
-                    why="It is a count of rows or days.",
-                    fix=f"Write it like set_load_limits({name}=100000), or leave it out.",
-                    opt_out=None,
-                )
+            refuse(
+                what=f"set_load_limits({name}={value!r}): a limit must be a whole number, "
+                "1 or more, or None for no limit.",
+                why="It is a count of rows or days.",
+                fix=f"Write it like set_load_limits({name}=100000), or leave it out.",
+                error=ValueError,
             )
     _limits["rows"], _limits["dates"] = rows, dates
     return dict(_limits)
@@ -176,7 +173,7 @@ def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
         fix = f"Bound {column} in WHERE, such as between({column}, ...)."
     else:
         return table, span
-    raise ValueError(four_part_message(what=f"{who}: {what}.", why=why, fix=fix, opt_out=None))
+    refuse(f"{who}: {what}.", why, fix, error=ValueError)
 
 
 def _written_day(s: Statement):
@@ -248,14 +245,11 @@ def to_hive(s):
       job_runs.dt = '2026-09-24'
     """
     if not isinstance(s, Statement):
-        refuse_what_the_other_edition_made(s, "to_hive")
-        raise TypeError(
-            four_part_message(
-                what=f"to_hive was given {s!r}, which isn't a Statement.",
-                why="It writes the Hive for a Statement made by statement(...).",
-                fix="Pass statement(SELECT(...), FROM(...), ...).",
-                opt_out=None,
-            )
+        refuse(
+            what=f"to_hive was given {s!r}, which isn't a Statement.",
+            why="It writes the Hive for a Statement made by statement(...).",
+            fix="Pass statement(SELECT(...), FROM(...), ...).",
+            given=s, call="to_hive",
         )
     if s._ddl is None:
         _check_dates_cap(s)
@@ -282,14 +276,11 @@ def run(s, send):
     1     102       2  2026-09-24
     """
     if not callable(send):
-        raise TypeError(
-            four_part_message(
-                what=f"run(..., send={send!r}): send isn't a function.",
-                why="run hands the Hive string to your own function, which sends it and "
-                "returns a DataFrame.",
-                fix="Pass your function itself, without calling it: run(s, send=run_query).",
-                opt_out=None,
-            )
+        refuse(
+            what=f"run(..., send={send!r}): send isn't a function.",
+            why="run hands the Hive string to your own function, which sends it and "
+            "returns a DataFrame.",
+            fix="Pass your function itself, without calling it: run(s, send=run_query).",
         )
     text = to_hive(s)
     result = send(text)
@@ -426,14 +417,11 @@ def by_day(s):
       job_runs.status
     """
     if not isinstance(s, Statement) or s._ddl is not None:
-        refuse_what_the_other_edition_made(s, "by_day")
-        raise TypeError(
-            four_part_message(
-                what=f"by_day was given {s!r}, which isn't a Statement that reads a table.",
-                why="It splits a Statement's days.",
-                fix="Pass statement(SELECT(...), FROM(...), WHERE(...)).",
-                opt_out=None,
-            )
+        refuse(
+            what=f"by_day was given {s!r}, which isn't a Statement that reads a table.",
+            why="It splits a Statement's days.",
+            fix="Pass statement(SELECT(...), FROM(...), WHERE(...)).",
+            given=s, call="by_day",
         )
     found = steps(s)
     table, span = _bottom_days(
@@ -455,17 +443,15 @@ def by_day(s):
         below, below_described = step, described
     days = span.dates()
     if not days:
-        raise ValueError(
-            four_part_message(
-                what=f"by_day can't split this Statement: its WHERE leaves no day of "
-                f"{table._alias}.{table._date_partition} to read.",
-                why="No day is inside every bound, so there would be no Statement to send, "
-                "and nothing would be read or written.",
-                fix="Check the days in its WHERE: a low end may be later than a high end, "
-                "as at_least's day after at_most's, or not_equals or is_not_in may leave "
-                "out the only day.",
-                opt_out=None,
-            )
+        refuse(
+            what=f"by_day can't split this Statement: its WHERE leaves no day of "
+            f"{table._alias}.{table._date_partition} to read.",
+            why="No day is inside every bound, so there would be no Statement to send, "
+            "and nothing would be read or written.",
+            fix="Check the days in its WHERE: a low end may be later than a high end, "
+            "as at_least's day after at_most's, or not_equals or is_not_in may leave "
+            "out the only day.",
+            error=ValueError,
         )
     return [_split(found, day) for day in days]
 
