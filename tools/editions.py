@@ -71,8 +71,6 @@ EDITION_INTERFACE = {
         "read_back": ["text"],
         "check_writable_call": ["name", "args", "call"],
         "check_writable_type": ["text", "subject"],
-        "describe_text": ["name"],
-        "show_partitions_text": ["name"],
     },
     "engine.py": {
         "check_installed": [],

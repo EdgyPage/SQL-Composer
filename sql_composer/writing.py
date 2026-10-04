@@ -123,17 +123,6 @@ def _hive_type(text: str) -> exp.DataType:
     return exp.DataType.build(text, dialect=_DIALECT)
 
 
-def describe_text(name: str) -> str:
-    """The DESCRIBE command for one table."""
-    return sql_text(exp.Describe(this=_named_table(name)))
-
-
-def show_partitions_text(name: str) -> str:
-    """The SHOW PARTITIONS command for one table."""
-    return sql_text(exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + sql_text(_named_table(name)))))
-
-
 def _set_part(tree: exp.Expression, part: str, value) -> None:
     """Set a part of a sqlglot tree, under the name this sqlglot gives it.
 
@@ -161,12 +150,6 @@ def _hive_table(name: str, database: str | None = None, partition=None) -> exp.T
     """
     return exp.Table(this=_identifier(name), db=_identifier(database) if database else None,
                      partition=partition)
-
-
-def _named_table(name: str) -> exp.Table:
-    """A table by its full name, "ops.job_runs", for DESCRIBE and SHOW PARTITIONS."""
-    database, _, table = name.rpartition(".")
-    return _hive_table(table, database or None)
 
 
 # --- The Toolbox's own tree, as a sqlglot tree ---------------------------------------------
