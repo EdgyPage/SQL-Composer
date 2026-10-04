@@ -9,8 +9,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   with sqlglot, a column or table name spelt wrong gave sqlglot's own error, and some queries
   it couldn't run gave a garbled message ("... has no what this needs").
 - **The Example database has tables only in ops**: DESCRIBE mart.jobs and SELECT ... FROM
-  mart.jobs are refused for the table. Before, DESCRIBE described ops.jobs, and the SELECT
-  blamed a column.
+  mart.jobs are refused for the table. Before, DESCRIBE described ops.jobs, and in the Edition
+  that writes its Hive with sqlglot the SELECT blamed a column.
 - **example_database.send takes only Hive text**: given a Statement, it says to use run(...)
   or to_hive(...), where it gave a raw Python error.
 - **With too old a sqlglot, the Example database's refusal says which version to install.**
