@@ -42,13 +42,14 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
   a Column's counts and row numbers are read from its tree; one placement check; the GROUP BY
   Guard walks SELECT, HAVING and ORDER_BY; ORDER_BY names and row_number's sort keys checked;
   part of 3.2.
+- [One refuse() for misuse refusals](issues/04-one-refuse-for-misuse-refusals.md): every
+  no-opt-out refusal goes through refusals.refuse(); messages unchanged but one; 46 misuse
+  refusals tested in four parts.
 
 ## Candidates not yet ticketed
 
 In the report's order, with its strength:
 
-4. **One `refuse()` for misuse refusals** (Strong): three hand-made shapes, about 35 untested
-   refusals, about 80-110 lines.
 5. **Warehouse answers through one module** (Strong): the empty Saved table's advice, raw
    errors from an empty answer or a table name as text, `calendar.py`.
 6. **Both Example database adapters refuse the same way** (Strong).
