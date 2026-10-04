@@ -178,9 +178,16 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None
 
 
 @pytest.mark.needs_example_database
-def test_a_column_spelt_wrong_is_refused_in_four_parts_naming_the_tables() -> None:
+@pytest.mark.parametrize("hive", [
+    "SELECT nope FROM ops.jobs",
+    "SELECT job_id FROM mart.jobs",
+    "SELECT job_id FROM ops.nope",
+    "SELECT j.job_id FROM ops.jobs AS j, mart.jobs AS m",
+    "SELECT job_id FROM ops.jobs WHERE (job_id = 1",
+])
+def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive) -> None:
     with pytest.raises(RuntimeError) as refused:
-        example_database.send("SELECT nope FROM ops.jobs")
+        example_database.send(hive)
     message = str(refused.value)
     for part in ("What happened:", "Why it matters:", "Usual fix:", "Opt-out:"):
         assert part in message
@@ -188,10 +195,7 @@ def test_a_column_spelt_wrong_is_refused_in_four_parts_naming_the_tables() -> No
     assert "example_database.jobs" in message
 
 
-@pytest.mark.parametrize("hive", ["DESCRIBE mart.jobs", "SHOW PARTITIONS mart.job_runs",
-                                  "SELECT job_id FROM mart.jobs", "SELECT job_id FROM ops.nope",
-                                  "SELECT j.job_id FROM ops.jobs AS j JOIN `mart`.`runs` AS r "
-                                  "ON j.job_id = r.job_id"])
+@pytest.mark.parametrize("hive", ["DESCRIBE mart.jobs", "SHOW PARTITIONS mart.job_runs"])
 def test_a_table_in_another_database_isnt_described(hive) -> None:
     with pytest.raises(ValueError, match="The Example database has no table '"):
         example_database.send(hive)

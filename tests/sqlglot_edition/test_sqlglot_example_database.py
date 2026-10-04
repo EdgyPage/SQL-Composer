@@ -56,6 +56,22 @@ def test_a_cast_to_anything_but_text_is_one_its_executor_cant_run() -> None:
         example_database.send("SELECT CAST(jobs.team AS INT) AS n FROM ops.jobs AS jobs")
 
 
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("hive", [
+    "SELECT EXTRACT(year FROM r.dt) AS y FROM ops.job_runs AS r",
+    "SELECT job_id FROM ops.jobs /* FROM mart.x */",
+])
+def test_a_from_that_names_no_table_is_answered(hive) -> None:
+    assert len(example_database.send(hive)) > 0
+
+
+@pytest.mark.needs_example_database
+def test_where_sqlglot_stopped_is_left_out_of_the_sentence() -> None:
+    with pytest.raises(RuntimeError) as refused:
+        example_database.send("SELECT job_id FROM ops.jobs WHERE (job_id = 1")
+    assert "Col:" not in str(refused.value)
+
+
 def test_too_old_a_sqlglot_is_told_which_to_install(monkeypatch) -> None:
     monkeypatch.setattr(sqlglot, "__version__", "25.24.2")
     with pytest.raises(RuntimeError, match=r"Usual fix: +Install a newer sqlglot"):
