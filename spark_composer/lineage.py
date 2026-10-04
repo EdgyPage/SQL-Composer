@@ -22,8 +22,7 @@ from .clauses import Statement, derived_tables
 from .refusals import (
     GuardRefused,
     LoadRefused,
-    four_part_message,
-    refuse_what_the_other_edition_made,
+    refuse,
 )
 from .running import bottom_read, by_day, steps, to_hive
 from .tables import readable
@@ -287,16 +286,14 @@ def _refuse_loop(named, reads, stuck: list[int]) -> None:
         readers = [named[j][1] for j in stuck if s._write._name in reads[j]]
         verb = "reads" if len(readers) == 1 else "read"
         links.append(f"{name} writes {s._write._name}, which {' and '.join(readers)} {verb}")
-    raise ValueError(
-        four_part_message(
-            what="export_lineage can't draw these Statements, because they go round in a "
-            "loop: " + "; ".join(links) + ".",
-            why="Each Statement's lineage would lead back into itself, so the drawing would "
-            "have no start.",
-            fix="Pass only the Statements on one path from the tables to the result, or "
-            "export each one on its own.",
-            opt_out=None,
-        )
+    refuse(
+        what="export_lineage can't draw these Statements, because they go round in a "
+        "loop: " + "; ".join(links) + ".",
+        why="Each Statement's lineage would lead back into itself, so the drawing would "
+        "have no start.",
+        fix="Pass only the Statements on one path from the tables to the result, or "
+        "export each one on its own.",
+        error=ValueError,
     )
 
 
@@ -701,22 +698,22 @@ def _check_statements(statements) -> list:
     """The Statements passed, each once; anything that isn't a Statement reading a table is
     refused."""
     if not statements:
-        raise TypeError(four_part_message(
+        refuse(
             what="export_lineage() was given no Statement.",
             why="It draws where each column of a Statement comes from.",
             fix="Pass one or more Statements, such as export_lineage(weekly).",
-            opt_out=None))
+        )
     found = []
     for s in statements:
         if not isinstance(s, Statement) or s._ddl is not None:
-            refuse_what_the_other_edition_made(s, "export_lineage")
-            raise TypeError(four_part_message(
+            refuse(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
                 "table.",
                 why="It draws the lineage of Statements made by statement(...).",
                 fix="Pass the Statement itself; for a derived(...) table, pass the Statement "
                 "that reads it.",
-                opt_out=None))
+                given=s, call="export_lineage",
+            )
         if not any(s is seen for seen in found):
             found.append(s)
     return found
@@ -726,11 +723,12 @@ def _html_path(to) -> Path:
     """The to= path, refused unless it names an .html file."""
     path = Path(to)
     if path.suffix.lower() != ".html":
-        raise ValueError(four_part_message(
+        refuse(
             what=f"export_lineage(..., to={str(to)!r}): to= must name an .html file.",
             why="It names the HTML page; the Markdown twin goes beside it, ending in .md.",
             fix='Write it like to="lineage/weekly.html", or leave to= out for a generated name.',
-            opt_out=None))
+            error=ValueError,
+        )
     return path
 
 

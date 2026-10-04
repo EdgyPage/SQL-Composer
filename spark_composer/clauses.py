@@ -14,16 +14,16 @@ from __future__ import annotations
 from .calculations import Ordering, ordered
 from .conditions import Condition, combined_spans
 from .refusals import (
-    four_part_message,
     guard_cross_join,
     guard_left_join_then_where,
     guard_missing_group_by,
     guard_order_by_in_derived_table,
     guard_unnamed_calculation,
-    refuse_what_the_other_edition_made,
     guard_write_lines_up,
     load_limit_date_bound,
     load_limit_order_by,
+    refuse,
+    refuse_what_the_other_edition_made,
     warning_repeated_rows,
 )
 from .tables import Column, Table, aliased
@@ -37,9 +37,6 @@ ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORD
 WRITES = ("INSERT_OVERWRITE", "INSERT_INTO")
 JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN")
 
-
-def _misuse(what: str, why: str, fix: str, error=TypeError):
-    raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
 class Clause:
@@ -151,14 +148,14 @@ def AS(expression, name):
     if isinstance(expression, Named):
         expression = expression._column
     if not isinstance(expression, Column):
-        refuse_what_the_other_edition_made(expression, "AS")
-        _misuse(
+        refuse(
             what=f"AS was given {expression!r}, which can't be named.",
             why="AS names a column or a calculation for SELECT, or a table for FROM or JOIN.",
             fix='Pass a column or calculation first, such as AS(count_rows(), "runs").',
+            given=expression, call="AS",
         )
     if not isinstance(name, str) or not name:
-        _misuse(
+        refuse(
             what=f"AS(..., {name!r}) needs a name as a string.",
             why="The name becomes the column's name in the result.",
             fix='Write it like AS(count_rows(), "runs").',
@@ -191,12 +188,12 @@ def _outputs(items, call: str) -> list[tuple[Column, str]]:
         else:
             _refuse_output(item, call)
     if not outputs:
-        _misuse(what=f"{call} was given nothing to select.", why="A Statement returns columns.",
-                fix="Name the columns, such as SELECT(job_runs.run_id, job_runs.status).")
+        refuse(what=f"{call} was given nothing to select.", why="A Statement returns columns.",
+               fix="Name the columns, such as SELECT(job_runs.run_id, job_runs.status).")
     names = [name for _, name in outputs]
     twice = sorted({name for name in names if names.count(name) > 1})
     if twice:
-        _misuse(
+        refuse(
             what=f"{call} has more than one column called {', '.join(twice)}.",
             why="Each column in the result needs its own name, or pandas can't tell them apart.",
             fix='Rename one with AS, such as AS(jobs.job_id, "jobs_job_id").',
@@ -213,8 +210,8 @@ def _refuse_output(item, call: str) -> None:
         fix = 'A condition goes in WHERE. To show it as a column, use if_else(condition, 1, 0).'
     else:
         fix = "Pass columns such as job_runs.status, or calculations named with AS(...)."
-    _misuse(what=f"{call} was given {item!r}.", why="SELECT takes columns and calculations.",
-            fix=fix)
+    refuse(what=f"{call} was given {item!r}.", why="SELECT takes columns and calculations.",
+           fix=fix)
 
 
 def SELECT(*columns):
@@ -256,11 +253,11 @@ def SELECT_DISTINCT(*columns):
 def _need_table(table, call: str) -> Table:
     if isinstance(table, Table):
         return table
-    refuse_what_the_other_edition_made(table, call)
-    _misuse(
+    refuse(
         what=f"{call} was given {table!r}, which isn't a table.",
         why="It reads a Table reference, or a Statement named with derived(...).",
         fix="Pass the table itself, such as FROM(job_runs).",
+        given=table, call=call,
     )
 
 
@@ -289,11 +286,11 @@ def _need_on(on, call: str, table: Table):
     if on is None:
         guard_cross_join(call, table._alias)
     if not isinstance(on, Condition):
-        refuse_what_the_other_edition_made(on, call)
-        _misuse(
+        refuse(
             what=f"{call}({table._alias}, ON={on!r}): ON= isn't a condition.",
             why="ON= says which rows of the two tables belong together.",
             fix=f"Pass a condition, such as ON=equals({table._alias}.job_id, job_runs.job_id).",
+            given=on, call=call,
         )
     return on
 
@@ -425,15 +422,15 @@ def _conditions(items, call: str) -> list[Condition]:
     found = _flatten(items)
     for item in found:
         if not isinstance(item, Condition):
-            refuse_what_the_other_edition_made(item, call)
-            _misuse(
+            refuse(
                 what=f"{call} was given {item!r}, which isn't a condition.",
                 why="It keeps rows by conditions made with functions such as equals(...).",
                 fix='Pass conditions, such as equals(job_runs.status, "FAILED").',
+                given=item, call=call,
             )
     if not found:
-        _misuse(what=f"{call} was given no conditions.", why="It needs at least one.",
-                fix="Pass a condition, or leave the clause out.")
+        refuse(what=f"{call} was given no conditions.", why="It needs at least one.",
+               fix="Pass a condition, or leave the clause out.")
     return found
 
 
@@ -460,15 +457,15 @@ def GROUP_BY(*columns):
     """
     items = _flatten(columns)
     if not items:
-        _misuse(what="GROUP_BY was given nothing to group by.", why="It needs a column.",
-                fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").')
+        refuse(what="GROUP_BY was given nothing to group by.", why="It needs a column.",
+               fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").')
     for item in items:
         if not isinstance(item, (Column, str)):
-            refuse_what_the_other_edition_made(item, "GROUP_BY")
-            _misuse(
+            refuse(
                 what=f"GROUP_BY was given {item!r}.",
                 why="It groups by columns, or by the name of a calculation in SELECT.",
                 fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").',
+                given=item, call="GROUP_BY",
             )
     return Clause("GROUP_BY", group_columns=items)
 
@@ -528,15 +525,15 @@ def ORDER_BY(*columns, sorts_everything=False):
     """
     items = _flatten(columns)
     if not items:
-        _misuse(what="ORDER_BY was given nothing to sort by.", why="It needs a column.",
-                fix='Pass columns, output names or descending(...), such as '
-                'ORDER_BY(descending("runs")).')
+        refuse(what="ORDER_BY was given nothing to sort by.", why="It needs a column.",
+               fix='Pass columns, output names or descending(...), such as '
+               'ORDER_BY(descending("runs")).')
     for item in items:
         if not isinstance(item, (Column, str, Ordering)):
-            refuse_what_the_other_edition_made(item, "ORDER_BY")
-            _misuse(what=f"ORDER_BY was given {item!r}.",
-                    why="It sorts by columns or output names.",
-                    fix="Pass a column, an output name, or descending(...).")
+            refuse(what=f"ORDER_BY was given {item!r}.",
+                   why="It sorts by columns or output names.",
+                   fix="Pass a column, an output name, or descending(...).",
+                   given=item, call="ORDER_BY")
     trees = [ordered(item, "ORDER_BY(...)") for item in items]
     return Clause("ORDER_BY", sort_keys=trees, sorts_everything=sorts_everything)
 
@@ -551,9 +548,9 @@ def LIMIT(n):
     LIMIT 2
     """
     if isinstance(n, bool) or not isinstance(n, int) or n < 1:
-        _misuse(what=f"LIMIT({n!r}) needs a whole number of rows, 1 or more.",
-                why="It is how many rows come back at most.", fix="Write it like LIMIT(20).",
-                error=ValueError)
+        refuse(what=f"LIMIT({n!r}) needs a whole number of rows, 1 or more.",
+               why="It is how many rows come back at most.", fix="Write it like LIMIT(20).",
+               error=ValueError)
     return Clause("LIMIT", n=n)
 
 
@@ -561,7 +558,7 @@ def _write_clause(call: str, table) -> Clause:
     """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
     table = _need_table(table, f"{call}(...)")
     if table._statement is not None or table._date_partition is None:
-        _misuse(
+        refuse(
             what=f"{call}({table._alias}) needs a Saved table with a Date partition.",
             why="A write fills one day of a real table, so the table needs a Date partition "
             "to write the day into.",
@@ -641,12 +638,12 @@ def INSERT_INTO(table):
 def _check_order(clauses) -> None:
     for clause in clauses:
         if not isinstance(clause, Clause):
-            refuse_what_the_other_edition_made(clause, "statement")
-            _misuse(
+            refuse(
                 what=f"statement(...) was given {clause!r}, which isn't a clause.",
                 why="A Statement is a list of clause functions such as SELECT(...) and "
                 "FROM(...).",
                 fix="Wrap it in its clause, such as WHERE(equals(...)).",
+                given=clause, call="statement",
             )
     places = [clause._place() for clause in clauses]
     ranks = [ORDER.index(place) for place in places]
@@ -654,7 +651,7 @@ def _check_order(clauses) -> None:
     for place in ORDER:
         found = [clause._name for clause in clauses if clause._place() == place]
         if place != "JOIN" and len(found) > 1:
-            _misuse(
+            refuse(
                 what=f"statement(...) has {' and '.join(found)}, but a Statement has only one "
                 f"{place} clause.",
                 why="A Statement is one query, so it has one of each clause (only JOINs may "
@@ -664,7 +661,7 @@ def _check_order(clauses) -> None:
                 error=ValueError,
             )
     if ranks != sorted(ranks):
-        _misuse(
+        refuse(
             what="statement(...) has its clauses out of SQL order: "
             + ", ".join(clause._name for clause in clauses) + ".",
             why="A Statement reads in SQL order, one clause each.",
@@ -674,9 +671,10 @@ def _check_order(clauses) -> None:
         )
     for needed in ("SELECT", "FROM"):
         if needed not in places:
-            _misuse(what=f"statement(...) has no {needed}(...).",
-                    why="Every Statement says what it returns and which table it reads.",
-                    fix="Add SELECT(...) and FROM(...).", error=ValueError)
+            refuse(what=f"statement(...) has no {needed}(...).",
+                   why="Every Statement says what it returns and which table it reads.",
+                   fix="Add SELECT(...) and FROM(...).",
+                   error=ValueError)
 
 
 def statement(*clauses, returns_all_rows=False):
@@ -731,7 +729,7 @@ def _resolve_group_by(s: Statement, items: list) -> list[Column]:
     resolved = []
     for item in items:
         if isinstance(item, str) and item not in by_name:
-            _misuse(
+            refuse(
                 what=f"GROUP_BY({item!r}): SELECT has no column called {item!r}.",
                 why="A name in GROUP_BY stands for a calculation named in SELECT.",
                 fix=f"Use one of: {', '.join(by_name)}.",
@@ -758,7 +756,7 @@ def _check_tables(s: Statement) -> None:
     aliases = [read.table._alias for read in s._reads]
     twice = sorted({alias for alias in aliases if aliases.count(alias) > 1})
     if twice:
-        _misuse(
+        refuse(
             what=f"statement(...) reads two tables called {', '.join(twice)}.",
             why="In the SQL a table is called by its short name, so the two would be mixed up.",
             fix=f'Give one a second name with AS, such as AS({twice[0]}, "earlier").',
@@ -767,7 +765,7 @@ def _check_tables(s: Statement) -> None:
     names = {}
     for table in derived_tables(s):
         if table._name in names and names[table._name] is not table._statement:
-            _misuse(
+            refuse(
                 what=f"statement(...) reads two different Derived tables called {table._name!r}.",
                 why="Each becomes a named part of the same Hive string, so the names must differ.",
                 fix="Give one of them another name in derived(...).",
@@ -779,7 +777,7 @@ def _check_tables(s: Statement) -> None:
         used |= {column.table for column in tree.find_all("Column") if column.table}
     unread = sorted(used - set(aliases))
     if unread:
-        _misuse(
+        refuse(
             what=f"statement(...) uses columns of {', '.join(unread)}, which it doesn't read.",
             why="A Statement can only use columns of the tables in its FROM and JOINs.",
             fix=f"Add {unread[0]} with FROM(...) or JOIN(...), or use another table's column.",
@@ -798,7 +796,7 @@ def _check_order_names(s: Statement) -> None:
             written = repr(sorted_by.name)
             if key.parts["desc"]:
                 written = f"descending({written})"
-            _misuse(
+            refuse(
                 what=f"ORDER_BY({written}): SELECT has no column called {sorted_by.name!r}.",
                 why="A name in ORDER_BY stands for a column or a calculation named in SELECT.",
                 fix=f"Use one of: {', '.join(names)}.",
@@ -818,7 +816,7 @@ def _check_placement(s: Statement) -> None:
                 fix = ("Group by the columns themselves. To group by a count, make it in a "
                        "derived(...) table, and group by its column in the Statement that "
                        "reads it.")
-            _misuse(
+            refuse(
                 what=f"{place} has {part!r}, which counts or adds up rows.",
                 why=f"Rows are counted after {place} has done its work, so Hive would refuse "
                 "it there.",
@@ -826,7 +824,7 @@ def _check_placement(s: Statement) -> None:
                 error=ValueError,
             )
         if has_window(part._tree):
-            _misuse(
+            refuse(
                 what=f"{place} has {part!r}, which numbers rows.",
                 why="Rows are numbered last, after the rows are picked and grouped, so Hive "
                 f"can't use the number in {place} of the SELECT that makes it.",
@@ -989,20 +987,20 @@ def derived(name, statement):
       ON jobs.job_id = runs_per_job.job_id
     """
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
-        _misuse(what=f"derived({name!r}, ...) needs a plain name.",
-                why="The name is how the SQL calls it.",
-                fix='Use letters, digits and _, such as derived("latest", ...).',
-                error=ValueError)
+        refuse(what=f"derived({name!r}, ...) needs a plain name.",
+               why="The name is how the SQL calls it.",
+               fix='Use letters, digits and _, such as derived("latest", ...).',
+               error=ValueError)
     if not isinstance(statement, Statement) or statement._ddl is not None:
-        refuse_what_the_other_edition_made(statement, "derived")
-        _misuse(what=f"derived({name!r}, ...) was given {statement!r}.",
-                why="derived names a Statement made by statement(...).",
-                fix="Pass statement(SELECT(...), FROM(...), ...).")
+        refuse(what=f"derived({name!r}, ...) was given {statement!r}.",
+               why="derived names a Statement made by statement(...).",
+               fix="Pass statement(SELECT(...), FROM(...), ...).",
+               given=statement, call="derived")
     if statement._write is not None:
-        _misuse(what=f"derived({name!r}, ...) was given a write.",
-                why="A Statement that writes a Saved table returns no rows to read.",
-                fix="Read the Saved table through its own Table reference instead.",
-                error=ValueError)
+        refuse(what=f"derived({name!r}, ...) was given a write.",
+               why="A Statement that writes a Saved table returns no rows to read.",
+               fix="Read the Saved table through its own Table reference instead.",
+               error=ValueError)
     if statement._order_by and statement._limit is None:
         guard_order_by_in_derived_table(name)
     columns = {n: column._type for column, n in statement._outputs}

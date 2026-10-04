@@ -1,7 +1,7 @@
 # Aggregate and window placement from the tree
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 02
 
 ## Question
@@ -40,8 +40,9 @@ Warehouse rejects gets past `statement(...)` (candidate 3 of [report.html](../re
   part equal to a GROUP_BY column or calculation is grouped, an aggregate is fine whatever is
   inside it, and any other column is missing. An ORDER_BY key that names an output is fine.
 - **ORDER_BY's names are checked** against SELECT's output names, in GROUP_BY's words.
-  row_number's ORDER_BY takes only columns or `descending(column)`, and both its lists need at
-  least one item; descending's docstring says names work only in ORDER_BY(...).
+  row_number's ORDER_BY takes only columns or `descending(column)`, and at least one;
+  descending's docstring says names work only in ORDER_BY(...). An empty PARTITION_BY stays
+  allowed: it numbers every row, and both Editions write it the same, `OVER (ORDER BY ...)`.
 - **GROUP_BY() refuses nothing to group by**, in ORDER_BY's words.
 - **Out of scope:** `sort_array`'s argument count, which needs Hive's own source checked first.
 
@@ -52,3 +53,40 @@ Warehouse rejects gets past `statement(...)` (candidate 3 of [report.html](../re
 - Both runs pass; goldens and galleries regenerated if their text changed.
 - The code-review skill has run with this ticket as its spec, the drift items are closed, and
   the beginner reader has read the new refusal text.
+
+## Answer
+
+Built in `81782bd` (with drift item D106 from `8a13bda`), reworked after the review in `2699ea9`.
+
+- `Column._aggregate` is read from the tree (`has_aggregate`); `trees.py` gains `is_aggregate`
+  and `has_window`. The `aggregate=` and `window=` arguments are gone, and so is
+  `Column._window`, which nothing read once the checks read the tree.
+- `_check_placement` refuses a count or a sum in WHERE, ON= and GROUP_BY, and a row number in
+  WHERE, HAVING, ON= and GROUP_BY; GROUP_BY's fix says to group by a Derived table's column.
+  `_not_inside` refuses a count, a sum or a row number inside `sum_of` and its siblings, their
+  `where=`, and an aggregate `hive_function` such as collect_set.
+- The GROUP BY Guard walks every output, HAVING condition and ORDER_BY key, and runs when a
+  count is only in ORDER_BY too. Its refusal names the clause, and with no GROUP_BY at all
+  says "but the Statement counts or adds up rows and has no GROUP_BY".
+- `_check_order_names` checks ORDER_BY's names; row_number's ORDER_BY= takes only columns, at
+  least one; GROUP_BY() refuses nothing to group by.
+- `tests/test_placement.py` pins items 1-7 in both Editions.
+
+**Beginner reader** ([report](../reports/03-beginner-reader.md)): 9 stops, all answered.
+
+**Code review (2026-10-03), `81782bd`.**
+- *Standards:* no hard violations. Fixed: `_not_inside`'s words ("total" no longer stands for
+  every count), the no-GROUP_BY wording for HAVING and ORDER_BY, the ORDER_BY name check moved
+  out of `_check_tables`, and by_day's `lost_in` list in place of an unlabelled pair. Kept:
+  each place's fix as a branch where it is raised, which is plainer than a map of texts.
+- *Spec:* an aggregate hive_function wasn't checked for a total inside it; an aggregate only in
+  ORDER_BY skipped the GROUP BY Guard; a row number in ON= and GROUP_BY had no test; the
+  no-GROUP_BY wording blamed SELECT for a count in HAVING. All fixed, with tests. An empty
+  PARTITION_BY stays allowed (the ticket's decision is corrected): both Editions write
+  `OVER (ORDER BY ...)`, pinned by a test. Left out, as before this ticket: a count inside a
+  row number's ORDER_BY= with no GROUP_BY.
+
+| Items | Opened by | Closed by |
+|---|---|---|
+| D106 | `8a13bda` | `81782bd` |
+| D107 | `81782bd` | `2699ea9` |

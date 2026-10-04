@@ -10,9 +10,8 @@ from __future__ import annotations
 import datetime
 
 from .refusals import (
-    four_part_message,
     guard_none_in_condition,
-    refuse_what_the_other_edition_made,
+    refuse,
 )
 from .tables import (
     Column,
@@ -130,29 +129,23 @@ class Condition:
 
 
 def _no_combining(symbol: str, instead: str) -> None:
-    raise TypeError(
-        four_part_message(
-            what=f"A condition was used with Python's {symbol}.",
-            why="Python would combine the Python objects, not the conditions, and the result "
-            "would not mean what you wrote.",
-            fix=f"Use {instead}.",
-            opt_out=None,
-        )
+    refuse(
+        what=f"A condition was used with Python's {symbol}.",
+        why="Python would combine the Python objects, not the conditions, and the result "
+        "would not mean what you wrote.",
+        fix=f"Use {instead}.",
     )
 
 
 def _need_column(column, call: str) -> Column:
     if isinstance(column, Column):
         return column
-    refuse_what_the_other_edition_made(column, call)
-    raise TypeError(
-        four_part_message(
-            what=f"{call} was given {column!r} where a column goes.",
-            why="A condition tests a column of a table, such as job_runs.status.",
-            fix="Pass the column as an attribute of its Table reference, such as "
-            "equals(job_runs.status, \"FAILED\").",
-            opt_out=None,
-        )
+    refuse(
+        what=f"{call} was given {column!r} where a column goes.",
+        why="A condition tests a column of a table, such as job_runs.status.",
+        fix="Pass the column as an attribute of its Table reference, such as "
+        "equals(job_runs.status, \"FAILED\").",
+        given=column, call=call,
     )
 
 
@@ -265,14 +258,12 @@ def between(column, low, high):
         return Condition(tree)
     first, last = as_date(low, column, call), as_date(high, column, call)
     if first > last:
-        raise ValueError(
-            four_part_message(
-                what=f"between({python_text(column)}, {low!r}, {high!r}) starts after it ends.",
-                why="No day is both on or after the first and on or before the second, so "
-                "this would match nothing.",
-                fix="Put the earlier day first.",
-                opt_out=None,
-            )
+        refuse(
+            what=f"between({python_text(column)}, {low!r}, {high!r}) starts after it ends.",
+            why="No day is both on or after the first and on or before the second, so "
+            "this would match nothing.",
+            fix="Put the earlier day first.",
+            error=ValueError,
         )
     key = _spans_key(column)
     return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
@@ -290,13 +281,11 @@ def last_n_days(column, n):
     call = f"last_n_days({python_text(column)}, {n!r})"
     column = _need_column(column, call)
     if isinstance(n, bool) or not isinstance(n, int) or n < 1:
-        raise ValueError(
-            four_part_message(
-                what=f"{call}: n must be a whole number of days, 1 or more.",
-                why="It counts back that many days from yesterday.",
-                fix="Use a number such as last_n_days(job_runs.dt, 7).",
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call}: n must be a whole number of days, 1 or more.",
+            why="It counts back that many days from yesterday.",
+            fix="Use a number such as last_n_days(job_runs.dt, 7).",
+            error=ValueError,
         )
     last = today() - datetime.timedelta(days=1)
     first = today() - datetime.timedelta(days=n)
@@ -324,25 +313,20 @@ def last_n_days(column, n):
 
 def _values(values, call: str) -> list:
     if isinstance(values, (str, bytes, dict)) or not hasattr(values, "__iter__"):
-        raise TypeError(
-            four_part_message(
-                what=f"{call} was given {values!r} where a list of values goes.",
-                why="It tests the column against each value in a list.",
-                fix='Pass a list, such as is_in(job_runs.status, ["FAILED", "TEST"]).',
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call} was given {values!r} where a list of values goes.",
+            why="It tests the column against each value in a list.",
+            fix='Pass a list, such as is_in(job_runs.status, ["FAILED", "TEST"]).',
         )
     if isinstance(values, (set, frozenset)):
         values = sorted(values, key=repr)
     values = list(values)
     if not values:
-        raise ValueError(
-            four_part_message(
-                what=f"{call} was given an empty list.",
-                why="No value is in an empty list, so this would match nothing.",
-                fix="Check the list before building the Statement.",
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call} was given an empty list.",
+            why="No value is in an empty list, so this would match nothing.",
+            fix="Check the list before building the Statement.",
+            error=ValueError,
         )
     return values
 
@@ -415,13 +399,10 @@ def _like(name: str, column, text: str, pattern) -> Condition:
     call = f"{name}({python_text(column)}, {text!r})"
     column = _need_column(column, call)
     if not isinstance(text, str):
-        raise TypeError(
-            four_part_message(
-                what=f"{call} needs a string to look for.",
-                why="It looks for text inside a text column.",
-                fix=f'Pass a string, such as {name}(jobs.job_name, "sync").',
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call} needs a string to look for.",
+            why="It looks for text inside a text column.",
+            fix=f'Pass a string, such as {name}(jobs.job_name, "sync").',
         )
     escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     tree = Node("Like", this=column._tree.copy(),
@@ -463,23 +444,17 @@ def _conditions(items, call: str) -> list[Condition]:
         elif isinstance(item, Condition):
             found.append(item)
         else:
-            refuse_what_the_other_edition_made(item, call)
-            raise TypeError(
-                four_part_message(
-                    what=f"{call} was given {item!r}, which isn't a condition.",
-                    why="It combines conditions made by functions such as equals(...).",
-                    fix="Pass conditions, such as equals(job_runs.status, \"FAILED\").",
-                    opt_out=None,
-                )
+            refuse(
+                what=f"{call} was given {item!r}, which isn't a condition.",
+                why="It combines conditions made by functions such as equals(...).",
+                fix="Pass conditions, such as equals(job_runs.status, \"FAILED\").",
+                given=item, call=call,
             )
     if not found:
-        raise TypeError(
-            four_part_message(
-                what=f"{call} was given no conditions.",
-                why="It combines one or more conditions.",
-                fix="Pass at least one condition.",
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call} was given no conditions.",
+            why="It combines one or more conditions.",
+            fix="Pass at least one condition.",
         )
     return found
 

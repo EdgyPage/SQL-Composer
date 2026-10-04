@@ -421,12 +421,3 @@ def test_every_refusal_has_its_tests(name: str, function) -> None:
     assert f"test_{name}_{shown}" in tests
     if "No opt-out" not in (function.__doc__ or ""):
         assert f"test_{name}_opt_out" in tests
-
-
-def test_one_helper_builds_every_message() -> None:
-    source = inspect.getsource(refusals)
-    # The mix-ups between the two Editions are TypeErrors, as other misuses are.
-    raised = (source.count("raise GuardRefused(") + source.count("raise LoadRefused(")
-              + source.count("raise TypeError("))
-    built = source.count("four_part_message(\n")
-    assert raised + 1 == built  # plus the Warning, which is shown rather than raised

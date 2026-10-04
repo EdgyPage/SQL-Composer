@@ -412,6 +412,17 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
     ))
 
 
+def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None, call: str = "") -> None:
+    """Refuse a call that was given the wrong argument. This can't be switched off.
+
+    Pass the wrong argument as `given`, and the call as `call`: if the other Edition's folder
+    made it, the refusal that says so is raised instead.
+    """
+    if given is not None:
+        refuse_what_the_other_edition_made(given, call)
+    raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
+
+
 def refuse_a_spark_dataframe(result) -> None:
     """Refuse what a send gave back when it is Spark's own DataFrame, where pandas' goes."""
     # Asked of the class, since a pandas DataFrame gives any column as an attribute.
