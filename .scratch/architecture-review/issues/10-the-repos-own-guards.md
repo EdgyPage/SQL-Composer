@@ -1,7 +1,7 @@
 # The repo's own guards
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: -
 
 ## Question
@@ -44,3 +44,26 @@ test drives (candidate 10 of [report.html](../report.html)):
 - Each of 1-5 has a test.
 - Both runs pass.
 - The code-review skill has run with this ticket as its spec.
+
+## Answer
+
+Built in `20adef4`, reworked after the review in the commit after it (see the log).
+
+- protect_main refuses a forced checkout or switch to main, deleting or renaming it, and a
+  switch to main with flags first; a branch named like main-fix isn't taken for main.
+- The review hook asks about each new commit on dev since its upstream (none when there is
+  nothing new), a merge by its first parent, finding the drift list from the repo's top
+  folder wherever it runs. The stop hook forgets a commit a reset or a rebase dropped.
+- MAKES_A_COMMIT takes git's own options quoted or not, and only a subcommand that makes a
+  commit: not merge-base or commit-tree, nor the git in `.git`.
+- The gallery tool lists a Worked example's Statements inside example_setting().
+- tests/repo/test_hooks.py runs each hook's main() as Claude Code does, against a throwaway
+  clone; tests/test_example_gallery.py holds the example day.
+
+**Code review (2026-10-03), `20adef4`.** No hard violations. Fixed: the switch-to-main pattern
+matching main-fix; the drift list found from the raw cwd; HEAD asked about when there was
+nothing new; hyphenated subcommands, quoted options and `.git` in the commit pattern; stale
+requests in the stop hook; the untested gallery fix and hook main()s. Left: a command whose
+text quotes a git command, as in a heredoc, is still read as running it, since telling them
+apart needs a shell parser; and `git checkout -- main` or `git switch --detach main` before a
+commit are refused, which errs on the safe side.

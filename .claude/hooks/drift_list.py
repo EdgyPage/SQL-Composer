@@ -28,11 +28,14 @@ REQUESTS_FILE = "sql-composer-drift-requests"
 WATCHED_FOLDERS = ("sql_composer/", "spark_composer/", "worked_examples/", "docs/")
 WATCHED_FILES = frozenset({"CONTEXT.md", "CLAUDE.md", "requirements-dev.txt"})
 
-# git, its own options (such as -C <folder> or -c <name>=<value>), then a subcommand that
-# makes a commit. `git log --grep=revert` names no such subcommand.
+# git, its own options (such as -C <folder>, -c <name>=<value> or --git-dir <folder>, quoted
+# or not), then a subcommand that makes a commit. `git log --grep=revert` names no such
+# subcommand, and neither do merge-base or commit-tree.
+_ARGUMENT = r"""("[^"]*"|'[^']*'|\S+)"""
 MAKES_A_COMMIT = re.compile(
-    r"\bgit(\s+-[Cc]\s+\S+|\s+--?[\w-]+(=\S+)?)*\s+"
-    r"(commit|merge|pull|cherry-pick|revert|am|rebase)\b"
+    rf"(?<![\w.])git(\s+(-[Cc]|--git-dir|--work-tree|--namespace)\s+{_ARGUMENT}"
+    rf"|\s+--?[\w-]+(={_ARGUMENT})?)*\s+"
+    r"(commit|merge|pull|cherry-pick|revert|am|rebase)(?![\w-])"
 )
 OPEN_ITEM = re.compile(r"^- \[ \] (D\d+) \| ([0-9a-f]{7,40}) \|", re.MULTILINE)
 REVIEWED = re.compile(r"^- ([0-9a-f]{7,40}):", re.MULTILINE)
@@ -65,9 +68,8 @@ def needs_review(changed_paths: list[str], message: str) -> list[str]:
 def new_commits(repo: str | Path) -> list[str]:
     """The commits on this branch that its upstream hasn't got, oldest first, following each
     merge's first parent; HEAD alone when the branch has no upstream."""
-    listed = git(repo, "rev-list", "--reverse", "--first-parent", "@{upstream}..HEAD")
-    if listed:
-        return listed.split()
+    if git(repo, "rev-parse", "--abbrev-ref", "@{upstream}"):
+        return git(repo, "rev-list", "--reverse", "--first-parent", "@{upstream}..HEAD").split()
     head = git(repo, "rev-parse", "HEAD")
     return [head] if head else []
 
@@ -79,6 +81,13 @@ def changed_paths(repo: str | Path, commit: str) -> list[str]:
     if not changed and not git(repo, "rev-parse", "--verify", "--quiet", f"{commit}^1"):
         changed = git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", commit)
     return changed.splitlines()
+
+
+def on_this_branch(repo: str | Path, commit: str) -> bool:
+    """Whether the commit is still in HEAD's history, not dropped by a reset or a rebase."""
+    done = subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", commit, "HEAD"],
+                          capture_output=True)
+    return done.returncode == 0
 
 
 def same_commit(a: str, b: str) -> bool:
