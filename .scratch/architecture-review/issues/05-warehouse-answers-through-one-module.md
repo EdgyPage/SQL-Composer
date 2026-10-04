@@ -1,7 +1,7 @@
 # Warehouse answers through one module
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 04
 
 ## Question
@@ -59,3 +59,42 @@ pass-through Edition functions) found these edges end in raw Python errors or wr
 - Both runs pass; goldens and galleries regenerated if their text changed.
 - The code-review skill has run with this ticket as its spec, the drift items are closed, and
   the beginner reader has read the new refusal and report text.
+
+## Answer
+
+Built in `7c01038`, reworked after the review in `858bc94`.
+
+- `_ask(send, hive, call)` sends DESCRIBE and SHOW PARTITIONS for every tool, refusing a send
+  that isn't a function, a Spark DataFrame, and an answer that isn't a DataFrame with a
+  column. write_table_reference refuses a DESCRIBE that lists no columns, and
+  check_table_reference reports one, as it never raises.
+- A table with no days yet matches, with a note; a report with only notes says "matches".
+  write_table_reference names its Date partition, with a TODO to run check_table_reference.
+- check_key and check_table_reference read the newest day the same way (`as_date`, which
+  takes a day only as its date_format writes it), and name the date_format the same way.
+- first_look, all_columns and Table check their arguments; columns are fetched with
+  `t._column(name)`.
+- write_table_reference adds `t_` to a table named like a Python word or a module Python
+  already has (`_is_a_module`: the standard library, or anything `find_spec` finds outside the
+  folder you're working in, such as pandas, sqlglot, pyspark or a Toolbox folder), so the name
+  is the same whatever the session has imported. Its docstring says so.
+- describe_text and show_partitions_text are off the Edition interface; the goldens show the
+  commands' text is unchanged.
+- `tests/test_warehouse_answers.py` pins items 1-8 in both Editions.
+
+**Beginner reader** ([report](../reports/05-beginner-reader.md)): 10 stops; 9 changed, 1
+answered.
+
+**Code review (2026-10-03), `7c01038`.**
+- *Standards:* no hard violations. Fixed: "date column" in Table's refusal; the two different
+  checks of the newest day, which could disagree; one way of naming the date_format; the
+  return type. Kept: `send` and `call` passed as plain arguments.
+- *Spec:* an empty DESCRIBE (D111), file names that depended on what was imported, the
+  spaces left in the one-line failure, and three untested report lines. All fixed, with tests.
+  The "matches" first line for notes alone came from the beginner reader.
+
+| Items | Opened by | Closed by |
+|---|---|---|
+| D110, D111 | `7c01038` | `858bc94` |
+| D112, D113 | `858bc94` | `d11e120`: `_day_format_of` takes a day only as its pattern writes it, so the fix for "2026-9-24" is `date_partition=None`, and CHANGES says check_table_reference reports such a day |
+| D114, D115 | `d11e120` | `ba9cad4`: write_table_reference's TODO says why it leaves out days it can't bound, and CHANGES says so |
