@@ -491,11 +491,19 @@ def all_of(*conditions):
     """
     found = _conditions(conditions, "all_of(...)")
     tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)
-    # Every part that mentions a table must keep its rows with no match for the whole to.
-    candidates = frozenset().union(*(c._keeps_unmatched for c in found))
-    keeps = frozenset(table for table in candidates
-                      if all(table in c._keeps_unmatched for c in found if table in c._tables()))
-    return Condition(tree, spans=combined_spans(found), keeps_unmatched=keeps)
+    return Condition(tree, spans=combined_spans(found), keeps_unmatched=_kept_by_all(found))
+
+
+def _kept_by_all(found: list[Condition]) -> frozenset:
+    """The tables whose rows with no match conditions joined with AND keep: those that every
+    condition mentioning the table keeps."""
+    kept = set()
+    for condition in found:
+        for table in condition._keeps_unmatched:
+            mentioning = [c for c in found if table in c._tables()]
+            if all(table in c._keeps_unmatched for c in mentioning):
+                kept.add(table)
+    return frozenset(kept)
 
 
 def combined_spans(conditions: list[Condition]) -> dict:

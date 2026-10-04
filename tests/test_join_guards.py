@@ -39,6 +39,9 @@ def with_runs(*conditions):
                  id="unmatched_or_failed"),
     pytest.param(all_of(is_null(job_runs.run_id), equals(jobs.team, "data")),
                  id="unmatched_and_a_test_on_the_other_table"),
+    pytest.param(any_of(all_of(is_null(job_runs.run_id), equals(jobs.team, "data")),
+                        equals(job_runs.status, "FAILED")),
+                 id="all_of_inside_any_of"),
 ])
 def test_a_condition_that_keeps_the_unmatched_rows_is_let_through(condition) -> None:
     with_runs(condition)
@@ -48,6 +51,8 @@ def test_a_condition_that_keeps_the_unmatched_rows_is_let_through(condition) -> 
     pytest.param(equals(job_runs.status, "FAILED"), id="a_plain_test"),
     pytest.param(all_of(is_null(job_runs.run_id), equals(job_runs.status, "FAILED")),
                  id="unmatched_and_failed"),
+    pytest.param(any_of(is_null(jobs.team), equals(job_runs.status, "FAILED")),
+                 id="a_null_test_on_the_other_table"),
 ])
 def test_a_condition_that_drops_the_unmatched_rows_is_refused(condition) -> None:
     with pytest.raises(GuardRefused, match="a condition on job_runs, which LEFT_JOIN brought in"):
