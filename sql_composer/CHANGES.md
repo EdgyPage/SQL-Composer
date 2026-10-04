@@ -4,6 +4,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 3.2
 
+- **hive_function("date_sub", ...) goes back by the whole day count.** With sqlglot older than
+  version 30, hive_function("date_sub", job_runs.dt, job_runs.duration_mins + 1) moved the day
+  forward by duration_mins - 1, not back by duration_mins + 1: the Hive left the count
+  unbracketed. The Edition that prints its own Hive always wrote it right.
 - **The Example database reads a table's name whatever its case**, as Hive and Spark do:
   OPS.jobs is ops.jobs.
 - **write_table_reference points to the other partition columns** when the first holds no day

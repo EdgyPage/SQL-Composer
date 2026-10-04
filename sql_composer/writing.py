@@ -101,6 +101,19 @@ def _writes_struct_colons() -> bool:
     return sql_text(built) == "STRUCT<a: INT>"
 
 
+def _hive_call(name: str, arguments: list) -> exp.Expression:
+    """A call to a Hive function, as sqlglot builds it.
+
+    sqlglot writes DATE_SUB(day, n) as DATE_ADD(day, n * -1), and before version 30 it left a
+    sum unbracketed: DATE_ADD(day, n + 1 * -1) moves the day by n - 1. Bracketing the count as
+    version 30 does writes the same on every sqlglot.
+    """
+    if name.lower() == "date_sub" and len(arguments) == 2 and isinstance(
+            arguments[1], (exp.Add, exp.Sub, exp.Div)):
+        arguments = [arguments[0], exp.Paren(this=arguments[1])]
+    return exp.func(name, *arguments, dialect=_DIALECT)
+
+
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
 _READ_BACK = {}
 
@@ -111,7 +124,7 @@ def _read_back_call(name: str, arguments: list) -> exp.Expression:
     A few functions come back in sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot),
     which is then stable.
     """
-    text = sql_text(exp.func(name, *arguments, dialect=_DIALECT))
+    text = sql_text(_hive_call(name, arguments))
     if text not in _READ_BACK:
         _READ_BACK[text] = sqlglot.parse_one(text, read=_DIALECT)
     return _READ_BACK[text].copy()
@@ -321,8 +334,7 @@ _REPLAY = {
     "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
     "Cast": lambda node: exp.Cast(this=_built(node, "this"),
                                   to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
-    "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
-                                  dialect=_DIALECT),
+    "Call": lambda node: _hive_call(node.parts["name"], _all_built(node, "args")),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
     "Select": _select,
     "Table": _table,
