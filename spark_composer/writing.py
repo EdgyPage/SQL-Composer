@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextvars
 import re
+from typing import NoReturn
 
 from .trees import HIVE_TYPES, Node, plain_name
 
@@ -59,8 +60,6 @@ _OPERATORS = {
 }
 _CONNECTORS = {"And": "AND", "Or": "OR"}
 _AGGREGATES = {"Count": "COUNT", "Sum": "SUM", "Avg": "AVG", "Min": "MIN", "Max": "MAX"}
-_DATE_CALLS = {"next_day": "NEXT_DAY", "trunc": "TRUNC", "unix_timestamp": "UNIX_TIMESTAMP",
-               "from_unixtime": "FROM_UNIXTIME"}
 
 
 def hive_text(node: Node) -> str:
@@ -330,17 +329,18 @@ def _order(node: Node, pretty: bool, flat: bool = False) -> str:
 
 # After sqlglot's Generator.ordered_sql.
 def _ordered(node: Node, pretty: bool) -> str:
-    desc = node.parts.get("desc")
-    return _part(node, "this", pretty) + {True: " DESC", False: " ASC", None: ""}[desc]
+    return _part(node, "this", pretty) + (" DESC" if node.parts["desc"] else " ASC")
 
 
 # After _add_date_sql in sqlglot's Hive dialect, which writes date_sub as DATE_ADD with * -1.
 def _call(node: Node, pretty: bool) -> str:
     args = node.parts["args"]
     if node.name == "date_sub":
-        week = Node("Mul", this=args[1], expression=Node("Literal", this="-1", is_string=False))
+        # A day count that isn't a plain number goes in brackets, so * -1 takes all of it.
+        days = args[1] if args[1].kind == "Literal" else Node("Paren", this=args[1])
+        week = Node("Mul", this=days, expression=Node("Literal", this="-1", is_string=False))
         return _func("DATE_ADD", [args[0], week], pretty)
-    return _func(_DATE_CALLS[node.name], args, pretty)
+    return _func(node.name.upper(), args, pretty)
 
 
 # --- A whole Statement ----------------------------------------------------------------------
@@ -444,12 +444,18 @@ def _drop(node: Node, pretty: bool) -> str:
 
 # --- Column types, as CREATE TABLE writes them ----------------------------------------------
 
+def _unchecked(text: str) -> NoReturn:
+    """Stop on a type create_table didn't check against HIVE_TYPES in trees.py, which it
+    always does first: a bug in the Toolbox."""
+    raise ValueError(f"the type {text!r} reached the writer without create_table's check")
+
+
 # After sqlglot's Generator.datatype_sql. create_table has checked the type against
 # HIVE_TYPES in trees.py already, so it reads.
 def _type(text: str, pretty: bool) -> str:
     written, rest = _parse_type(text.strip(), pretty)
     if rest.strip():
-        raise ValueError(f"can't read the type {text!r}")
+        _unchecked(text)
     return written
 
 
@@ -458,7 +464,7 @@ def _parse_type(text: str, pretty: bool) -> tuple[str, str]:
     found = re.match(r"\s*([A-Za-z_]+)\s*", text)
     word = found.group(1).lower() if found else ""
     if word not in HIVE_TYPES:
-        raise ValueError(f"can't read the type {text!r}")
+        _unchecked(text)
     written, rest = word.upper(), text[found.end():]
     if rest.startswith("("):
         close = rest.index(")")
@@ -479,7 +485,7 @@ def _nested(text: str, word: str, pretty: bool) -> tuple[str, str]:
         if word == "struct":
             field = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\s*:\s*", rest)
             if not field:
-                raise ValueError(f"can't read the struct {text!r}")
+                _unchecked(text)
             inner, rest = _parse_type(rest[field.end():], pretty)
             parts.append(f"{field.group(1)}: {inner}")
         else:
@@ -493,7 +499,7 @@ def _nested(text: str, word: str, pretty: bool) -> tuple[str, str]:
             listed = _list(parts, pretty, dynamic=True, new_line=True, skip_first=True,
                            skip_last=True)
             return listed, rest[1:]
-        raise ValueError(f"can't read the type {text!r}")
+        _unchecked(text)
 
 
 # Each kind of Node, and the function that writes it. The one-line ones are after sqlglot's

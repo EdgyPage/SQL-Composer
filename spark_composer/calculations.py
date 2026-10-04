@@ -307,9 +307,7 @@ def ordered(item, call: str) -> Node:
         tree = Node("Column", name=target)
     else:
         tree = _need_column(target, call)._tree.copy()
-    # Hive and Spark put NULL first when sorting up and last when sorting down; saying so
-    # keeps NULLS LAST and NULLS FIRST out of the Hive.
-    return Node("Ordered", this=tree, desc=descending_order, nulls_first=not descending_order)
+    return Node("Ordered", this=tree, desc=descending_order)
 
 
 def _listed(items) -> list:

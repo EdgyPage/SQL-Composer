@@ -61,8 +61,9 @@ SHARED_FILES = ("__init__.py", "calculations.py", "clauses.py", "conditions.py",
                 "example_database.py", "lineage.py", "refusals.py", "running.py", "tables.py",
                 "trees.py")
 EDITION_FILES = ("writing.py", "engine.py")
-# The functions each Edition file offers the shared files, with their parameters: both
-# Editions' copies have exactly these. Either may have more of its own.
+# The functions each Edition file offers the shared files, and the dev tools and tests
+# (example_database_cannot_run), with their parameters: both Editions' copies have exactly
+# these. Either may have more of its own.
 EDITION_INTERFACE = {
     "writing.py": {
         "hive_text": ["node"],
