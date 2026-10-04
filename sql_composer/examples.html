@@ -1612,7 +1612,7 @@ WHERE
 <section class="entry" id="LEFT_JOIN">
 <h3><code>LEFT_JOIN</code></h3>
 <p class="why">Like JOIN, but rows with no match are kept, with NULL in the joined columns.</p>
-<p>A condition on the joined table in WHERE would throw those rows away again, so it is refused: put it in ON= instead, bound the joined table&#x27;s Date partition there too, or pass keeps_only_matches=True if you mean it.</p>
+<p>A condition on the joined table in WHERE would throw those rows away again, so it is refused: put it in ON= instead, bound the joined table&#x27;s Date partition there too, or pass keeps_only_matches=True if you mean it. A WHERE that keeps the rows with no match is allowed: is_null(...) of a joined column, or any_of(...) that has such an is_null among its conditions, as for the jobs that never ran or whose run failed.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), &quot;runs&quot;)),
     FROM(jobs),

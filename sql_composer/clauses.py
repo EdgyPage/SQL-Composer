@@ -360,7 +360,9 @@ def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
 
     A condition on the joined table in WHERE would throw those rows away again, so it is
     refused: put it in ON= instead, bound the joined table's Date partition there too, or
-    pass keeps_only_matches=True if you mean it.
+    pass keeps_only_matches=True if you mean it. A WHERE that keeps the rows with no match is
+    allowed: is_null(...) of a joined column, or any_of(...) that has such an is_null among
+    its conditions, as for the jobs that never ran or whose run failed.
 
     >>> print(to_hive(statement(
     ...     SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), "runs")),
@@ -857,8 +859,7 @@ def _run_guards(s: Statement) -> None:
         for condition in s._where:
             alias = read.table._alias
             if alias in condition._tables() and alias not in condition._keeps_unmatched:
-                guard_left_join_then_where(read.table._alias, repr(condition),
-                                           read.keeps_only_matches)
+                guard_left_join_then_where(alias, repr(condition), read.keeps_only_matches)
     if s._write is not None:
         table = s._write
         expected = [c for c in table._columns if c != table._date_partition]
