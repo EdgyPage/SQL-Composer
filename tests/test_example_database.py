@@ -206,3 +206,9 @@ def test_send_takes_only_hive_text(given) -> None:
     with pytest.raises(TypeError,
                        match=r"(?s)isn't Hive text.*run\(s, send=example_database.send\)"):
         example_database.send(given)
+
+
+@pytest.mark.needs_example_database
+def test_a_tables_name_is_read_whatever_its_case() -> None:
+    assert list(example_database.send("DESCRIBE OPS.Jobs").col_name)[:2] == ["job_id", "job_name"]
+    assert len(example_database.send("SELECT job_id FROM OPS.jobs")) == 4

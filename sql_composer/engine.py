@@ -277,7 +277,7 @@ def _check_tables(tree, tables: dict) -> None:
     from sqlglot import exp
 
     for table in tree.find_all(exp.Table):
-        if table.db and (table.db != "ops" or table.name not in tables):
+        if table.db and (table.db.lower() != "ops" or table.name.lower() not in tables):
             _refuse_unreadable(f"it has no table {table.db}.{table.name}", tables)
 
 
