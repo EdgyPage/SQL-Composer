@@ -103,16 +103,15 @@ def _seg(sql: str, pretty: bool, sep: str = " ") -> str:
 
 
 # After sqlglot's Generator.indent.
-def _indent(sql: str, pretty: bool, level: int = 0, pad: int = PAD, skip_first: bool = False,
-            skip_last: bool = False) -> str:
+def _indent(sql: str, pretty: bool, skip_first: bool = False, skip_last: bool = False) -> str:
     if not pretty or not sql:
         return sql
     lines = sql.split("\n")
-    return "\n".join(
-        line if (skip_first and i == 0) or (skip_last and i == len(lines) - 1)
-        else f"{' ' * (level * PAD + pad)}{line}"
-        for i, line in enumerate(lines)
-    )
+    indented = []
+    for i, line in enumerate(lines):
+        skipped = (skip_first and i == 0) or (skip_last and i == len(lines) - 1)
+        indented.append(line if skipped else " " * PAD + line)
+    return "\n".join(indented)
 
 
 # After sqlglot's Generator.too_wide.
@@ -157,7 +156,7 @@ def _wrap(sql: str, pretty: bool) -> str:
     """A whole query in round brackets, as a Derived table's body."""
     if not sql:
         return "()"
-    inner = _indent(sql, pretty, level=1, pad=0)
+    inner = _indent(sql, pretty)
     return f"({_sep(pretty, '')}{inner}{_seg(')', pretty, sep='')}"
 
 
