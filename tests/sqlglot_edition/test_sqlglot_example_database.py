@@ -54,3 +54,28 @@ def test_a_cast_to_anything_but_text_is_one_its_executor_cant_run() -> None:
     """Hive gives NULL for a value it can't cast, where the executor's own CAST would stop."""
     with pytest.raises(RuntimeError, match="its executor has no CAST"):
         example_database.send("SELECT CAST(jobs.team AS INT) AS n FROM ops.jobs AS jobs")
+
+
+def test_too_old_a_sqlglot_is_told_which_to_install(monkeypatch) -> None:
+    monkeypatch.setattr(sqlglot, "__version__", "25.24.2")
+    with pytest.raises(RuntimeError, match=r"Usual fix: +Install a newer sqlglot"):
+        example_database.send("SELECT 1 FROM ops.jobs")
+
+
+@pytest.mark.needs_example_database
+def test_an_executor_error_that_names_no_function_is_refused_plainly(monkeypatch) -> None:
+    import sqlglot.executor
+
+    real = sqlglot.executor.execute
+
+    def fails(query, *args, **kwargs):
+        if isinstance(query, str):  # the check of the executor itself, before each query
+            return real(query, *args, **kwargs)
+        raise sqlglot.errors.ExecuteError("unsupported operand type(s) for +: 'int' and 'str'")
+
+    monkeypatch.setattr(sqlglot.executor, "execute", fails)
+    with pytest.raises(RuntimeError) as refused:
+        example_database.send("SELECT job_id FROM ops.jobs")
+    message = str(refused.value)
+    assert "what this needs" not in message
+    assert "couldn't run this Hive: unsupported operand type(s)" in message

@@ -117,11 +117,11 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "run_alerts": (run_alerts, _RUN_ALERTS)}
 
 def _table(name: str) -> tuple[Table, list]:
-    short = name.strip().strip("`").split(".")[-1].strip("`")
-    if short not in _TABLES:
+    *database, short = [part.strip("`") for part in name.strip().split(".")]
+    if short not in _TABLES or database not in ([], ["ops"]):
         refuse(
             what=f"The Example database has no table {name!r}.",
-            why="It holds only three made-up tables.",
+            why="It holds three made-up tables, all in the database ops.",
             fix="Use ops.jobs, ops.job_runs or ops.run_alerts.",
             error=ValueError,
         )
@@ -157,6 +157,8 @@ def _show_partitions(name: str) -> pd.DataFrame:
 # line: what a query says, as opposed to what it is. Whichever starts first wins, as when Hive
 # reads it, so a -- inside a string is part of the string.
 _SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
+# Just the strings and comments, so a table's name in backticks is still read.
+_TEXT = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|--[^\n]*""")
 
 
 def _outside_brackets(text: str) -> str:
@@ -222,6 +224,14 @@ def send(hive):
     2      team    string
     3    region    string
     """
+    if not isinstance(hive, str):
+        refuse(
+            what=f"example_database.send was given {hive!r}, which isn't Hive text.",
+            why="Like your send at work, it takes the Hive string to run.",
+            fix="Pass the Statement to run(s, send=example_database.send), which turns it into "
+            "Hive, or see its Hive with to_hive(s).",
+            given=hive, call="example_database.send",
+        )
     text = hive.strip()
     words = text.split()
     if words[:1] and words[0].upper() == "DESCRIBE":
@@ -239,6 +249,11 @@ def send(hive):
             "builds, not text.",
             error=ValueError,
         )
+    # A table named with its database must be one of the three, so a query from mart.jobs is
+    # refused for its table, not for a column the warehouse then can't find.
+    for name in re.findall(r"\b(?:FROM|JOIN)\s+(`?\w+`?\.`?\w+`?)", _TEXT.sub("''", text),
+                           re.IGNORECASE):
+        _table(name)
     columns, rows = engine.run_query(text, _TABLES)
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)
