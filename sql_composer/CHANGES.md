@@ -4,6 +4,16 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 3.2
 
+- **The Example database refuses a query it can't run the same way in both Editions**,
+  saying what went wrong and the tables to choose from. In the Edition that writes its Hive
+  with sqlglot, a column or table name spelt wrong gave sqlglot's own error, and some queries
+  it couldn't run gave a garbled message ("... has no what this needs").
+- **The Example database has tables only in ops**: DESCRIBE mart.jobs and SELECT ... FROM
+  mart.jobs are refused for the table. Before, DESCRIBE described ops.jobs, and the SELECT
+  blamed a column.
+- **example_database.send takes only Hive text**: given a Statement, it says to use run(...)
+  or to_hive(...), where it gave a raw Python error.
+- **With too old a sqlglot, the Example database's refusal says which version to install.**
 - **A Saved table with no days yet matches its Table reference.** check_table_reference
   reported a Problem, "the newest dt, None, isn't written like ...", and said to set
   date_partition=None, which would stop every Statement's days being checked; now it notes
