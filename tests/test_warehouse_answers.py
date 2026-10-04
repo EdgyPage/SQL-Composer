@@ -127,7 +127,8 @@ def test_a_failed_show_partitions_is_reported_on_one_readable_line() -> None:
 @pytest.mark.parametrize(("days", "said"), [
     pytest.param(("dt=latest",), "isn't written like date_format='%Y-%m-%d', the usual one",
                  id="not_a_day"),
-    pytest.param(("dt=2026-9-24",), "isn't written like date_format='%Y-%m-%d'",
+    pytest.param(("dt=2026-9-24",), "isn't written like date_format='%Y-%m-%d', the usual "
+                 "one: change the line to date_partition=None,",
                  id="a_day_python_reads_but_hive_wouldnt_match"),
     pytest.param(("dt=20260924",), 'change the line to date_format="%Y%m%d"', id="another_way"),
 ])

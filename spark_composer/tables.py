@@ -815,13 +815,16 @@ def _newest_partition_value(name: str, column: str, send, call: str) -> str | No
 
 
 def _day_format_of(value: str | None) -> str | None:
-    """The date_format a partition value is written in, or None when it isn't a day."""
+    """The date_format a partition value is written in, or None when it isn't a day written
+    exactly as one of them writes it."""
     for pattern in (DEFAULT_DATE_FORMAT, "%Y%m%d", "%Y/%m/%d"):
         try:
-            datetime.datetime.strptime(value or "", pattern)
-            return pattern
+            day = datetime.datetime.strptime(value or "", pattern).date()
         except ValueError:
             continue
+        # Python also reads "2026-9-24", which Hive, comparing text, wouldn't match.
+        if day_text(day, pattern) == value:
+            return pattern
     return None
 
 
