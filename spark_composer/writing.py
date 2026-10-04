@@ -28,7 +28,7 @@ import contextvars
 import re
 from typing import NoReturn
 
-from .trees import HIVE_TYPES, Node, plain_name
+from .trees import ARITHMETIC, HIVE_TYPES, Node, plain_name
 
 TOOLBOX_VERSION = "3.2"
 
@@ -335,10 +335,13 @@ def _ordered(node: Node, pretty: bool) -> str:
 def _call(node: Node, pretty: bool) -> str:
     args = node.parts["args"]
     if node.name == "date_sub":
-        # A day count that isn't a plain number goes in brackets, so * -1 takes all of it.
-        days = args[1] if args[1].kind == "Literal" else Node("Paren", this=args[1])
-        week = Node("Mul", this=days, expression=Node("Literal", this="-1", is_string=False))
-        return _func("DATE_ADD", [args[0], week], pretty)
+        # A day count that is a calculation goes in brackets, so * -1 takes all of it, as
+        # sqlglot does; a number, a column or a CAST is written as it is.
+        days = args[1]
+        if days.kind in ARITHMETIC:
+            days = Node("Paren", this=days)
+        back = Node("Mul", this=days, expression=Node("Literal", this="-1", is_string=False))
+        return _func("DATE_ADD", [args[0], back], pretty)
     return _func(node.name.upper(), args, pretty)
 
 
@@ -446,7 +449,8 @@ def _drop(node: Node, pretty: bool) -> str:
 def _unchecked(text: str) -> NoReturn:
     """Stop on a type create_table didn't check against HIVE_TYPES in trees.py, which it
     always does first: a bug in the Toolbox."""
-    raise ValueError(f"the type {text!r} reached the writer without create_table's check")
+    raise ValueError(f"a type, or the part of one that is {text!r}, reached the writer "
+                     "without create_table's check")
 
 
 # After sqlglot's Generator.datatype_sql. create_table has checked the type against
