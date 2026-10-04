@@ -14,6 +14,7 @@ import copy
 import datetime
 import decimal
 import difflib
+import importlib.util
 import json
 import keyword
 import re
@@ -569,8 +570,8 @@ class Table:
             if value is not None and not isinstance(value, str):
                 refuse(
                     what=f"Table({name!r}): {argument}={value!r} isn't text.",
-                    why="date_partition names the one date column the table is partitioned "
-                    "by, and date_format says how its days are written.",
+                    why="date_partition names the table's Date partition, and date_format "
+                    "says how its days are written.",
                     fix='Write it as text, such as date_partition="dt", or None.',
                 )
         self._name = name
@@ -828,7 +829,9 @@ def write_table_reference(name, send):
     '''Write a table's Table reference as `<table>.py` in the folder you're working in.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
-    description, never its rows) and writes `<table>.py` in the folder you're working in. The
+    description, never its rows) and writes `<table>.py` in the folder you're working in, or
+    `t_<table>.py` for a table named like a Python word or a module Python already has, such as
+    calendar or pandas, which the file would be imported in place of. The
     newest day SHOW PARTITIONS lists gives the Date partition's date_format. It never guesses
     the key or which columns don't add up: those are TODOs for you. The file is yours from then
     on, and this refuses to overwrite it.
@@ -860,10 +863,7 @@ def write_table_reference(name, send):
             error=ValueError,
         )
     short = name.split(".")[-1]
-    # A file named like a module Python or the Toolbox imports, such as calendar or pandas,
-    # would be imported in that module's place.
-    taken = (keyword.iskeyword(short) or short in sys.stdlib_module_names
-             or short in sys.modules or short.endswith("_composer"))
+    taken = keyword.iskeyword(short) or _is_a_module(short)
     variable = short if short.isidentifier() and not taken else f"t_{short}"
     path = Path(f"{variable}.py")
     if path.exists():
@@ -888,6 +888,24 @@ def write_table_reference(name, send):
     path.write_text(_reference_text(name, variable, columns, comments, date_lines),
                     encoding="utf-8")
     return path
+
+
+def _is_a_module(name: str) -> bool:
+    """Whether Python already has a module of this name, such as calendar, pandas or a Toolbox
+    folder, which a Table reference file named like it would be imported in place of.
+
+    A file of that name in the folder you're working in is yours, not a module, so it doesn't
+    count: write_table_reference refuses to overwrite it.
+    """
+    if name in sys.stdlib_module_names:
+        return True
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        return False
+    if spec is None:
+        return False
+    return spec.origin is None or Path(spec.origin).resolve().parent != Path.cwd().resolve()
 
 
 def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> list[str]:
@@ -1051,6 +1069,10 @@ def check_table_reference(t, send):
         return Verdict(False, [f"{t._name}: DESCRIBE failed, so nothing was compared. Check "
                                "the table's name, and that send works. It said:",
                                *_said(error)])
+    if not columns:
+        return Verdict(False, [f"{t._name}: DESCRIBE listed no columns, so nothing was "
+                               "compared. Check the table's name, and that send returns what "
+                               "DESCRIBE prints."])
     problems, notes = _column_differences(t, columns)
     date_problems, date_notes = _date_partition_problems(t, partitions, send)
     problems += date_problems
@@ -1087,7 +1109,8 @@ def _column_differences(t: Table, columns: dict) -> tuple[list[str], list[str]]:
     return problems, notes
 
 
-def _date_partition_problems(t: Table, partitions: list[str], send):
+def _date_partition_problems(t: Table, partitions: list[str],
+                             send) -> tuple[list[str], list[str]]:
     """The problems, and the notes, from checking the Date partition and its newest day."""
     if t._date_partition is None:
         return [], []
@@ -1099,14 +1122,14 @@ def _date_partition_problems(t: Table, partitions: list[str], send):
         newest = _newest_partition_value(t._name, t._date_partition, send,
                                          "check_table_reference(...)")
     except Exception as error:  # check_table_reference reports, and never raises
-        said = " ".join(line.strip() for line in _said(error))
+        said = " ".join(" ".join(_said(error)).split())
         return [f"SHOW PARTITIONS failed, so {t._date_partition}'s days weren't checked. It "
                 f"said: {said}"], []
     if newest is None:
         return [], [f"{t._date_partition} has no days yet, so its date_format can be checked "
                     "only once it has one."]
     try:
-        datetime.datetime.strptime(newest or "", t._date_format)
+        as_date(newest, t._column(t._date_partition), "check_table_reference(...)")
     except ValueError:
         pattern = _day_format_of(newest)
         if pattern == DEFAULT_DATE_FORMAT:
@@ -1116,7 +1139,7 @@ def _date_partition_problems(t: Table, partitions: list[str], send):
         else:
             fix = "change the line to date_partition=None,"
         return [f"the newest {t._date_partition}, {newest!r}, isn't written like "
-                f"{t._date_format!r}: {fix}"], []
+                f"{_date_format_text(t)}: {fix}"], []
     return [], []
 
 
