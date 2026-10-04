@@ -5,13 +5,15 @@ The beginner reader ran four calls on SQL Composer's Example database and read S
 
 1. `SELECT job_id FROM mart.jobs` blamed the column ("Column 'job_id' could not be resolved"),
    though the database is what's wrong, while DESCRIBE mart.jobs named the table.
-   **Changed:** the shared Example database checks each table a query names with its
-   database, after FROM or JOIN and in backticks too, before it runs, so both Editions refuse
-   `mart.jobs` and `ops.nope` for the table.
+   **Changed:** SQL Composer's adapter checks each table in the query sqlglot has read, and
+   refuses one outside the Example database's for the table ("it has no table mart.jobs"), as
+   Spark Composer's Spark does. (A first try matched FROM and JOIN in the shared code's text;
+   the spec review found it refused EXTRACT(year FROM r.dt), so it went.)
 2. "Or it is a part of Hive the Example database's small executor doesn't know, which your
    warehouse does." **Changed:** "Or the Hive uses a part of Hive your warehouse knows but the
    Example database's small executor doesn't."
-3. sqlglot's "Line: 1, Col: 11." broke into the sentence. **Changed:** it is left out.
+3. sqlglot's "Line: 1, Col: 11." broke into the sentence. **Changed:** it is left out,
+   in either of the two ways sqlglot writes it, and a test holds it.
 4. "It holds only three made-up tables", though it does hold a jobs. **Changed:** "It holds
    three made-up tables, all in the database ops."
 5. CHANGES' quoted "its executor has no what this needs" read like a typo in the notes.

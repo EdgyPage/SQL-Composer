@@ -49,12 +49,14 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
   one _ask for DESCRIBE and SHOW PARTITIONS; an empty Saved table matches; arguments checked;
   file names never shadow a module; describe_text and show_partitions_text off the Edition
   interface.
+- [Both Example databases refuse the same way](issues/06-both-example-databases-refuse-the-same-way.md):
+  SQL Composer's adapter refuses what sqlglot can't read or run in four parts, as Spark
+  Composer's does, and reads a query's tables from sqlglot's tree; send takes only Hive text.
 
 ## Candidates not yet ticketed
 
 In the report's order, with its strength:
 
-6. **Both Example database adapters refuse the same way** (Strong).
 7. **Join Guards read the condition tree** (Worth exploring).
 8. **Narrow the Edition seam** (Worth exploring).
 9. **A plain-code pass for the intermediate reader** (Worth exploring).
