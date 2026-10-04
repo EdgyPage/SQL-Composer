@@ -1,17 +1,17 @@
-# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# Spark Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """Guards and Load limits stop a Statement; a Warning shows at the join it's about.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
 that would read or return more than the cluster or the notebook can take. A Warning lets the
 Statement through but says why a number may come out wrong.
 
-Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a calculation with
-no name or None in a comparison, stops at that call. One that needs the whole Statement, like
-a GROUP_BY that leaves a column out or a Date partition with no bound, stops at
-statement(...). The dates cap and a write that covers more than one day stop at to_hive, the
-row limit stops at run once the rows are back, and a grouping by_day can't split stops at
-by_day. A Warning shows at your own JOIN or LEFT_JOIN line. Every opt-out is a keyword on one
-of your own calls.
+Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a
+calculation with no name or None in a comparison, stops at that call. One that needs the whole
+Statement, like a GROUP_BY that leaves a column out or a Date partition with no bound, stops
+at statement(...). The dates Load limit and a write that covers more than one day stop at
+to_hive, the row limit stops at run once the rows are back, and by_day(...) refuses any LIMIT
+and any grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every
+opt-out is a keyword on one of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
 code to paste, or none. `four_part_message` builds all of them, so they all read the same way,
@@ -23,12 +23,13 @@ from __future__ import annotations
 import os
 import sys
 import warnings
+from typing import NoReturn
 
 # The one function that builds every four-part message. It lives in __init__.py, since the
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 
 class GuardRefused(Exception):
@@ -187,17 +188,32 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     )
 
 
-def guard_missing_group_by(columns: list[str]) -> None:
-    """A selected column must be grouped when the Statement aggregates. No opt-out."""
+def guard_missing_group_by(place: str, columns: list[str], grouped: bool) -> None:
+    """A column shown, tested or sorted by must be grouped when the Statement aggregates.
+    No opt-out.
+
+    `grouped` is whether the Statement has a GROUP_BY at all.
+    """
     listed = ", ".join(columns)
+    if grouped:
+        what = f"{place} has {listed}, which GROUP_BY leaves out."
+        fix = f"Add {listed} to GROUP_BY."
+    else:
+        what = (f"{place} has {listed}, but the Statement counts or adds up rows and has "
+                "no GROUP_BY.")
+        fix = f"Add GROUP_BY({listed}), or put {listed} inside a count or a sum."
+    if place == "SELECT":
+        fix += (" To keep one whole row per group instead, such as each job's latest run, "
+                "number the rows with row_number(...) inside derived(...), then keep number 1 "
+                "with WHERE(equals(..., 1)); help(row_number) shows how.")
+    elif place == "ORDER_BY":
+        fix += ' Or sort by an output name, such as ORDER_BY(descending("runs")).'
     raise GuardRefused(
         four_part_message(
-            what=f"SELECT has {listed}, which GROUP_BY leaves out.",
+            what=what,
             why="Each output row is one group, so a column that isn't grouped has no single "
             "value to show. Hive would refuse the Statement.",
-            fix=f"Add {listed} to GROUP_BY. To keep one whole row per group instead, such as "
-            "each job's latest run, number the rows with row_number(...) inside derived(...), "
-            "then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.",
+            fix=fix,
             opt_out=None,
         )
     )
@@ -279,16 +295,32 @@ def guard_one_day_per_write(call: str, days: int) -> None:
     )
 
 
-def guard_by_day_grouping(step: str, date_partition: str) -> None:
-    """by_day can't split a Statement that groups across days. No opt-out."""
+def guard_by_day_limit(step: str, limit: int) -> None:
+    """by_day can't split a Statement whose LIMIT picks rows across days. No opt-out."""
+    raise GuardRefused(
+        four_part_message(
+            what=f"by_day can't split this Statement: {step} has LIMIT {limit}.",
+            why=f"LIMIT keeps {limit} rows of the whole Statement. Split by day, each day "
+            f"would keep {limit} rows of its own, not the {limit} you asked for.",
+            fix="Run the Statement whole with run(...). If set_load_limits(dates=...) refuses "
+            "it, read fewer days.",
+            opt_out=None,
+        )
+    )
+
+
+def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
+    """by_day can't split a Statement that groups across days. No opt-out.
+
+    `keeping` names the Date partition as the step sees it, and `add` says where it goes.
+    """
     raise GuardRefused(
         four_part_message(
             what=f"by_day can't split this Statement: {step} groups rows without keeping "
-            f"the Date partition {date_partition}.",
+            f"{keeping}.",
             why="Each day's Statement would give partial groups, and those can't always be "
             "added back up (a distinct count, for one, can't).",
-            fix=f"Add {date_partition} to that GROUP_BY or PARTITION_BY, or run the Statement "
-            "whole with run(...).",
+            fix=f"{add}, or run the Statement whole with run(...).",
             opt_out=None,
         )
     )
@@ -382,6 +414,18 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
     ))
 
 
+def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
+           call: str = "") -> NoReturn:
+    """Refuse what can't go on, such as a call given the wrong argument. It has no opt-out.
+
+    Pass the wrong argument as `given`, and the call as `call`: if the other Edition's folder
+    made it, the refusal that says so is raised instead.
+    """
+    if given is not None:
+        refuse_what_the_other_edition_made(given, call)
+    raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
+
+
 def refuse_a_spark_dataframe(result) -> None:
     """Refuse what a send gave back when it is Spark's own DataFrame, where pandas' goes."""
     # Asked of the class, since a pandas DataFrame gives any column as an attribute.
@@ -458,16 +502,26 @@ def load_limit_rows(rows: int, limit: int) -> None:
 
 
 def load_limit_dates(call: str, full_name: str, days: int, cap: int,
-                     reads_all_partitions: bool) -> None:
-    """With a dates cap set, one Statement may read at most that many days of a table."""
+                     reads_all_partitions: bool, split_by_day: bool) -> None:
+    """With set_load_limits(dates=...), one Statement may read at most that many days of a
+    table.
+
+    `split_by_day` is whether by_day splits this table's days: only the table in FROM's.
+    """
     if reads_all_partitions or days <= cap:
         return
+    if split_by_day:
+        fix = "Send one day at a time: for day in by_day(s): run(day, send=...)."
+    else:
+        fix = (f"Narrow the between(...) or last_n_days(...) on {full_name}'s Date "
+               f"partition, in WHERE or ON=, to {cap} or fewer days. by_day won't help: it "
+               "splits only the days of the table in FROM.")
     raise LoadRefused(
         four_part_message(
             what=f"{call} reads {days} days of {full_name}, more than the {cap} set by "
             "set_load_limits(dates=...).",
             why="One Statement over many days can run for a long time and stall the cluster.",
-            fix="Send one day at a time: for day in by_day(s): run(day, send=...).",
+            fix=fix,
             opt_out=f"{call[:-1]}, reads_all_partitions=True)",
         )
     )

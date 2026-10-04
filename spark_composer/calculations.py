@@ -1,4 +1,4 @@
-# Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# Spark Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own
@@ -11,9 +11,8 @@ from __future__ import annotations
 
 from .conditions import Condition
 from .refusals import (
-    four_part_message,
     guard_unsafe_regrouping,
-    refuse_what_the_other_edition_made,
+    refuse,
 )
 from .tables import (
     Column,
@@ -31,12 +30,13 @@ from .trees import (
     Node,
     arguments_text,
     has_aggregate,
+    has_window,
     number,
     string,
 )
 from .writing import check_writable_call
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 
@@ -44,14 +44,11 @@ DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 def _need_column(column, call: str) -> Column:
     if isinstance(column, Column):
         return column
-    refuse_what_the_other_edition_made(column, call)
-    raise TypeError(
-        four_part_message(
-            what=f"{call} was given {column!r} where a column goes.",
-            why="It works on a column of a table, or on a calculation made from columns.",
-            fix="Pass a column, such as job_runs.duration_mins.",
-            opt_out=None,
-        )
+    refuse(
+        what=f"{call} was given {column!r} where a column goes.",
+        why="It works on a column of a table, or on a calculation made from columns.",
+        fix="Pass a column, such as job_runs.duration_mins.",
+        given=column, call=call,
     )
 
 
@@ -60,28 +57,43 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
     if where is None:
         return tree
     if not isinstance(where, Condition):
-        refuse_what_the_other_edition_made(where, call)
-        raise TypeError(
-            four_part_message(
-                what=f"{call}: where={where!r} isn't a condition.",
-                why="where= picks the rows to count or add up.",
-                fix='Pass a condition, such as where=equals(job_runs.status, "FAILED").',
-                opt_out=None,
-            )
+        refuse(
+            what=f"{call}: where={where!r} isn't a condition.",
+            why="where= picks the rows to count or add up.",
+            fix='Pass a condition, such as where=equals(job_runs.status, "FAILED").',
+            given=where, call=call,
         )
+    _not_inside(call, where)
     return Node("Case", ifs=[Node("If", this=where._tree.copy(), true=then or tree)])
+
+
+def _not_inside(call: str, inner) -> None:
+    """Refuse a count, a sum or a row number inside a function that works over many rows."""
+    window = has_window(inner._tree)
+    if window or has_aggregate(inner._tree):
+        made = "is a row number" if window else "already works over many rows itself"
+        refuse(
+            what=f"{call} has {inner!r} inside it, which {made}.",
+            why="In one SELECT, Hive can't put a count, a sum or a row number inside a "
+            "function that works over many rows, such as a count, a sum, a max or "
+            "collect_set.",
+            fix="Work it out as a named column in a derived(...) table, then use it in the "
+            "Statement that reads that table; help(derived) shows how.",
+            error=ValueError,
+        )
 
 
 def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
                distinct=False) -> Column:
     call = f"{name}({python_text(column)})"
     column = _need_column(column, call)
+    _not_inside(call, column)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
         inner = Node("Distinct", expressions=[inner])
     tree = Node(kind, this=inner)
     made_by(tree, name, column, where=where)
-    return Column(tree, adds_up=adds_up, not_adding_up_because=because, aggregate=True)
+    return Column(tree, adds_up=adds_up, not_adding_up_because=because)
 
 
 def count_rows(where=None):
@@ -94,8 +106,7 @@ def count_rows(where=None):
     """
     tree = _only_where(Node("Star"), where, "count_rows(...)",
                        then=number("1"))
-    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint",
-                  aggregate=True)
+    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint")
 
 
 def count_distinct(column, where=None):
@@ -179,15 +190,12 @@ def if_else(condition, then, otherwise):
     """
     call = "if_else(...)"
     if not isinstance(condition, Condition):
-        refuse_what_the_other_edition_made(condition, call)
-        raise TypeError(
-            four_part_message(
-                what=f"if_else was given {condition!r} where a condition goes.",
-                why="if_else picks `then` for rows where the condition holds.",
-                fix='Pass a condition first, such as if_else(equals(job_runs.status, "FAILED"), '
-                "1, 0).",
-                opt_out=None,
-            )
+        refuse(
+            what=f"if_else was given {condition!r} where a condition goes.",
+            why="if_else picks `then` for rows where the condition holds.",
+            fix='Pass a condition first, such as if_else(equals(job_runs.status, "FAILED"), '
+            "1, 0).",
+            given=condition, call=call,
         )
     first, second = _as_column(then, call), _as_column(otherwise, call)
     tree = Node(
@@ -198,8 +206,7 @@ def if_else(condition, then, otherwise):
     made_by(tree, "if_else", condition, then, otherwise)
     adds_up = first._adds_up and second._adds_up
     because = first._not_adding_up_because or second._not_adding_up_because
-    return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because,
-                  aggregate=has_aggregate(tree))
+    return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because)
 
 
 def fill_null(column, value):
@@ -217,7 +224,6 @@ def fill_null(column, value):
         type=column._type,
         adds_up=column._adds_up,
         not_adding_up_because=column._not_adding_up_because,
-        aggregate=column._aggregate,
     )
 
 
@@ -284,7 +290,7 @@ class Ordering:
 def descending(column):
     """Sort by a column from largest to smallest, in ORDER_BY or row_number.
 
-    Pass a column, or the name of an output column as a string.
+    Pass a column; in ORDER_BY(...), the name of an output column as a string works too.
 
     >>> row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
     ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
@@ -302,9 +308,7 @@ def ordered(item, call: str) -> Node:
         tree = Node("Column", name=target)
     else:
         tree = _need_column(target, call)._tree.copy()
-    # Hive and Spark put NULL first when sorting up and last when sorting down; saying so
-    # keeps NULLS LAST and NULLS FIRST out of the Hive.
-    return Node("Ordered", this=tree, desc=descending_order, nulls_first=not descending_order)
+    return Node("Ordered", this=tree, desc=descending_order)
 
 
 def _listed(items) -> list:
@@ -351,10 +355,24 @@ def row_number(*, PARTITION_BY, ORDER_BY):
     """
     call = "row_number(...)"
     groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
-    order = Node("Order", expressions=[ordered(item, call) for item in _listed(ORDER_BY)])
+    sorts = _listed(ORDER_BY)
+    by_name = [s for s in sorts
+               if isinstance(s, str) or (isinstance(s, Ordering) and isinstance(s._target, str))]
+    if not sorts or by_name:
+        why = "It numbers each group's rows in the order of one or more columns."
+        if by_name:
+            why = "Inside row_number, Hive can't see the names given in SELECT."
+        refuse(
+            what=f"row_number(...) was given ORDER_BY={ORDER_BY!r}.",
+            why=why,
+            fix="Pass the columns themselves, such as "
+            "ORDER_BY=descending(job_runs.run_id).",
+            error=ValueError,
+        )
+    order = Node("Order", expressions=[ordered(item, call) for item in sorts])
     tree = Node("Window", this=Node("RowNumber"), partition_by=groups, order=order)
     made_by(tree, "row_number", PARTITION_BY=PARTITION_BY, ORDER_BY=ORDER_BY)
-    return Column(tree, type="int", window=True)
+    return Column(tree, type="int")
 
 
 def hive_function(name, *args):
@@ -380,14 +398,12 @@ def hive_function(name, *args):
     REGEXP_REPLACE(jobs.job_name, '_', ' ')
     """
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
-        raise ValueError(
-            four_part_message(
-                what=f"hive_function({name!r}, ...) isn't a function name.",
-                why="Only the function's name is written as it is, so it must be a plain "
-                "name: letters, digits and _.",
-                fix='Use the Hive function\'s name, such as hive_function("upper", jobs.team).',
-                opt_out=None,
-            )
+        refuse(
+            what=f"hive_function({name!r}, ...) isn't a function name.",
+            why="Only the function's name is written as it is, so it must be a plain "
+            "name: letters, digits and _.",
+            fix='Use the Hive function\'s name, such as hive_function("upper", jobs.team).',
+            error=ValueError,
         )
     call = f"hive_function({name!r}, ...)"
     trees = [
@@ -401,34 +417,35 @@ def hive_function(name, *args):
                 aggregate=name.lower() in HIVE_AGGREGATES)
     made_by(tree, "hive_function", name, *args)
     parts = [arg for arg in args if isinstance(arg, Column)]
+    if tree.parts["aggregate"]:
+        for part in parts:
+            _not_inside(call, part)
     because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)
-    return Column(tree, aggregate=has_aggregate(tree), window=any(p._window for p in parts),
-                  adds_up=because is None, not_adding_up_because=because)
+    return Column(tree, adds_up=because is None, not_adding_up_because=because)
 
 
 def _check_function(name: str, count: int, call: str) -> None:
     """Refuse a call Hive and Spark would stop on: a window function, or a count of arguments
     HIVE_FUNCTION_ARGUMENTS in trees.py says the function doesn't take."""
     if name.lower() in WINDOW_FUNCTIONS:
-        raise ValueError(four_part_message(
+        refuse(
             what=f"{call} calls {name}, which works only over a window of rows, written "
             f"{name.upper()}(...) OVER (...).",
             why="hive_function can't write OVER, and without it Hive and Spark stop the whole "
             "Statement with an error.",
             fix=_WINDOW_FIXES.get(name.lower(), "SELECT the columns it needs, and work it out "
                                   "in pandas on the DataFrame run(...) gives back."),
-            opt_out=None,
-        ))
+            error=ValueError,
+        )
     fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))
     if count < fewest or (most is not None and count > most):
         takes = arguments_text(fewest, most)
-        raise TypeError(four_part_message(
+        refuse(
             what=f"{call} gives {name} {arguments_text(count, count)}, and {name} takes "
             f"{takes}.",
             why="The warehouse would stop the whole Statement with an error when it runs.",
             fix=f'Give hive_function {takes} after "{name}".',
-            opt_out=None,
-        ))
+        )
 
 
 # What to do instead of a window function, where pandas has a plain way.

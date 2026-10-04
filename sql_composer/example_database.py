@@ -1,4 +1,4 @@
-# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """The Example database: three made-up tables, and a send to run Statements on.
 
 It holds the Table references `jobs`, `job_runs` and `run_alerts`, their rows (two days,
@@ -31,10 +31,10 @@ import re
 import pandas as pd
 
 from . import engine
-from .refusals import four_part_message
+from .refusals import refuse
 from .tables import Table
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 # --- The Table references -----------------------------------------------------------------
 
@@ -118,14 +118,15 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "run_alerts": (run_alerts, _RUN_ALERTS)}
 
 def _table(name: str) -> tuple[Table, list]:
-    short = name.strip().strip("`").split(".")[-1].strip("`")
-    if short not in _TABLES:
-        raise ValueError(four_part_message(
+    # Hive and Spark read a table's name whatever its case.
+    *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
+    if short not in _TABLES or database not in ([], ["ops"]):
+        refuse(
             what=f"The Example database has no table {name!r}.",
-            why="It holds only three made-up tables.",
+            why="It holds three made-up tables, all in the database ops.",
             fix="Use ops.jobs, ops.job_runs or ops.run_alerts.",
-            opt_out=None,
-        ))
+            error=ValueError,
+        )
     return _TABLES[short]
 
 
@@ -223,6 +224,14 @@ def send(hive):
     2      team    string
     3    region    string
     """
+    if not isinstance(hive, str):
+        refuse(
+            what=f"example_database.send was given {hive!r}, which isn't Hive text.",
+            why="Like your send at work, it takes Hive text to run.",
+            fix="To run a Statement, pass it to run(s, send=example_database.send), which "
+            "turns it into Hive; to_hive(s) shows that Hive.",
+            given=hive, call="example_database.send",
+        )
     text = hive.strip()
     words = text.split()
     if words[:1] and words[0].upper() == "DESCRIBE":
@@ -230,7 +239,7 @@ def send(hive):
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
         return _show_partitions(words[-1])
     if not _is_query(text):
-        raise ValueError(four_part_message(
+        refuse(
             what="The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it "
             "can't be written to.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
@@ -238,8 +247,8 @@ def send(hive):
             fix="to_hive(...) shows a write's Hive without sending it, as in "
             "to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) "
             "builds, not text.",
-            opt_out=None,
-        ))
+            error=ValueError,
+        )
     columns, rows = engine.run_query(text, _TABLES)
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)

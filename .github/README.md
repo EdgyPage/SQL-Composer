@@ -1,7 +1,7 @@
-<!-- SQL Composer and Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit -->
+<!-- SQL Composer and Spark Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit -->
 # SQL Composer and Spark Composer
 
-This is version 3.1, exported 2026-09-30 20:19.
+This is version 3.2, exported 2026-10-04 00:28.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -179,8 +179,8 @@ Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'3.1'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'SQL Composer 3.1, exported 2026-09-30 20:19'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'3.2'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'SQL Composer 3.2, exported 2026-10-04 00:28'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 

@@ -1,4 +1,4 @@
-# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """How SQL Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
@@ -18,7 +18,7 @@ from .engine import _INSTALL_NEWER
 from .refusals import four_part_message
 from .trees import Node, arguments_text, plain_name
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 _DIALECT = "hive"
 
@@ -102,6 +102,19 @@ def _writes_struct_colons() -> bool:
     return sql_text(built) == "STRUCT<a: INT>"
 
 
+def _hive_call(name: str, arguments: list) -> exp.Expression:
+    """A call to a Hive function, as sqlglot builds it.
+
+    sqlglot writes DATE_SUB(day, n) as DATE_ADD(day, n * -1), and before version 30 it left a
+    sum unbracketed: DATE_ADD(day, n + 1 * -1) moves the day by n - 1. Bracketing the count as
+    version 30 does writes the same on every sqlglot.
+    """
+    if name.lower() == "date_sub" and len(arguments) == 2 and isinstance(
+            arguments[1], (exp.Add, exp.Sub, exp.Div)):
+        arguments = [arguments[0], exp.Paren(this=arguments[1])]
+    return exp.func(name, *arguments, dialect=_DIALECT)
+
+
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
 _READ_BACK = {}
 
@@ -112,7 +125,7 @@ def _read_back_call(name: str, arguments: list) -> exp.Expression:
     A few functions come back in sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot),
     which is then stable.
     """
-    text = sql_text(exp.func(name, *arguments, dialect=_DIALECT))
+    text = sql_text(_hive_call(name, arguments))
     if text not in _READ_BACK:
         _READ_BACK[text] = sqlglot.parse_one(text, read=_DIALECT)
     return _READ_BACK[text].copy()
@@ -122,17 +135,6 @@ def _hive_type(text: str) -> exp.DataType:
     """A column's type for CREATE TABLE, as sqlglot reads it. create_table has checked it
     against HIVE_TYPES in trees.py already."""
     return exp.DataType.build(text, dialect=_DIALECT)
-
-
-def describe_text(name: str) -> str:
-    """The DESCRIBE command for one table."""
-    return sql_text(exp.Describe(this=_named_table(name)))
-
-
-def show_partitions_text(name: str) -> str:
-    """The SHOW PARTITIONS command for one table."""
-    return sql_text(exp.Command(this="SHOW", expression=exp.Literal.string(
-        "PARTITIONS " + sql_text(_named_table(name)))))
 
 
 def _set_part(tree: exp.Expression, part: str, value) -> None:
@@ -162,12 +164,6 @@ def _hive_table(name: str, database: str | None = None, partition=None) -> exp.T
     """
     return exp.Table(this=_identifier(name), db=_identifier(database) if database else None,
                      partition=partition)
-
-
-def _named_table(name: str) -> exp.Table:
-    """A table by its full name, "ops.job_runs", for DESCRIBE and SHOW PARTITIONS."""
-    database, _, table = name.rpartition(".")
-    return _hive_table(table, database or None)
 
 
 # --- The Toolbox's own tree, as a sqlglot tree ---------------------------------------------
@@ -332,13 +328,14 @@ _REPLAY = {
     "Distinct": lambda node: exp.Distinct(expressions=_all_built(node, "expressions")),
     "Window": _window,
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
+    # Hive and Spark put NULL first when sorting up and last when sorting down; telling
+    # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
     "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
-                                        nulls_first=node.parts["nulls_first"]),
+                                        nulls_first=not node.parts["desc"]),
     "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
     "Cast": lambda node: exp.Cast(this=_built(node, "this"),
                                   to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
-    "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
-                                  dialect=_DIALECT),
+    "Call": lambda node: _hive_call(node.parts["name"], _all_built(node, "args")),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
     "Select": _select,
     "Table": _table,

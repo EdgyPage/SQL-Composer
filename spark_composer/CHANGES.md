@@ -1,7 +1,102 @@
-<!-- Spark Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit -->
+<!-- Spark Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit -->
 # Changes
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
+
+## 3.2
+
+- **hive_function("date_sub", ...) goes back by the whole day count.** With sqlglot older than
+  version 30, hive_function("date_sub", job_runs.dt, job_runs.duration_mins + 1) moved the day
+  forward by duration_mins - 1, not back by duration_mins + 1: the Hive left the count
+  unbracketed. The Edition that prints its own Hive always wrote it right.
+- **The Example database reads a table's name whatever its case**, as Hive and Spark do:
+  OPS.jobs is ops.jobs.
+- **write_table_reference points to the other partition columns** when the first holds no day
+  it can bound, as for a table partitioned by region, then dt.
+- **LEFT_JOIN lets through a WHERE that keeps the rows with no match**, such as
+  any_of(is_null(job_runs.run_id), equals(job_runs.status, "FAILED")): jobs that never ran, or
+  whose run failed. Before, only a bare is_null was let through, and the fix offered, moving
+  the condition into ON=, changed the answer.
+- **A join still sees its key when ON= puts it inside a saved condition**: if ON=all_of(...)
+  holds a Building block that has the equals(...) on the key, the join no longer warns with a
+  RepeatedRowsWarning.
+- **The Example database refuses a query it can't run the same way in both Editions**,
+  saying what went wrong and the tables to choose from. In the Edition that writes its Hive
+  with sqlglot, a column or table name spelt wrong gave sqlglot's own error, and some queries
+  it couldn't run gave a garbled message ("... has no what this needs").
+- **The Example database has tables only in ops**: DESCRIBE mart.jobs and SELECT ... FROM
+  mart.jobs are refused for the table. Before, DESCRIBE described ops.jobs, and in the Edition
+  that writes its Hive with sqlglot the SELECT blamed a column.
+- **example_database.send takes only Hive text**: given a Statement, it says to use run(...)
+  or to_hive(...), where it gave a raw Python error.
+- **With too old a sqlglot, the Example database's refusal says which version to install.**
+- **A Saved table with no days yet matches its Table reference.** check_table_reference
+  reported a Problem, "the newest dt, None, isn't written like ...", and said to set
+  date_partition=None, which would stop every Statement's days being checked; now it notes
+  that the date_format can be checked once the table has a day. write_table_reference names
+  its Date partition, with a TODO to run check_table_reference once it has a day.
+- **check_table_reference says a table matches when it finds only notes**, not problems.
+- **A send that gives back nothing usable is refused**, saying what happened, why it
+  matters and the usual fix, and a DESCRIBE that lists no columns is reported:
+  write_table_reference, check_key and check_table_reference raised a raw Python error for an
+  answer of None or an empty table, and check_table_reference said to delete every line.
+- **check_table_reference reports a newest day written another way** than the date_format
+  writes it, such as 2026-9-24, which Hive wouldn't match. It said the table matched, and
+  write_table_reference named it the Date partition; now it writes date_partition=None, with
+  a TODO saying why.
+- **check_key on a day written another way** says so, and to run check_table_reference,
+  where it used to stop with an error about a call inside the Toolbox.
+- **first_look and all_columns refuse a table's name as text**, and Table refuses a Python
+  type, such as int, as a column's type, saying what to write. Each raised a raw Python
+  error.
+- **write_table_reference never names a file like a module**: a table called calendar or
+  pandas, or anything else Python can import, gets t_calendar.py, so Python's own calendar
+  module isn't replaced by your file on the next import.
+- **check_table_reference's report when SHOW PARTITIONS fails** is one readable line.
+- **The GROUP BY Guard checks every column a grouped Statement shows, tests or sorts by.** It
+  missed a column inside a grouped calculation, a column beside a count or a sum in one
+  output, and the columns in HAVING and ORDER_BY, which Hive then refused.
+- **A count or a sum is refused in ON= and GROUP_BY, and a row number in WHERE, HAVING, ON=
+  and GROUP_BY**, as a count already was in WHERE. Each fix says where it goes instead. A
+  count, a sum or a row number inside a count, a sum or a function such as collect_set is
+  refused when it is made.
+- **ORDER_BY's names are checked**, as GROUP_BY's are: a name SELECT doesn't have is refused.
+- **row_number sorts by columns only.** Its ORDER_BY= refuses an empty list, and a name,
+  which Hive can't see inside row_number. Before, the empty list gave a raw error.
+- **GROUP_BY() with nothing to group by is refused**, as ORDER_BY() is. It was dropped.
+- **fill_null with a count or a sum in it is checked by the GROUP BY Guard.**
+- **When a Derived table deeper down drops the Date partition**, by_day names it, and says to
+  keep the Date partition in every Derived table that reads from it.
+- **by_day refuses a LIMIT**, in your Statement or in a Derived table it reads through FROM.
+  LIMIT keeps rows of the whole Statement: split by day, a top 10 over a week became the top
+  10 of each day, 70 rows.
+- **by_day follows the Date partition itself, not its name.** It checked only the name dt, so
+  grouping by any column called dt passed, and each day got part of a total; a dt renamed
+  with AS in a Derived table was refused. Now it follows job_runs.dt itself, whatever it's
+  called.
+- **A FROM table with no Date partition is named plainly** when by_day or a write needs its
+  days. by_day's fix named a column the table doesn't have.
+- **export_lineage shows a write over several days even with set_load_limits(dates=...)**,
+  using the first day's Hive, as it does without it. Before, set_load_limits(dates=...)
+  refused it.
+- **set_load_limits(dates=...)'s fix for a joined table** says to narrow that table's own
+  days. It said to use by_day, which splits only the table in FROM.
+- **A Date partition's day must be written exactly as its date_format writes it.** Before,
+  `equals(job_runs.dt, "2026-9-24")` was taken as 2026-09-24, but Hive compared the text
+  '2026-9-24', which matches no day, so the answer was empty. Now it is refused.
+- **date_format must put the year first, then the month, then the day**, and hold no other
+  letter. Hive compares a Date partition's days as text, so with the day first, BETWEEN,
+  last_n_days and check_key's newest day read the wrong days. A table whose days are
+  written another way can still be read with date_partition=None.
+- **by_day skips a day not_equals or is_not_in leaves out.** Before, it dropped the condition
+  and read or wrote that day anyway. set_load_limits(dates=...) doesn't count that day
+  either. by_day now refuses a WHERE that leaves no day to read, where it gave back an empty
+  list.
+- **by_day reads only the days an any_of lets through.** Before,
+  `any_of(equals(job_runs.dt, "2026-09-01"), between(job_runs.dt, "2026-09-23", "2026-09-24"))`
+  counted every day from the first to the last: by_day gave 24 Statements, most reading no
+  rows, and set_load_limits(dates=...) counted 24 days. Now both count 3. Split by day, an
+  INSERT_OVERWRITE wrote each day between with no rows, which replaced what it held.
 
 ## 3.1
 
