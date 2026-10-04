@@ -117,7 +117,8 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "run_alerts": (run_alerts, _RUN_ALERTS)}
 
 def _table(name: str) -> tuple[Table, list]:
-    *database, short = [part.strip("`") for part in name.strip().split(".")]
+    # Hive and Spark read a table's name whatever its case.
+    *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
     if short not in _TABLES or database not in ([], ["ops"]):
         refuse(
             what=f"The Example database has no table {name!r}.",

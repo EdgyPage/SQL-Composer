@@ -205,3 +205,15 @@ def test_write_table_reference_leaves_out_days_it_cant_bound(tmp_path, monkeypat
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
     assert ("date_partition=None,  # TODO: partitioned by dt; its newest dt, '2026-9-24', "
             "isn't a day the Toolbox can bound") in text
+
+
+def test_a_first_partition_that_holds_no_days_points_to_the_others(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    describe = [
+        ("run_id", "bigint", ""), ("region", "string", ""), ("dt", "string", ""),
+        ("", None, None), ("# Partition Information", None, None),
+        ("# col_name", "data_type", "comment"), ("region", "string", ""), ("dt", "string", ""),
+    ]
+    send = answering(describe=describe, days=("region=eu/dt=2026-09-24",))
+    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    assert "isn't a day the Toolbox can bound; if dt holds the days, name it" in text

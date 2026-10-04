@@ -4,6 +4,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 3.2
 
+- **The Example database reads a table's name whatever its case**, as Hive and Spark do:
+  OPS.jobs is ops.jobs.
+- **write_table_reference points to the other partition columns** when the first holds no day
+  it can bound, as for a table partitioned by region, then dt.
 - **LEFT_JOIN lets through a WHERE that keeps the rows with no match**, such as
   any_of(is_null(job_runs.run_id), equals(job_runs.status, "FAILED")): jobs that never ran, or
   whose run failed. Before, only a bare is_null was let through, and the fix offered, moving
