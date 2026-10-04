@@ -248,7 +248,7 @@ KINDS = {
     "Max": ("this",),
     "Window": ("this", "partition_by", "order"),
     "Order": ("expressions",),
-    "Ordered": ("this", "desc", "nulls_first"),
+    "Ordered": ("this", "desc"),
     "Alias": ("this", "alias"),
     # A value made another type, as in CAST(... AS STRING): `to` is the type as Hive writes it.
     "Cast": ("this", "to"),

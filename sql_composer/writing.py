@@ -314,8 +314,10 @@ _REPLAY = {
     "Distinct": lambda node: exp.Distinct(expressions=_all_built(node, "expressions")),
     "Window": _window,
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
+    # Hive and Spark put NULL first when sorting up and last when sorting down; telling
+    # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
     "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
-                                        nulls_first=node.parts["nulls_first"]),
+                                        nulls_first=not node.parts["desc"]),
     "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
     "Cast": lambda node: exp.Cast(this=_built(node, "this"),
                                   to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
