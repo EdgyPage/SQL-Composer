@@ -17,6 +17,7 @@ import difflib
 import json
 import keyword
 import re
+import sys
 import urllib.parse
 from pathlib import Path
 
@@ -31,7 +32,6 @@ from .refusals import (
     guard_time_of_day,
     refuse,
     refuse_a_spark_dataframe,
-    refuse_what_the_other_edition_made,
 )
 from .trees import (
     ARITHMETIC,
@@ -42,13 +42,7 @@ from .trees import (
     number,
     string,
 )
-from .writing import (
-    check_writable_type,
-    describe_text,
-    hive_text,
-    readable_text,
-    show_partitions_text,
-)
+from .writing import check_writable_type, hive_text, readable_text
 
 TOOLBOX_VERSION = "3.2"
 
@@ -561,6 +555,24 @@ class Table:
                 fix='Write columns={"run_id": "bigint", "status": "string", ...}.',
                 error=ValueError,
             )
+        for column, kind in columns.items():
+            if kind is not None and not isinstance(kind, str):
+                refuse(
+                    what=f"Table({name!r}): {column}'s type is {kind!r}, not text.",
+                    why="A column's type is written as DESCRIBE prints it, so the Toolbox "
+                    "can check that the values you compare with it fit the type.",
+                    fix='Write it as text, such as "bigint" for whole numbers or "string" for '
+                    "text, or None if you don't know it.",
+                )
+        for argument, value in (("date_partition", date_partition),
+                                ("date_format", date_format)):
+            if value is not None and not isinstance(value, str):
+                refuse(
+                    what=f"Table({name!r}): {argument}={value!r} isn't text.",
+                    why="date_partition names the one date column the table is partitioned "
+                    "by, and date_format says how its days are written.",
+                    fix='Write it as text, such as date_partition="dt", or None.',
+                )
         self._name = name
         self._alias = name.split(".")[-1]
         self._columns = {str(column): kind for column, kind in columns.items()}
@@ -673,8 +685,19 @@ def all_columns(t):
     FROM ops.jobs AS jobs
     LIMIT 20
     """
-    refuse_what_the_other_edition_made(t, "all_columns(...)")
-    return [getattr(t, column) for column in t._columns]
+    return _columns_of(t, "all_columns(...)")
+
+
+def _columns_of(t, call: str) -> list[Column]:
+    """Every column of a Table reference, refusing what isn't one."""
+    if not isinstance(t, Table):
+        refuse(
+            what=f"{call} was given {t!r}.",
+            why="It reads the columns of a Table reference.",
+            fix="Pass the Table reference itself, such as job_runs, not its name as text.",
+            given=t, call=call,
+        )
+    return [t._column(column) for column in t._columns]
 
 
 def first_look(t):
@@ -699,9 +722,9 @@ def first_look(t):
     from .clauses import FROM, LIMIT, SELECT, WHERE, statement
     from .conditions import last_n_days
 
-    clauses = [SELECT(all_columns(t)), FROM(t)]
+    clauses = [SELECT(_columns_of(t, "first_look(...)")), FROM(t)]
     if t._date_partition is not None:
-        clauses.append(WHERE(last_n_days(getattr(t, t._date_partition), 1)))
+        clauses.append(WHERE(last_n_days(t._column(t._date_partition), 1)))
     return statement(*clauses, LIMIT(20))
 
 
@@ -721,10 +744,38 @@ class Verdict:
     __str__ = __repr__
 
 
-def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
-    """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
-    frame = send(describe_text(name))
+def _ask(send, hive: str, call: str) -> pd.DataFrame:
+    """Send DESCRIBE or SHOW PARTITIONS, and refuse an answer that can't be read."""
+    if not callable(send):
+        refuse(
+            what=f"{call}: send={send!r} isn't a function.",
+            why="It sends DESCRIBE and SHOW PARTITIONS to the warehouse, and reads what the "
+            "warehouse prints back.",
+            fix="Pass your own function, which takes a Hive string and returns a DataFrame, "
+            "such as send=example_database.send.",
+        )
+    frame = send(hive)
     refuse_a_spark_dataframe(frame)
+    if not isinstance(frame, pd.DataFrame):
+        refuse(
+            what=f"{call}: send gave back "
+            f"{'None' if frame is None else type(frame).__name__} for {hive}.",
+            why="It reads what the warehouse prints, as a pandas DataFrame.",
+            fix="Make send return the warehouse's answer as a DataFrame, as run(...) needs too.",
+        )
+    if len(frame.columns) == 0:
+        refuse(
+            what=f"{call}: send gave back a DataFrame with no columns for {hive}.",
+            why="It reads what the warehouse prints, and there is nothing in it to read.",
+            fix="Make send return the warehouse's answer as it prints it.",
+            error=ValueError,
+        )
+    return frame
+
+
+def _describe(name: str, send, call: str) -> tuple[dict, list[str], list[str]]:
+    """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
+    frame = _ask(send, f"DESCRIBE {hive_text(table_node(name))}", call)
     columns, comments, partitions = {}, {}, []
     # The columns come first; each header after them, bar the partition list's own column
     # header, starts a section, and only the partition sections name partition columns.
@@ -749,10 +800,9 @@ def _describe(name: str, send) -> tuple[dict, list[str], list[str]]:
     return columns, comments, partitions
 
 
-def _newest_partition_value(name: str, column: str, send) -> str | None:
+def _newest_partition_value(name: str, column: str, send, call: str) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
-    frame = send(show_partitions_text(name))
-    refuse_a_spark_dataframe(frame)
+    frame = _ask(send, f"SHOW PARTITIONS {hive_text(table_node(name))}", call)
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
@@ -810,7 +860,11 @@ def write_table_reference(name, send):
             error=ValueError,
         )
     short = name.split(".")[-1]
-    variable = short if short.isidentifier() and not keyword.iskeyword(short) else f"t_{short}"
+    # A file named like a module Python or the Toolbox imports, such as calendar or pandas,
+    # would be imported in that module's place.
+    taken = (keyword.iskeyword(short) or short in sys.stdlib_module_names
+             or short in sys.modules or short.endswith("_composer"))
+    variable = short if short.isidentifier() and not taken else f"t_{short}"
     path = Path(f"{variable}.py")
     if path.exists():
         refuse(
@@ -821,20 +875,32 @@ def write_table_reference(name, send):
             "check_table_reference(t, send=...).",
             error=FileExistsError,
         )
-    columns, comments, partitions = _describe(name, send)
-    date_lines = _date_partition_lines(name, partitions, send)
+    call = f"write_table_reference({name!r}, ...)"
+    columns, comments, partitions = _describe(name, send, call)
+    if not columns:
+        refuse(
+            what=f"{call}: DESCRIBE {name} listed no columns.",
+            why="A Table reference is written from the table's columns.",
+            fix="Check the table's name, and that send returns what DESCRIBE prints.",
+            error=ValueError,
+        )
+    date_lines = _date_partition_lines(name, partitions, send, call)
     path.write_text(_reference_text(name, variable, columns, comments, date_lines),
                     encoding="utf-8")
     return path
 
 
-def _date_partition_lines(name: str, partitions: list[str], send) -> list[str]:
+def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> list[str]:
     if not partitions:
         return ["    date_partition=None,"]
     first = partitions[0]
     also = f"  # TODO check: also partitioned by {', '.join(partitions[1:])}" if len(
         partitions) > 1 else ""
-    pattern = _day_format_of(_newest_partition_value(name, first, send))
+    newest = _newest_partition_value(name, first, send, call)
+    if newest is None:
+        return [f'    date_partition="{first}",  # TODO check: no days yet; once it has one, '
+                "run check_table_reference"]
+    pattern = _day_format_of(newest)
     if pattern is None:
         return [f"    date_partition=None,  # TODO: partitioned by {', '.join(partitions)}; "
                 "name the date one if there is one"]
@@ -870,6 +936,12 @@ def _reference_text(name, variable, columns, comments, date_lines) -> str:
 
 
 # --- Checking a Table reference against the warehouse ----------------------------------------
+
+
+def _date_format_text(t: Table) -> str:
+    """How a Table reference's date_format is named in a report."""
+    usual = ", the usual one" if t._date_format == DEFAULT_DATE_FORMAT else ""
+    return f"date_format={t._date_format!r}{usual}"
 
 
 def _real_table(t, call: str) -> Table:
@@ -918,14 +990,22 @@ def check_key(t, send):
             fix='Add key=[...] to its Table(...) call, such as key=["run_id"].',
             error=ValueError,
         )
-    key = [getattr(t, column) for column in t._key]
+    key = [t._column(column) for column in t._key]
     clauses = [SELECT(key, AS(count_rows(), "copies")), FROM(t)]
     when = ""
     if t._date_partition is not None:
-        newest = _newest_partition_value(t._name, t._date_partition, send)
+        newest = _newest_partition_value(t._name, t._date_partition, send, "check_key(...)")
         if newest is None:
             return Verdict(False, [f"{t._name}: SHOW PARTITIONS found no days to check."])
-        clauses.append(WHERE(equals(getattr(t, t._date_partition), newest)))
+        day = t._column(t._date_partition)
+        try:
+            as_date(newest, day, "check_key(...)")
+        except ValueError:
+            return Verdict(False, [
+                f"{t._name}: the newest {t._date_partition}, {newest!r}, isn't written like "
+                f"{_date_format_text(t)}, so the key wasn't checked. "
+                "check_table_reference(t, send=...) gives the line to change."])
+        clauses.append(WHERE(equals(day, newest)))
         when = f" on {newest}"
     clauses += [GROUP_BY(key), HAVING(more_than(count_rows(), 1)), LIMIT(20)]
     repeats = run(statement(*clauses), send=send)
@@ -966,13 +1046,15 @@ def check_table_reference(t, send):
     """
     t = _real_table(t, "check_table_reference(...)")
     try:
-        columns, _, partitions = _describe(t._name, send)
+        columns, _, partitions = _describe(t._name, send, "check_table_reference(...)")
     except Exception as error:  # it reports, and never raises: see the docstring
         return Verdict(False, [f"{t._name}: DESCRIBE failed, so nothing was compared. Check "
                                "the table's name, and that send works. It said:",
                                *_said(error)])
     problems, notes = _column_differences(t, columns)
-    problems += _date_partition_problems(t, partitions, send)
+    date_problems, date_notes = _date_partition_problems(t, partitions, send)
+    problems += date_problems
+    notes += date_notes
     notes += _partition_notes(t, partitions)
     shared = [column for column in columns if column in t._columns]
     if shared != [column for column in t._columns if column in columns]:
@@ -981,7 +1063,8 @@ def check_table_reference(t, send):
                      + ", ".join(shared) + ".")
     if not problems and not notes:
         return Verdict(True, [f"{t._name} matches its Table reference."])
-    lines = [f"{t._name} differs from its Table reference."]
+    verdict = "differs from" if problems else "matches"
+    lines = [f"{t._name} {verdict} its Table reference."]
     for title, found in (("Problems:", problems), ("Notes:", notes)):
         if found:
             lines += [title] + [f"  - {line}" for line in found]
@@ -1004,18 +1087,24 @@ def _column_differences(t: Table, columns: dict) -> tuple[list[str], list[str]]:
     return problems, notes
 
 
-def _date_partition_problems(t: Table, partitions: list[str], send) -> list[str]:
+def _date_partition_problems(t: Table, partitions: list[str], send):
+    """The problems, and the notes, from checking the Date partition and its newest day."""
     if t._date_partition is None:
-        return []
+        return [], []
     if t._date_partition not in partitions:
         now = f'"{partitions[0]}"' if partitions else "None"
         return [f"{t._date_partition} is no longer a partition column: change the line to "
-                f"date_partition={now},"]
+                f"date_partition={now},"], []
     try:
-        newest = _newest_partition_value(t._name, t._date_partition, send)
+        newest = _newest_partition_value(t._name, t._date_partition, send,
+                                         "check_table_reference(...)")
     except Exception as error:  # check_table_reference reports, and never raises
+        said = " ".join(line.strip() for line in _said(error))
         return [f"SHOW PARTITIONS failed, so {t._date_partition}'s days weren't checked. It "
-                "said: " + " ".join(_said(error)).strip()]
+                f"said: {said}"], []
+    if newest is None:
+        return [], [f"{t._date_partition} has no days yet, so its date_format can be checked "
+                    "only once it has one."]
     try:
         datetime.datetime.strptime(newest or "", t._date_format)
     except ValueError:
@@ -1027,8 +1116,8 @@ def _date_partition_problems(t: Table, partitions: list[str], send) -> list[str]
         else:
             fix = "change the line to date_partition=None,"
         return [f"the newest {t._date_partition}, {newest!r}, isn't written like "
-                f"{t._date_format!r}: {fix}"]
-    return []
+                f"{t._date_format!r}: {fix}"], []
+    return [], []
 
 
 def _said(error: Exception) -> list[str]:

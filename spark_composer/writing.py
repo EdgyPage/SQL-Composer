@@ -632,15 +632,3 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
 def check_writable_type(text: str, subject: str) -> None:
     """Refuse nothing more: this file writes every type on HIVE_TYPES in trees.py, a struct's
     colons included, so create_table's own check is all it needs."""
-
-
-# After sqlglot's Generator.describe_sql.
-def describe_text(name: str) -> str:
-    """The DESCRIBE command for one table."""
-    return f"DESCRIBE {_table_name(name)}"
-
-
-# sqlglot keeps SHOW PARTITIONS as a Command, written as it is given.
-def show_partitions_text(name: str) -> str:
-    """The SHOW PARTITIONS command for one table."""
-    return f"SHOW PARTITIONS {_table_name(name)}"

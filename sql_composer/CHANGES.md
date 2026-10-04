@@ -4,6 +4,25 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 3.2
 
+- **A Saved table with no days yet matches its Table reference.** check_table_reference
+  reported a Problem, "the newest dt, None, isn't written like ...", and said to set
+  date_partition=None, which would stop every Statement's days being checked; now it notes
+  that the date_format can be checked once the table has a day. write_table_reference names
+  its Date partition, with a TODO to run check_table_reference once it has a day.
+- **check_table_reference says a table matches when it finds only notes**, not problems.
+- **A send that gives back nothing usable is refused**, saying what happened, why it
+  matters and the usual fix:
+  write_table_reference, check_key and check_table_reference raised a raw Python error for an
+  answer of None or an empty table, and check_table_reference said to delete every line.
+- **check_key on a day written another way** says so, and to run check_table_reference,
+  where it used to stop with an error about a call inside the Toolbox.
+- **first_look and all_columns refuse a table's name as text**, and Table refuses a Python
+  type, such as int, as a column's type, saying what to write. Each raised a raw Python
+  error.
+- **write_table_reference never names a file like a module**: a table called calendar or
+  pandas gets t_calendar.py, so Python's own calendar module isn't replaced by your file on
+  the next import.
+- **check_table_reference's report when SHOW PARTITIONS fails** is one readable line.
 - **The GROUP BY Guard checks every column a grouped Statement shows, tests or sorts by.** It
   missed a column inside a grouped calculation, a column beside a count or a sum in one
   output, and the columns in HAVING and ORDER_BY, which Hive then refused.
