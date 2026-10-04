@@ -95,14 +95,15 @@ def days_in_either(first: Span, second: Span) -> Span:
 class Condition:
     """A test on rows, for WHERE, HAVING or ON=. Combine several with all_of or any_of."""
 
-    def __init__(self, tree, *, spans=None, only_bounds=None, tests_for_null=False):
+    def __init__(self, tree, *, spans=None, only_bounds=None, keeps_unmatched=frozenset()):
         self._tree = tree
         # {(table alias, column): Span} for each Date partition this condition bounds.
         self._spans = spans or {}
         # The (alias, column) this condition does nothing but bound, so by_day can replace it.
         self._only_bounds = only_bounds
-        # True for is_null(...), which LEFT_JOIN allows in WHERE: it keeps the rows with no match.
-        self._tests_for_null = tests_for_null
+        # The tables whose rows with no match this condition keeps, as is_null(...) of one of
+        # their columns does, so LEFT_JOIN allows it in WHERE.
+        self._keeps_unmatched = keeps_unmatched
         self._aggregate = has_aggregate(tree)
 
     def __repr__(self) -> str:
@@ -381,7 +382,9 @@ def is_null(column):
     """
     column = _need_column(column, "is_null(...)")
     tree = Node("Is", this=column._tree.copy(), expression=Node("Null"))
-    return Condition(made_by(tree, "is_null", column), tests_for_null=True)
+    # A table's row with no match has NULL in every column, so is_null of one keeps it.
+    keeps = frozenset([column._tree.table]) if column._tree.kind == "Column" else frozenset()
+    return Condition(made_by(tree, "is_null", column), keeps_unmatched=keeps)
 
 
 def is_not_null(column):
@@ -471,7 +474,9 @@ def any_of(*conditions):
         spans = {key: days_in_either(span, condition._spans[key])
                  for key, span in spans.items() if key in condition._spans}
     tree = combined("Or", [c._tree.copy() for c in found])
-    return Condition(made_by(tree, "any_of", *found), spans=spans)
+    # Any one part that keeps a table's rows with no match keeps them for the whole.
+    keeps = frozenset().union(*(c._keeps_unmatched for c in found))
+    return Condition(made_by(tree, "any_of", *found), spans=spans, keeps_unmatched=keeps)
 
 
 def all_of(*conditions):
@@ -486,7 +491,11 @@ def all_of(*conditions):
     """
     found = _conditions(conditions, "all_of(...)")
     tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)
-    return Condition(tree, spans=combined_spans(found))
+    # Every part that mentions a table must keep its rows with no match for the whole to.
+    candidates = frozenset().union(*(c._keeps_unmatched for c in found))
+    keeps = frozenset(table for table in candidates
+                      if all(table in c._keeps_unmatched for c in found if table in c._tables()))
+    return Condition(tree, spans=combined_spans(found), keeps_unmatched=keeps)
 
 
 def combined_spans(conditions: list[Condition]) -> dict:

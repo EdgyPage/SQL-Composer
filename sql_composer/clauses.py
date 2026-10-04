@@ -294,9 +294,17 @@ def _need_on(on, call: str, table: Table):
     return on
 
 
+def _and_parts(tree: Node) -> list[Node]:
+    """The conditions an AND joins, an AND in brackets inside it, as from all_of(...) inside
+    all_of(...), joined the same way."""
+    if tree.kind != "And":
+        return [tree]
+    return [part for side in tree.flatten() for part in _and_parts(side)]
+
+
 def _matched_columns(table: Table, on: Condition) -> list[str]:
-    """The columns of `table` that ON= pins with an equals at its top level."""
-    parts = list(on._tree.flatten()) if on._tree.kind == "And" else [on._tree]
+    """The columns of `table` that ON= pins with an equals joined by AND at its top."""
+    parts = _and_parts(on._tree)
     matched = set()
     for part in parts:
         if part.kind != "EQ":
@@ -847,7 +855,8 @@ def _run_guards(s: Statement) -> None:
         if read._name != "LEFT_JOIN":
             continue
         for condition in s._where:
-            if read.table._alias in condition._tables() and not condition._tests_for_null:
+            alias = read.table._alias
+            if alias in condition._tables() and alias not in condition._keeps_unmatched:
                 guard_left_join_then_where(read.table._alias, repr(condition),
                                            read.keeps_only_matches)
     if s._write is not None:

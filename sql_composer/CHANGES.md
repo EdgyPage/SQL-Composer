@@ -4,6 +4,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 3.2
 
+- **LEFT_JOIN lets through a WHERE that keeps the rows with no match**, such as
+  any_of(is_null(job_runs.run_id), equals(job_runs.status, "FAILED")): jobs that never ran, or
+  whose run failed. Before, only a bare is_null was let through, and the fix offered, moving
+  the condition into ON=, changed the answer.
+- **A join's key is found inside a Building block**: ON=all_of(key_block, ...) uses the key
+  when key_block holds it, and gets no RepeatedRowsWarning.
 - **The Example database refuses a query it can't run the same way in both Editions**,
   saying what went wrong and the tables to choose from. In the Edition that writes its Hive
   with sqlglot, a column or table name spelt wrong gave sqlglot's own error, and some queries
