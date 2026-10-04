@@ -253,8 +253,7 @@ def in_order(named: list[tuple[Statement, str]]) -> list[tuple[Statement, str]]:
               and w._write._name in reads[i]} for i in range(len(named))]
     placed = []
     while len(placed) < len(named):
-        ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)
-                 and i not in needs[i]]
+        ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)]
         if not ready:
             _refuse_loop(named, reads, _in_the_loop(needs, placed))
         placed.append(ready[0])
@@ -277,8 +276,6 @@ def _refuse_loop(named, reads, stuck: list[int]) -> None:
     links = []
     for i in stuck:
         s, name = named[i]
-        if s._write is None:
-            continue
         readers = [named[j][1] for j in stuck if s._write._name in reads[j]]
         verb = "reads" if len(readers) == 1 else "read"
         links.append(f"{name} writes {s._write._name}, which {' and '.join(readers)} {verb}")
