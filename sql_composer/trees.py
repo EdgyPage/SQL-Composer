@@ -172,20 +172,23 @@ def _after_held(word: str, text: str) -> str | None:
     """What follows the <...> of an array, a map or a struct, or None when it isn't right."""
     if not text.startswith("<"):
         return None
-    rest, held = text, []
-    while rest is not None and rest[:1] in ("<", ","):
+    rest, count = text, 0
+    while rest[:1] in ("<", ","):
         rest = rest[1:]
         if word == "struct":
             rest = _after_field_name(rest)
-        elif word == "map" and not held:
-            # A map's key is a single value, not an array, a map or a struct.
-            rest = None if re.match(r"\s*(array|map|struct)\b", rest) else rest
-        rest = None if rest is None else _after_type(rest)
-        held.append(rest)
-        rest = None if rest is None else rest.lstrip()
-    if rest is None or not rest.startswith(">"):
+            if rest is None:
+                return None
+        elif word == "map" and count == 0 and re.match(r"\s*(array|map|struct)\b", rest):
+            return None  # A map's key is a single value, not an array, a map or a struct.
+        rest = _after_type(rest)
+        if rest is None:
+            return None
+        rest = rest.lstrip()
+        count += 1
+    if not rest.startswith(">"):
         return None
-    if word == "struct" or len(held) == _HOLDS[word]:
+    if word == "struct" or count == _HOLDS[word]:
         return rest[1:]
     return None
 

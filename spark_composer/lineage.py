@@ -37,10 +37,6 @@ TOOLBOX_VERSION = "3.2"
 # alike.
 
 
-def name_line(box: dict) -> str:
-    return box["name"]
-
-
 def formula_line(box: dict) -> str:
     """A table column's type; for anything else, how it was written."""
     if box["kind"] == "table":
@@ -50,7 +46,7 @@ def formula_line(box: dict) -> str:
 
 def box_lines(box: dict) -> list[str]:
     """The lines of text a box shows: its name, then its formula line unless that is empty."""
-    return [line for line in (name_line(box), formula_line(box)) if line]
+    return [line for line in (box["name"], formula_line(box)) if line]
 
 
 # --- The graph -------------------------------------------------------------------------------

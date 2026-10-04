@@ -709,28 +709,27 @@ def statement(*clauses, returns_all_rows=False):
     s = Statement()
     s._clauses = clauses
     s._returns_all_rows = returns_all_rows
-    write = next((c for c in clauses if c._name in WRITES), None)
+    # _check_order has made sure each place but JOIN comes at most once.
+    by_place = {clause._place(): clause for clause in clauses if clause._place() != "JOIN"}
+    write = by_place.get("INSERT")
     s._write = write.table if write else None
     # How the write was called, for messages: INSERT_INTO(daily_runs).
     s._write_call = f"{write._name}({write.table._alias})" if write else None
     s._replaces_day = write is not None and write._name == "INSERT_OVERWRITE"
-    select = next(c for c in clauses if c._name.startswith("SELECT"))
+    select = by_place["SELECT"]
     s._outputs, s._distinct = select.outputs, select.distinct
     s._reads = [c for c in clauses if c._name == "FROM" or c._name in JOINS]
-    s._where = _clause_part(clauses, "WHERE", "conditions")
-    s._having = _clause_part(clauses, "HAVING", "conditions")
-    s._group_by = _resolve_group_by(s, _clause_part(clauses, "GROUP_BY", "group_columns"))
-    order = next((c for c in clauses if c._name == "ORDER_BY"), None)
+    s._where = by_place["WHERE"].conditions if "WHERE" in by_place else []
+    s._having = by_place["HAVING"].conditions if "HAVING" in by_place else []
+    groups = by_place["GROUP_BY"].group_columns if "GROUP_BY" in by_place else []
+    s._group_by = _resolve_group_by(s, groups)
+    order = by_place.get("ORDER_BY")
     s._order_by = order.sort_keys if order else []
-    s._limit = next((c.n for c in clauses if c._name == "LIMIT"), None)
+    s._limit = by_place["LIMIT"].n if "LIMIT" in by_place else None
     _check_tables(s)
     _run_guards(s)
     _run_load_limits(s, order)
     return s
-
-
-def _clause_part(clauses, name: str, part: str) -> list:
-    return next((getattr(c, part) for c in clauses if c._name == name), [])
 
 
 def _resolve_group_by(s: Statement, items: list) -> list[Column]:
