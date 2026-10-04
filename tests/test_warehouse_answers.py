@@ -73,6 +73,13 @@ def test_a_describe_with_no_columns_is_refused_by_write_table_reference(
         write_table_reference("ops.runs", send=answering(describe=[]))
 
 
+def test_check_table_reference_reports_a_describe_with_no_columns() -> None:
+    verdict = check_table_reference(runs(), send=answering(describe=[]))
+    assert not verdict.ok
+    assert "DESCRIBE listed no columns, so nothing was compared" in repr(verdict)
+    assert "remove its line" not in repr(verdict)
+
+
 def test_check_table_reference_reports_an_answer_it_cant_read() -> None:
     verdict = check_table_reference(runs(), send=lambda hive: None)
     assert not verdict.ok
@@ -114,15 +121,39 @@ def test_a_failed_show_partitions_is_reported_on_one_readable_line() -> None:
 
     text = repr(check_table_reference(runs(), send=answering(show_partitions=fails)))
     assert "It said: RuntimeError: the cluster is down" in text
-    assert "  RuntimeError" not in text
+    assert "  " not in text.splitlines()[-1].removeprefix("  - ")
 
 
 @pytest.mark.parametrize(("days", "said"), [
-    pytest.param(("dt=latest",), "isn't written like '%Y-%m-%d'", id="not_a_day"),
+    pytest.param(("dt=latest",), "isn't written like date_format='%Y-%m-%d', the usual one",
+                 id="not_a_day"),
+    pytest.param(("dt=2026-9-24",), "isn't written like date_format='%Y-%m-%d'",
+                 id="a_day_python_reads_but_hive_wouldnt_match"),
     pytest.param(("dt=20260924",), 'change the line to date_format="%Y%m%d"', id="another_way"),
 ])
 def test_check_table_reference_says_which_line_a_newest_day_needs(days, said) -> None:
     assert said in repr(check_table_reference(runs(), send=answering(days=days)))
+
+
+def test_check_key_on_a_table_with_no_days_says_so() -> None:
+    verdict = check_key(runs(), send=answering(days=()))
+    assert not verdict.ok
+    assert repr(verdict) == "ops.runs: SHOW PARTITIONS found no days to check."
+
+
+def test_check_table_reference_gives_the_line_for_a_changed_type() -> None:
+    old = Table("ops.runs", columns={"run_id": "int", "status": "string", "dt": "string"},
+                date_partition="dt")
+    assert 'run_id is bigint in the table: change its line to "run_id": "bigint",' in repr(
+        check_table_reference(old, send=answering()))
+
+
+def test_check_table_reference_notes_columns_in_another_order() -> None:
+    shuffled = Table("ops.runs", columns={"status": "string", "run_id": "bigint",
+                                          "dt": "string"}, date_partition="dt")
+    verdict = check_table_reference(shuffled, send=answering())
+    assert verdict.ok
+    assert "The table's order is: run_id, status, dt." in repr(verdict)
 
 
 def test_check_table_reference_notes_a_partition_an_unpartitioned_reference_leaves_out() -> None:
@@ -157,6 +188,7 @@ def test_table_refuses_arguments_that_arent_text(arguments, said) -> None:
 @pytest.mark.parametrize(("table", "file"), [
     ("dim.calendar", "t_calendar.py"),
     ("dim.pandas", "t_pandas.py"),
+    ("dim.pytest", "t_pytest.py"),
     ("dim.sql_composer", "t_sql_composer.py"),
     ("dim.customers", "customers.py"),
 ])
