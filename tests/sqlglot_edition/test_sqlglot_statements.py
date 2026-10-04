@@ -28,6 +28,17 @@ def test_hive_function_output_reads_back_the_same_on_every_version() -> None:
                       WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"))))
 
 
+@pytest.mark.parametrize("days, written", [
+    (job_runs.duration_mins + 1, "(job_runs.duration_mins + 1) * -1"),
+    (job_runs.duration_mins - 1, "(job_runs.duration_mins - 1) * -1"),
+    (job_runs.duration_mins / 2, "(job_runs.duration_mins / 2) * -1"),
+    (job_runs.duration_mins * 2, "job_runs.duration_mins * 2 * -1"),
+])
+def test_date_sub_takes_away_the_whole_day_count_on_every_version(days, written) -> None:
+    assert repr(hive_function("date_sub", job_runs.dt, days)) == (
+        f"DATE_ADD(job_runs.dt, {written})")
+
+
 def test_a_call_sqlglot_cant_build_is_refused_in_the_toolboxs_words() -> None:
     """For a function hive_function's own list doesn't count, sqlglot has the last word."""
     with pytest.raises(TypeError, match=re.escape(
