@@ -45,13 +45,15 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
 - [One refuse() for misuse refusals](issues/04-one-refuse-for-misuse-refusals.md): every
   no-opt-out refusal goes through refusals.refuse(); messages unchanged but one; 46 misuse
   refusals tested in four parts.
+- [Warehouse answers through one module](issues/05-warehouse-answers-through-one-module.md):
+  one _ask for DESCRIBE and SHOW PARTITIONS; an empty Saved table matches; arguments checked;
+  file names never shadow a module; describe_text and show_partitions_text off the Edition
+  interface.
 
 ## Candidates not yet ticketed
 
 In the report's order, with its strength:
 
-5. **Warehouse answers through one module** (Strong): the empty Saved table's advice, raw
-   errors from an empty answer or a table name as text, `calendar.py`.
 6. **Both Example database adapters refuse the same way** (Strong).
 7. **Join Guards read the condition tree** (Worth exploring).
 8. **Narrow the Edition seam** (Worth exploring).
