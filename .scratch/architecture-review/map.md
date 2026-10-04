@@ -52,16 +52,22 @@ fewer shapes for the same job, and no idiom cleverer than it needs to be.
 - [Both Example databases refuse the same way](issues/06-both-example-databases-refuse-the-same-way.md):
   SQL Composer's adapter refuses what sqlglot can't read or run in four parts, as Spark
   Composer's does, and reads a query's tables from sqlglot's tree; send takes only Hive text.
+- [Join Guards read the condition tree](issues/07-join-guards-read-the-condition-tree.md):
+  LEFT_JOIN lets through a WHERE that keeps the rows with no match; a key inside a Building
+  block is found.
+- [Narrow the Edition seam](issues/08-narrow-the-edition-seam.md): nothing on the seam both
+  Editions write the same; the writers agree on every date_sub.
+- [A plain-code pass](issues/09-a-plain-code-pass.md): plain loops and data where a reader
+  lands after a refusal; nothing a user sees changes.
+- [The repo's own guards](issues/10-the-repos-own-guards.md): main can't be moved by hand, the
+  drift review sees every new commit, and the hooks are tested as Claude Code runs them.
+- [The lineage page](issues/11-the-lineage-page.md): the page stays in lineage.py; its script
+  is checked by Node.
 
 ## Candidates not yet ticketed
 
-In the report's order, with its strength:
-
-7. **Join Guards read the condition tree** (Worth exploring).
-8. **Narrow the Edition seam** (Worth exploring).
-9. **A plain-code pass for the intermediate reader** (Worth exploring).
-10. **Repo guards: protect_main, the drift review, the export** (Worth exploring).
-11. **Take the lineage page out of Python** (Speculative).
+None: under the user's goal (2026-10-03) to implement every candidate worth it, each of the 11
+has a ticket, and each ticket records what it left out as not worth it, and why.
 
 ## Out of scope
 

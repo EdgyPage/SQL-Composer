@@ -122,6 +122,7 @@ any item is open.
 - [x] D113 | 858bc94 | change-notes | check_table_reference now reports a Problem for a newest day Python reads but Hive wouldn't match, such as "2026-9-24", where SQL Composer and Spark Composer 3.1 (`main`) said the table matched; `sql_composer/CHANGES.md` under 3.2 has a line for check_key on a day written another way (line 17-18) but none for check_table_reference. Add one, e.g. "**check_table_reference reports a newest day written another way**, such as 2026-9-24, which Hive's text comparison matches with no day; it said the table matched.", once D112 makes its line right; then run `python tools/make_spark_edition.py`. - closed by d11e120
 - [x] D114 | d11e120 | change-notes | write_table_reference now writes `date_partition=None,  # TODO: partitioned by dt; name the date one if there is one` for a table whose newest day is written another way, such as dt=2026-9-24 (`_day_format_of` returns None for it, `sql_composer/tables.py` lines 924-927), where SQL Composer and Spark Composer 3.1 (`main`, 220ba37) took it as '%Y-%m-%d' and wrote `date_partition="dt",`; the commit message says so ("and write_table_reference writes the same"), but `sql_composer/CHANGES.md` under 3.2 names only check_table_reference (lines 17-18). Add write_table_reference to that line, e.g. "... It said the table matched, and write_table_reference named it as the Date partition; now it writes date_partition=None."; then run `python tools/make_spark_edition.py` - closed by ba9cad4
 - [x] D115 | d11e120 | docstring | the TODO write_table_reference writes when the newest partition value isn't a day it can read (`sql_composer/tables.py` lines 926-927), "partitioned by dt; name the date one if there is one", was true while that meant the value wasn't a day, but this commit sends a day written another way there too: for a table partitioned only by dt with days such as 2026-9-24 it tells you to name dt, the date one, and once you do, check_table_reference reports "the newest dt, '2026-9-24', isn't written like date_format='%Y-%m-%d', the usual one: change the line to date_partition=None,". Give that case words that hold, e.g. "... ; its newest value, '2026-9-24', isn't a day written one way the Toolbox can bound", or keep the TODO for values that aren't days and give such a day its own - closed by ba9cad4
+- [x] D116 | 6fbdfce | parity | `spark_composer/writing.py` `_call` (lines 338-342) brackets every day count whose kind is in ARITHMETIC and its comment says this is "as sqlglot does", but sqlglot leaves a product bare: date_sub(t.dt, 1 * 2) is `DATE_ADD(t.dt, 1 * 2 * -1)` in SQL Composer and `DATE_ADD(t.dt, (1 * 2) * -1)` in Spark Composer (Add, Sub and Div agree). Unreachable today (week_start passes the number 7), and test_writers_agree.py has no product case; either leave a Mul unbracketed and add a product case to that test, or narrow the comment (and ticket 08's line "puts a day count that is a calculation in brackets, as sqlglot does") to say a product differs - closed by d2da1c2
 
 ## Reviewed commits
 
@@ -268,3 +269,11 @@ any item is open.
 - ba9cad4: clean
 - d25dc00: clean
 - 3ac76f2: clean
+- 33b3bc5: clean
+- f6332e8: clean
+- ba4568a: clean
+- 542467d: clean
+- 7511f2e: clean
+- 6fbdfce: D116
+- d2da1c2: clean
+- 8faf462: clean
