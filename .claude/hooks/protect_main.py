@@ -2,8 +2,8 @@
 
 `main` is the Clean branch, written only by the export script. This refuses Claude's Edit,
 Write and NotebookEdit on a file in a checkout of `main`, any git command that would make a
-commit there, and moving `main` by hand: with `git update-ref` or `git branch -f`, which is how
-the export writes it, a forced checkout or switch, or deleting or renaming it. A command that only runs `tools/export_clean.py` goes through; naming the
+commit there, and moving `main` by hand: with `git update-ref` or `git branch -f`, which is
+how the export writes it, a forced checkout or switch, or deleting or renaming it. A command that only runs `tools/export_clean.py` goes through; naming the
 script in a longer command excuses nothing. The user's own edits are theirs to make; this only
 stops agents.
 """
@@ -35,7 +35,7 @@ MOVES_MAIN = re.compile(
     r")"
 )
 FILE_TOOLS = frozenset({"Edit", "Write", "NotebookEdit"})
-SWITCHES_TO_MAIN = re.compile(r"\bgit\b[^;&|\n]*\b(checkout|switch)(\s+-\S+)*\s+main\b")
+SWITCHES_TO_MAIN = re.compile(rf"\bgit\b[^;&|\n]*\b(checkout|switch)(\s+-\S+)*\s+{MAIN}")
 
 
 def branch_at(path: Path) -> str:

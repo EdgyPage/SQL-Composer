@@ -57,8 +57,8 @@ def main() -> None:
     hook = read_hook_input()
     if not MAKES_A_COMMIT.search(hook.get("tool_input", {}).get("command", "")):
         return
-    repo = hook.get("cwd", ".")
-    if git(repo, "rev-parse", "--abbrev-ref", "HEAD") != "dev":
+    repo = git(hook.get("cwd", "."), "rev-parse", "--show-toplevel")
+    if not repo or git(repo, "rev-parse", "--abbrev-ref", "HEAD") != "dev":
         return
     found = to_review(repo)
     for commit, _ in found:

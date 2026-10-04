@@ -272,3 +272,23 @@ def test_the_page_names_only_its_own_edition() -> None:
     others = [other for other in editions.EDITIONS.values() if other is not edition()]
     assert [name for other in others for name in (other.folder, other.product)
             if name in page] == []
+
+
+def test_a_scripts_statements_are_found_on_the_example_day() -> None:
+    """Each function of a Worked example is looked at inside the example setting, as when the
+    page is written, so one that builds its Statement only on that day is still found."""
+    import types
+
+    from sql_composer import FROM, SELECT, conditions, statement
+    from sql_composer.example_database import jobs
+
+    script = types.ModuleType("a_worked_example")
+
+    def on_the_example_day():
+        assert conditions.today() == example_gallery.TODAY
+        return statement(SELECT(jobs.team), FROM(jobs))
+
+    on_the_example_day.__module__ = script.__name__
+    script.on_the_example_day = on_the_example_day
+    found = example_gallery.other_statements(script)
+    assert [name for name, _ in found] == ["on_the_example_day"]

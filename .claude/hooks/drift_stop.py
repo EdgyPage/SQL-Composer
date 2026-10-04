@@ -13,6 +13,7 @@ from drift_list import (
     DRIFT_LIST,
     REVIEWER_BRIEF,
     git,
+    on_this_branch,
     open_items,
     read_hook_input,
     read_requests,
@@ -56,7 +57,9 @@ def main() -> None:
     if not repo:
         return
     session = hook.get("session_id", "")
-    my_commits = [commit for commit, asker in read_requests(repo) if asker == session]
+    # A commit a reset or a rebase dropped needs no review: its replacement is asked about.
+    my_commits = [commit for commit, asker in read_requests(repo)
+                  if asker == session and on_this_branch(repo, commit)]
     if not my_commits:
         return
     drift_file = Path(repo) / DRIFT_LIST

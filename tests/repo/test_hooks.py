@@ -42,11 +42,14 @@ def test_a_commit_command_is_recognised() -> None:
     assert MAKES_A_COMMIT.search("git -C repo merge dev")
     assert MAKES_A_COMMIT.search("git -c user.name=x cherry-pick a..b")
     assert MAKES_A_COMMIT.search("cd repo && git pull")
+    assert MAKES_A_COMMIT.search('git -C "a b" commit -m x')
+    assert MAKES_A_COMMIT.search("git -c 'a=b c' merge x")
 
 
 def test_a_command_that_only_mentions_a_commit_word_is_not_one() -> None:
     for command in ("git log --grep=revert", "git show HEAD --stat -- commit.txt",
-                    "git branch --merged"):
+                    "git branch --merged", "git merge-base main dev", "git commit-tree HEAD^{tree}",
+                    "cat .git/commit"):
         assert not MAKES_A_COMMIT.search(command), command
     assert not MAKES_A_COMMIT.search("git status && git log --oneline")
 
@@ -96,6 +99,9 @@ def test_an_unreviewed_commit_blocks_stopping() -> None:
 def test_switching_to_main_to_commit_is_refused_but_reading_is_not() -> None:
     assert refusal("Bash", {"command": "git checkout main && git commit -m x"}, str(ROOT))
     assert refusal("Bash", {"command": "git checkout -q main && git commit -m x"}, str(ROOT))
+    for command in ("git checkout -b main-fix && git commit -m x",
+                    "git switch -q main-old && git commit -m x"):
+        assert refusal("Bash", {"command": command}, str(ROOT)) is None, command
     assert refusal("Bash", {"command": "git log main"}, str(ROOT)) is None
 
 
@@ -188,7 +194,8 @@ def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path) -> None:
     asked = review_hook(clone, "git rebase origin/dev")
     assert f"for commit {first[:7]}" in asked
     assert f"for commit {second[:7]}" in asked
-    assert review_hook(clone, "git commit --amend") == ""  # each is asked about only once
+    # The hook runs again after the next command that commits: nothing is asked twice.
+    assert review_hook(clone, "git commit -m nothing") == ""
 
 
 def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path) -> None:
@@ -200,6 +207,52 @@ def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path) -> None:
     merge = run(clone, "rev-parse", "HEAD")
     asked = review_hook(clone, "git merge --no-ff work")
     assert f"Commit {merge[:7]} touches sql_composer/c.py" in asked
+
+
+def test_nothing_new_on_top_of_the_upstream_asks_for_nothing(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    commit(clone, "sql_composer/a.py", "a")
+    run(clone, "push", "-q")
+    assert review_hook(clone, "git pull") == ""
+
+
+def test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    reviewed = commit(clone, "sql_composer/a.py", "a")
+    commit(clone, ".scratch/drift.md", f"## Reviewed commits\n\n- {reviewed[:7]}: clean\n")
+    (clone / "docs").mkdir()
+    given = {"tool_input": {"command": "git commit"}, "cwd": str(clone / "docs"),
+             "session_id": "test"}
+    hook = ROOT / ".claude" / "hooks" / "drift_review.py"
+    done = subprocess.run([sys.executable, str(hook)], input=json.dumps(given),
+                          capture_output=True, text=True, check=True)
+    assert done.stdout.strip() == ""
+
+
+def test_the_stop_hook_waits_for_a_review_and_not_for_a_dropped_commit(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    kept = commit(clone, "sql_composer/a.py", "a")
+    dropped = commit(clone, "sql_composer/b.py", "b")
+    review_hook(clone, "git commit")
+    run(clone, "reset", "-q", "--hard", kept)
+    hook = ROOT / ".claude" / "hooks" / "drift_stop.py"
+    given = {"cwd": str(clone), "session_id": "test"}
+    done = subprocess.run([sys.executable, str(hook)], input=json.dumps(given),
+                          capture_output=True, text=True, check=True)
+    said = json.loads(done.stdout)["reason"]
+    assert kept[:7] in said
+    assert dropped[:7] not in said
+
+
+def test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook(tmp_path) -> None:
+    clone = a_clone_on_dev(tmp_path)
+    run(clone, "checkout", "-q", "-b", "main")
+    hook = ROOT / ".claude" / "hooks" / "protect_main.py"
+    given = {"tool_name": "Bash", "tool_input": {"command": "git commit -m x"},
+             "cwd": str(clone)}
+    done = subprocess.run([sys.executable, str(hook)], input=json.dumps(given),
+                          capture_output=True, text=True, check=True)
+    assert json.loads(done.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
 def test_a_command_that_makes_no_commit_asks_for_nothing(tmp_path) -> None:
