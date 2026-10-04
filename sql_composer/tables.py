@@ -439,7 +439,6 @@ def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
 # --- Table ---------------------------------------------------------------------------------
 
 
-
 def _check_date_format(date_format: str) -> None:
     rest = date_format
     for directive in ("%Y", "%m", "%d"):

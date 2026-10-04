@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 import sys
 import warnings
+from typing import NoReturn
 
 # The one function that builds every four-part message. It lives in __init__.py, since the
 # import self-check needs it before this file can be trusted.
@@ -412,8 +413,9 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
     ))
 
 
-def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None, call: str = "") -> None:
-    """Refuse a call that was given the wrong argument. This can't be switched off.
+def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
+           call: str = "") -> NoReturn:
+    """Refuse what can't go on, such as a call given the wrong argument. It has no opt-out.
 
     Pass the wrong argument as `given`, and the call as `call`: if the other Edition's folder
     made it, the refusal that says so is raised instead.

@@ -138,6 +138,13 @@ def test_a_count_or_a_row_number_inside_a_count_is_refused(make) -> None:
         make()
 
 
+def test_the_refusal_says_what_the_inner_part_does() -> None:
+    with pytest.raises(ValueError, match="inside it, which already works over many rows itself"):
+        max_of(max_of(job_runs.duration_mins))
+    with pytest.raises(ValueError, match="inside it, which is a row number"):
+        sum_of(numbered())
+
+
 # --- Names and lists -------------------------------------------------------------------------
 
 
