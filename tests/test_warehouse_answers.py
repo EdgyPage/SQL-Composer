@@ -197,3 +197,11 @@ def test_write_table_reference_never_shadows_a_module(table, file, tmp_path, mon
     monkeypatch.chdir(tmp_path)
     describe = [("id", "bigint", "")]
     assert write_table_reference(table, send=answering(describe=describe)).name == file
+
+
+def test_write_table_reference_leaves_out_days_it_cant_bound(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    send = answering(days=("dt=2026-9-24",))
+    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    assert ("date_partition=None,  # TODO: partitioned by dt; its newest dt, '2026-9-24', "
+            "isn't a day the Toolbox can bound") in text

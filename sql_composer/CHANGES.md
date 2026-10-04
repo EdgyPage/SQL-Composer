@@ -15,7 +15,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   write_table_reference, check_key and check_table_reference raised a raw Python error for an
   answer of None or an empty table, and check_table_reference said to delete every line.
 - **check_table_reference reports a newest day written another way** than the date_format
-  writes it, such as 2026-9-24, which Hive wouldn't match. It said the table matched.
+  writes it, such as 2026-9-24, which Hive wouldn't match. It said the table matched, and
+  write_table_reference named it the Date partition; now it writes date_partition=None, with
+  a TODO saying why.
 - **check_key on a day written another way** says so, and to run check_table_reference,
   where it used to stop with an error about a call inside the Toolbox.
 - **first_look and all_columns refuse a table's name as text**, and Table refuses a Python
