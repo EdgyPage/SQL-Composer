@@ -698,3 +698,16 @@ def test_text_in_the_graph_data_cant_end_the_script(tmp_path) -> None:
     _, page = read(export_lineage(odd, to=tmp_path / "lineage.html"))
     assert page.count("</script>") == 1
     assert "&lt;/script&gt;&lt;b&gt;" in page
+
+
+@pytest.mark.skipif(shutil.which("node") is None,
+                    reason="Node isn't installed to read the page's script")
+def test_the_pages_script_is_javascript_a_browser_can_read(tmp_path) -> None:
+    """The page's drawing is about 760 lines of JavaScript inside a Python string, which no
+    other test runs: Node reads it as a browser would, and stops on a syntax error."""
+    _, page = read(export_lineage(runs_per_team(), to=tmp_path / "lineage.html"))
+    script = page.split("<script>", 1)[1].rsplit("</script>", 1)[0]
+    (tmp_path / "page.js").write_text(script, encoding="utf-8")
+    checked = subprocess.run(["node", "--check", str(tmp_path / "page.js")],
+                             capture_output=True, text=True)
+    assert checked.returncode == 0, checked.stderr
