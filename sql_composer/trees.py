@@ -1,4 +1,4 @@
-# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from collections import deque
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -173,20 +173,23 @@ def _after_held(word: str, text: str) -> str | None:
     """What follows the <...> of an array, a map or a struct, or None when it isn't right."""
     if not text.startswith("<"):
         return None
-    rest, held = text, []
-    while rest is not None and rest[:1] in ("<", ","):
+    rest, count = text, 0
+    while rest[:1] in ("<", ","):
         rest = rest[1:]
         if word == "struct":
             rest = _after_field_name(rest)
-        elif word == "map" and not held:
-            # A map's key is a single value, not an array, a map or a struct.
-            rest = None if re.match(r"\s*(array|map|struct)\b", rest) else rest
-        rest = None if rest is None else _after_type(rest)
-        held.append(rest)
-        rest = None if rest is None else rest.lstrip()
-    if rest is None or not rest.startswith(">"):
+            if rest is None:
+                return None
+        elif word == "map" and count == 0 and re.match(r"\s*(array|map|struct)\b", rest):
+            return None  # A map's key is a single value, not an array, a map or a struct.
+        rest = _after_type(rest)
+        if rest is None:
+            return None
+        rest = rest.lstrip()
+        count += 1
+    if not rest.startswith(">"):
         return None
-    if word == "struct" or len(held) == _HOLDS[word]:
+    if word == "struct" or count == _HOLDS[word]:
         return rest[1:]
     return None
 
@@ -249,7 +252,7 @@ KINDS = {
     "Max": ("this",),
     "Window": ("this", "partition_by", "order"),
     "Order": ("expressions",),
-    "Ordered": ("this", "desc", "nulls_first"),
+    "Ordered": ("this", "desc"),
     "Alias": ("this", "alias"),
     # A value made another type, as in CAST(... AS STRING): `to` is the type as Hive writes it.
     "Cast": ("this", "to"),
@@ -437,11 +440,19 @@ def _bracketed_connector(node: Node) -> Node:
     return Node("Paren", this=node) if node.kind in CONNECTORS else node
 
 
+def is_aggregate(node: Node) -> bool:
+    """True when this Node itself adds rows up: COUNT, SUM, ... or an aggregate hive_function."""
+    return node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"])
+
+
 def has_aggregate(node: Node) -> bool:
     """True when the tree adds rows up (COUNT, SUM, ...) outside a window, the
     ROW_NUMBER() OVER (...) that row_number(...) writes."""
     if node.kind == "Window":
         return False
-    if node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"]):
-        return True
-    return any(has_aggregate(child) for child in node.children())
+    return is_aggregate(node) or any(has_aggregate(child) for child in node.children())
+
+
+def has_window(node: Node) -> bool:
+    """True when the tree numbers rows: the ROW_NUMBER() OVER (...) of row_number(...)."""
+    return node.kind == "Window" or any(has_window(child) for child in node.children())

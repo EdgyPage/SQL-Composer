@@ -1,4 +1,4 @@
-# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
@@ -14,9 +14,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'3.1'
+'3.2'
 >>> VERSION
-'SQL Composer 3.1, ...'
+'SQL Composer 3.2, ...'
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import os
 import re
 import sys
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
@@ -97,7 +97,7 @@ def _version_of(path):
     return found.group(1) if found else None
 
 
-# Any Toolbox folder's stamp, such as "SQL Composer 3.1, exported 2026-10-02 14:05 - ...",
+# Any Toolbox folder's stamp, such as "SQL Composer 3.2, exported 2026-10-02 14:05 - ...",
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer) \S+, exported ")
 
@@ -136,9 +136,16 @@ def _check_home(stamps):
     # The folder is the Toolbox folder its name and its files' stamps agree on. A folder its
     # files don't name, such as one you renamed, is the one most of its other files' stamps
     # name, so a __init__.py pasted in can't decide it; unstamped, as on dev, __init__.py's.
-    stamped = [home for name, home in homes.items() if name != "__init__.py" and home]
-    this = on_disk if on_disk in homes.values() else max(stamped, key=stamped.count,
-                                                          default=_FOLDER)
+    votes = {}
+    for name, home in homes.items():
+        if name != "__init__.py" and home:
+            votes[home] = votes.get(home, 0) + 1
+    if on_disk in homes.values():
+        this = on_disk
+    elif votes:
+        this = max(votes, key=votes.get)
+    else:
+        this = _FOLDER
     elsewhere = sorted(name for name, home in homes.items() if home not in (None, this))
     if elsewhere:
         home = homes[elsewhere[0]]

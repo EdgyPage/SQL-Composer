@@ -1,8 +1,8 @@
-<!-- SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit -->
+<!-- SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SQL Composer 3.1: Example gallery</title>
+<title>SQL Composer 3.2: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -24,7 +24,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>SQL Composer 3.1: Example gallery</h1>
+<h1>SQL Composer 3.2: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
 63 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the three made-up
@@ -1316,17 +1316,17 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;3.1&#x27;</pre>
+<pre class="output">&#x27;3.2&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;SQL Composer 3.1, ...&#x27;</pre>
+<pre class="output">&#x27;SQL Composer 3.2, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
 <h3><code>Table</code></h3>
 <p class="why">A Table reference: a table&#x27;s columns, the day column it&#x27;s split by, and its key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
-<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
+<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
@@ -1345,7 +1345,7 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
 <p class="why">Write a table&#x27;s Table reference as <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in, or <code>t_&lt;table&gt;.py</code> for a table named like a Python word or a module Python already has, such as calendar or pandas, which the file would be imported in place of. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
 <pre class="python">print(path.read_text())</pre>
 <p class="label">Python shows</p>
@@ -1613,7 +1613,7 @@ WHERE
 <section class="entry" id="LEFT_JOIN">
 <h3><code>LEFT_JOIN</code></h3>
 <p class="why">Like JOIN, but rows with no match are kept, with NULL in the joined columns.</p>
-<p>A condition on the joined table in WHERE would throw those rows away again, so it is refused: put it in ON= instead, bound the joined table&#x27;s Date partition there too, or pass keeps_only_matches=True if you mean it.</p>
+<p>A condition on the joined table in WHERE would throw those rows away again, so it is refused: put it in ON= instead, bound the joined table&#x27;s Date partition there too, or pass keeps_only_matches=True if you mean it. A WHERE that keeps the rows with no match is allowed: is_null(...) of a joined column, or any_of(...) that has such an is_null among its conditions, as for the jobs that never ran or whose run failed.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), &quot;runs&quot;)),
     FROM(jobs),
@@ -2231,7 +2231,7 @@ WHERE
 <section class="entry" id="descending">
 <h3><code>descending</code></h3>
 <p class="why">Sort by a column from largest to smallest, in ORDER_BY or row_number.</p>
-<p>Pass a column, or the name of an output column as a string.</p>
+<p>Pass a column; in ORDER_BY(...), the name of an output column as a string works too.</p>
 <pre class="python">row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))</pre>
 <p class="label">Hive</p>
 <pre class="output">ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)</pre>
@@ -2307,7 +2307,7 @@ WHERE
 <p>Use it to read a long range a day at a time, or to write a Saved table day by day:</p>
 <pre class="python">for day in by_day(s):
     df = run(day, send=run_query)</pre>
-<p>It splits on the Date partition of the table in FROM, following Derived tables down to it; a joined table keeps its own bound. It refuses a Statement that groups rows without keeping that date, since each day&#x27;s partial groups couldn&#x27;t be added back up.</p>
+<p>It splits on the Date partition of the table in FROM, following Derived tables down to it; a joined table keeps its own bound. It refuses a Statement that groups rows without keeping that date, since each day&#x27;s partial groups couldn&#x27;t be added back up, and one with a LIMIT, which would keep that many rows of each day.</p>
 <pre class="python">days = by_day(statement(
     SELECT(job_runs.dt, job_runs.status, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),

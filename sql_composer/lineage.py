@@ -1,4 +1,4 @@
-# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """Lineage: draw where each column comes from, as an HTML page and as Markdown.
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,
@@ -22,24 +22,20 @@ from . import VERSION
 from .clauses import Statement, derived_tables
 from .refusals import (
     GuardRefused,
-    four_part_message,
-    refuse_what_the_other_edition_made,
+    LoadRefused,
+    refuse,
 )
-from .running import by_day, to_hive
+from .running import bottom_read, by_day, steps, to_hive
 from .tables import readable
 from .trees import Node
 from .writing import hive_text
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 
 # --- What a box shows --------------------------------------------------------------------------
 # Both views read box_lines, so a line added there shows in the HTML page and the Mermaid chart
 # alike.
-
-
-def name_line(box: dict) -> str:
-    return box["name"]
 
 
 def formula_line(box: dict) -> str:
@@ -51,7 +47,7 @@ def formula_line(box: dict) -> str:
 
 def box_lines(box: dict) -> list[str]:
     """The lines of text a box shows: its name, then its formula line unless that is empty."""
-    return [line for line in (name_line(box), formula_line(box)) if line]
+    return [line for line in (box["name"], formula_line(box)) if line]
 
 
 # --- The graph -------------------------------------------------------------------------------
@@ -184,9 +180,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
 
 def _date_bounds(s: Statement) -> tuple[Statement, list]:
     """The step that reads a write's real table through FROM, and its date-bound conditions."""
-    step = s
-    while step._reads[0].table._statement is not None:
-        step = step._reads[0].table._statement
+    step = steps(s)[-1][0]
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]
     key = (table._alias, table._date_partition)
@@ -260,8 +254,7 @@ def in_order(named: list[tuple[Statement, str]]) -> list[tuple[Statement, str]]:
               and w._write._name in reads[i]} for i in range(len(named))]
     placed = []
     while len(placed) < len(named):
-        ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)
-                 and i not in needs[i]]
+        ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)]
         if not ready:
             _refuse_loop(named, reads, _in_the_loop(needs, placed))
         placed.append(ready[0])
@@ -284,21 +277,17 @@ def _refuse_loop(named, reads, stuck: list[int]) -> None:
     links = []
     for i in stuck:
         s, name = named[i]
-        if s._write is None:
-            continue
         readers = [named[j][1] for j in stuck if s._write._name in reads[j]]
         verb = "reads" if len(readers) == 1 else "read"
         links.append(f"{name} writes {s._write._name}, which {' and '.join(readers)} {verb}")
-    raise ValueError(
-        four_part_message(
-            what="export_lineage can't draw these Statements, because they go round in a "
-            "loop: " + "; ".join(links) + ".",
-            why="Each Statement's lineage would lead back into itself, so the drawing would "
-            "have no start.",
-            fix="Pass only the Statements on one path from the tables to the result, or "
-            "export each one on its own.",
-            opt_out=None,
-        )
+    refuse(
+        what="export_lineage can't draw these Statements, because they go round in a "
+        "loop: " + "; ".join(links) + ".",
+        why="Each Statement's lineage would lead back into itself, so the drawing would "
+        "have no start.",
+        fix="Pass only the Statements on one path from the tables to the result, or "
+        "export each one on its own.",
+        error=ValueError,
     )
 
 
@@ -418,11 +407,13 @@ def _about(s: Statement, index: int, ordered) -> str:
 
 
 def _submitted(s: Statement, name: str) -> tuple[str, str]:
-    """The Hive as submitted; for a write over several days, the first day's."""
+    """The Hive as submitted; for a write over several days, the first day's, even when
+    set_load_limits(dates=...) refuses the whole write."""
     try:
         return to_hive(s), ""
-    except GuardRefused:
-        if s._write is None:
+    except (GuardRefused, LoadRefused):
+        _, span = bottom_read(s)
+        if s._write is None or span is None or not span.is_bounded() or len(span.dates()) < 2:
             raise
     days = by_day(s)
     return to_hive(days[0]), (
@@ -701,22 +692,22 @@ def _check_statements(statements) -> list:
     """The Statements passed, each once; anything that isn't a Statement reading a table is
     refused."""
     if not statements:
-        raise TypeError(four_part_message(
+        refuse(
             what="export_lineage() was given no Statement.",
             why="It draws where each column of a Statement comes from.",
             fix="Pass one or more Statements, such as export_lineage(weekly).",
-            opt_out=None))
+        )
     found = []
     for s in statements:
         if not isinstance(s, Statement) or s._ddl is not None:
-            refuse_what_the_other_edition_made(s, "export_lineage")
-            raise TypeError(four_part_message(
+            refuse(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
                 "table.",
                 why="It draws the lineage of Statements made by statement(...).",
                 fix="Pass the Statement itself; for a derived(...) table, pass the Statement "
                 "that reads it.",
-                opt_out=None))
+                given=s, call="export_lineage",
+            )
         if not any(s is seen for seen in found):
             found.append(s)
     return found
@@ -726,11 +717,12 @@ def _html_path(to) -> Path:
     """The to= path, refused unless it names an .html file."""
     path = Path(to)
     if path.suffix.lower() != ".html":
-        raise ValueError(four_part_message(
+        refuse(
             what=f"export_lineage(..., to={str(to)!r}): to= must name an .html file.",
             why="It names the HTML page; the Markdown twin goes beside it, ending in .md.",
             fix='Write it like to="lineage/weekly.html", or leave to= out for a generated name.',
-            opt_out=None))
+            error=ValueError,
+        )
     return path
 
 

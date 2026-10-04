@@ -1,4 +1,4 @@
-# SQL Composer 3.1, exported 2026-09-30 20:19 - generated from dev, do not edit
+# SQL Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
 """What SQL Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
@@ -14,7 +14,7 @@ import re
 from . import _four_part_message as four_part_message
 from . import _stop
 
-TOOLBOX_VERSION = "3.1"
+TOOLBOX_VERSION = "3.2"
 
 _LOWEST = (25, 24, 2)
 _BELOW = (31, 0, 0)
@@ -138,23 +138,25 @@ def _executor_ready() -> None:
     """Stop with a plain message when sqlglot's executor would give wrong answers."""
     import sqlglot
 
-    found = sqlglot.__version__
-    version = _numbers(found) or (0, 0, 0)
-    # Imported only when a query runs: the rest of the Toolbox never needs the executor.
-    from sqlglot.executor import execute
+    if example_database_cannot_run() is None:
+        # Imported only when a query runs: the rest of the Toolbox never needs the executor.
+        from sqlglot.executor import execute
 
-    if version >= _EXECUTOR_NEEDS:
         check = execute("SELECT COUNT(DISTINCT x) AS n FROM t", dialect="hive",
                         tables={"t": [{"x": "a"}, {"x": "a"}, {"x": "b"}, {"x": None}]})
         if check.rows == [(2,)]:
             return
+        what = ("The Example database runs queries on sqlglot's own executor, and sqlglot "
+                f"{sqlglot.__version__}'s counts COUNT(DISTINCT ...) wrong.")
+    else:
+        what = ("The Example database runs queries on sqlglot's own executor, which needs "
+                f"sqlglot {_dotted(_EXECUTOR_NEEDS)} or newer to count correctly. This Python "
+                f"has sqlglot {sqlglot.__version__}.")
     raise RuntimeError(four_part_message(
-        what="The Example database runs queries on sqlglot's own executor, which needs "
-        f"sqlglot {_dotted(_EXECUTOR_NEEDS)} or newer to count correctly. This Python has "
-        f"sqlglot {found}.",
-        why="An older executor counts COUNT(DISTINCT ...) wrong, and says nothing.",
-        fix="The rest of the Toolbox works as usual: to_hive(...) still shows a Statement's "
-        "Hive. Only running queries on the Example database stops.",
+        what=what,
+        why="An executor that counts COUNT(DISTINCT ...) wrong says nothing about it.",
+        fix=f"{_INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
+        "still shows a Statement's Hive.",
         opt_out=None,
     ))
 
@@ -206,7 +208,7 @@ def _matching_text(column, pattern: str):
     trailing = bool(middle) and middle[-1] == ("wild", "%")
     middle = middle[:-1] if trailing else middle
     if any(kind == "wild" for kind, _ in middle):
-        _cant_run(f"LIKE with a % or _ in the middle ({pattern!r})")
+        _refuse_missing_part(f"LIKE with a % or _ in the middle ({pattern!r})")
     from sqlglot import exp
 
     text = "".join(char for _, char in middle)
@@ -222,8 +224,8 @@ def _matching_text(column, pattern: str):
     return exp.EQ(this=column, expression=found)
 
 
-def _missing_function(tree, error: str) -> str:
-    """The Hive name of the function the executor didn't know, from its error."""
+def _missing_function(tree, error: str) -> str | None:
+    """The Hive name of the function the executor didn't know, from its error, or None."""
     from sqlglot import exp
 
     from .writing import sql_text
@@ -233,10 +235,11 @@ def _missing_function(tree, error: str) -> str:
         for function in tree.find_all(exp.Func):
             if function.key.upper() == found.group(1):
                 return sql_text(function).split("(")[0]
-    return f"what this needs ({error})"
+    return None
 
 
-def _cant_run(missing: str, error: Exception | None = None) -> None:
+def _refuse_missing_part(missing: str, error: Exception | None = None) -> None:
+    """Refuse a query that needs a part of Hive the executor hasn't got, such as NEXT_DAY."""
     raise RuntimeError(four_part_message(
         what=f"The Example database can't run this Hive: its executor has no {missing}.",
         why="The Example database runs Hive on sqlglot's own small executor, which knows only "
@@ -247,6 +250,38 @@ def _cant_run(missing: str, error: Exception | None = None) -> None:
     )) from error
 
 
+def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) -> None:
+    """Refuse a query sqlglot couldn't read or run, as Spark Composer's Spark refuses one."""
+    names = [f"ops.{name}" for name in tables]
+    listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
+    raise RuntimeError(four_part_message(
+        what=f"The Example database couldn't run this Hive: {said}.",
+        why="Most often a table, column or hive_function(...) name is spelt wrong, which your "
+        "warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but "
+        "the Example database's small executor doesn't.",
+        fix=f"Check the names: the tables are {listed}, and printing one, such as "
+        "example_database.jobs, shows its columns. If they're right, see the Hive with "
+        "to_hive(...), and run it at work with your own send.",
+        opt_out=None,
+    )) from error
+
+
+def _sqlglot_said(error: Exception) -> str:
+    """The first line of what sqlglot said, without where it stopped ("Line 1, Col: 45.")."""
+    said = (str(error).strip().splitlines() or [type(error).__name__])[0]
+    return re.sub(r"\s*Line:? \d+, Col: \d+\.?$", "", said).rstrip(".")
+
+
+def _check_tables(tree, tables: dict) -> None:
+    """Refuse a table the query names with a database that isn't one of the Example database's,
+    such as mart.jobs, as Spark Composer's Spark refuses it, before a column of it is blamed."""
+    from sqlglot import exp
+
+    for table in tree.find_all(exp.Table):
+        if table.db and (table.db.lower() != "ops" or table.name.lower() not in tables):
+            _refuse_unreadable(f"it has no table {table.db}.{table.name}", tables)
+
+
 def run_query(text: str, tables: dict) -> tuple[list, list]:
     """Run a query's Hive on sqlglot's executor: its column names, and its rows.
 
@@ -255,7 +290,11 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     import sqlglot
     from sqlglot import exp
 
-    tree = sqlglot.parse_one(text, read="hive")
+    try:
+        tree = sqlglot.parse_one(text, read="hive")
+    except sqlglot.errors.SqlglotError as error:
+        _refuse_unreadable(_sqlglot_said(error), tables, error)
+    _check_tables(tree, tables)
     _executor_ready()
     from sqlglot.executor import execute  # only when a query runs, as in _executor_ready
 
@@ -263,10 +302,15 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     rows = {"ops": {name: [dict(zip(table._columns, row)) for row in table_rows]
                     for name, (table, table_rows) in tables.items()}}
     if tree.find(exp.Window):
-        _cant_run("window functions such as row_number")
+        _refuse_missing_part("window functions such as row_number")
     try:
         result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,
                          dialect="hive")
     except sqlglot.errors.ExecuteError as error:
-        _cant_run(_missing_function(tree, str(error)), error)
+        missing = _missing_function(tree, str(error))
+        if missing is None:
+            _refuse_unreadable(_sqlglot_said(error), tables, error)
+        _refuse_missing_part(missing, error)
+    except sqlglot.errors.SqlglotError as error:  # such as a column it can't find
+        _refuse_unreadable(_sqlglot_said(error), tables, error)
     return list(result.columns), list(result.rows)
