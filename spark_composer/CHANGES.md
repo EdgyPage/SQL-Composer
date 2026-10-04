@@ -9,7 +9,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   output, and the columns in HAVING and ORDER_BY, which Hive then refused.
 - **A count or a sum is refused in ON= and GROUP_BY, and a row number in WHERE, HAVING, ON=
   and GROUP_BY**, as a count already was in WHERE. Each fix says where it goes instead. A
-  count, a sum or a row number inside a count or a sum is refused when it is made.
+  count, a sum or a row number inside a count, a sum or a function such as collect_set is
+  refused when it is made.
 - **ORDER_BY's names are checked**, as GROUP_BY's are: a name SELECT doesn't have is refused.
 - **row_number sorts by columns only.** Its ORDER_BY= refuses an empty list, and a name,
   which Hive can't see inside row_number. Before, the empty list gave a raw error.

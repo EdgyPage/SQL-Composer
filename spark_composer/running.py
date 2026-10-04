@@ -173,7 +173,7 @@ def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
         fix = f"Bound {column} in WHERE, such as between({column}, ...)."
     else:
         return table, span
-    refuse(f"{who}: {what}.", why, fix, error=ValueError)
+    refuse(what=f"{who}: {what}.", why=why, fix=fix, error=ValueError)
 
 
 def _written_day(s: Statement):

@@ -38,7 +38,6 @@ WRITES = ("INSERT_OVERWRITE", "INSERT_INTO")
 JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN")
 
 
-
 class Clause:
     """One clause of a Statement, made by a clause function such as SELECT(...).
 

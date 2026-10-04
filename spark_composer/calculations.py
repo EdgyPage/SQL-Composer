@@ -70,9 +70,9 @@ def _not_inside(call: str, inner) -> None:
     """Refuse a count, a sum or a row number inside a function that works over many rows."""
     window = has_window(inner._tree)
     if window or has_aggregate(inner._tree):
-        made = "a row number" if window else "already works over many rows itself"
+        made = "is a row number" if window else "already works over many rows itself"
         refuse(
-            what=f"{call} has {inner!r} inside it, which is {made}.",
+            what=f"{call} has {inner!r} inside it, which {made}.",
             why="In one SELECT, Hive can't put a count, a sum or a row number inside a "
             "function that works over many rows, such as a count, a sum, a max or "
             "collect_set.",
