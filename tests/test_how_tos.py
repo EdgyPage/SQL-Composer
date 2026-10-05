@@ -12,6 +12,7 @@ import ast
 import builtins
 import contextlib
 import doctest
+import html
 import json
 import os
 import re
@@ -200,8 +201,8 @@ def test_each_group_has_its_heading_and_contents_and_each_how_to_its_badge() -> 
             assert f'<p class="note">No {group.name.lower()} how-tos yet.</p>' in text
         for how_to in in_group:
             assert how_to.number in group.numbers
-            # A title is shown as prose is, so a ' in it, as in "a table's", is escaped.
-            title = example_gallery.inline(how_to.title)
+            # A title is plain text on the page, so a ' in it, as in "a table's", is escaped.
+            title = html.escape(how_to.title)
             assert (f'<h3>{how_to.number}. {title} <span class="badge {group.id}">'
                     f"{group.name}</span></h3>") in page_sections()[how_to.slug]
     # Getting started comes first.
