@@ -83,10 +83,13 @@ anywhere.
   refuses the old name.
 - [show_hive](issues/04-show-hive.md): prints the Hive that runs with a `;`, each Statement
   headed by its variable's name, and returns it; 64 public names.
+- [Example database tables for the intermediate level](issues/05-example-database-tables-for-the-intermediate-level.md):
+  ops.job_events, ops.job_owners and ops.region_costs, 14 days each, the last partitioned by
+  region then a dt written 20260911; the first three tables and every golden unchanged;
+  sqlglot's executor can't run week_start, month_start or row_number on them.
 
 ## Not yet specified
 
-- The exact names of the three new Example database tables (ticket 05).
 - Whether a how-to page links to a fixed anchor in the README (ticket 06).
 
 ## Out of scope
