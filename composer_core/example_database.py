@@ -1,9 +1,21 @@
-"""The Example database: three made-up tables, and a send to run Statements on.
+"""The Example database: six made-up tables, and a send to run Statements on.
 
-It holds the Table references `jobs`, `job_runs` and `run_alerts`, their rows (two days,
-2026-09-23 and 2026-09-24), and `send`, which runs a Statement's Hive on a small database of
-the Toolbox's own and returns a DataFrame, just like your own send at work. It never reaches
-your warehouse, so it is safe to try anything here. Where it can't run a query, it says why.
+It holds the Table references `jobs`, `job_runs` and `run_alerts`, with rows on two days,
+2026-09-23 and 2026-09-24, and three more with rows on 14 days, 2026-09-11 to 2026-09-24:
+
+- `job_events`: each job's events each day, start, finish, retry and fail;
+- `job_owners`: one row per job per day, with its team and owner, so you can see report_build
+  move from data to finance on 2026-09-18;
+- `region_costs`: each job's cost in cents each day, partitioned by region ("eu" or "us", where
+  the job is billed, not the jobs table's LON, PAR or NYC), then by day, with days written like
+  20260911 rather than 2026-09-11.
+
+These three keep a record of their own: they have no run_id, and don't match job_runs run for
+run.
+
+`send` runs a Statement's Hive on a small database of the Toolbox's own and returns a
+DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to
+try anything here. Where it can't run a query, it says why.
 
 Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
 ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first.
@@ -71,11 +83,58 @@ run_alerts = Table(
     key=["alert_id"],
 )
 
+# Three more tables, with rows on 14 days, 2026-09-11 to 2026-09-24.
+
+job_events = Table(
+    "ops.job_events",
+    columns={
+        "event_id": "bigint",
+        "job_id": "bigint",
+        "event_type": "string",  # start / finish / retry / fail
+        "minutes": "int",  # minutes since the run started
+        "dt": "string",
+    },
+    date_partition="dt",
+    key=["event_id"],
+)
+
+job_owners = Table(
+    "ops.job_owners",
+    columns={
+        "job_id": "bigint",
+        "team": "string",
+        "owner": "string",  # NULL when nobody owns the job
+        "dt": "string",
+    },
+    date_partition="dt",
+    key=["job_id", "dt"],
+)
+
+region_costs = Table(
+    "ops.region_costs",
+    columns={
+        "job_id": "bigint",
+        "cost_cents": "bigint",  # NULL until the bill comes in
+        "region": "string",
+        "dt": "string",
+    },
+    date_partition="dt",
+    date_format="%Y%m%d",
+    key=["job_id", "region", "dt"],
+)
+
 # The column comments DESCRIBE returns.
 _COMMENTS = {
     ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
     ("run_alerts", "severity"): "low / high",
+    ("job_events", "event_type"): "start / finish / retry / fail",
+    ("job_events", "minutes"): "minutes since the run started",
+    ("job_owners", "owner"): "NULL when nobody owns the job",
+    ("region_costs", "cost_cents"): "NULL until the bill comes in",
 }
+
+# The partition columns, in order, of a table partitioned by more than its Date partition.
+_PARTITIONS = {"region_costs": ["region", "dt"]}
 
 # --- The rows: small enough to read by eye, so every wrong number is visibly wrong ----------
 
@@ -113,20 +172,183 @@ _RUN_ALERTS = [
     (9, 104, "low", "2026-09-24"),
 ]
 
+_JOB_EVENTS = [
+    # event_id, job_id, event_type, minutes, dt
+    (1, 1, "start", 0, "2026-09-11"),
+    (2, 1, "finish", 12, "2026-09-11"),
+    (3, 2, "start", 0, "2026-09-11"),
+    (4, 2, "finish", 18, "2026-09-11"),
+    (5, 3, "start", 0, "2026-09-11"),
+    (6, 3, "finish", 30, "2026-09-11"),
+    (7, 1, "start", 0, "2026-09-12"),
+    (8, 1, "finish", 11, "2026-09-12"),
+    (9, 1, "start", 0, "2026-09-13"),
+    (10, 1, "finish", 13, "2026-09-13"),
+    (11, 1, "start", 0, "2026-09-14"),
+    (12, 1, "finish", 12, "2026-09-14"),
+    (13, 2, "start", 0, "2026-09-14"),
+    (14, 2, "finish", 20, "2026-09-14"),
+    (15, 3, "start", 0, "2026-09-14"),
+    (16, 3, "retry", 8, "2026-09-14"),
+    (17, 3, "finish", 41, "2026-09-14"),
+    (18, 1, "start", 0, "2026-09-15"),
+    (19, 1, "finish", 10, "2026-09-15"),
+    (20, 2, "start", 0, "2026-09-15"),
+    (21, 2, "finish", 17, "2026-09-15"),
+    (22, 1, "start", 0, "2026-09-16"),
+    (23, 1, "retry", 5, "2026-09-16"),
+    (24, 1, "finish", 25, "2026-09-16"),
+    (25, 2, "start", 0, "2026-09-16"),
+    (26, 2, "finish", 19, "2026-09-16"),
+    (27, 1, "start", 0, "2026-09-17"),
+    (28, 1, "finish", 12, "2026-09-17"),
+    (29, 2, "start", 0, "2026-09-17"),
+    (30, 2, "finish", 16, "2026-09-17"),
+    (31, 1, "start", 0, "2026-09-18"),
+    (32, 1, "finish", 14, "2026-09-18"),
+    (33, 2, "start", 0, "2026-09-18"),
+    (34, 2, "finish", 22, "2026-09-18"),
+    (35, 3, "start", 0, "2026-09-18"),
+    (36, 3, "fail", 12, "2026-09-18"),
+    (37, 1, "start", 0, "2026-09-19"),
+    (38, 1, "finish", 11, "2026-09-19"),
+    (39, 1, "start", 0, "2026-09-20"),
+    (40, 1, "finish", 12, "2026-09-20"),
+    (41, 1, "start", 0, "2026-09-21"),
+    (42, 1, "finish", 13, "2026-09-21"),
+    (43, 2, "start", 0, "2026-09-21"),
+    (44, 2, "finish", 21, "2026-09-21"),
+    (45, 3, "start", 0, "2026-09-21"),
+    (46, 3, "finish", 33, "2026-09-21"),
+    (47, 1, "start", 0, "2026-09-22"),
+    (48, 1, "finish", 10, "2026-09-22"),
+    (49, 2, "start", 0, "2026-09-22"),
+    (50, 2, "finish", 18, "2026-09-22"),
+    (51, 1, "start", 0, "2026-09-23"),
+    (52, 1, "finish", 12, "2026-09-23"),
+    (53, 2, "start", 0, "2026-09-23"),
+    (54, 2, "finish", 18, "2026-09-23"),
+    (55, 1, "start", 0, "2026-09-24"),
+    (56, 1, "finish", 10, "2026-09-24"),
+    (57, 2, "start", 0, "2026-09-24"),  # still running: no finish yet
+]
+
+_JOB_OWNERS = [
+    # job_id, team, owner, dt: every job, every day
+    (1, "data", "ana", "2026-09-11"),
+    (2, "finance", "ben", "2026-09-11"),
+    (3, "data", "ana", "2026-09-11"),
+    (4, "web", None, "2026-09-11"),  # nobody owns cache_warm
+    (1, "data", "ana", "2026-09-12"),
+    (2, "finance", "ben", "2026-09-12"),
+    (3, "data", "ana", "2026-09-12"),
+    (4, "web", None, "2026-09-12"),
+    (1, "data", "ana", "2026-09-13"),
+    (2, "finance", "ben", "2026-09-13"),
+    (3, "data", "ana", "2026-09-13"),
+    (4, "web", None, "2026-09-13"),
+    (1, "data", "ana", "2026-09-14"),
+    (2, "finance", "ben", "2026-09-14"),
+    (3, "data", "ana", "2026-09-14"),
+    (4, "web", None, "2026-09-14"),
+    (1, "data", "ana", "2026-09-15"),
+    (2, "finance", "ben", "2026-09-15"),
+    (3, "data", "ana", "2026-09-15"),
+    (4, "web", None, "2026-09-15"),
+    (1, "data", "ana", "2026-09-16"),
+    (2, "finance", "ben", "2026-09-16"),
+    (3, "data", "ana", "2026-09-16"),
+    (4, "web", None, "2026-09-16"),
+    (1, "data", "ana", "2026-09-17"),
+    (2, "finance", "ben", "2026-09-17"),
+    (3, "data", "ana", "2026-09-17"),
+    (4, "web", None, "2026-09-17"),
+    (1, "data", "ana", "2026-09-18"),
+    (2, "finance", "ben", "2026-09-18"),
+    (3, "finance", "chloe", "2026-09-18"),  # report_build moves to finance
+    (4, "web", None, "2026-09-18"),
+    (1, "data", "ana", "2026-09-19"),
+    (2, "finance", "ben", "2026-09-19"),
+    (3, "finance", "chloe", "2026-09-19"),
+    (4, "web", None, "2026-09-19"),
+    (1, "data", "ana", "2026-09-20"),
+    (2, "finance", "ben", "2026-09-20"),
+    (3, "finance", "chloe", "2026-09-20"),
+    (4, "web", None, "2026-09-20"),
+    (1, "data", "ana", "2026-09-21"),
+    (2, "finance", "ben", "2026-09-21"),
+    (3, "finance", "chloe", "2026-09-21"),
+    (4, "web", None, "2026-09-21"),
+    (1, "data", "ana", "2026-09-22"),
+    (2, "finance", "ben", "2026-09-22"),
+    (3, "finance", "chloe", "2026-09-22"),
+    (4, "web", None, "2026-09-22"),
+    (1, "data", "ana", "2026-09-23"),
+    (2, "finance", "ben", "2026-09-23"),
+    (3, "finance", "chloe", "2026-09-23"),
+    (4, "web", None, "2026-09-23"),
+    (1, "data", "ana", "2026-09-24"),
+    (2, "finance", "ben", "2026-09-24"),
+    (3, "finance", "chloe", "2026-09-24"),
+    (4, "web", None, "2026-09-24"),
+]
+
+_REGION_COSTS = [
+    # job_id, cost_cents, region, dt: London and Paris are billed in eu, New York in us
+    (1, 120, "eu", "20260911"),
+    (2, 180, "eu", "20260911"),
+    (1, 110, "eu", "20260912"),
+    (1, 130, "eu", "20260913"),
+    (1, 120, "eu", "20260914"),
+    (2, 200, "eu", "20260914"),
+    (1, 100, "eu", "20260915"),
+    (2, 170, "eu", "20260915"),
+    (1, 250, "eu", "20260916"),
+    (2, 190, "eu", "20260916"),
+    (1, 120, "eu", "20260917"),
+    (2, 160, "eu", "20260917"),
+    (1, 140, "eu", "20260918"),
+    (2, 220, "eu", "20260918"),
+    (1, 110, "eu", "20260919"),
+    (1, 120, "eu", "20260920"),
+    (1, 130, "eu", "20260921"),
+    (2, 210, "eu", "20260921"),
+    (1, 100, "eu", "20260922"),
+    (2, 180, "eu", "20260922"),
+    (1, 120, "eu", "20260923"),
+    (2, 180, "eu", "20260923"),
+    (1, 100, "eu", "20260924"),
+    (2, None, "eu", "20260924"),  # still running: not billed yet
+    (3, 300, "us", "20260911"),
+    (3, 410, "us", "20260914"),
+    (3, 120, "us", "20260918"),
+    (3, 330, "us", "20260921"),
+]
+
 _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
-          "run_alerts": (run_alerts, _RUN_ALERTS)}
+          "run_alerts": (run_alerts, _RUN_ALERTS), "job_events": (job_events, _JOB_EVENTS),
+          "job_owners": (job_owners, _JOB_OWNERS),
+          "region_costs": (region_costs, _REGION_COSTS)}
 
 def _table(name: str) -> tuple[Table, list]:
     # Hive and Spark read a table's name whatever its case.
     *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
     if short not in _TABLES or database not in ([], ["ops"]):
+        names = [f"ops.{table}" for table in _TABLES]
         refuse(
             what=f"The Example database has no table {name!r}.",
-            why="It holds three made-up tables, all in the database ops.",
-            fix="Use ops.jobs, ops.job_runs or ops.run_alerts.",
+            why="It holds six made-up tables, all in the database ops.",
+            fix=f"Use {', '.join(names[:-1])} or {names[-1]}.",
             error=ValueError,
         )
     return _TABLES[short]
+
+
+def _partition_columns(table: Table) -> list[str]:
+    """The table's partition columns, in order: its Date partition, and any before it."""
+    if table._date_partition is None:
+        return []
+    return _PARTITIONS.get(table._alias, [table._date_partition])
 
 
 def _describe(name: str) -> pd.DataFrame:
@@ -139,19 +361,23 @@ def _describe(name: str) -> pd.DataFrame:
             ("", None, None),
             ("# Partition Information", None, None),
             ("# col_name", "data_type", "comment"),
-            (table._date_partition, table._columns[table._date_partition], ""),
         ]
+        rows += [(column, table._columns[column], "") for column in _partition_columns(table)]
     return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
 
 
 def _show_partitions(name: str) -> pd.DataFrame:
-    """What SHOW PARTITIONS prints: one row per day, like dt=2026-09-23."""
+    """What SHOW PARTITIONS prints: one row per partition, like dt=2026-09-23, or
+    region=eu/dt=20260911 for a table partitioned by two columns."""
     table, rows = _table(name)
     if table._date_partition is None:
         raise ValueError(f"Table {table._name} is not a partitioned table.")
-    position = list(table._columns).index(table._date_partition)
-    days = sorted({row[position] for row in rows})
-    return pd.DataFrame({"partition": [f"{table._date_partition}={day}" for day in days]})
+    columns = _partition_columns(table)
+    positions = [list(table._columns).index(column) for column in columns]
+    values = sorted({tuple(row[position] for position in positions) for row in rows})
+    return pd.DataFrame({"partition": [
+        "/".join(f"{column}={value}" for column, value in zip(columns, partition))
+        for partition in values]})
 
 
 # A string in single or double quotes, a name in backticks, or a comment to the end of its

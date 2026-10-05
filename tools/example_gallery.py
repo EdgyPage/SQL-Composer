@@ -669,9 +669,9 @@ table.result th,table.result td{{border:1px solid #ddd;padding:2px 8px;text-alig
 <h1>{product} {version}: Example gallery</h1>
 <p>Every Worked example on one page: {worked_count} Worked examples on their own, and the
 {docstring_count} examples from the Toolbox's docstrings. Each shows its Python and, for each
-Statement it builds, the Hive and any result: from the Example database, the three made-up
-tables that ship inside the Toolbox{or_pandas}. Press Ctrl+F to search the page.</p>
-<p>The examples take today as 2026-09-25, the day after the Example database's two days, so
+Statement it builds, the Hive and any result: from the Example database, the made-up tables
+that ship inside the Toolbox{or_pandas}. Press Ctrl+F to search the page.</p>
+<p>The examples take today as 2026-09-25, the day after the Example database's last day, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
