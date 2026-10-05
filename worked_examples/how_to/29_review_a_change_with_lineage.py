@@ -26,8 +26,9 @@ are what the change does, Statement by Statement, whatever the code looked like.
 
 ### A Building block and the Statements that read it
 
-`finished_runs` is a Building block: a Derived table of each job's finished runs over the days
-you give it, and the minutes they took.
+`finished_runs` is a Building block, as in [Share Building blocks between
+Statements](#share_building_blocks_between_statements): a Derived table of each job's finished
+runs over the days you give it, and the minutes they took.
 
 >>> def finished_runs(first_day, last_day):
 ...     return derived("finished_runs", statement(
@@ -76,15 +77,18 @@ otherwise each export gets a new name, from the time it ran:
 
 The Markdown file holds, for each Statement, every calculated column with the table columns it
 comes from and the conditions that decide which rows count, then the copied columns, then the
-Hive. Open the HTML page in your browser to see the same drawn.
+Hive, as [Lineage of one Statement](#lineage_of_one_statement) and [Lineage of a pipeline across
+Saved tables](#lineage_of_a_pipeline_across_saved_tables) show. Open the HTML page in your
+browser to see the same drawn.
 
 ### Change the Building block
 
 A run that fails uses the cluster too, so count its minutes as well: the condition becomes
-`is_in(job_events.event_type, ["finish", "fail"])`. Write the function again with the change,
-then build the Statements again, since each holds the Building block as it was when it was
-built:
+`is_in(job_events.event_type, ["finish", "fail"])`. Keep the function as it was under another
+name, for the last mistake below, then write it again with the change, and build the
+Statements again, since each holds the Building block as it was when it was built:
 
+>>> finished_only = finished_runs
 >>> def finished_runs(first_day, last_day):
 ...     return derived("finished_runs", statement(
 ...         SELECT(job_events.job_id,
@@ -148,22 +152,24 @@ minutes grew by 12, the minutes report_build ran on 2026-09-18 before it failed:
 ### Find every output a column feeds
 
 Say the minutes in `ops.job_events` are to be stored as seconds instead. Which outputs would
-change? In the Markdown file, each calculated column's part lists the table columns it comes
-from, and each copied column's line says where it is copied from, so search them for the
-column. `outputs_fed_by` keeps the outputs of the Statements, named like
-`minutes_per_team.minutes`, and leaves out the Derived table's own columns, whose names hold
-a dot already:
+change? In the Markdown file, each calculated column's part, under its `####` heading, draws
+the table columns it comes from as a tree, on lines holding `├─` or `└─`, and each copied
+column's row of the Copied columns table says where it is copied from. So search those lines
+for the column. `outputs_fed_by` keeps the outputs of the Statements, named
+like `minutes_per_team.minutes`, and leaves out the Derived table's own columns, whose names
+hold a dot already:
 
 >>> def outputs_fed_by(column, markdown_file):
 ...     fed, statement_name, output = [], None, None
 ...     for line in Path(markdown_file).read_text(encoding="utf-8").splitlines():
 ...         if line.startswith("## "):
 ...             statement_name = line[3:]
-...         if line.startswith("#"):
-...             output = line[5:].strip("`") if line.startswith("#### ") else None
+...         elif line.startswith("#### "):
+...             output = line[5:].strip("`")
 ...         elif line.startswith("| `"):
 ...             output = line.split("`")[1]
-...         if output and "." not in output and column in line:
+...         carries_a_value = "─ " in line or line.startswith("| `")
+...         if carries_a_value and column in line and "." not in output:
 ...             name = statement_name + "." + output
 ...             if name not in fed:
 ...                 fed.append(name)
@@ -171,10 +177,12 @@ a dot already:
 >>> outputs_fed_by("ops.job_events.minutes", "after.md")
 ['minutes_per_team.minutes', 'longest_jobs.minutes']
 
-Both outputs named minutes would come out 60 times bigger. A column can also decide which rows
-count, through WHERE, JOIN's ON=, ORDER_BY or LIMIT, as `runs.minutes` decides which two jobs
-`longest_jobs` keeps: open the HTML page and click the column's box to light up every path
-from it.
+Both outputs named minutes would come out 60 times bigger. `outputs_fed_by` follows values
+only. A column can also decide which rows count, through WHERE, JOIN's ON=, ORDER_BY or LIMIT,
+as `ops.job_events.event_type` decides which runs `finished_runs` keeps: that shows under each
+calculated column's "Rows that count", which it doesn't search, and not at all under a copied
+column. To see every output a column reaches either way, open the HTML page and click the
+column's box to light up every path from it.
 
 ## Check it worked
 
@@ -191,18 +199,10 @@ False
 
 A Statement holds its Building block as it was when it was built. Change the function, but
 export the Statements you already had, and the Lineage after looks just like the one before.
-Here the function goes back to finished runs only, and the Statements aren't built again:
+Here the function goes back to finished runs only, kept as `finished_only`, and the
+Statements aren't built again:
 
->>> def finished_runs(first_day, last_day):
-...     return derived("finished_runs", statement(
-...         SELECT(job_events.job_id,
-...                AS(count_rows(), "runs"),
-...                AS(sum_of(job_events.minutes), "minutes")),
-...         FROM(job_events),
-...         WHERE(between(job_events.dt, first_day, last_day),
-...               equals(job_events.event_type, "finish")),
-...         GROUP_BY(job_events.job_id),
-...     ))
+>>> finished_runs = finished_only
 >>> html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
 ...                                           to="stale.html")
 >>> changed_lines("after.md", "stale.md")
@@ -212,9 +212,19 @@ after each change, with `build_statements`, then export.
 
 ### Comparing the HTML pages
 
-The HTML page holds the same Lineage, but as data for its drawing, on very long lines, so a
-line by line comparison of two pages shows little you can read. Compare the Markdown files,
-which `export_lineage` writes beside each page with the same name, ending in .md.
+The HTML page holds the same Lineage, but as HTML and data for its drawing, on very long lines,
+so a line by line comparison of two pages shows little you can read. The lines that differ
+between before.html and after.html, by their length in characters:
+
+>>> before_page = Path("before.html").read_text(encoding="utf-8").splitlines()
+>>> after_page = Path("after.html").read_text(encoding="utf-8").splitlines()
+>>> sorted(len(line) for line in difflib.ndiff(before_page, after_page)
+...        if line.startswith(("- ", "+ ")))
+[52, 52, 73, 73, 88, 89, 662, 663, 671, 702, 703, 711, 888, 928, 5862, 5906]
+
+Sixteen lines, most of them hundreds of characters long, the last two thousands. Compare the
+Markdown files, which `export_lineage` writes beside each page with the same name,
+ending in .md.
 
 ## Next
 

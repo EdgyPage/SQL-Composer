@@ -11,9 +11,11 @@ your notebook, on several ranges of days. A careless Statement fails; the fixed 
 ## When you'd use it
 
 When a Statement's numbers will be read by other people, before you save them to a table or
-send them on, and after every change to a Building block it reads. The Toolbox's Guards and
-Warnings catch mistakes of a known shape, such as a missing day bound or a join that repeats
-rows; only a test catches a Statement that counts the wrong thing.
+send them on, and after every change to a Building block it reads, such as one shared as in
+[Share Building blocks between Statements](#share_building_blocks_between_statements). The
+Toolbox's Guards and Warnings catch mistakes of a known shape, such as a join that repeats rows,
+as [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows, and a Load limit
+catches a missing day bound; only a test catches a Statement that counts the wrong thing.
 
 ## Steps
 
@@ -83,12 +85,12 @@ into a list of plain dicts, which compare with `==` as Python lists do:
 >>> def same_rows(result, expected):
 ...     return (result.sort_values("job_id").to_dict("records")
 ...             == expected.sort_values("job_id").to_dict("records"))
->>> def check(make_statement, first_day, last_day):
+>>> def test_statement(make_statement, first_day, last_day):
 ...     result = run(make_statement(first_day, last_day), send=example_database.send)
 ...     expected = oracle(events(first_day, last_day))
 ...     message = f"{first_day} to {last_day}:\\n{result}\\n{expected}"
 ...     assert same_rows(result, expected), message
->>> check(careless_finished_runs, "2026-09-18", "2026-09-24")
+>>> test_statement(careless_finished_runs, "2026-09-18", "2026-09-24")
 Traceback (most recent call last):
 ...
 AssertionError: 2026-09-18 to 2026-09-24:
@@ -115,11 +117,11 @@ Keep only the finish events, in `WHERE`:
 
 Test it on ranges of days chosen to hold the awkward cases: the whole 14 days; 2026-09-14, with
 a retry; 2026-09-18, when report_build failed; and 2026-09-24, when invoice_sync started but
-hadn't finished. `check` prints nothing when every `assert` holds:
+hadn't finished. `test_statement` prints nothing when every `assert` holds:
 
 >>> for first_day, last_day in [("2026-09-11", "2026-09-24"), ("2026-09-14", "2026-09-14"),
 ...                             ("2026-09-18", "2026-09-18"), ("2026-09-24", "2026-09-24")]:
-...     check(finished_runs, first_day, last_day)
+...     test_statement(finished_runs, first_day, last_day)
 
 ### Check what you know
 
@@ -142,7 +144,7 @@ The careless Statement fails its test, and the fixed one passes on every range o
 the fixed one's test once more, for the whole 14 days: it prints nothing, so every `assert`
 held.
 
->>> check(finished_runs, "2026-09-11", "2026-09-24")
+>>> test_statement(finished_runs, "2026-09-11", "2026-09-24")
 
 ## Common mistakes
 
@@ -176,9 +178,16 @@ Put both in one order before comparing, as `same_rows` does with `"job_id"`.
 
 ### An oracle that asks the Statement
 
-An oracle built from the Statement's own result, such as `run(finished_runs(...))` again,
-always agrees with it, careless or not. Work the oracle out from the rows themselves, as
-`oracle` does from `events`, and in another way than the Statement does.
+An oracle built from the Statement's own result always agrees with it, careless or not. No
+message stops you: the careless Statement passes against itself, though it counts 14 runs
+where job 1 finished 7:
+
+>>> careless = run(careless_finished_runs("2026-09-18", "2026-09-24"), send=example_database.send)
+>>> same_rows(careless, careless)
+True
+
+Work the oracle out from the rows themselves, as `oracle` does from `events`, and in another
+way than the Statement does.
 
 ## Next
 

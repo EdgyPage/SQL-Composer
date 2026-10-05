@@ -1,26 +1,27 @@
-"""A layered pipeline
+"""A pipeline of Saved tables
 
 For: Intermediate
 
 ## Goal
 
-Build a pipeline in layers, each a Saved table the next one reads: the raw events, then each
-job's day, then each team's day, then a weekly rollup read from the team layer. You give each
-layer its Table reference and its write, put the day's writes in one list that runs every
-writer before the layers that read it, and export one Lineage for the whole chain.
+Build a pipeline in steps, each written from the step before: each job's day from the raw
+events, saved in one Saved table, then each team's day from that, saved in another, then a
+weekly rollup that adds up the team's saved days whenever you read it. You give each Saved
+table its Table reference and its write, put the day's writes in one list that runs every
+writer before the Statements that read its table, and export one Lineage for the whole chain.
 
 ## When you'd use it
 
 When one number goes through several steps, and several notebooks or dashboards read the steps
-in between. Each layer is worked out once a day and saved, so its readers read a few saved rows
-rather than every raw row again, and each layer can be checked on its own.
+in between. Each Saved table is worked out once a day and saved, so its readers read a few saved
+rows rather than every raw row again, and each step can be checked on its own.
 
 ## Steps
 
 ### Import the Toolbox
 
-The raw layer is two tables of the Example database: `ops.job_events`, what each job's runs did
-each day, and `ops.job_owners`, each job's team on each day.
+The pipeline starts from two tables of the Example database: `ops.job_events`, what each job's
+runs did each day, and `ops.job_owners`, each job's team on each day.
 
 >>> from sqlglot_composer import *
 >>> job_events = example_database.job_events
@@ -28,10 +29,10 @@ each day, and `ops.job_owners`, each job's team on each day.
 
 ### Describe each Saved table
 
-Each layer is a Saved table with a Table reference written by hand, since it doesn't exist until
-you create it. mart.job_day holds each job's runs started and finished per day; mart.team_day
-adds them up per team, as of each day. At work each goes in a file of its own under
-table_references/.
+Each Saved table has a Table reference written by hand, since it doesn't exist until you create
+it, as in [Save a table](#save_a_table). mart.job_day holds each job's runs started and finished
+per day; mart.team_day adds them up per team, as of each day. At work each goes in a file of
+its own under table_references/.
 
 >>> job_day = Table(
 ...     "mart.job_day",
@@ -72,9 +73,9 @@ PARTITIONED BY (
 )
 STORED AS ORC;
 
-### Write each layer's day
+### Write each Saved table's day
 
-Each layer's write is a function of the day it writes. The job layer reads the raw events:
+Each write is a function of the day it writes. mart.job_day is written from the raw events:
 
 >>> def write_job_day(day):
 ...     return statement(
@@ -87,10 +88,10 @@ Each layer's write is a function of the day it writes. The job layer reads the r
 ...         GROUP_BY(job_events.dt, job_events.job_id),
 ...     )
 
-The team layer reads the job layer through its Table reference, `job_day`, like any other
-table, and takes each job's team from that day's snapshot of owners, as [Look things up as of a
-day](#look_things_up_as_of_a_day) does. Adding up the jobs' counts into the team's is safe: a
-sum of counts is still the right count.
+mart.team_day is written from mart.job_day, read through its Table reference, `job_day`, like
+any other table, with each job's team taken from that day's copy of the owners, as [Look things
+up as of a day](#look_things_up_as_of_a_day) does. Adding up the jobs' counts into the team's is
+safe: a sum of counts is still the right count.
 
 >>> def write_team_day(day):
 ...     return statement(
@@ -105,14 +106,15 @@ sum of counts is still the right count.
 ...         GROUP_BY(job_day.dt, job_owners.team),
 ...     )
 
-### Read the weekly rollup from the team layer
+### Read the weekly rollup from mart.team_day
 
-A write fills one day of its Saved table, the one day its `FROM` table reads, so the layers you
-save are days. The weekly rollup is the last layer: a Statement that adds up the team layer's
+A write fills one day of its Saved table, the one day its `FROM` table reads, so the tables you
+save hold days. The weekly rollup isn't saved: it is a Statement that adds up mart.team_day's
 saved days into weeks whenever you read it, which is quick, since each day holds a row per team.
-Read whole weeks, from a Monday to a Sunday:
+Read whole weeks, from a Monday to a Sunday; here the week holding 2026-09-24, the day the
+pipeline below writes:
 
->>> def team_week(first_day, last_day):
+>>> def weekly_rollup(first_day, last_day):
 ...     return statement(
 ...         SELECT(AS(week_start(team_day.dt), "week"), team_day.team,
 ...                AS(sum_of(team_day.starts), "starts"),
@@ -121,13 +123,14 @@ Read whole weeks, from a Monday to a Sunday:
 ...         WHERE(between(team_day.dt, first_day, last_day)),
 ...         GROUP_BY("week", team_day.team),
 ...     )
->>> weekly = team_week("2026-09-14", "2026-09-20")
+>>> weekly = weekly_rollup("2026-09-21", "2026-09-27")
 
 ### Put the day's writes in order
 
-A layer must be written after the layers it reads, or it reads a day they haven't written yet,
-and nothing would stop it. So one function lists the day's writes in that order, each writer
-before its readers, and it is the only place that order is kept:
+A Saved table must be written after the tables it is written from, or its write reads a day they
+haven't written yet, and nothing would stop it. So one function lists the day's writes in that
+order, each writer before its readers, and it is the only place that order is kept, as in [Run
+a daily pipeline](#run_a_daily_pipeline):
 
 >>> def pipeline(day):
 ...     return [write_job_day(day), write_team_day(day)]
@@ -168,13 +171,14 @@ sends them, in order:
         for step in pipeline(day):
             run(step, send=send)
 
-To fill several days, call it once per day, oldest first, so each day's layers are written in
-order. Then read the week with `run(weekly, send=send)`, your own send in place of the Example
-database's.
+To fill several days, call it once per day, oldest first, so each day's Saved tables are written
+in order. Then read the week with `run(weekly, send=send)`, your own send in place of the
+Example database's.
 
 ### Export one Lineage for the chain
 
-Pass every Statement of the chain to `export_lineage` together. Its drawing follows each Saved
+Pass every Statement of the chain to `export_lineage` together, as [Lineage of a pipeline across
+Saved tables](#lineage_of_a_pipeline_across_saved_tables) does. Its drawing follows each Saved
 table from the Statement that writes it to the ones that read it, from the raw tables to the
 weekly rollup. It puts each writer first, whatever order you pass them in, so its title lists
 them in the order they must run:
@@ -185,12 +189,15 @@ them in the order they must run:
 '# Lineage: job_day_step, team_day_step, weekly'
 
 Open lineage/pipeline.html in a browser and click a box, such as `weekly`'s starts, to light
-up every column it comes from, through both Saved tables.
+up every column it comes from, through both Saved tables. The Markdown file's last line names
+the commit of your scripts it describes: on this page that is pinned to 1a2b3c4, and in your
+notebook it is your own scripts' git commit, as [Lineage of one
+Statement](#lineage_of_one_statement) explains.
 
 ## Check it worked
 
-The Example database holds no Saved table, so it can't run the team layer. It can work out the
-same numbers for a day straight from the raw tables, in one Statement:
+The Example database holds no Saved table, so it can't run mart.team_day's write. It can work
+out the same numbers for a day straight from the raw tables, in one Statement:
 
 >>> team_day_from_raw = statement(
 ...     SELECT(job_owners.team,
@@ -213,10 +220,10 @@ is still going. At work, after the pipeline has run, read mart.team_day's 2026-0
 
 ## Common mistakes
 
-### A layer's Table reference changed, but not its write
+### A Saved table's Table reference changed, but not its write
 
-Say the job layer gains a column, the runs that failed. Add it to the Table reference and the
-old write no longer fills every column, so the Toolbox refuses it:
+Say mart.job_day gains a column, the runs that failed. Add it to the Table reference and the old
+write no longer fills every column, so the Toolbox refuses it:
 
 >>> job_day = Table(
 ...     "mart.job_day",
@@ -233,15 +240,45 @@ composer_core.refusals.GuardRefused:
 ...
 
 Add `AS(count_rows(where=equals(job_events.event_type, "fail")), "fails")` to its `SELECT`.
-The table itself must change too: `create_table` refuses while the old one exists, so drop it,
-create it again and write its days again, as the gallery's
+The table itself must change too. `create_table(job_day, may_exist=True)` does nothing while
+the old table exists, and without `may_exist=True` the warehouse refuses to create it, so drop
+it with `drop_table(job_day)`, create it again and write its days again, as the gallery's
 [Saved table Worked example](examples.html#saved_table) shows in its rebuild step.
+
+### Saving the weekly rollup
+
+A Saved table of weeks looks tidy, but a write fills one day, and a week is seven. Written over
+a week, the write is refused when it becomes Hive, before anything is sent:
+
+>>> team_week = Table(
+...     "mart.team_week",
+...     columns={"team": "string", "starts": "bigint", "finishes": "bigint", "dt": "string"},
+...     date_partition="dt",
+...     key=["team", "dt"],
+... )
+>>> to_hive(statement(
+...     INSERT_OVERWRITE(team_week),
+...     SELECT(team_day.team,
+...            AS(sum_of(team_day.starts), "starts"),
+...            AS(sum_of(team_day.finishes), "finishes")),
+...     FROM(team_day),
+...     WHERE(between(team_day.dt, "2026-09-21", "2026-09-27")),
+...     GROUP_BY(team_day.team),
+... ))
+Traceback (most recent call last):
+...
+composer_core.refusals.GuardRefused:
+  What happened:  INSERT_OVERWRITE(team_week) covers 7 days.
+...
+
+Save the days, in mart.team_day, and add them up into weeks when you read them, with
+`weekly_rollup`, as the steps do.
 
 ### A step that rewrites the table it reads
 
 A tidy-up step that reads mart.team_day and writes mart.team_day again, say to drop a team,
 reads its own output. Run twice, it works on rows it has already changed. `export_lineage`
-can't draw it either, since its lineage would lead back into itself:
+can't draw it either, since its Lineage would lead back into itself:
 
 >>> without_web = statement(
 ...     INSERT_OVERWRITE(team_day),
@@ -256,15 +293,15 @@ ValueError:
   What happened:  export_lineage can't draw these Statements, because they go round in a loop: without_web writes mart.team_day, which without_web reads.
 ...
 
-Leave the team out in the write that fills the layer, `write_team_day`, or write the tidied rows
-to a new layer of their own.
+Leave the team out in the write that fills mart.team_day, `write_team_day`, or write the tidied
+rows to a new Saved table of their own.
 
 ## Next
 
-- Keep each layer's last few days up to date as late rows arrive: [Incremental loads and late
-  data](#incremental_loads_and_late_data).
-- Share the pieces several layers need: [A library of Building
-  blocks](#a_library_of_building_blocks).
+- Keep each Saved table's last few days up to date as late rows arrive: [Incremental loads and
+  late data](#incremental_loads_and_late_data).
+- Share the pieces several Statements need: [Share Building blocks between
+  Statements](#share_building_blocks_between_statements).
 - The gallery's Worked examples of [`export_lineage`](examples.html#export_lineage) and
   [`show_hive`](examples.html#show_hive).
 """

@@ -13,6 +13,8 @@ every table, run them all, and export one Lineage for the lot.
 When the same job repeats over many tables: daily totals for every table a team owns, or one
 check per table. Adding a table is then one more line of settings, not one more copied
 Statement, and a fix to the function that writes the Statements reaches every table at once.
+[Generate Statements in a loop](#generate_statements_in_a_loop) starts with a loop over one
+table; this how-to loops over tables.
 
 ## Steps
 
@@ -23,27 +25,28 @@ Statement, and a fix to the function that writes the Statements reaches every ta
 
 ### Write one setting per table
 
-Each setting is a dict: the table's name, its key, and its measures, the columns a daily total
-adds up. `ops.job_events` has no column worth adding up, so its measures are an empty list and
-its total is the number of rows. `ops.region_costs` writes its days like 20260924, which its
-setting says in `"date_format"`, as a Table reference does. The avg_retry_secs column of
-`ops.job_runs` is an average, which must never be added up, so its setting lists it in
+Each setting is a dict: the table's name, its key, and under `"add_up"` the columns a daily
+total adds up. `ops.job_events` has no column worth adding up, so its `"add_up"` is an empty
+list and its total is the number of rows. `ops.region_costs` writes its days like 20260924,
+which its setting says in `"date_format"`, as a Table reference does. The avg_retry_secs column
+of `ops.job_runs` is an average, which must never be added up, so its setting lists it in
 `"does_not_add_up"`.
 
 >>> settings = [
-...     {"table": "ops.job_runs", "key": ["run_id"], "measures": ["duration_mins"],
+...     {"table": "ops.job_runs", "key": ["run_id"], "add_up": ["duration_mins"],
 ...      "does_not_add_up": ["avg_retry_secs"]},
-...     {"table": "ops.job_events", "key": ["event_id"], "measures": []},
+...     {"table": "ops.job_events", "key": ["event_id"], "add_up": []},
 ...     {"table": "ops.region_costs", "key": ["job_id", "region", "dt"],
-...      "measures": ["cost_cents"], "date_format": "%Y%m%d"},
+...      "add_up": ["cost_cents"], "date_format": "%Y%m%d"},
 ... ]
 
 ### Generate a Table reference for each table
 
-A Table reference needs each column and its type. Rather than type them, ask the table: your
-send runs DESCRIBE, which lists the columns, one per row, each with its name in `"col_name"`
-and its type in `"data_type"`. After them it lists the partition columns again, under a
-heading row starting with `#`, often after an empty row, so stop at the first such row:
+A Table reference needs each column and its type. Rather than type them, ask the table, as
+[Import a table's column names](#import_column_names) does: your send runs DESCRIBE, which lists
+the columns, one per row, each with its name in `"col_name"` and its type in `"data_type"`.
+After them it lists the partition columns again, under a heading row starting with `#`, often
+after an empty row, so stop at the first such row:
 
 >>> example_database.send("DESCRIBE ops.region_costs")
                   col_name  data_type                       comment
@@ -99,13 +102,13 @@ table shows up as a difference when you check it, rather than slipping into your
 ### Generate a Statement for each table
 
 `daily_totals` writes one Statement for a table and its setting: per day, the number of rows and
-the total of each measure. `getattr(t, "duration_mins")` is `t.duration_mins`, for a column
-whose name you hold as text, so a measure the table doesn't have stops here, naming the real
-ones.
+the total of each column it adds up. `getattr(t, "duration_mins")` is `t.duration_mins`, for a
+column whose name you hold as text, so a column the table doesn't have stops here, naming the
+real ones.
 
 >>> def daily_totals(t, setting, first_day, last_day):
-...     totals = [AS(sum_of(getattr(t, measure)), "total_" + measure)
-...               for measure in setting["measures"]]
+...     totals = [AS(sum_of(getattr(t, name)), "total_" + name)
+...               for name in setting["add_up"]]
 ...     return statement(
 ...         SELECT(t.dt, AS(count_rows(), "row_count"), totals),
 ...         FROM(t),
@@ -158,26 +161,29 @@ GROUP BY
 
 Run each in a loop, and keep each result under its table's name:
 
->>> results = {name: run(s, send=example_database.send) for name, s in daily.items()}
+>>> results = {name: run(totals, send=example_database.send)
+...            for name, totals in daily.items()}
 >>> results["ops.region_costs"]
          dt  row_count  total_cost_cents
 0  20260923          2               300
 1  20260924          2               100
 
-On 2026-09-24 two runs were billed in `ops.region_costs`, but one bill, invoice_sync's, hasn't
-come in: its cost is NULL, and SUM leaves a NULL out of the total.
+On 2026-09-24 `ops.region_costs` has two rows, but only one was billed: invoice_sync's bill
+hasn't come in, so its cost is NULL, and SUM leaves a NULL out of the total.
 
 ### Export one Lineage for them all
 
 Pass every Statement to [`export_lineage`](examples.html#export_lineage) at once, and it writes
-one HTML page and one Markdown file for them all. `to=` names the HTML file, and the Markdown
-file goes beside it:
+one HTML page and one Markdown file for them all, laid out as in [Lineage of one
+Statement](#lineage_of_one_statement). `to=` names the HTML file, and the Markdown file goes
+beside it.
+
+`export_lineage` names each Statement after the variable that holds it. These sit in a dict, in
+no variable of their own, so it numbers them in the order you passed them: in the file below,
+statement_1 is `ops.job_runs`'s, statement_2 `ops.job_events`'s and statement_3
+`ops.region_costs`'s, and each one's Hive, at the end of its part, names its table.
 
 >>> html_file, markdown_file = export_lineage(*daily.values(), to="daily_totals.html")
-
-`export_lineage` names each Statement after the variable that holds it. These sit in a dict,
-in no variable of their own, so it numbers them in the order you passed them: statement_1 is
-`ops.job_runs`'s, and each one's Hive, at the end of its part, names its table.
 
 ## Check it worked
 
@@ -191,11 +197,11 @@ reference matched its table:
 
 ## Common mistakes
 
-### A measure that isn't one of the table's columns
+### A column to add up that isn't one of the table's
 
 A typo in a setting stops when its Statement is generated, at `getattr`, with the real columns:
 
->>> typo = {"table": "ops.job_runs", "key": ["run_id"], "measures": ["duration_min"]}
+>>> typo = {"table": "ops.job_runs", "key": ["run_id"], "add_up": ["duration_min"]}
 >>> daily_totals(tables["ops.job_runs"], typo, first_day, last_day)
 Traceback (most recent call last):
 ...
@@ -203,11 +209,11 @@ AttributeError: job_runs has no column 'duration_min'. Did you mean 'duration_mi
 
 ### Adding up an average
 
-A setting can list a column that must not be added up, such as "avg_retry_secs", an average
-per run. Because the Table reference was generated with `"does_not_add_up"` from the setting,
-the Toolbox refuses it:
+A setting can list under `"add_up"` a column that must not be added up, such as
+"avg_retry_secs", an average per run. Because the Table reference was generated with
+`"does_not_add_up"` from the setting, the Toolbox refuses it:
 
->>> averages = {"table": "ops.job_runs", "key": ["run_id"], "measures": ["avg_retry_secs"]}
+>>> averages = {"table": "ops.job_runs", "key": ["run_id"], "add_up": ["avg_retry_secs"]}
 >>> daily_totals(tables["ops.job_runs"], averages, first_day, last_day)
 Traceback (most recent call last):
 ...
@@ -230,7 +236,9 @@ ValueError:
   What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-23', which isn't a day written like '20260925'.
 ...
 
-Pass `datetime.date` days, as the steps do, and each table gets them in its own way.
+Pass `datetime.date` days, as the steps do, and each table gets them in its own way. Text
+written the table's own way, `"20260923"`, works too, as in [Check data quality with
+Statements](#check_data_quality), but then each table needs its days written its own way.
 
 ## Next
 

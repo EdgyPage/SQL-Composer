@@ -51,8 +51,12 @@ ValueError:
   What happened:  hive_function('lag', ...) calls lag, which works only over a window of rows, written LAG(...) OVER (...).
 ...
 
+The message's pandas line is written with example names: df stands for your DataFrame, here
+`runs`, and "runs" for the column to shift, here "minutes".
+
 In pandas, sort each job's runs by day, then `.shift(1)` within each job gives each row the
-value of the row before it, and NaN, pandas' empty value, for each job's first run:
+value of the row before it, and NaN, pandas' empty value, for each job's first run. The tables
+on this page show NaN, like None, as NULL:
 
 >>> runs = runs.sort_values(["job_id", "dt"])
 >>> runs["minutes_before"] = runs.groupby("job_id")["minutes"].shift(1)
@@ -105,13 +109,19 @@ ranks as whole numbers:
 11       3  2026-09-21       33              1
 
 To keep the newest row per key, or the top rows per group, use `row_number` instead, which
-the Toolbox writes as Hive with its OVER (...): see the gallery's
-[`row_number`](examples.html#row_number).
+the Toolbox writes as Hive with its OVER (...): see [The latest row per key, and the top N per
+group](#latest_row_per_key).
 
 ### A rolling sum
 
 The minutes of each job's last three runs, added up. `sum_of` adds up a whole group into one
-row, and the Toolbox writes no OVER (...) for a running total, so work it out in pandas:
+row, and so does sum through `hive_function`. Nothing refuses it, since sum is not only a
+window function, but it writes plain SUM, with no OVER (...):
+
+>>> hive_function("sum", job_events.minutes)
+SUM(job_events.minutes)
+
+The Toolbox writes no OVER (...) for a rolling sum, so work it out in pandas:
 `.rolling(3, min_periods=1)` looks at each row and the two before it, or fewer at the start,
 and `.transform` does it within each job, keeping one value per row:
 
@@ -132,8 +142,8 @@ and `.transform` does it within each job, keeping one value per row:
 10       2  2026-09-23       18         57.0
 11       3  2026-09-21       33         33.0
 
-It counts runs, not days: invoice_sync, job 2, doesn't run at weekends, so its three runs up to
-2026-09-21 span 2026-09-18 to 21, four days.
+It counts runs, not days: invoice_sync, job 2, doesn't run at weekends, so its first three
+runs, up to 2026-09-22, span 2026-09-18 to 22, five days, and add up to 61 minutes.
 
 ### Merge the results of several Statements
 
@@ -178,11 +188,11 @@ is quicker to write and to change.
 
 ## Check it worked
 
-Each job's first run has no run before it, so NaN; every other run has one. And the merge kept
-one row per job:
+Only each job's first run has no run before it, so of three jobs, three rows have NaN. And the
+merge kept one row per job:
 
->>> runs.groupby("job_id")["minutes_before"].apply(lambda before: before.isna().sum()).tolist()
-[1, 1, 1]
+>>> int(runs["minutes_before"].isna().sum())
+3
 >>> per_job["job_id"].is_unique
 True
 
