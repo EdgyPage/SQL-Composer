@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import example_rows
-from sql_composer import GuardRefused, example_database, run, to_hive
+from sqlglot_composer import GuardRefused, example_database, run, to_hive
 from statements import none_in_equals as example
 
 

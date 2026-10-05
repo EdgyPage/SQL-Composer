@@ -6,11 +6,11 @@ Run it on `dev` only when a change is meant to alter what the Toolbox writes, th
     python tools/hive_corpus.py --edition spark
 
 `tests/test_hive_corpus.py` fails while the committed file of the Edition it tests differs from
-what this writes. SQL Composer's is written only at the sqlglot pin in requirements-dev.txt,
+what this writes. sqlglot Composer's is written only at the sqlglot pin in requirements-dev.txt,
 since another sqlglot writes some Hive differently; Spark Composer's needs no Java.
 `tests/repo/test_edition_parity.py` holds that the two differ only where `DECLARED_DIFFERENCES`
 in `tools/editions.py` says they do. For that test, `--as-written` prints Spark Composer's
-corpus with what it adds to SQL Composer's Hive left out, as its readable_text leaves it out.
+corpus without what it adds to sqlglot Composer's Hive, as its readable_text leaves it out.
 
 The file pins, for each case under a stable id, what the Toolbox shows through its public
 names:
@@ -41,18 +41,18 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tools"), str(ROOT / "tests")]
 import editions  # noqa: E402
 
 if __name__ == "__main__":
-    # Before any Toolbox import: `import sql_composer` then gives the Edition asked for.
+    # Before any Toolbox import: `import sqlglot_composer` then gives the Edition asked for.
     editions.use(editions.edition_on_command_line(sys.argv))
 
 import pandas as pd  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
-import sql_composer  # noqa: E402
-from sql_composer import example_database  # noqa: E402
+import sqlglot_composer  # noqa: E402
+from sqlglot_composer import example_database  # noqa: E402
 from composer_core.clauses import derived_tables  # noqa: E402
 
-EDITION = editions.EDITIONS[sql_composer.__name__]
+EDITION = editions.EDITIONS[sqlglot_composer.__name__]
 
 
 def golden_path(edition: editions.Edition) -> Path:
@@ -67,7 +67,8 @@ COMMAND = f"python tools/hive_corpus.py --edition {EDITION.option}"
 PIN = re.search(r"^sqlglot==(\S+)$",
                 (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.MULTILINE)[1]
 # The exception types a Toolbox refusal comes as; is_refusal tells a refusal from a bug.
-REFUSAL_TYPES = (sql_composer.GuardRefused, sql_composer.LoadRefused, TypeError, ValueError)
+REFUSAL_TYPES = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused, TypeError,
+                 ValueError)
 # The warehouse's newest day, as the recording send lists it.
 NEWEST_DAY = datetime.date(2026, 9, 24)
 # The lines that start a case and a part of a case in the file.
@@ -189,7 +190,7 @@ def statement_lines(number: int, s) -> list[str]:
     """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's."""
     lines = [PART_MARK + f"Statement {number}: to_hive"]
     try:
-        lines.append(sql_composer.to_hive(s))
+        lines.append(sqlglot_composer.to_hive(s))
     except Exception as error:  # noqa: BLE001 - what to_hive stops with is part of the output
         lines.append(refused_text(error))
     for step, name in [(s, "the Statement")] + [
@@ -216,7 +217,7 @@ def lineage_lines(statements: list) -> list[str]:
         return []
     with tempfile.TemporaryDirectory() as folder:
         try:
-            _, markdown = sql_composer.export_lineage(*statements, to=Path(folder) / "case.html")
+            _, markdown = sqlglot_composer.export_lineage(*statements, to=Path(folder) / "case.html")
         except Exception as error:  # noqa: BLE001 - as for to_hive
             return [PART_MARK + "export_lineage", refused_text(error)]
         text = markdown.read_text(encoding="utf-8")
@@ -263,8 +264,8 @@ def warehouse_text(t) -> str:
     """The commands write_table_reference, check_table_reference and check_key send for `t`."""
     lines = [CASE_MARK + f"warehouse:{t._name}"]
     helpers = [("write_table_reference", _write_table_reference),
-               ("check_table_reference", sql_composer.check_table_reference),
-               ("check_key", sql_composer.check_key)]
+               ("check_table_reference", sqlglot_composer.check_table_reference),
+               ("check_key", sqlglot_composer.check_key)]
     with gallery.example_setting():
         for name, helper in helpers:
             send = Recording(t)
@@ -279,7 +280,7 @@ def warehouse_text(t) -> str:
 def _write_table_reference(t, send) -> None:
     """write_table_reference, in a folder of its own, so its file never meets another."""
     with tempfile.TemporaryDirectory() as folder, contextlib.chdir(folder):
-        sql_composer.write_table_reference(t._name, send=send)
+        sqlglot_composer.write_table_reference(t._name, send=send)
 
 
 def tables() -> list:
@@ -302,7 +303,7 @@ def corpus_text() -> str:
 
 def cannot_write() -> str | None:
     """Why this Python can't write the Edition's golden, or None when it can."""
-    if EDITION is editions.SQL_COMPOSER:
+    if EDITION is editions.SQLGLOT_COMPOSER:
         import sqlglot
 
         if sqlglot.__version__ != PIN:
@@ -318,12 +319,12 @@ def cases_in(text: str) -> dict[str, str]:
 
 
 def as_written() -> int:
-    """Print Spark Composer's corpus with what it adds to SQL Composer's Hive left out."""
+    """Print Spark Composer's corpus with what it adds to sqlglot Composer's Hive left out."""
     if EDITION is not editions.SPARK_COMPOSER:
-        print("--as-written is for --edition spark: SQL Composer adds nothing to leave out.")
+        print("--as-written is for --edition spark: sqlglot Composer adds nothing to leave out.")
         return 1
     # The switch Spark Composer's readable_text sets, set here for the whole corpus.
-    sql_composer.writing._AS_WRITTEN.set(True)
+    sqlglot_composer.writing._AS_WRITTEN.set(True)
     sys.stdout.buffer.write(corpus_text().encode("utf-8"))
     return 0
 

@@ -5,7 +5,7 @@
 - every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
-- each Edition's library pin in requirements-dev.txt (sqlglot for SQL Composer, pyspark for
+- each Edition's library pin in requirements-dev.txt (sqlglot for sqlglot Composer, pyspark for
   Spark Composer) falls inside the range its engine.py supports, and CI runs each Edition at the
   bottom of that range and at the pin; Spark Composer's jobs run on Java 17, without sqlglot,
   with its Example database required.
@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 import editions
-import sql_composer
+import sqlglot_composer
 from conftest import toolbox_folder
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,13 +64,13 @@ def toolbox_files() -> list[Path]:
 def test_the_public_names_are_the_decided_ones() -> None:
     assert len(PUBLIC_NAMES) == 63
     assert len(set(PUBLIC_NAMES)) == 63
-    assert sorted(sql_composer.__all__) == sorted(PUBLIC_NAMES)
-    for name in sql_composer.__all__:
-        assert hasattr(sql_composer, name), name
+    assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
+    for name in sqlglot_composer.__all__:
+        assert hasattr(sqlglot_composer, name), name
 
 
 def test_spark_composer_has_the_same_public_names() -> None:
-    # In a Python of its own, since a Python runs one Edition and this one runs SQL Composer.
+    # In a Python of its own, since a Python runs one Edition and this one runs sqlglot Composer.
     script = ("import json, spark_composer\n"
               "print(json.dumps([spark_composer.__all__,\n"
               "                  [n for n in spark_composer.__all__ if not hasattr(spark_composer, n)]]))")
@@ -91,12 +91,12 @@ def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> Non
 def test_every_file_of_both_editions_declares_the_same_toolbox_version(path: Path) -> None:
     found = re.findall(r'^TOOLBOX_VERSION = "([^"]+)"$', path.read_text(encoding="utf-8"),
                        re.MULTILINE)
-    assert found == [sql_composer.TOOLBOX_VERSION]
+    assert found == [sqlglot_composer.TOOLBOX_VERSION]
 
 
 def test_changes_has_a_section_for_the_version() -> None:
     changes = (ROOT / editions.CORE / "CHANGES.md").read_text(encoding="utf-8")
-    assert f"\n## {sql_composer.TOOLBOX_VERSION}\n" in changes
+    assert f"\n## {sqlglot_composer.TOOLBOX_VERSION}\n" in changes
 
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
@@ -140,7 +140,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "dev.yml"
 
 
 def _job(edition: editions.Edition) -> str:
-    """The Edition's own job in dev.yml, named for its folder, as sql-composer: its lines."""
+    """The Edition's own job in dev.yml, named for its folder, as sqlglot-composer: its lines."""
     workflow = WORKFLOW.read_text(encoding="utf-8")
     found = re.search(rf"^  {edition.folder.replace('_', '-')}:\n(.*?)(?=^  \S|\Z)", workflow,
                       re.MULTILINE | re.DOTALL)
@@ -171,8 +171,8 @@ def test_ci_runs_each_edition_at_the_bottom_of_its_range_and_at_its_pin(edition)
     assert "continue-on-error" not in job
 
 
-def test_sql_composers_ci_runs_its_tests() -> None:
-    assert _steps(_job(editions.SQL_COMPOSER))[-1] == "python -m pytest"
+def test_sqlglot_composers_ci_runs_its_tests() -> None:
+    assert _steps(_job(editions.SQLGLOT_COMPOSER))[-1] == "python -m pytest"
 
 
 def test_spark_composers_ci_runs_on_java_17_without_sqlglot_and_needs_its_example_database(

@@ -6,7 +6,7 @@ import warnings
 
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,

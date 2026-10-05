@@ -7,9 +7,9 @@ Run it with `dev` checked out and nothing uncommitted:
 It builds the Clean tree in a temporary folder, from what `dev` has committed: the Composer
 core, `composer_core/`, and each Edition `tools/editions.py` names in EXPORTED:
 
-- it copies each folder, such as `sql_composer/`, and stamps line 1 of every file in it with
+- it copies each folder, such as `sqlglot_composer/`, and stamps line 1 of every file in it with
   its name, for example
-  `# SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit` or
+  `# sqlglot Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit` or
   `# Composer core 2.0, exported ...`, every folder with the same time;
 - it writes the list of the folder's files into its `__init__.py`, for the import self-check;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
@@ -68,7 +68,7 @@ def version_text(toolbox_version: str, when: datetime.datetime) -> str:
 
 
 def stamp_text(product: str, toolbox_version: str, when: datetime.datetime) -> str:
-    """The line-1 stamp, such as "SQL Composer 3.0, exported 2026-10-02 14:05 - ..."."""
+    """The line-1 stamp, such as "sqlglot Composer 3.0, exported 2026-10-02 14:05 - ..."."""
     return f"{product} {version_text(toolbox_version, when)} - generated from dev, do not edit"
 
 
@@ -214,7 +214,7 @@ def cheat_sheet(groups: list[dict]) -> str:
 def differences_text() -> str:
     """One item for each place the two Editions' Hive differs, from DECLARED_DIFFERENCES."""
     return "\n".join(
-        f"- **{row.title}** {row.why} SQL Composer writes `{row.sql_composer}` where Spark "
+        f"- **{row.title}** {row.why} sqlglot Composer writes `{row.sqlglot_composer}` where Spark "
         f"Composer writes `{row.spark_composer}`."
         for row in editions.DECLARED_DIFFERENCES.values())
 
@@ -284,7 +284,7 @@ def check_described_alike(described: list[dict]) -> None:
 
 
 # How any spelling of each Edition's name is found, such as "Spark Composer" or "spark_composer".
-_NAMED = {editions.SQL_COMPOSER: editions.SQL_COMPOSER_NAME,
+_NAMED = {editions.SQLGLOT_COMPOSER: editions.SQLGLOT_COMPOSER_NAME,
           editions.SPARK_COMPOSER: editions.SPARK_COMPOSER_NAME}
 
 
@@ -329,7 +329,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     """Build the Clean tree from the `dev` folder `source` into the folder `into`, with each
     Edition EXPORTED in tools/editions.py names.
 
-    Returns what the tree is, as main's commit names it, such as "SQL Composer and Spark
+    Returns what the tree is, as main's commit names it, such as "sqlglot Composer and Spark
     Composer 3.0, exported 2026-10-02 14:05".
     """
     if into.exists() and any(into.iterdir()):

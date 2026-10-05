@@ -2,7 +2,7 @@
 
 Import everything from here, never from a file inside the folder:
 
-    from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
+    from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
 The Toolbox is two folders side by side: this one, and composer_core, the code both Editions
 share. To update, delete both folders, copy both in again from one download and restart the
@@ -16,7 +16,7 @@ full text, which also says when this copy was exported.
 >>> TOOLBOX_VERSION
 '3.2'
 >>> VERSION
-'SQL Composer 3.2, ...'
+'sqlglot Composer 3.2, ...'
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ TOOLBOX_VERSION = "3.2"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
-_FOLDER = "sql_composer"
-_PRODUCT = "SQL Composer"
+_FOLDER = "sqlglot_composer"
+_PRODUCT = "sqlglot Composer"
 
 # The export script writes this folder's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.

@@ -88,7 +88,7 @@ def check_installed():
             "Example database runs on Spark too.",
             fix="In a notebook that runs Spark, install pyspark from a notebook cell with %pip "
             f"install {_IN_RANGE}, then restart the kernel. {_NO_INSTALLING} Without Spark, "
-            "use SQL Composer, the Edition that needs none.",
+            "use sqlglot Composer, the Edition that needs none.",
         )
     found = getattr(pyspark, "__version__", "unknown")
     version = _numbers(found)

@@ -28,7 +28,7 @@ from escaping_cases import (
     WRITTEN,
     WRITTEN_IDS,
 )
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,
@@ -151,11 +151,11 @@ numbers = Table(
 COLUMN_OF = {"BIGINT": numbers.b, "DECIMAL(18,2)": numbers.d, "DOUBLE": numbers.x}
 
 
-@pytest.mark.parametrize(("hive_type", "value", "sql_composer", "spark_composer"), NUMBER_CASES)
-def test_a_number_is_written_like_this(hive_type, value, sql_composer, spark_composer) -> None:
+@pytest.mark.parametrize(("hive_type", "value", "sqlglot_composer", "spark_composer"), NUMBER_CASES)
+def test_a_number_is_written_like_this(hive_type, value, sqlglot_composer, spark_composer) -> None:
     column = COLUMN_OF[hive_type]
     written = repr(equals(column, value)).split(" = ")[1]
-    assert written == in_this_edition(sql_composer, spark_composer)
+    assert written == in_this_edition(sqlglot_composer, spark_composer)
     assert re.fullmatch(NUMBER_TEXT, written)
 
 

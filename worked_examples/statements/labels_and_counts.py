@@ -4,7 +4,7 @@ Why: codes and NULLs make a result hard to read, and a count of each kind side b
 one row per job instead of one row per job and status.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, equals, example_database,
     fill_null, if_else, is_null, more_than, statement,
 )

@@ -1,6 +1,6 @@
 # CLAUDE.md - dev branch
 
-This is the **Dev branch** of SQL Composer, where all work happens. `main` is the **Clean
+This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
 branch**: the Toolbox and its README, generated from this branch by
 `python tools/export_clean.py` and never edited or committed to by hand. Each export commits to
 `main` locally, replacing whatever it held (before the first export, the v1 draft), and never
@@ -17,7 +17,7 @@ how-tos, example projects and templates) is charted through
 ## Checks
 
 `pytest` holds every principle a test can hold, so run both runs before you commit:
-`python -m pytest`, which tests SQL Composer and the repo's own checks, and
+`python -m pytest`, which tests sqlglot Composer and the repo's own checks, and
 `python -m pytest --edition spark`, which tests Spark Composer. Spark Composer's Example database
 needs Java 17: without it, its tests skip and say so. Set up with
 `pip install -r requirements-dev.txt`.
@@ -32,18 +32,18 @@ What no test can hold is in `docs/agents/standards.md`, which the code reviewer 
 
 ## Two Editions
 
-The Toolbox is built twice, as ADR 0002 records: `sql_composer/` (SQL Composer, which writes its
-Hive with sqlglot) and `spark_composer/` (Spark Composer, which prints its own Hive and runs it on
-Spark). Both run the Composer core, `composer_core/`, which holds every file they share, once, as
-ADR 0003 records. `tools/editions.py` is the one registry of which files the core holds and which
-each Edition writes itself.
+The Toolbox is built twice, as ADR 0002 records: `sqlglot_composer/` (sqlglot Composer, which
+writes its Hive with sqlglot) and `spark_composer/` (Spark Composer, which prints its own Hive
+and runs it on Spark). Both run the Composer core, `composer_core/`, which holds every file they
+share, once, as ADR 0003 records. `tools/editions.py` is the one registry of which files the
+core holds and which each Edition writes itself.
 
-- Edit a shared file in `composer_core/`. Its docstrings name SQL Composer; Spark Composer's
+- Edit a shared file in `composer_core/`. Its docstrings name sqlglot Composer; Spark Composer's
   gallery and doctests read them with the names swapped.
-- `sql_composer/writing.py` and `sql_composer/engine.py` are written by hand, and so are
+- `sqlglot_composer/writing.py` and `sqlglot_composer/engine.py` are written by hand, and so are
   `spark_composer/writing.py` and `spark_composer/engine.py`, with the same function names and
-  parameters, which a test holds. `sql_composer/__init__.py` and `spark_composer/__init__.py`
-  are the same apart from the names, which a test holds too.
+  parameters, which a test holds. `sqlglot_composer/__init__.py` and
+  `spark_composer/__init__.py` are the same apart from the names, which a test holds too.
 - A Python runs one Edition: a test that needs the other loads its file by path, or runs it in a
   Python of its own.
 

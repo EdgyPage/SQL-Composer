@@ -5,7 +5,7 @@ times.
 """
 
 from building_blocks.alerts_per_run import alerts_per_run
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,
     statement, sum_of,
 )

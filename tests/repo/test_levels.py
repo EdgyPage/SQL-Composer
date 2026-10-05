@@ -6,7 +6,7 @@ Most Worked examples read the Example database's Table references, inside the To
 `table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what both Editions of the Toolbox may import (pandas
 and numpy, from `tools/editions.py`), and the Toolbox only from its top level, as
-`from sql_composer import ...`.
+`from sqlglot_composer import ...`.
 
 Each Statement script's module docstring gives a title and one sentence on why, which the
 Example gallery shows.
@@ -54,8 +54,8 @@ def _problem(name: str, level: int) -> str | None:
     top = name.split(".")[0]
     if name.startswith("."):
         return f"{name} is a relative import; name the Level folder instead"
-    if top == "sql_composer":
-        return None if name == "sql_composer" else f"{name} reaches inside the Toolbox"
+    if top == "sqlglot_composer":
+        return None if name == "sqlglot_composer" else f"{name} reaches inside the Toolbox"
     if top == "composer_core":
         return f"{name} reaches inside the Toolbox: import from the Edition's folder"
     if top in LEVELS:
@@ -96,7 +96,7 @@ def test_imports_point_only_downward(path: Path) -> None:
         ("from statements.repeated_rows import fixed", 1, "Level 2, not below Level 1"),
         ("from building_blocks.jobs_per_day import jobs_per_day", 1,
          "Level 1, not below Level 1"),
-        ("from sql_composer.clauses import SELECT", 2, "reaches inside the Toolbox"),
+        ("from sqlglot_composer.clauses import SELECT", 2, "reaches inside the Toolbox"),
         ("from composer_core.clauses import SELECT", 2, "reaches inside the Toolbox"),
         ("from . import jobs_per_day", 2, "relative import"),
         ("import requests", 2, "neither a lower Level"),
@@ -111,7 +111,7 @@ def test_the_levels_check_lets_the_usual_imports_through() -> None:
     source = (
         "import datetime\n"
         "import pandas as pd\n"
-        "from sql_composer import FROM, SELECT, example_database\n"
+        "from sqlglot_composer import FROM, SELECT, example_database\n"
         "from building_blocks.alerts_per_run import alerts_per_run\n"
     )
     assert level_problems(source, 2) == []

@@ -1,4 +1,4 @@
-"""The Toolbox's own trees behave as the sqlglot trees SQL Composer builds from them.
+"""The Toolbox's own trees behave as the sqlglot trees sqlglot Composer builds from them.
 
 Over every calculation, condition and sort key in the Hive corpus, a Node and its sqlglot tree
 (`writing.to_sqlglot`) agree on the order of their columns, on equality, on whether they add
@@ -15,7 +15,7 @@ import pytest
 from sqlglot import exp
 
 import hive_corpus_cases
-from sql_composer import GuardRefused, LoadRefused, writing
+from sqlglot_composer import GuardRefused, LoadRefused, writing
 from composer_core.clauses import derived_tables
 from composer_core.trees import HIVE_AGGREGATES, KINDS, has_aggregate
 
@@ -108,7 +108,7 @@ def test_two_trees_are_equal_exactly_when_their_sqlglot_trees_are() -> None:
 
 
 def test_a_hive_function_name_is_compared_whatever_its_case() -> None:
-    from sql_composer import hive_function
+    from sqlglot_composer import hive_function
     from composer_core.example_database import job_runs
 
     assert (hive_function("NVL", job_runs.status, "x")._tree

@@ -1,6 +1,6 @@
 """How many different jobs ran each day, as a Derived table other Statements can read."""
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_distinct, derived, example_database,
     statement,
 )

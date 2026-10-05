@@ -4,7 +4,7 @@ A Saved table's Table reference is written by hand, since the table doesn't exis
 create_table makes it from this. Each day holds the runs someone should look at that day.
 """
 
-from sql_composer import Table
+from sqlglot_composer import Table
 
 runs_to_review = Table(
     "mart.runs_to_review",

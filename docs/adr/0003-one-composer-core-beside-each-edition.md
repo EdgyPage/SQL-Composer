@@ -44,3 +44,6 @@ declared differences.
   or exports.
 - The export ships `composer_core/` beside both Editions' folders, and the README says to copy
   two folders.
+- Ticket 03 of the 4.0 work then renamed SQL Composer's folder `sqlglot_composer`, and its
+  product name sqlglot Composer, to match `spark_composer`, as the user asked (2026-10-05). The
+  names above are as they were when this was decided.

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from conftest import edition, toolbox_module
 
-from sql_composer import (
+from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,

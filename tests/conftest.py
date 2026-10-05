@@ -1,11 +1,11 @@
 """The test setup every Toolbox test shares.
 
-The tests run against one Edition of the Toolbox, chosen with `--edition`: `sqlglot` for SQL
-Composer, the default, or `spark` for Spark Composer. Nothing here imports the Toolbox or sqlglot
-when the file is loaded, so the Edition is chosen before any Toolbox module is. In Spark
-Composer's run, `import sql_composer` gives Spark Composer's modules and sqlglot can't be imported
-at all (`editions.use`), so the same tests run unchanged. Each run names its Edition at the end,
-so a run of the wrong one can't pass unnoticed.
+The tests run against one Edition of the Toolbox, chosen with `--edition`: `sqlglot` for sqlglot
+Composer, the default, or `spark` for Spark Composer. Nothing here imports the Toolbox or
+sqlglot when the file is loaded, so the Edition is chosen before any Toolbox module is. In Spark
+Composer's run, `import sqlglot_composer` gives Spark Composer's modules and sqlglot can't be
+imported at all (`editions.use`), so the same tests run unchanged. Each run names its Edition at
+the end, so a run of the wrong one can't pass unnoticed.
 
 Today is pinned to 2026-09-25, the day after the Example database's last day, so
 `last_n_days(job_runs.dt, 2)` covers both of its days and every emitted date is fixed. The
@@ -13,8 +13,8 @@ load limits are switched off again after each test, since `set_load_limits` chan
 the whole session.
 
 Each run collects the shared tests directly in `tests/` and its own Edition's folder,
-`tests/sqlglot_edition/` or `tests/spark_edition/`; SQL Composer's run also collects the repo's own
-checks in `tests/repo/`, which run once.
+`tests/sqlglot_edition/` or `tests/spark_edition/`; sqlglot Composer's run also collects the
+repo's own checks in `tests/repo/`, which run once.
 
 A test marked `needs_example_database` runs a query on the Example database. Where this computer
 can't run one, because something it needs is missing or its Spark couldn't start, the test
@@ -40,7 +40,7 @@ import editions
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 TODAY = datetime.date(2026, 9, 25)
-# The repo's own checks, run once, in SQL Composer's run.
+# The repo's own checks, run once, in sqlglot Composer's run.
 REPO_FOLDER = "repo"
 # What this run was given: its Edition, and whether its Example database must run.
 _chosen: dict = {}
@@ -48,8 +48,8 @@ _chosen: dict = {}
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--edition", choices=sorted(editions.BY_OPTION),
-                     default=editions.SQL_COMPOSER.option,
-                     help="the Edition of the Toolbox to test: sqlglot for SQL Composer, "
+                     default=editions.SQLGLOT_COMPOSER.option,
+                     help="the Edition of the Toolbox to test: sqlglot for sqlglot Composer, "
                      "spark for Spark Composer")
     parser.addoption("--example-database", choices=["optional", "required"], default="optional",
                      help="required: a test that needs the Example database fails where it "
@@ -101,12 +101,12 @@ def edition() -> editions.Edition:
     return _chosen["edition"]
 
 
-def in_this_edition(sql_composer, spark_composer):
+def in_this_edition(sqlglot_composer, spark_composer):
     """What a test expects where the two Editions write different Hive on purpose.
 
     Each such place is one of `DECLARED_DIFFERENCES` in `tools/editions.py`.
     """
-    return spark_composer if edition() is editions.SPARK_COMPOSER else sql_composer
+    return spark_composer if edition() is editions.SPARK_COMPOSER else sqlglot_composer
 
 
 def toolbox_folder() -> Path:

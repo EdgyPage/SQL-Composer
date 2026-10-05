@@ -1,11 +1,11 @@
-"""SQL Composer's Example database runs queries on sqlglot's executor and says what it can't."""
+"""sqlglot Composer's Example database runs queries on sqlglot's executor and says what it can't."""
 
 from __future__ import annotations
 
 import pytest
 import sqlglot
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     SELECT,

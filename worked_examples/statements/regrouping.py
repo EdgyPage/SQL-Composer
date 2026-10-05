@@ -6,7 +6,7 @@ Why: a job that ran on two days is in both days' counts, so adding them up count
 import pandas as pd
 
 from building_blocks.jobs_per_day import jobs_per_day
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, between, count_distinct, example_database,
     run, statement, sum_of, week_start,
 )

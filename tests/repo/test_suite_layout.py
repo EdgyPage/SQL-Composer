@@ -1,10 +1,10 @@
 """How the test suite is laid out: shared tests, one folder per Edition, and the repo's own.
 
 The tests directly in `tests/` run against every Edition, so they import neither Edition's
-library. `tests/sqlglot_edition/` holds what only SQL Composer can pass, and
+library. `tests/sqlglot_edition/` holds what only sqlglot Composer can pass, and
 `tests/spark_edition/` what only Spark Composer can. `tests/repo/` holds the checks on the repo
-itself, which run once, in SQL Composer's run. pytest imports every file under `tests/` by its
-name alone, so no two may share one.
+itself, which run once, in sqlglot Composer's run. pytest imports every file under `tests/` by
+its name alone, so no two may share one.
 """
 
 from __future__ import annotations

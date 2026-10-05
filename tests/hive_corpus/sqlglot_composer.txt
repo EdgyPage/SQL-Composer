@@ -1,4 +1,4 @@
-# What SQL Composer shows today, written by tools/hive_corpus.py. Don't edit it by hand.
+# What sqlglot Composer shows today, written by tools/hive_corpus.py. Don't edit it by hand.
 == doc:first_look
 -- Statement 1: to_hive
 SELECT

@@ -1,4 +1,4 @@
-"""Spark Composer stands alone: nothing of SQL Composer's folder, and nothing of sqlglot, is loaded.
+"""Spark Composer stands alone: nothing of sqlglot Composer's folder, and nothing of sqlglot, is loaded.
 
 Each test first imports every Toolbox module, every Worked example and the tools, as the shared
 tests do, so a stray import anywhere shows here, whatever order the tests run in.
@@ -26,8 +26,8 @@ def _loaded():
     return [(name, module) for name, module in list(sys.modules.items()) if module is not None]
 
 
-def test_no_module_from_sql_composers_folder_is_loaded() -> None:
-    folder = ROOT / "sql_composer"
+def test_no_module_from_sqlglot_composers_folder_is_loaded() -> None:
+    folder = ROOT / "sqlglot_composer"
     loaded = sorted(name for name, module in _loaded()
                     if getattr(module, "__file__", None)
                     and Path(module.__file__).resolve().parent == folder)

@@ -11,7 +11,7 @@ import math
 import pytest
 
 from conftest import example_rows, in_this_edition
-from sql_composer import GuardRefused, example_database, run, to_hive
+from sqlglot_composer import GuardRefused, example_database, run, to_hive
 from statements import nan_in_a_list as example
 
 

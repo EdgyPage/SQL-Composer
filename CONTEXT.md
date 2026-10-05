@@ -1,4 +1,4 @@
-# SQL Composer
+# The Toolbox: sqlglot Composer and Spark Composer
 
 A toolbox for writing Hive SQL in Python. Queries are composed from Python functions and a small
 stack of the user's own scripts, emitted as a single Hive SQL string - sent to a query API that
@@ -14,9 +14,9 @@ Editions, and is copied as the Composer core and one Edition.
 _Avoid_: library, package, framework, SQL module
 
 **Edition**:
-One of the two forms the Toolbox comes in, with the same functions and almost the same Hive: SQL
-Composer, which needs sqlglot at work, and Spark Composer, which needs pyspark and runs its Hive on
-Spark. A notebook uses one.
+One of the two forms the Toolbox comes in, with the same functions and almost the same Hive:
+sqlglot Composer, which needs sqlglot at work, and Spark Composer, which needs pyspark and runs
+its Hive on Spark. A notebook uses one.
 _Avoid_: flavour, variant, port, fork, backend, dialect
 
 **Composer core**:

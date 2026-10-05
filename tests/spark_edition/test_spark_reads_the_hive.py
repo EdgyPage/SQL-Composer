@@ -44,7 +44,7 @@ from in_process_spark import (
     tables_read,
     wide_table,
 )
-from sql_composer import (
+from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
@@ -66,7 +66,7 @@ from composer_core.trees import (
     Node,
 )
 from composer_core.trees import string as string_value
-from sql_composer.writing import hive_text
+from sqlglot_composer.writing import hive_text
 
 pytestmark = pytest.mark.needs_example_database
 
@@ -315,7 +315,7 @@ def test_nullif_gives_null_where_spark_would_stop_on_a_zero_divisor(spark, ansi:
 def test_a_float_written_with_d_is_a_double_where_one_without_is_a_decimal(spark) -> None:
     row = DECLARED_DIFFERENCES["float"]
     number = r"\b\d+\.\d+D?\b"
-    plain, doubled = re.search(number, row.sql_composer)[0], re.search(number,
+    plain, doubled = re.search(number, row.sqlglot_composer)[0], re.search(number,
                                                                         row.spark_composer)[0]
     found = spark.sql(f"SELECT typeof({plain}) AS plain, typeof({doubled}) AS doubled"
                       ).collect()[0]

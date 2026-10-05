@@ -1,7 +1,7 @@
 """Spark Composer's Example database runs each query on a Spark of its own, in its own process.
 
 That Spark runs what sqlglot's executor can't, row_number, NEXT_DAY and TRUNC, so the Worked
-examples SQL Composer can only show in pandas are run here and checked against their pandas
+examples sqlglot Composer can only show in pandas are run here and checked against their pandas
 twins. These also hold:
 
 - what Python type each kind of column comes back as;
@@ -33,7 +33,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     SELECT,
@@ -689,7 +689,7 @@ sys.path[:0] = [{root!r}, {tools!r}]
 import editions
 editions.use(editions.SPARK_COMPOSER)
 from pathlib import Path
-from sql_composer import engine, example_database
+from sqlglot_composer import engine, example_database
 {then}
 sys.stdin.read()
 """

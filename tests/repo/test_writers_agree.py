@@ -10,7 +10,7 @@ import pytest
 pytest.importorskip("sqlglot")
 
 import composer_core.trees as sql_trees  # noqa: E402
-import sql_composer.writing as sql_writing  # noqa: E402
+import sqlglot_composer.writing as sql_writing  # noqa: E402
 
 # Both Editions build their trees with the Composer core's trees.py.
 spark_trees = sql_trees
@@ -18,7 +18,7 @@ spark_trees = sql_trees
 
 def _spark_writing():
     """Spark Composer's writing.py, loaded by its path: importing spark_composer itself would
-    stop, since a Python runs one Edition and this one runs SQL Composer."""
+    stop, since a Python runs one Edition and this one runs sqlglot Composer."""
     path = Path(__file__).resolve().parents[2] / "spark_composer" / "writing.py"
     spec = importlib.util.spec_from_file_location("spark_composer_writing", path)
     module = importlib.util.module_from_spec(spec)

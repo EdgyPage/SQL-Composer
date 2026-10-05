@@ -18,7 +18,7 @@ import pandas as pd
 import pytest
 
 from conftest import edition
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,

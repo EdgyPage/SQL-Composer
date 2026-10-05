@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     FROM,
     INSERT_OVERWRITE,
     LoadRefused,
