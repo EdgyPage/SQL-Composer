@@ -300,8 +300,8 @@ run, not its newest. Nothing stops it:
 1       2      96  SUCCESS
 2       3      97   FAILED
 
-Each job's first run of the two days. Its Hive numbers with `ORDER BY job_runs.run_id`, with no
-DESC, where numbering newest first says DESC.
+Each job's first run of the two days. Its Hive numbers with `ORDER BY job_runs.run_id ASC`, where
+numbering newest first says DESC.
 
 ### A row number without a name
 
