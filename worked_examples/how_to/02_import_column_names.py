@@ -47,9 +47,9 @@ through the Example database's send:
 6               # col_name  data_type     comment
 7                       dt     string
 
-The first four rows are its columns. Row 4 is a blank line DESCRIBE leaves before its next
-section: its empty cells are missing values, NULL in Hive, which this page shows as NULL and
-pandas in your notebook as None. The rows under `# Partition Information` say which column
+The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next
+section: its name is empty, and its other two cells are missing, NULL in Hive, which this page
+shows as NULL and pandas in your notebook as None. The rows under `# Partition Information` say which column
 splits the table into days: dt, its Date partition.
 
 ### Write one table's Table reference
@@ -175,9 +175,9 @@ LIMIT 20;
 2     103       3  SUCCESS             30             0.0  2026-09-24
 3     104       1  SUCCESS             40             3.0  2026-09-24
 
-In your own notebook, yesterday is your real yesterday. The Example database holds only
-2026-09-23 and 2026-09-24, so there this result comes back empty, with its column names and no
-rows. At work, it shows your table's yesterday.
+This page was run as if today were 2026-09-25. In your own notebook, yesterday is your real
+yesterday, and the Example database holds only 2026-09-23 and 2026-09-24, so on it this result
+comes back empty, with its column names and no rows. At work, it shows your table's yesterday.
 
 ### Build a SELECT from every column
 

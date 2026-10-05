@@ -214,8 +214,9 @@ out after `SELECT`, so it sorts by the name.
 
 ### Keep the top N
 
-`ORDER_BY` sorts the result, and `LIMIT` keeps the first rows. `descending` sorts from largest
-to smallest. A calculation is sorted by its name. Here, the two jobs with the most minutes:
+`ORDER_BY` sorts the result, and `LIMIT` keeps the first rows. On its own, `ORDER_BY` sorts
+smallest first; `descending` sorts from largest to smallest. A calculation is sorted by its
+name. Here, the two jobs with the most minutes:
 
 >>> top_two = statement(
 ...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),

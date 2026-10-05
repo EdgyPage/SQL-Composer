@@ -234,7 +234,7 @@ run(failed, send=send_without_to_pandas)</pre>
 <tr><td># col_name</td><td>data_type</td><td>comment</td></tr>
 <tr><td>dt</td><td>string</td><td></td></tr>
 </table></div>
-<p>The first four rows are its columns. Row 4 is a blank line DESCRIBE leaves before its next section: its empty cells are missing values, NULL in Hive, which this page shows as NULL and pandas in your notebook as None. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
+<p>The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next section: its name is empty, and its other two cells are missing, NULL in Hive, which this page shows as NULL and pandas in your notebook as None. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
 <h5>Write one table&#x27;s Table reference</h5>
 <p><code>write_table_reference</code> sends those two commands through your send and turns what comes back into a Table reference file. It writes the file in the folder your notebook runs in, named after the table, and gives back the file&#x27;s path:</p>
 <pre class="python">path = write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
@@ -355,7 +355,7 @@ LIMIT 20;</pre>
 <tr><td>103</td><td>3</td><td>SUCCESS</td><td>30</td><td>0.0</td><td>2026-09-24</td></tr>
 <tr><td>104</td><td>1</td><td>SUCCESS</td><td>40</td><td>3.0</td><td>2026-09-24</td></tr>
 </table></div>
-<p>In your own notebook, yesterday is your real yesterday. The Example database holds only 2026-09-23 and 2026-09-24, so there this result comes back empty, with its column names and no rows. At work, it shows your table&#x27;s yesterday.</p>
+<p>This page was run as if today were 2026-09-25. In your own notebook, yesterday is your real yesterday, and the Example database holds only 2026-09-23 and 2026-09-24, so on it this result comes back empty, with its column names and no rows. At work, it shows your table&#x27;s yesterday.</p>
 <h5>Build a SELECT from every column</h5>
 <p><code>all_columns</code> gives a Table reference&#x27;s columns as a Python list, in the table&#x27;s order:</p>
 <pre class="python">all_columns(job_runs)</pre>
@@ -1320,7 +1320,7 @@ HAVING
 </table></div>
 <p><code>HAVING</code> repeats the calculation itself, <code>count_rows()</code>, rather than its name, <code>&quot;runs&quot;</code>: SQL works <code>HAVING</code> out before <code>SELECT</code> has named anything. <code>ORDER_BY</code>, in the next step, is worked out after <code>SELECT</code>, so it sorts by the name.</p>
 <h5>Keep the top N</h5>
-<p><code>ORDER_BY</code> sorts the result, and <code>LIMIT</code> keeps the first rows. <code>descending</code> sorts from largest to smallest. A calculation is sorted by its name. Here, the two jobs with the most minutes:</p>
+<p><code>ORDER_BY</code> sorts the result, and <code>LIMIT</code> keeps the first rows. On its own, <code>ORDER_BY</code> sorts smallest first; <code>descending</code> sorts from largest to smallest. A calculation is sorted by its name. Here, the two jobs with the most minutes:</p>
 <pre class="python">top_two = statement(
     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
     FROM(job_runs),
@@ -1627,7 +1627,7 @@ WHERE
 <tr><td>103</td><td>30</td><td>2</td></tr>
 <tr><td>104</td><td>40</td><td>1</td></tr>
 </table></div>
-<p>One row per run, and no Warning. The Derived table is written at the top of the Hive, as <code>WITH alerts_per_run AS (...)</code>. The totals now come out right:</p>
+<p>One row per run, and no Warning. The Derived table is written at the top of the Hive, as <code>WITH alerts_per_run AS (...)</code>. A SUM of nothing but NULL is NULL, so <code>fill_null</code> around the <code>sum_of</code> makes the total read 0 even if no run had an alert. The totals now come out right:</p>
 <pre class="python">fixed_total = statement(
     SELECT(AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;),
            AS(fill_null(sum_of(alerts_per_run.alerts), 0), &quot;alerts&quot;)),
@@ -1788,7 +1788,7 @@ run(silenced, send=example_database.send)</pre>
   Why it matters: LEFT_JOIN keeps rows with no match in job_runs, but those rows have NULL there, so this WHERE throws them away again. The result is an ordinary JOIN.
   Usual fix:      Move the condition into LEFT_JOIN(job_runs, ON=...), next to the join condition, so it only decides which rows match.
   Opt-out:        LEFT_JOIN(job_runs, ON=..., keeps_only_matches=True)</pre>
-<p>Move it into <code>ON=</code> with <code>all_of</code>, next to the join condition, as the message says: <code>ON=all_of(equals(job_runs.job_id, jobs.job_id), between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;))</code>. A condition on the joined table belongs in <code>WHERE</code> only when it keeps the rows with no match: <code>is_null</code>, as in the step Find the rows with no match, or an <code>any_of</code> with such an <code>is_null</code> among its conditions.</p>
+<p>Move it into <code>ON=</code>, next to the join condition, as the message&#x27;s Usual fix says; <code>all_of</code> joins the two conditions: <code>ON=all_of(equals(job_runs.job_id, jobs.job_id), between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;))</code>. A condition on the joined table belongs in <code>WHERE</code> only when it keeps the rows with no match: <code>is_null</code>, as in the step Find the rows with no match, or an <code>any_of</code> with such an <code>is_null</code> among its conditions.</p>
 <h5>Forgetting the joined table&#x27;s days</h5>
 <p>Each table with a Date partition needs its own days, the joined one too. (Here too, <code>many_matches=True</code> says that a run&#x27;s several alerts are meant, so only the missing days stop.) The message says &quot;bounds&quot;: to bound a Date partition is to give its first and last day.</p>
 <pre class="python">alerts_any_day = statement(
@@ -1939,8 +1939,8 @@ FROM runs_per_job;</pre>
 <tr><td>3</td><td>1</td><td>0</td><td>30</td></tr>
 </table></div>
 <h5>Chain a second step onto the first</h5>
-<p>A block can read another block. <code>busy_jobs</code> keeps the jobs with at least <code>min_runs</code> runs, reading the Derived table <code>runs_per_job</code> gives, which it takes as an argument; the Statement after it adds each job&#x27;s name.</p>
-<p>The block takes <code>per_job</code> as an argument, rather than calling <code>runs_per_job</code> itself, because each block lives in a file of its own (see Keep it in a file, below), and one block&#x27;s file never imports another&#x27;s. The Statement builds <code>runs_per_job</code> and hands it in:</p>
+<p>A block can read another block. <code>busy_jobs</code> keeps the jobs with at least <code>min_runs</code> runs. It reads the Derived table that <code>runs_per_job</code> gives back, passed in as its argument <code>per_job</code>; the Statement after it adds each job&#x27;s name.</p>
+<p><code>busy_jobs</code> takes the Derived table as an argument, rather than calling <code>runs_per_job</code> itself, so the Statement picks the days once and every block reads the same ones; and one block&#x27;s file never imports another&#x27;s (see Keep it in a file, below). The Statement builds <code>runs_per_job</code> and hands it in:</p>
 <pre class="python">def busy_jobs(per_job, min_runs):
     &quot;&quot;&quot;The jobs of per_job, from runs_per_job, with at least min_runs runs.&quot;&quot;&quot;
     return derived(&quot;busy_jobs&quot;, statement(
@@ -2027,7 +2027,7 @@ GROUP BY
 </table></div>
 <p>Its Hive starts with the same <code>WITH runs_per_job AS (...)</code> as <code>busy_with_names</code>&#x27;s. Keep a block&#x27;s name the same in every Statement, and name it like its function: then its Hive reads the same everywhere, a Lineage (the record of which table columns feed each output column, see <a href="#lineage_of_one_statement">Lineage of one Statement</a>) names it the same in every Statement, and a change to the function reaches them all.</p>
 <h5>Keep it in a file</h5>
-<p>Building blocks go in their own .py files, in a folder of their own beside your notebook, such as building_blocks/runs_per_job.py. A block&#x27;s file imports the Toolbox and the Table references it reads, never a Statement:</p>
+<p>Building blocks go in .py files in a folder of their own beside your notebook, one block to a file, such as building_blocks/runs_per_job.py, or a few that belong together in one file, as how-to 24 does. A block&#x27;s file imports the Toolbox and the Table references it reads, never another block&#x27;s file or a Statement:</p>
 <pre class="python">&quot;&quot;&quot;Each job&#x27;s runs, failed runs and minutes, as a Derived table to read.&quot;&quot;&quot;
 from spark_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, statement,
@@ -2259,7 +2259,7 @@ WHERE
 </table></div>
 <p>Two rows per job, or fewer for a job with fewer runs. <code>ORDER_BY</code> with <code>LIMIT</code>, as in <a href="#count_and_add_up_per_group">Count and add up per group</a>, keeps the top N rows of the whole result; <code>row_number</code> keeps the top N of each group.</p>
 <h4>Check it worked</h4>
-<p>Keep each job once: one row per job, as many rows as jobs that ran.</p>
+<p>Check that each job comes back once: one row per job, as many rows as jobs that ran.</p>
 <pre class="python">newest = run(latest, send=example_database.send)
 newest[&quot;job_id&quot;].is_unique</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
@@ -2319,7 +2319,7 @@ run(first_runs, send=example_database.send)</pre>
 <tr><td>2</td><td>96</td><td>SUCCESS</td></tr>
 <tr><td>3</td><td>97</td><td>FAILED</td></tr>
 </table></div>
-<p>Each job&#x27;s first run of the two days. In the Hive, the ORDER BY inside OVER (...) says DESC when it numbers newest first.</p>
+<p>Each job&#x27;s first run of the two days. Its Hive numbers with <code>ORDER BY job_runs.run_id</code>, with no DESC, where numbering newest first says DESC.</p>
 <h5>A row number without a name</h5>
 <pre class="python">unnamed = derived(&quot;unnamed&quot;, statement(
     SELECT(job_runs.job_id, job_runs.run_id,

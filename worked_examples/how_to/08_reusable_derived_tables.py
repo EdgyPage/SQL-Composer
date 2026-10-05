@@ -165,13 +165,14 @@ FROM runs_per_job;
 
 ### Chain a second step onto the first
 
-A block can read another block. `busy_jobs` keeps the jobs with at least `min_runs` runs,
-reading the Derived table `runs_per_job` gives, which it takes as an argument; the Statement
-after it adds each job's name.
+A block can read another block. `busy_jobs` keeps the jobs with at least `min_runs` runs. It
+reads the Derived table that `runs_per_job` gives back, passed in as its argument `per_job`;
+the Statement after it adds each job's name.
 
-The block takes `per_job` as an argument, rather than calling `runs_per_job` itself, because
-each block lives in a file of its own (see Keep it in a file, below), and one block's file
-never imports another's. The Statement builds `runs_per_job` and hands it in:
+`busy_jobs` takes the Derived table as an argument, rather than calling `runs_per_job` itself,
+so the Statement picks the days once and every block reads the same ones; and one block's file
+never imports another's (see Keep it in a file, below). The Statement builds `runs_per_job` and
+hands it in:
 
 >>> def busy_jobs(per_job, min_runs):
 ...     \"\"\"The jobs of per_job, from runs_per_job, with at least min_runs runs.\"\"\"
@@ -269,9 +270,10 @@ and a change to the function reaches them all.
 
 ### Keep it in a file
 
-Building blocks go in their own .py files, in a folder of their own beside your notebook, such
-as building_blocks/runs_per_job.py. A block's file imports the Toolbox and the Table
-references it reads, never a Statement:
+Building blocks go in .py files in a folder of their own beside your notebook, one block to a
+file, such as building_blocks/runs_per_job.py, or a few that belong together in one file, as
+how-to 24 does. A block's file imports the
+Toolbox and the Table references it reads, never another block's file or a Statement:
 
     \"\"\"Each job's runs, failed runs and minutes, as a Derived table to read.\"\"\"
     from sqlglot_composer import (
