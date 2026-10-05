@@ -54,8 +54,9 @@ def _refuse_unplugged() -> None:
         what="A Toolbox function was called, but no Edition of the Toolbox was imported.",
         why="The Edition you import is the one that writes and runs the Hive, so nothing "
         "can be written until one is imported.",
-        fix="Start your notebook with the Edition's own import line, such as "
-        "`from <its folder> import *`, and import nothing from inside a Toolbox folder.",
+        fix="Start your notebook with your Edition's import line, `from sql_composer import "
+        "...` or `from spark_composer import ...`, and import nothing from composer_core or "
+        "from inside a Toolbox folder.",
         error=RuntimeError,
     )
 

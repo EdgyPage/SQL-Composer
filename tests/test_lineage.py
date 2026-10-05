@@ -447,7 +447,7 @@ def test_a_column_nothing_uses_is_left_out(tmp_path) -> None:
 
 
 def test_box_lines_decides_what_every_view_shows(tmp_path, monkeypatch) -> None:
-    from sql_composer import lineage
+    from composer_core import lineage
 
     shown = lineage.box_lines
 

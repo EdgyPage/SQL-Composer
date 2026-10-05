@@ -18,7 +18,7 @@ from sql_composer import (
     to_hive,
     writing,
 )
-from sql_composer.example_database import jobs
+from composer_core.example_database import jobs
 
 
 @pytest.mark.parametrize(("character", "written", "value"), [

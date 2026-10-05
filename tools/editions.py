@@ -1,14 +1,14 @@
 """The two Editions of the Toolbox, defined once for every tool and test on `dev`.
 
 SQL Composer (`sql_composer/`) writes its Hive with sqlglot. Spark Composer (`spark_composer/`)
-writes almost the same Hive itself and runs it on Spark. A file in either folder is one of four
-kinds:
+writes almost the same Hive itself and runs it on Spark. Both run the code in `composer_core/`,
+the Composer core, which is written once. A Toolbox file is one of these kinds:
 
-- a shared file, written by hand in `sql_composer/` and copied into `spark_composer/` by
-  `swap()`, with the folder and product names changed and nothing else;
-- an Edition file, written by hand in each folder: `writing.py` turns a Statement into Hive,
-  and `engine.py` checks the library and runs the Example database;
-- a verbatim file, copied unchanged, so it may name neither Edition;
+- a core file, in `composer_core/`: every function a user calls, the import self-check, and
+  `CHANGES.md`;
+- an Edition file, written by hand in each Edition's folder: `__init__.py` checks both folders
+  and plugs the other two into the core, `writing.py` turns a Statement into Hive, and
+  `engine.py` checks the library and runs the Example database;
 - the Example gallery page, which `tools/example_gallery.py` writes for each Edition.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
@@ -57,10 +57,13 @@ BY_OPTION = {edition.option: edition for edition in EDITIONS.values()}
 # The Editions the export ships to `main`: both, from 3.0.
 EXPORTED = (SQL_COMPOSER, SPARK_COMPOSER)
 
-SHARED_FILES = ("__init__.py", "calculations.py", "clauses.py", "conditions.py", "edition.py",
-                "example_database.py", "lineage.py", "refusals.py", "running.py", "tables.py",
-                "trees.py")
-EDITION_FILES = ("writing.py", "engine.py")
+# The Composer core: the folder both Editions run, and its files.
+CORE = "composer_core"
+CORE_PRODUCT = "Composer core"
+CORE_FILES = ("__init__.py", "calculations.py", "checks.py", "clauses.py", "conditions.py",
+              "edition.py", "example_database.py", "lineage.py", "public.py", "refusals.py",
+              "running.py", "tables.py", "trees.py", "CHANGES.md")
+EDITION_FILES = ("__init__.py", "writing.py", "engine.py")
 # The functions each Edition file offers the shared files, and the dev tools and tests
 # (example_database_cannot_run), with their parameters: both Editions' copies have exactly
 # these. Either may have more of its own.
@@ -79,7 +82,6 @@ EDITION_INTERFACE = {
         "run_query": ["text", "tables"],
     },
 }
-VERBATIM_FILES = ("CHANGES.md",)
 PAGES = ("examples.html",)
 
 # What every Toolbox file may import, besides the standard library and its own folder.
@@ -157,18 +159,24 @@ DECLARED_DIFFERENCES = {
 }
 
 
-def may_import(edition: Edition, file_name: str) -> frozenset:
-    """What a file of `edition`'s folder may import besides the standard library and itself."""
+def may_import(edition: Edition | None, file_name: str) -> frozenset:
+    """What a Toolbox file may import besides the standard library and its own folder.
+
+    `edition` is None for a file of the Composer core, which may import neither Edition nor
+    either library. An Edition's files may import the core too.
+    """
+    if edition is None:
+        return SHARED_IMPORTS
     if file_name in edition.stdlib_only_files:
-        return frozenset()
+        return frozenset({CORE})
     if file_name in edition.library_files:
-        return SHARED_IMPORTS | {edition.library}
-    return SHARED_IMPORTS
+        return SHARED_IMPORTS | {edition.library, CORE}
+    return SHARED_IMPORTS | {CORE}
 
 
 def imports_outside(folder: Path) -> list[str]:
-    """Each import in an Edition's folder that `may_import` refuses, as "<file> imports <name>"."""
-    edition = EDITIONS[folder.name]
+    """Each import in a Toolbox folder that `may_import` refuses, as "<file> imports <name>"."""
+    edition = None if folder.name == CORE else EDITIONS[folder.name]
     found = []
     for path in sorted(folder.glob("*.py")):
         allowed = sys.stdlib_module_names | may_import(edition, path.name) | {"__future__"}
@@ -188,42 +196,23 @@ def _imported(path: Path) -> list[str]:
     return names
 
 
-# --- Making Spark Composer's copy of a shared file ------------------------------------------
+# --- Naming the other Edition -----------------------------------------------------------------
 
 
 class SwapRefused(ValueError):
-    """A shared file couldn't be copied into Spark Composer's folder with certainty."""
+    """Text couldn't be made to name the other Edition with certainty."""
 
 
 # Any spelling of either Edition's folder or product name.
 SQL_COMPOSER_NAME = re.compile(r"sql[\W_]*composer", re.IGNORECASE)
 SPARK_COMPOSER_NAME = re.compile(r"spark[\W_]*composer", re.IGNORECASE)
-# What a canonical shared file may not name, since only one Edition has it.
-FORBIDDEN_IN_SHARED = ("sqlglot", "pyspark")
+# The libraries the Composer core may not name, since only one Edition has each.
+LIBRARIES = ("sqlglot", "pyspark")
 
 
-def forbidden_words(text: str) -> list[str]:
-    """What a canonical shared file names that belongs to one Edition only."""
-    found = [word for word in FORBIDDEN_IN_SHARED if word in text.lower()]
-    return found + sorted(set(SPARK_COMPOSER_NAME.findall(text)))
-
-
-def swap(text: str, file_name: str) -> str:
-    """Spark Composer's copy of one of SQL Composer's shared or verbatim files."""
-    if file_name in VERBATIM_FILES:
-        return _verbatim(text, file_name)
-    if file_name not in SHARED_FILES:
-        raise SwapRefused(f"{file_name} is not a shared or verbatim file, so it isn't copied.")
-    forbidden = forbidden_words(text)
-    if forbidden:
-        raise SwapRefused(f"{file_name} names {', '.join(forbidden)}, which only one Edition has.")
-    swapped = named_for(SPARK_COMPOSER, text, file_name)
-    if file_name.endswith(".py"):
-        try:
-            ast.parse(swapped)
-        except SyntaxError as error:
-            raise SwapRefused(f"{file_name} doesn't parse after the swap: {error}") from error
-    return swapped
+def libraries_named(text: str) -> list[str]:
+    """Which Edition's library a Composer core file names."""
+    return [word for word in LIBRARIES if word in text.lower()]
 
 
 def named_for(edition: Edition, text: str, where: str = "The text") -> str:
@@ -237,14 +226,6 @@ def named_for(edition: Edition, text: str, where: str = "The text") -> str:
     if left:
         raise SwapRefused(f"{where} would be left naming {', '.join(left)}.")
     return swapped
-
-
-def _verbatim(text: str, file_name: str) -> str:
-    named = SQL_COMPOSER_NAME.search(text) or SPARK_COMPOSER_NAME.search(text)
-    if named:
-        raise SwapRefused(f"{file_name} is copied unchanged, so it may name neither Edition, "
-                          f"and it names {named[0]}.")
-    return text
 
 
 def _whole_word(name: str) -> re.Pattern:
@@ -265,11 +246,12 @@ class _OnlyTheAlias(importlib.abc.MetaPathFinder):
 
 
 def use(edition: Edition) -> None:
-    """Make `import sql_composer` give `edition`'s modules, and make sqlglot unimportable.
+    """Make `import sql_composer` give `edition`'s folder, and make sqlglot unimportable.
 
     The shared tests and the Worked examples say `from sql_composer import ...`; in Spark
-    Composer's run each of those names is Spark Composer's. It must run before anything imports
-    sql_composer. For SQL Composer it does nothing.
+    Composer's run that is Spark Composer's folder, and its own writing.py and engine.py stand
+    in for SQL Composer's. The Composer core is the same for both, so it needs no alias. It
+    must run before anything imports sql_composer. For SQL Composer it does nothing.
     """
     if edition is SQL_COMPOSER:
         return
@@ -290,7 +272,7 @@ def _in_sql_composer(module: str) -> bool:
 def toolbox_modules() -> list[str]:
     """The name of every module of an Edition's folder, as `sql_composer` and its files."""
     return ["sql_composer"] + [f"sql_composer.{name.removesuffix('.py')}"
-                               for name in SHARED_FILES + EDITION_FILES if name != "__init__.py"]
+                               for name in EDITION_FILES if name != "__init__.py"]
 
 
 def edition_on_command_line(arguments: list[str]) -> Edition:

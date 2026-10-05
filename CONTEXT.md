@@ -10,14 +10,19 @@ accepts only strings, or run on Spark - and traced back to the table columns the
 
 **Toolbox**:
 The set of Python functions that compose Hive SQL - the only thing copied to work. It comes in two
-Editions.
+Editions, and is copied as the Composer core and one Edition.
 _Avoid_: library, package, framework, SQL module
 
 **Edition**:
 One of the two forms the Toolbox comes in, with the same functions and almost the same Hive: SQL
 Composer, which needs sqlglot at work, and Spark Composer, which needs pyspark and runs its Hive on
-Spark. They can sit side by side.
+Spark. A notebook uses one.
 _Avoid_: flavour, variant, port, fork, backend, dialect
+
+**Composer core**:
+The part of the Toolbox both Editions share, written once: every function a user calls. An Edition
+adds what is its own, how it writes its Hive and runs its Example database.
+_Avoid_: base, common, shared library, framework
 
 **Toolbox version**:
 The feature number of the Toolbox (`3.2`), raised only when a big feature lands, and shared by both
@@ -25,8 +30,8 @@ Editions. Two copies of the same Toolbox version are told apart by when they wer
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox's Editions and their README, generated from the Dev branch
-and never edited by hand.
+The branch holding only the Toolbox's Composer core, its Editions and their README, generated
+from the Dev branch and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:

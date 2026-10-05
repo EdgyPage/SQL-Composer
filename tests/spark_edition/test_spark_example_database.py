@@ -46,7 +46,7 @@ from sql_composer import (
     statement,
     week_start,
 )
-from sql_composer.example_database import job_runs
+from composer_core.example_database import job_runs
 from statements import latest_and_top_n, regrouping
 
 ROOT = Path(__file__).resolve().parents[2]

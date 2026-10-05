@@ -25,7 +25,8 @@ DRIFT_LIST = Path(".scratch") / "drift.md"
 REVIEWER_BRIEF = Path(".claude") / "hooks" / "drift-reviewer.md"
 REQUESTS_FILE = "sql-composer-drift-requests"
 
-WATCHED_FOLDERS = ("sql_composer/", "spark_composer/", "worked_examples/", "docs/")
+WATCHED_FOLDERS = ("composer_core/", "sql_composer/", "spark_composer/", "worked_examples/",
+                   "docs/")
 WATCHED_FILES = frozenset({"CONTEXT.md", "CLAUDE.md", "requirements-dev.txt"})
 
 # git, its own options (such as -C <folder>, -c <name>=<value> or --git-dir <folder>, quoted

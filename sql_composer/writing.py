@@ -13,9 +13,10 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
+from composer_core.refusals import four_part_message
+from composer_core.trees import Node, arguments_text, plain_name
+
 from .engine import _INSTALL_NEWER
-from .refusals import four_part_message
-from .trees import Node, arguments_text, plain_name
 
 TOOLBOX_VERSION = "3.2"
 

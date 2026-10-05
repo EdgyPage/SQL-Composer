@@ -60,8 +60,9 @@ if __name__ == "__main__":
 import pandas as pd  # noqa: E402
 
 import sql_composer  # noqa: E402
-from sql_composer import conditions, engine, example_database  # noqa: E402
-from sql_composer.clauses import Statement  # noqa: E402
+from composer_core import conditions, example_database  # noqa: E402
+from composer_core.clauses import Statement  # noqa: E402
+from sql_composer import engine  # noqa: E402
 
 EDITION = editions.EDITIONS[sql_composer.__name__]
 GALLERY = ROOT / EDITION.folder / "examples.html"
@@ -87,9 +88,14 @@ def statement_scripts() -> list:
 
 
 def toolbox_modules() -> list:
+    """The Edition's folder, then every other Toolbox file by name: the Edition's and the
+    Composer core's."""
+    own = {path.stem for path in (ROOT / EDITION.folder).glob("*.py")}
+    core = {path.stem for path in (ROOT / editions.CORE).glob("*.py")}
     return [sql_composer] + [
-        importlib.import_module(f"sql_composer.{path.stem}")
-        for path in sorted((ROOT / EDITION.folder).glob("*.py")) if path.stem != "__init__"
+        importlib.import_module(f"sql_composer.{stem}" if stem in own
+                                else f"{editions.CORE}.{stem}")
+        for stem in sorted(own | core) if stem != "__init__"
     ]
 
 
@@ -107,9 +113,11 @@ def docstrings() -> list[tuple[list[str], str]]:
         for test in doctest.DocTestFinder().find(module):
             doc = inspect.cleandoc(test.docstring or "")
             if test.examples and doc not in seen:
-                found.append(([test.name.removeprefix(f"{EDITION.folder}.")], doc))
+                name = test.name.removeprefix(f"{EDITION.folder}.")
+                found.append(([name.removeprefix(f"{editions.CORE}.")], doc))
                 seen.add(doc)
-    return found
+    # The Composer core's docstrings are written once, naming SQL Composer.
+    return [(names, editions.named_for(EDITION, doc)) for names, doc in found]
 
 
 def names_in(code: str) -> list[str]:

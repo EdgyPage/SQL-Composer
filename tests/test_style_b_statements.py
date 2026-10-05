@@ -30,8 +30,8 @@ from sql_composer import (
     to_hive,
     week_start,
 )
-from sql_composer.example_database import job_runs as runs
-from sql_composer.example_database import jobs
+from composer_core.example_database import job_runs as runs
+from composer_core.example_database import jobs
 
 # --- Level 1: the Building blocks (blocks.py) ------------------------------------------------
 

@@ -28,7 +28,7 @@ from sql_composer import (
     statement,
     to_hive,
 )
-from sql_composer.example_database import job_runs
+from composer_core.example_database import job_runs
 
 dt = job_runs.dt
 

@@ -38,10 +38,16 @@ from typing import NoReturn
 
 if __package__:
     # Run as a script, this file is the Example database's Spark process, which needs neither.
-    from . import _four_part_message as four_part_message
-    from . import _stop
+    from composer_core import _four_part_message as four_part_message
+    from composer_core import _stop as _core_stop
 
 TOOLBOX_VERSION = "3.2"
+
+
+def _stop(what, why, fix):
+    """Stop this Edition's import, named by its own folder, with the four-part message."""
+    _core_stop(what, why, fix, folder=__name__.split(".")[0])
+
 
 _LOWEST = (3, 5, 0)
 _BELOW = (4, 1, 0)
@@ -735,7 +741,7 @@ def _too_slow() -> NoReturn:
 
 def _check_escaping() -> None:
     """Stop unless Spark reads every value of _ESCAPING_CHECK back as it was written."""
-    from .trees import string
+    from composer_core.trees import string
     from .writing import hive_text
 
     written = ", ".join(f"{hive_text(string(value))} AS v{i}"
@@ -765,7 +771,7 @@ def _table_hive(name: str, columns: dict, rows: list) -> str:
 
     Spark calls a table made this way a global temporary view.
     """
-    from .trees import Node
+    from composer_core.trees import Node
     from .writing import hive_text
 
     # A name is written as the writer writes any name, a table's as a column's.
@@ -778,7 +784,7 @@ def _table_hive(name: str, columns: dict, rows: list) -> str:
 
 
 def _value(value) -> str:
-    from .trees import number, string
+    from composer_core.trees import number, string
     from .writing import hive_text
 
     if value is None:

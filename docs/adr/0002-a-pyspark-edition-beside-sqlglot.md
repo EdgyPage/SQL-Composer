@@ -1,6 +1,6 @@
 # A second Edition writes the same Hive without sqlglot, and runs it on Spark
 
-Status: accepted
+Status: accepted, superseded in part by ADR 0003
 
 The user hasn't settled whether the warehouse at work will run Statements on Hive or on Spark, so
 the Toolbox is built twice, as two Editions with the same 63 public names: SQL Composer

@@ -19,7 +19,7 @@ from sql_composer import (
     to_hive,
     writing,
 )
-from sql_composer.example_database import job_runs
+from composer_core.example_database import job_runs
 
 
 def test_hive_function_output_reads_back_the_same_on_every_version() -> None:

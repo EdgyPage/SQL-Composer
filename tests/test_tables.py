@@ -17,7 +17,7 @@ from sql_composer import (
     to_hive,
     write_table_reference,
 )
-from sql_composer.example_database import job_runs, jobs
+from composer_core.example_database import job_runs, jobs
 
 
 def describing(columns, partitions=(), days=()):

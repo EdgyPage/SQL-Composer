@@ -29,7 +29,7 @@ from sql_composer import (
     statement,
     to_hive,
 )
-from sql_composer.example_database import job_runs, jobs, run_alerts
+from composer_core.example_database import job_runs, jobs, run_alerts
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 

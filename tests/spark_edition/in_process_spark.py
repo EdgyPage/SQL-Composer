@@ -116,7 +116,7 @@ REFUSED = {"edge:hive_function:date_format": "DATETIME_PATTERN_RECOGNITION"}
 
 def queries(edition: editions.Edition) -> list[Hive]:
     """Each query an Edition's golden holds: its SELECTs and WITHs."""
-    from sql_composer.example_database import _is_query
+    from composer_core.example_database import _is_query
 
     return [hive for hive in hive_texts(edition) if _is_query(hive.text)]
 

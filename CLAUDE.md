@@ -34,22 +34,25 @@ What no test can hold is in `docs/agents/standards.md`, which the code reviewer 
 
 The Toolbox is built twice, as ADR 0002 records: `sql_composer/` (SQL Composer, which writes its
 Hive with sqlglot) and `spark_composer/` (Spark Composer, which prints its own Hive and runs it on
-Spark). `tools/editions.py` is the one registry of which files the two share and which each writes
-itself.
+Spark). Both run the Composer core, `composer_core/`, which holds every file they share, once, as
+ADR 0003 records. `tools/editions.py` is the one registry of which files the core holds and which
+each Edition writes itself.
 
-- Edit a shared file only in `sql_composer/`, then run `python tools/make_spark_edition.py`. Never
-  edit a generated copy in `spark_composer/`: a test fails while one is stale, and names that
-  command.
+- Edit a shared file in `composer_core/`. Its docstrings name SQL Composer; Spark Composer's
+  gallery and doctests read them with the names swapped.
 - `sql_composer/writing.py` and `sql_composer/engine.py` are written by hand, and so are
   `spark_composer/writing.py` and `spark_composer/engine.py`, with the same function names and
-  parameters, which a test holds.
+  parameters, which a test holds. `sql_composer/__init__.py` and `spark_composer/__init__.py`
+  are the same apart from the names, which a test holds too.
+- A Python runs one Edition: a test that needs the other loads its file by path, or runs it in a
+  Python of its own.
 
 ## Drift
 
-After a commit that touches either Edition of the Toolbox, `worked_examples/`, `docs/`,
-`CONTEXT.md`, `CLAUDE.md` or `requirements-dev.txt`, the drift reviewer looks for anything the
-commit made untrue and adds one open item per finding to `.scratch/drift.md`. It edits nothing
-else.
+After a commit that touches the Composer core or either Edition of the Toolbox,
+`worked_examples/`, `docs/`, `CONTEXT.md`, `CLAUDE.md` or `requirements-dev.txt`, the drift
+reviewer looks for anything the commit made untrue and adds one open item per finding to
+`.scratch/drift.md`. It edits nothing else.
 
 - Fix open items as your next commits. Each fix marks its item `[x]` with the fixing commit.
 - A false alarm closes with a `No-drift: <item> - <why>` line in a commit message. The reviewer

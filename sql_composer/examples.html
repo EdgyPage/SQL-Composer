@@ -1311,7 +1311,7 @@ WHERE
 <p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from sql_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>To update, delete the <code>sql_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
+<p>The Toolbox is two folders side by side: this one, and composer_core, the code both Editions share. To update, delete both folders, copy both in again from one download and restart the kernel. The two check themselves when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
@@ -2365,12 +2365,12 @@ GROUP BY
 <section class="entry" id="GuardRefused">
 <h3><code>GuardRefused</code></h3>
 <p class="why">A Guard stopped a Statement that would silently give a wrong answer.</p>
-<p>The message says what happened, why the number would come out wrong and the usual fix. When the Guard has an opt-out, it also gives the keyword to paste if you really mean it; when it has none, it says so. It is raised at your own line.</p>
+<p>The message says what happened, why the number would come out wrong and the usual fix. When the Guard has an opt-out, it also gives the keyword to paste if you really mean it; when it has none, it says so. It is raised at your own line. To catch it, import it with the rest, as <code>from sql_composer import GuardRefused</code>.</p>
 <pre class="python">SELECT(count_rows())</pre>
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-sql_composer.refusals.GuardRefused:
+composer_core.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
   Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
@@ -2380,12 +2380,12 @@ sql_composer.refusals.GuardRefused:
 <section class="entry" id="LoadRefused">
 <h3><code>LoadRefused</code></h3>
 <p class="why">A Load limit stopped a Statement that would read or return too much.</p>
-<p>The message says what happened, why the cluster or the notebook would stall, the usual fix, and the opt-out keyword to paste if you really mean it.</p>
+<p>The message says what happened, why the cluster or the notebook would stall, the usual fix, and the opt-out keyword to paste if you really mean it. To catch it, import it with the rest, as <code>from sql_composer import LoadRefused</code>.</p>
 <pre class="python">statement(SELECT(job_runs.run_id), FROM(job_runs))</pre>
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-sql_composer.refusals.LoadRefused:
+composer_core.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
