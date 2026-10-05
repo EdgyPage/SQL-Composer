@@ -5,7 +5,8 @@ A script imports only from lower Levels and from the Toolbox, never from a highe
 Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
 Each Example project has Levels of its own, its generated Table references among them, and the
 scripts beside its Level folders, such as `run_pipeline.py`, sit above the Levels, so they may
-import from any of them.
+import from any of them; but `settings.py`, which holds what a Statement reads about each table
+and imports nothing of the project's, is Level 0, beside the Table references.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
 `table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what both Editions of the Toolbox may import (pandas
@@ -32,6 +33,10 @@ EXAMPLE_PROJECTS = ROOT / "example_projects"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
 # An Example project's scripts beside its Level folders, such as run_pipeline.py.
 ABOVE_THE_LEVELS = 3
+# The scripts beside an Example project's Level folders that are Level 0 all the same.
+LEVEL_0_BESIDE = {"settings"}
+# Each name a script imports its Level's scripts by, with that Level.
+IMPORTED_LEVELS = {**LEVELS, **dict.fromkeys(LEVEL_0_BESIDE, 0)}
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
     "repeated_rows", "regrouping", "left_join_then_where", "none_in_equals", "nan_in_a_list",
@@ -58,7 +63,8 @@ def project_scripts() -> list[tuple[Path, int]]:
     for project in projects():
         for folder, level in LEVELS.items():
             found += [(path, level) for path in sorted((project / folder).glob("*.py"))]
-        found += [(path, ABOVE_THE_LEVELS) for path in sorted(project.glob("*.py"))]
+        found += [(path, 0 if path.stem in LEVEL_0_BESIDE else ABOVE_THE_LEVELS)
+                  for path in sorted(project.glob("*.py"))]
     return found
 
 
@@ -83,10 +89,10 @@ def _problem(name: str, level: int) -> str | None:
         return None if name == "sqlglot_composer" else f"{name} reaches inside the Toolbox"
     if top == "composer_core":
         return f"{name} reaches inside the Toolbox: import from the Edition's folder"
-    if top in LEVELS:
-        if LEVELS[top] < level:
+    if top in IMPORTED_LEVELS:
+        if IMPORTED_LEVELS[top] < level:
             return None
-        return f"{name} is Level {LEVELS[top]}, not below Level {level}"
+        return f"{name} is Level {IMPORTED_LEVELS[top]}, not below Level {level}"
     if top in sys.stdlib_module_names or top in SHARED_IMPORTS or top == "__future__":
         return None
     return f"{name} is neither a lower Level, the Toolbox, nor something both Editions may import"
@@ -161,8 +167,8 @@ def test_a_statement_script_gives_a_title_and_why(path: Path) -> None:
     check_title_and_why(path)
 
 
-def test_there_is_a_starter_project_with_every_level() -> None:
-    assert "starter" in [project.name for project in projects()]
+def test_there_are_both_example_projects_with_every_level() -> None:
+    assert [project.name for project in projects()] == ["intermediate", "starter"]
     for project in projects():
         missing = [folder for folder in LEVELS if not list((project / folder).glob("*.py"))]
         assert missing == [], f"{project.name} has nothing in {missing}"
@@ -177,6 +183,14 @@ def test_an_example_projects_imports_point_only_downward(script: tuple[Path, int
 @pytest.mark.parametrize("script", project_scripts(), ids=_project_id)
 def test_an_example_projects_script_gives_a_title_and_why(script: tuple[Path, int]) -> None:
     check_title_and_why(script[0])
+
+
+def test_settings_sit_at_level_0() -> None:
+    """settings.py is Level 0, so a Statement may import it, and it may import no Level."""
+    assert (EXAMPLE_PROJECTS / "intermediate" / "settings.py", 0) in project_scripts()
+    assert level_problems("from settings import TABLES_READ\n", 2) == []
+    (found,) = level_problems("from table_references.jobs import jobs\n", 0)
+    assert "Level 0, not below Level 0" in found
 
 
 def test_a_script_above_the_levels_may_import_from_any_of_them() -> None:

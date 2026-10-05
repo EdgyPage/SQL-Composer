@@ -49,6 +49,8 @@ _Avoid_: backend, engine, server, platform
 One of three tiers of the user's own scripts. A script imports only from lower Levels and from the
 Toolbox, never from a higher or equal Level. A script that runs Statements in order, such as an
 Example project's run_pipeline.py, sits above the three Levels, so it may import from all of them.
+A settings.py beside them, which holds what Statements read about each table and imports none of
+the user's scripts, is Level 0, like the Table references.
 _Avoid_: layer, tier, stage
 
 **Table reference**:

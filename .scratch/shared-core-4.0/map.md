@@ -76,6 +76,11 @@ anywhere.
 - Ticket 15's CHANGES 4.0 section also says each Edition's folder now holds `how_to.html`, the
   how-to page, beside `examples.html`, and that the import now stops when it is missing, as it
   does for `examples.html` (ticket 06, D127).
+- **Ticket 15 reruns `python tools/example_project.py` after raising TOOLBOX_VERSION**, and
+  `python tools/example_project.py --project intermediate` (ticket 12): an Example project's
+  lineage footers name the Toolbox version, which the generator takes from TOOLBOX_VERSION
+  rather than pinning, so the staleness test in tests/test_example_projects.py fails until it
+  is rerun (ticket 11).
 
 ## Records this changes
 
@@ -116,6 +121,14 @@ anywhere.
   blocks may hold steps; a how-to's `NAME_in_pandas()` stands in where sqlglot Composer's
   Example database can't run a Statement; the filter script is shared with examples.html; how-to
   1, Start a notebook; the page links to no README anchor.
+- [The intermediate example project](issues/12-the-intermediate-example-project.md):
+  `example_projects/intermediate/` with settings.py at Level 0; example 1 saves each job's cost
+  per day with its days rewritten like 2026-09-24 (days written differently can't be joined),
+  example 2 each job's day with its team as of that day, example 3 each team's days, added into
+  weeks when read (a write fills one day); one step, `write_days(first_day, last_day)`, for the
+  last 3 days or a backfill; settings-driven quality checks; a lineage review whose "before"
+  file the generator writes with the edit undone. How-to 24's "blocks built from other blocks"
+  breaks the Levels rule: ticket 09 decides.
 
 ## Not yet specified
 
