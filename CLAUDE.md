@@ -10,7 +10,9 @@ is checked out.
 v2 is charted and built through the wayfinder map at `.scratch/sql-composer-v2/map.md`. Read its
 Notes before working any ticket. The PySpark work, which builds the Toolbox a second time without
 sqlglot, is charted and built through `.scratch/spark-edition/map.md`; read its Notes too before
-working one of its tickets.
+working one of its tickets. Toolbox 4.0 (one shared `composer_core/`, the `sqlglot_composer`
+rename, how-tos, example projects and templates) is charted through
+`.scratch/shared-core-4.0/map.md`; read its Notes before working one of its tickets.
 
 ## Checks
 
