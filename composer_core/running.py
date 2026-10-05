@@ -7,6 +7,8 @@ CSVs stay in it. The Toolbox never imports it.
 
 from __future__ import annotations
 
+import inspect
+
 from . import edition
 from .clauses import (
     FROM,
@@ -256,6 +258,105 @@ def to_hive(s):
     text = edition.hive_statement(_statement_tree(s))
     _self_check(text)
     return text
+
+
+def name_in(frame, value) -> str | None:
+    """The caller's variable name for `value`, found by identity, or None if it has none."""
+    return next((name for scope in (frame.f_locals, frame.f_globals)
+                 for name, held in scope.items()
+                 if held is value and not name.startswith("_")), None)
+
+
+class HiveText(str):
+    """The Hive show_hive printed, kept as text. In a notebook it isn't shown a second time."""
+
+    def _ipython_display_(self) -> None:
+        pass  # show_hive has printed it already
+
+
+def show_hive(*statements):
+    """Print the Hive that runs, ready to paste into another program, and return it.
+
+    Each Statement's Hive is exactly what to_hive gives and run sends, with a ; added at the
+    end, which a program such as Hue, DBeaver or spark-sql needs between Statements; run sends
+    it without one. Pass several Statements, or a list such as by_day(...) gives, and each is
+    headed by a comment: its number, and the name of the variable it is in, such as
+    -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would.
+
+    It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
+    notebook, show_hive(...) on its own shows the Hive once.
+
+    >>> failed_runs = statement(
+    ...     SELECT(job_runs.run_id),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+    ... )
+    >>> text = show_hive(failed_runs)
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
+    >>> every_run = statement(
+    ...     SELECT(job_runs.run_id),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24")),
+    ... )
+    >>> text = show_hive(failed_runs, every_run)
+    -- 1 of 2: failed_runs
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
+    <BLANKLINE>
+    -- 2 of 2: every_run
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24';
+    """
+    frame = inspect.currentframe().f_back
+    named = []
+    for given in statements:
+        if not isinstance(given, list):
+            named.append((name_in(frame, given), given))
+            continue
+        list_name = name_in(frame, given)
+        for index, s in enumerate(given):
+            if isinstance(s, list):
+                refuse(
+                    what="show_hive was given a list inside a list.",
+                    why="It takes Statements, or one list of them, such as by_day(...) gives.",
+                    fix="Pass the inner lists one by one, as show_hive(first, second), or put "
+                    "their Statements in one list.",
+                )
+            own = name_in(frame, s) or (f"{list_name}[{index}]" if list_name else None)
+            named.append((own, s))
+    if not named:
+        refuse(
+            what="show_hive() was given no Statement.",
+            why="It prints the Hive of the Statements it is given.",
+            fix="Pass one or more Statements, such as show_hive(weekly), or a list of them.",
+        )
+    texts = []
+    for position, (name, s) in enumerate(named, start=1):
+        if not isinstance(s, Statement):
+            refuse(
+                what=f"show_hive was given {s!r}, which isn't a Statement.",
+                why="It prints the Hive of Statements made by statement(...).",
+                fix="Pass statement(SELECT(...), FROM(...), ...), or a list of them.",
+                given=s, call="show_hive",
+            )
+        hive = to_hive(s) + ";"
+        if len(named) > 1:
+            heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
+            hive = f"{heading}\n{hive}"
+        texts.append(hive)
+    text = "\n\n".join(texts)
+    print(text)
+    return HiveText(text)
 
 
 def run(s, send):

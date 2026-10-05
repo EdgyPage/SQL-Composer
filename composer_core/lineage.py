@@ -24,7 +24,7 @@ from .refusals import (
     LoadRefused,
     refuse,
 )
-from .running import bottom_read, by_day, steps, to_hive
+from .running import bottom_read, by_day, name_in, steps, to_hive
 from .tables import readable
 from .trees import Node
 from .edition import hive_text
@@ -658,14 +658,8 @@ def calling_file(frame) -> Path | None:
 
 def statement_names(statements, frame) -> list[str]:
     """The caller's variable name for each Statement, found by identity."""
-    names = []
-    for position, s in enumerate(statements, start=1):
-        found = next((name for scope in (frame.f_locals, frame.f_globals)
-                      for name, held in scope.items()
-                      if held is s and not name.startswith("_")), None)
-        names.append(found or ("statement" if len(statements) == 1
-                               else f"statement_{position}"))
-    return names
+    return [name_in(frame, s) or ("statement" if len(statements) == 1 else f"statement_{position}")
+            for position, s in enumerate(statements, start=1)]
 
 
 def _plain(text: str) -> str:

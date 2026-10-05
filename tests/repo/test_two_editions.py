@@ -81,7 +81,7 @@ def test_spark_composer_imports_with_neither_java_nor_sqlglot(tmp_path: Path) ->
               "print(len(spark_composer.__all__), spark_composer.VERSION)")
     result = _run(script, ROOT, JAVA_HOME=str(tmp_path / "no-java"))
     assert result.returncode == 0, result.stderr
-    assert result.stdout.startswith("63 Spark Composer ")
+    assert result.stdout.startswith("64 Spark Composer ")
 
 
 def test_importing_both_editions_in_one_python_stops() -> None:

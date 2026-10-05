@@ -44,7 +44,7 @@ PUBLIC_NAMES = [
     "any_of", "all_of",
     "count_rows", "count_distinct", "sum_of", "average_of", "min_of", "max_of", "if_else",
     "fill_null", "week_start", "month_start", "row_number", "descending", "hive_function",
-    "to_hive", "run", "by_day", "set_load_limits",
+    "to_hive", "show_hive", "run", "by_day", "set_load_limits",
     "GuardRefused", "LoadRefused",
     "export_lineage",
     "example_database",
@@ -62,8 +62,8 @@ def toolbox_files() -> list[Path]:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 63
-    assert len(set(PUBLIC_NAMES)) == 63
+    assert len(PUBLIC_NAMES) == 64
+    assert len(set(PUBLIC_NAMES)) == 64
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name
