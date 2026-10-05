@@ -380,7 +380,7 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     )
 
 
-# --- Mix-ups between the two Editions --------------------------------------------------------
+# --- An object another Toolbox folder made ----------------------------------------------------
 
 # What each kind of object is called in a message, by its class's name.
 _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column named with AS",
@@ -420,8 +420,9 @@ def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
            call: str = "") -> NoReturn:
     """Refuse what can't go on, such as a call given the wrong argument. It has no opt-out.
 
-    Pass the wrong argument as `given`, and the call as `call`: if the other Edition's folder
-    made it, the refusal that says so is raised instead.
+    Pass the wrong argument as `given`, and the call as `call`: if another Toolbox folder made
+    it, such as one left over from an earlier version, the refusal that says so is raised
+    instead.
     """
     if given is not None:
         refuse_what_the_other_edition_made(given, call)
