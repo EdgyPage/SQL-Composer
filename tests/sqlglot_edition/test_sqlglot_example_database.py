@@ -19,7 +19,7 @@ from sql_composer import (
     statement,
     week_start,
 )
-from sql_composer.example_database import job_runs
+from composer_core.example_database import job_runs
 
 
 def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch) -> None:

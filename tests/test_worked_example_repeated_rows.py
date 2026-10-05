@@ -8,7 +8,7 @@ import pytest
 
 from conftest import example_rows
 from sql_composer import example_database, run
-from sql_composer.refusals import RepeatedRowsWarning
+from composer_core.refusals import RepeatedRowsWarning
 from statements import repeated_rows as example
 
 

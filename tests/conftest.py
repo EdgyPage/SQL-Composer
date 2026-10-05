@@ -115,8 +115,14 @@ def toolbox_folder() -> Path:
 
 
 def toolbox_module(name: str = "") -> ModuleType:
-    """The Edition's folder, imported, or one of its files by name, such as "conditions"."""
-    return importlib.import_module(f"{edition().folder}.{name}" if name else edition().folder)
+    """The Edition's folder, imported, or one of the Toolbox's files by name, such as
+    "conditions": the Edition's own writing or engine, or else the Composer core's."""
+    if not name:
+        return importlib.import_module(edition().folder)
+    toolbox_module()  # the Edition is imported first, so its files are plugged in
+    if f"{name}.py" in editions.EDITION_FILES:
+        return importlib.import_module(f"{edition().folder}.{name}")
+    return importlib.import_module(f"{editions.CORE}.{name}")
 
 
 # Whether the Example database answered the one query each run sends it, and if not, why.
@@ -173,10 +179,11 @@ def example_rows(table: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=list(reference._columns))
 
 
-def import_stop(what: str, why: str, fix: str) -> str:
-    """The last line of the Edition's import stop: the four parts, with no opt-out."""
+def import_stop(what: str, why: str, fix: str, folder: str | None = None) -> str:
+    """The last line of an import stop: the four parts, with no opt-out. It names the Edition's
+    folder, or `folder`, such as composer_core, when that is the one that stopped."""
     return (
-        f"ImportError: {edition().folder} stopped on import:"
+        f"ImportError: {folder or edition().folder} stopped on import:"
         f"\n  What happened:  {what}"
         f"\n  Why it matters: {why}"
         f"\n  Usual fix:      {fix}"

@@ -52,7 +52,7 @@ from sql_composer import (
     week_start,
     write_table_reference,
 )
-from sql_composer.example_database import _in_order, _sorts_itself
+from composer_core.example_database import _in_order, _sorts_itself
 from statements import saved_table
 from table_references.runs_to_review import runs_to_review
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sql_composer.trees import Node, combined, has_aggregate, plain_name
+from composer_core.trees import Node, combined, has_aggregate, plain_name
 
 
 def column(name: str, table: str = "t") -> Node:

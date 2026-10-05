@@ -16,8 +16,8 @@ from sqlglot import exp
 
 import hive_corpus_cases
 from sql_composer import GuardRefused, LoadRefused, writing
-from sql_composer.clauses import derived_tables
-from sql_composer.trees import HIVE_AGGREGATES, KINDS, has_aggregate
+from composer_core.clauses import derived_tables
+from composer_core.trees import HIVE_AGGREGATES, KINDS, has_aggregate
 
 
 def _trees_of(s) -> list:
@@ -109,7 +109,7 @@ def test_two_trees_are_equal_exactly_when_their_sqlglot_trees_are() -> None:
 
 def test_a_hive_function_name_is_compared_whatever_its_case() -> None:
     from sql_composer import hive_function
-    from sql_composer.example_database import job_runs
+    from composer_core.example_database import job_runs
 
     assert (hive_function("NVL", job_runs.status, "x")._tree
             == hive_function("nvl", job_runs.status, "x")._tree)

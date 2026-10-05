@@ -6,10 +6,11 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-## Which folder to copy
+## Which folders to copy
 
-The Toolbox comes in two Editions, two folders with the same functions and the same version.
-Copy one, the whole folder:
+The Toolbox comes in two Editions, with the same functions and the same version. Whichever
+you use, copy two folders, each whole: `composer_core`, the code both Editions share, and the
+one Edition's own folder:
 
 - **`sql_composer`, SQL Composer**, writes its Hive with the sqlglot package. Copy it when your
   notebook sends Hive to the warehouse through a query API of its own.
@@ -21,11 +22,10 @@ Both write the same Hive, except in the few places listed under
 dividing and a Python float, are for Spark. So if your query API runs Hive, SQL Composer's Hive
 is right for it. If it runs Spark, and you can install pyspark, Spark Composer's Hive fits it
 better, and works with any `send`. The third, a hive_function call, comes from sqlglot, which
-only SQL Composer uses. Pick one per notebook: the two folders' objects don't mix.
+only SQL Composer uses. Use one Edition per notebook: importing both in one Python stops.
 
 This page writes `sql_composer`. With Spark Composer, write `spark_composer` wherever this page
-writes `sql_composer`: in your imports, in `sql_composer.VERSION`, and in paths such as
-`sql_composer/CHANGES.md`.
+writes `sql_composer`: in your imports, and in `sql_composer.VERSION`.
 
 ## Install
 
@@ -40,11 +40,11 @@ Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
   on the PATH.
 
 1. Download this branch as a zip and extract it.
-2. Copy the whole `sql_composer` folder, or the whole `spark_composer` folder, into the folder
-   that holds your notebooks and scripts.
+2. Copy the whole `composer_core` folder, and the whole `sql_composer` folder or the whole
+   `spark_composer` folder, side by side into the folder that holds your notebooks and scripts.
 
-Keep your own scripts beside the folder, never inside it, and import from the folder's top
-level:
+Keep your own scripts beside the two folders, never inside them, and import from the
+Edition's folder, at its top level:
 
 ```python
 from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
@@ -52,15 +52,17 @@ from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
 
 ## Update
 
-1. Delete the folder.
-2. From the new download, copy in the whole folder of the same name.
+1. Delete both folders: `composer_core` and your Edition's.
+2. From the new download, copy in both whole folders of the same names.
 3. Restart the kernel, which still holds the old code.
 
-Keep your own files beside the folder, never inside it, so deleting it is safe. When it is
-imported, the folder checks itself. If a file is missing, extra, from another version or
-export, or from the other folder, or if this Python or the library it needs won't work with it,
-it stops and says what happened, why it matters and the usual fix. `sql_composer.VERSION` says
-which copy you have, and `sql_composer/CHANGES.md` says what changed in each version.
+Keep your own files beside the folders, never inside them, so deleting them is safe. When they
+are imported, the two folders check themselves. If a file is missing, extra, from another
+version or export, or from another Toolbox folder (`composer_core` or the other Edition's),
+or if this Python or the library it needs
+won't work with it, it stops and says what happened, why it matters and the usual fix.
+`sql_composer.VERSION` says which copy you have, and `composer_core/CHANGES.md` says what
+changed in each version.
 
 ## A first Statement
 
@@ -124,10 +126,10 @@ reads your own yesterday too, so pasted, its Hive shows another day, and no rows
 
 ## The Example gallery
 
-Each folder holds its own Example gallery: every Worked example on one page, its Python and,
-for each Statement it builds, the Hive and any result. Open it in your browser. It needs nothing
-else: a box at the top keeps only the examples holding every word you type, and Ctrl+F searches
-it too. Besides each docstring's example, it holds the Worked examples that stand on their own:
+Each Edition's folder holds its own Example gallery: every Worked example on one page, its Python
+and, for each Statement it builds, the Hive and any result. Open it in your browser. It needs
+nothing else: a box at the top keeps only the examples holding every word you type, and Ctrl+F
+searches it too. Besides each docstring's example, it holds the Worked examples that stand on their own:
 common jobs built in steps that each say why, such as building a Saved table or finding rows
 with no match, and Statements that give a wrong number shown beside their fix.
 

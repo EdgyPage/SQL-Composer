@@ -16,8 +16,9 @@ import inspect
 
 import pytest
 
+import editions
 import sql_composer
-from conftest import skip_unless_the_example_database_runs
+from conftest import edition, skip_unless_the_example_database_runs
 
 PUBLIC = list(sql_composer.__all__)
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
@@ -26,9 +27,11 @@ RUNS_A_QUERY = ("run(", "check_key(")
 
 
 def docstring_of(name: str) -> str:
+    """A public name's docstring, naming this run's Edition: the Composer core's are written
+    once, naming SQL Composer."""
     if name in CONSTANTS:
         return sql_composer.__doc__ or ""
-    return inspect.getdoc(getattr(sql_composer, name)) or ""
+    return editions.named_for(edition(), inspect.getdoc(getattr(sql_composer, name)) or "")
 
 
 def first_line(name: str) -> str:

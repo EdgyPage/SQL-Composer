@@ -55,7 +55,7 @@ from sql_composer import (
     statement,
     to_hive,
 )
-from sql_composer.example_database import job_runs
+from composer_core.example_database import job_runs
 
 # The cases the Toolbox refuses, checked on their own below; it writes the rest (WRITTEN).
 REFUSED = [case for case in STRING_CASES if case[0] in REFUSED_CONTROL_CHARACTERS]

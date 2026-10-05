@@ -14,6 +14,8 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -49,9 +51,13 @@ PUBLIC_NAMES = [
 ]
 
 
+# Every Toolbox folder: the Composer core, and each Edition's.
+FOLDERS = [editions.CORE, *editions.EDITIONS]
+
+
 def toolbox_files() -> list[Path]:
-    """Every .py file of both Editions: they share one TOOLBOX_VERSION."""
-    return [path for folder in editions.EDITIONS if (ROOT / folder).is_dir()
+    """Every .py file of the Toolbox's folders: they share one TOOLBOX_VERSION."""
+    return [path for folder in FOLDERS if (ROOT / folder).is_dir()
             for path in sorted((ROOT / folder).glob("*.py"))]
 
 
@@ -64,14 +70,19 @@ def test_the_public_names_are_the_decided_ones() -> None:
 
 
 def test_spark_composer_has_the_same_public_names() -> None:
-    import spark_composer
+    # In a Python of its own, since a Python runs one Edition and this one runs SQL Composer.
+    script = ("import json, spark_composer\n"
+              "print(json.dumps([spark_composer.__all__,\n"
+              "                  [n for n in spark_composer.__all__ if not hasattr(spark_composer, n)]]))")
+    done = subprocess.run([sys.executable, "-c", script], cwd=ROOT, capture_output=True,
+                          text=True, timeout=120)
+    assert done.returncode == 0, done.stderr
+    names, missing = json.loads(done.stdout)
+    assert sorted(names) == sorted(PUBLIC_NAMES)
+    assert missing == []
 
-    assert sorted(spark_composer.__all__) == sorted(PUBLIC_NAMES)
-    for name in spark_composer.__all__:
-        assert hasattr(spark_composer, name), name
 
-
-@pytest.mark.parametrize("folder", [f for f in editions.EDITIONS if (ROOT / f).is_dir()])
+@pytest.mark.parametrize("folder", [f for f in FOLDERS if (ROOT / f).is_dir()])
 def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
     assert editions.imports_outside(ROOT / folder) == []
 
@@ -84,7 +95,7 @@ def test_every_file_of_both_editions_declares_the_same_toolbox_version(path: Pat
 
 
 def test_changes_has_a_section_for_the_version() -> None:
-    changes = (TOOLBOX / "CHANGES.md").read_text(encoding="utf-8")
+    changes = (ROOT / editions.CORE / "CHANGES.md").read_text(encoding="utf-8")
     assert f"\n## {sql_composer.TOOLBOX_VERSION}\n" in changes
 
 
@@ -106,8 +117,15 @@ def _version(text: str) -> tuple[int, ...]:
 
 
 def _engine(edition: editions.Edition):
-    """An Edition's engine.py, which holds the range of its library it supports."""
-    return importlib.import_module(f"{edition.folder}.engine")
+    """An Edition's engine.py, which holds the range of its library it supports.
+
+    It is loaded by its path, not imported with its Edition, since a Python runs one Edition.
+    """
+    path = ROOT / edition.folder / "engine.py"
+    spec = importlib.util.spec_from_file_location(f"{edition.folder}_engine", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _pin(edition: editions.Edition) -> tuple[int, ...]:

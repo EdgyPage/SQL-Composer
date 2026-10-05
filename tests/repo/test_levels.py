@@ -56,6 +56,8 @@ def _problem(name: str, level: int) -> str | None:
         return f"{name} is a relative import; name the Level folder instead"
     if top == "sql_composer":
         return None if name == "sql_composer" else f"{name} reaches inside the Toolbox"
+    if top == "composer_core":
+        return f"{name} reaches inside the Toolbox: import from the Edition's folder"
     if top in LEVELS:
         if LEVELS[top] < level:
             return None
@@ -95,6 +97,7 @@ def test_imports_point_only_downward(path: Path) -> None:
         ("from building_blocks.jobs_per_day import jobs_per_day", 1,
          "Level 1, not below Level 1"),
         ("from sql_composer.clauses import SELECT", 2, "reaches inside the Toolbox"),
+        ("from composer_core.clauses import SELECT", 2, "reaches inside the Toolbox"),
         ("from . import jobs_per_day", 2, "relative import"),
         ("import requests", 2, "neither a lower Level"),
     ],

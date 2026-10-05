@@ -50,7 +50,7 @@ import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
 import sql_composer  # noqa: E402
 from sql_composer import example_database  # noqa: E402
-from sql_composer.clauses import derived_tables  # noqa: E402
+from composer_core.clauses import derived_tables  # noqa: E402
 
 EDITION = editions.EDITIONS[sql_composer.__name__]
 

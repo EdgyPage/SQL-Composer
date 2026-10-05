@@ -6,7 +6,7 @@ import ast
 from pathlib import Path
 
 import pytest
-from conftest import edition
+import editions
 
 from sql_composer import (
     AS,
@@ -39,7 +39,7 @@ from sql_composer import (
     sum_of,
     to_hive,
 )
-from sql_composer.example_database import job_runs, jobs
+from composer_core.example_database import job_runs, jobs
 
 MISUSES = [
     pytest.param(lambda: LIMIT(0), ValueError, "LIMIT(0) needs a whole number of rows",
@@ -141,7 +141,7 @@ def test_every_refusal_is_built_in_refusals_py() -> None:
 
     This reads the source, as no call can show that a file never builds a message; the table
     above shows the four parts of each misuse, and test_refusals.py those of each Guard."""
-    folder = Path(__file__).parent.parent / edition().folder
+    folder = Path(__file__).parent.parent / editions.CORE
     for path in folder.glob("*.py"):
         if path.name in ("refusals.py", "__init__.py", "engine.py", "writing.py"):
             continue
@@ -152,7 +152,7 @@ def test_every_refusal_is_built_in_refusals_py() -> None:
 
 def test_every_raise_in_refusals_py_has_four_parts() -> None:
     """Each refusal refusals.py raises is built by four_part_message, as the Warning is."""
-    tree = ast.parse((Path(__file__).parent.parent / edition().folder / "refusals.py")
+    tree = ast.parse((Path(__file__).parent.parent / editions.CORE / "refusals.py")
                      .read_text(encoding="utf-8"))
     for node in ast.walk(tree):
         if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):

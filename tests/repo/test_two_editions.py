@@ -1,16 +1,18 @@
-"""The two Editions' folders: Spark Composer's shared files are SQL Composer's, swapped.
+"""The two Editions' folders, and the Composer core both run.
 
-`spark_composer/` holds a generated copy of every shared file and of `CHANGES.md`, and its own
-`writing.py` and `engine.py`. These tests hold the copies current, both folders to the Edition
-registry, CHANGES.md the same in both, the Edition files' interface the same in both, and
-`spark_composer` importable with neither Java nor sqlglot. One TOOLBOX_VERSION across both
-folders is held in test_toolbox_checks.py.
+`composer_core/` holds every file both Editions share, once. Each Edition's folder holds its
+own `__init__.py`, `writing.py`, `engine.py` and Example gallery. These tests hold each folder
+to the Edition registry, the two `__init__.py` files the same apart from their names, the
+Edition files' interface the same in both, one Edition per Python, a missing composer_core
+named, and `spark_composer` importable with neither Java nor sqlglot. One TOOLBOX_VERSION
+across the folders is held in test_toolbox_checks.py.
 """
 
 from __future__ import annotations
 
 import ast
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,17 +20,10 @@ from pathlib import Path
 import pytest
 
 import editions
-import make_spark_edition
 
 ROOT = Path(__file__).resolve().parents[2]
 SQL, SPARK = ROOT / editions.SQL_COMPOSER.folder, ROOT / editions.SPARK_COMPOSER.folder
-
-
-def test_every_generated_file_is_current() -> None:
-    stale = sorted(name for name, text in make_spark_edition.generated().items()
-                   if (SPARK / name).read_text(encoding="utf-8") != text)
-    assert stale == [], (f"{', '.join(stale)} in {SPARK.name}/ is stale: run "
-                         f"{make_spark_edition.COMMAND}")
+CORE = ROOT / editions.CORE
 
 
 def _files(folder: Path) -> set[str]:
@@ -36,13 +31,15 @@ def _files(folder: Path) -> set[str]:
 
 
 def test_each_folder_holds_exactly_its_files() -> None:
-    written = set(editions.SHARED_FILES + editions.EDITION_FILES + editions.VERBATIM_FILES)
-    assert _files(SQL) == written | set(editions.PAGES)
-    assert _files(SPARK) == written | set(editions.PAGES)
+    assert _files(CORE) == set(editions.CORE_FILES)
+    assert _files(SQL) == set(editions.EDITION_FILES + editions.PAGES)
+    assert _files(SPARK) == set(editions.EDITION_FILES + editions.PAGES)
 
 
-def test_changes_is_the_same_in_both_folders() -> None:
-    assert (SPARK / "CHANGES.md").read_bytes() == (SQL / "CHANGES.md").read_bytes()
+def test_the_two_editions_init_files_differ_only_by_their_names() -> None:
+    sql_init = (SQL / "__init__.py").read_text(encoding="utf-8")
+    spark_init = (SPARK / "__init__.py").read_text(encoding="utf-8")
+    assert spark_init == editions.named_for(editions.SPARK_COMPOSER, sql_init)
 
 
 def _functions(path: Path) -> dict[str, list[str]]:
@@ -52,12 +49,28 @@ def _functions(path: Path) -> dict[str, list[str]]:
             if isinstance(node, ast.FunctionDef) and not node.name.startswith("_")}
 
 
-@pytest.mark.parametrize("name", editions.EDITION_FILES)
+@pytest.mark.parametrize("name", sorted(editions.EDITION_INTERFACE))
 @pytest.mark.parametrize("folder", [SQL, SPARK], ids=lambda folder: folder.name)
 def test_each_edition_file_has_the_interface_both_share(folder: Path, name: str) -> None:
     found = _functions(folder / name)
     wanted = editions.EDITION_INTERFACE[name]
     assert {function: found.get(function) for function in wanted} == wanted
+
+
+def test_the_core_reaches_the_edition_only_through_the_interface() -> None:
+    """Each function edition.py hands on is one the Edition files offer, with their parameters."""
+    offered = {name: parameters for functions in editions.EDITION_INTERFACE.values()
+               for name, parameters in functions.items()}
+    forwarded = {name: parameters for name, parameters in _functions(CORE / "edition.py").items()
+                 if name not in ("plug", "toolbox_folders")}
+    assert forwarded
+    assert {name: offered.get(name) for name in forwarded} == forwarded
+
+
+def _run(script: str, cwd: Path, **environment) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, "-c", script], cwd=cwd,
+                          env={**os.environ, **environment}, capture_output=True, text=True,
+                          timeout=120)
 
 
 def test_spark_composer_imports_with_neither_java_nor_sqlglot(tmp_path: Path) -> None:
@@ -66,8 +79,27 @@ def test_spark_composer_imports_with_neither_java_nor_sqlglot(tmp_path: Path) ->
               "import spark_composer\n"
               "assert 'sql_composer' not in sys.modules\n"
               "print(len(spark_composer.__all__), spark_composer.VERSION)")
-    environment = {**os.environ, "JAVA_HOME": str(tmp_path / "no-java")}
-    result = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=environment,
-                            capture_output=True, text=True, timeout=120)
+    result = _run(script, ROOT, JAVA_HOME=str(tmp_path / "no-java"))
     assert result.returncode == 0, result.stderr
     assert result.stdout.startswith("63 Spark Composer ")
+
+
+def test_importing_both_editions_in_one_python_stops() -> None:
+    pytest.importorskip("sqlglot")
+    result = _run("import spark_composer\nimport sql_composer", ROOT)
+    assert "sql_composer stopped on import:" in result.stderr
+    assert "sql_composer was imported after spark_composer, in the same Python" in result.stderr
+
+
+def test_an_edition_without_composer_core_beside_it_says_so(tmp_path: Path) -> None:
+    pytest.importorskip("sqlglot")
+    shutil.copytree(SQL, tmp_path / SQL.name, ignore=shutil.ignore_patterns("__pycache__"))
+    result = _run("import sql_composer", tmp_path)
+    assert result.stderr.strip().endswith(
+        "ImportError: sql_composer stopped on import:"
+        "\n  What happened:  The composer_core folder isn't beside the sql_composer folder."
+        "\n  Why it matters: composer_core holds the code both Editions share, so the Toolbox "
+        "can't work without it."
+        "\n  Usual fix:      Copy the composer_core folder from the same download beside the "
+        "sql_composer folder, so the two sit side by side."
+        "\n  Opt-out:        none - this one can't be switched off.")

@@ -28,7 +28,7 @@ import contextvars
 import re
 from typing import NoReturn
 
-from .trees import HIVE_TYPES, Node, plain_name
+from composer_core.trees import HIVE_TYPES, Node, plain_name
 
 TOOLBOX_VERSION = "3.2"
 

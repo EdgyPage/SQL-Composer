@@ -57,7 +57,7 @@ from sql_composer import (
     statement,
     to_hive,
 )
-from sql_composer.trees import (
+from composer_core.trees import (
     HIVE_AGGREGATES,
     HIVE_FUNCTION_ARGUMENTS,
     HIVE_RESERVED,
@@ -65,7 +65,7 @@ from sql_composer.trees import (
     WINDOW_FUNCTIONS,
     Node,
 )
-from sql_composer.trees import string as string_value
+from composer_core.trees import string as string_value
 from sql_composer.writing import hive_text
 
 pytestmark = pytest.mark.needs_example_database

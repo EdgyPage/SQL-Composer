@@ -45,9 +45,9 @@ from sql_composer import (
     sum_of,
     to_hive,
 )
-from sql_composer import refusals
-from sql_composer.example_database import job_runs, jobs, run_alerts
-from sql_composer.refusals import RepeatedRowsWarning
+from composer_core import refusals
+from composer_core.example_database import job_runs, jobs, run_alerts
+from composer_core.refusals import RepeatedRowsWarning
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 

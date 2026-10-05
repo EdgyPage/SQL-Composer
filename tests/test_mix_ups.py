@@ -1,8 +1,9 @@
-"""Two mix-ups that both Editions side by side make easy, each refused saying what went wrong.
+"""Two mix-ups that are easy to make, each refused saying what went wrong.
 
-- An object made by the other Edition's folder, such as a Table reference whose file imports
-  that folder, given to this Edition's functions. Each function that checks what it was given
-  names the other folder, where it would otherwise call the object the wrong kind of thing.
+- An object made by another Toolbox folder, such as a Table reference whose file still imports a
+  folder left over from an earlier version, given to this Edition's functions. Each function
+  that checks what it was given names that folder, where it would otherwise call the object the
+  wrong kind of thing.
 - A send that gives back Spark's own DataFrame, as `send=spark.sql` does without
   `.toPandas()`. Whatever reads what came back says how to make the send give back pandas,
   where it would otherwise skip the row limit or fail with Python's own error. A write isn't
@@ -101,11 +102,11 @@ def test_an_object_the_other_editions_folder_made_is_named_so(call, given: str,
     with pytest.raises(TypeError) as refused:
         call()
     message = str(refused.value)
-    assert f"was given {called} made by {OTHER}, but you called it from {edition().folder}." in (
-        message) and given in message
-    # Either folder may be the one to keep: the fix says how to import from each, and where.
-    assert f"`from {edition().folder} import` to `from {OTHER} import`" in message
-    assert f"change that line in the file the {called.split(' ', 1)[1]} came from." in message
+    assert (f"was given {called} made by the {OTHER} folder, which isn't part of the Toolbox "
+            f"you imported, {edition().folder}.") in message and given in message
+    # The fix says which file to change, and how.
+    assert (f"In the file the {called.split(' ', 1)[1]} came from, change `from {OTHER} import` "
+            f"to `from {edition().folder} import`.") in message
 
 
 def test_an_object_no_edition_made_gets_the_message_it_got_before() -> None:

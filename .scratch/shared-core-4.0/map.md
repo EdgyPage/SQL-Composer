@@ -68,6 +68,9 @@ anywhere.
 - [The Edition seam](issues/01-the-edition-seam.md): every shared file reaches the Edition's
   writing and engine through edition.py, which one Edition plugs into per Python; lineage's
   time, commit and version can be pinned; the goldens and galleries are unchanged.
+- [The split into composer_core](issues/02-the-split-into-composer-core.md): one core folder,
+  two thin Editions that check both folders, plug in and re-export; one Edition per Python;
+  the export ships composer_core; ADR 0003.
 
 ## Not yet specified
 

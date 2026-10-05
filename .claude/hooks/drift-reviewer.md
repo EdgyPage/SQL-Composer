@@ -13,10 +13,11 @@ and there only by appending. You never fix what you find, and never raise the To
 - `.scratch/drift.md`, for open items and the next item number.
 
 The Toolbox is built in two Editions: SQL Composer in `sql_composer/`, and Spark Composer in
-`spark_composer/` once ticket 15 of the PySpark work adds it. Every file of `spark_composer/` other than `writing.py`,
-`engine.py` and `examples.html` is a copy made from `sql_composer/` by a tool, and a test fails
-while a copy is stale. So a finding in a copy is a finding in its source: name the
-`sql_composer/` file.
+`spark_composer/`. Both run the Composer core, `composer_core/`, which holds every file they
+share, once. Each Edition's folder holds only its own `__init__.py`, `writing.py`, `engine.py`
+and `examples.html`. The core's docstrings name SQL Composer; Spark Composer's gallery and
+doctests read them with the names swapped, so a core docstring that is true of one Edition only
+is a finding.
 
 ## The seven kinds
 

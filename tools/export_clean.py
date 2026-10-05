@@ -4,13 +4,13 @@ Run it with `dev` checked out and nothing uncommitted:
 
     python tools/export_clean.py
 
-It builds the Clean tree in a temporary folder, from what `dev` has committed, for each Edition
-`tools/editions.py` names in EXPORTED:
+It builds the Clean tree in a temporary folder, from what `dev` has committed: the Composer
+core, `composer_core/`, and each Edition `tools/editions.py` names in EXPORTED:
 
-- it copies the Edition's folder, such as `sql_composer/`, and stamps line 1 of every file in
-  it with that Edition's name, for example
-  `# SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit`, every
-  folder with the same time;
+- it copies each folder, such as `sql_composer/`, and stamps line 1 of every file in it with
+  its name, for example
+  `# SQL Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit` or
+  `# Composer core 2.0, exported ...`, every folder with the same time;
 - it writes the list of the folder's files into its `__init__.py`, for the import self-check;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   places the two Editions' Hive differs, from `DECLARED_DIFFERENCES` in `tools/editions.py`,
@@ -19,10 +19,10 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed, f
 
 It then checks what it built: each Toolbox file imports only what work has (the standard
 library, pandas, numpy, and its Edition's library where `tools/editions.py` allows it); each
-stamped folder imports in a fresh Python that can't import the other Edition's library; the
-Editions have one version, Spark Composer's shared files are current copies of SQL Composer's,
-and both describe the same public names the same way; and the tree holds nothing outside its
-allowlist (each Edition's folder and `.github/README.md`). Only then does it commit the tree to
+stamped Edition, with the Composer core beside it, imports in a fresh Python that can't import
+the other Edition's library; the folders have one version, and both Editions describe the same
+public names the same way; and the tree holds nothing outside its allowlist (the Composer
+core's folder, each Edition's, and `.github/README.md`). Only then does it commit the tree to
 `main`, as one new commit on top of the old `main`. It never checks `main` out and never pushes:
 pushing `main` is your step.
 
@@ -48,7 +48,6 @@ import tempfile
 from pathlib import Path
 
 import editions
-import make_spark_edition
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIFT_LIST = ".scratch/drift.md"
@@ -85,8 +84,8 @@ def stamped(name: str, text: str, stamp: str) -> str:
     )
 
 
-def toolbox_version_of(source: Path, edition: editions.Edition) -> str:
-    text = (source / edition.folder / "__init__.py").read_text(encoding="utf-8")
+def toolbox_version_of(source: Path, folder: str) -> str:
+    text = (source / folder / "__init__.py").read_text(encoding="utf-8")
     return re.search(r'^TOOLBOX_VERSION = "([^"]+)"$', text, re.MULTILINE).group(1)
 
 
@@ -192,9 +191,9 @@ def files_in(folder: Path) -> list[str]:
 
 
 def outside_allowlist(paths: list[str]) -> list[str]:
-    """The paths `main` may not hold: it holds each exported Edition's flat folder and the
-    README."""
-    folders = {edition.folder for edition in editions.EXPORTED}
+    """The paths `main` may not hold: it holds the Composer core's and each exported Edition's
+    flat folder, and the README."""
+    folders = set(exported_folders())
     return [path for path in paths
             if path != README and not (path.count("/") == 1 and path.split("/")[0] in folders)]
 
@@ -235,47 +234,27 @@ def readme_text(template: str, groups: list[dict], version: str, stamp: str) -> 
 # --- Checks across the exported Editions -----------------------------------------------------
 
 
-def check_editions(source: Path) -> None:
-    """Refuse an export whose Editions don't belong together.
+def exported_folders() -> list[str]:
+    """The Toolbox folders the export ships: the Composer core, then each Edition's."""
+    return [editions.CORE] + [edition.folder for edition in editions.EXPORTED]
 
-    Each must be in the commit; they must have one version; and Spark Composer's shared files
-    must be the copies tools/make_spark_edition.py writes of SQL Composer's.
-    """
-    missing = [edition.folder for edition in editions.EXPORTED
-               if not (source / edition.folder).is_dir()]
+
+def check_editions(source: Path) -> None:
+    """Refuse an export whose folders don't belong together: each must be in the commit, and
+    they must have one version."""
+    missing = [folder for folder in exported_folders() if not (source / folder).is_dir()]
     if missing:
         raise ExportRefused(
-            f"EXPORTED in tools/editions.py names {', '.join(missing)}, which this commit "
-            "doesn't have. Commit the folder on dev, or take it out of EXPORTED.")
-    versions = {edition: toolbox_version_of(source, edition) for edition in editions.EXPORTED}
+            f"The export ships {', '.join(exported_folders())}, but this commit doesn't have "
+            f"{', '.join(missing)}. Commit the folder on dev, or take its Edition out of "
+            "EXPORTED in tools/editions.py.")
+    versions = {folder: toolbox_version_of(source, folder) for folder in exported_folders()}
     if len(set(versions.values())) > 1:
-        said = " and ".join(f"{edition.product} is {version}"
-                            for edition, version in versions.items())
+        said = " and ".join(f"{folder} is {version}" for folder, version in versions.items())
         raise ExportRefused(
-            f"The Editions share one version, but {said}. Set "
-            f"TOOLBOX_VERSION in every .py file of {editions.SQL_COMPOSER.folder}/, run "
-            f"{make_spark_edition.COMMAND}, then set it in "
-            f"{' and '.join(editions.EDITION_FILES)} of {editions.SPARK_COMPOSER.folder}/ by "
-            "hand, and commit.")
-    if set(editions.EDITIONS.values()) <= set(editions.EXPORTED):
-        stale = [name for name, text in _generated(source).items()
-                 # read_text reads CRLF as LF, since git may have written either.
-                 if text != (source / editions.SPARK_COMPOSER.folder / name).read_text(
-                     encoding="utf-8")]
-        if stale:
-            raise ExportRefused(
-                f"{', '.join(stale)} in {editions.SPARK_COMPOSER.folder}/ "
-                f"{'is not a current copy' if len(stale) == 1 else 'are not current copies'} "
-                f"of {editions.SQL_COMPOSER.folder}/'s. Run {make_spark_edition.COMMAND} and "
-                "commit what it writes.")
-
-
-def _generated(source: Path) -> dict[str, str]:
-    try:
-        return make_spark_edition.generated(source)
-    except editions.SwapRefused as refused:
-        raise ExportRefused(f"{refused} Fix it in {editions.SQL_COMPOSER.folder}/, run "
-                            f"{make_spark_edition.COMMAND}, and commit.") from None
+            f"The Toolbox's folders share one version, but {said}. Set TOOLBOX_VERSION in "
+            f"every .py file of {', '.join(f'{folder}/' for folder in exported_folders())}, "
+            "and commit.")
 
 
 def cheat_sheet_lines(described: dict) -> list[str]:
@@ -301,8 +280,7 @@ def check_described_alike(described: list[dict]) -> None:
                 f"{editions.EXPORTED[0].product}'s: it has {differs!r} where "
                 f"{editions.EXPORTED[0].product} has {ours!r}. The README shows one cheat sheet "
                 "for both, from each file's and each name's docstring's first line, so reword "
-                f"that line in {editions.SQL_COMPOSER.folder}/ to read the same in both, run "
-                f"{make_spark_edition.COMMAND}, and commit.")
+                "that line to read the same in both, and commit.")
 
 
 # How any spelling of each Edition's name is found, such as "Spark Composer" or "spark_composer".
@@ -323,9 +301,8 @@ def check_readme(template: str) -> None:
 # --- Building and committing ---------------------------------------------------------------------
 
 
-def build_edition(source: Path, into: Path, edition: editions.Edition, stamp: str) -> dict:
-    """Copy and stamp one Edition's folder into `into`, check its imports, and import it."""
-    folder = edition.folder
+def build_folder(source: Path, into: Path, folder: str, stamp: str) -> None:
+    """Copy and stamp one Toolbox folder into `into`, and check its imports."""
     names = sorted(path.name for path in (source / folder).iterdir()
                    if path.name != "__pycache__")
     folders = [name for name in names if (source / folder / name).is_dir()]
@@ -346,7 +323,6 @@ def build_edition(source: Path, into: Path, edition: editions.Edition, stamp: st
             f"Edition's library where tools/editions.py allows it, which is all work has: "
             f"{'; '.join(f'{folder}/{bad}' for bad in bad_imports)}."
         )
-    return import_stamped(into, edition)
 
 
 def build(source: Path, into: Path, when: datetime.datetime) -> str:
@@ -361,9 +337,12 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     check_editions(source)
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
     check_readme(template)
-    version = toolbox_version_of(source, editions.EXPORTED[0])
-    described = [build_edition(source, into, edition, stamp_text(edition.product, version, when))
-                 for edition in editions.EXPORTED]
+    version = toolbox_version_of(source, editions.CORE)
+    build_folder(source, into, editions.CORE, stamp_text(editions.CORE_PRODUCT, version, when))
+    described = []
+    for edition in editions.EXPORTED:
+        build_folder(source, into, edition.folder, stamp_text(edition.product, version, when))
+        described.append(import_stamped(into, edition))
     check_described_alike(described)
     # The README is every Edition's, so its stamp names them all.
     products = " and ".join(edition.product for edition in editions.EXPORTED)
@@ -429,7 +408,7 @@ def committed_files(repo: Path, commit: str, into: Path) -> Path:
     refuse.
     """
     held = git(repo, "ls-tree", "--name-only", commit).splitlines()
-    paths = [edition.folder for edition in editions.EXPORTED if edition.folder in held]
+    paths = [folder for folder in exported_folders() if folder in held]
     paths.append(README_TEMPLATE)
     archive = subprocess.run(
         ["git", "-C", str(repo), "archive", "--format=tar", commit, *paths],

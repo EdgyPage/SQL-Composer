@@ -41,10 +41,10 @@ def test_the_committed_gallery_is_what_the_generator_writes() -> None:
 def toolbox_docstrings() -> list[doctest.DocTest]:
     """Every docstring in the Toolbox that holds a >>> example."""
     finder = doctest.DocTestFinder()
-    modules = [toolbox_module()] + [
-        toolbox_module(path.stem)
-        for path in sorted(toolbox_folder().glob("*.py")) if path.stem != "__init__"
-    ]
+    stems = {path.stem for folder in (toolbox_folder(), toolbox_folder().parent / editions.CORE)
+             for path in folder.glob("*.py")}
+    modules = [toolbox_module()] + [toolbox_module(stem) for stem in sorted(stems)
+                                    if stem != "__init__"]
     return [test for module in modules for test in finder.find(module) if test.examples]
 
 
@@ -59,10 +59,12 @@ def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
 def test_every_docstring_example_is_on_the_page(docstring: doctest.DocTest) -> None:
     shown = page_text(GALLERY.read_text(encoding="utf-8"))
     for example in docstring.examples:
-        assert " ".join(example.source.split()) in shown, example.source
+        # The Composer core's docstrings name SQL Composer; the page names its own Edition.
+        source = editions.named_for(edition(), example.source)
+        assert " ".join(source.split()) in shown, source
         # <BLANKLINE> is how a doctest writes an empty line; the page shows the empty line.
-        want = example.want.replace("<BLANKLINE>", "")
-        assert " ".join(want.split()) in shown, example.want
+        want = editions.named_for(edition(), example.want).replace("<BLANKLINE>", "")
+        assert " ".join(want.split()) in shown, want
 
 
 def entry_section(entry_id: str) -> str:
@@ -279,8 +281,9 @@ def test_a_scripts_statements_are_found_on_the_example_day() -> None:
     page is written, so one that builds its Statement only on that day is still found."""
     import types
 
-    from sql_composer import FROM, SELECT, conditions, statement
-    from sql_composer.example_database import jobs
+    from composer_core import conditions
+    from sql_composer import FROM, SELECT, statement
+    from composer_core.example_database import jobs
 
     script = types.ModuleType("a_worked_example")
 

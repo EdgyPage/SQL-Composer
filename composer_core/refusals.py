@@ -14,7 +14,7 @@ opt-out is a keyword on one of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
 code to paste, or none. `four_part_message` builds all of them, so they all read the same way,
-and so do the stops of the import self-check in __init__.py.
+and so do the stops of the import self-check in checks.py.
 """
 
 from __future__ import annotations
@@ -37,12 +37,13 @@ class GuardRefused(Exception):
 
     The message says what happened, why the number would come out wrong and the usual fix.
     When the Guard has an opt-out, it also gives the keyword to paste if you really mean it;
-    when it has none, it says so. It is raised at your own line.
+    when it has none, it says so. It is raised at your own line. To catch it, import it with
+    the rest, as `from sql_composer import GuardRefused`.
 
     >>> SELECT(count_rows())
     Traceback (most recent call last):
     ...
-    spark_composer.refusals.GuardRefused:
+    composer_core.refusals.GuardRefused:
       What happened:  SELECT has a calculation with no name: COUNT(*).
       Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
@@ -54,12 +55,13 @@ class LoadRefused(Exception):
     """A Load limit stopped a Statement that would read or return too much.
 
     The message says what happened, why the cluster or the notebook would stall, the usual
-    fix, and the opt-out keyword to paste if you really mean it.
+    fix, and the opt-out keyword to paste if you really mean it. To catch it, import it with
+    the rest, as `from sql_composer import LoadRefused`.
 
     >>> statement(SELECT(job_runs.run_id), FROM(job_runs))
     Traceback (most recent call last):
     ...
-    spark_composer.refusals.LoadRefused:
+    composer_core.refusals.LoadRefused:
       What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
       Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
       Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).
@@ -387,15 +389,15 @@ _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column name
 
 
 def refuse_what_the_other_edition_made(value, call: str) -> None:
-    """Refuse an object the other Edition's folder made, before it is called the wrong kind of
-    thing.
+    """Refuse an object another Toolbox folder made, before it is called the wrong kind of thing.
 
-    The usual cause is a notebook that imports one folder, and a Table reference file that
-    imports the other. Each folder is known by the module the object's class is in, so this
-    names neither.
+    Both Editions make their objects with composer_core's code, so what is left to refuse is an
+    object from a Toolbox folder of an earlier version, such as a Table reference file that
+    still imports a folder left over from 3.x. Each folder is known by the module the object's
+    class is in.
     """
     made_by = type(value).__module__.split(".")[0]
-    this = __name__.split(".")[0]
+    this = edition.FOLDER
     if made_by == this or not made_by.endswith("_composer"):
         return
     called = _CALLED.get(type(value).__name__, "object")
@@ -403,13 +405,13 @@ def refuse_what_the_other_edition_made(value, call: str) -> None:
         called = "Derived table"
     article = "an" if called[0] in "aeiou" else "a"
     raise TypeError(four_part_message(
-        what=f"{call} was given {article} {called} made by {made_by}, but you called it from "
-        f"{this}.",
-        why="The two folders' objects don't mix: each works only with its own folder's "
-        "functions.",
-        fix=f"Import from one folder only, the one your notebook uses. For {made_by}, change "
-        f"your notebook's `from {this} import` to `from {made_by} import`. For {this}, change "
-        f"that line in the file the {called} came from.",
+        what=f"{call} was given {article} {called} made by the {made_by} folder, which isn't "
+        f"part of the Toolbox you imported, {this}.",
+        why="Each Toolbox folder's objects work only with its own functions, so the "
+        f"{called} could be written or checked by the wrong code.",
+        fix=f"In the file the {called} came from, change `from {made_by} import` to "
+        f"`from {this} import`. If the {made_by} folder is left over from an earlier version, "
+        "delete it.",
         opt_out=None,
     ))
 

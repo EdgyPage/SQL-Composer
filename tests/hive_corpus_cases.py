@@ -65,7 +65,7 @@ from sql_composer import (
     sum_of,
     week_start,
 )
-from sql_composer.example_database import job_runs, jobs, run_alerts
+from composer_core.example_database import job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
