@@ -1,7 +1,11 @@
-"""The Levels of the user's own scripts, checked on the Worked examples in `worked_examples/`.
+"""The Levels of the user's own scripts, checked on the Worked examples in `worked_examples/`
+and on each example project in `example_projects/`.
 
 A script imports only from lower Levels and from the Toolbox, never from a higher or equal
 Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
+Each example project has Levels of its own, its generated Table references among them, and the
+scripts beside its Level folders, such as `run_pipeline.py`, sit above the Levels, so they may
+import from any of them.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
 `table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what both Editions of the Toolbox may import (pandas
@@ -9,7 +13,7 @@ and numpy, from `tools/editions.py`), and the Toolbox only from its top level, a
 `from sqlglot_composer import ...`.
 
 Each Statement script's module docstring gives a title and one sentence on why, which the
-Example gallery shows.
+Example gallery shows, and so does every script of an example project.
 """
 
 from __future__ import annotations
@@ -24,7 +28,10 @@ from editions import SHARED_IMPORTS
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKED_EXAMPLES = ROOT / "worked_examples"
+EXAMPLE_PROJECTS = ROOT / "example_projects"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
+# An example project's scripts beside its Level folders, such as run_pipeline.py.
+ABOVE_THE_LEVELS = 3
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
     "repeated_rows", "regrouping", "left_join_then_where", "none_in_equals", "nan_in_a_list",
@@ -39,6 +46,24 @@ def scripts(folder: str) -> list[Path]:
 
 def every_script() -> list[Path]:
     return [path for folder in LEVELS for path in scripts(folder)]
+
+
+def projects() -> list[Path]:
+    return sorted(path for path in EXAMPLE_PROJECTS.iterdir() if path.is_dir())
+
+
+def project_scripts() -> list[tuple[Path, int]]:
+    """Every script of every example project, generated or not, with its Level."""
+    found = []
+    for project in projects():
+        for folder, level in LEVELS.items():
+            found += [(path, level) for path in sorted((project / folder).glob("*.py"))]
+        found += [(path, ABOVE_THE_LEVELS) for path in sorted(project.glob("*.py"))]
+    return found
+
+
+def _project_id(script: tuple[Path, int]) -> str:
+    return script[0].relative_to(EXAMPLE_PROJECTS).as_posix()
 
 
 def _imported(node: ast.AST) -> list[str] | None:
@@ -117,8 +142,7 @@ def test_the_levels_check_lets_the_usual_imports_through() -> None:
     assert level_problems(source, 2) == []
 
 
-@pytest.mark.parametrize("path", scripts("statements"), ids=lambda p: p.name)
-def test_a_statement_script_gives_a_title_and_why(path: Path) -> None:
+def check_title_and_why(path: Path) -> None:
     doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8"))) or ""
     lines = doc.splitlines()
     assert lines, f"{path.name} has no module docstring"
@@ -130,6 +154,38 @@ def test_a_statement_script_gives_a_title_and_why(path: Path) -> None:
     assert sentence.endswith(".") and ". " not in sentence.rstrip("."), (
         f"{path.name}: the why is more than one sentence"
     )
+
+
+@pytest.mark.parametrize("path", scripts("statements"), ids=lambda p: p.name)
+def test_a_statement_script_gives_a_title_and_why(path: Path) -> None:
+    check_title_and_why(path)
+
+
+def test_there_is_a_starter_project_with_every_level() -> None:
+    assert "starter" in [project.name for project in projects()]
+    for project in projects():
+        missing = [folder for folder in LEVELS if not list((project / folder).glob("*.py"))]
+        assert missing == [], f"{project.name} has nothing in {missing}"
+
+
+@pytest.mark.parametrize("script", project_scripts(), ids=_project_id)
+def test_an_example_projects_imports_point_only_downward(script: tuple[Path, int]) -> None:
+    path, level = script
+    assert level_problems(path.read_text(encoding="utf-8"), level) == []
+
+
+@pytest.mark.parametrize("script", project_scripts(), ids=_project_id)
+def test_an_example_projects_script_gives_a_title_and_why(script: tuple[Path, int]) -> None:
+    check_title_and_why(script[0])
+
+
+def test_a_script_above_the_levels_may_import_from_any_of_them() -> None:
+    source = (
+        "from statements import example_1_daily_job_runs\n"
+        "from building_blocks.runs_per_job_day import runs_per_job_day\n"
+        "from table_references.jobs import jobs\n"
+    )
+    assert level_problems(source, ABOVE_THE_LEVELS) == []
 
 
 @pytest.mark.parametrize("path", scripts("statements"), ids=lambda p: p.name)
