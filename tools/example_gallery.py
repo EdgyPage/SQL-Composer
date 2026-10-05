@@ -249,9 +249,12 @@ def entry_html(entry_id: str, title: str, body: str) -> str:
 # --- A docstring's example --------------------------------------------------------------------
 
 
-def run_step(source: str, scope: dict):
-    """Run one step of an example as a doctest would; return its value, or the error it raised."""
-    with contextlib.redirect_stdout(io.StringIO()):
+def run_step(source: str, scope: dict, printed: io.StringIO | None = None):
+    """Run one step of an example as a doctest would; return its value, or the error it raised.
+
+    What the step prints goes to `printed`, when given, and is otherwise dropped.
+    """
+    with contextlib.redirect_stdout(io.StringIO() if printed is None else printed):
         try:
             tree = ast.parse(source, mode="eval")
         except SyntaxError:
@@ -605,6 +608,7 @@ def gallery_page() -> str:
     from_pandas = any(PANDAS_LABEL in entry for entry in
                       [entry for *_, entry in common + fixes] + [entry for _, entry in documented])
     return PAGE.format(
+        style=STYLE,
         product=escape(EDITION.product),
         folder=escape(EDITION.folder),
         or_pandas=(", or computed in pandas where the Example database can't\nrun it"
@@ -641,30 +645,33 @@ def contents_html(entries: list[tuple[str, str, str]]) -> str:
                      for entry_id, title, _ in entries)
 
 
+# The page's look, which the how-to page (tools/how_to_page.py) shares.
+STYLE = """body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
+header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
+h1{font-size:22px;margin:8px 0} h2{font-size:19px;margin:32px 0 8px;border-bottom:2px solid #ddd}
+h3{font-size:17px;margin:0 0 4px} h4{font-size:15px;margin:12px 0 4px}
+.entry{border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin:14px 0}
+.entry[hidden]{display:none} .why{font-weight:600;margin:0 0 6px}
+p,li,h3,h4{overflow-wrap:anywhere}
+pre{background:#f6f6f6;padding:8px 10px;overflow-x:auto;margin:4px 0;font-size:13px}
+pre.output,pre.hive{background:#f1f6fd} pre.refusal{background:#fdf1f1;white-space:pre-wrap}
+code{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.label{margin:8px 0 0;color:#555;font-size:13px;font-weight:600}
+.note,.names{color:#555;font-size:14px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:18px} .pair>div{min-width:0}
+@media (max-width:800px){.pair{grid-template-columns:1fr}}
+table.result{border-collapse:collapse;margin:4px 0;font-size:13px} .scroll{overflow-x:auto}
+table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align:left}
+#filter{position:sticky;top:0;z-index:1;background:#fff;padding:8px 16px;border-bottom:1px solid #eee}
+#filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
+"""
+
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{product} {version}: Example gallery</title>
 <style>
-body{{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}}
-header,main,#filter{{max-width:1180px;margin:0 auto;padding:0 16px}} header{{padding-top:12px}}
-h1{{font-size:22px;margin:8px 0}} h2{{font-size:19px;margin:32px 0 8px;border-bottom:2px solid #ddd}}
-h3{{font-size:17px;margin:0 0 4px}} h4{{font-size:15px;margin:12px 0 4px}}
-.entry{{border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin:14px 0}}
-.entry[hidden]{{display:none}} .why{{font-weight:600;margin:0 0 6px}}
-p,li,h3,h4{{overflow-wrap:anywhere}}
-pre{{background:#f6f6f6;padding:8px 10px;overflow-x:auto;margin:4px 0;font-size:13px}}
-pre.output,pre.hive{{background:#f1f6fd}} pre.refusal{{background:#fdf1f1;white-space:pre-wrap}}
-code{{font-family:ui-monospace,Consolas,monospace;font-size:13px}}
-.label{{margin:8px 0 0;color:#555;font-size:13px;font-weight:600}}
-.note,.names{{color:#555;font-size:14px}}
-.pair{{display:grid;grid-template-columns:1fr 1fr;gap:18px}} .pair>div{{min-width:0}}
-@media (max-width:800px){{.pair{{grid-template-columns:1fr}}}}
-table.result{{border-collapse:collapse;margin:4px 0;font-size:13px}} .scroll{{overflow-x:auto}}
-table.result th,table.result td{{border:1px solid #ddd;padding:2px 8px;text-align:left}}
-#filter{{position:sticky;top:0;z-index:1;background:#fff;padding:8px 16px;border-bottom:1px solid #eee}}
-#filter input{{font:inherit;padding:4px 8px;width:22em;max-width:70%}}
-</style></head><body>
+{style}</style></head><body>
 <header>
 <h1>{product} {version}: Example gallery</h1>
 <p>Every Worked example on one page: {worked_count} Worked examples on their own, and the

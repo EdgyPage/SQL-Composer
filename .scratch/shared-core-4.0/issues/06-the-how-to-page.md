@@ -1,7 +1,7 @@
 # The how to page
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 04, 05
 Size: M
 
