@@ -129,6 +129,10 @@ anywhere.
   last 3 days or a backfill; settings-driven quality checks; a lineage review whose "before"
   file the generator writes with the edit undone. How-to 24's "blocks built from other blocks"
   breaks the Levels rule: ticket 09 decides.
+- [Getting started how-tos 10 to 18](issues/08-getting-started-how-tos-10-to-18.md): save a
+  table, backfill, a daily pipeline, Lineage of one Statement and of a pipeline, Load limits,
+  Guards, Warnings and opt-outs, Statements in a loop, keeping a Table reference true; each
+  mistake run live; the page now shows a step's Warning (a notebook scope's `__name__`).
 
 ## Not yet specified
 

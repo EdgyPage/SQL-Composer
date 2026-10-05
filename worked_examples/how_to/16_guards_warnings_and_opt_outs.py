@@ -4,9 +4,10 @@ For: Getting started
 
 ## Goal
 
-Know the three kinds of check the Toolbox runs as you build a Statement, read what each says,
-and decide, case by case, whether to make the message's usual fix or to add its opt-out. Most
-of the time the fix is right; this how-to shows the cases where the opt-out is.
+Know the three ways the Toolbox stops a Statement, or warns about it, as you build it, read
+what each says, and decide, case by case, whether to make the message's usual fix or to add
+its opt-out. Most of the time the fix is right; this how-to shows the cases where the opt-out
+is.
 
 ## When you'd use it
 
@@ -15,11 +16,11 @@ opt-out to make one go away.
 
 The three kinds:
 
-- A **Guard** refuses a Statement that would silently give a wrong answer, such as a sum that
+- A Guard refuses a Statement that would silently give a wrong answer, such as a sum that
   counts some rows twice. It stops with a `GuardRefused`.
-- A **Warning** lets the Statement through, but says why a number may come out wrong. It is
+- A Warning lets the Statement through, but says why a number may come out wrong. It is
   used where the risky Statement is often the one you meant.
-- A **Load limit** refuses a Statement that would cost the cluster or your notebook too much;
+- A Load limit refuses a Statement that would cost the cluster or your notebook too much;
   its answer would have been right. It stops with a `LoadRefused`.
   [Keep queries small with Load limits](#keep_queries_small_with_load_limits) covers those.
 
@@ -80,6 +81,9 @@ Run the Statement, and the numbers are too big:
 Job 1's runs that day took 10 and 40 minutes, 50 in all, but run 101 raised three alerts, so
 its 10 minutes were counted three times. The Warning's usual fix is right here: group the
 alerts first, so there is one row per run, and join that. A Derived table does it:
+`derived("alerts_per_run", statement(...))` gives a Statement a name, so another Statement
+can read it like a table. It is never saved; the Hive writes it at the top, as `WITH alerts_per_run AS (...)`.
+See [`derived`](examples.html#derived).
 
 >>> alerts_per_run = derived("alerts_per_run", statement(
 ...     SELECT(run_alerts.run_id, AS(count_rows(), "alerts")),
@@ -100,13 +104,37 @@ alerts first, so there is one row per run, and join that. A Derived table does i
 1       2       20
 2       3       30
 
-No Warning this time: `alerts_per_run` has one row per `alerts_per_run.run_id`, its
-`GROUP_BY`, so each run matches once.
+No Warning this time. The Toolbox takes a Derived table's `GROUP_BY` columns as its key, so
+it knows `alerts_per_run` has one row per run, and each run matches once. Its Hive:
+
+>>> text = show_hive(alert_minutes)
+WITH alerts_per_run AS (
+  SELECT
+    run_alerts.run_id,
+    COUNT(*) AS alerts
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+  GROUP BY
+    run_alerts.run_id
+)
+SELECT
+  job_runs.job_id,
+  SUM(job_runs.duration_mins) AS minutes
+FROM ops.job_runs AS job_runs
+JOIN alerts_per_run
+  ON alerts_per_run.run_id = job_runs.run_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id;
 
 ### A Warning whose opt-out is right
 
 How many runs failed per job, keeping the jobs that had none? `LEFT_JOIN` keeps every job,
-with or without a matching run. Each job matches many runs, so the Toolbox warns again:
+with or without a matching run. With `LEFT_JOIN`, the conditions on the joined table, its days
+and the status too, go in `ON=`: in WHERE they would undo the `LEFT_JOIN`, as the Guard below
+shows. Each job matches many runs, so the Toolbox warns again:
 
 >>> failed_per_job = statement(
 ...     SELECT(jobs.job_name,
@@ -187,9 +215,12 @@ doesn't apply to what you want:
 - `reads_all_partitions=True` on `FROM` or a join: for a small table you truly need every day
   of, such as a calendar table.
 - `returns_all_rows=True` on `statement(...)`: when you know the result fits in your notebook.
-- `adds_up=True` on a sum: when a column the Table reference lists in `does_not_add_up=[...]` really
-  does add up. Then the Table reference is wrong: fix its list, rather than opt out in every
-  Statement.
+- `adds_up=True` on a sum: when what the Toolbox takes for a column that doesn't add up, such
+  as an average or a column the Table reference lists in `does_not_add_up=[...]`, really does.
+  For a listed column, the Table reference is then wrong: fix its list, rather than opt out in
+  every Statement.
+- `sorts_everything=True` on `ORDER_BY`: for a result you know is small, as
+  [Keep queries small with Load limits](#keep_queries_small_with_load_limits) shows.
 - `CROSS_JOIN` in place of `JOIN` with no `ON=`: when you mean every row with every row, such
   as every job with every day.
 - `keeps_only_matches=True` on `LEFT_JOIN`: almost never; write `JOIN`.
@@ -199,7 +230,8 @@ When the opt-out would hide a mistake, make the fix instead, however long it tak
 ### Catch a refusal in your own code
 
 A Guard raises `GuardRefused`, and a Load limit `LoadRefused`, both Toolbox names. A loop
-that builds many Statements can catch them, note which one was refused, and go on:
+that builds many Statements can catch them, note which one was refused, and go on. The
+message's first line is blank, so its second, `str(refused).splitlines()[1]`, is What happened:
 
 >>> try:
 ...     statement(SELECT(job_runs.run_id), FROM(job_runs))
@@ -281,7 +313,7 @@ Use `is_null(job_runs.status)`, as the message says.
   [Keep queries small with Load limits](#keep_queries_small_with_load_limits).
 - Build many Statements in a loop, and catch the ones refused:
   [Generate Statements in a loop](#generate_statements_in_a_loop).
-- The gallery's Worked examples of what each check catches:
+- The gallery's Worked examples of what each one catches:
   [repeated rows](examples.html#repeated_rows),
   [a LEFT_JOIN then WHERE](examples.html#left_join_then_where),
   [None in equals](examples.html#none_in_equals) and
