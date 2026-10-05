@@ -1,7 +1,7 @@
 # The starter example project
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 06
 Size: L
 
