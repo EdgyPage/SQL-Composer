@@ -37,8 +37,8 @@ Start with the columns you want, the table, and the day to read. `equals(job_run
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
 ... )
 
-`runs_that_day` is a Statement: Python's own object, which holds the clauses and hasn't run
-anything. Shown on its own, it says what it reads, and how to see its Hive:
+`runs_that_day` is a Statement: a Python object that holds the clauses. Building it hasn't
+run anything. Shown on its own, it says what it reads, and how to see its Hive:
 
 >>> runs_that_day
 <Statement reading ops.job_runs - print(to_hive(s)) shows its Hive>
@@ -99,7 +99,7 @@ table.
 ### Print it ready to paste
 
 `show_hive` prints the same Hive as `to_hive` with a `;` at the end, which Hue, Beeline,
-DBeaver and spark-sql need to tell one Statement from the next:
+DBeaver and spark-sql need to tell one query from the next:
 
 >>> text = show_hive(long_runs)
 SELECT
@@ -112,6 +112,17 @@ WHERE
 
 Copy what it prints, from `SELECT` to the `;`, and paste it into the other program. It gives
 back the same text too, kept here as `text`.
+
+### Save it to a file
+
+`text` is a plain Python string, so Python can write it to a file, for a program that reads
+its SQL from a file, such as `beeline -f long_runs.sql`:
+
+>>> from pathlib import Path
+>>> Path("long_runs.sql").write_text(text)
+179
+
+`Path.write_text` gives back how many characters it wrote.
 
 ### Print several at once
 
@@ -138,18 +149,8 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24' AND job_runs.duration_mins >= 20;
 
-Paste the lot into a program that runs several Statements in a row, such as a Beeline script.
-
-### Save it to a file
-
-`text` is a plain Python string, so Python can write it to a file, for a program that reads
-its SQL from a file, such as `beeline -f long_runs.sql`:
-
->>> from pathlib import Path
->>> Path("long_runs.sql").write_text(text)
-362
-
-`Path.write_text` gives back how many characters it wrote.
+Paste the lot into a program that runs several queries in a row, such as a Beeline script.
+`text` now holds both; long_runs.sql, written before, still holds `long_runs` alone.
 
 ### Run it
 
@@ -173,9 +174,10 @@ At work, pass your own send in place of `example_database.send`, as
 
 ## Check it worked
 
-The file holds exactly the Hive `run` sends, `to_hive`'s text, with a `;` at the end:
+The file holds exactly the Hive `run` sends, `to_hive`'s text, with a `;` at the end, and
+nothing else:
 
->>> to_hive(long_runs) + ";" in Path("long_runs.sql").read_text()
+>>> Path("long_runs.sql").read_text() == to_hive(long_runs) + ";"
 True
 
 The result holds the three runs of 20 minutes or more:
@@ -226,7 +228,7 @@ TypeError:
 ### Pasting Hive that was built with last_n_days
 
 The Hive is fixed text once the Statement is built. `last_n_days` counts back from the day you
-build the Statement, and writes those days into the Hive as dates. These steps ran as if
+build the Statement, leaving that day out, and writes those days into the Hive as dates. These steps ran as if
 today were 2026-09-25:
 
 >>> last_two_days = statement(
@@ -243,12 +245,14 @@ WHERE
 
 Pasted into a job that runs every day, this Hive reads 2026-09-23 and 2026-09-24 every day.
 For a job that runs every day, build the Statement again on each day, in Python, and run it
-with `run`.
+with `run`, as [Run a daily pipeline](#run_a_daily_pipeline) shows.
 
 ## Next
 
 - Keep only the rows you want, with every kind of condition: [Filter rows](#filter_rows).
 - Count and add up per group: [Count and add up per group](#count_and_add_up_per_group).
+- Run one Statement over many days, a day at a time:
+  [Backfill a range of days](#backfill_a_range_of_days).
 - The gallery's Worked examples of [`to_hive`](examples.html#to_hive),
   [`show_hive`](examples.html#show_hive) and [`run`](examples.html#run), and a long Statement
   built in named steps: [Worked example of a job in steps](examples.html#step_by_step).

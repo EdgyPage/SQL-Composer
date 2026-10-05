@@ -218,5 +218,9 @@ Pass only the writes.
 - The sections of one Statement's Lineage, step by step:
   [Lineage of one Statement](#lineage_of_one_statement).
 - Run the same two writes every day, in order: [Run a daily pipeline](#run_a_daily_pipeline).
+- See what a change to a Building block does, by its Lineage before and after:
+  [Review a change with Lineage](#review_a_change_with_lineage).
+- A longer pipeline of Saved tables, each read by the next:
+  [A pipeline of Saved tables](#a_layered_pipeline).
 - The gallery's [`export_lineage`](examples.html#export_lineage) entry.
 """

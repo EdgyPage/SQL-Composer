@@ -260,7 +260,7 @@ any of your own .py files it imports, then restart the notebook's kernel.
 ## Next
 
 - Read one of your own tables: `write_table_reference` reads a table's columns through your
-  send and writes its Table reference for you, in
+  send and writes its Table reference for you. See how in
   [Import a table's column names programmatically](#import_column_names).
 - Build a Statement a clause at a time, then paste its Hive into another program:
   [Build a first Statement and paste its Hive](#build_a_first_statement).

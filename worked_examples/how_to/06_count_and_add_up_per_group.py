@@ -5,7 +5,7 @@ For: Getting started
 ## Goal
 
 Answer "how many, and how much, per something": runs per job, minutes per day, failed runs per
-job. `GROUP_BY` makes one output row per group, the counting functions (`count_rows`,
+job. `GROUP_BY` makes one output row per group, the calculation functions (`count_rows`,
 `count_distinct`, `sum_of`, `min_of`, `max_of`) work out each group's numbers, `HAVING` keeps
 only some groups, and `ORDER_BY` with `LIMIT` keeps the top N.
 
@@ -33,6 +33,13 @@ result, which `AS` gives:
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
+>>> text = show_hive(all_runs)
+SELECT
+  COUNT(*) AS runs,
+  SUM(job_runs.duration_mins) AS minutes
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
 >>> run(all_runs, send=example_database.send)
    runs  minutes
 0     9      180
@@ -105,7 +112,9 @@ GROUP BY
 1       2     3            1
 2       3     2            1
 
-Putting `equals(job_runs.status, "FAILED")` in `WHERE` instead would drop the other runs
+In the Hive, `COUNT(CASE WHEN ... THEN 1 END)` counts the rows where the condition holds: CASE
+gives 1 for those and NULL for the rest, and COUNT skips NULL. Putting
+`equals(job_runs.status, "FAILED")` in `WHERE` instead would drop the other runs
 before counting, so `"runs"` would count only failed runs too.
 
 ### Count different values
@@ -123,6 +132,16 @@ job had, and on how many different days:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id),
 ... )
+>>> text = show_hive(days_per_job)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  COUNT(DISTINCT job_runs.dt) AS days_with_runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  job_runs.job_id;
 >>> run(days_per_job, send=example_database.send)
    job_id  runs  days_with_runs
 0       1     4               2
@@ -141,6 +160,17 @@ Job 1 ran 4 times, on 2 different days.
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id, job_runs.dt),
 ... )
+>>> text = show_hive(per_job_day)
+SELECT
+  job_runs.job_id,
+  job_runs.dt,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  job_runs.dt;
 >>> run(per_job_day, send=example_database.send)
    job_id          dt  runs
 0       1  2026-09-23     2
@@ -178,7 +208,9 @@ HAVING
 0       1     4
 1       2     3
 
-`HAVING` repeats the calculation itself, `count_rows()`, rather than its name, `"runs"`.
+`HAVING` repeats the calculation itself, `count_rows()`, rather than its name, `"runs"`: SQL
+works `HAVING` out before `SELECT` has named anything. `ORDER_BY`, in the next step, is worked
+out after `SELECT`, so it sorts by the name.
 
 ### Keep the top N
 
@@ -215,20 +247,23 @@ Job 2's 53 minutes didn't make the top two.
 ## Check it worked
 
 Count the same groups in pandas from the rows themselves, and compare. `every_run` reads every
-run of the two days:
+run of the two days. Each side becomes a dict, from each job to its minutes, so the order the
+rows came back in doesn't matter: without `ORDER_BY`, the warehouse may give them in any
+order.
 
 >>> every_run = run(statement(
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... ), send=example_database.send)
->>> in_pandas = every_run.groupby("job_id")["duration_mins"].sum()
->>> in_pandas.tolist() == run(per_job, send=example_database.send)["minutes"].tolist()
+>>> in_pandas = every_run.groupby("job_id")["duration_mins"].sum().to_dict()
+>>> from_hive = run(per_job, send=example_database.send)
+>>> in_pandas == dict(zip(from_hive["job_id"], from_hive["minutes"]))
 True
 
 The totals of every group also add up to the total of all rows, from `all_runs`:
 
->>> print(run(per_job, send=example_database.send)["minutes"].sum())
+>>> print(from_hive["minutes"].sum())
 180
 
 ## Common mistakes
@@ -322,7 +357,9 @@ composer_core.refusals.LoadRefused:
   What happened:  ORDER_BY has no LIMIT.
 ...
 
-For a top N, add `LIMIT(2)` or however many you want. To sort every row, sort in pandas once the
+This stop is a `LoadRefused`, not a `GuardRefused`: a Load limit protects the cluster from a
+query too big for it, where a Guard protects the answer from a wrong number. For a top N, add
+`LIMIT(2)` or however many you want. To sort every row, sort in pandas once the
 result is back:
 
 >>> run(per_job, send=example_database.send).sort_values("minutes", ascending=False)
@@ -340,5 +377,5 @@ result is back:
 - The gallery's Worked examples of [`GROUP_BY`](examples.html#GROUP_BY),
   [`HAVING`](examples.html#HAVING) and [`count_distinct`](examples.html#count_distinct), the
   four shapes side by side in [groups and the top N](examples.html#groups_and_top_n), and why a
-  sum of distinct counts is refused: [re-grouping](examples.html#regrouping).
+  sum of counts of different values is refused: [re-grouping](examples.html#regrouping).
 """

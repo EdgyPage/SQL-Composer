@@ -270,6 +270,10 @@ condition to build.
 - Catch a refusal inside a loop, note it and go on, and when an opt-out is right:
   [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs).
 - Write one Saved table's days in a loop: [Backfill a range of days](#backfill_a_range_of_days).
+- Checks of your data, such as no repeated keys or no missing values, as Statements:
+  [Check data quality with Statements](#check_data_quality).
+- Table references and Statements made from a file of settings:
+  [Generate Table references and Statements from settings](#generate_from_settings).
 - The gallery's [`all_columns`](examples.html#all_columns) entry, which gives a Table
   reference's columns as a list to loop over.
 """

@@ -176,6 +176,10 @@ ValueError:
 
 - Follow a column through several Statements and the Saved tables between them:
   [Lineage of a pipeline across Saved tables](#lineage_of_a_pipeline_across_saved_tables).
+- See what a change to a Building block does, by its Lineage before and after:
+  [Review a change with Lineage](#review_a_change_with_lineage).
+- Build a Statement from named steps, which its Lineage names too:
+  [Reusable Derived tables](#reusable_derived_tables).
 - The gallery's [`export_lineage`](examples.html#export_lineage) entry, and its
   [Worked example of a job in steps](examples.html#step_by_step), whose Statement reads
   Derived tables.
