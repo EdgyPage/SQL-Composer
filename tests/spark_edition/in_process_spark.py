@@ -42,7 +42,7 @@ def spark_folder(tmp_path_factory) -> Path:
 def in_process_spark(folder: Path, **settings):
     """A Spark in this Python, set up as the Example database's is, `settings` on top."""
     from pyspark.sql import SparkSession
-    from sql_composer import engine
+    from sqlglot_composer import engine
 
     builder = SparkSession.builder
     for key, value in {**engine._settings(folder), **settings}.items():
@@ -131,7 +131,7 @@ def tables_read(text: str) -> set[str]:
 
 def wide_table():
     """The table the corpus's width cases read, with a key column as long as each needs."""
-    from sql_composer import Table
+    from sqlglot_composer import Table
 
     keys = {key for hive in hive_texts(editions.SPARK_COMPOSER)
             for key in re.findall(r"\bwide\.(kx+)\b", hive.text)}

@@ -7,7 +7,7 @@ Each step is a Derived table, which the Toolbox writes at the top of the Hive as
 WITH ... AS (...) part (a CTE). Run a step on its own to check it before building on it.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, at_least, between, count_rows, derived,
     equals, example_database, statement, sum_of,
 )

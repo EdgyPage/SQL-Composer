@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from conftest import in_this_edition
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,
@@ -47,7 +47,7 @@ from sql_composer import (
     to_hive,
     week_start,
 )
-from sql_composer import writing
+from sqlglot_composer import writing
 from composer_core.trees import HIVE_FUNCTION_ARGUMENTS
 from composer_core.example_database import job_runs, jobs, run_alerts
 
@@ -186,7 +186,7 @@ def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str
 
 
 def test_hive_function_counts_min_and_max_as_one_argument() -> None:
-    """With two, SQL Composer's sqlglot writes GREATEST, which doesn't turn rows into one."""
+    """With two, sqlglot Composer's sqlglot writes GREATEST, which doesn't turn rows into one."""
     with pytest.raises(TypeError, match=re.escape("gives max 2 arguments, and max takes 1")):
         hive_function("max", job_runs.run_id, job_runs.duration_mins)
 
@@ -262,7 +262,7 @@ def test_select_refuses_a_table_or_a_condition() -> None:
 
 
 def test_where_refuses_a_count_and_points_to_having() -> None:
-    from sql_composer import at_least
+    from sqlglot_composer import at_least
 
     with pytest.raises(ValueError, match="HAVING"):
         statement(SELECT(jobs.team), FROM(jobs), WHERE(at_least(count_rows(), 2)))

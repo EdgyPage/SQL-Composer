@@ -1,4 +1,4 @@
-"""What SQL Composer runs on: the sqlglot it needs, and the executor of its Example database.
+"""What sqlglot Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
 any other file. The Example database hands `run_query` a query's Hive and its tables, and gets
@@ -57,8 +57,8 @@ def check_installed():
         sqlglot = None
     if sqlglot is None:
         _stop(
-            what="SQL Composer needs sqlglot, and this Python can't import it.",
-            why="SQL Composer writes every Statement as Hive through sqlglot, and reads the "
+            what="sqlglot Composer needs sqlglot, and this Python can't import it.",
+            why="sqlglot Composer writes every Statement as Hive through sqlglot, and reads the "
             "Hive back to check it, so it can't build anything without it.",
             fix=f"Install sqlglot from a notebook cell with %pip install {_IN_RANGE}, then "
             f"restart the kernel. {_NO_INSTALLING}",
@@ -67,9 +67,9 @@ def check_installed():
     version = _numbers(found)
     if version is None or not _LOWEST <= version < _BELOW:
         _stop(
-            what=f"SQL Composer needs sqlglot {_dotted(_LOWEST)} or newer, below "
+            what=f"sqlglot Composer needs sqlglot {_dotted(_LOWEST)} or newer, below "
             f"{_dotted(_BELOW)}, and this Python has sqlglot {found}.",
-            why="SQL Composer is checked only on that range of sqlglot. Another sqlglot can "
+            why="sqlglot Composer is checked only on that range of sqlglot. Another sqlglot can "
             "write Hive differently, so a Statement could come out wrong without anything "
             "saying so.",
             fix="Install a sqlglot in that range from a notebook cell with %pip install "
@@ -80,14 +80,14 @@ def check_installed():
         _stop(
             what=f"sqlglot {found} is in the supported range, but behaves differently: "
             + "; ".join(problems) + ". Nothing has been built or sent.",
-            why="SQL Composer relies on this behaviour to write Hive safely, so a Statement "
+            why="sqlglot Composer relies on this behaviour to write Hive safely, so a Statement "
             "could come out wrong.",
-            fix="Install again the sqlglot SQL Composer is tested on, from a notebook cell "
+            fix="Install again the sqlglot version that sqlglot Composer is tested on, from a notebook cell "
             f'with %pip install --force-reinstall "sqlglot=={_dotted(_NEWEST_TESTED)}", '
             f"then restart the kernel. {_NO_INSTALLING}",
         )
     if version > _NEWEST_TESTED:
-        print(f"Note: sqlglot {found} is newer than any version SQL Composer was tested on "
+        print(f"Note: sqlglot {found} is newer than any version sqlglot Composer was tested on "
               f"({_dotted(_NEWEST_TESTED)}). Its behaviour checks passed.")
 
 

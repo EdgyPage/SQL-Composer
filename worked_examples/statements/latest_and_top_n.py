@@ -4,7 +4,7 @@ Why: to keep whole rows, since max_of on each column can take the status from a 
 run than the newest one.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
     equals, example_database, max_of, row_number, run, statement,
 )

@@ -25,19 +25,19 @@ sys.path.insert(0, str(ROOT / "tools"))
 import editions  # noqa: E402
 import export_clean  # noqa: E402
 
-import sql_composer  # noqa: E402
+import sqlglot_composer  # noqa: E402
 
 WHEN = datetime.datetime(2026, 10, 2, 14, 5)
-VERSION = sql_composer.TOOLBOX_VERSION
-VERSION_TEXT = f"SQL Composer {VERSION}, exported 2026-10-02 14:05"
+VERSION = sqlglot_composer.TOOLBOX_VERSION
+VERSION_TEXT = f"sqlglot Composer {VERSION}, exported 2026-10-02 14:05"
 STAMP = f"{VERSION_TEXT} - generated from dev, do not edit"
 # What main's commit and the README say the tree is: both Editions, at one version and time.
-SHIPPED = f"SQL Composer and Spark Composer {VERSION}, exported 2026-10-02 14:05"
+SHIPPED = f"sqlglot Composer and Spark Composer {VERSION}, exported 2026-10-02 14:05"
 
 
 def dev_toolbox_files() -> list[str]:
     return sorted(
-        path.name for path in (ROOT / "sql_composer").iterdir() if path.name != "__pycache__"
+        path.name for path in (ROOT / "sqlglot_composer").iterdir() if path.name != "__pycache__"
     )
 
 
@@ -50,7 +50,7 @@ def clean(tmp_path_factory) -> Path:
 
 @pytest.mark.parametrize("name", dev_toolbox_files())
 def test_every_toolbox_file_is_stamped_on_line_1(clean: Path, name: str) -> None:
-    first = (clean / "sql_composer" / name).read_text(encoding="utf-8").splitlines()[0]
+    first = (clean / "sqlglot_composer" / name).read_text(encoding="utf-8").splitlines()[0]
     if name.endswith(".py"):
         assert first == f"# {STAMP}"
     else:
@@ -64,7 +64,7 @@ def files_list_in(init_text: str) -> list[str]:
 
 
 def test_the_file_list_in_init_names_every_toolbox_file(clean: Path) -> None:
-    init = (clean / "sql_composer" / "__init__.py").read_text(encoding="utf-8")
+    init = (clean / "sqlglot_composer" / "__init__.py").read_text(encoding="utf-8")
     assert files_list_in(init) == dev_toolbox_files()
     assert "_FILES = None" not in init
 
@@ -99,7 +99,7 @@ def test_the_readme_says_which_copy_it_came_with(clean: Path) -> None:
 def test_the_cheat_sheet_has_one_line_per_public_name(clean: Path) -> None:
     lines = [line for line in readme(clean).splitlines() if re.match(r"- `\w+` [-=] ", line)]
     named = [re.match(r"- `(\w+)`", line).group(1) for line in lines]
-    assert named == list(sql_composer.__all__)
+    assert named == list(sqlglot_composer.__all__)
 
 
 def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path) -> None:
@@ -114,7 +114,7 @@ def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path
 
 
 def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> None:
-    init = (clean / "sql_composer" / "__init__.py").read_text(encoding="utf-8")
+    init = (clean / "sqlglot_composer" / "__init__.py").read_text(encoding="utf-8")
     examples = doctest.DocTestParser().get_examples(ast.get_docstring(ast.parse(init)))
     shown = next(example.want for example in examples if example.source.strip() == "VERSION")
     exported = repr(VERSION_TEXT) + "\n"
@@ -139,17 +139,17 @@ def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
 
 
 def test_anything_outside_the_allowlist_is_named() -> None:
-    paths = ["sql_composer/tables.py", ".github/README.md", "README.md",
-             "sql_composer/notes/x.py", "tools/export_clean.py", ".github/workflows/dev.yml"]
+    paths = ["sqlglot_composer/tables.py", ".github/README.md", "README.md",
+             "sqlglot_composer/notes/x.py", "tools/export_clean.py", ".github/workflows/dev.yml"]
     assert export_clean.outside_allowlist(paths) == [
-        "README.md", "sql_composer/notes/x.py", "tools/export_clean.py",
+        "README.md", "sqlglot_composer/notes/x.py", "tools/export_clean.py",
         ".github/workflows/dev.yml",
     ]
 
 
 def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    # One of Spark Composer's own files, so no copy of SQL Composer's goes stale first.
+    # One of Spark Composer's own files, so no copy of sqlglot Composer's goes stale first.
     writing = source / "spark_composer" / "writing.py"
     writing.write_text(writing.read_text(encoding="utf-8") + "\nimport requests  # noqa\n",
                        encoding="utf-8")
@@ -240,7 +240,7 @@ def test_the_export_refuses_off_dev(repo: Path) -> None:
 
 
 def test_the_export_refuses_with_uncommitted_changes(repo: Path) -> None:
-    (repo / "sql_composer" / "tables.py").write_text("# half done\n")
+    (repo / "sqlglot_composer" / "tables.py").write_text("# half done\n")
     with pytest.raises(export_clean.ExportRefused, match="uncommitted"):
         export_clean.export(repo, WHEN)
 
@@ -270,15 +270,15 @@ def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    (source / "sql_composer" / "old_module.py").write_text('TOOLBOX_VERSION = "1.9"\n')
+    (source / "sqlglot_composer" / "old_module.py").write_text('TOOLBOX_VERSION = "1.9"\n')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     # The whole four-part stop, not only its last line.
     assert str(refused.value).startswith(
-        "The stamped copy of SQL Composer doesn't import, so nothing was exported:\n"
-        "ImportError: sql_composer stopped on import:\n"
+        "The stamped copy of sqlglot Composer doesn't import, so nothing was exported:\n"
+        "ImportError: sqlglot_composer stopped on import:\n"
         "  What happened:  old_module.py is from Toolbox version 1.9, and "
-        "sql_composer/__init__.py is from "
+        "sqlglot_composer/__init__.py is from "
         f"{VERSION}.\n"
         "  Why it matters: ")
     assert "\n  Usual fix:      " in str(refused.value)
@@ -286,8 +286,8 @@ def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
 
 def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    (source / "sql_composer" / "notes.txt").write_text("scratch\n")
-    with pytest.raises(export_clean.ExportRefused, match="sql_composer/notes.txt"):
+    (source / "sqlglot_composer" / "notes.txt").write_text("scratch\n")
+    with pytest.raises(export_clean.ExportRefused, match="sqlglot_composer/notes.txt"):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
@@ -304,9 +304,9 @@ def test_the_export_ships_what_dev_committed_not_ignored_leftovers(repo: Path) -
     (repo / ".gitignore").write_text("*.log\n")
     git(repo, "add", ".gitignore")
     git(repo, "commit", "-q", "-m", "ignore logs")
-    (repo / "sql_composer" / "run.log").write_text("left behind\n")
+    (repo / "sqlglot_composer" / "run.log").write_text("left behind\n")
     export_clean.export(repo, WHEN)
-    assert "sql_composer/run.log" not in git(repo, "ls-tree", "-r", "--name-only", "main")
+    assert "sqlglot_composer/run.log" not in git(repo, "ls-tree", "-r", "--name-only", "main")
 
 
 def test_the_export_refuses_while_main_is_checked_out_in_a_worktree(repo: Path) -> None:
@@ -325,7 +325,7 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
-        ".github", "composer_core", "spark_composer", "sql_composer"]
+        ".github", "composer_core", "spark_composer", "sqlglot_composer"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
 
@@ -368,7 +368,7 @@ def test_the_readme_lists_where_the_editions_hive_differs(clean: Path) -> None:
     items = [line for line in section.splitlines() if line.startswith("- **")]
     assert [item.split("**")[1] for item in items] == [
         row.title for row in editions.DECLARED_DIFFERENCES.values()]
-    assert items[0].endswith(" SQL Composer writes `SUM(job_runs.duration_mins) / COUNT(*)` "
+    assert items[0].endswith(" sqlglot Composer writes `SUM(job_runs.duration_mins) / COUNT(*)` "
                              "where Spark Composer writes "
                              "`SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)`.")
 
@@ -390,7 +390,7 @@ def _short(version: str) -> str:
 
 def test_the_readme_says_what_each_edition_needs_as_its_engine_checks_it() -> None:
     template = " ".join((ROOT / export_clean.README_TEMPLATE).read_text(encoding="utf-8").split())
-    sql, spark = _range_of("sql_composer"), _range_of("spark_composer")
+    sql, spark = _range_of("sqlglot_composer"), _range_of("spark_composer")
     java = dict(re.findall(r"^(_JAVA_\w+) = (\d+)$",
                            (ROOT / "spark_composer" / "engine.py").read_text(encoding="utf-8"),
                            re.MULTILINE))
@@ -398,9 +398,9 @@ def test_the_readme_says_what_each_edition_needs_as_its_engine_checks_it() -> No
                        (ROOT / "composer_core" / "checks.py").read_text(encoding="utf-8"),
                        re.MULTILINE).groups()
     assert f"Each Edition needs Python {'.'.join(python)} or newer" in template
-    assert (f"SQL Composer: sqlglot {sql['_LOWEST']} or newer, below {_short(sql['_BELOW'])}. "
-            f"Its Example database runs queries on sqlglot {sql['_EXECUTOR_NEEDS']} or newer"
-            ) in template
+    assert (f"sqlglot Composer: the sqlglot library, {sql['_LOWEST']} or newer, below "
+            f"{_short(sql['_BELOW'])}. sqlglot Composer's Example database runs queries on "
+            f"sqlglot {sql['_EXECUTOR_NEEDS']} or newer") in template
     assert (f'`%pip install "sqlglot>={sql["_EXECUTOR_NEEDS"]},<{_short(sql["_BELOW"])}"`'
             in template)
     assert (f"Spark Composer: pyspark {spark['_LOWEST']} or newer, below "
@@ -423,8 +423,8 @@ def test_both_editions_are_exported_from_a_checkout_that_writes_crlf(
     assert git(repo, "ls-tree", "-r", "--name-only", "main").splitlines() == exported_files()
 
 
-def sql_composer_only(folder: Path) -> Path:
-    """What the build reads from a `dev` that holds SQL Composer alone."""
+def sqlglot_composer_only(folder: Path) -> Path:
+    """What the build reads from a `dev` that holds sqlglot Composer alone."""
     dev_copy(folder)
     shutil.rmtree(folder / "spark_composer")
     return folder
@@ -432,7 +432,7 @@ def sql_composer_only(folder: Path) -> Path:
 
 def test_an_edition_the_commit_lacks_is_refused(tmp_path: Path,
                                                 monkeypatch: pytest.MonkeyPatch) -> None:
-    repo = make_repo(tmp_path, monkeypatch, sql_composer_only, autocrlf="false")
+    repo = make_repo(tmp_path, monkeypatch, sqlglot_composer_only, autocrlf="false")
     with pytest.raises(export_clean.ExportRefused, match="but this commit doesn't have "
                        "spark_composer. Commit the folder on dev, or take its Edition out"):
         export_clean.export(repo, WHEN)
@@ -447,8 +447,8 @@ def test_editions_of_different_versions_are_refused(tmp_path: Path) -> None:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value) == (
         f"The Toolbox's folders share one version, but composer_core is {VERSION} and "
-        f"sql_composer is {VERSION} and spark_composer is 9.9. Set TOOLBOX_VERSION in every .py "
-        "file of composer_core/, sql_composer/, spark_composer/, and commit.")
+        f"sqlglot_composer is {VERSION} and spark_composer is 9.9. Set TOOLBOX_VERSION in every .py "
+        "file of composer_core/, sqlglot_composer/, spark_composer/, and commit.")
 
 
 def test_editions_describing_their_names_differently_are_refused(tmp_path: Path) -> None:
@@ -459,7 +459,7 @@ def test_editions_describing_their_names_differently_are_refused(tmp_path: Path)
         "TOOLBOX_VERSION is the feature number", "TOOLBOX_VERSION is a feature number"),
         encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
-            "Spark Composer's cheat sheet differs from SQL Composer's: it has \"__init__.py: "
+            "Spark Composer's cheat sheet differs from sqlglot Composer's: it has \"__init__.py: "
             "`TOOLBOX_VERSION` = `'")):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
@@ -468,7 +468,7 @@ def test_the_stamped_copy_cannot_import_the_other_editions_library(tmp_path: Pat
     if importlib.util.find_spec("pyspark") is None:
         pytest.skip("pyspark isn't installed, so there is nothing for the check to block")
     source = dev_copy(tmp_path / "dev")
-    engine = source / "sql_composer" / "engine.py"
+    engine = source / "sqlglot_composer" / "engine.py"
     # Written so the check of each file's imports doesn't see it: only the import can.
     engine.write_text(engine.read_text(encoding="utf-8") + '\n__import__("pyspark")\n',
                       encoding="utf-8")
@@ -480,7 +480,7 @@ def test_the_stamped_copy_cannot_import_the_other_editions_library(tmp_path: Pat
                                       "SparkComposer"])
 def test_a_readme_naming_an_edition_that_isnt_shipped_is_refused(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spelling: str) -> None:
-    monkeypatch.setattr(editions, "EXPORTED", (editions.SQL_COMPOSER,))
+    monkeypatch.setattr(editions, "EXPORTED", (editions.SQLGLOT_COMPOSER,))
     source = dev_copy(tmp_path / "dev")
     (source / export_clean.README_TEMPLATE).write_text(
         f"# Toolbox\n\n{export_clean.VERSION_MARKER}\n\n{export_clean.DIFFERENCES_MARKER}\n\n"
@@ -491,8 +491,8 @@ def test_a_readme_naming_an_edition_that_isnt_shipped_is_refused(
 
 
 def test_the_allowlist_takes_each_exported_editions_folder(monkeypatch) -> None:
-    paths = ["composer_core/tables.py", "sql_composer/writing.py", "spark_composer/writing.py",
+    paths = ["composer_core/tables.py", "sqlglot_composer/writing.py", "spark_composer/writing.py",
              ".github/README.md"]
     assert export_clean.outside_allowlist(paths) == []
-    monkeypatch.setattr(editions, "EXPORTED", (editions.SQL_COMPOSER,))
+    monkeypatch.setattr(editions, "EXPORTED", (editions.SQLGLOT_COMPOSER,))
     assert export_clean.outside_allowlist(paths) == ["spark_composer/writing.py"]

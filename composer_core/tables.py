@@ -843,7 +843,7 @@ def write_table_reference(name, send):
     >>> path = write_table_reference("ops.run_alerts", send=example_database.send)
     >>> print(path.read_text())
     """ops.run_alerts - TODO: say in one line what one row is."""
-    from sql_composer import Table
+    from sqlglot_composer import Table
     <BLANKLINE>
     run_alerts = Table(
         "ops.run_alerts",

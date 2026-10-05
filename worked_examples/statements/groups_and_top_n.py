@@ -4,7 +4,7 @@ Why: most questions about a table are "how many per something", and these are th
 shapes that answer them.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, at_least,
     between, count_distinct, count_rows, descending, example_database, statement, sum_of,
 )

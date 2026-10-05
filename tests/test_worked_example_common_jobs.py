@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sql_composer import example_database, run
+from sqlglot_composer import example_database, run
 from statements import (
     groups_and_top_n,
     jobs_that_never_ran,

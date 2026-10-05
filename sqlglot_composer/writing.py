@@ -1,4 +1,4 @@
-"""How SQL Composer writes a Statement as Hive text, with the sqlglot package.
+"""How sqlglot Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
 reads the Hive back to check it, and builds the few pieces sqlglot has to build itself: calls to
@@ -36,7 +36,7 @@ def hive_text(node: Node) -> str:
 def readable_text(node: Node) -> str:
     """A part of a Statement as Hive on one line, for the lineage to show how it was written.
 
-    Here it is just its Hive: SQL Composer adds nothing to its Hive that the other Edition
+    Here it is just its Hive: sqlglot Composer adds nothing to its Hive that the other Edition
     doesn't.
     """
     return hive_text(node)
@@ -146,7 +146,7 @@ def _set_part(tree: exp.Expression, part: str, value) -> None:
         if key in type(tree).arg_types:
             tree.set(key, value)
             return
-    raise RuntimeError(f"sql_composer: this sqlglot has no {part!r} on {type(tree).__name__}.")
+    raise RuntimeError(f"sqlglot_composer: this sqlglot has no {part!r} on {type(tree).__name__}.")
 
 
 # --- Names ---------------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def _hive_table(name: str, database: str | None = None, partition=None) -> exp.T
 
 
 def to_sqlglot(node: Node) -> exp.Expression:
-    """The sqlglot tree for a Node, built by the calls SQL Composer has always made.
+    """The sqlglot tree for a Node, built by the calls sqlglot Composer has always made.
 
     Built the same way, the tree is the same, so sqlglot writes the same Hive.
     """

@@ -4,7 +4,7 @@ Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE 
 then throws that row away again.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, equals,
     example_database, is_not_null, statement,
 )

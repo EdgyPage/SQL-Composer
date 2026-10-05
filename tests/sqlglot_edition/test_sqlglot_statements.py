@@ -1,4 +1,4 @@
-"""What SQL Composer writes through sqlglot reads back the same on every sqlglot in its range."""
+"""What sqlglot Composer writes through sqlglot reads back the same on every sqlglot in its range."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     SELECT,

@@ -6,11 +6,11 @@ Run it on `dev` after changing a docstring's example, a Statement script in
     python tools/example_gallery.py
     python tools/example_gallery.py --edition spark
 
-The first writes `sql_composer/examples.html`, and the second `spark_composer/examples.html`,
-whose Example database needs Java 17. A test fails while a committed page differs from what
-this writes. It runs every Statement on the Edition's Example database, which says when it
-can't, such as on a sqlglot older than the pin in requirements-dev.txt. The Worked examples'
-Python is shown naming the Edition's own folder.
+The first writes `sqlglot_composer/examples.html`, and the second
+`spark_composer/examples.html`, whose Example database needs Java 17. A test fails while a
+committed page differs from what this writes. It runs every Statement on the Edition's Example
+database, which says when it can't, such as on a sqlglot older than the pin in
+requirements-dev.txt. The Worked examples' Python is shown naming the Edition's own folder.
 
 The page holds two kinds of Worked example:
 
@@ -23,9 +23,9 @@ The page holds two kinds of Worked example:
   `run(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
-Statement, as SQL Composer's can't run row_number or week_start, a pandas result from the Worked
-example that builds the same Hive stands in, labelled as such; Spark Composer's runs them all.
-Everything is plain HTML; a few lines of script add a filter box.
+Statement, as sqlglot Composer's can't run row_number or week_start, a pandas result from the
+Worked example that builds the same Hive stands in, labelled as such; Spark Composer's runs them
+all. Everything is plain HTML; a few lines of script add a filter box.
 """
 
 from __future__ import annotations
@@ -54,26 +54,26 @@ sys.path[:0] = [str(ROOT), str(WORKED_EXAMPLES)]
 import editions  # noqa: E402
 
 if __name__ == "__main__":
-    # Before any Toolbox import: `import sql_composer` then gives the Edition asked for.
+    # Before any Toolbox import: `import sqlglot_composer` then gives the Edition asked for.
     editions.use(editions.edition_on_command_line(sys.argv))
 
 import pandas as pd  # noqa: E402
 
-import sql_composer  # noqa: E402
+import sqlglot_composer  # noqa: E402
 from composer_core import conditions, example_database  # noqa: E402
 from composer_core.clauses import Statement  # noqa: E402
-from sql_composer import engine  # noqa: E402
+from sqlglot_composer import engine  # noqa: E402
 
-EDITION = editions.EDITIONS[sql_composer.__name__]
+EDITION = editions.EDITIONS[sqlglot_composer.__name__]
 GALLERY = ROOT / EDITION.folder / "examples.html"
 
 # Today on the page, as in the doctests: last_n_days(job_runs.dt, 2) reads both of the
 # Example database's days.
 TODAY = datetime.date(2026, 9, 25)
 PANDAS_LABEL = "computed in pandas, not by running this Hive"
-PUBLIC = list(sql_composer.__all__)
+PUBLIC = list(sqlglot_composer.__all__)
 CONSTANTS = ["TOOLBOX_VERSION", "VERSION"]
-REFUSALS = (sql_composer.GuardRefused, sql_composer.LoadRefused)
+REFUSALS = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused)
 
 
 # --- Reading the Worked examples ------------------------------------------------------------
@@ -92,8 +92,8 @@ def toolbox_modules() -> list:
     Composer core's."""
     own = {path.stem for path in (ROOT / EDITION.folder).glob("*.py")}
     core = {path.stem for path in (ROOT / editions.CORE).glob("*.py")}
-    return [sql_composer] + [
-        importlib.import_module(f"sql_composer.{stem}" if stem in own
+    return [sqlglot_composer] + [
+        importlib.import_module(f"sqlglot_composer.{stem}" if stem in own
                                 else f"{editions.CORE}.{stem}")
         for stem in sorted(own | core) if stem != "__init__"
     ]
@@ -105,8 +105,8 @@ def docstrings() -> list[tuple[list[str], str]]:
     The two constants share the Toolbox's own docstring. A docstring that isn't a public
     name's, such as example_database.send's, comes after the public names.
     """
-    found = [(CONSTANTS, inspect.cleandoc(sql_composer.__doc__))]
-    found += [([name], inspect.getdoc(getattr(sql_composer, name)))
+    found = [(CONSTANTS, inspect.cleandoc(sqlglot_composer.__doc__))]
+    found += [([name], inspect.getdoc(getattr(sqlglot_composer, name)))
               for name in PUBLIC if name not in CONSTANTS]
     seen = {doc for _, doc in found}
     for module in toolbox_modules():
@@ -116,7 +116,7 @@ def docstrings() -> list[tuple[list[str], str]]:
                 name = test.name.removeprefix(f"{EDITION.folder}.")
                 found.append(([name.removeprefix(f"{editions.CORE}.")], doc))
                 seen.add(doc)
-    # The Composer core's docstrings are written once, naming SQL Composer.
+    # The Composer core's docstrings are written once, naming sqlglot Composer.
     return [(names, editions.named_for(EDITION, doc)) for names, doc in found]
 
 
@@ -142,7 +142,7 @@ def example_setting():
         finally:
             os.chdir(here)
             conditions.today = real_today
-            sql_composer.set_load_limits()
+            sqlglot_composer.set_load_limits()
 
 
 def what_happened(error: Exception) -> str:
@@ -160,7 +160,7 @@ def result_html(s, pandas_result=None, which: str = "") -> str:
     """
     try:
         return (label(f"Result{which} on the Example database")
-                + table_html(sql_composer.run(s, send=example_database.send)))
+                + table_html(sqlglot_composer.run(s, send=example_database.send)))
     except (RuntimeError, ValueError) as error:
         if pandas_result is not None:
             return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
@@ -196,7 +196,7 @@ def code_html(text: str, kind: str = "python") -> str:
 def source_html(text: str) -> str:
     """A Worked example's Python, naming this Edition's folder, as it does pasted into it.
 
-    The Worked examples are written for SQL Composer, and import sql_composer.
+    The Worked examples are written for sqlglot Composer, and import sqlglot_composer.
     """
     return code_html(editions.named_for(EDITION, text))
 
@@ -293,10 +293,10 @@ def example_scope(handed: list) -> dict:
             if name == "export_lineage":
                 # It would write beside its caller, this script; keep to the temporary folder.
                 options.setdefault("to", Path.cwd() / "lineage" / "example.html")
-            return getattr(sql_composer, name)(*statements, **options)
+            return getattr(sqlglot_composer, name)(*statements, **options)
         return call
 
-    scope = {name: getattr(sql_composer, name) for name in PUBLIC}
+    scope = {name: getattr(sqlglot_composer, name) for name in PUBLIC}
     scope.update(jobs=example_database.jobs, job_runs=example_database.job_runs)
     scope.update({name: noting(name) for name in HANDED_TO})
     return scope
@@ -322,7 +322,7 @@ def handed_html(handed: list, pandas_results: dict) -> list[str]:
     """Each Statement's Hive, unless the docstring prints it, and its result."""
     body = []
     for number, (name, s) in enumerate(handed, 1):
-        hive = sql_composer.to_hive(s)
+        hive = sqlglot_composer.to_hive(s)
         if name != "to_hive":
             body += [label(f"The Hive of the Statement given to {name}(...)"),
                      code_html(hive, "hive")]
@@ -357,16 +357,15 @@ def week_start_on_each_day(names: list[str]) -> str:
     from statements import regrouping
 
     runs = example_database.job_runs
-    s = sql_composer.statement(
-        sql_composer.SELECT_DISTINCT(runs.dt, sql_composer.AS(sql_composer.week_start(runs.dt),
-                                                              "week")),
-        sql_composer.FROM(runs),
-        sql_composer.WHERE(sql_composer.between(runs.dt, regrouping.FIRST_DAY,
-                                                regrouping.LAST_DAY)),
+    toolbox = sqlglot_composer
+    s = toolbox.statement(
+        toolbox.SELECT_DISTINCT(runs.dt, toolbox.AS(toolbox.week_start(runs.dt), "week")),
+        toolbox.FROM(runs),
+        toolbox.WHERE(toolbox.between(runs.dt, regrouping.FIRST_DAY, regrouping.LAST_DAY)),
     )
     shown = "week_start(job_runs.dt) on each day of the Example database"
     try:
-        weeks = sql_composer.run(s, send=example_database.send)
+        weeks = sqlglot_composer.run(s, send=example_database.send)
     except (RuntimeError, ValueError):
         weeks = regrouping.with_week(regrouping.every_run())[["dt", "week"]].drop_duplicates()
         shown += f", {PANDAS_LABEL}"
@@ -428,9 +427,9 @@ def built_by(function, **options):
         warnings.simplefilter("always")
         try:
             s = function(**options)
-        except sql_composer.GuardRefused as refusal:
+        except sqlglot_composer.GuardRefused as refusal:
             return None, "A Guard refuses it", message_text(refusal)
-        except sql_composer.LoadRefused as refusal:
+        except sqlglot_composer.LoadRefused as refusal:
             return None, "A Load limit refuses it", message_text(refusal)
     if caught:
         return s, "It builds, with a Warning", message_text(caught[0].message)
@@ -452,12 +451,12 @@ def opt_out_of(function) -> str | None:
 def statement_html(built, module, name: str) -> str:
     """The Hive and result of what a function built: one Statement, or a list of them."""
     if isinstance(built, Statement):
-        return (label("Hive") + hive_html(sql_composer.to_hive(built))
+        return (label("Hive") + hive_html(sqlglot_composer.to_hive(built))
                 + result_html(built, getattr(module, f"{name}_in_pandas", None)))
     parts = []
     for number, s in enumerate(built, 1):
         which = f" of Statement {number} of {len(built)}"
-        parts += [label(f"Hive{which}"), hive_html(sql_composer.to_hive(s)),
+        parts += [label(f"Hive{which}"), hive_html(sqlglot_composer.to_hive(s)),
                   result_html(s, which=which)]
     return "".join(parts)
 
@@ -577,7 +576,7 @@ def pandas_results_by_hive(scripts: list) -> dict:
                     continue
                 s, _, _ = built_by(function)
                 if s is not None:
-                    found[sql_composer.to_hive(s)] = pandas_result
+                    found[sqlglot_composer.to_hive(s)] = pandas_result
     return found
 
 
@@ -613,7 +612,7 @@ def gallery_page() -> str:
         but_not_pandas=(", but not\nthe pandas that computes a result the Example database can't run"
                         if from_pandas else ""),
         send_at_work=SEND_AT_WORK.get(EDITION.folder, ""),
-        version=escape(sql_composer.TOOLBOX_VERSION),
+        version=escape(sqlglot_composer.TOOLBOX_VERSION),
         worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
         common_contents=contents_html(common),

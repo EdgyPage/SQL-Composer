@@ -6,7 +6,7 @@ first line becomes the name's line in the Clean branch README's cheat sheet, so 
 sentence of at most 80 characters.
 
 The two constants, TOOLBOX_VERSION and VERSION, can't carry a docstring of their own: theirs
-is the Toolbox's own (`sql_composer.__doc__`).
+is the Toolbox's own (`sqlglot_composer.__doc__`).
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ import inspect
 import pytest
 
 import editions
-import sql_composer
+import sqlglot_composer
 from conftest import edition, skip_unless_the_example_database_runs
 
-PUBLIC = list(sql_composer.__all__)
+PUBLIC = list(sqlglot_composer.__all__)
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
 # Examples that run a query, and so need the Example database to run here.
 RUNS_A_QUERY = ("run(", "check_key(")
@@ -28,10 +28,10 @@ RUNS_A_QUERY = ("run(", "check_key(")
 
 def docstring_of(name: str) -> str:
     """A public name's docstring, naming this run's Edition: the Composer core's are written
-    once, naming SQL Composer."""
+    once, naming sqlglot Composer."""
     if name in CONSTANTS:
-        return sql_composer.__doc__ or ""
-    return editions.named_for(edition(), inspect.getdoc(getattr(sql_composer, name)) or "")
+        return sqlglot_composer.__doc__ or ""
+    return editions.named_for(edition(), inspect.getdoc(getattr(sqlglot_composer, name)) or "")
 
 
 def first_line(name: str) -> str:
@@ -61,9 +61,9 @@ def test_the_worked_example_runs(name: str, tmp_path, monkeypatch) -> None:
     if any(call in doc for call in RUNS_A_QUERY):
         skip_unless_the_example_database_runs()
     monkeypatch.chdir(tmp_path)
-    scope = {public: getattr(sql_composer, public) for public in PUBLIC}
-    scope["job_runs"] = sql_composer.example_database.job_runs
-    scope["jobs"] = sql_composer.example_database.jobs
+    scope = {public: getattr(sqlglot_composer, public) for public in PUBLIC}
+    scope["job_runs"] = sqlglot_composer.example_database.job_runs
+    scope["jobs"] = sqlglot_composer.example_database.jobs
     test = doctest.DocTestParser().get_doctest(doc, scope, name, None, 0)
     runner = doctest.DocTestRunner(
         optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS

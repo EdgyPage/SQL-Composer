@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import editions
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     INSERT_OVERWRITE,

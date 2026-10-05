@@ -15,7 +15,7 @@ import warnings
 
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     CROSS_JOIN,
     FROM,
@@ -325,7 +325,7 @@ def test_load_limit_date_bound_opt_out() -> None:
 
 
 def test_a_date_bound_inside_left_joins_on_counts() -> None:
-    from sql_composer import all_of
+    from sqlglot_composer import all_of
 
     statement(
         SELECT(jobs.job_name),
@@ -336,7 +336,7 @@ def test_a_date_bound_inside_left_joins_on_counts() -> None:
 
 
 def test_a_date_bound_inside_an_or_does_not_count() -> None:
-    from sql_composer import any_of
+    from sqlglot_composer import any_of
 
     with pytest.raises(LoadRefused):
         statement(

@@ -38,7 +38,7 @@ class GuardRefused(Exception):
     The message says what happened, why the number would come out wrong and the usual fix.
     When the Guard has an opt-out, it also gives the keyword to paste if you really mean it;
     when it has none, it says so. It is raised at your own line. To catch it, import it with
-    the rest, as `from sql_composer import GuardRefused`.
+    the rest, as `from sqlglot_composer import GuardRefused`.
 
     >>> SELECT(count_rows())
     Traceback (most recent call last):
@@ -56,7 +56,7 @@ class LoadRefused(Exception):
 
     The message says what happened, why the cluster or the notebook would stall, the usual
     fix, and the opt-out keyword to paste if you really mean it. To catch it, import it with
-    the rest, as `from sql_composer import LoadRefused`.
+    the rest, as `from sqlglot_composer import LoadRefused`.
 
     >>> statement(SELECT(job_runs.run_id), FROM(job_runs))
     Traceback (most recent call last):

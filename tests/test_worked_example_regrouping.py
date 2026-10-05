@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sql_composer import GuardRefused
+from sqlglot_composer import GuardRefused
 from statements import regrouping as example
 
 

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 import editions
-import sql_composer
+import sqlglot_composer
 from composer_core import checks
 from conftest import edition, import_stop, toolbox_folder
 
@@ -25,7 +25,7 @@ CORE = ROOT / editions.CORE
 FOLDER, PRODUCT = edition().folder, edition().product
 CORE_FOLDER, CORE_PRODUCT = editions.CORE, editions.CORE_PRODUCT
 OTHER = next(other for other in editions.EDITIONS.values() if other is not edition())
-VERSION = sql_composer.TOOLBOX_VERSION
+VERSION = sqlglot_composer.TOOLBOX_VERSION
 
 
 def _files(folder: Path) -> list[str]:

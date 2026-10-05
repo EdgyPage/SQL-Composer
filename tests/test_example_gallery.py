@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 import editions
-import sql_composer
+import sqlglot_composer
 from conftest import edition, gallery_entries, page_text, toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -48,7 +48,7 @@ def toolbox_docstrings() -> list[doctest.DocTest]:
     return [test for module in modules for test in finder.find(module) if test.examples]
 
 
-@pytest.mark.parametrize("name", sql_composer.__all__)
+@pytest.mark.parametrize("name", sqlglot_composer.__all__)
 def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
     titled = [title for title, _ in gallery_entries().values()
               if re.search(rf"(?<![\w.]){name}(?![\w.])", title)]
@@ -59,7 +59,7 @@ def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
 def test_every_docstring_example_is_on_the_page(docstring: doctest.DocTest) -> None:
     shown = page_text(GALLERY.read_text(encoding="utf-8"))
     for example in docstring.examples:
-        # The Composer core's docstrings name SQL Composer; the page names its own Edition.
+        # The Composer core's docstrings name sqlglot Composer; the page names its own Edition.
         source = editions.named_for(edition(), example.source)
         assert " ".join(source.split()) in shown, source
         # <BLANKLINE> is how a doctest writes an empty line; the page shows the empty line.
@@ -257,7 +257,7 @@ def test_a_statement_given_to_run_also_shows_its_result_as_a_table() -> None:
 
 
 def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days() -> None:
-    from sql_composer import between, example_database, last_n_days
+    from sqlglot_composer import between, example_database, last_n_days
 
     shown = page_text(GALLERY.read_text(encoding="utf-8"))
     assert 'write between(job_runs.dt, "2026-09-23", "2026-09-24") in its place' in shown
@@ -282,7 +282,7 @@ def test_a_scripts_statements_are_found_on_the_example_day() -> None:
     import types
 
     from composer_core import conditions
-    from sql_composer import FROM, SELECT, statement
+    from sqlglot_composer import FROM, SELECT, statement
     from composer_core.example_database import jobs
 
     script = types.ModuleType("a_worked_example")

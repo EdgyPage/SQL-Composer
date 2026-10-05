@@ -55,8 +55,8 @@ def test_a_command_that_only_mentions_a_commit_word_is_not_one() -> None:
 
 
 def test_watched_paths_need_a_review_and_tracker_commits_do_not() -> None:
-    changed = ["sql_composer/tables.py", ".scratch/drift.md", "CONTEXT.md", "tests/test_x.py"]
-    assert needs_review(changed, "feat: x") == ["sql_composer/tables.py", "CONTEXT.md"]
+    changed = ["sqlglot_composer/tables.py", ".scratch/drift.md", "CONTEXT.md", "tests/test_x.py"]
+    assert needs_review(changed, "feat: x") == ["sqlglot_composer/tables.py", "CONTEXT.md"]
     assert needs_review([".scratch/sql-composer-v2/map.md"], "docs(wayfinder): x") == []
 
 
@@ -188,7 +188,7 @@ def review_hook(clone: Path, command: str) -> str:
 
 def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path) -> None:
     clone = a_clone_on_dev(tmp_path)
-    first = commit(clone, "sql_composer/a.py", "a")
+    first = commit(clone, "sqlglot_composer/a.py", "a")
     commit(clone, ".scratch/notes.md", "not watched")
     second = commit(clone, "docs/b.md", "b")
     asked = review_hook(clone, "git rebase origin/dev")
@@ -201,24 +201,24 @@ def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path) -> None:
 def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path) -> None:
     clone = a_clone_on_dev(tmp_path)
     run(clone, "checkout", "-q", "-b", "work")
-    commit(clone, "sql_composer/c.py", "c")
+    commit(clone, "sqlglot_composer/c.py", "c")
     run(clone, "checkout", "-q", "dev")
     run(clone, "merge", "-q", "--no-ff", "-m", "merge work", "work")
     merge = run(clone, "rev-parse", "HEAD")
     asked = review_hook(clone, "git merge --no-ff work")
-    assert f"Commit {merge[:7]} touches sql_composer/c.py" in asked
+    assert f"Commit {merge[:7]} touches sqlglot_composer/c.py" in asked
 
 
 def test_nothing_new_on_top_of_the_upstream_asks_for_nothing(tmp_path) -> None:
     clone = a_clone_on_dev(tmp_path)
-    commit(clone, "sql_composer/a.py", "a")
+    commit(clone, "sqlglot_composer/a.py", "a")
     run(clone, "push", "-q")
     assert review_hook(clone, "git pull") == ""
 
 
 def test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo(tmp_path) -> None:
     clone = a_clone_on_dev(tmp_path)
-    reviewed = commit(clone, "sql_composer/a.py", "a")
+    reviewed = commit(clone, "sqlglot_composer/a.py", "a")
     commit(clone, ".scratch/drift.md", f"## Reviewed commits\n\n- {reviewed[:7]}: clean\n")
     (clone / "docs").mkdir()
     given = {"tool_input": {"command": "git commit"}, "cwd": str(clone / "docs"),
@@ -231,8 +231,8 @@ def test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo(tmp_path) -
 
 def test_the_stop_hook_waits_for_a_review_and_not_for_a_dropped_commit(tmp_path) -> None:
     clone = a_clone_on_dev(tmp_path)
-    kept = commit(clone, "sql_composer/a.py", "a")
-    dropped = commit(clone, "sql_composer/b.py", "b")
+    kept = commit(clone, "sqlglot_composer/a.py", "a")
+    dropped = commit(clone, "sqlglot_composer/b.py", "b")
     review_hook(clone, "git commit")
     run(clone, "reset", "-q", "--hard", kept)
     hook = ROOT / ".claude" / "hooks" / "drift_stop.py"
@@ -257,5 +257,5 @@ def test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook(tmp_path) -> N
 
 def test_a_command_that_makes_no_commit_asks_for_nothing(tmp_path) -> None:
     clone = a_clone_on_dev(tmp_path)
-    commit(clone, "sql_composer/a.py", "a")
+    commit(clone, "sqlglot_composer/a.py", "a")
     assert review_hook(clone, "git log --grep=revert") == ""

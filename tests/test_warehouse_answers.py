@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     Table,
     all_columns,
     check_key,
@@ -190,7 +190,7 @@ def test_table_refuses_arguments_that_arent_text(arguments, said) -> None:
     ("dim.calendar", "t_calendar.py"),
     ("dim.pandas", "t_pandas.py"),
     ("dim.pytest", "t_pytest.py"),
-    ("dim.sql_composer", "t_sql_composer.py"),
+    ("dim.sqlglot_composer", "t_sqlglot_composer.py"),
     ("dim.customers", "customers.py"),
 ])
 def test_write_table_reference_never_shadows_a_module(table, file, tmp_path, monkeypatch) -> None:

@@ -4,7 +4,7 @@ Why: filters like "these two jobs", "failed or still running" and "names startin
 come up in almost every Statement, and each has one trap worth knowing.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     FROM, SELECT, WHERE, any_of, between, contains, equals, example_database, is_in,
     is_not_in, is_null, starts_with, statement,
 )

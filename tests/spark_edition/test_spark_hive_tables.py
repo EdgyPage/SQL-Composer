@@ -33,7 +33,7 @@ from in_process_spark import (
     tables_read,
     wide_table,
 )
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     FROM,
     INSERT_OVERWRITE,

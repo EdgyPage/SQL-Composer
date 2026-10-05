@@ -18,8 +18,8 @@ import textwrap
 import pytest
 from conftest import in_this_edition
 
-import sql_composer
-from sql_composer import (
+import sqlglot_composer
+from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,
@@ -160,7 +160,7 @@ def test_to_must_name_an_html_file(tmp_path) -> None:
 def test_both_footers_show_the_toolbox_version_and_the_scripts_commit(tmp_path) -> None:
     markdown, page = read(export_lineage(runs_per_team(), to=tmp_path / "lineage.html"))
     for text in (markdown, page):
-        assert sql_composer.VERSION in text
+        assert sqlglot_composer.VERSION in text
         assert re.search(r"Made by export_lineage on \d{4}-\d\d-\d\d \d\d:\d\d, from your "
                          r"scripts at commit \w+, with ", text)
 
@@ -176,7 +176,7 @@ def run_script(folder, text: str) -> tuple:
 
 
 SCRIPT = """
-    from sql_composer import (AS, FROM, JOIN, SELECT, WHERE, GROUP_BY, count_rows, equals,
+    from sqlglot_composer import (AS, FROM, JOIN, SELECT, WHERE, GROUP_BY, count_rows, equals,
                               example_database, export_lineage, last_n_days, statement)
     job_runs, jobs = example_database.job_runs, example_database.jobs
     runs_per_team = statement(

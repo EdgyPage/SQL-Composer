@@ -7,7 +7,7 @@ import re
 import pandas as pd
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     Table,
     check_key,
     check_table_reference,
@@ -256,7 +256,7 @@ def test_a_date_format_back_to_the_usual_one_says_to_remove_the_line() -> None:
 
 
 def test_a_derived_table_cant_be_checked() -> None:
-    from sql_composer import FROM, SELECT, derived, statement
+    from sqlglot_composer import FROM, SELECT, derived, statement
 
     teams = derived("teams", statement(SELECT(jobs.team), FROM(jobs)))
     with pytest.raises(TypeError, match="not on a table.s name as text"):
@@ -319,7 +319,7 @@ def test_create_tables_refusal_says_what_to_write_for_a_type_people_often_use(
     ("varchar(20)", "VARCHAR(20)"), ("char(255)", "CHAR(255)"),
     ("map<string,array<int>>", "MAP<STRING, ARRAY<INT>>"),
     ("array<string>", "ARRAY<STRING>"), ("map<string,int>", "MAP<STRING, INT>"),
-    # A struct is in tests/sqlglot_edition/test_sqlglot_statements.py, since SQL Composer
+    # A struct is in tests/sqlglot_edition/test_sqlglot_statements.py, since sqlglot Composer
     # refuses one where its sqlglot can't write a struct's colons.
 ])
 def test_create_table_takes_each_type_hive_and_spark_share(kind: str, written: str) -> None:

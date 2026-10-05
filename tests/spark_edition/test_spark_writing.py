@@ -1,6 +1,6 @@
 """Spark Composer checks the Hive it writes itself: a slip in its writer stops before anything runs.
 
-SQL Composer's check is sqlglot reading its Hive back; Spark Composer has no sqlglot, so its
+sqlglot Composer's check is sqlglot reading its Hive back; Spark Composer has no sqlglot, so its
 writer reads each value and name back by its characters as it writes them. These break the
 writer on purpose and hold that the check catches it.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from sql_composer import (
+from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,

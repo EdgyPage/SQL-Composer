@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import example_rows
-from sql_composer import GuardRefused, example_database, run
+from sqlglot_composer import GuardRefused, example_database, run
 from statements import left_join_then_where as example
 
 

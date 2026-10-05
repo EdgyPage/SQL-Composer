@@ -1,4 +1,4 @@
-# SQL Composer and Spark Composer
+# sqlglot Composer and Spark Composer
 
 This is version <!-- VERSION -->.
 
@@ -12,27 +12,28 @@ The Toolbox comes in two Editions, with the same functions and the same version.
 you use, copy two folders, each whole: `composer_core`, the code both Editions share, and the
 one Edition's own folder:
 
-- **`sql_composer`, SQL Composer**, writes its Hive with the sqlglot package. Copy it when your
-  notebook sends Hive to the warehouse through a query API of its own.
+- **`sqlglot_composer`, sqlglot Composer**, writes its Hive with the sqlglot package. Copy it
+  when your notebook sends Hive to the warehouse through a query API of its own.
 - **`spark_composer`, Spark Composer**, writes the same Hive itself and needs no sqlglot. Copy it
   when your notebook runs Spark, with a `spark` session that reads the warehouse's tables.
 
-Both write the same Hive, except in the few places listed under
-[Where the two Editions' Hive differs](#where-the-two-editions-hive-differs). Two of them,
-dividing and a Python float, are for Spark. So if your query API runs Hive, SQL Composer's Hive
-is right for it. If it runs Spark, and you can install pyspark, Spark Composer's Hive fits it
-better, and works with any `send`. The third, a hive_function call, comes from sqlglot, which
-only SQL Composer uses. Use one Edition per notebook: importing both in one Python stops.
+Both write the same Hive, except in the few places listed under [Where the two Editions' Hive
+differs](#where-the-two-editions-hive-differs). Two of them, dividing and a Python float, are
+for Spark. So if your query API runs Hive, sqlglot Composer's Hive is right for it. If it runs
+Spark, and you can install pyspark, Spark Composer's Hive fits it better, and works with any
+`send`. The third, a hive_function call, comes from the sqlglot library, which only sqlglot
+Composer uses. Use one Edition per notebook: importing both in one Python stops.
 
-This page writes `sql_composer`. With Spark Composer, write `spark_composer` wherever this page
-writes `sql_composer`: in your imports, and in `sql_composer.VERSION`.
+This page writes `sqlglot_composer`. With Spark Composer, write `spark_composer` wherever this
+page writes `sqlglot_composer`: in your imports, and in `sqlglot_composer.VERSION`.
 
 ## Install
 
 Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
 
-- SQL Composer: sqlglot 25.24.2 or newer, below 31. Its Example database runs queries on
-  sqlglot 30.19.0 or newer, and so does a struct column in create_table, so install that:
+- sqlglot Composer: the sqlglot library, 25.24.2 or newer, below 31. sqlglot Composer's
+  Example database runs queries on sqlglot 30.19.0 or newer, and so does a struct column in
+  create_table, so install that:
   `%pip install "sqlglot>=30.19.0,<31"`.
 - Spark Composer: pyspark 3.5.0 or newer, below 4.1: `%pip install "pyspark>=3.5.0,<4.1"`. Its
   Example database starts a Spark of its own, in a second Python in the background, so your
@@ -40,14 +41,14 @@ Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
   on the PATH.
 
 1. Download this branch as a zip and extract it.
-2. Copy the whole `composer_core` folder, and the whole `sql_composer` folder or the whole
+2. Copy the whole `composer_core` folder, and the whole `sqlglot_composer` folder or the whole
    `spark_composer` folder, side by side into the folder that holds your notebooks and scripts.
 
 Keep your own scripts beside the two folders, never inside them, and import from the
 Edition's folder, at its top level:
 
 ```python
-from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
+from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
 ```
 
 ## Update
@@ -61,7 +62,7 @@ are imported, the two folders check themselves. If a file is missing, extra, fro
 version or export, or from another Toolbox folder (`composer_core` or the other Edition's),
 or if this Python or the library it needs
 won't work with it, it stops and says what happened, why it matters and the usual fix.
-`sql_composer.VERSION` says which copy you have, and `composer_core/CHANGES.md` says what
+`sqlglot_composer.VERSION` says which copy you have, and `composer_core/CHANGES.md` says what
 changed in each version.
 
 ## A first Statement
@@ -70,7 +71,7 @@ The Example database ships inside the Toolbox: three made-up tables, and a `send
 Statements on them, so you can practise without touching the warehouse.
 
 ```python
->>> from sql_composer import statement, SELECT, FROM, WHERE, equals, to_hive, example_database
+>>> from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, example_database
 >>> job_runs = example_database.job_runs
 >>> first = statement(
 ...     SELECT(job_runs.run_id, job_runs.status),
@@ -90,7 +91,7 @@ WHERE
 returns a pandas DataFrame. On the Example database, its own `send` runs it:
 
 ```python
->>> from sql_composer import run
+>>> from sqlglot_composer import run
 >>> run(first, send=example_database.send)
    run_id   status
 0     101  SUCCESS
@@ -100,8 +101,8 @@ returns a pandas DataFrame. On the Example database, its own `send` runs it:
 ```
 
 At work, `send` is your own, and a Statement reads your own tables: `write_table_reference`
-writes the Table reference for one. With SQL Composer, `send` is whatever sends a Hive string to
-your query API and gives back a pandas DataFrame, such as
+writes the Table reference for one. With sqlglot Composer, `send` is whatever sends a Hive
+string to your query API and gives back a pandas DataFrame, such as
 `send=lambda hive: pd.DataFrame(my_api.query(hive))`. With Spark Composer, it is usually this,
 with your notebook's own `spark` session:
 
@@ -114,7 +115,7 @@ Every function and class in the cheat sheet has a Worked example like this in it
 database's `jobs` and `job_runs`, so run this first to paste one into a notebook:
 
 ```python
->>> from sql_composer import *
+>>> from sqlglot_composer import *
 >>> jobs, job_runs = example_database.jobs, example_database.job_runs
 ```
 
@@ -129,12 +130,12 @@ reads your own yesterday too, so pasted, its Hive shows another day, and no rows
 Each Edition's folder holds its own Example gallery: every Worked example on one page, its Python
 and, for each Statement it builds, the Hive and any result. Open it in your browser. It needs
 nothing else: a box at the top keeps only the examples holding every word you type, and Ctrl+F
-searches it too. Besides each docstring's example, it holds the Worked examples that stand on their own:
-common jobs built in steps that each say why, such as building a Saved table or finding rows
-with no match, and Statements that give a wrong number shown beside their fix.
+searches it too. Besides each docstring's example, it holds the Worked examples that stand on
+their own: common jobs built in steps that each say why, such as building a Saved table or
+finding rows with no match, and Statements that give a wrong number shown beside their fix.
 
-- `sql_composer/examples.html` shows each result from SQL Composer's Example database or, where
-  that can't run it, computed in pandas.
+- `sqlglot_composer/examples.html` shows each result from sqlglot Composer's Example database
+  or, where that can't run it, computed in pandas.
 - `spark_composer/examples.html` shows each result from Spark Composer's Example database,
   which runs Spark, and marks the places where Spark Composer's Hive differs.
 
@@ -169,10 +170,10 @@ Both Editions write the same Hive for a Statement, except in these places, each 
 
 ## Cheat sheet
 
-Everything the Toolbox offers, one line each, grouped by the file it lives in: the two
-constants are in your Edition's folder, and every other name in a file of `composer_core`.
-Import every name from your Edition's folder itself, `sql_composer` or `spark_composer`: never
-from `composer_core`, or from a file inside either folder. Arithmetic isn't in it: a
-calculation uses Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`.
+Everything the Toolbox offers, one line each, grouped by the file it lives in: the two constants
+are in your Edition's folder, and every other name in a file of `composer_core`. Import every
+name from your Edition's folder itself, `sqlglot_composer` or `spark_composer`: never from
+`composer_core`, or from a file inside either folder. Arithmetic isn't in it: a calculation uses
+Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`.
 
 <!-- CHEAT SHEET -->

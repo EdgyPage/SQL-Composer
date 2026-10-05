@@ -74,6 +74,9 @@ anywhere.
 - [The split into composer_core](issues/02-the-split-into-composer-core.md): one core folder,
   two thin Editions that check both folders, plug in and re-export; one Edition per Python;
   the export ships composer_core; ADR 0003.
+- [The rename to sqlglot Composer](issues/03-rename-to-sqlglot-composer.md): sqlglot_composer
+  and "sqlglot Composer" everywhere but the records; the project is "the Toolbox"; named_for
+  refuses the old name.
 
 ## Not yet specified
 

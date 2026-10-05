@@ -9,7 +9,7 @@ send each one with run(step(), send=run_query), run_query being your own send fu
 and loop over the ones that return a list.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, create_table,
     drop_table, equals, example_database, statement,
 )

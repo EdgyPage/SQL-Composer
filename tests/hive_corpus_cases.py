@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import random
 
-from sql_composer import (
+from sqlglot_composer import (
     AS,
     CROSS_JOIN,
     FROM,

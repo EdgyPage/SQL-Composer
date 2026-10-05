@@ -1,7 +1,7 @@
-"""Spark Composer's Example gallery runs what SQL Composer's shows from pandas.
+"""Spark Composer's Example gallery runs what sqlglot Composer's shows from pandas.
 
 Its Example database runs row_number and week_start, so every result on its page comes from
-running the Hive, where SQL Composer's page has pandas stand in. Under a Hive that shows
+running the Hive, where sqlglot Composer's page has pandas stand in. Under a Hive that shows
 something Spark Composer adds, NULLIF or the D of a float, the page says why.
 """
 
@@ -26,7 +26,7 @@ def test_no_result_on_the_page_is_computed_in_pandas() -> None:
 
 @pytest.mark.parametrize(
     "entry_id", ["row_number", "week_start", "latest_and_top_n", "regrouping"])
-def test_results_sql_composer_shows_from_pandas_come_from_the_example_database(
+def test_results_sqlglot_composer_shows_from_pandas_come_from_the_example_database(
     entry_id: str,
 ) -> None:
     text = gallery_entries()[entry_id][1]

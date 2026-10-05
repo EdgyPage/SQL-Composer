@@ -3,7 +3,7 @@
 Why: in SQL nothing equals NULL, not even NULL, so `status = NULL` matches no rows at all.
 """
 
-from sql_composer import (
+from sqlglot_composer import (
     AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_null, statement,
 )
 

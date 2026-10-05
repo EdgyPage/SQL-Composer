@@ -13,7 +13,7 @@ import datetime
 import pytest
 import sqlglot.executor.python
 
-from sql_composer import example_database, run
+from sqlglot_composer import example_database, run
 from statements import latest_and_top_n, regrouping
 
 

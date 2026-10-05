@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import example_rows
-from sql_composer import example_database, run
+from sqlglot_composer import example_database, run
 from statements import not_equals_drops_null as example
 
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import example_rows
-from sql_composer import example_database, to_hive
+from sqlglot_composer import example_database, to_hive
 from statements import saved_table as example
 
 
