@@ -326,6 +326,10 @@ table exists, and `run_day` stops before writing anything. In a list that runs e
 - Write many past days of the first step at once:
   [Backfill a range of days](#backfill_a_range_of_days).
 - The writes themselves, step by step: [Save a table](#save_a_table).
+- Rewrite the last few days each morning, for rows that arrive late:
+  [Incremental loads and late data](#incremental_loads_and_late_data).
+- Several Saved tables, each read by the next, written in order every day:
+  [A pipeline of Saved tables](#a_layered_pipeline).
 - The gallery's [`run`](examples.html#run), [`create_table`](examples.html#create_table) and
   [`show_hive`](examples.html#show_hive) entries.
 """

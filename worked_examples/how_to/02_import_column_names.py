@@ -17,8 +17,8 @@ so every table you read needs one, and a table with forty columns is forty chanc
 name or a type. Generate it instead, then keep the file beside your notebook, for every
 notebook that reads the table.
 
-A table that doesn't exist yet, such as a Saved table you are about to create, has nothing to
-ask: describe it by hand, as [Describe a table by hand](#describe_a_table_by_hand) shows.
+A table that doesn't exist yet, such as a Saved table (a table of your own, which your
+Statements write into) you are about to create, has nothing to ask: describe it by hand, as [Describe a table by hand](#describe_a_table_by_hand) shows.
 
 ## Steps
 
@@ -47,7 +47,9 @@ through the Example database's send:
 6               # col_name  data_type     comment
 7                       dt     string
 
-The first four rows are its columns. The rows under `# Partition Information` say which column
+The first four rows are its columns. Row 4 is a blank line DESCRIBE leaves before its next
+section: its empty cells are missing values, NULL in Hive, which this page shows as NULL and
+pandas in your notebook as None. The rows under `# Partition Information` say which column
 splits the table into days: dt, its Date partition.
 
 ### Write one table's Table reference
@@ -136,7 +138,8 @@ Run it after you edit a Table reference, and whenever the table may have changed
 ops.job_runs matches its Table reference.
 
 When something differs, it lists each problem with the line to change in the file. It never
-edits the file itself.
+edits the file itself. A table that changed, and what it says then, is in
+[Keep a Table reference true over time](#keep_a_table_reference_true_over_time).
 
 ### Check the key you wrote
 
@@ -150,8 +153,8 @@ ops.job_runs: the key (run_id) holds on 2026-09-24.
 ### Take a first look at the rows
 
 `first_look` builds an ordinary Statement that reads every column and 20 rows of yesterday,
-here 2026-09-24, so it is safe to run on a big table. `show_hive` prints its Hive, and `run`
-runs it:
+so it is safe to run on a big table. `show_hive` prints its Hive, and `run` runs it. These
+steps ran as if today were 2026-09-25, so yesterday is 2026-09-24:
 
 >>> text = show_hive(first_look(job_runs))
 SELECT
@@ -172,6 +175,10 @@ LIMIT 20;
 2     103       3  SUCCESS             30             0.0  2026-09-24
 3     104       1  SUCCESS             40             3.0  2026-09-24
 
+In your own notebook, yesterday is your real yesterday. The Example database holds only
+2026-09-23 and 2026-09-24, so there this result comes back empty, with its column names and no
+rows. At work, it shows your table's yesterday.
+
 ### Build a SELECT from every column
 
 `all_columns` gives a Table reference's columns as a Python list, in the table's order:
@@ -188,6 +195,17 @@ runs, so a column added later would quietly change your result; a list of names 
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-23")),
 ... )
+>>> text = show_hive(every_column)
+SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  job_runs.status,
+  job_runs.duration_mins,
+  job_runs.avg_retry_secs,
+  job_runs.dt
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23';
 >>> run(every_column, send=example_database.send)
    run_id  job_id   status  duration_mins  avg_retry_secs          dt
 0      95       1  SUCCESS             12             2.0  2026-09-23
@@ -195,6 +213,9 @@ runs, so a column added later would quietly change your result; a list of names 
 2      97       3   FAILED             30             8.0  2026-09-23
 3      98       2     None             15             NaN  2026-09-23
 4      99       1     TEST              5             0.0  2026-09-23
+
+Run 98 is still running, so its status and its avg_retry_secs are missing: NULL. pandas shows
+a missing number as NaN, and missing text as None.
 
 ### Build a SELECT from a list of column names
 
@@ -228,10 +249,10 @@ A name that isn't one of the table's columns stops the list at once: see Common 
 The three Table reference files are in the folder your notebook runs in:
 
 >>> from pathlib import Path
->>> sorted(file.name for file in Path(".").glob("*.py"))
-['job_runs.py', 'jobs.py', 'run_alerts.py']
+>>> [Path(name).exists() for name in ["job_runs.py", "jobs.py", "run_alerts.py"]]
+[True, True, True]
 
-The TODOs in each are filled in, and both checks pass for each table you read:
+Once you've filled in a file's TODOs, both checks pass for its table:
 
 >>> check_table_reference(job_runs, send=example_database.send)
 ops.job_runs matches its Table reference.
@@ -275,7 +296,9 @@ composer_core.refusals.GuardRefused:
   What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is listed in does_not_add_up in its Table reference.
 ...
 
-If you leave `does_not_add_up=[]` empty, nothing stops it, and the total means nothing.
+`GuardRefused` is how a Guard stops: a check the Toolbox runs as you build a Statement, which
+refuses one that would quietly give a wrong number. If you leave `does_not_add_up=[]` empty,
+nothing stops it, and the total means nothing.
 
 ### Writing a Table reference that is already there
 
@@ -311,6 +334,10 @@ Its key is `["alert_id"]`: one row per alert.
   [Describe a table by hand](#describe_a_table_by_hand).
 - Build your first Statement on the table and paste its Hive into another program:
   [Build a first Statement and paste its Hive](#build_a_first_statement).
+- When a table gains or changes a column after you wrote its file:
+  [Keep a Table reference true over time](#keep_a_table_reference_true_over_time).
+- A table whose days are written like 20260924, or which is split by a second column too:
+  [A day written another way, and a second partition](#a_day_written_another_way).
 - Each function here has a Worked example in the gallery:
   [`write_table_reference`](examples.html#write_table_reference),
   [`check_table_reference`](examples.html#check_table_reference),

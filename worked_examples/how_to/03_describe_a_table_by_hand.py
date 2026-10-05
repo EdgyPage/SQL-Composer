@@ -5,8 +5,8 @@ For: Getting started
 ## Goal
 
 Write a Table reference yourself, one argument at a time, for a table `write_table_reference`
-can't ask about. Here it is mart.job_day, a Saved table you are about to create, with one row
-per job per day. Along the way you see what each argument of `Table` is for: the columns and
+can't ask about. Here it is mart.job_day, a Saved table you are about to create (a table of
+your own, which your Statements write into), with one row per job per day. Along the way you see what each argument of `Table` is for: the columns and
 their types, `date_partition=`, `key=`, `does_not_add_up=`, and `date_format=` for a table whose
 days are written another way.
 
@@ -62,8 +62,8 @@ What each argument says:
   typed column with, so `equals(job_day.runs, "3")` stops, since `"3"` is text.
 - `date_partition="dt"` names the one column the table is split into days by. The warehouse
   stores a day at a time, and every Statement that reads the table must give its first and last
-  day. A table with no days, such as `ops.jobs`, says `date_partition=None`. It is the one
-  argument you can't leave out.
+  day. A table with no days, such as `ops.jobs`, says `date_partition=None`. Unlike `key=`,
+  `does_not_add_up=` and `date_format=`, it has no default, so you can't leave it out.
 - `key=["job_id", "dt"]` lists the columns that pick out one row. A job has a row on every day,
   so `job_day.job_id` alone repeats; the job and the day together pick out one row. JOIN reads
   the key to warn you when a join could repeat rows.
@@ -71,7 +71,7 @@ What each argument says:
   different values. Adding up two days' averages gives a number that means nothing, so the
   Toolbox refuses to add these up.
 - There is no `date_format=`: its days are written like 2026-09-24, the usual way. The step
-  after next shows a table whose days are written another way.
+  A table whose days are written another way, below, shows one that needs it.
 
 ### Keep it in a file
 
@@ -126,7 +126,8 @@ run it. At work, once the table exists and holds some days, `run` runs it with y
 
 The Toolbox expects a Date partition's days written like 2026-09-24. Some tables write them
 like 20260924 instead. The Example database's `ops.region_costs`, each job's cost in cents per
-day, is one. Its Table reference says how, with `date_format=`:
+region per day, is one, so its key is the job, the region and the day. Its Table reference
+says how its days are written, with `date_format=`:
 
 >>> region_costs = Table(
 ...     "ops.region_costs",
@@ -181,8 +182,9 @@ ops.region_costs matches its Table reference.
 Notes:
   - the table is also partitioned by region, which a Statement may bound too.
 
-It matches. The note is about a second partition, `region_costs.region`, which the Intermediate
-how-tos cover: a Statement may give its region too, but doesn't have to.
+It matches. The note is about a second partition, `region_costs.region`: a Statement may give
+the regions it reads too, but doesn't have to.
+[A day written another way, and a second partition](#a_day_written_another_way) covers it.
 
 The table mart.job_day doesn't exist yet. `create_table` writes the Hive that makes it from your
 Table reference: read it to check the columns, their types and the partition are what you meant.
@@ -199,6 +201,10 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC;
+
+The Date partition, dt, goes under PARTITIONED BY rather than among the other columns: that is
+how Hive splits a table into days. STORED AS ORC says how Hive keeps the table's files: ORC, a
+compact format Hive reads quickly.
 
 At work, once `run` has sent `create_table(job_day)` through your own send and made the table,
 `check_table_reference` compares it with your file, as above.
@@ -257,7 +263,7 @@ composer_core.refusals.GuardRefused:
 Each day's average is right for its day, but a week's average isn't the sum of the days', nor
 their average when the days had different numbers of runs. The table keeps `job_day.minutes` and
 `job_day.runs`, which add up: total those over the week, and work the average out from the
-totals. The Opt-out is for a column you listed by mistake.
+totals. The Opt-out is for the rare call where a total really is what you mean.
 
 ### A day written the other way
 
@@ -298,6 +304,7 @@ If a table's days really are written day first, its message says what to do inst
   [Build a first Statement and paste its Hive](#build_a_first_statement).
 - Join your table to another without repeating rows, which is what `key=` is for:
   [Join tables safely](#join_tables_safely).
+- Create a Saved table and write a day's rows into it: [Save a table](#save_a_table).
 - The gallery's Worked examples of [`Table`](examples.html#Table) and
   [`create_table`](examples.html#create_table), and a Saved table built and written step by
   step: [Worked example of a Saved table](examples.html#saved_table).

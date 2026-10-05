@@ -64,7 +64,8 @@ Write the Statement once, as a function of the first and the last day. It reads 
 `GROUP_BY(job_runs.job_id, job_runs.dt)` makes one row per job and day, and `count_rows()`
 counts the runs in each; `count_rows(where=...)` counts only those that meet its condition,
 which the Hive writes as `COUNT(CASE WHEN ... THEN 1 END)`. See
-[`GROUP_BY`](examples.html#GROUP_BY) and [`count_rows`](examples.html#count_rows).
+[`GROUP_BY`](examples.html#GROUP_BY) and [`count_rows`](examples.html#count_rows), or
+[Count and add up per group](#count_and_add_up_per_group) from the start.
 
 `job_runs.dt` is in `GROUP_BY` but not in `SELECT`. In `GROUP_BY`, it keeps each day's counts
 apart, so no day's runs are counted with another's. It stays out of `SELECT` because a write
@@ -297,6 +298,8 @@ composer_core.refusals.GuardRefused:
 ## Next
 
 - Run the day's writes every morning, in order: [Run a daily pipeline](#run_a_daily_pipeline).
+- Rewrite only the last few days each morning, for rows that arrive late:
+  [Incremental loads and late data](#incremental_loads_and_late_data).
 - Cap how many days one Statement may read:
   [Keep queries small with Load limits](#keep_queries_small_with_load_limits).
 - Each name's own entry in the gallery: [`by_day`](examples.html#by_day) and

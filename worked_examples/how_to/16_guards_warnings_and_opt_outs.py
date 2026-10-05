@@ -83,7 +83,8 @@ its 10 minutes were counted three times. The Warning's usual fix is right here: 
 alerts first, so there is one row per run, and join that. A Derived table does it:
 `derived("alerts_per_run", statement(...))` gives a Statement a name, so another Statement
 can read it like a table. It is never saved; the Hive writes it at the top, as `WITH alerts_per_run AS (...)`.
-See [`derived`](examples.html#derived).
+See [`derived`](examples.html#derived), and
+[Reusable Derived tables](#reusable_derived_tables).
 
 >>> alerts_per_run = derived("alerts_per_run", statement(
 ...     SELECT(run_alerts.run_id, AS(count_rows(), "alerts")),
@@ -311,6 +312,9 @@ Use `is_null(job_runs.status)`, as the message says.
 
 - Keep queries small with the Load limits you switch on:
   [Keep queries small with Load limits](#keep_queries_small_with_load_limits).
+- The repeated-rows Warning on a join, and LEFT_JOIN, from the start:
+  [Join tables safely](#join_tables_safely).
+- NULL, and the conditions that drop it without a word: [Filter rows](#filter_rows).
 - Build many Statements in a loop, and catch the ones refused:
   [Generate Statements in a loop](#generate_statements_in_a_loop).
 - The gallery's Worked examples of what each one catches:
