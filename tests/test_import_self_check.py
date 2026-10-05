@@ -159,12 +159,13 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path) -> None:
         import_copy(tmp_path, change_core=missing))
 
 
-def test_a_missing_example_gallery_stops_the_import(tmp_path) -> None:
+@pytest.mark.parametrize("page", editions.PAGES)
+def test_a_missing_page_stops_the_import(tmp_path, page: str) -> None:
     def missing(copy: Path) -> None:
         with_file_list(copy)
-        (copy / "examples.html").unlink()
+        (copy / page).unlink()
 
-    assert "examples.html is missing" in import_copy(tmp_path, missing)
+    assert f"{page} is missing" in import_copy(tmp_path, missing)
 
 
 def stamp_every_file(copy: Path, odd: str | None = None, product: str = PRODUCT,
