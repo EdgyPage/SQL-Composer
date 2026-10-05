@@ -1,7 +1,7 @@
-# The starter example project
+# The starter Example project
 
-A small project laid out the way one should be at work, written for sqlglot Composer on the
-Example database's three tables: `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Copy the
+A small project laid out the way one should be at work, written for sqlglot Composer on three
+of the Example database's tables: `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Copy the
 layout for your own project, then replace the tables and the Statements with yours.
 
 It has three examples. Example 1 and example 2 each save one day's numbers in a Saved table,
@@ -38,7 +38,7 @@ change to a Table reference reaches every Statement that reads it.
 | `statements/example_1_daily_job_runs.py` | Example 1: each job's runs, failed runs and minutes per day, saved in `mart.daily_job_runs`. |
 | `statements/example_2_alerts_per_job.py` | Example 2: each job's alerts and high alerts per day, joining each alert to its run, saved in `mart.alerts_per_job`. |
 | `statements/example_3_team_day.py` | Example 3: reads both Saved tables and `ops.jobs` to save each team's day in `mart.team_day`. |
-| `run_pipeline.py` | Every step of the three examples for one day, in order. It sits above the Levels, so it may import from any of them. |
+| `run_pipeline.py` | Every step of the three examples for one day, in order. It sits above the Levels, so it may import from all three. |
 | `lineage/` | **Generated** by `export_lineage`: where each column comes from, as an HTML page and a Markdown twin. |
 | `lineage/example_1_daily_job_runs.html` and `lineage/example_1_daily_job_runs.md` | Example 1's write. |
 | `lineage/example_2_alerts_per_job.html` and `lineage/example_2_alerts_per_job.md` | Example 2's write. |
@@ -51,57 +51,100 @@ change to a Table reference reaches every Statement that reads it.
 - The three Table references of the tables the project reads were written by
   `write_table_reference("ops.jobs", send=...)` and so on, which asks the table for its columns.
   It can't know the key, a one-line description, or which columns don't add up, so it leaves a
-  TODO line for each, and those were filled in by hand. The Saved tables' Table references are
-  written by hand, since those tables don't exist until `create_table` makes them.
-- The lineage files were written by `export_lineages()` in `run_pipeline.py`.
+  TODO line for each; those lines were filled in by hand, and say so. The Saved tables' Table
+  references are written by hand, since those tables don't exist until `create_table` makes
+  them.
+- The lineage files were written by `write_lineage_files("2026-09-24")` in `run_pipeline.py`.
 
 ## Each example's steps
 
 Each example file has the same steps, as functions that return Statements:
 
 1. `create()`: create the Saved table, if it isn't there yet.
-2. `look(day)`: the rows the day's write would save, as a SELECT to run and check first.
-3. `write_day(day)`: save the day, replacing whatever it held, so sending it twice is safe.
-4. `backfill(first_day, last_day)`: one write per day, oldest first, from `by_day`.
+2. `preview(day)`: the rows the day's write would save, as a SELECT to run and check first.
+3. `write_day(day)`: save one day, replacing whatever the day held, so sending it twice is safe.
+   Send it every day.
+4. `backfill(first_day, last_day)`: save every day from `first_day` to `last_day`, for days
+   already past, such as when a Saved table is new.
 
-Example 3 also has `runs_from_the_source(day)`, which works out each team's runs straight
-from `ops.job_runs` through example 1's Building block. Example 3 runs after examples 1 and 2
-have written the same day, since it reads what they write: `run_pipeline.py` keeps that order.
+`write_day` and `backfill` save the same rows for a day. `backfill` builds the day's
+Statement once over all the days, then `by_day` cuts it into one write per day, oldest first,
+to send in that order. Each of those writes keeps the day in `GROUP_BY`, so no day's counts are
+mixed with another's.
+
+No step selects the Date partition, `dt`, of the Saved table it writes: the Toolbox reads the
+day from the WHERE bound (one day only) and writes it as `PARTITION(dt = '...')`.
+
+Every read of a table must bound its Date partition at both ends, a joined table's too, and
+`by_day` cuts only the days of the table in FROM, leaving a joined table's bound as written.
+So example 2 reads the joined `ops.job_runs` from the day before (a run can raise an alert
+after midnight), and example 3's `backfill` bounds the joined `mart.alerts_per_job` inside
+`LEFT_JOIN`'s `ON=`, with `between(alerts_per_job.dt, first_day, last_day)`.
+
+Example 3 runs after examples 1 and 2 have written the same day, since it reads what they
+write: `run_pipeline.py` keeps that order. It also has `team_runs_from_job_runs(day)`, which
+tries example 3's team grouping on the Example database: it reads only ops tables, not the
+Saved tables, so it runs on the Example database too.
 
 ## Running it here, on the Example database
 
-Python must find the Toolbox: put the `composer_core` and `sqlglot_composer` folders beside
-`run_pipeline.py`, or name the folder holding them in `PYTHONPATH`. Then, in this folder:
+Python must find the Toolbox's two folders, `composer_core` and `sqlglot_composer`: put them
+beside `run_pipeline.py`, or name the folder holding them in `PYTHONPATH`. In the Toolbox's own
+repository they are two folders up, so in this folder:
 
 ```
+PYTHONPATH=../.. python run_pipeline.py
+```
+
+or, in the Windows command prompt:
+
+```
+set PYTHONPATH=..\..
 python run_pipeline.py
 ```
 
-prints the Hive of every step, in order, without sending anything (a dry run). The Example
-database can be read but not written, so try the `look` steps there, in Python started in this
-folder:
+That prints the Hive of every step for the Example database's last day, in order, each headed
+by its name, such as `-- 4 of 6: write_daily_job_runs`, without sending anything (a dry run).
+
+The scripts import the Toolbox as `from sqlglot_composer import ...`, the folder of the Edition
+they are written for. With the other Edition, write its folder's name in each import instead.
+
+Each step that runs takes `send=`: a function that takes a Hive string and returns a pandas
+DataFrame, such as `lambda hive: spark.sql(hive).toPandas()` at work. Here it is
+`example_database.send`. The Example database can be read but not written, so try the
+`preview` steps there, in Python started in this folder:
 
 ```python
 from sqlglot_composer import example_database, run
 from statements import example_1_daily_job_runs as example_1
 from statements import example_3_team_day as example_3
 
-run(example_1.look("2026-09-24"), send=example_database.send)
-run(example_3.runs_from_the_source("2026-09-24"), send=example_database.send)
+run(example_1.preview("2026-09-24"), send=example_database.send)
+run(example_3.team_runs_from_job_runs("2026-09-24"), send=example_database.send)
 ```
 
-Example 3's `look` reads the Saved tables, which only your warehouse can hold.
+Example 3's `preview` reads the Saved tables, which only your warehouse holds.
+
+To write the lineage files again, in the same Python:
+
+```python
+import run_pipeline
+
+run_pipeline.write_lineage_files("2026-09-24")
+```
 
 ## Running it at work
 
 1. Copy this folder, and put the Toolbox's two folders beside `run_pipeline.py`.
-2. In `table_references/`, delete the three generated files and write your own tables' with
+2. In `table_references/`, delete the three generated files. Start Python in that folder,
+   since `write_table_reference` writes its file into the folder Python started in, with the
+   Toolbox's folders in `PYTHONPATH`. Write your own tables' Table references with
    `write_table_reference("your_db.your_table", send=run_query)`, `run_query` being your own
-   send function; fill in each TODO line. Write your Saved tables' Table references by hand,
-   naming a database you may write to.
+   send function, and fill in each TODO line. Write your Saved tables' Table references by
+   hand, naming a database you may write to.
 3. Change the Building blocks and Statements to read your tables.
-4. Check a day with `run(example_1.look(day), send=run_query)`, print everything with
-   `dry_run(day)`, then send it all with `main(send=run_query, day=day)` from
-   `run_pipeline.py`, every day.
-5. Run `export_lineages()` after a change, and keep the lineage files with your scripts, so a
-   reviewer can see where each column comes from.
+4. Check a day with `run(example_1.preview(day), send=run_query)`, print everything with
+   `dry_run(day)` from `run_pipeline.py`, then send it all every day with
+   `send_all(run_query, day)`.
+5. Run `write_lineage_files(day)` after a change, and keep the lineage files with your
+   scripts, so a reviewer can see where each column comes from.

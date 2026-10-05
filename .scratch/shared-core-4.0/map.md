@@ -69,6 +69,10 @@ anywhere.
   only the columns read from it; before 4.0 those conditions were listed under every column,
   as if they had dropped rows. With many_matches=True they are still listed, since each row
   can then count several times.
+- **Ticket 15 reruns `python tools/example_project.py` after raising TOOLBOX_VERSION** (and
+  again for each Example project ticket 12 adds): an Example project's lineage footers name the
+  Toolbox version, which the generator takes from TOOLBOX_VERSION rather than pinning, so the
+  staleness test in tests/test_example_projects.py fails until it is rerun (ticket 11).
 
 ## Records this changes
 
@@ -77,7 +81,8 @@ anywhere.
 - The `main` allowlist: adds `composer_core/`, `example_projects/<edition>/` and
   `templates/<edition>/` (ticket 14).
 - CONTEXT.md: Edition, Toolbox and Clean branch amended; the new word Composer core; "CTE"
-  stays avoided ("Derived table (WITH ... AS in the Hive)").
+  stays avoided ("Derived table (WITH ... AS in the Hive)"); the new word Example project, and
+  Level saying where a script such as run_pipeline.py sits, above the Levels (ticket 11, D124).
 
 ## Decisions so far
 
@@ -96,6 +101,12 @@ anywhere.
   ops.job_events, ops.job_owners and ops.region_costs, 14 days each, the last partitioned by
   region then a dt written 20260911; the first three tables and every golden unchanged;
   sqlglot's executor can't run week_start, month_start or row_number on them.
+- [The starter example project](issues/11-the-starter-example-project.md):
+  `example_projects/starter/`, three examples with the steps create, preview(day),
+  write_day(day) and backfill(first_day, last_day), and run_pipeline.py above the Levels;
+  `tools/example_project.py --project` regenerates its Table references and lineage, the
+  time and commit pinned, the version not; the glossary gains Example project; export_lineage
+  no longer lists a LEFT JOIN's table's conditions under the other columns' rows that count.
 
 ## Not yet specified
 

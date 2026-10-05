@@ -18,6 +18,7 @@ jobs = Table(
         "region": "string",
     },
     date_partition=None,
-    key=["job_id"],
+    key=["job_id"],  # filled in by hand
+    # filled in by hand: none of the columns is an average, a ratio or a distinct count
     does_not_add_up=[],
 )

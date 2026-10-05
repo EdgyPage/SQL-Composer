@@ -6,6 +6,9 @@ never count them two different ways.
 A Derived table is a Statement given a name, so another Statement can read it like a table.
 The Toolbox writes it at the top of the reading Statement's Hive, as WITH runs_per_job_day AS
 (...), and checks every column read from it, as it checks a Table reference's.
+
+Every run counts, TEST runs and runs still going among them, since each one takes the
+cluster's time: a team that wants TEST runs left out says so in its own Statement.
 """
 
 from sqlglot_composer import (
@@ -17,8 +20,10 @@ from table_references.job_runs import job_runs
 def runs_per_job_day(first_day, last_day):
     """One row per job and day from first_day to last_day: its runs, failed runs and minutes.
 
-    The day, dt, is kept in SELECT and GROUP_BY, so by_day can split a Statement reading this
-    into one Statement per day.
+    The Date partition, dt, is kept in GROUP_BY, so each day's counts stay apart when
+    first_day and last_day are days apart, and in SELECT, so a Statement that reads this over
+    several days and groups its rows again can keep the day in its own GROUP_BY too, as by_day
+    asks of a Statement it splits.
     """
     return derived(
         "runs_per_job_day",
