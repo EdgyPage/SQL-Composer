@@ -24,6 +24,10 @@ _PYTHON_NEEDED = (3, 11)
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer|Composer core) \S+, exported ")
 
+# What each file of a Toolbox folder that isn't Python holds, for a stop that finds it missing.
+_PAGES = {"CHANGES.md": "the change notes", "examples.html": "the Example gallery",
+          "how_to.html": "the how-tos"}
+
 
 def check_python(product: str, importing: str) -> None:
     """Stop if this Python is too old for the Edition being imported."""
@@ -155,15 +159,14 @@ def check_folder(here: str, folder: str, product: str, files, version: str,
                 folder=importing,
             )
         if missing:
-            page = ("a missing CHANGES.md leaves you without the change notes"
-                    if "CHANGES.md" in files else
-                    "a missing examples.html or how_to.html leaves you without the Example "
-                    "gallery or the how-tos")
+            lost = ["a missing .py file would make a part of it fail later, far from the cause"]
+            lost += [f"a missing {name} leaves you without {_PAGES[name]}"
+                     for name in missing if name in _PAGES]
             _stop(
                 what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
                 f"from the {on_disk} folder.",
-                why=f"Every file of {product} {version} is needed: a missing .py file would "
-                f"make a part of it fail later, far from the cause, and {page}.",
+                why=f"Every file of {product} {version} is needed: "
+                + (", ".join(lost[:-1]) + ", and " if len(lost) > 1 else "") + f"{lost[-1]}.",
                 fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
                 f"the {version} download.",
                 folder=importing,
