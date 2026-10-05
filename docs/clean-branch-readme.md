@@ -169,8 +169,8 @@ Both Editions write the same Hive for a Statement, except in these places, each 
 
 ## Cheat sheet
 
-Everything the Toolbox offers, one line each, grouped by the file of `composer_core` it lives
-in. Import every name from your Edition's folder itself, `sql_composer` or `spark_composer`:
+Everything the Toolbox offers, one line each, grouped by the file it lives in: `__init__.py` is
+your Edition's folder's, and every other file is `composer_core`'s. Import every name from your Edition's folder itself, `sql_composer` or `spark_composer`:
 never from `composer_core`, or from a file inside either folder.
 Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
 `job_runs.duration_mins / 60`.
