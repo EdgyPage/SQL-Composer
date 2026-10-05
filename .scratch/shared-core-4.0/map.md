@@ -80,10 +80,13 @@ anywhere.
 - [The rename to sqlglot Composer](issues/03-rename-to-sqlglot-composer.md): sqlglot_composer
   and "sqlglot Composer" everywhere but the records; the project is "the Toolbox"; named_for
   refuses the old name.
+- [Example database tables for the intermediate level](issues/05-example-database-tables-for-the-intermediate-level.md):
+  ops.job_events, ops.job_owners and ops.region_costs, 14 days each, the last partitioned by
+  region then a dt written 20260911; the first three tables and every golden unchanged;
+  sqlglot's executor can't run week_start, month_start or row_number on them.
 
 ## Not yet specified
 
-- The exact names of the three new Example database tables (ticket 05).
 - Whether a how-to page links to a fixed anchor in the README (ticket 06).
 
 ## Out of scope

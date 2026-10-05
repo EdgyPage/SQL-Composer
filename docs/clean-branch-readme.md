@@ -74,7 +74,7 @@ changed in each version.
 
 ## A first Statement
 
-The Example database ships inside the Toolbox: three made-up tables, and a `send` that runs
+The Example database ships inside the Toolbox: six made-up tables, and a `send` that runs
 Statements on them, so you can practise without touching the warehouse.
 
 ```python
