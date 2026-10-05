@@ -19,14 +19,15 @@ imports the Toolbox and writes `send`; every cell after it builds Statements and
 ### Put the two folders beside your notebook
 
 The Toolbox is two folders: `composer_core`, the code both Editions share, and
-`sqlglot_composer`, this Edition's own. Copy both, each whole, into the folder that holds your
-notebook, so they sit side by side. Keep your own files beside the two folders, never inside
-them: to update the Toolbox, you delete both folders and copy them in again.
+`sqlglot_composer`, this Edition's own. Copy both from the Toolbox you downloaded, each whole,
+into the folder that holds your notebook, so they sit side by side. Keep your own files beside
+the two folders, never inside them: to update the Toolbox, you delete both folders and copy
+them in again.
 
 ### Import the Toolbox
 
 One line imports every Toolbox name: `statement`, the clause functions such as `SELECT`,
-`FROM` and `WHERE`, `to_hive`, `show_hive`, `run`, and the rest.
+`FROM` and `WHERE`, `to_hive`, `show_hive`, `run`, `example_database`, and the rest.
 
 >>> from sqlglot_composer import *
 
@@ -52,9 +53,14 @@ once, in your first cell:
         return pd.DataFrame(rows)
 
 This works when your API gives each row as a dict, such as `{"run_id": 97, "job_id": 3}`:
-`pd.DataFrame(rows)` takes the column names from its keys. If your API gives each row as a
-tuple, with the column names apart, pass the names too, as in
-`pd.DataFrame(rows, columns=["run_id", "job_id"])`.
+`pd.DataFrame(rows)` takes the column names from its keys. If it gives each row as a tuple, it
+gives the column names apart too, as a database cursor does in `cursor.description`. Pass those
+names on; don't type them yourself, since each Statement has its own columns:
+
+    def send(hive):
+        cursor.execute(hive)  # your team's own cursor, from its database library
+        names = [column[0] for column in cursor.description]
+        return pd.DataFrame(cursor.fetchall(), columns=names)
 
 If your notebook has a Spark session, `spark`, that reads the warehouse's tables, use Spark
 Composer instead. Its `send` runs the Hive on your `spark`, and where Spark would read a piece
@@ -134,8 +140,9 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
 
-In a notebook you can also write `show_hive(failed)` on a line of its own; it prints the Hive
-just once. After you build each Statement, call `show_hive` on it to read what will run.
+In a notebook you can also write `show_hive(failed)` on a line of its own: it prints the Hive
+once, and the text it gives back isn't shown a second time. After you build each Statement,
+call `show_hive` on it to read what will run.
 
 ### Run it
 
@@ -164,7 +171,7 @@ True
 
 At work, try your own send on its own, with a query that reads no table, such as
 `send("SELECT 1 AS one")`. A working send gives back a pandas DataFrame with one column, named
-`"one"`, like this one, which the Example database's send gives:
+`"one"`. The Example database's send shows what to expect:
 
 >>> example_database.send("SELECT 1 AS one")
    one
@@ -190,13 +197,14 @@ and 2. This page has no query API, so a stand-in plays yours here, giving each r
 
 Nothing stops it, but no column has its name: reading one by name, such as `"run_id"`, stops
 with a `KeyError`. Check that `send("SELECT 1 AS one")` gives back a column named `"one"`. If
-it doesn't, give `pd.DataFrame` the column names, as Write your send shows.
+it doesn't, pass `pd.DataFrame` the column names your API gives, as the step Write your send
+shows.
 [end]
 [spark_composer only]
 `spark.sql(hive)` gives back Spark's own DataFrame, which hasn't fetched its rows yet. A send
 that leaves out `.toPandas()` hands that to `run`, which stops: there are no rows yet to count
 or read. Your own `spark` isn't in this notebook, so a stand-in plays its DataFrame here; like
-Spark's, it has a `toPandas` method:
+Spark's, it has a `toPandas` method, which is how `run` knows it is Spark's:
 
 >>> class SparkDataFrame:
 ...     def toPandas(self):
@@ -228,9 +236,11 @@ Traceback (most recent call last):
 composer_core.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
 ...
+  Opt-out:        FROM(job_runs, reads_all_partitions=True)
 
 Give the days as the message says, with `between` or `last_n_days` in `WHERE`, as `failed`
-does. The message's opt-out reads every day: leave it for a small table you truly need whole.
+does. The message's Opt-out, `reads_all_partitions=True`, reads every day: use it only for a
+small table you truly need whole.
 
 ### Importing both Editions
 

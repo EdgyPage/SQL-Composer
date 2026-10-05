@@ -41,9 +41,10 @@ then what it gives: its Hive (ready to paste into another program), its result o
 database, or a file it writes. The Example database is six made-up tables that ship inside the
 Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
-2026-09-24 (its newer tables hold 14 days), and the steps here were run as if today were
-2026-09-25. In your own notebook, <code>last_n_days</code> counts back from your real today and
-finds no rows on the Example database: write <code>between</code> with the dates instead.</p>
+2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
+run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from
+your real today, so in your own notebook it finds no rows on the Example database: write
+<code>between</code> with the dates instead.</p>
 <p>The <a href="examples.html">Example gallery</a>, beside this page in the
 <code>sqlglot_composer</code> folder, holds every Worked example, and the how-tos link to it.</p>
 </header>
@@ -72,9 +73,9 @@ finds no rows on the Example database: write <code>between</code> with the dates
 <p>At the top of every notebook, or script, that writes Hive with the Toolbox. Its first cell imports the Toolbox and writes <code>send</code>; every cell after it builds Statements and runs them.</p>
 <h4>Steps</h4>
 <h5>Put the two folders beside your notebook</h5>
-<p>The Toolbox is two folders: <code>composer_core</code>, the code both Editions share, and <code>sqlglot_composer</code>, this Edition&#x27;s own. Copy both, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
+<p>The Toolbox is two folders: <code>composer_core</code>, the code both Editions share, and <code>sqlglot_composer</code>, this Edition&#x27;s own. Copy both from the Toolbox you downloaded, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
 <h5>Import the Toolbox</h5>
-<p>One line imports every Toolbox name: <code>statement</code>, the clause functions such as <code>SELECT</code>, <code>FROM</code> and <code>WHERE</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, and the rest.</p>
+<p>One line imports every Toolbox name: <code>statement</code>, the clause functions such as <code>SELECT</code>, <code>FROM</code> and <code>WHERE</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, and the rest.</p>
 <pre class="python">from sqlglot_composer import *</pre>
 <p>If the import stops instead, its message says what happened, why it matters and the usual fix. Most often a file or a folder is missing, or the two folders come from different downloads.</p>
 <h5>Write your send</h5>
@@ -86,7 +87,11 @@ finds no rows on the Example database: write <code>between</code> with the dates
 def send(hive):
     rows = my_api.query(hive)  # your team&#x27;s own call that runs Hive text goes here
     return pd.DataFrame(rows)</pre>
-<p>This works when your API gives each row as a dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>: <code>pd.DataFrame(rows)</code> takes the column names from its keys. If your API gives each row as a tuple, with the column names apart, pass the names too, as in <code>pd.DataFrame(rows, columns=[&quot;run_id&quot;, &quot;job_id&quot;])</code>.</p>
+<p>This works when your API gives each row as a dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>: <code>pd.DataFrame(rows)</code> takes the column names from its keys. If it gives each row as a tuple, it gives the column names apart too, as a database cursor does in <code>cursor.description</code>. Pass those names on; don&#x27;t type them yourself, since each Statement has its own columns:</p>
+<pre class="python">def send(hive):
+    cursor.execute(hive)  # your team&#x27;s own cursor, from its database library
+    names = [column[0] for column in cursor.description]
+    return pd.DataFrame(cursor.fetchall(), columns=names)</pre>
 <p>If your notebook has a Spark session, <code>spark</code>, that reads the warehouse&#x27;s tables, use Spark Composer instead. Its <code>send</code> runs the Hive on your <code>spark</code>, and where Spark would read a piece of Hive differently, it writes that piece so Spark gives what Hive gives; the README lists each place. Its folder, <code>spark_composer</code>, has its own copy of this page.</p>
 </div>
 <p>There is no warehouse on this page, so the next steps use the Example database&#x27;s own send, <code>example_database.send</code>, which runs Hive on the Example database&#x27;s six made-up tables. At work you give <code>run</code> your own <code>send</code> in its place.</p>
@@ -121,7 +126,7 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
-<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own; it prints the Hive just once. After you build each Statement, call <code>show_hive</code> on it to read what will run.</p>
+<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own: it prints the Hive once, and the text it gives back isn&#x27;t shown a second time. After you build each Statement, call <code>show_hive</code> on it to read what will run.</p>
 <h5>Run it</h5>
 <p><code>run</code> turns the Statement into Hive, hands it to a send, and gives back the DataFrame the send returns. Here the Example database&#x27;s send runs it:</p>
 <pre class="python">run(failed, send=example_database.send)</pre>
@@ -139,7 +144,7 @@ isinstance(result, pd.DataFrame)</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
 <pre class="python">len(result)</pre>
 <p class="label">Python shows</p><pre class="output">2</pre>
-<p>At work, try your own send on its own, with a query that reads no table, such as <code>send(&quot;SELECT 1 AS one&quot;)</code>. A working send gives back a pandas DataFrame with one column, named <code>&quot;one&quot;</code>, like this one, which the Example database&#x27;s send gives:</p>
+<p>At work, try your own send on its own, with a query that reads no table, such as <code>send(&quot;SELECT 1 AS one&quot;)</code>. A working send gives back a pandas DataFrame with one column, named <code>&quot;one&quot;</code>. The Example database&#x27;s send shows what to expect:</p>
 <pre class="python">example_database.send(&quot;SELECT 1 AS one&quot;)</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>one</th></tr>
@@ -159,7 +164,7 @@ run(failed, send=send_without_column_names)</pre>
 <tr><td>97</td><td>3</td><td>2026-09-23</td></tr>
 <tr><td>102</td><td>2</td><td>2026-09-24</td></tr>
 </table></div>
-<p>Nothing stops it, but no column has its name: reading one by name, such as <code>&quot;run_id&quot;</code>, stops with a <code>KeyError</code>. Check that <code>send(&quot;SELECT 1 AS one&quot;)</code> gives back a column named <code>&quot;one&quot;</code>. If it doesn&#x27;t, give <code>pd.DataFrame</code> the column names, as Write your send shows.</p>
+<p>Nothing stops it, but no column has its name: reading one by name, such as <code>&quot;run_id&quot;</code>, stops with a <code>KeyError</code>. Check that <code>send(&quot;SELECT 1 AS one&quot;)</code> gives back a column named <code>&quot;one&quot;</code>. If it doesn&#x27;t, pass <code>pd.DataFrame</code> the column names your API gives, as the step Write your send shows.</p>
 </div>
 <h5>A Statement that doesn&#x27;t give the days it reads</h5>
 <p>A table with a Date partition is stored a day at a time, and a Statement that doesn&#x27;t give the first and last day to read would read every day the table holds. The Toolbox refuses it as you build it, before anything runs:</p>
@@ -173,7 +178,7 @@ run(failed, send=send_without_column_names)</pre>
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
   Opt-out:        FROM(job_runs, reads_all_partitions=True)</pre>
-<p>Give the days as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does. The message&#x27;s opt-out reads every day: leave it for a small table you truly need whole.</p>
+<p>Give the days as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does. The message&#x27;s Opt-out, <code>reads_all_partitions=True</code>, reads every day: use it only for a small table you truly need whole.</p>
 <h5>Importing both Editions</h5>
 <div class="only">
 <p>Use one Edition in a notebook. After <code>from sqlglot_composer import *</code>, a second import line <code>from spark_composer import *</code> stops with a message: the two Editions share <code>composer_core</code>, which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in any of your own .py files it imports, then restart the notebook&#x27;s kernel.</p>

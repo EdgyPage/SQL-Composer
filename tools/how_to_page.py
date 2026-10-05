@@ -625,9 +625,10 @@ then what it gives: its Hive (ready to paste into another program), its result o
 database, or a file it writes. The Example database is six made-up tables that ship inside the
 Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
-2026-09-24 (its newer tables hold 14 days), and the steps here were run as if today were
-2026-09-25. In your own notebook, <code>last_n_days</code> counts back from your real today and
-finds no rows on the Example database: write <code>between</code> with the dates instead.</p>
+2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
+run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from
+your real today, so in your own notebook it finds no rows on the Example database: write
+<code>between</code> with the dates instead.</p>
 <p>The <a href="examples.html">Example gallery</a>, beside this page in the
 <code>__FOLDER__</code> folder, holds every Worked example, and the how-tos link to it.</p>
 </header>
