@@ -61,7 +61,14 @@ your real today, so in your own notebook it finds no rows on the Example databas
 </div>
 <div>
 <p><b><a href="#intermediate">Intermediate</a></b>: work over many days and many tables: snapshots, rollups, layered pipelines, quality checks and testing.</p>
-<p class="note">None yet.</p>
+<ul>
+<li data-for="check_data_quality"><a href="#check_data_quality">25. Check data quality with Statements</a></li>
+<li data-for="generate_from_settings"><a href="#generate_from_settings">26. Generate Table references and Statements from settings</a></li>
+<li data-for="call_other_hive_functions"><a href="#call_other_hive_functions">27. Call other Hive functions, and see where the Editions differ</a></li>
+<li data-for="finish_in_pandas"><a href="#finish_in_pandas">28. Finish in pandas</a></li>
+<li data-for="review_a_change_with_lineage"><a href="#review_a_change_with_lineage">29. Review a change with Lineage</a></li>
+<li data-for="test_your_own_statements"><a href="#test_your_own_statements">30. Test your own Statements</a></li>
+</ul>
 </div>
 </nav>
 <h2 id="getting-started">Getting started</h2>
@@ -180,7 +187,1899 @@ run(failed, send=send_without_to_pandas)</pre>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
-<p class="note">No intermediate how-tos yet.</p>
+<section class="entry" id="check_data_quality">
+<h3>25. Check data quality with Statements <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Check a table&#x27;s data before you trust a number built on it, with Statements you keep and run again: keys that repeat, NULLs in each column, the rows on each day, and two tables that should agree. Then run them all at once and gather what they find in one pandas DataFrame.</p>
+<h4>When you&#x27;d use it</h4>
+<p>Before you build on a table that is new to you, after a load that looked odd, or every morning before a daily pipeline runs. A check that is a Statement runs on the warehouse, so it reads every row of the days you give it, and your notebook gets back only the few rows that matter.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<p>This how-to reads three of the Example database&#x27;s tables, each holding 14 days, 2026-09-11 to 2026-09-24: <code>ops.job_owners</code>, which says each day who owns each job; <code>ops.job_events</code>, each run&#x27;s start, finish, retry or fail; and <code>ops.region_costs</code>, what each run cost, in cents. <code>region_costs</code> writes its days like 20260911, not 2026-09-11.</p>
+<pre class="python">from spark_composer import *
+import pandas as pd
+job_owners = example_database.job_owners
+job_events = example_database.job_events
+region_costs = example_database.region_costs</pre>
+<h5>Find keys that repeat</h5>
+<p>A Table reference&#x27;s key lists the columns that pick out one row. For <code>ops.job_owners</code> it is <code>job_owners.job_id</code> and <code>job_owners.dt</code>: one row per job per day. The warehouse never enforces a key, and JOIN relies on it to warn you about repeated rows, so check it holds.</p>
+<p>Write a check so that each row it gives back is a problem. Here, group the rows by the key and keep, with <code>HAVING</code>, only the groups holding more than one row:</p>
+<pre class="python">repeated_keys = statement(
+    SELECT(job_owners.job_id, job_owners.dt, AS(count_rows(), &quot;copies&quot;)),
+    FROM(job_owners),
+    WHERE(between(job_owners.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_owners.job_id, job_owners.dt),
+    HAVING(more_than(count_rows(), 1)),
+)
+run(repeated_keys, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><p class="note">No rows.</p>
+<p>No rows: no key repeats on any of the 14 days. The Toolbox&#x27;s own <a href="examples.html#check_key"><code>check_key</code></a> does the same for the newest day only; this Statement checks every day you give it.</p>
+<h5>Count the NULLs in every column</h5>
+<p><a href="examples.html#all_columns"><code>all_columns</code></a> gives every column of a Table reference, in a list, so one short function writes a NULL count for each column of any table. <code>str(column)</code> is the column as the Hive names it, such as <code>job_owners.owner</code>, and the part after the dot is its name, which names each count:</p>
+<pre class="python">def null_counts(t, first_day, last_day):
+    counts = [AS(count_rows(where=is_null(column)), &quot;null_&quot; + str(column).split(&quot;.&quot;)[1])
+              for column in all_columns(t)]
+    return statement(
+        SELECT(AS(count_rows(), &quot;total_rows&quot;), counts),
+        FROM(t),
+        WHERE(between(t.dt, first_day, last_day)),
+    )</pre>
+<p>Every table in the Example database keeps its days in a column named dt, so <code>t.dt</code> works for each. Here is the Hive it writes for <code>ops.job_owners</code>, one count per column:</p>
+<pre class="python">owner_nulls = null_counts(job_owners, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)
+text = show_hive(owner_nulls)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  COUNT(*) AS total_rows,
+  COUNT(CASE WHEN job_owners.job_id IS NULL THEN 1 END) AS null_job_id,
+  COUNT(CASE WHEN job_owners.team IS NULL THEN 1 END) AS null_team,
+  COUNT(CASE WHEN job_owners.owner IS NULL THEN 1 END) AS null_owner,
+  COUNT(CASE WHEN job_owners.dt IS NULL THEN 1 END) AS null_dt
+FROM ops.job_owners AS job_owners
+WHERE
+  job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<pre class="python">run(owner_nulls, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>total_rows</th><th>null_job_id</th><th>null_team</th><th>null_owner</th><th>null_dt</th></tr>
+<tr><td>56</td><td>0</td><td>0</td><td>14</td><td>0</td></tr>
+</table></div>
+<p>14 of the 56 rows have no owner: cache_warm has had none on any of the 14 days. The same function counts the NULLs in <code>ops.region_costs</code>, with its days written its own way:</p>
+<pre class="python">run(null_counts(region_costs, &quot;20260911&quot;, &quot;20260924&quot;), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>total_rows</th><th>null_job_id</th><th>null_cost_cents</th><th>null_region</th><th>null_dt</th></tr>
+<tr><td>28</td><td>0</td><td>1</td><td>0</td><td>0</td></tr>
+</table></div>
+<h5>Count the rows on each day</h5>
+<p>A day holding far fewer rows than the others often means a load that broke halfway. Count the rows per day with <code>GROUP_BY</code>:</p>
+<pre class="python">events_per_day = statement(
+    SELECT(job_events.dt, AS(count_rows(), &quot;events&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_events.dt),
+)
+run(events_per_day, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>dt</th><th>events</th></tr>
+<tr><td>2026-09-11</td><td>6</td></tr>
+<tr><td>2026-09-12</td><td>2</td></tr>
+<tr><td>2026-09-13</td><td>2</td></tr>
+<tr><td>2026-09-14</td><td>7</td></tr>
+<tr><td>2026-09-15</td><td>4</td></tr>
+<tr><td>2026-09-16</td><td>5</td></tr>
+<tr><td>2026-09-17</td><td>4</td></tr>
+<tr><td>2026-09-18</td><td>6</td></tr>
+<tr><td>2026-09-19</td><td>2</td></tr>
+<tr><td>2026-09-20</td><td>2</td></tr>
+<tr><td>2026-09-21</td><td>6</td></tr>
+<tr><td>2026-09-22</td><td>4</td></tr>
+<tr><td>2026-09-23</td><td>4</td></tr>
+<tr><td>2026-09-24</td><td>3</td></tr>
+</table></div>
+<p>The weekends, 2026-09-12 and 13 and 2026-09-19 and 20, hold 2 events each: only nightly_load runs then.</p>
+<h5>Check that two tables agree</h5>
+<p>Every run that starts should get a bill. <code>ops.job_events</code> says how many runs started each day, and <code>ops.region_costs</code> how many bills came in. Count each, per day, with one Statement each:</p>
+<pre class="python">starts_per_day = statement(
+    SELECT(job_events.dt,
+           AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_events.dt),
+)
+bills_per_day = statement(
+    SELECT(region_costs.dt,
+           AS(count_rows(where=is_not_null(region_costs.cost_cents)), &quot;bills&quot;)),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, &quot;20260911&quot;, &quot;20260924&quot;)),
+    GROUP_BY(region_costs.dt),
+)</pre>
+<p>The two tables write their days differently, so compare the two small results in pandas: write <code>region_costs</code>&#x27;s days like <code>job_events</code>&#x27;s, then put the two side by side with <code>starts.merge</code>. <code>how=&quot;outer&quot;</code> keeps a day that only one of them has, with NaN, pandas&#x27; empty value, for the other count, so that day shows up as a difference too:</p>
+<pre class="python">starts = run(starts_per_day, send=example_database.send)
+bills = run(bills_per_day, send=example_database.send)
+bills[&quot;dt&quot;] = pd.to_datetime(bills[&quot;dt&quot;], format=&quot;%Y%m%d&quot;).dt.strftime(&quot;%Y-%m-%d&quot;)
+both = starts.merge(bills, on=&quot;dt&quot;, how=&quot;outer&quot;)
+both[both[&quot;starts&quot;] != both[&quot;bills&quot;]]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>dt</th><th>starts</th><th>bills</th></tr>
+<tr><td>2026-09-24</td><td>2</td><td>1</td></tr>
+</table></div>
+<p>On 2026-09-24 two runs started but only one was billed: invoice_sync is still running, and its bill comes in when it finishes.</p>
+<h5>Run every check and gather what they find</h5>
+<p>Two more checks, each giving the rows that are problems: jobs with no owner on the newest day, and costs not billed yet.</p>
+<pre class="python">no_owner = statement(
+    SELECT(job_owners.job_id, job_owners.dt),
+    FROM(job_owners),
+    WHERE(between(job_owners.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;), is_null(job_owners.owner)),
+)
+not_billed = statement(
+    SELECT(region_costs.job_id, region_costs.region, region_costs.dt),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, &quot;20260911&quot;, &quot;20260924&quot;),
+          is_null(region_costs.cost_cents)),
+)</pre>
+<p>Keep the checks in a dict, by name, and run each in a loop. Add the days on which the two tables disagree, already in pandas, then count each check&#x27;s problem rows:</p>
+<pre class="python">checks = {&quot;repeated_keys&quot;: repeated_keys, &quot;no_owner&quot;: no_owner, &quot;not_billed&quot;: not_billed}
+found = {name: run(check, send=example_database.send) for name, check in checks.items()}
+found[&quot;starts_not_billed&quot;] = both[both[&quot;starts&quot;] != both[&quot;bills&quot;]]
+summary = pd.DataFrame({&quot;check&quot;: list(found),
+                        &quot;problem_rows&quot;: [len(rows) for rows in found.values()]})
+summary</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>check</th><th>problem_rows</th></tr>
+<tr><td>repeated_keys</td><td>0</td></tr>
+<tr><td>no_owner</td><td>1</td></tr>
+<tr><td>not_billed</td><td>1</td></tr>
+<tr><td>starts_not_billed</td><td>1</td></tr>
+</table></div>
+<p>A check with 0 problem rows passed. For the others, <code>found</code> holds the rows to look at:</p>
+<pre class="python">found[&quot;not_billed&quot;]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>region</th><th>dt</th></tr>
+<tr><td>2</td><td>eu</td><td>20260924</td></tr>
+</table></div>
+<h4>Check it worked</h4>
+<p>Each check you expect to pass gives no rows, and each one that finds something names the rows you can explain: <code>no_owner</code> names cache_warm, job 4, which has never had an owner, and <code>not_billed</code> names invoice_sync, job 2, still running on 2026-09-24.</p>
+<pre class="python">found[&quot;no_owner&quot;]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th></tr>
+<tr><td>4</td><td>2026-09-24</td></tr>
+</table></div>
+<pre class="python">len(found[&quot;repeated_keys&quot;])</pre>
+<p class="label">Python shows</p><pre class="output">0</pre>
+<h4>Common mistakes</h4>
+<h5>Looking for NULLs with equals</h5>
+<p>In SQL nothing equals NULL, not even NULL, so a condition owner = NULL matches no row, and the count comes out 0 however many owners are missing. The Toolbox refuses it as you build it:</p>
+<pre class="python">count_rows(where=equals(job_owners.owner, None))</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  equals(job_owners.owner, None) compares with None.
+  Why it matters: In SQL nothing is equal to NULL, not even NULL, so this would match no rows and quietly give an empty or wrong result.
+  Usual fix:      Use is_null(column) or is_not_null(column) to find missing values.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Use <code>is_null(column)</code>, as <code>null_counts</code> does, or <code>is_not_null(column)</code>.</p>
+<h5>Expecting a day with no rows to show 0</h5>
+<p><code>GROUP_BY</code> makes one row per value it finds, so a day with no rows at all isn&#x27;t in the result: it doesn&#x27;t show with 0. invoice_sync, job 2, runs on weekdays only, and its count per day skips the weekends without a word:</p>
+<pre class="python">invoice_sync_per_day = statement(
+    SELECT(job_events.dt, AS(count_rows(), &quot;events&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;), equals(job_events.job_id, 2)),
+    GROUP_BY(job_events.dt),
+)
+per_day = run(invoice_sync_per_day, send=example_database.send)
+len(per_day)</pre>
+<p class="label">Python shows</p><pre class="output">10</pre>
+<p>To find the days that are missing, list every day you expected, with <code>pd.date_range</code>, and keep those the result doesn&#x27;t hold:</p>
+<pre class="python">every_day = pd.date_range(&quot;2026-09-11&quot;, &quot;2026-09-24&quot;).strftime(&quot;%Y-%m-%d&quot;)
+[day for day in every_day if day not in set(per_day[&quot;dt&quot;])]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;2026-09-12&#x27;, &#x27;2026-09-13&#x27;, &#x27;2026-09-19&#x27;, &#x27;2026-09-20&#x27;]</pre>
+<p>Here the four are weekends, as expected. A missing weekday would be a load to look into.</p>
+<h4>Next</h4>
+<ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, against pandas.</li><li><a href="#finish_in_pandas">Finish in pandas</a>: more of what pandas does once <code>run</code> gives back the rows, such as merging the results of several Statements.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> checks that a Table reference still matches its table, and <a href="examples.html#check_key"><code>check_key</code></a> checks its key on the newest day.</li></ul>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>is_not_null</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="generate_from_settings">
+<h3>26. Generate Table references and Statements from settings <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Write down what you know about each table once, as settings: its name, its key and the columns worth adding up. From those settings, generate a Table reference and a daily Statement for every table, run them all, and export one Lineage for the lot.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When the same job repeats over many tables: daily totals for every table a team owns, or one check per table. Adding a table is then one more line of settings, not one more copied Statement, and a fix to the function that writes the Statements reaches every table at once.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *
+import datetime</pre>
+<h5>Write one setting per table</h5>
+<p>Each setting is a dict: the table&#x27;s name, its key, and its measures, the columns a daily total adds up. <code>ops.job_events</code> has no column worth adding up, so its measures are an empty list and its total is the number of rows. <code>ops.region_costs</code> writes its days like 20260924, which its setting says in <code>&quot;date_format&quot;</code>, as a Table reference does. The avg_retry_secs column of <code>ops.job_runs</code> is an average, which must never be added up, so its setting lists it in <code>&quot;does_not_add_up&quot;</code>.</p>
+<pre class="python">settings = [
+    {&quot;table&quot;: &quot;ops.job_runs&quot;, &quot;key&quot;: [&quot;run_id&quot;], &quot;measures&quot;: [&quot;duration_mins&quot;],
+     &quot;does_not_add_up&quot;: [&quot;avg_retry_secs&quot;]},
+    {&quot;table&quot;: &quot;ops.job_events&quot;, &quot;key&quot;: [&quot;event_id&quot;], &quot;measures&quot;: []},
+    {&quot;table&quot;: &quot;ops.region_costs&quot;, &quot;key&quot;: [&quot;job_id&quot;, &quot;region&quot;, &quot;dt&quot;],
+     &quot;measures&quot;: [&quot;cost_cents&quot;], &quot;date_format&quot;: &quot;%Y%m%d&quot;},
+]</pre>
+<h5>Generate a Table reference for each table</h5>
+<p>A Table reference needs each column and its type. Rather than type them, ask the table: your send runs DESCRIBE, which lists the columns, one per row, each with its name in <code>&quot;col_name&quot;</code> and its type in <code>&quot;data_type&quot;</code>. After them it lists the partition columns again, under a heading row starting with <code>#</code>, often after an empty row, so stop at the first such row:</p>
+<pre class="python">example_database.send(&quot;DESCRIBE ops.region_costs&quot;)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>col_name</th><th>data_type</th><th>comment</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+<tr><td></td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td># Partition Information</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td># col_name</td><td>data_type</td><td>comment</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div>
+<p><code>table_reference</code> builds a Table reference from a setting and what DESCRIBE gives. Every table here keeps its days in a column named dt; if yours don&#x27;t, add the name to each setting too:</p>
+<pre class="python">def table_reference(setting, send):
+    described = send(&quot;DESCRIBE &quot; + setting[&quot;table&quot;])
+    columns = {}
+    for name, data_type in zip(described[&quot;col_name&quot;], described[&quot;data_type&quot;]):
+        if not name or name.startswith(&quot;#&quot;):
+            break
+        columns[name] = data_type
+    return Table(setting[&quot;table&quot;], columns=columns, date_partition=&quot;dt&quot;,
+                 key=setting[&quot;key&quot;], does_not_add_up=setting.get(&quot;does_not_add_up&quot;, []),
+                 date_format=setting.get(&quot;date_format&quot;))
+tables = {setting[&quot;table&quot;]: table_reference(setting, example_database.send)
+          for setting in settings}
+tables[&quot;ops.region_costs&quot;]</pre>
+<p class="label">Python shows</p><pre class="output">Table(&#x27;ops.region_costs&#x27;, columns: job_id, cost_cents, region, dt)</pre>
+<p>Check what you generated, as you would a Table reference you wrote: each still matches its table, and each key holds.</p>
+<pre class="python">for t in tables.values():
+    print(check_table_reference(t, send=example_database.send))
+    print(check_key(t, send=example_database.send))</pre>
+<p class="label">Python prints</p><pre class="output">ops.job_runs matches its Table reference.
+ops.job_runs: the key (run_id) holds on 2026-09-24.
+ops.job_events matches its Table reference.
+ops.job_events: the key (event_id) holds on 2026-09-24.
+ops.region_costs matches its Table reference.
+Notes:
+  - the table is also partitioned by region, which a Statement may bound too.
+ops.region_costs: the key (job_id, region, dt) holds on 20260924.</pre>
+<p>A Table reference generated like this lasts as long as the notebook. For a table you build on for months, write its Table reference to a file once with <a href="examples.html#write_table_reference"><code>write_table_reference</code></a> and keep it, so a change to the table shows up as a difference when you check it, rather than slipping into your Statements.</p>
+<h5>Generate a Statement for each table</h5>
+<p><code>daily_totals</code> writes one Statement for a table and its setting: per day, the number of rows and the total of each measure. <code>getattr(t, &quot;duration_mins&quot;)</code> is <code>t.duration_mins</code>, for a column whose name you hold as text, so a measure the table doesn&#x27;t have stops here, naming the real ones.</p>
+<pre class="python">def daily_totals(t, setting, first_day, last_day):
+    totals = [AS(sum_of(getattr(t, measure)), &quot;total_&quot; + measure)
+              for measure in setting[&quot;measures&quot;]]
+    return statement(
+        SELECT(t.dt, AS(count_rows(), &quot;row_count&quot;), totals),
+        FROM(t),
+        WHERE(between(t.dt, first_day, last_day)),
+        GROUP_BY(t.dt),
+    )</pre>
+<p>The days are given as <code>datetime.date</code>, not as text: each table writes them in its own way, and <code>between</code> writes a <code>datetime.date</code> as the table&#x27;s Table reference says. Generate one Statement per setting, and see their Hive:</p>
+<pre class="python">first_day, last_day = datetime.date(2026, 9, 23), datetime.date(2026, 9, 24)
+daily = {setting[&quot;table&quot;]: daily_totals(tables[setting[&quot;table&quot;]], setting,
+                                          first_day, last_day)
+         for setting in settings}
+text = show_hive(*daily.values())</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 3
+SELECT
+  job_runs.dt,
+  COUNT(*) AS row_count,
+  SUM(job_runs.duration_mins) AS total_duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.dt;
+
+-- 2 of 3
+SELECT
+  job_events.dt,
+  COUNT(*) AS row_count
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_events.dt;
+
+-- 3 of 3
+SELECT
+  region_costs.dt,
+  COUNT(*) AS row_count,
+  SUM(region_costs.cost_cents) AS total_cost_cents
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.dt BETWEEN &#x27;20260923&#x27; AND &#x27;20260924&#x27;
+GROUP BY
+  region_costs.dt;</pre>
+<h5>Run them all</h5>
+<p>Run each in a loop, and keep each result under its table&#x27;s name:</p>
+<pre class="python">results = {name: run(s, send=example_database.send) for name, s in daily.items()}
+results[&quot;ops.region_costs&quot;]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>dt</th><th>row_count</th><th>total_cost_cents</th></tr>
+<tr><td>20260923</td><td>2</td><td>300</td></tr>
+<tr><td>20260924</td><td>2</td><td>100</td></tr>
+</table></div>
+<p>On 2026-09-24 two runs were billed in <code>ops.region_costs</code>, but one bill, invoice_sync&#x27;s, hasn&#x27;t come in: its cost is NULL, and SUM leaves a NULL out of the total.</p>
+<h5>Export one Lineage for them all</h5>
+<p>Pass every Statement to <a href="examples.html#export_lineage"><code>export_lineage</code></a> at once, and it writes one HTML page and one Markdown file for them all. <code>to=</code> names the HTML file, and the Markdown file goes beside it:</p>
+<pre class="python">html_file, markdown_file = export_lineage(*daily.values(), to=&quot;daily_totals.html&quot;)</pre>
+<p class="label">It writes daily_totals.md</p>
+<pre class="file"># Lineage: statement_1, statement_2, statement_3
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;ops.job_runs&quot;]
+    n0[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n3[&quot;ops.job_runs.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;statement_1&quot;]
+    n1[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&quot;]
+    n2[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
+    n4[&quot;total_duration_mins&lt;br/&gt;&lt;small&gt;sum_of(job_runs.duration_mins)&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;filters on statement_1&quot;]
+    n5{{&quot;WHERE in statement_1&lt;br/&gt;&lt;small&gt;between(job_runs.dt, datetime.date(2026, 9,…&lt;/small&gt;&quot;}}
+  end
+  subgraph g3[&quot;ops.job_events&quot;]
+    n6[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;statement_2&quot;]
+    n7[&quot;dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&quot;]
+    n8[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
+  end
+  subgraph g5[&quot;filters on statement_2&quot;]
+    n9{{&quot;WHERE in statement_2&lt;br/&gt;&lt;small&gt;between(job_events.dt, datetime.date(2026, …&lt;/small&gt;&quot;}}
+  end
+  subgraph g6[&quot;ops.region_costs&quot;]
+    n10[&quot;ops.region_costs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n13[&quot;ops.region_costs.cost_cents&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+  end
+  subgraph g7[&quot;statement_3&quot;]
+    n11[&quot;dt&lt;br/&gt;&lt;small&gt;region_costs.dt&lt;/small&gt;&quot;]
+    n12[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
+    n14[&quot;total_cost_cents&lt;br/&gt;&lt;small&gt;sum_of(region_costs.cost_cents)&lt;/small&gt;&quot;]
+  end
+  subgraph g8[&quot;filters on statement_3&quot;]
+    n15{{&quot;WHERE in statement_3&lt;br/&gt;&lt;small&gt;between(region_costs.dt, datetime.date(2026…&lt;/small&gt;&quot;}}
+  end
+  n0 --&gt; n1
+  n3 --&gt; n4
+  n0 -.-&gt; n5
+  n6 --&gt; n7
+  n6 -.-&gt; n9
+  n10 --&gt; n11
+  n13 --&gt; n14
+  n10 -.-&gt; n15
+  n5 -.-&gt;|filters| g1
+  n9 -.-&gt;|filters| g4
+  n15 -.-&gt;|filters| g7
+```
+
+## statement_1
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `row_count`
+
+Calculated in **statement_1** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement_1.row_count = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement_1: `between(job_runs.dt, datetime.date(2026, 9, 23), datetime.date(2026, 9, 24))`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.dt`.
+
+#### `total_duration_mins`
+
+Calculated in **statement_1** as `sum_of(job_runs.duration_mins)`, which is `SUM(job_runs.duration_mins)`.
+
+```text
+statement_1.total_duration_mins = sum_of(job_runs.duration_mins)
+└─ ops.job_runs.duration_mins  (int)
+```
+
+Rows that count:
+- WHERE in statement_1: `between(job_runs.dt, datetime.date(2026, 9, 23), datetime.date(2026, 9, 24))`, which is `job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.dt`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `dt` | ops.job_runs.dt |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.dt,
+  COUNT(*) AS row_count,
+  SUM(job_runs.duration_mins) AS total_duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.dt
+```
+
+## statement_2
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `row_count`
+
+Calculated in **statement_2** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement_2.row_count = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement_2: `between(job_events.dt, datetime.date(2026, 9, 23), datetime.date(2026, 9, 24))`, which is `job_events.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.dt`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `dt` | ops.job_events.dt |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_events.dt,
+  COUNT(*) AS row_count
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_events.dt
+```
+
+## statement_3
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `row_count`
+
+Calculated in **statement_3** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement_3.row_count = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement_3: `between(region_costs.dt, datetime.date(2026, 9, 23), datetime.date(2026, 9, 24))`, which is `region_costs.dt BETWEEN &#x27;20260923&#x27; AND &#x27;20260924&#x27;` (reads ops.region_costs.dt)
+
+One value for each different `region_costs.dt`.
+
+#### `total_cost_cents`
+
+Calculated in **statement_3** as `sum_of(region_costs.cost_cents)`, which is `SUM(region_costs.cost_cents)`.
+
+```text
+statement_3.total_cost_cents = sum_of(region_costs.cost_cents)
+└─ ops.region_costs.cost_cents  (bigint)
+```
+
+Rows that count:
+- WHERE in statement_3: `between(region_costs.dt, datetime.date(2026, 9, 23), datetime.date(2026, 9, 24))`, which is `region_costs.dt BETWEEN &#x27;20260923&#x27; AND &#x27;20260924&#x27;` (reads ops.region_costs.dt)
+
+One value for each different `region_costs.dt`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `dt` | ops.region_costs.dt |
+
+### Hive as submitted
+
+```sql
+SELECT
+  region_costs.dt,
+  COUNT(*) AS row_count,
+  SUM(region_costs.cost_cents) AS total_cost_cents
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.dt BETWEEN &#x27;20260923&#x27; AND &#x27;20260924&#x27;
+GROUP BY
+  region_costs.dt
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with Spark Composer 3.2.</pre>
+<p class="note">It writes <code>daily_totals.html</code> too, a page to open in your browser.</p>
+<p><code>export_lineage</code> names each Statement after the variable that holds it. These sit in a dict, in no variable of their own, so it numbers them in the order you passed them: statement_1 is <code>ops.job_runs</code>&#x27;s, and each one&#x27;s Hive, at the end of its part, names its table.</p>
+<h4>Check it worked</h4>
+<p>There is one Table reference, one Statement and one result per setting, and each Table reference matched its table:</p>
+<pre class="python">len(settings), len(tables), len(daily), len(results)</pre>
+<p class="label">Python shows</p><pre class="output">(3, 3, 3, 3)</pre>
+<pre class="python">markdown_file.name</pre>
+<p class="label">Python shows</p><pre class="output">&#x27;daily_totals.md&#x27;</pre>
+<h4>Common mistakes</h4>
+<h5>A measure that isn&#x27;t one of the table&#x27;s columns</h5>
+<p>A typo in a setting stops when its Statement is generated, at <code>getattr</code>, with the real columns:</p>
+<pre class="python">typo = {&quot;table&quot;: &quot;ops.job_runs&quot;, &quot;key&quot;: [&quot;run_id&quot;], &quot;measures&quot;: [&quot;duration_min&quot;]}
+daily_totals(tables[&quot;ops.job_runs&quot;], typo, first_day, last_day)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">AttributeError:
+job_runs has no column &#x27;duration_min&#x27;. Did you mean &#x27;duration_mins&#x27;? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.</pre>
+<h5>Adding up an average</h5>
+<p>A setting can list a column that must not be added up, such as &quot;avg_retry_secs&quot;, an average per run. Because the Table reference was generated with <code>&quot;does_not_add_up&quot;</code> from the setting, the Toolbox refuses it:</p>
+<pre class="python">averages = {&quot;table&quot;: &quot;ops.job_runs&quot;, &quot;key&quot;: [&quot;run_id&quot;], &quot;measures&quot;: [&quot;avg_retry_secs&quot;]}
+daily_totals(tables[&quot;ops.job_runs&quot;], averages, first_day, last_day)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is listed in does_not_add_up in its Table reference.
+  Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
+  Usual fix:      It could be an average, a ratio or a distinct count, so work it out again from the table it was made from. For an average or a ratio, add up its two parts and divide after your own GROUP_BY. For a distinct count, count again with count_distinct(...).
+  Opt-out:        sum_of(job_runs.avg_retry_secs, adds_up=True)</pre>
+<p>Leave a setting&#x27;s <code>&quot;does_not_add_up&quot;</code> out and nothing would refuse it: the total would come out, and be wrong. Fill it in for every table.</p>
+<h5>The same days, written as text, for every table</h5>
+<p>Text days are written one way, and <code>ops.region_costs</code> writes its days another, so the Toolbox refuses them rather than read no day, or the wrong ones:</p>
+<pre class="python">daily_totals(tables[&quot;ops.region_costs&quot;], settings[2], &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;2026-09-23&#x27;, which isn&#x27;t a day written like &#x27;20260925&#x27;.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as &#x27;20260925&#x27;, or pass a datetime.date.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Pass <code>datetime.date</code> days, as the steps do, and each table gets them in its own way.</p>
+<h4>Next</h4>
+<ul><li><a href="#check_data_quality">Check data quality with Statements</a>: checks you could generate per table the same way, from the same settings.</li><li><a href="#review_a_change_with_lineage">Review a change with Lineage</a>: compare a Lineage before and after you change the function that writes your Statements.</li><li>The gallery&#x27;s <a href="examples.html#Table"><code>Table</code></a> says what each part of a Table reference does, and <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> what it compares.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>export_lineage</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="call_other_hive_functions">
+<h3>27. Call other Hive functions, and see where the Editions differ <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with <code>hive_function</code>. Then see the three places where Spark Composer and Spark Composer write different Hive for the same Statement, each a Declared difference, and check that the results are the same.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When the Hive you need has a function the Toolbox doesn&#x27;t wrap: text functions such as upper, concat or substr, or date functions such as datediff and date_format. And when you read the Hive one Edition wrote beside Hive the other wrote, say from a colleague, and some lines differ.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *
+job_owners = example_database.job_owners
+job_events = example_database.job_events
+job_runs = example_database.job_runs</pre>
+<h5>Call a function the Toolbox doesn&#x27;t wrap</h5>
+<p><code>hive_function</code> takes the function&#x27;s name as text, then its arguments: columns, or values, which it quotes for you. Here upper writes each team in capitals, and concat joins each job&#x27;s owner and team into one contact, such as ana@data:</p>
+<pre class="python">contacts = statement(
+    SELECT(job_owners.job_id,
+           AS(hive_function(&quot;upper&quot;, job_owners.team), &quot;team&quot;),
+           AS(hive_function(&quot;concat&quot;, fill_null(job_owners.owner, &quot;nobody&quot;), &quot;@&quot;,
+                            job_owners.team), &quot;contact&quot;)),
+    FROM(job_owners),
+    WHERE(between(job_owners.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)),
+)
+text = show_hive(contacts)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_owners.job_id,
+  UPPER(job_owners.team) AS team,
+  CONCAT(COALESCE(job_owners.owner, &#x27;nobody&#x27;), &#x27;@&#x27;, job_owners.team) AS contact
+FROM ops.job_owners AS job_owners
+WHERE
+  job_owners.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<pre class="python">run(contacts, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>contact</th></tr>
+<tr><td>1</td><td>DATA</td><td>ana@data</td></tr>
+<tr><td>2</td><td>FINANCE</td><td>ben@finance</td></tr>
+<tr><td>3</td><td>FINANCE</td><td>chloe@finance</td></tr>
+<tr><td>4</td><td>WEB</td><td>nobody@web</td></tr>
+</table></div>
+<p>The function concat gives NULL as soon as one of its arguments is NULL, so <code>fill_null</code> puts &quot;nobody&quot; in where a job has no owner, as job 4, cache_warm, has none.</p>
+<p>Before writing the call, <code>hive_function</code> checks it: for the functions it knows, such as upper, substr or date_add, it refuses the wrong number of arguments, and it refuses a function that works only over a window of rows, such as lag or rank. The Common mistakes below show both.</p>
+<h5>Where the two Editions write different Hive</h5>
+<p>The two Editions take the same Statements and give the same results, but in three places they write different Hive, each for a reason. These are the Declared differences, and the README lists them too. Each step below builds a Statement with one of them, shows the Hive this Edition writes, and runs it. After the three, the Hive both Editions write is shown side by side.</p>
+<h5>Dividing by something that could be 0</h5>
+<p>How many retries each job had per run: the retries, divided by the starts.</p>
+<pre class="python">retries_per_run = statement(
+    SELECT(job_events.job_id,
+           AS(count_rows(where=equals(job_events.event_type, &quot;retry&quot;))
+              / count_rows(where=equals(job_events.event_type, &quot;start&quot;)),
+              &quot;retries_per_run&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_events.job_id),
+)
+text = show_hive(retries_per_run)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_events.job_id,
+  COUNT(CASE WHEN job_events.event_type = &#x27;retry&#x27; THEN 1 END) / NULLIF(COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END), 0) AS retries_per_run
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_events.job_id;</pre><p class="note">With ANSI on, Spark 4&#x27;s default, Spark stops the whole query with an error when it divides by 0, where Hive gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.</p>
+<pre class="python">run(retries_per_run, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>retries_per_run</th></tr>
+<tr><td>1</td><td>0.07142857142857142</td></tr>
+<tr><td>2</td><td>0.0</td></tr>
+<tr><td>3</td><td>0.25</td></tr>
+</table></div>
+<h5>A Python float</h5>
+<p>The jobs whose finished runs took more than 15.5 minutes on average. 15.5 is a Python float:</p>
+<pre class="python">long_runs = statement(
+    SELECT(job_events.job_id, AS(count_rows(), &quot;finished_runs&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;),
+          equals(job_events.event_type, &quot;finish&quot;)),
+    GROUP_BY(job_events.job_id),
+    HAVING(more_than(average_of(job_events.minutes), 15.5)),
+)
+text = show_hive(long_runs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_events.job_id,
+  COUNT(*) AS finished_runs
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+  AND job_events.event_type = &#x27;finish&#x27;
+GROUP BY
+  job_events.job_id
+HAVING
+  AVG(job_events.minutes) &gt; 15.5D;</pre><p class="note">Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p>
+<pre class="python">run(long_runs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>finished_runs</th></tr>
+<tr><td>2</td><td>9</td></tr>
+<tr><td>3</td><td>3</td></tr>
+</table></div>
+<h5>A hive_function call</h5>
+<p>The function nvl gives its first argument, or its second where the first is NULL, as <code>fill_null</code> does. Here it puts &quot;none&quot; in for run 98, which is still running and has no status yet:</p>
+<pre class="python">statuses = statement(
+    SELECT(job_runs.run_id, AS(hive_function(&quot;nvl&quot;, job_runs.status, &quot;none&quot;), &quot;status&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-23&quot;)),
+)
+text = show_hive(statuses)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  NVL(job_runs.status, &#x27;none&#x27;) AS status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-23&#x27;;</pre>
+<pre class="python">run(statuses, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th></tr>
+<tr><td>95</td><td>SUCCESS</td></tr>
+<tr><td>96</td><td>SUCCESS</td></tr>
+<tr><td>97</td><td>FAILED</td></tr>
+<tr><td>98</td><td>none</td></tr>
+<tr><td>99</td><td>TEST</td></tr>
+</table></div>
+<h5>The three side by side</h5>
+<div class="only">
+<p>This page is Spark Composer&#x27;s, so the Hive above is Spark Composer&#x27;s, with a note under each line it adds to. Here is each line that differs, as each Edition writes it, and why. Both give the same results.</p>
+<ul><li>Dividing. Spark Composer writes the divisor as <code>NULLIF(COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END), 0)</code>, and sqlglot Composer as it is, <code>COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)</code>. With ANSI on, Spark 4&#x27;s default, Spark stops the whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive.</li><li>A float. Spark Composer writes <code>HAVING AVG(job_events.minutes) &gt; 15.5D</code>, and sqlglot Composer <code>HAVING AVG(job_events.minutes) &gt; 15.5</code>. Spark reads 15.5 as a DECIMAL, an exact decimal, where Hive reads a DOUBLE, SQL&#x27;s float; the D marks a DOUBLE, and doesn&#x27;t mean days.</li><li>A hive_function call. Spark Composer writes <code>NVL(job_runs.status, &#x27;none&#x27;) AS status</code>, the call as you gave it, its name in capitals. sqlglot Composer writes <code>COALESCE(job_runs.status, &#x27;none&#x27;) AS status</code>: it writes the call as sqlglot reads it back, sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an argument changed.</li></ul>
+<p>None of the three changes a result: each Edition writes what its own warehouse needs to give the same answer.</p>
+</div>
+<h4>Check it worked</h4>
+<p>The function&#x27;s name, in capitals, and each argument are in the Hive, and the result holds what the function gives: every team in capitals, and a contact for every job.</p>
+<pre class="python">result = run(contacts, send=example_database.send)
+list(result[&quot;team&quot;])</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;DATA&#x27;, &#x27;FINANCE&#x27;, &#x27;FINANCE&#x27;, &#x27;WEB&#x27;]</pre>
+<pre class="python">result[&quot;contact&quot;].isna().sum()</pre>
+<p class="label">Python shows</p><pre class="output">0</pre>
+<h4>Common mistakes</h4>
+<h5>A column&#x27;s name as text</h5>
+<p><code>hive_function</code> quotes text for you, so <code>&quot;team&quot;</code> is the word team, not the column. Every row gets the same value, and nothing stops it:</p>
+<pre class="python">shouting = statement(
+    SELECT(job_owners.job_id, AS(hive_function(&quot;upper&quot;, &quot;team&quot;), &quot;team&quot;)),
+    FROM(job_owners),
+    WHERE(between(job_owners.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)),
+)
+run(shouting, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th></tr>
+<tr><td>1</td><td>TEAM</td></tr>
+<tr><td>2</td><td>TEAM</td></tr>
+<tr><td>3</td><td>TEAM</td></tr>
+<tr><td>4</td><td>TEAM</td></tr>
+</table></div>
+<p>Pass the column itself, <code>job_owners.team</code>, as the steps do.</p>
+<h5>The whole call written as text</h5>
+<p>Only the function&#x27;s name is text; its arguments go after it, one by one:</p>
+<pre class="python">hive_function(&quot;upper(job_owners.team)&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  hive_function(&#x27;upper(job_owners.team)&#x27;, ...) isn&#x27;t a function name.
+  Why it matters: Only the function&#x27;s name is written as it is, so it must be a plain name: letters, digits and _.
+  Usual fix:      Use the Hive function&#x27;s name, such as hive_function(&quot;upper&quot;, jobs.team).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>The wrong number of arguments</h5>
+<p>The function substr needs the text and where to start, and takes how many characters as a third, if you want it. Given one, the warehouse would stop, so the Toolbox refuses it first:</p>
+<pre class="python">hive_function(&quot;substr&quot;, job_owners.owner)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  hive_function(&#x27;substr&#x27;, ...) gives substr 1 argument, and substr takes 2 to 3 arguments.
+  Why it matters: The warehouse would stop the whole Statement with an error when it runs.
+  Usual fix:      Give hive_function 2 to 3 arguments after &quot;substr&quot;.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>A NULL in concat</h5>
+<p>Without <code>fill_null</code>, a job with no owner gets no contact at all, not &quot;@web&quot;:</p>
+<pre class="python">no_fill = statement(
+    SELECT(job_owners.job_id,
+           AS(hive_function(&quot;concat&quot;, job_owners.owner, &quot;@&quot;, job_owners.team),
+              &quot;contact&quot;)),
+    FROM(job_owners),
+    WHERE(between(job_owners.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)),
+)
+run(no_fill, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>contact</th></tr>
+<tr><td>1</td><td>ana@data</td></tr>
+<tr><td>2</td><td>ben@finance</td></tr>
+<tr><td>3</td><td>chloe@finance</td></tr>
+<tr><td>4</td><td><i>NULL</i></td></tr>
+</table></div>
+<h5>YYYY for the year in date_format</h5>
+<p>In a date_format pattern, write yyyy for the year. YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
+<pre class="python">by_month = statement(
+    SELECT(job_events.event_id,
+           AS(hive_function(&quot;date_format&quot;, job_events.dt, &quot;YYYY-MM&quot;), &quot;month&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<div class="only">
+<p>Spark Composer writes the pattern as you gave it, and Spark refuses it when the Statement runs:</p>
+<pre class="python">run(by_month, send=example_database.send)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">RuntimeError:
+  What happened:  Spark couldn&#x27;t run this Hive on the Example database: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.DATETIME_PATTERN_RECOGNITION] You may get a different result due to the upgrading to Spark &gt;= 3.0:.
+  Why it matters: Your warehouse&#x27;s Spark would refuse it too, or, if it is set up less strictly, give a wrong answer with no error. Either way, the query needs changing.
+  Usual fix:      Spark&#x27;s message names the problem. Most often it is a table, column or hive_function(...) name spelt wrong: the tables are ops.jobs, ops.job_runs, ops.run_alerts, ops.job_events, ops.job_owners and ops.region_costs, and printing one, such as example_database.jobs, shows its columns. Or it is a value of the wrong type, such as text where a date goes, or a number too big for its type. If it is none of these, and statement(...) built the Hive, please report it with the Statement to whoever looks after the Toolbox.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Write <code>&quot;yyyy-MM&quot;</code>, and it gives each day&#x27;s month, such as 2026-09.</p>
+</div>
+<h5>A function that works over a window of rows</h5>
+<p>lag, lead, rank and the other window functions need OVER (...) after them, which <code>hive_function</code> can&#x27;t write, so it refuses them, and its message gives the pandas line that does the same. <a href="#finish_in_pandas">Finish in pandas</a> shows them.</p>
+<h4>Next</h4>
+<ul><li><a href="#finish_in_pandas">Finish in pandas</a>: lag, rank and a rolling sum, worked out on the rows <code>run</code> gives back.</li><li>The gallery&#x27;s <a href="examples.html#hive_function"><code>hive_function</code></a> entry, and <a href="examples.html#fill_null"><code>fill_null</code></a> for putting a value in where a column is NULL.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, whichever Edition writes it.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>average_of</code>, <code>fill_null</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="finish_in_pandas">
+<h3>28. Finish in pandas <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Work out in pandas what the Toolbox doesn&#x27;t write as Hive: each row&#x27;s value from the row before it (lag), a rank within each group (rank), and a rolling sum. Then put the results of several Statements side by side with a merge.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When a step needs a window of rows around each row, written OVER (...) in SQL, which only <code>row_number</code> writes for you. The Toolbox refuses the others, so let a Statement do the heavy part on the warehouse, reading every row of the days you give it and handing back a small result, and finish that result in pandas. And when the numbers you need come from Statements on different tables, small enough to combine in your notebook.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and fetch the rows</h5>
+<pre class="python">from spark_composer import *
+import pandas as pd
+job_events = example_database.job_events
+region_costs = example_database.region_costs</pre>
+<p>Each finished run, with how many minutes it took, over the last week of the Example database:</p>
+<pre class="python">finished = statement(
+    SELECT(job_events.job_id, job_events.dt, job_events.minutes),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
+          equals(job_events.event_type, &quot;finish&quot;)),
+)
+runs = run(finished, send=example_database.send)</pre>
+<p><code>runs</code> is an ordinary pandas DataFrame, one row per finished run. Everything after this works on it in your notebook, and nothing more runs on the warehouse.</p>
+<h5>The run before: lag</h5>
+<p>How much faster or slower was each run than the job&#x27;s run before it? SQL&#x27;s lag gives that, but it needs OVER (...), so <code>hive_function</code> refuses it, and its message gives the pandas line to use instead:</p>
+<pre class="python">hive_function(&quot;lag&quot;, job_events.minutes, 1)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  hive_function(&#x27;lag&#x27;, ...) calls lag, which works only over a window of rows, written LAG(...) OVER (...).
+  Why it matters: hive_function can&#x27;t write OVER, and without it Hive and Spark stop the whole Statement with an error.
+  Usual fix:      SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: df.sort_values(&quot;dt&quot;).groupby(&quot;job_id&quot;)[&quot;runs&quot;].shift(1) gives each row the value of the row before it in its group.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>In pandas, sort each job&#x27;s runs by day, then <code>.shift(1)</code> within each job gives each row the value of the row before it, and NaN, pandas&#x27; empty value, for each job&#x27;s first run:</p>
+<pre class="python">runs = runs.sort_values([&quot;job_id&quot;, &quot;dt&quot;])
+runs[&quot;minutes_before&quot;] = runs.groupby(&quot;job_id&quot;)[&quot;minutes&quot;].shift(1)
+runs[&quot;change&quot;] = runs[&quot;minutes&quot;] - runs[&quot;minutes_before&quot;]
+runs</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>minutes</th><th>minutes_before</th><th>change</th></tr>
+<tr><td>1</td><td>2026-09-18</td><td>14</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td>1</td><td>2026-09-19</td><td>11</td><td>14.0</td><td>-3.0</td></tr>
+<tr><td>1</td><td>2026-09-20</td><td>12</td><td>11.0</td><td>1.0</td></tr>
+<tr><td>1</td><td>2026-09-21</td><td>13</td><td>12.0</td><td>1.0</td></tr>
+<tr><td>1</td><td>2026-09-22</td><td>10</td><td>13.0</td><td>-3.0</td></tr>
+<tr><td>1</td><td>2026-09-23</td><td>12</td><td>10.0</td><td>2.0</td></tr>
+<tr><td>1</td><td>2026-09-24</td><td>10</td><td>12.0</td><td>-2.0</td></tr>
+<tr><td>2</td><td>2026-09-18</td><td>22</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td>2</td><td>2026-09-21</td><td>21</td><td>22.0</td><td>-1.0</td></tr>
+<tr><td>2</td><td>2026-09-22</td><td>18</td><td>21.0</td><td>-3.0</td></tr>
+<tr><td>2</td><td>2026-09-23</td><td>18</td><td>18.0</td><td>0.0</td></tr>
+<tr><td>3</td><td>2026-09-21</td><td>33</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+</table></div>
+<h5>A rank within each group: rank</h5>
+<p>Which of each job&#x27;s runs took longest? rank is refused for the same reason:</p>
+<pre class="python">hive_function(&quot;rank&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  hive_function(&#x27;rank&#x27;, ...) calls rank, which works only over a window of rows, written RANK(...) OVER (...).
+  Why it matters: hive_function can&#x27;t write OVER, and without it Hive and Spark stop the whole Statement with an error.
+  Usual fix:      SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: df.groupby(&quot;job_id&quot;)[&quot;runs&quot;].rank(method=&quot;min&quot;, ascending=False) ranks each row in its group.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>In pandas, <code>.rank</code> within each job, longest first. <code>method=&quot;min&quot;</code> gives two runs that tie the same rank, and the next one the rank after both, as SQL&#x27;s rank does; <code>.astype(int)</code> shows the ranks as whole numbers:</p>
+<pre class="python">runs[&quot;longest_first&quot;] = (runs.groupby(&quot;job_id&quot;)[&quot;minutes&quot;]
+                         .rank(method=&quot;min&quot;, ascending=False).astype(int))
+runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;, &quot;longest_first&quot;]]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>minutes</th><th>longest_first</th></tr>
+<tr><td>1</td><td>2026-09-18</td><td>14</td><td>1</td></tr>
+<tr><td>1</td><td>2026-09-19</td><td>11</td><td>5</td></tr>
+<tr><td>1</td><td>2026-09-20</td><td>12</td><td>3</td></tr>
+<tr><td>1</td><td>2026-09-21</td><td>13</td><td>2</td></tr>
+<tr><td>1</td><td>2026-09-22</td><td>10</td><td>6</td></tr>
+<tr><td>1</td><td>2026-09-23</td><td>12</td><td>3</td></tr>
+<tr><td>1</td><td>2026-09-24</td><td>10</td><td>6</td></tr>
+<tr><td>2</td><td>2026-09-18</td><td>22</td><td>1</td></tr>
+<tr><td>2</td><td>2026-09-21</td><td>21</td><td>2</td></tr>
+<tr><td>2</td><td>2026-09-22</td><td>18</td><td>3</td></tr>
+<tr><td>2</td><td>2026-09-23</td><td>18</td><td>3</td></tr>
+<tr><td>3</td><td>2026-09-21</td><td>33</td><td>1</td></tr>
+</table></div>
+<p>To keep the newest row per key, or the top rows per group, use <code>row_number</code> instead, which the Toolbox writes as Hive with its OVER (...): see the gallery&#x27;s <a href="examples.html#row_number"><code>row_number</code></a>.</p>
+<h5>A rolling sum</h5>
+<p>The minutes of each job&#x27;s last three runs, added up. <code>sum_of</code> adds up a whole group into one row, and the Toolbox writes no OVER (...) for a running total, so work it out in pandas: <code>.rolling(3, min_periods=1)</code> looks at each row and the two before it, or fewer at the start, and <code>.transform</code> does it within each job, keeping one value per row:</p>
+<pre class="python">runs[&quot;last_3_runs&quot;] = (runs.groupby(&quot;job_id&quot;)[&quot;minutes&quot;]
+                       .transform(lambda minutes: minutes.rolling(3, min_periods=1).sum()))
+runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;, &quot;last_3_runs&quot;]]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>minutes</th><th>last_3_runs</th></tr>
+<tr><td>1</td><td>2026-09-18</td><td>14</td><td>14.0</td></tr>
+<tr><td>1</td><td>2026-09-19</td><td>11</td><td>25.0</td></tr>
+<tr><td>1</td><td>2026-09-20</td><td>12</td><td>37.0</td></tr>
+<tr><td>1</td><td>2026-09-21</td><td>13</td><td>36.0</td></tr>
+<tr><td>1</td><td>2026-09-22</td><td>10</td><td>35.0</td></tr>
+<tr><td>1</td><td>2026-09-23</td><td>12</td><td>35.0</td></tr>
+<tr><td>1</td><td>2026-09-24</td><td>10</td><td>32.0</td></tr>
+<tr><td>2</td><td>2026-09-18</td><td>22</td><td>22.0</td></tr>
+<tr><td>2</td><td>2026-09-21</td><td>21</td><td>43.0</td></tr>
+<tr><td>2</td><td>2026-09-22</td><td>18</td><td>61.0</td></tr>
+<tr><td>2</td><td>2026-09-23</td><td>18</td><td>57.0</td></tr>
+<tr><td>3</td><td>2026-09-21</td><td>33</td><td>33.0</td></tr>
+</table></div>
+<p>It counts runs, not days: invoice_sync, job 2, doesn&#x27;t run at weekends, so its three runs up to 2026-09-21 span 2026-09-18 to 21, four days.</p>
+<h5>Merge the results of several Statements</h5>
+<p>The cost of each minute a job ran comes from two tables: its minutes from <code>ops.job_events</code>, and its cost from <code>ops.region_costs</code>. Add up each per job, with a Statement each:</p>
+<pre class="python">minutes_per_job = statement(
+    SELECT(job_events.job_id, AS(count_rows(), &quot;runs&quot;),
+           AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
+          equals(job_events.event_type, &quot;finish&quot;)),
+    GROUP_BY(job_events.job_id),
+)
+cost_per_job = statement(
+    SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), &quot;cost_cents&quot;)),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, &quot;20260918&quot;, &quot;20260924&quot;)),
+    GROUP_BY(region_costs.job_id),
+)
+minutes = run(minutes_per_job, send=example_database.send)
+costs = run(cost_per_job, send=example_database.send)</pre>
+<p><code>.merge</code> puts the two side by side, matching rows on <code>&quot;job_id&quot;</code>. <code>how=&quot;outer&quot;</code> keeps a job that only one of them has, and <code>validate=&quot;one_to_one&quot;</code> stops the merge if <code>&quot;job_id&quot;</code> repeats on either side, which would repeat rows:</p>
+<pre class="python">per_job = minutes.merge(costs, on=&quot;job_id&quot;, how=&quot;outer&quot;, validate=&quot;one_to_one&quot;)
+per_job[&quot;cents_per_minute&quot;] = (per_job[&quot;cost_cents&quot;] / per_job[&quot;minutes&quot;]).round(2)
+per_job</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>minutes</th><th>cost_cents</th><th>cents_per_minute</th></tr>
+<tr><td>1</td><td>7</td><td>82</td><td>820</td><td>10.0</td></tr>
+<tr><td>2</td><td>4</td><td>79</td><td>790</td><td>10.0</td></tr>
+<tr><td>3</td><td>1</td><td>33</td><td>450</td><td>13.64</td></tr>
+</table></div>
+<p>report_build, job 3, costs most per minute: it finished once this week, but its run that failed on 2026-09-18 was billed too.</p>
+<p>The Toolbox could join the two as Derived tables in one Statement, and on big results that is the way: the warehouse does the work. For two small results you already have, a merge in pandas is quicker to write and to change.</p>
+<h4>Check it worked</h4>
+<p>Each job&#x27;s first run has no run before it, so NaN; every other run has one. And the merge kept one row per job:</p>
+<pre class="python">runs.groupby(&quot;job_id&quot;)[&quot;minutes_before&quot;].apply(lambda before: before.isna().sum()).tolist()</pre>
+<p class="label">Python shows</p><pre class="output">[1, 1, 1]</pre>
+<pre class="python">per_job[&quot;job_id&quot;].is_unique</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<h4>Common mistakes</h4>
+<h5>Shifting rows that aren&#x27;t in order</h5>
+<p><code>.shift(1)</code> takes the row above, whatever order the rows are in. The Example database gives rows in a fixed order, but your warehouse gives them in no fixed order, as here, newest first:</p>
+<pre class="python">newest_first = runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;]].iloc[::-1].copy()
+newest_first[&quot;minutes_before&quot;] = newest_first.groupby(&quot;job_id&quot;)[&quot;minutes&quot;].shift(1)
+newest_first[newest_first[&quot;job_id&quot;] == 2]</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>minutes</th><th>minutes_before</th></tr>
+<tr><td>2</td><td>2026-09-23</td><td>18</td><td><i>NULL</i></td></tr>
+<tr><td>2</td><td>2026-09-22</td><td>18</td><td>18.0</td></tr>
+<tr><td>2</td><td>2026-09-21</td><td>21</td><td>18.0</td></tr>
+<tr><td>2</td><td>2026-09-18</td><td>22</td><td>21.0</td></tr>
+</table></div>
+<p>Each &quot;minutes_before&quot; is the run after it, and nothing stops it. Sort by the key and the day first, with <code>.sort_values([&quot;job_id&quot;, &quot;dt&quot;])</code>, as the step The run before: lag does.</p>
+<h5>Merging a result per day into one per job</h5>
+<p>Merge each job&#x27;s week of minutes with its cost on each day, and each job&#x27;s minutes repeat once per day, so adding them up gives far too much:</p>
+<pre class="python">daily_cost = statement(
+    SELECT(region_costs.job_id, region_costs.dt, region_costs.cost_cents),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, &quot;20260918&quot;, &quot;20260924&quot;)),
+)
+daily_costs = run(daily_cost, send=example_database.send)
+repeated = minutes.merge(daily_costs, on=&quot;job_id&quot;)
+int(repeated[&quot;minutes&quot;].sum()), int(minutes[&quot;minutes&quot;].sum())</pre>
+<p class="label">Python shows</p><pre class="output">(1035, 194)</pre>
+<p><code>validate=&quot;one_to_one&quot;</code> stops such a merge rather than let it through:</p>
+<pre class="python">minutes.merge(daily_costs, on=&quot;job_id&quot;, validate=&quot;one_to_one&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">MergeError:
+Merge keys are not unique in right dataset; not a one-to-one merge</pre>
+<p>Add up per job first, as <code>cost_per_job</code> does, then merge.</p>
+<h4>Next</h4>
+<ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement, and what you do in pandas after it, give the numbers you meant.</li><li><a href="#call_other_hive_functions">Call other Hive functions</a>: what <code>hive_function</code> writes, and the functions it refuses.</li><li>The gallery&#x27;s <a href="examples.html#row_number"><code>row_number</code></a> and <a href="examples.html#derived"><code>derived</code></a> entries, for what the warehouse can do before pandas.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>hive_function</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="review_a_change_with_lineage">
+<h3>29. Review a change with Lineage <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Before you change a Building block that several Statements read, see what the change does to each of them. Export their Lineage before the change and after it, compare the two Markdown files line by line, and find every output a column feeds.</p>
+<h4>When you&#x27;d use it</h4>
+<p>Before you change a Building block or a Table reference that other Statements rely on, and when you review someone else&#x27;s change: the lines that differ between the two Markdown files are what the change does, Statement by Statement, whatever the code looked like.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *
+from pathlib import Path
+import difflib
+job_events = example_database.job_events
+jobs = example_database.jobs</pre>
+<h5>A Building block and the Statements that read it</h5>
+<p><code>finished_runs</code> is a Building block: a Derived table of each job&#x27;s finished runs over the days you give it, and the minutes they took.</p>
+<pre class="python">def finished_runs(first_day, last_day):
+    return derived(&quot;finished_runs&quot;, statement(
+        SELECT(job_events.job_id,
+               AS(count_rows(), &quot;runs&quot;),
+               AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day),
+              equals(job_events.event_type, &quot;finish&quot;)),
+        GROUP_BY(job_events.job_id),
+    ))</pre>
+<p>Two Statements read it: the minutes each team&#x27;s jobs ran, and the two jobs that ran longest. A function builds both, so after you change the Building block, one call builds them again:</p>
+<pre class="python">def build_statements(first_day, last_day):
+    runs = finished_runs(first_day, last_day)
+    minutes_per_team = statement(
+        SELECT(jobs.team, AS(sum_of(runs.minutes), &quot;minutes&quot;)),
+        FROM(runs),
+        JOIN(jobs, ON=equals(jobs.job_id, runs.job_id)),
+        GROUP_BY(jobs.team),
+    )
+    longest_jobs = statement(
+        SELECT(jobs.job_name, runs.runs, runs.minutes),
+        FROM(runs),
+        JOIN(jobs, ON=equals(jobs.job_id, runs.job_id)),
+        ORDER_BY(descending(runs.minutes)),
+        LIMIT(2),
+    )
+    return minutes_per_team, longest_jobs
+minutes_per_team, longest_jobs = build_statements(&quot;2026-09-18&quot;, &quot;2026-09-24&quot;)
+run(minutes_per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>minutes</th></tr>
+<tr><td>data</td><td>82</td></tr>
+<tr><td>finance</td><td>112</td></tr>
+</table></div>
+<h5>Export the Lineage before the change</h5>
+<p>Pass both Statements to <a href="examples.html#export_lineage"><code>export_lineage</code></a>, so one Lineage covers everything the Building block feeds. <code>to=</code> gives the files a name you can find again; otherwise each export gets a new name, from the time it ran:</p>
+<pre class="python">html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
+                                          to=&quot;before.html&quot;)</pre>
+<p class="label">It writes before.md</p>
+<pre class="file"># Lineage: minutes_per_team, longest_jobs
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;ops.job_events&quot;]
+    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n2[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
+    n5[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n7[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;finished_runs in minutes_per_team&quot;]
+    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n3[&quot;finished_runs in minutes_per_team.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;filters on finished_runs in minutes_per_team&quot;]
+    n4{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
+    n6{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(job_events.event_type, #quot;finish#quot;)&lt;/small&gt;&quot;}}
+  end
+  subgraph g3[&quot;ops.jobs&quot;]
+    n8[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n18[&quot;ops.jobs.job_name&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;minutes_per_team&quot;]
+    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n10[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(finished_runs.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g5[&quot;filters on minutes_per_team&quot;]
+    n11{{&quot;JOIN ON in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
+  end
+  subgraph g6[&quot;finished_runs in longest_jobs&quot;]
+    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n14[&quot;finished_runs in longest_jobs.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
+    n15[&quot;finished_runs in longest_jobs.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g7[&quot;filters on finished_runs in longest_jobs&quot;]
+    n16{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
+    n17{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;equals(job_events.event_type, #quot;finish#quot;)&lt;/small&gt;&quot;}}
+  end
+  subgraph g8[&quot;longest_jobs&quot;]
+    n19[&quot;job_name&lt;br/&gt;&lt;small&gt;jobs.job_name&lt;/small&gt;&quot;]
+    n20[&quot;runs&lt;br/&gt;&lt;small&gt;finished_runs.runs&lt;/small&gt;&quot;]
+    n21[&quot;minutes&lt;br/&gt;&lt;small&gt;finished_runs.minutes&lt;/small&gt;&quot;]
+  end
+  subgraph g9[&quot;filters on longest_jobs&quot;]
+    n22{{&quot;JOIN ON in longest_jobs&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
+    n23{{&quot;LIMIT in longest_jobs&lt;br/&gt;&lt;small&gt;ORDER BY finished_runs.minutes DESC LIMIT 2&lt;/small&gt;&quot;}}
+  end
+  n0 --&gt; n1
+  n2 --&gt; n3
+  n5 -.-&gt; n4
+  n7 -.-&gt; n6
+  n8 --&gt; n9
+  n3 --&gt; n10
+  n12 -.-&gt; n11
+  n1 -.-&gt; n11
+  n0 --&gt; n13
+  n2 --&gt; n15
+  n5 -.-&gt; n16
+  n7 -.-&gt; n17
+  n18 --&gt; n19
+  n14 --&gt; n20
+  n15 --&gt; n21
+  n12 -.-&gt; n22
+  n13 -.-&gt; n22
+  n15 -.-&gt; n23
+  n4 -.-&gt;|filters| g1
+  n6 -.-&gt;|filters| g1
+  n11 -.-&gt;|filters| g4
+  n16 -.-&gt;|filters| g6
+  n17 -.-&gt;|filters| g6
+  n22 -.-&gt;|filters| g8
+  n23 -.-&gt;|filters| g8
+```
+
+## minutes_per_team
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `finished_runs in minutes_per_team.minutes`
+
+Calculated in **finished_runs in minutes_per_team** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+finished_runs in minutes_per_team.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in minutes_per_team: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in minutes_per_team: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+#### `minutes`
+
+Calculated in **minutes_per_team** as `sum_of(finished_runs.minutes)`, which is `SUM(finished_runs.minutes)`.
+
+```text
+minutes_per_team.minutes = sum_of(finished_runs.minutes)
+└─ finished_runs in minutes_per_team.minutes = sum_of(job_events.minutes)
+   └─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in minutes_per_team: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in minutes_per_team: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
+- JOIN ON in minutes_per_team: `equals(jobs.job_id, finished_runs.job_id)`, which is `jobs.job_id = finished_runs.job_id` (reads ops.job_events.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Hive as submitted
+
+```sql
+WITH finished_runs AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS runs,
+    SUM(job_events.minutes) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type = &#x27;finish&#x27;
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  jobs.team,
+  SUM(finished_runs.minutes) AS minutes
+FROM finished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = finished_runs.job_id
+GROUP BY
+  jobs.team
+```
+
+## longest_jobs
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `finished_runs in longest_jobs.runs`
+
+Calculated in **finished_runs in longest_jobs** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+finished_runs in longest_jobs.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in finished_runs in longest_jobs: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in longest_jobs: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+#### `finished_runs in longest_jobs.minutes`
+
+Calculated in **finished_runs in longest_jobs** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+finished_runs in longest_jobs.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in longest_jobs: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in longest_jobs: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_name` | ops.jobs.job_name |
+| `runs` | finished_runs in longest_jobs.runs (calculated) |
+| `minutes` | finished_runs in longest_jobs.minutes (calculated) ← ops.job_events.minutes |
+
+### Hive as submitted
+
+```sql
+WITH finished_runs AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS runs,
+    SUM(job_events.minutes) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type = &#x27;finish&#x27;
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  jobs.job_name,
+  finished_runs.runs,
+  finished_runs.minutes
+FROM finished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = finished_runs.job_id
+ORDER BY
+  finished_runs.minutes DESC
+LIMIT 2
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with Spark Composer 3.2.</pre>
+<p class="note">It writes <code>before.html</code> too, a page to open in your browser.</p>
+<p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Hive. Open the HTML page in your browser to see the same drawn.</p>
+<h5>Change the Building block</h5>
+<p>A run that fails uses the cluster too, so count its minutes as well: the condition becomes <code>is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])</code>. Write the function again with the change, then build the Statements again, since each holds the Building block as it was when it was built:</p>
+<pre class="python">def finished_runs(first_day, last_day):
+    return derived(&quot;finished_runs&quot;, statement(
+        SELECT(job_events.job_id,
+               AS(count_rows(), &quot;runs&quot;),
+               AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day),
+              is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])),
+        GROUP_BY(job_events.job_id),
+    ))
+minutes_per_team, longest_jobs = build_statements(&quot;2026-09-18&quot;, &quot;2026-09-24&quot;)
+html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
+                                          to=&quot;after.html&quot;)</pre>
+<p class="label">It writes after.md</p>
+<pre class="file"># Lineage: minutes_per_team, longest_jobs
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;ops.job_events&quot;]
+    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n2[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
+    n5[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n7[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;finished_runs in minutes_per_team&quot;]
+    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n3[&quot;finished_runs in minutes_per_team.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;filters on finished_runs in minutes_per_team&quot;]
+    n4{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
+    n6{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
+  end
+  subgraph g3[&quot;ops.jobs&quot;]
+    n8[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n18[&quot;ops.jobs.job_name&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;minutes_per_team&quot;]
+    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n10[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(finished_runs.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g5[&quot;filters on minutes_per_team&quot;]
+    n11{{&quot;JOIN ON in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
+  end
+  subgraph g6[&quot;finished_runs in longest_jobs&quot;]
+    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n14[&quot;finished_runs in longest_jobs.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
+    n15[&quot;finished_runs in longest_jobs.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g7[&quot;filters on finished_runs in longest_jobs&quot;]
+    n16{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
+    n17{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
+  end
+  subgraph g8[&quot;longest_jobs&quot;]
+    n19[&quot;job_name&lt;br/&gt;&lt;small&gt;jobs.job_name&lt;/small&gt;&quot;]
+    n20[&quot;runs&lt;br/&gt;&lt;small&gt;finished_runs.runs&lt;/small&gt;&quot;]
+    n21[&quot;minutes&lt;br/&gt;&lt;small&gt;finished_runs.minutes&lt;/small&gt;&quot;]
+  end
+  subgraph g9[&quot;filters on longest_jobs&quot;]
+    n22{{&quot;JOIN ON in longest_jobs&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
+    n23{{&quot;LIMIT in longest_jobs&lt;br/&gt;&lt;small&gt;ORDER BY finished_runs.minutes DESC LIMIT 2&lt;/small&gt;&quot;}}
+  end
+  n0 --&gt; n1
+  n2 --&gt; n3
+  n5 -.-&gt; n4
+  n7 -.-&gt; n6
+  n8 --&gt; n9
+  n3 --&gt; n10
+  n12 -.-&gt; n11
+  n1 -.-&gt; n11
+  n0 --&gt; n13
+  n2 --&gt; n15
+  n5 -.-&gt; n16
+  n7 -.-&gt; n17
+  n18 --&gt; n19
+  n14 --&gt; n20
+  n15 --&gt; n21
+  n12 -.-&gt; n22
+  n13 -.-&gt; n22
+  n15 -.-&gt; n23
+  n4 -.-&gt;|filters| g1
+  n6 -.-&gt;|filters| g1
+  n11 -.-&gt;|filters| g4
+  n16 -.-&gt;|filters| g6
+  n17 -.-&gt;|filters| g6
+  n22 -.-&gt;|filters| g8
+  n23 -.-&gt;|filters| g8
+```
+
+## minutes_per_team
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `finished_runs in minutes_per_team.minutes`
+
+Calculated in **finished_runs in minutes_per_team** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+finished_runs in minutes_per_team.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in minutes_per_team: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in minutes_per_team: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+#### `minutes`
+
+Calculated in **minutes_per_team** as `sum_of(finished_runs.minutes)`, which is `SUM(finished_runs.minutes)`.
+
+```text
+minutes_per_team.minutes = sum_of(finished_runs.minutes)
+└─ finished_runs in minutes_per_team.minutes = sum_of(job_events.minutes)
+   └─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in minutes_per_team: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in minutes_per_team: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+- JOIN ON in minutes_per_team: `equals(jobs.job_id, finished_runs.job_id)`, which is `jobs.job_id = finished_runs.job_id` (reads ops.job_events.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Hive as submitted
+
+```sql
+WITH finished_runs AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS runs,
+    SUM(job_events.minutes) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  jobs.team,
+  SUM(finished_runs.minutes) AS minutes
+FROM finished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = finished_runs.job_id
+GROUP BY
+  jobs.team
+```
+
+## longest_jobs
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `finished_runs in longest_jobs.runs`
+
+Calculated in **finished_runs in longest_jobs** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+finished_runs in longest_jobs.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in finished_runs in longest_jobs: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in longest_jobs: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+#### `finished_runs in longest_jobs.minutes`
+
+Calculated in **finished_runs in longest_jobs** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+finished_runs in longest_jobs.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in longest_jobs: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in longest_jobs: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_name` | ops.jobs.job_name |
+| `runs` | finished_runs in longest_jobs.runs (calculated) |
+| `minutes` | finished_runs in longest_jobs.minutes (calculated) ← ops.job_events.minutes |
+
+### Hive as submitted
+
+```sql
+WITH finished_runs AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS runs,
+    SUM(job_events.minutes) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  jobs.job_name,
+  finished_runs.runs,
+  finished_runs.minutes
+FROM finished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = finished_runs.job_id
+ORDER BY
+  finished_runs.minutes DESC
+LIMIT 2
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with Spark Composer 3.2.</pre>
+<p class="note">It writes <code>after.html</code> too, a page to open in your browser.</p>
+<h5>Compare the two Markdown files</h5>
+<p>Python&#x27;s <code>difflib.ndiff</code> compares two lists of lines and marks each line that only the first holds with &quot;- &quot;, and each that only the second holds with &quot;+ &quot;. <code>changed_lines</code> prints those lines, each under the part of the Markdown file it is in: the Statement, from its <code>##</code> heading, then the column or the Hive, from the heading under that. It leaves out the last line of each file, which says when the file was made, and so differs every time:</p>
+<pre class="python">def changed_lines(before_file, after_file):
+    before = Path(before_file).read_text(encoding=&quot;utf-8&quot;).splitlines()
+    after = Path(after_file).read_text(encoding=&quot;utf-8&quot;).splitlines()
+    part = heading = shown = None
+    for line in difflib.ndiff(before, after):
+        text = line[2:]
+        if text.startswith(&quot;## &quot;):
+            part, heading = text[3:], None
+        elif text.startswith(&quot;###&quot;):
+            heading = text.lstrip(&quot;# &quot;)
+        if line.startswith((&quot;- &quot;, &quot;+ &quot;)) and not text.startswith(&quot;Made by export_lineage&quot;):
+            where = part if heading is None else f&quot;{part}, {heading}&quot;
+            if where != shown:
+                print(f&quot;In {where}:&quot;)
+                shown = where
+            print(line)
+changed_lines(&quot;before.md&quot;, &quot;after.md&quot;)</pre>
+<p class="label">Python prints</p><pre class="output">In Graph:
+-     n6{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(job_events.event_type, #quot;finish#quot;)&lt;/small&gt;&quot;}}
++     n6{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
+-     n17{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;equals(job_events.event_type, #quot;finish#quot;)&lt;/small&gt;&quot;}}
++     n17{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
+In minutes_per_team, `finished_runs in minutes_per_team.minutes`:
+- - WHERE in finished_runs in minutes_per_team: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
++ - WHERE in finished_runs in minutes_per_team: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+In minutes_per_team, `minutes`:
+- - WHERE in finished_runs in minutes_per_team: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
++ - WHERE in finished_runs in minutes_per_team: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+In minutes_per_team, Hive as submitted:
+-     AND job_events.event_type = &#x27;finish&#x27;
++     AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)
+In longest_jobs, `finished_runs in longest_jobs.runs`:
+- - WHERE in finished_runs in longest_jobs: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
++ - WHERE in finished_runs in longest_jobs: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+In longest_jobs, `finished_runs in longest_jobs.minutes`:
+- - WHERE in finished_runs in longest_jobs: `equals(job_events.event_type, &quot;finish&quot;)`, which is `job_events.event_type = &#x27;finish&#x27;` (reads ops.job_events.event_type)
++ - WHERE in finished_runs in longest_jobs: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+In longest_jobs, Hive as submitted:
+-     AND job_events.event_type = &#x27;finish&#x27;
++     AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)</pre>
+<p>The chart, under Graph, changed its two condition boxes (<code>#quot;</code> is Mermaid&#x27;s way of writing a quote). Under every calculated column of both Statements, the condition in &quot;Rows that count&quot; changed, so every number each Statement adds up may change. In each Hive, the WHERE changed. Nothing else did: no column came or went, and no column takes its value from anywhere new.</p>
+<p>Run the Statements again to see what the change does to the numbers. The finance team&#x27;s minutes grew by 12, the minutes report_build ran on 2026-09-18 before it failed:</p>
+<pre class="python">run(minutes_per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>minutes</th></tr>
+<tr><td>data</td><td>82</td></tr>
+<tr><td>finance</td><td>124</td></tr>
+</table></div>
+<h5>Find every output a column feeds</h5>
+<p>Say the minutes in <code>ops.job_events</code> are to be stored as seconds instead. Which outputs would change? In the Markdown file, each calculated column&#x27;s part lists the table columns it comes from, and each copied column&#x27;s line says where it is copied from, so search them for the column. <code>outputs_fed_by</code> keeps the outputs of the Statements, named like <code>minutes_per_team.minutes</code>, and leaves out the Derived table&#x27;s own columns, whose names hold a dot already:</p>
+<pre class="python">def outputs_fed_by(column, markdown_file):
+    fed, statement_name, output = [], None, None
+    for line in Path(markdown_file).read_text(encoding=&quot;utf-8&quot;).splitlines():
+        if line.startswith(&quot;## &quot;):
+            statement_name = line[3:]
+        if line.startswith(&quot;#&quot;):
+            output = line[5:].strip(&quot;`&quot;) if line.startswith(&quot;#### &quot;) else None
+        elif line.startswith(&quot;| `&quot;):
+            output = line.split(&quot;`&quot;)[1]
+        if output and &quot;.&quot; not in output and column in line:
+            name = statement_name + &quot;.&quot; + output
+            if name not in fed:
+                fed.append(name)
+    return fed
+outputs_fed_by(&quot;ops.job_events.minutes&quot;, &quot;after.md&quot;)</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;minutes_per_team.minutes&#x27;, &#x27;longest_jobs.minutes&#x27;]</pre>
+<p>Both outputs named minutes would come out 60 times bigger. A column can also decide which rows count, through WHERE, JOIN&#x27;s ON=, ORDER_BY or LIMIT, as <code>runs.minutes</code> decides which two jobs <code>longest_jobs</code> keeps: open the HTML page and click the column&#x27;s box to light up every path from it.</p>
+<h4>Check it worked</h4>
+<p>The two files differ, and the after file names the new condition:</p>
+<pre class="python">&quot;event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)&quot; in Path(&quot;after.md&quot;).read_text(encoding=&quot;utf-8&quot;)</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<pre class="python">&quot;event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)&quot; in Path(&quot;before.md&quot;).read_text(encoding=&quot;utf-8&quot;)</pre>
+<p class="label">Python shows</p><pre class="output">False</pre>
+<h4>Common mistakes</h4>
+<h5>Exporting the Statements built before the change</h5>
+<p>A Statement holds its Building block as it was when it was built. Change the function, but export the Statements you already had, and the Lineage after looks just like the one before. Here the function goes back to finished runs only, and the Statements aren&#x27;t built again:</p>
+<pre class="python">def finished_runs(first_day, last_day):
+    return derived(&quot;finished_runs&quot;, statement(
+        SELECT(job_events.job_id,
+               AS(count_rows(), &quot;runs&quot;),
+               AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day),
+              equals(job_events.event_type, &quot;finish&quot;)),
+        GROUP_BY(job_events.job_id),
+    ))
+html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
+                                          to=&quot;stale.html&quot;)</pre>
+<p class="label">It writes stale.md</p>
+<pre class="file"># Lineage: minutes_per_team, longest_jobs
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;ops.job_events&quot;]
+    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n2[&quot;ops.job_events.minutes&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
+    n5[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n7[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;finished_runs in minutes_per_team&quot;]
+    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n3[&quot;finished_runs in minutes_per_team.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;filters on finished_runs in minutes_per_team&quot;]
+    n4{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
+    n6{{&quot;WHERE in finished_runs in minutes_per_team&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
+  end
+  subgraph g3[&quot;ops.jobs&quot;]
+    n8[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n18[&quot;ops.jobs.job_name&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;minutes_per_team&quot;]
+    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n10[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(finished_runs.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g5[&quot;filters on minutes_per_team&quot;]
+    n11{{&quot;JOIN ON in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
+  end
+  subgraph g6[&quot;finished_runs in longest_jobs&quot;]
+    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n14[&quot;finished_runs in longest_jobs.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
+    n15[&quot;finished_runs in longest_jobs.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
+  end
+  subgraph g7[&quot;filters on finished_runs in longest_jobs&quot;]
+    n16{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;between(job_events.dt, #quot;2026-09-18#quot;, #quot;2026-…&lt;/small&gt;&quot;}}
+    n17{{&quot;WHERE in finished_runs in longest_jobs&lt;br/&gt;&lt;small&gt;is_in(job_events.event_type, [#quot;finish#quot;, #quot;fa…&lt;/small&gt;&quot;}}
+  end
+  subgraph g8[&quot;longest_jobs&quot;]
+    n19[&quot;job_name&lt;br/&gt;&lt;small&gt;jobs.job_name&lt;/small&gt;&quot;]
+    n20[&quot;runs&lt;br/&gt;&lt;small&gt;finished_runs.runs&lt;/small&gt;&quot;]
+    n21[&quot;minutes&lt;br/&gt;&lt;small&gt;finished_runs.minutes&lt;/small&gt;&quot;]
+  end
+  subgraph g9[&quot;filters on longest_jobs&quot;]
+    n22{{&quot;JOIN ON in longest_jobs&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
+    n23{{&quot;LIMIT in longest_jobs&lt;br/&gt;&lt;small&gt;ORDER BY finished_runs.minutes DESC LIMIT 2&lt;/small&gt;&quot;}}
+  end
+  n0 --&gt; n1
+  n2 --&gt; n3
+  n5 -.-&gt; n4
+  n7 -.-&gt; n6
+  n8 --&gt; n9
+  n3 --&gt; n10
+  n12 -.-&gt; n11
+  n1 -.-&gt; n11
+  n0 --&gt; n13
+  n2 --&gt; n15
+  n5 -.-&gt; n16
+  n7 -.-&gt; n17
+  n18 --&gt; n19
+  n14 --&gt; n20
+  n15 --&gt; n21
+  n12 -.-&gt; n22
+  n13 -.-&gt; n22
+  n15 -.-&gt; n23
+  n4 -.-&gt;|filters| g1
+  n6 -.-&gt;|filters| g1
+  n11 -.-&gt;|filters| g4
+  n16 -.-&gt;|filters| g6
+  n17 -.-&gt;|filters| g6
+  n22 -.-&gt;|filters| g8
+  n23 -.-&gt;|filters| g8
+```
+
+## minutes_per_team
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `finished_runs in minutes_per_team.minutes`
+
+Calculated in **finished_runs in minutes_per_team** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+finished_runs in minutes_per_team.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in minutes_per_team: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in minutes_per_team: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+#### `minutes`
+
+Calculated in **minutes_per_team** as `sum_of(finished_runs.minutes)`, which is `SUM(finished_runs.minutes)`.
+
+```text
+minutes_per_team.minutes = sum_of(finished_runs.minutes)
+└─ finished_runs in minutes_per_team.minutes = sum_of(job_events.minutes)
+   └─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in minutes_per_team: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in minutes_per_team: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+- JOIN ON in minutes_per_team: `equals(jobs.job_id, finished_runs.job_id)`, which is `jobs.job_id = finished_runs.job_id` (reads ops.job_events.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Hive as submitted
+
+```sql
+WITH finished_runs AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS runs,
+    SUM(job_events.minutes) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  jobs.team,
+  SUM(finished_runs.minutes) AS minutes
+FROM finished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = finished_runs.job_id
+GROUP BY
+  jobs.team
+```
+
+## longest_jobs
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `finished_runs in longest_jobs.runs`
+
+Calculated in **finished_runs in longest_jobs** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+finished_runs in longest_jobs.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in finished_runs in longest_jobs: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in longest_jobs: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+#### `finished_runs in longest_jobs.minutes`
+
+Calculated in **finished_runs in longest_jobs** as `sum_of(job_events.minutes)`, which is `SUM(job_events.minutes)`.
+
+```text
+finished_runs in longest_jobs.minutes = sum_of(job_events.minutes)
+└─ ops.job_events.minutes  (int)
+```
+
+Rows that count:
+- WHERE in finished_runs in longest_jobs: `between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)`, which is `job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+- WHERE in finished_runs in longest_jobs: `is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])`, which is `job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)` (reads ops.job_events.event_type)
+
+One value for each different `job_events.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_name` | ops.jobs.job_name |
+| `runs` | finished_runs in longest_jobs.runs (calculated) |
+| `minutes` | finished_runs in longest_jobs.minutes (calculated) ← ops.job_events.minutes |
+
+### Hive as submitted
+
+```sql
+WITH finished_runs AS (
+  SELECT
+    job_events.job_id,
+    COUNT(*) AS runs,
+    SUM(job_events.minutes) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;)
+  GROUP BY
+    job_events.job_id
+)
+SELECT
+  jobs.job_name,
+  finished_runs.runs,
+  finished_runs.minutes
+FROM finished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = finished_runs.job_id
+ORDER BY
+  finished_runs.minutes DESC
+LIMIT 2
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with Spark Composer 3.2.</pre>
+<p class="note">It writes <code>stale.html</code> too, a page to open in your browser.</p>
+<pre class="python">changed_lines(&quot;after.md&quot;, &quot;stale.md&quot;)</pre>
+<p>Nothing printed: no line differs, though the function changed. Build the Statements again after each change, with <code>build_statements</code>, then export.</p>
+<h5>Comparing the HTML pages</h5>
+<p>The HTML page holds the same Lineage, but as data for its drawing, on very long lines, so a line by line comparison of two pages shows little you can read. Compare the Markdown files, which <code>export_lineage</code> writes beside each page with the same name, ending in .md.</p>
+<h4>Next</h4>
+<ul><li><a href="#generate_from_settings">Generate Table references and Statements from settings</a>: one Lineage for Statements generated over many tables.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check the numbers a change gives, against pandas, before and after it.</li><li>The gallery&#x27;s <a href="examples.html#export_lineage"><code>export_lineage</code></a> and <a href="examples.html#derived"><code>derived</code></a> entries.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>ORDER_BY</code>, <code>LIMIT</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>is_in</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>run</code>, <code>export_lineage</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="test_your_own_statements">
+<h3>30. Test your own Statements <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Check that a Statement gives the numbers you meant, not just numbers. Work out the same answer a second way, in pandas, from the rows themselves, and compare the two with plain <code>assert</code>s in your notebook, on several ranges of days. A careless Statement fails; the fixed one passes.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When a Statement&#x27;s numbers will be read by other people, before you save them to a table or send them on, and after every change to a Building block it reads. The Toolbox&#x27;s Guards and Warnings catch mistakes of a known shape, such as a missing day bound or a join that repeats rows; only a test catches a Statement that counts the wrong thing.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *
+import pandas as pd
+job_events = example_database.job_events</pre>
+<h5>A careless Statement</h5>
+<p>The question: over a range of days, how many runs did each job finish, and how many minutes did those runs take? <code>ops.job_events</code> has a row per event, and a run&#x27;s finish event says how many minutes it took. This first try counts every row of each job, and adds up every row&#x27;s minutes:</p>
+<pre class="python">def careless_finished_runs(first_day, last_day):
+    return statement(
+        SELECT(job_events.job_id,
+               AS(count_rows(), &quot;finished&quot;),
+               AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day)),
+        GROUP_BY(job_events.job_id),
+    )
+run(careless_finished_runs(&quot;2026-09-18&quot;, &quot;2026-09-24&quot;), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>finished</th><th>minutes</th></tr>
+<tr><td>1</td><td>14</td><td>82</td></tr>
+<tr><td>2</td><td>9</td><td>79</td></tr>
+<tr><td>3</td><td>4</td><td>45</td></tr>
+</table></div>
+<p>The Toolbox lets it through: nothing in it has a known wrong shape. Do these numbers look right? Hard to say by eye.</p>
+<h5>A second answer, in pandas</h5>
+<p>Fetch the rows themselves, every column of every event on those days, and work out the answer in pandas, which counts in a way of its own: keep the finish events, then count them and add up their minutes, per job. This is an oracle, an answer you trust because you can read each step of it:</p>
+<pre class="python">def events(first_day, last_day):
+    every_event = statement(
+        SELECT(all_columns(job_events)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day)),
+    )
+    return run(every_event, send=example_database.send)
+def oracle(rows):
+    finishes = rows[rows[&quot;event_type&quot;] == &quot;finish&quot;]
+    return finishes.groupby(&quot;job_id&quot;, as_index=False).agg(
+        finished=(&quot;event_id&quot;, &quot;count&quot;), minutes=(&quot;minutes&quot;, &quot;sum&quot;))
+oracle(events(&quot;2026-09-18&quot;, &quot;2026-09-24&quot;))</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>finished</th><th>minutes</th></tr>
+<tr><td>1</td><td>7</td><td>82</td></tr>
+<tr><td>2</td><td>4</td><td>79</td></tr>
+<tr><td>3</td><td>1</td><td>33</td></tr>
+</table></div>
+<p>Fetching every row is fine for a test over a few days; it is what the Statement saves you from on the whole table.</p>
+<h5>Compare the two with assert</h5>
+<p><code>assert</code> stops with an AssertionError when what follows it is False, and does nothing when it is True. <code>same_rows</code> puts each DataFrame&#x27;s rows in one order, by <code>&quot;job_id&quot;</code>, and turns them into a list of plain dicts, which compare with <code>==</code> as Python lists do:</p>
+<pre class="python">def same_rows(result, expected):
+    return (result.sort_values(&quot;job_id&quot;).to_dict(&quot;records&quot;)
+            == expected.sort_values(&quot;job_id&quot;).to_dict(&quot;records&quot;))
+def check(make_statement, first_day, last_day):
+    result = run(make_statement(first_day, last_day), send=example_database.send)
+    expected = oracle(events(first_day, last_day))
+    message = f&quot;{first_day} to {last_day}:\n{result}\n{expected}&quot;
+    assert same_rows(result, expected), message
+check(careless_finished_runs, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">AssertionError:
+2026-09-18 to 2026-09-24:
+   job_id  finished  minutes
+0       1        14       82
+1       2         9       79
+2       3         4       45
+   job_id  finished  minutes
+0       1         7       82
+1       2         4       79
+2       3         1       33</pre>
+<p>The careless Statement fails: it counts each run&#x27;s start event too, and adds up the minutes of retries and fails. Its &quot;minutes&quot; happen to match for jobs 1 and 2, only because a start event&#x27;s minutes are 0, which is why one range of days, and a check by eye, aren&#x27;t enough.</p>
+<h5>Fix the Statement, and test it on several ranges of days</h5>
+<p>Keep only the finish events, in <code>WHERE</code>:</p>
+<pre class="python">def finished_runs(first_day, last_day):
+    return statement(
+        SELECT(job_events.job_id,
+               AS(count_rows(), &quot;finished&quot;),
+               AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day),
+              equals(job_events.event_type, &quot;finish&quot;)),
+        GROUP_BY(job_events.job_id),
+    )</pre>
+<p>Test it on ranges of days chosen to hold the awkward cases: the whole 14 days; 2026-09-14, with a retry; 2026-09-18, when report_build failed; and 2026-09-24, when invoice_sync started but hadn&#x27;t finished. <code>check</code> prints nothing when every <code>assert</code> holds:</p>
+<pre class="python">for first_day, last_day in [(&quot;2026-09-11&quot;, &quot;2026-09-24&quot;), (&quot;2026-09-14&quot;, &quot;2026-09-14&quot;),
+                            (&quot;2026-09-18&quot;, &quot;2026-09-18&quot;), (&quot;2026-09-24&quot;, &quot;2026-09-24&quot;)]:
+    check(finished_runs, first_day, last_day)</pre>
+<h5>Check what you know</h5>
+<p>Some facts you know without any oracle. Write them as <code>assert</code>s too: each job appears once, and on 2026-09-24 invoice_sync, job 2, started but didn&#x27;t finish, so it isn&#x27;t there.</p>
+<pre class="python">last_day = run(finished_runs(&quot;2026-09-24&quot;, &quot;2026-09-24&quot;), send=example_database.send)
+assert last_day[&quot;job_id&quot;].is_unique
+assert 2 not in set(last_day[&quot;job_id&quot;])
+last_day</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>finished</th><th>minutes</th></tr>
+<tr><td>1</td><td>1</td><td>10</td></tr>
+</table></div>
+<p>Keep these cells at the end of your notebook, and run them after every change: a test that passed once proves only that the Statement was right then.</p>
+<h4>Check it worked</h4>
+<p>The careless Statement fails its test, and the fixed one passes on every range of days. Run the fixed one&#x27;s test once more, for the whole 14 days: it prints nothing, so every <code>assert</code> held.</p>
+<pre class="python">check(finished_runs, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)</pre>
+<h4>Common mistakes</h4>
+<h5>Comparing two DataFrames with ==</h5>
+<p><code>==</code> between two DataFrames compares them cell by cell and gives back a third DataFrame, of True and False. <code>assert</code> can&#x27;t say whether a whole DataFrame is true, so it stops:</p>
+<pre class="python">result = run(finished_runs(&quot;2026-09-18&quot;, &quot;2026-09-24&quot;), send=example_database.send)
+expected = oracle(events(&quot;2026-09-18&quot;, &quot;2026-09-24&quot;))
+assert result == expected</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().</pre>
+<p>Compare lists of rows, as <code>same_rows</code> does, or use pandas&#x27; own <code>pd.testing.assert_frame_equal</code>.</p>
+<h5>Comparing rows in the order they came back</h5>
+<p>The Example database gives rows in a fixed order, but your warehouse gives them in no fixed order. Compare without sorting, and a right answer fails whenever the order differs, as it does here, with the shortest first:</p>
+<pre class="python">shortest_first = expected.sort_values(&quot;minutes&quot;)
+result.to_dict(&quot;records&quot;) == shortest_first.to_dict(&quot;records&quot;)</pre>
+<p class="label">Python shows</p><pre class="output">False</pre>
+<pre class="python">same_rows(result, shortest_first)</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<p>Put both in one order before comparing, as <code>same_rows</code> does with <code>&quot;job_id&quot;</code>.</p>
+<h5>An oracle that asks the Statement</h5>
+<p>An oracle built from the Statement&#x27;s own result, such as <code>run(finished_runs(...))</code> again, always agrees with it, careless or not. Work the oracle out from the rows themselves, as <code>oracle</code> does from <code>events</code>, and in another way than the Statement does.</p>
+<h4>Next</h4>
+<ul><li><a href="#check_data_quality">Check data quality with Statements</a>: checks on the data itself, so a Statement you&#x27;ve tested gets rows you can trust.</li><li><a href="#review_a_change_with_lineage">Review a change with Lineage</a>: see what a change does to every Statement it reaches, then run these tests again.</li><li><a href="#finish_in_pandas">Finish in pandas</a>: more of what pandas does with the rows <code>run</code> gives back.</li></ul>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>run</code>, <code>example_database</code></p>
+</section>
 </main>
 <script>
 const filter = document.getElementById("filter"), box = filter.querySelector("input");
