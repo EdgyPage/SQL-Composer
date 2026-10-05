@@ -1,7 +1,7 @@
 # Getting started how tos 2 to 9
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 06
 Size: L
 
@@ -98,3 +98,14 @@ Goal split in three; 8's per_team needing no days of its own; Lineage defined at
 (8); 2's "Once you've filled in a file's TODOs"; 1's Next line that read as a place.
 A confirming read of the fixed how-tos was started on d85e7a8; its report is still to come,
 and this ticket stays open until any costly stop it finds is fixed or answered here.
+
+**Confirming beginner read (2026-10-05), after d85e7a8.** The earlier fixes held. Fixed in the
+commit after the merge: how-to 9's check of `newest` now says that on sqlglot Composer's Example
+database the run stops and `newest` is the pandas result; DESCRIBE's blank row is "the fifth",
+its name empty and its other cells NULL; how-to 8's busy_jobs sentence and its file rule, which
+now agrees with how-to 24 (a few blocks may share a file; a block file never imports another);
+the first_look result said to be "as if today were 2026-09-25"; why fill_null wraps sum_of; "as
+the message's Usual fix says"; ORDER_BY sorts smallest first on its own; first_runs' Hive
+described. Left: "distinct counts" against "counts of different values" (the generated TODO and
+the GuardRefused message say "distinct counts"; ticket 16 may align them).
+

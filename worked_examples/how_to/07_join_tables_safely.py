@@ -220,7 +220,8 @@ WHERE
 8     104             40       1
 
 One row per run, and no Warning. The Derived table is written at the top of the Hive, as
-`WITH alerts_per_run AS (...)`. The totals now come out right:
+`WITH alerts_per_run AS (...)`. A SUM of nothing but NULL is NULL, so `fill_null` around the
+`sum_of` makes the total read 0 even if no run had an alert. The totals now come out right:
 
 >>> fixed_total = statement(
 ...     SELECT(AS(sum_of(job_runs.duration_mins), "minutes"),
@@ -406,7 +407,8 @@ composer_core.refusals.GuardRefused:
   What happened:  WHERE has job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24', a condition on job_runs, which LEFT_JOIN brought in.
 ...
 
-Move it into `ON=` with `all_of`, next to the join condition, as the message says:
+Move it into `ON=`, next to the join condition, as the message's Usual fix says; `all_of`
+joins the two conditions:
 `ON=all_of(equals(job_runs.job_id, jobs.job_id), between(job_runs.dt, "2026-09-23",
 "2026-09-24"))`. A condition on the joined table belongs in `WHERE` only when it keeps the rows
 with no match: `is_null`, as in the step Find the rows with no match, or an `any_of` with such

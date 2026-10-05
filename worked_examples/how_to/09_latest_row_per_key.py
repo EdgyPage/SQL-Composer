@@ -221,7 +221,11 @@ result; `row_number` keeps the top N of each group.
 
 ## Check it worked
 
-Keep each job once: one row per job, as many rows as jobs that ran.
+Check that each job comes back once: one row per job, as many rows as jobs that ran.
+[sqlglot_composer only]
+On the Example database this run stops, as above; `newest` here is the pandas result. At work
+the Statement runs, and the check is the same.
+[end]
 
 >>> newest = run(latest, send=example_database.send)
 >>> newest["job_id"].is_unique
@@ -296,8 +300,8 @@ run, not its newest. Nothing stops it:
 1       2      96  SUCCESS
 2       3      97   FAILED
 
-Each job's first run of the two days. In the Hive, the ORDER BY inside OVER (...) says DESC
-when it numbers newest first.
+Each job's first run of the two days. Its Hive numbers with `ORDER BY job_runs.run_id`, with no
+DESC, where numbering newest first says DESC.
 
 ### A row number without a name
 
