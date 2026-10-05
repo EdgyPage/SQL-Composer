@@ -59,6 +59,7 @@ anywhere.
   is sqlglot Composer, so delete `sql_composer`, copy in `sqlglot_composer` and
   `composer_core`, and change `from sql_composer import` and `sql_composer.VERSION` (drift
   review of 403c8fe, D121).
+- Ticket 15's CHANGES 4.0 section also gains `show_hive`, the new public name (ticket 04).
 
 ## Records this changes
 
@@ -80,6 +81,8 @@ anywhere.
 - [The rename to sqlglot Composer](issues/03-rename-to-sqlglot-composer.md): sqlglot_composer
   and "sqlglot Composer" everywhere but the records; the project is "the Toolbox"; named_for
   refuses the old name.
+- [show_hive](issues/04-show-hive.md): prints the Hive that runs with a `;`, each Statement
+  headed by its variable's name, and returns it; 64 public names.
 
 ## Not yet specified
 

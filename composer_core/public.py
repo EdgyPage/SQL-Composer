@@ -59,7 +59,7 @@ from .conditions import (
 )
 from .lineage import export_lineage
 from .refusals import GuardRefused, LoadRefused
-from .running import by_day, run, set_load_limits, to_hive
+from .running import by_day, run, set_load_limits, show_hive, to_hive
 from .tables import (
     Table,
     all_columns,
@@ -134,6 +134,7 @@ __all__ = [
     "hive_function",
     # running.py
     "to_hive",
+    "show_hive",
     "run",
     "by_day",
     "set_load_limits",
