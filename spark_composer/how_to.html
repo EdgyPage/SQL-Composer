@@ -91,7 +91,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <p>The Example database&#x27;s first three tables are <code>ops.jobs</code>, one row per job; <code>ops.job_runs</code>, one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and <code>ops.run_alerts</code>, the alerts a run raised. Three more, which the Intermediate how-tos use, hold 14 days each. Each table&#x27;s Table reference, which says what columns it has, comes with the Toolbox. Give the one you need a short name:</p>
 <pre class="python">job_runs = example_database.job_runs</pre>
 <p>A Statement is one query, built from clause functions written in SQL&#x27;s order: <code>SELECT</code> the columns you want, <code>FROM</code> a table, and keep only some rows with <code>WHERE</code>. <code>WHERE</code> keeps a row only if every condition in it holds. This Statement finds the runs that failed.</p>
-<p><code>job_runs.dt</code> is the table&#x27;s Date partition: the day each row belongs to. The warehouse stores such a table a day at a time, so the Toolbox has a rule: every Statement gives the first and the last day it reads, here with <code>between</code>.</p>
+<p><code>job_runs.dt</code> is the table&#x27;s Date partition: the day each row belongs to. The warehouse stores such a table a day at a time, so every Statement must give the first and the last day it reads, here with <code>between</code>: a Load limit refuses one that doesn&#x27;t.</p>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     FROM(job_runs),
