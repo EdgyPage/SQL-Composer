@@ -62,6 +62,9 @@ anywhere.
 - Ticket 15's CHANGES 4.0 section also gains `show_hive`, the new public name (ticket 04),
   and the Example database's three new tables, `job_events`, `job_owners` and
   `region_costs`, with its unknown-table refusal now naming all six (ticket 05, D123).
+- Ticket 15's CHANGES 4.0 section also says each Edition's folder now holds `how_to.html`, the
+  how-to page, beside `examples.html`, and that the import now stops when it is missing, as it
+  does for `examples.html` (ticket 06, D127).
 
 ## Records this changes
 
@@ -89,10 +92,16 @@ anywhere.
   ops.job_events, ops.job_owners and ops.region_costs, 14 days each, the last partitioned by
   region then a dt written 20260911; the first three tables and every golden unchanged;
   sqlglot's executor can't run week_start, month_start or row_number on them.
+- [The how-to page](issues/06-the-how-to-page.md): `tools/how_to_page.py` writes `how_to.html`
+  per Edition from `worked_examples/how_to/NN_slug.py` docstrings (`For: Getting started` or
+  `Intermediate`, six fixed headings), every step run live with lineage pinned; Edition-only
+  blocks may hold steps; a how-to's `NAME_in_pandas()` stands in where sqlglot Composer's
+  Example database can't run a Statement; the filter script is shared with examples.html; how-to
+  1, Start a notebook; the page links to no README anchor.
 
 ## Not yet specified
 
-- Whether a how-to page links to a fixed anchor in the README (ticket 06).
+- Nothing open.
 
 ## Out of scope
 
