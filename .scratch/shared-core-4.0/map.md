@@ -55,7 +55,10 @@ anywhere.
   Nothing is exported before ticket 15.
 - **Ticket 15's CHANGES 4.0 section** says, besides the update steps: you copy two folders;
   importing both Editions in one Python now stops (before 4.0 the two could sit side by side);
-  tracebacks name `composer_core.refusals.GuardRefused` (drift review of 2269d4e).
+  tracebacks name `composer_core.refusals.GuardRefused` (drift review of 2269d4e); SQL Composer
+  is sqlglot Composer, so delete `sql_composer`, copy in `sqlglot_composer` and
+  `composer_core`, and change `from sql_composer import` and `sql_composer.VERSION` (drift
+  review of 403c8fe, D121).
 
 ## Records this changes
 
