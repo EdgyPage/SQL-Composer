@@ -57,6 +57,13 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 2. From the new download, copy in both whole folders of the same names.
 3. Restart the kernel, which still holds the old code.
 
+From a version before 4.0, the Toolbox was one folder, and sqlglot Composer was named SQL
+Composer, in a folder named `sql_composer`. Delete that folder, copy in `composer_core` and
+`sqlglot_composer`, and in your notebooks and in the Table reference files you wrote, change
+`from sql_composer import` to `from sqlglot_composer import`, and `sql_composer.VERSION` to
+`sqlglot_composer.VERSION`. With Spark Composer, copy in `composer_core` beside
+`spark_composer`; your imports stay as they are.
+
 Keep your own files beside the folders, never inside them, so deleting them is safe. When they
 are imported, the two folders check themselves. If a file is missing, extra, from another
 version or export, or from another Toolbox folder (`composer_core` or the other Edition's),
