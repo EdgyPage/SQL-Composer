@@ -25,10 +25,12 @@ such skip into a failure too, for a CI job whose Example database must run.
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import html
 import importlib
 import re
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -177,6 +179,61 @@ def example_rows(table: str) -> pd.DataFrame:
     """
     reference, rows = toolbox_module("example_database")._TABLES[table]
     return pd.DataFrame(rows, columns=list(reference._columns))
+
+
+@contextlib.contextmanager
+def project_on_the_path(folder: Path, top_names: tuple[str, ...]):
+    """Import a project's scripts as a notebook started in `folder` does, by their own folder
+    names, such as table_references.
+
+    The Worked examples have folders of the same names, so any module of those names is put
+    away first, `folder` goes first on the path, and afterwards the project's modules are put
+    away and the others put back.
+    """
+    def is_the_projects(module: str) -> bool:
+        return module.split(".")[0] in top_names
+
+    put_away = {name: sys.modules.pop(name) for name in list(sys.modules)
+                if is_the_projects(name)}
+    sys.path.insert(0, str(folder))
+    try:
+        yield
+    finally:
+        sys.path.remove(str(folder))
+        for name in [name for name in sys.modules if is_the_projects(name)]:
+            del sys.modules[name]
+        sys.modules.update(put_away)
+
+
+# The line a write's Hive starts with, before the SELECT it saves.
+INSERT = "INSERT OVERWRITE TABLE"
+
+
+def without_the_write(hive: str) -> str:
+    """A write's Hive with its INSERT OVERWRITE line left out: the SELECT it saves."""
+    return "\n".join(line for line in hive.splitlines() if not line.startswith(INSERT))
+
+
+def value_as_hive(x) -> str:
+    if x is None or (isinstance(x, float) and pd.isna(x)):
+        return "NULL"
+    return f"'{x}'" if isinstance(x, str) else str(int(x))
+
+
+def standing_in(hive: str, saved: dict[str, pd.DataFrame]) -> str:
+    """The Hive with each Saved table, by its name in mart., stood in for by rows, each row
+    holding its own day as dt, for a Statement that reads a Saved table only a warehouse
+    holds."""
+    for table, rows in saved.items():
+        selects = [", ".join(f"{value_as_hive(x)} AS {column}"
+                             for column, x in zip(rows.columns, row))
+                   for row in rows.itertuples(index=False)]
+        assert selects, f"mart.{table} standing in with no rows"
+        named = f"mart.{table} AS {table}"
+        assert hive.count(named) == 1, table
+        union = " UNION ALL ".join(f"SELECT {select}" for select in selects)
+        hive = hive.replace(named, f"({union}) AS {table}")
+    return hive
 
 
 def import_stop(what: str, why: str, fix: str, folder: str | None = None) -> str:
