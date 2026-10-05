@@ -61,7 +61,14 @@ your real today, so in your own notebook it finds no rows on the Example databas
 </div>
 <div>
 <p><b><a href="#intermediate">Intermediate</a></b>: work over many days and many tables: snapshots, rollups, layered pipelines, quality checks and testing.</p>
-<p class="note">None yet.</p>
+<ul>
+<li data-for="a_day_written_another_way"><a href="#a_day_written_another_way">19. A day written another way, and a second partition</a></li>
+<li data-for="look_things_up_as_of_a_day"><a href="#look_things_up_as_of_a_day">20. Look things up as of a day</a></li>
+<li data-for="week_and_month_rollups"><a href="#week_and_month_rollups">21. Week and month rollups</a></li>
+<li data-for="incremental_loads_and_late_data"><a href="#incremental_loads_and_late_data">22. Incremental loads and late data</a></li>
+<li data-for="a_layered_pipeline"><a href="#a_layered_pipeline">23. A layered pipeline</a></li>
+<li data-for="a_library_of_building_blocks"><a href="#a_library_of_building_blocks">24. A library of Building blocks</a></li>
+</ul>
 </div>
 </nav>
 <h2 id="getting-started">Getting started</h2>
@@ -180,7 +187,1428 @@ run(failed, send=send_without_to_pandas)</pre>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
-<p class="note">No intermediate how-tos yet.</p>
+<section class="entry" id="a_day_written_another_way">
+<h3>19. A day written another way, and a second partition <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Read a table whose days are written like <code>20260911</code> rather than <code>2026-09-11</code>, and which is split by region before it is split by day. You write its Table reference, finish the line <code>write_table_reference</code> leaves to you, and bound its days in a Statement, so the warehouse reads only the days you ask for.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When DESCRIBE lists more than one partition column, or SHOW PARTITIONS lists days written some other way, such as <code>dt=20260911</code> or <code>dt=2026/09/11</code>. Big tables are often split by country, region or source first, and by day inside each.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *</pre>
+<h5>See how the table is split</h5>
+<p>DESCRIBE lists a table&#x27;s columns, then, under <code># Partition Information</code>, the columns it is partitioned by: the warehouse keeps each region&#x27;s rows in a folder of their own, and each day&#x27;s in a folder inside that. The Example database&#x27;s <code>ops.region_costs</code> holds each job&#x27;s cost in cents, partitioned by region, then by day:</p>
+<pre class="python">example_database.send(&quot;DESCRIBE ops.region_costs&quot;)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>col_name</th><th>data_type</th><th>comment</th></tr>
+<tr><td>job_id</td><td>bigint</td><td></td></tr>
+<tr><td>cost_cents</td><td>bigint</td><td>NULL until the bill comes in</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+<tr><td></td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td># Partition Information</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td># col_name</td><td>data_type</td><td>comment</td></tr>
+<tr><td>region</td><td>string</td><td></td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div>
+<p>SHOW PARTITIONS lists each folder, one row each. The last five show both regions, and days written as <code>20260924</code>, the year, then the month, then the day, with nothing between:</p>
+<pre class="python">partitions = example_database.send(&quot;SHOW PARTITIONS ops.region_costs&quot;)
+partitions.tail(5)</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>partition</th></tr>
+<tr><td>region=eu/dt=20260924</td></tr>
+<tr><td>region=us/dt=20260911</td></tr>
+<tr><td>region=us/dt=20260914</td></tr>
+<tr><td>region=us/dt=20260918</td></tr>
+<tr><td>region=us/dt=20260921</td></tr>
+</table></div>
+<h5>Write its Table reference</h5>
+<p><code>write_table_reference</code> sends the same two commands through your send and writes the Table reference for you, as <code>region_costs.py</code> in the folder you&#x27;re working in:</p>
+<pre class="python">path = write_table_reference(&quot;ops.region_costs&quot;, send=example_database.send)</pre>
+<p class="label">It writes region_costs.py</p>
+<pre class="python">&quot;&quot;&quot;ops.region_costs - TODO: say in one line what one row is.&quot;&quot;&quot;
+from spark_composer import Table
+
+region_costs = Table(
+    &quot;ops.region_costs&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;cost_cents&quot;: &quot;bigint&quot;,  # NULL until the bill comes in
+        &quot;region&quot;: &quot;string&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    date_partition=None,  # TODO: partitioned by region, dt; its newest region, &#x27;us&#x27;, isn&#x27;t a day the Toolbox can bound; if dt holds the days, name it
+    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)</pre>
+<p>Look at its line starting <code>date_partition=</code>. The Date partition is the one column of days that every Statement must bound at both ends, and <code>write_table_reference</code> looks for it in the first partition column only. Here that is region, which holds <code>&quot;eu&quot;</code> and <code>&quot;us&quot;</code>, not days, so it can&#x27;t be the Date partition: it writes <code>date_partition=None</code> and a TODO. The TODO names both partition columns, says the newest region, <code>&#x27;us&#x27;</code>, isn&#x27;t a day the Toolbox could bound, and asks you to name dt, the column that holds the days, yourself.</p>
+<h5>Finish the Table reference</h5>
+<p>Change the TODO line into two lines: <code>date_partition=&quot;dt&quot;,</code> names the Date partition, and <code>date_format=&quot;%Y%m%d&quot;,</code> says how its days are written, in the codes Python&#x27;s dates use: <code>%Y</code> is the year, <code>%m</code> the month and <code>%d</code> the day. Fill in the other two TODOs while you are there: one row is one job&#x27;s cost in one region on one day, so the key is job_id, region and dt; and cost_cents is a plain amount, which adds up, so <code>does_not_add_up=[]</code> stays empty.</p>
+<p>Try the finished reference in your notebook first, as below; once the next step says it matches, copy it into <code>region_costs.py</code> and import it from there in every notebook:</p>
+<pre class="python">region_costs = Table(
+    &quot;ops.region_costs&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;cost_cents&quot;: &quot;bigint&quot;,  # NULL until the bill comes in
+        &quot;region&quot;: &quot;string&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    date_partition=&quot;dt&quot;,
+    date_format=&quot;%Y%m%d&quot;,
+    key=[&quot;job_id&quot;, &quot;region&quot;, &quot;dt&quot;],
+    does_not_add_up=[],
+)</pre>
+<h5>Check it against the table</h5>
+<p><code>check_table_reference</code> compares the Table reference with the table as it is now:</p>
+<pre class="python">check_table_reference(region_costs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.region_costs matches its Table reference.
+Notes:
+  - the table is also partitioned by region, which a Statement may bound too.</pre>
+<p>It matches. The note is about region: it is a partition too, so a Statement that needs only one region can say so and read fewer folders, as the last step shows. The Toolbox doesn&#x27;t ask you to, since a region isn&#x27;t a day. <code>check_key</code> checks your key on the newest day:</p>
+<pre class="python">check_key(region_costs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.region_costs: the key (job_id, region, dt) holds on 20260924.</pre>
+<h5>Bound its days</h5>
+<p>Write the days the way the table writes them. Each region&#x27;s cost over the week from 2026-09-18 to 2026-09-24:</p>
+<pre class="python">cost_per_region = statement(
+    SELECT(region_costs.region, AS(sum_of(region_costs.cost_cents), &quot;cost_cents&quot;)),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, &quot;20260918&quot;, &quot;20260924&quot;)),
+    GROUP_BY(region_costs.region),
+)
+text = show_hive(cost_per_region)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  region_costs.region,
+  SUM(region_costs.cost_cents) AS cost_cents
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.dt BETWEEN &#x27;20260918&#x27; AND &#x27;20260924&#x27;
+GROUP BY
+  region_costs.region;</pre>
+<pre class="python">run(cost_per_region, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>region</th><th>cost_cents</th></tr>
+<tr><td>eu</td><td>1610</td></tr>
+<tr><td>us</td><td>450</td></tr>
+</table></div>
+<p>A Python date works in its place, and so does <code>last_n_days(region_costs.dt, 7)</code>: the Toolbox writes each day as <code>date_format=</code> says. A condition shows the Hive it becomes:</p>
+<pre class="python">import datetime
+between(region_costs.dt, datetime.date(2026, 9, 18), datetime.date(2026, 9, 24))</pre>
+<p class="label">Python shows</p><pre class="output">region_costs.dt BETWEEN &#x27;20260918&#x27; AND &#x27;20260924&#x27;</pre>
+<h5>Bound the second partition too</h5>
+<p>To read one region, add a condition on region to <code>WHERE</code>. The warehouse then opens only that region&#x27;s folders. Each job&#x27;s cost in eu over the same week:</p>
+<pre class="python">eu_cost_per_job = statement(
+    SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), &quot;cost_cents&quot;)),
+    FROM(region_costs),
+    WHERE(equals(region_costs.region, &quot;eu&quot;),
+          between(region_costs.dt, &quot;20260918&quot;, &quot;20260924&quot;)),
+    GROUP_BY(region_costs.job_id),
+)
+text = show_hive(eu_cost_per_job)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  region_costs.job_id,
+  SUM(region_costs.cost_cents) AS cost_cents
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.region = &#x27;eu&#x27; AND region_costs.dt BETWEEN &#x27;20260918&#x27; AND &#x27;20260924&#x27;
+GROUP BY
+  region_costs.job_id;</pre>
+<pre class="python">run(eu_cost_per_job, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th></tr>
+<tr><td>1</td><td>820</td></tr>
+<tr><td>2</td><td>790</td></tr>
+</table></div>
+<p>Job 2&#x27;s cost for 2026-09-24 is NULL, since its run is still going and isn&#x27;t billed yet. SUM, which <code>sum_of</code> writes, leaves a NULL out, so job 2&#x27;s week adds up the four days it was billed.</p>
+<h4>Check it worked</h4>
+<p><code>check_table_reference</code> said the Table reference matches, and the Hive writes the days as the table does, <code>&#x27;20260918&#x27;</code>. The two Statements also agree: eu&#x27;s jobs add up to eu&#x27;s cost in the first one, 1610.</p>
+<pre class="python">eu_jobs = run(eu_cost_per_job, send=example_database.send)
+int(eu_jobs[&quot;cost_cents&quot;].sum())</pre>
+<p class="label">Python shows</p><pre class="output">1610</pre>
+<h4>Common mistakes</h4>
+<h5>Keeping date_partition=None</h5>
+<p>A Table reference with <code>date_partition=None</code> has no Date partition for the Toolbox to check, so nothing stops a Statement that reads every day of every region. Here is the reference as <code>write_table_reference</code> left it:</p>
+<pre class="python">unfinished = Table(&quot;ops.region_costs&quot;, columns={&quot;job_id&quot;: &quot;bigint&quot;,
+    &quot;cost_cents&quot;: &quot;bigint&quot;, &quot;region&quot;: &quot;string&quot;, &quot;dt&quot;: &quot;string&quot;}, date_partition=None)
+check_table_reference(unfinished, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.region_costs matches its Table reference.
+Notes:
+  - the table is partitioned by region, dt: if one holds days, name it in date_partition=...</pre>
+<p>It says it matches, since no column in it is wrong: something is missing, not wrong. The note is the part to act on. Until you do, a Statement without a day builds and runs without a word, and adds up all 14 days:</p>
+<pre class="python">every_day = statement(
+    SELECT(unfinished.region, AS(sum_of(unfinished.cost_cents), &quot;cost_cents&quot;)),
+    FROM(unfinished),
+    GROUP_BY(unfinished.region),
+)
+run(every_day, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>region</th><th>cost_cents</th></tr>
+<tr><td>eu</td><td>3460</td></tr>
+<tr><td>us</td><td>1160</td></tr>
+</table></div>
+<p>On a real table that is every day it has ever held. Name dt, and the same Statement is refused until it bounds its days.</p>
+<h5>Naming dt without its date_format</h5>
+<p>Without <code>date_format=</code>, the Toolbox expects days written the usual way, like <code>2026-09-25</code>. <code>check_table_reference</code> gives the line to add:</p>
+<pre class="python">without_format = Table(&quot;ops.region_costs&quot;, columns={&quot;job_id&quot;: &quot;bigint&quot;,
+    &quot;cost_cents&quot;: &quot;bigint&quot;, &quot;region&quot;: &quot;string&quot;, &quot;dt&quot;: &quot;string&quot;}, date_partition=&quot;dt&quot;)
+check_table_reference(without_format, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.region_costs differs from its Table reference.
+Problems:
+  - the newest dt, &#x27;20260924&#x27;, isn&#x27;t written like date_format=&#x27;%Y-%m-%d&#x27;, the usual one: change the line to date_format=&quot;%Y%m%d&quot;,
+Notes:
+  - the table is also partitioned by region, which a Statement may bound too.</pre>
+<p>A Statement written with the table&#x27;s own days is refused until you add it:</p>
+<pre class="python">statement(
+    SELECT(without_format.job_id),
+    FROM(without_format),
+    WHERE(between(without_format.dt, &quot;20260918&quot;, &quot;20260924&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;20260918&#x27;, which isn&#x27;t a day written like &#x27;2026-09-25&#x27;.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as &#x27;2026-09-25&#x27;, or pass a datetime.date.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>Writing the day the usual way</h5>
+<p>Once <code>date_format=&quot;%Y%m%d&quot;</code> is in the Table reference, a day written with dashes is refused, since it would match no folder:</p>
+<pre class="python">statement(
+    SELECT(region_costs.job_id),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;2026-09-18&#x27;, which isn&#x27;t a day written like &#x27;20260925&#x27;.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as &#x27;20260925&#x27;, or pass a datetime.date.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>The day in the message is today, written the table&#x27;s way: it shows how to write a day, not which day to read. Write <code>&quot;20260918&quot;</code>, or pass <code>datetime.date(2026, 9, 18)</code>.</p>
+<h4>Next</h4>
+<ul><li>Look things up as of each day in a table that keeps a copy of itself every day: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>Rewrite the last few days of a Saved table on every run: <a href="#incremental_loads_and_late_data">Incremental loads and late data</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#write_table_reference"><code>write_table_reference</code></a>, <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> and <a href="examples.html#Table"><code>Table</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>write_table_reference</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="look_things_up_as_of_a_day">
+<h3>20. Look things up as of a day <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Find what was true on each day from a table that keeps a full copy of itself every day, a daily snapshot: here, the team each job belonged to on the day it ran. You join on the day as well as the job, count each team&#x27;s runs as they were owned at the time, and pick each job&#x27;s newest row with <code>row_number</code>.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When a table holds one row per thing per day, such as each job&#x27;s owner, each product&#x27;s price or each customer&#x27;s plan, and another table&#x27;s rows need the value from their own day, not today&#x27;s. A job that changed teams last week should count for its old team before the change and its new team after it.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<p><code>ops.job_events</code> holds what each job&#x27;s runs did over 14 days, 2026-09-11 to 2026-09-24: a <code>&quot;start&quot;</code> row when a run starts, then <code>&quot;finish&quot;</code>, <code>&quot;retry&quot;</code> or <code>&quot;fail&quot;</code>. <code>ops.job_owners</code> is the snapshot: every job&#x27;s team and owner, once per day.</p>
+<pre class="python">from spark_composer import *
+job_events = example_database.job_events
+job_owners = example_database.job_owners
+jobs = example_database.jobs</pre>
+<h5>Look at the snapshot</h5>
+<p>Each day holds one row per job, so its key is the job and the day together: job_id and dt. Job 3, report_build, moved from the data team to finance on 2026-09-18:</p>
+<pre class="python">report_build_owners = statement(
+    SELECT(job_owners.dt, job_owners.team, job_owners.owner),
+    FROM(job_owners),
+    WHERE(equals(job_owners.job_id, 3),
+          between(job_owners.dt, &quot;2026-09-16&quot;, &quot;2026-09-19&quot;)),
+)
+run(report_build_owners, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>dt</th><th>team</th><th>owner</th></tr>
+<tr><td>2026-09-16</td><td>data</td><td>ana</td></tr>
+<tr><td>2026-09-17</td><td>data</td><td>ana</td></tr>
+<tr><td>2026-09-18</td><td>finance</td><td>chloe</td></tr>
+<tr><td>2026-09-19</td><td>finance</td><td>chloe</td></tr>
+</table></div>
+<h5>Join each run to its own day&#x27;s row</h5>
+<p>A run is a <code>&quot;start&quot;</code> row of job_events. Join the snapshot on both parts of its key: the same job, and the same day. Each run then meets exactly one row, its job&#x27;s row on the day it ran.</p>
+<p>The snapshot is a table with days too, so it needs its own bound in <code>WHERE</code>: the Toolbox checks each table&#x27;s days separately, and <code>equals(job_owners.dt, job_events.dt)</code> in <code>ON=</code> matches the two tables&#x27; days without saying which days to read.</p>
+<pre class="python">report_build_runs = statement(
+    SELECT(job_events.dt, job_owners.team),
+    FROM(job_events),
+    JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
+                               equals(job_owners.dt, job_events.dt))),
+    WHERE(equals(job_events.job_id, 3),
+          equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;),
+          between(job_owners.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+)
+text = show_hive(report_build_runs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_events.dt,
+  job_owners.team
+FROM ops.job_events AS job_events
+JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = job_events.job_id AND job_owners.dt = job_events.dt
+WHERE
+  job_events.job_id = 3
+  AND job_events.event_type = &#x27;start&#x27;
+  AND job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+  AND job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<pre class="python">run(report_build_runs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>dt</th><th>team</th></tr>
+<tr><td>2026-09-11</td><td>data</td></tr>
+<tr><td>2026-09-14</td><td>data</td></tr>
+<tr><td>2026-09-18</td><td>finance</td></tr>
+<tr><td>2026-09-21</td><td>finance</td></tr>
+</table></div>
+<p>report_build ran four times: twice for data, then twice for finance.</p>
+<h5>Count each team&#x27;s runs as of their day</h5>
+<p>The same join, for every job, grouped by team:</p>
+<pre class="python">runs_per_team = statement(
+    SELECT(job_owners.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_events),
+    JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
+                               equals(job_owners.dt, job_events.dt))),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;),
+          between(job_owners.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_owners.team),
+)
+run(runs_per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>runs</th></tr>
+<tr><td>data</td><td>16</td></tr>
+<tr><td>finance</td><td>12</td></tr>
+</table></div>
+<p>data has nightly_load&#x27;s 14 runs and report_build&#x27;s 2 before the move; finance has invoice_sync&#x27;s 10 and report_build&#x27;s 2 after it.</p>
+<h5>Pick each job&#x27;s newest row</h5>
+<p>To know who owns each job now, take each job&#x27;s newest row of the snapshot. <code>row_number</code> numbers each job&#x27;s rows from the newest day down; the Statement that reads them keeps number 1. Its <code>PARTITION_BY=</code> is SQL&#x27;s word for the groups to number within, here each job, not the table&#x27;s partitions. Hive can&#x27;t keep a row by its number in the same SELECT that numbers it, so the numbering goes in a Derived table:</p>
+<pre class="python">numbered = derived(&quot;numbered&quot;, statement(
+    SELECT(job_owners.job_id, job_owners.team, job_owners.owner, job_owners.dt,
+           AS(row_number(PARTITION_BY=job_owners.job_id,
+                         ORDER_BY=descending(job_owners.dt)), &quot;newest_first&quot;)),
+    FROM(job_owners),
+    WHERE(between(job_owners.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+))
+newest_owner = statement(
+    SELECT(numbered.job_id, numbered.team, numbered.owner, numbered.dt),
+    FROM(numbered),
+    WHERE(equals(numbered.newest_first, 1)),
+)
+text = show_hive(newest_owner)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH numbered AS (
+  SELECT
+    job_owners.job_id,
+    job_owners.team,
+    job_owners.owner,
+    job_owners.dt,
+    ROW_NUMBER() OVER (PARTITION BY job_owners.job_id ORDER BY job_owners.dt DESC) AS newest_first
+  FROM ops.job_owners AS job_owners
+  WHERE
+    job_owners.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+)
+SELECT
+  numbered.job_id,
+  numbered.team,
+  numbered.owner,
+  numbered.dt
+FROM numbered
+WHERE
+  numbered.newest_first = 1;</pre>
+<pre class="python">run(newest_owner, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
+<tr><td>1</td><td>data</td><td>ana</td><td>2026-09-24</td></tr>
+<tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-24</td></tr>
+<tr><td>3</td><td>finance</td><td>chloe</td><td>2026-09-24</td></tr>
+<tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-24</td></tr>
+</table></div>
+<p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm, so its owner is NULL, shown as None.</p>
+<h4>Check it worked</h4>
+<p>Each run should meet exactly one row of the snapshot, so the teams&#x27; runs add up to every run over the 14 days:</p>
+<pre class="python">every_run = statement(
+    SELECT(AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+)
+run(every_run, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>runs</th></tr>
+<tr><td>28</td></tr>
+</table></div>
+<pre class="python">int(run(runs_per_team, send=example_database.send)[&quot;runs&quot;].sum())</pre>
+<p class="label">Python shows</p><pre class="output">28</pre>
+<h4>Common mistakes</h4>
+<h5>Joining the snapshot on the job alone</h5>
+<p>Without the day in <code>ON=</code>, each run meets its job&#x27;s row on every day of the snapshot. The Toolbox warns at the <code>JOIN</code>, since a job_owners row is unique only by job and day:</p>
+<pre class="python">runs_per_team_repeated = statement(
+    SELECT(job_owners.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_events),
+    JOIN(job_owners, ON=equals(job_owners.job_id, job_events.job_id)),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;),
+          between(job_owners.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_owners.team),
+)</pre>
+<p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
+  What happened:  JOIN(job_owners) matches on job_id, but a job_owners row is only unique by its key (job_id, dt).
+  Why it matters: Each row before the join is repeated once per matching job_owners row, so sums and counts over it may come out too big.
+  Usual fix:      Group job_owners first so it has one row per value you join on, and join that.
+  Opt-out:        JOIN(job_owners, ON=..., many_matches=True)</pre>
+<pre class="python">run(runs_per_team_repeated, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>runs</th></tr>
+<tr><td>data</td><td>224</td></tr>
+<tr><td>finance</td><td>168</td></tr>
+</table></div>
+<p>Each run counted 14 times, once per day of the snapshot. Join on both parts of the key.</p>
+<h5>Taking the team from today&#x27;s table</h5>
+<p><code>ops.jobs</code> holds each job&#x27;s team as it is today, so joining it gives every run today&#x27;s team:</p>
+<pre class="python">runs_per_team_today = statement(
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_events),
+    JOIN(jobs, ON=equals(jobs.job_id, job_events.job_id)),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(jobs.team),
+)
+run(runs_per_team_today, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>runs</th></tr>
+<tr><td>data</td><td>14</td></tr>
+<tr><td>finance</td><td>14</td></tr>
+</table></div>
+<p>Nothing stops it, and the total is still 28, but report_build&#x27;s two runs before 2026-09-18 count for finance, a team that didn&#x27;t own it then. Use today&#x27;s table only for what you want as it is today.</p>
+<h5>Leaving the snapshot&#x27;s days unbounded</h5>
+<p>The day in <code>ON=</code> matches the two tables&#x27; days, but it doesn&#x27;t bound job_owners&#x27; days, so the Toolbox refuses as you build the Statement:</p>
+<pre class="python">statement(
+    SELECT(job_owners.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_events),
+    JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
+                               equals(job_owners.dt, job_events.dt))),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_owners.team),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">LoadRefused:
+  What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but nothing bounds its Date partition dt at both ends.
+  Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
+  Usual fix:      Bound it in WHERE, as in WHERE(between(job_owners.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_owners.dt, 7)).
+  Opt-out:        JOIN(job_owners, ON=..., reads_all_partitions=True)</pre>
+<p>Bound it with the same days as the table it is joined to, as the steps do.</p>
+<h4>Next</h4>
+<ul><li>Roll the days up into weeks and months: <a href="#week_and_month_rollups">Week and month rollups</a>.</li><li>Save each team&#x27;s day, as of its day, in a pipeline of Saved tables: <a href="#a_layered_pipeline">A layered pipeline</a>.</li><li>The gallery&#x27;s <a href="examples.html#latest_and_top_n">latest run per job</a>, which shows why <code>max_of</code> on each column can mix values from different rows, and its Worked example of <a href="examples.html#row_number"><code>row_number</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>row_number</code>, <code>descending</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="week_and_month_rollups">
+<h3>21. Week and month rollups <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Turn 14 days of rows into one row per week, or per month: count each job&#x27;s runs per week with <code>week_start</code>, per month with <code>month_start</code>, and count the different jobs that ran each week without adding up each day&#x27;s count, which counts a job once per day it ran.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When a daily table is too fine to read, and the question is about weeks or months: runs per week, the different users seen each month, a week&#x27;s total against the week before.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<p><code>ops.job_events</code> holds what each job&#x27;s runs did over 14 days, 2026-09-11 to 2026-09-24. Each run has one <code>&quot;start&quot;</code> row, so counting the <code>&quot;start&quot;</code> rows counts the runs.</p>
+<pre class="python">from spark_composer import *
+job_events = example_database.job_events</pre>
+<h5>Count each job&#x27;s runs per week</h5>
+<p><code>week_start(job_events.dt)</code> gives the Monday that starts each day&#x27;s week, as text like <code>2026-09-14</code>. Name it in <code>SELECT</code> with <code>AS</code>, then group by that name in <code>GROUP_BY</code>, with any other column you group by:</p>
+<pre class="python">starts_per_week = statement(
+    SELECT(AS(week_start(job_events.dt), &quot;week&quot;), job_events.job_id,
+           AS(count_rows(), &quot;starts&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(&quot;week&quot;, job_events.job_id),
+)
+text = show_hive(starts_per_week)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  CAST(NEXT_DAY(DATE_ADD(job_events.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
+  job_events.job_id,
+  COUNT(*) AS starts
+FROM ops.job_events AS job_events
+WHERE
+  job_events.event_type = &#x27;start&#x27;
+  AND job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  CAST(NEXT_DAY(DATE_ADD(job_events.dt, 7 * -1), &#x27;MO&#x27;) AS STRING),
+  job_events.job_id;</pre>
+<pre class="python">run(starts_per_week, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>week</th><th>job_id</th><th>starts</th></tr>
+<tr><td>2026-09-07</td><td>1</td><td>3</td></tr>
+<tr><td>2026-09-07</td><td>2</td><td>1</td></tr>
+<tr><td>2026-09-07</td><td>3</td><td>1</td></tr>
+<tr><td>2026-09-14</td><td>1</td><td>7</td></tr>
+<tr><td>2026-09-14</td><td>2</td><td>5</td></tr>
+<tr><td>2026-09-14</td><td>3</td><td>2</td></tr>
+<tr><td>2026-09-21</td><td>1</td><td>4</td></tr>
+<tr><td>2026-09-21</td><td>2</td><td>4</td></tr>
+<tr><td>2026-09-21</td><td>3</td><td>1</td></tr>
+</table></div>
+<p>The Hive works the Monday out from the day: its DATE_ADD(job_events.dt, 7 * -1) is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) the first Monday after that. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
+<p>The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.</p>
+<h5>Count each job&#x27;s runs per month</h5>
+<p><code>month_start</code> gives the first day of each day&#x27;s month, and works the same way. All 14 days are in September, so there is one month:</p>
+<pre class="python">starts_per_month = statement(
+    SELECT(AS(month_start(job_events.dt), &quot;month&quot;), job_events.job_id,
+           AS(count_rows(), &quot;starts&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(&quot;month&quot;, job_events.job_id),
+)
+text = show_hive(starts_per_month)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  CAST(TRUNC(job_events.dt, &#x27;MM&#x27;) AS STRING) AS month,
+  job_events.job_id,
+  COUNT(*) AS starts
+FROM ops.job_events AS job_events
+WHERE
+  job_events.event_type = &#x27;start&#x27;
+  AND job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  CAST(TRUNC(job_events.dt, &#x27;MM&#x27;) AS STRING),
+  job_events.job_id;</pre>
+<pre class="python">run(starts_per_month, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>month</th><th>job_id</th><th>starts</th></tr>
+<tr><td>2026-09-01</td><td>1</td><td>14</td></tr>
+<tr><td>2026-09-01</td><td>2</td><td>10</td></tr>
+<tr><td>2026-09-01</td><td>3</td><td>4</td></tr>
+</table></div>
+<h5>Count the different jobs that ran each week</h5>
+<p>A count of different values, <code>count_distinct</code>, counts each value once in its group. Count from the rows themselves, grouped by week, so a job that ran on five days of a week counts once in that week:</p>
+<pre class="python">jobs_per_week = statement(
+    SELECT(AS(week_start(job_events.dt), &quot;week&quot;),
+           AS(count_distinct(job_events.job_id), &quot;jobs_that_ran&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(&quot;week&quot;),
+)
+run(jobs_per_week, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>week</th><th>jobs_that_ran</th></tr>
+<tr><td>2026-09-07</td><td>3</td></tr>
+<tr><td>2026-09-14</td><td>3</td></tr>
+<tr><td>2026-09-21</td><td>3</td></tr>
+</table></div>
+<p>Three different jobs ran in each week. The first mistake below shows the count that adds up each day&#x27;s count instead, and what the Toolbox says.</p>
+<h4>Check it worked</h4>
+<p>Every run is in exactly one week and one month, so each rollup&#x27;s runs add up to the 28 runs over the 14 days:</p>
+<pre class="python">int(run(starts_per_week, send=example_database.send)[&quot;starts&quot;].sum())</pre>
+<p class="label">Python shows</p><pre class="output">28</pre>
+<pre class="python">int(run(starts_per_month, send=example_database.send)[&quot;starts&quot;].sum())</pre>
+<p class="label">Python shows</p><pre class="output">28</pre>
+<h4>Common mistakes</h4>
+<h5>Adding up each day&#x27;s count of different jobs</h5>
+<p>A daily table of different jobs is often already there, so adding its days up looks like the quick way to a week. But a job that ran on five days is in five days&#x27; counts, so the week would count it five times. The Toolbox refuses it as you build the Statement:</p>
+<pre class="python">jobs_per_day = derived(&quot;jobs_per_day&quot;, statement(
+    SELECT(job_events.dt, AS(count_distinct(job_events.job_id), &quot;jobs_that_ran&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_events.dt),
+))
+statement(
+    SELECT(AS(week_start(jobs_per_day.dt), &quot;week&quot;),
+           AS(sum_of(jobs_per_day.jobs_that_ran), &quot;jobs_that_ran&quot;)),
+    FROM(jobs_per_day),
+    GROUP_BY(&quot;week&quot;),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which is a distinct count.
+  Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
+  Usual fix:      For a count over the whole span, count again with count_distinct(...) from the rows it was counted from, under your own GROUP_BY: a week&#x27;s count comes from the week&#x27;s rows, not from each day&#x27;s count.
+  Opt-out:        sum_of(jobs_per_day.jobs_that_ran, adds_up=True)</pre>
+<p>Count again from the rows, as <code>jobs_per_week</code> does. A plain count, such as runs, does add up: a week&#x27;s runs are its days&#x27; runs added together. The gallery&#x27;s <a href="examples.html#regrouping">re-grouping Worked example</a> shows the wrong number the opt-out gives.</p>
+<h5>Leaving the week out of GROUP_BY</h5>
+<p>Without <code>GROUP_BY</code>, the Statement has no groups for the count to count in:</p>
+<pre class="python">statement(
+    SELECT(AS(week_start(job_events.dt), &quot;week&quot;), AS(count_rows(), &quot;starts&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.event_type, &quot;start&quot;),
+          between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  SELECT has job_events.dt, but the Statement counts or adds up rows and has no GROUP_BY.
+  Why it matters: Each output row is one group, so a column that isn&#x27;t grouped has no single value to show. Hive would refuse the Statement.
+  Usual fix:      Add GROUP_BY(job_events.dt), or put job_events.dt inside a count or a sum. To keep one whole row per group instead, such as each job&#x27;s latest run, number the rows with row_number(...) inside derived(...), then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>The message names job_events.dt, the column inside <code>week_start</code>, and its fix offers <code>GROUP_BY(job_events.dt)</code>, which would give one row per day. To get one row per week, group by the name you gave the week instead: <code>GROUP_BY(&quot;week&quot;)</code>.</p>
+<h5>Reading weeks your days only partly cover</h5>
+<p>The days you read decide which days each week holds. Counting the days in each week shows it:</p>
+<pre class="python">days_per_week = statement(
+    SELECT(AS(week_start(job_events.dt), &quot;week&quot;),
+           AS(count_distinct(job_events.dt), &quot;days&quot;)),
+    FROM(job_events),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(&quot;week&quot;),
+)
+run(days_per_week, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>week</th><th>days</th></tr>
+<tr><td>2026-09-07</td><td>3</td></tr>
+<tr><td>2026-09-14</td><td>7</td></tr>
+<tr><td>2026-09-21</td><td>4</td></tr>
+</table></div>
+<p>The first and last weeks hold 3 and 4 days, so their runs look low next to the middle week&#x27;s, though nothing ran less. To compare weeks, read whole weeks, from a Monday to a Sunday, such as <code>between(job_events.dt, &quot;2026-09-14&quot;, &quot;2026-09-20&quot;)</code>; for months, from the 1st to the month&#x27;s last day.</p>
+<h4>Next</h4>
+<ul><li>Save each day once, and roll it up into weeks from the Saved table: <a href="#a_layered_pipeline">A layered pipeline</a>.</li><li>Keep a Saved table&#x27;s last few days up to date: <a href="#incremental_loads_and_late_data">Incremental loads and late data</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#week_start"><code>week_start</code></a>, <a href="examples.html#month_start"><code>month_start</code></a> and <a href="examples.html#count_distinct"><code>count_distinct</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>week_start</code>, <code>month_start</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="incremental_loads_and_late_data">
+<h3>22. Incremental loads and late data <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Keep a Saved table up to date by rewriting only its last few days on every run, so rows that reach the warehouse a day or two late still land in the right day. You build one Statement over a sliding window of days, split it into one write per day with <code>by_day</code>, and see why <code>INSERT_OVERWRITE</code> lets you send the same days again safely.</p>
+<h4>When you&#x27;d use it</h4>
+<p>For any Saved table filled from a table whose recent days can still change: events that arrive late, a run that finishes after midnight, a bill that comes in the next day. Rewriting yesterday as well as today costs a little more each run, and saves finding and fixing a short day by hand later.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *
+job_events = example_database.job_events</pre>
+<h5>Describe the Saved table</h5>
+<p>mart.job_day will hold one row per job per day: how many runs started and how many finished. It doesn&#x27;t exist until you create it, so its Table reference is written by hand. At work it goes in a file of its own, table_references/job_day.py:</p>
+<pre class="python">job_day = Table(
+    &quot;mart.job_day&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;starts&quot;: &quot;bigint&quot;,
+        &quot;finishes&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,  # the day the runs started
+    },
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+)</pre>
+<p>Create it once, with <code>may_exist=True</code>, so sending it again on later runs does nothing:</p>
+<pre class="python">print(to_hive(create_table(job_day, may_exist=True)))</pre>
+<p class="label">Hive</p><pre class="hive">CREATE TABLE IF NOT EXISTS mart.job_day (
+  job_id BIGINT,
+  starts BIGINT,
+  finishes BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC</pre>
+<h5>Preview the rows for the last three days</h5>
+<p>Before writing anything, run the same counts as a plain SELECT, to see what each day will hold. <code>count_rows(where=...)</code> counts only the rows that meet its condition, so one pass counts starts and finishes side by side. <code>last_n_days(job_events.dt, 3)</code> reads the three days before today: here 2026-09-22 to 2026-09-24.</p>
+<pre class="python">preview = statement(
+    SELECT(job_events.dt, job_events.job_id,
+           AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+           AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+    FROM(job_events),
+    WHERE(last_n_days(job_events.dt, 3)),
+    GROUP_BY(job_events.dt, job_events.job_id),
+)
+run(preview, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>dt</th><th>job_id</th><th>starts</th><th>finishes</th></tr>
+<tr><td>2026-09-22</td><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>2026-09-22</td><td>2</td><td>1</td><td>1</td></tr>
+<tr><td>2026-09-23</td><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>2026-09-23</td><td>2</td><td>1</td><td>1</td></tr>
+<tr><td>2026-09-24</td><td>1</td><td>1</td><td>1</td></tr>
+<tr><td>2026-09-24</td><td>2</td><td>1</td><td>0</td></tr>
+</table></div>
+<p>Job 2, invoice_sync, started on 2026-09-24 and hasn&#x27;t finished. When its <code>&quot;finish&quot;</code> row arrives, it lands in 2026-09-24&#x27;s partition, a day that a run writing only today would never look at again.</p>
+<h5>Write the last three days, one day at a time</h5>
+<p>A write fills one day of a Saved table. So build the write over the whole window, then <code>by_day</code> splits it into one write per day, oldest first. Each selects the Saved table&#x27;s columns by name, apart from its Date partition, which the Toolbox fills from the day read. dt stays in <code>GROUP_BY</code>, so each day&#x27;s counts stay apart:</p>
+<pre class="python">def rewrite_last_days(n):
+    return by_day(statement(
+        INSERT_OVERWRITE(job_day),
+        SELECT(job_events.job_id,
+               AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+               AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+        FROM(job_events),
+        WHERE(last_n_days(job_events.dt, n)),
+        GROUP_BY(job_events.dt, job_events.job_id),
+    ))
+days = rewrite_last_days(3)
+text = show_hive(days)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 3: days[0]
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-22&#x27;)
+SELECT
+  job_events.job_id,
+  COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS starts,
+  COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END) AS finishes
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt = &#x27;2026-09-22&#x27;
+GROUP BY
+  job_events.dt,
+  job_events.job_id;
+
+-- 2 of 3: days[1]
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-23&#x27;)
+SELECT
+  job_events.job_id,
+  COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS starts,
+  COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END) AS finishes
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt = &#x27;2026-09-23&#x27;
+GROUP BY
+  job_events.dt,
+  job_events.job_id;
+
+-- 3 of 3: days[2]
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_events.job_id,
+  COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS starts,
+  COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END) AS finishes
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_events.dt,
+  job_events.job_id;</pre>
+<p>The Example database can&#x27;t be written to, so the writes stop here. At work, a function sends them in order through your own send, and you call it once a day, <code>load_last_days(send)</code>:</p>
+<pre class="python">def load_last_days(send):
+    for day in rewrite_last_days(3):
+        run(day, send=send)</pre>
+<h5>Why sending a day again is safe</h5>
+<p><code>INSERT OVERWRITE ... PARTITION(dt = &#x27;2026-09-24&#x27;)</code> replaces everything that day held. Today&#x27;s run writes 2026-09-24 with invoice_sync&#x27;s start and no finish. Tomorrow&#x27;s run reads 2026-09-23 to 2026-09-25: it writes 2026-09-24 again, now with the finish that arrived overnight, writes 2026-09-23 again with the same rows it already held, and writes 2026-09-25 for the first time.</p>
+<p>A day already right comes out the same, and a day that changed comes out new, so the same writes can go out any number of times: after a failed run, twice by mistake, or for a whole month again with a wider window.</p>
+<h5>Choose how many days</h5>
+<p>Rewrite as many days as late rows can take to arrive, plus one. If rows can come in up to two days late, rewrite the last three. A day outside the window is never read again, so a row arriving later than that needs a one-off backfill of its day: <code>by_day</code> over a <code>between</code> of the days to fix, the same Statement with other days.</p>
+<h4>Check it worked</h4>
+<p>The window holds one write per day, each for its own day:</p>
+<pre class="python">for day in days:
+    print(to_hive(day).splitlines()[0])</pre>
+<p class="label">Hive</p><pre class="hive">INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-22&#x27;)
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-23&#x27;)
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-24&#x27;)</pre>
+<p>At work, after a run, read the Saved table&#x27;s last three days back through <code>job_day</code> with <code>run</code>, and compare them with <code>preview</code>&#x27;s rows.</p>
+<h4>Common mistakes</h4>
+<h5>Sending the window as one write</h5>
+<p>A write fills one day, so a write that reads three days is refused when it becomes Hive, before anything is sent:</p>
+<pre class="python">whole_window = statement(
+    INSERT_OVERWRITE(job_day),
+    SELECT(job_events.job_id,
+           AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+           AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+    FROM(job_events),
+    WHERE(last_n_days(job_events.dt, 3)),
+    GROUP_BY(job_events.dt, job_events.job_id),
+)
+to_hive(whole_window)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_day) covers 3 days.
+  Why it matters: A write fills one day of the Saved table at a time, so every day&#x27;s rows would land in that one day.
+  Usual fix:      Send one Statement per day: for day in by_day(s): run(day, send=...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Split it with <code>by_day</code>, as <code>rewrite_last_days</code> does.</p>
+<h5>Leaving dt out of GROUP_BY</h5>
+<p>Without the day in <code>GROUP_BY</code>, each job&#x27;s counts would run across all three days, and each day&#x27;s write couldn&#x27;t hold just its own day. <code>by_day</code> refuses to split it:</p>
+<pre class="python">by_day(statement(
+    INSERT_OVERWRITE(job_day),
+    SELECT(job_events.job_id,
+           AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+           AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+    FROM(job_events),
+    WHERE(last_n_days(job_events.dt, 3)),
+    GROUP_BY(job_events.job_id),
+))</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  by_day can&#x27;t split this Statement: it groups rows without keeping the Date partition job_events.dt.
+  Why it matters: Each day&#x27;s Statement would give partial groups, and those can&#x27;t always be added back up (a distinct count, for one, can&#x27;t).
+  Usual fix:      Add job_events.dt to GROUP_BY(...), or run the Statement whole with run(...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>Using INSERT_INTO for the window</h5>
+<p><code>INSERT_INTO</code> adds rows to a day and keeps what it held. Its Hive differs from the steps&#x27; in one word:</p>
+<pre class="python">print(to_hive(statement(
+    INSERT_INTO(job_day),
+    SELECT(job_events.job_id,
+           AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+           AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+    FROM(job_events),
+    WHERE(equals(job_events.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_events.dt, job_events.job_id),
+)).splitlines()[0])</pre>
+<p class="label">Hive</p><pre class="hive">INSERT INTO mart.job_day PARTITION(dt = &#x27;2026-09-24&#x27;)</pre>
+<p>Nothing refuses it, since adding rows to a day is sometimes what you want. But in a sliding window each day is written on three runs in a row, so each would hold its rows three times over, and every count read from it would come out three times too big. Use <code>INSERT_OVERWRITE</code> for any day you may write again.</p>
+<h4>Next</h4>
+<ul><li>Chain Saved tables into layers, each read by the next: <a href="#a_layered_pipeline">A layered pipeline</a>.</li><li>Roll the days up into weeks and months: <a href="#week_and_month_rollups">Week and month rollups</a>.</li><li>The gallery&#x27;s <a href="examples.html#saved_table">Saved table Worked example</a>, which creates, writes, adds to, backfills and rebuilds one, and its Worked example of <a href="examples.html#by_day"><code>by_day</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>by_day</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="a_layered_pipeline">
+<h3>23. A layered pipeline <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Build a pipeline in layers, each a Saved table the next one reads: the raw events, then each job&#x27;s day, then each team&#x27;s day, then a weekly rollup read from the team layer. You give each layer its Table reference and its write, put the day&#x27;s writes in one list that runs every writer before the layers that read it, and export one Lineage for the whole chain.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When one number goes through several steps, and several notebooks or dashboards read the steps in between. Each layer is worked out once a day and saved, so its readers read a few saved rows rather than every raw row again, and each layer can be checked on its own.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<p>The raw layer is two tables of the Example database: <code>ops.job_events</code>, what each job&#x27;s runs did each day, and <code>ops.job_owners</code>, each job&#x27;s team on each day.</p>
+<pre class="python">from spark_composer import *
+job_events = example_database.job_events
+job_owners = example_database.job_owners</pre>
+<h5>Describe each Saved table</h5>
+<p>Each layer is a Saved table with a Table reference written by hand, since it doesn&#x27;t exist until you create it. mart.job_day holds each job&#x27;s runs started and finished per day; mart.team_day adds them up per team, as of each day. At work each goes in a file of its own under table_references/.</p>
+<pre class="python">job_day = Table(
+    &quot;mart.job_day&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;starts&quot;: &quot;bigint&quot;, &quot;finishes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+)
+team_day = Table(
+    &quot;mart.team_day&quot;,
+    columns={&quot;team&quot;: &quot;string&quot;, &quot;starts&quot;: &quot;bigint&quot;, &quot;finishes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;team&quot;, &quot;dt&quot;],
+)</pre>
+<p>Create each once. <code>show_hive</code> prints both, ready to paste:</p>
+<pre class="python">text = show_hive(create_table(job_day, may_exist=True),
+                 create_table(team_day, may_exist=True))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2
+CREATE TABLE IF NOT EXISTS mart.job_day (
+  job_id BIGINT,
+  starts BIGINT,
+  finishes BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC;
+
+-- 2 of 2
+CREATE TABLE IF NOT EXISTS mart.team_day (
+  team STRING,
+  starts BIGINT,
+  finishes BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC;</pre>
+<h5>Write each layer&#x27;s day</h5>
+<p>Each layer&#x27;s write is a function of the day it writes. The job layer reads the raw events:</p>
+<pre class="python">def write_job_day(day):
+    return statement(
+        INSERT_OVERWRITE(job_day),
+        SELECT(job_events.job_id,
+               AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+               AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+        FROM(job_events),
+        WHERE(equals(job_events.dt, day)),
+        GROUP_BY(job_events.dt, job_events.job_id),
+    )</pre>
+<p>The team layer reads the job layer through its Table reference, <code>job_day</code>, like any other table, and takes each job&#x27;s team from that day&#x27;s snapshot of owners, as <a href="#look_things_up_as_of_a_day">Look things up as of a day</a> does. Adding up the jobs&#x27; counts into the team&#x27;s is safe: a sum of counts is still the right count.</p>
+<pre class="python">def write_team_day(day):
+    return statement(
+        INSERT_OVERWRITE(team_day),
+        SELECT(job_owners.team,
+               AS(sum_of(job_day.starts), &quot;starts&quot;),
+               AS(sum_of(job_day.finishes), &quot;finishes&quot;)),
+        FROM(job_day),
+        JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_day.job_id),
+                                   equals(job_owners.dt, job_day.dt))),
+        WHERE(equals(job_day.dt, day), equals(job_owners.dt, day)),
+        GROUP_BY(job_day.dt, job_owners.team),
+    )</pre>
+<h5>Read the weekly rollup from the team layer</h5>
+<p>A write fills one day of its Saved table, the one day its <code>FROM</code> table reads, so the layers you save are days. The weekly rollup is the last layer: a Statement that adds up the team layer&#x27;s saved days into weeks whenever you read it, which is quick, since each day holds a row per team. Read whole weeks, from a Monday to a Sunday:</p>
+<pre class="python">def team_week(first_day, last_day):
+    return statement(
+        SELECT(AS(week_start(team_day.dt), &quot;week&quot;), team_day.team,
+               AS(sum_of(team_day.starts), &quot;starts&quot;),
+               AS(sum_of(team_day.finishes), &quot;finishes&quot;)),
+        FROM(team_day),
+        WHERE(between(team_day.dt, first_day, last_day)),
+        GROUP_BY(&quot;week&quot;, team_day.team),
+    )
+weekly = team_week(&quot;2026-09-14&quot;, &quot;2026-09-20&quot;)</pre>
+<h5>Put the day&#x27;s writes in order</h5>
+<p>A layer must be written after the layers it reads, or it reads a day they haven&#x27;t written yet, and nothing would stop it. So one function lists the day&#x27;s writes in that order, each writer before its readers, and it is the only place that order is kept:</p>
+<pre class="python">def pipeline(day):
+    return [write_job_day(day), write_team_day(day)]
+job_day_step, team_day_step = pipeline(&quot;2026-09-24&quot;)
+text = show_hive(job_day_step, team_day_step)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2: job_day_step
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_events.job_id,
+  COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS starts,
+  COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END) AS finishes
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_events.dt,
+  job_events.job_id;
+
+-- 2 of 2: team_day_step
+INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_owners.team,
+  SUM(job_day.starts) AS starts,
+  SUM(job_day.finishes) AS finishes
+FROM mart.job_day AS job_day
+JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt
+WHERE
+  job_day.dt = &#x27;2026-09-24&#x27; AND job_owners.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_day.dt,
+  job_owners.team;</pre>
+<p>That printout is a dry run: every write for the day, in order, sent nowhere. At work, one runner sends them, in order:</p>
+<pre class="python">def run_pipeline(day, send):
+    for step in pipeline(day):
+        run(step, send=send)</pre>
+<p>To fill several days, call it once per day, oldest first, so each day&#x27;s layers are written in order. Then read the week with <code>run(weekly, send=send)</code>, your own send in place of the Example database&#x27;s.</p>
+<h5>Export one Lineage for the chain</h5>
+<p>Pass every Statement of the chain to <code>export_lineage</code> together. Its drawing follows each Saved table from the Statement that writes it to the ones that read it, from the raw tables to the weekly rollup. It puts each writer first, whatever order you pass them in, so its title lists them in the order they must run:</p>
+<pre class="python">html_file, markdown_file = export_lineage(weekly, team_day_step, job_day_step,
+                                          to=&quot;lineage/pipeline.html&quot;)</pre>
+<p class="label">It writes lineage/pipeline.md</p>
+<pre class="file"># Lineage: job_day_step, team_day_step, weekly
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;ops.job_events&quot;]
+    n0[&quot;ops.job_events.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n2[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n6[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;job_day_step&quot;]
+    n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n3[&quot;starts&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
+    n4[&quot;finishes&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;filters on job_day_step&quot;]
+    n5{{&quot;WHERE in job_day_step&lt;br/&gt;&lt;small&gt;equals(job_events.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
+  end
+  subgraph g3[&quot;mart.job_day&quot;]
+    n7[&quot;mart.job_day.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n8[&quot;mart.job_day.starts&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n9[&quot;mart.job_day.finishes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n10[&quot;mart.job_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;ops.job_owners&quot;]
+    n11[&quot;ops.job_owners.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n17[&quot;ops.job_owners.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n19[&quot;ops.job_owners.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+  end
+  subgraph g5[&quot;team_day_step&quot;]
+    n12[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&quot;]
+    n13[&quot;starts&lt;br/&gt;&lt;small&gt;sum_of(job_day.starts)&lt;/small&gt;&quot;]
+    n14[&quot;finishes&lt;br/&gt;&lt;small&gt;sum_of(job_day.finishes)&lt;/small&gt;&quot;]
+  end
+  subgraph g6[&quot;filters on team_day_step&quot;]
+    n15{{&quot;WHERE in team_day_step&lt;br/&gt;&lt;small&gt;equals(job_day.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
+    n16{{&quot;WHERE in team_day_step&lt;br/&gt;&lt;small&gt;equals(job_owners.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
+    n18{{&quot;JOIN ON in team_day_step&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, job_day.jo…&lt;/small&gt;&quot;}}
+  end
+  subgraph g7[&quot;mart.team_day&quot;]
+    n20[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n21[&quot;mart.team_day.starts&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n22[&quot;mart.team_day.finishes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n23[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g8[&quot;weekly&quot;]
+    n24[&quot;week&lt;br/&gt;&lt;small&gt;week_start(team_day.dt)&lt;/small&gt;&quot;]
+    n25[&quot;team&lt;br/&gt;&lt;small&gt;team_day.team&lt;/small&gt;&quot;]
+    n26[&quot;starts&lt;br/&gt;&lt;small&gt;sum_of(team_day.starts)&lt;/small&gt;&quot;]
+    n27[&quot;finishes&lt;br/&gt;&lt;small&gt;sum_of(team_day.finishes)&lt;/small&gt;&quot;]
+  end
+  subgraph g9[&quot;filters on weekly&quot;]
+    n28{{&quot;WHERE in weekly&lt;br/&gt;&lt;small&gt;between(team_day.dt, #quot;2026-09-14#quot;, #quot;2026-09…&lt;/small&gt;&quot;}}
+  end
+  n0 --&gt; n1
+  n2 --&gt; n3
+  n2 --&gt; n4
+  n6 -.-&gt; n5
+  n1 --&gt; n7
+  n3 --&gt; n8
+  n4 --&gt; n9
+  n5 -.-&gt;|day written| n10
+  n11 --&gt; n12
+  n8 --&gt; n13
+  n9 --&gt; n14
+  n10 -.-&gt; n15
+  n17 -.-&gt; n16
+  n19 -.-&gt; n18
+  n7 -.-&gt; n18
+  n17 -.-&gt; n18
+  n10 -.-&gt; n18
+  n12 --&gt; n20
+  n13 --&gt; n21
+  n14 --&gt; n22
+  n15 -.-&gt;|day written| n23
+  n23 --&gt; n24
+  n20 --&gt; n25
+  n21 --&gt; n26
+  n22 --&gt; n27
+  n23 -.-&gt; n28
+  n5 -.-&gt;|filters| g1
+  n15 -.-&gt;|filters| g5
+  n16 -.-&gt;|filters| g5
+  n18 -.-&gt;|filters| g5
+  n28 -.-&gt;|filters| g8
+```
+
+## job_day_step
+
+It writes the Saved table mart.job_day, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `starts`
+
+Calculated in **job_day_step** as `count_rows(where=equals(job_events.event_type, &quot;start&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)`.
+
+```text
+job_day_step.starts = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+└─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+- WHERE in job_day_step: `equals(job_events.dt, &quot;2026-09-24&quot;)`, which is `job_events.dt = &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.dt` and `job_events.job_id`.
+
+#### `finishes`
+
+Calculated in **job_day_step** as `count_rows(where=equals(job_events.event_type, &quot;finish&quot;))`, which is `COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END)`.
+
+```text
+job_day_step.finishes = count_rows(where=equals(job_events.event_type, &quot;finish&quot;))
+└─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+- WHERE in job_day_step: `equals(job_events.dt, &quot;2026-09-24&quot;)`, which is `job_events.dt = &#x27;2026-09-24&#x27;` (reads ops.job_events.dt)
+
+One value for each different `job_events.dt` and `job_events.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.job_events.job_id |
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_events.job_id,
+  COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS starts,
+  COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END) AS finishes
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_events.dt,
+  job_events.job_id
+```
+
+## team_day_step
+
+It reads the Saved table mart.job_day, written by job_day_step above. It writes the Saved table mart.team_day, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `starts`
+
+Calculated in **team_day_step** as `sum_of(job_day.starts)`, which is `SUM(job_day.starts)`.
+
+```text
+team_day_step.starts = sum_of(job_day.starts)
+└─ mart.job_day.starts  (bigint)
+   └─ job_day_step.starts = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+      └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+- WHERE in team_day_step: `equals(job_day.dt, &quot;2026-09-24&quot;)`, which is `job_day.dt = &#x27;2026-09-24&#x27;` (reads mart.job_day.dt)
+- WHERE in team_day_step: `equals(job_owners.dt, &quot;2026-09-24&quot;)`, which is `job_owners.dt = &#x27;2026-09-24&#x27;` (reads ops.job_owners.dt)
+- JOIN ON in team_day_step: `all_of(equals(job_owners.job_id, job_day.job_id), equals(job_owners.dt, job_day.dt))`, which is `job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt` (reads mart.job_day.dt, mart.job_day.job_id, ops.job_owners.dt, ops.job_owners.job_id)
+
+One value for each different `job_day.dt` and `job_owners.team`.
+
+#### `finishes`
+
+Calculated in **team_day_step** as `sum_of(job_day.finishes)`, which is `SUM(job_day.finishes)`.
+
+```text
+team_day_step.finishes = sum_of(job_day.finishes)
+└─ mart.job_day.finishes  (bigint)
+   └─ job_day_step.finishes = count_rows(where=equals(job_events.event_type, &quot;finish&quot;))
+      └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+- WHERE in team_day_step: `equals(job_day.dt, &quot;2026-09-24&quot;)`, which is `job_day.dt = &#x27;2026-09-24&#x27;` (reads mart.job_day.dt)
+- WHERE in team_day_step: `equals(job_owners.dt, &quot;2026-09-24&quot;)`, which is `job_owners.dt = &#x27;2026-09-24&#x27;` (reads ops.job_owners.dt)
+- JOIN ON in team_day_step: `all_of(equals(job_owners.job_id, job_day.job_id), equals(job_owners.dt, job_day.dt))`, which is `job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt` (reads mart.job_day.dt, mart.job_day.job_id, ops.job_owners.dt, ops.job_owners.job_id)
+
+One value for each different `job_day.dt` and `job_owners.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.job_owners.team |
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_owners.team,
+  SUM(job_day.starts) AS starts,
+  SUM(job_day.finishes) AS finishes
+FROM mart.job_day AS job_day
+JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt
+WHERE
+  job_day.dt = &#x27;2026-09-24&#x27; AND job_owners.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_day.dt,
+  job_owners.team
+```
+
+## weekly
+
+It reads the Saved table mart.team_day, written by team_day_step above.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `week`
+
+Calculated in **weekly** as `week_start(team_day.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(team_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)`.
+
+```text
+weekly.week = week_start(team_day.dt)
+└─ mart.team_day.dt  (string)
+```
+
+Rows that count:
+- WHERE in weekly: `between(team_day.dt, &quot;2026-09-14&quot;, &quot;2026-09-20&quot;)`, which is `team_day.dt BETWEEN &#x27;2026-09-14&#x27; AND &#x27;2026-09-20&#x27;` (reads mart.team_day.dt)
+
+#### `starts`
+
+Calculated in **weekly** as `sum_of(team_day.starts)`, which is `SUM(team_day.starts)`.
+
+```text
+weekly.starts = sum_of(team_day.starts)
+└─ mart.team_day.starts  (bigint)
+   └─ team_day_step.starts = sum_of(job_day.starts)
+      └─ mart.job_day.starts  (bigint)
+         └─ job_day_step.starts = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+            └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+- WHERE in team_day_step: `equals(job_owners.dt, &quot;2026-09-24&quot;)`, which is `job_owners.dt = &#x27;2026-09-24&#x27;` (reads ops.job_owners.dt)
+- JOIN ON in team_day_step: `all_of(equals(job_owners.job_id, job_day.job_id), equals(job_owners.dt, job_day.dt))`, which is `job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt` (reads mart.job_day.dt, mart.job_day.job_id, ops.job_owners.dt, ops.job_owners.job_id)
+- WHERE in weekly: `between(team_day.dt, &quot;2026-09-14&quot;, &quot;2026-09-20&quot;)`, which is `team_day.dt BETWEEN &#x27;2026-09-14&#x27; AND &#x27;2026-09-20&#x27;` (reads mart.team_day.dt)
+
+One value for each different `week_start(team_day.dt)` and `team_day.team`.
+
+#### `finishes`
+
+Calculated in **weekly** as `sum_of(team_day.finishes)`, which is `SUM(team_day.finishes)`.
+
+```text
+weekly.finishes = sum_of(team_day.finishes)
+└─ mart.team_day.finishes  (bigint)
+   └─ team_day_step.finishes = sum_of(job_day.finishes)
+      └─ mart.job_day.finishes  (bigint)
+         └─ job_day_step.finishes = count_rows(where=equals(job_events.event_type, &quot;finish&quot;))
+            └─ ops.job_events.event_type  (string)
+```
+
+Rows that count:
+- WHERE in team_day_step: `equals(job_owners.dt, &quot;2026-09-24&quot;)`, which is `job_owners.dt = &#x27;2026-09-24&#x27;` (reads ops.job_owners.dt)
+- JOIN ON in team_day_step: `all_of(equals(job_owners.job_id, job_day.job_id), equals(job_owners.dt, job_day.dt))`, which is `job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt` (reads mart.job_day.dt, mart.job_day.job_id, ops.job_owners.dt, ops.job_owners.job_id)
+- WHERE in weekly: `between(team_day.dt, &quot;2026-09-14&quot;, &quot;2026-09-20&quot;)`, which is `team_day.dt BETWEEN &#x27;2026-09-14&#x27; AND &#x27;2026-09-20&#x27;` (reads mart.team_day.dt)
+
+One value for each different `week_start(team_day.dt)` and `team_day.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | mart.team_day.team ← team_day_step.team ← ops.job_owners.team |
+
+### Hive as submitted
+
+```sql
+SELECT
+  CAST(NEXT_DAY(DATE_ADD(team_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING) AS week,
+  team_day.team,
+  SUM(team_day.starts) AS starts,
+  SUM(team_day.finishes) AS finishes
+FROM mart.team_day AS team_day
+WHERE
+  team_day.dt BETWEEN &#x27;2026-09-14&#x27; AND &#x27;2026-09-20&#x27;
+GROUP BY
+  CAST(NEXT_DAY(DATE_ADD(team_day.dt, 7 * -1), &#x27;MO&#x27;) AS STRING),
+  team_day.team
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with Spark Composer 3.2.</pre>
+<p class="note">It writes <code>lineage/pipeline.html</code> too, a page to open in your browser.</p>
+<pre class="python">markdown_file.read_text(encoding=&quot;utf-8&quot;).splitlines()[0]</pre>
+<p class="label">Python shows</p><pre class="output">&#x27;# Lineage: job_day_step, team_day_step, weekly&#x27;</pre>
+<p>Open lineage/pipeline.html in a browser and click a box, such as <code>weekly</code>&#x27;s starts, to light up every column it comes from, through both Saved tables.</p>
+<h4>Check it worked</h4>
+<p>The Example database holds no Saved table, so it can&#x27;t run the team layer. It can work out the same numbers for a day straight from the raw tables, in one Statement:</p>
+<pre class="python">team_day_from_raw = statement(
+    SELECT(job_owners.team,
+           AS(count_rows(where=equals(job_events.event_type, &quot;start&quot;)), &quot;starts&quot;),
+           AS(count_rows(where=equals(job_events.event_type, &quot;finish&quot;)), &quot;finishes&quot;)),
+    FROM(job_events),
+    JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
+                               equals(job_owners.dt, job_events.dt))),
+    WHERE(equals(job_events.dt, &quot;2026-09-24&quot;), equals(job_owners.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_owners.team),
+)
+run(team_day_from_raw, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>starts</th><th>finishes</th></tr>
+<tr><td>data</td><td>1</td><td>1</td></tr>
+<tr><td>finance</td><td>1</td><td>0</td></tr>
+</table></div>
+<p>On 2026-09-24, data&#x27;s nightly_load started and finished, and finance&#x27;s invoice_sync started and is still going. At work, after the pipeline has run, read mart.team_day&#x27;s 2026-09-24 through <code>team_day</code> with <code>run</code>: the two should match.</p>
+<h4>Common mistakes</h4>
+<h5>A layer&#x27;s Table reference changed, but not its write</h5>
+<p>Say the job layer gains a column, the runs that failed. Add it to the Table reference and the old write no longer fills every column, so the Toolbox refuses it:</p>
+<pre class="python">job_day = Table(
+    &quot;mart.job_day&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;starts&quot;: &quot;bigint&quot;, &quot;finishes&quot;: &quot;bigint&quot;,
+             &quot;fails&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+)
+write_job_day(&quot;2026-09-24&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_day): it leaves out fails.
+  Why it matters: The warehouse fills a table&#x27;s columns by position, not by name, so a missing or extra column would put values in the wrong columns.
+  Usual fix:      SELECT every column of job_day&#x27;s Table reference except its Date partition, each under its own name. The Toolbox puts them in the right order.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Add <code>AS(count_rows(where=equals(job_events.event_type, &quot;fail&quot;)), &quot;fails&quot;)</code> to its <code>SELECT</code>. The table itself must change too: <code>create_table</code> refuses while the old one exists, so drop it, create it again and write its days again, as the gallery&#x27;s <a href="examples.html#saved_table">Saved table Worked example</a> shows in its rebuild step.</p>
+<h5>A step that rewrites the table it reads</h5>
+<p>A tidy-up step that reads mart.team_day and writes mart.team_day again, say to drop a team, reads its own output. Run twice, it works on rows it has already changed. <code>export_lineage</code> can&#x27;t draw it either, since its lineage would lead back into itself:</p>
+<pre class="python">without_web = statement(
+    INSERT_OVERWRITE(team_day),
+    SELECT(team_day.team, team_day.starts, team_day.finishes),
+    FROM(team_day),
+    WHERE(equals(team_day.dt, &quot;2026-09-24&quot;), not_equals(team_day.team, &quot;web&quot;)),
+)
+export_lineage(job_day_step, team_day_step, without_web)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  export_lineage can&#x27;t draw these Statements, because they go round in a loop: without_web writes mart.team_day, which without_web reads.
+  Why it matters: Each Statement&#x27;s lineage would lead back into itself, so the drawing would have no start.
+  Usual fix:      Pass only the Statements on one path from the tables to the result, or export each one on its own.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Leave the team out in the write that fills the layer, <code>write_team_day</code>, or write the tidied rows to a new layer of their own.</p>
+<h4>Next</h4>
+<ul><li>Keep each layer&#x27;s last few days up to date as late rows arrive: <a href="#incremental_loads_and_late_data">Incremental loads and late data</a>.</li><li>Share the pieces several layers need: <a href="#a_library_of_building_blocks">A library of Building blocks</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#export_lineage"><code>export_lineage</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>not_equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>sum_of</code>, <code>week_start</code>, <code>show_hive</code>, <code>run</code>, <code>export_lineage</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="a_library_of_building_blocks">
+<h3>24. A library of Building blocks <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Write the pieces many Statements share once, as Building blocks: functions that take the days as arguments and give back a Derived table. You build a block from other blocks, write the two joins people reach for most, keep the rows that have a match (a semi-join) and keep those that don&#x27;t (an anti-join), as blocks, and keep each block&#x27;s name the same wherever it is used.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When the same piece, such as &quot;the runs that started on these days&quot;, turns up in several Statements or several notebooks. Written once, it is worked out the same way everywhere, and fixed in one place. At work the blocks live in a file under building_blocks/, Level 1, which the Statements import.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<p><code>ops.job_events</code> holds what each job&#x27;s runs did each day: a <code>&quot;start&quot;</code> row when a run starts, then <code>&quot;finish&quot;</code>, <code>&quot;retry&quot;</code> or <code>&quot;fail&quot;</code>. Each job runs at most once a day, so a run is a job and a day.</p>
+<pre class="python">from spark_composer import *
+job_events = example_database.job_events
+jobs = example_database.jobs</pre>
+<h5>A block that takes arguments</h5>
+<p>A block is a plain function. Its arguments are what changes from one Statement to the next, usually the days, and it gives back <code>derived(&quot;starts&quot;, statement(...))</code>, a Derived table other Statements read like a table. <code>SELECT_DISTINCT</code> keeps each run once, so the block&#x27;s key is job_id and dt, and joins on both don&#x27;t warn:</p>
+<pre class="python">def starts_between(first_day, last_day):
+    return derived(&quot;starts&quot;, statement(
+        SELECT_DISTINCT(job_events.job_id, job_events.dt),
+        FROM(job_events),
+        WHERE(equals(job_events.event_type, &quot;start&quot;),
+              between(job_events.dt, first_day, last_day)),
+    ))
+def finishes_between(first_day, last_day):
+    return derived(&quot;finishes&quot;, statement(
+        SELECT_DISTINCT(job_events.job_id, job_events.dt),
+        FROM(job_events),
+        WHERE(equals(job_events.event_type, &quot;finish&quot;),
+              between(job_events.dt, first_day, last_day)),
+    ))</pre>
+<p>Check a block on its own before building on it: read all its columns with a Statement and run it. Over two days:</p>
+<pre class="python">recent_starts = starts_between(&quot;2026-09-23&quot;, &quot;2026-09-24&quot;)
+run(statement(SELECT(all_columns(recent_starts)), FROM(recent_starts)),
+    send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th></tr>
+<tr><td>1</td><td>2026-09-23</td></tr>
+<tr><td>1</td><td>2026-09-24</td></tr>
+<tr><td>2</td><td>2026-09-23</td></tr>
+<tr><td>2</td><td>2026-09-24</td></tr>
+</table></div>
+<h5>A block built from other blocks: an anti-join</h5>
+<p>A run that started but has no finish is still going, or failed. To find them, keep each start with no matching finish: SQL calls this an anti-join. <code>LEFT_JOIN</code> keeps every start, and gives a start with no finish NULL in finishes&#x27; columns; <code>is_null</code> keeps just those.</p>
+<p>This block reads two blocks, so it takes them as arguments rather than building them itself. The Statement that uses it builds each block once, and hands the same one to every piece that reads it:</p>
+<pre class="python">def unfinished_runs(starts, finishes):
+    return derived(&quot;unfinished_runs&quot;, statement(
+        SELECT(starts.job_id, starts.dt),
+        FROM(starts),
+        LEFT_JOIN(finishes, ON=all_of(equals(finishes.job_id, starts.job_id),
+                                      equals(finishes.dt, starts.dt))),
+        WHERE(is_null(finishes.job_id)),
+    ))</pre>
+<p>The days live inside the blocks, so <code>ON=</code> needs only the match. A day bound written on the LEFT_JOIN&#x27;s table in <code>WHERE</code> would throw away the very starts with no finish; the last mistake below shows the Toolbox refusing it.</p>
+<h5>A Statement built from the library</h5>
+<p>Over the 14 days, the unfinished runs, with each job&#x27;s name:</p>
+<pre class="python">starts = starts_between(&quot;2026-09-11&quot;, &quot;2026-09-24&quot;)
+finishes = finishes_between(&quot;2026-09-11&quot;, &quot;2026-09-24&quot;)
+unfinished = unfinished_runs(starts, finishes)
+runs_to_look_at = statement(
+    SELECT(jobs.job_name, unfinished.dt),
+    FROM(unfinished),
+    JOIN(jobs, ON=equals(jobs.job_id, unfinished.job_id)),
+)
+text = show_hive(runs_to_look_at)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH starts AS (
+  SELECT DISTINCT
+    job_events.job_id,
+    job_events.dt
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.event_type = &#x27;start&#x27;
+    AND job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+), finishes AS (
+  SELECT DISTINCT
+    job_events.job_id,
+    job_events.dt
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.event_type = &#x27;finish&#x27;
+    AND job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;
+), unfinished_runs AS (
+  SELECT
+    starts.job_id,
+    starts.dt
+  FROM starts
+  LEFT JOIN finishes
+    ON finishes.job_id = starts.job_id AND finishes.dt = starts.dt
+  WHERE
+    finishes.job_id IS NULL
+)
+SELECT
+  jobs.job_name,
+  unfinished_runs.dt
+FROM unfinished_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = unfinished_runs.job_id;</pre>
+<pre class="python">run(runs_to_look_at, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_name</th><th>dt</th></tr>
+<tr><td>invoice_sync</td><td>2026-09-24</td></tr>
+<tr><td>report_build</td><td>2026-09-18</td></tr>
+</table></div>
+<p>The Toolbox puts each block at the top of the Hive, once, in the order they read each other. report_build failed on 2026-09-18, and invoice_sync is still running on 2026-09-24.</p>
+<h5>A semi-join as a block</h5>
+<p>To keep each job that has at least one match, each once, join to a list that holds each match once: SQL calls this a semi-join. A plain <code>JOIN</code> straight to job_events would repeat a job once per event. The block is that list:</p>
+<pre class="python">def jobs_that_started(first_day, last_day):
+    return derived(&quot;jobs_that_started&quot;, statement(
+        SELECT_DISTINCT(job_events.job_id),
+        FROM(job_events),
+        WHERE(equals(job_events.event_type, &quot;start&quot;),
+              between(job_events.dt, first_day, last_day)),
+    ))
+started = jobs_that_started(&quot;2026-09-11&quot;, &quot;2026-09-24&quot;)
+run(statement(
+    SELECT(jobs.job_id, jobs.job_name),
+    FROM(jobs),
+    JOIN(started, ON=equals(started.job_id, jobs.job_id)),
+), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th></tr>
+<tr><td>1</td><td>nightly_load</td></tr>
+<tr><td>2</td><td>invoice_sync</td></tr>
+<tr><td>3</td><td>report_build</td></tr>
+</table></div>
+<p>The same block gives the anti-join too: <code>LEFT_JOIN</code> it, and keep the jobs with no match. cache_warm never ran:</p>
+<pre class="python">run(statement(
+    SELECT(jobs.job_id, jobs.job_name),
+    FROM(jobs),
+    LEFT_JOIN(started, ON=equals(started.job_id, jobs.job_id)),
+    WHERE(is_null(started.job_id)),
+), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th></tr>
+<tr><td>4</td><td>cache_warm</td></tr>
+</table></div>
+<h5>Keep each block&#x27;s name the same</h5>
+<p>The name you give <code>derived</code> is what the Hive calls the block, <code>WITH starts AS (...)</code>, and what a Lineage titles its box. Keep it the same whatever the days, so every day&#x27;s Hive and Lineage read alike and can be compared line by line, and give each different block a name of its own. A name of the form <code>starts</code> or <code>unfinished_runs</code>, saying what one row is, does both.</p>
+<h5>Put the library in a file</h5>
+<p>At work the blocks go in building_blocks/job_events.py, which imports its Table references from Level 0, and each Statement imports what it needs:</p>
+<pre class="python">from building_blocks.job_events import finishes_between, starts_between, unfinished_runs</pre>
+<h4>Check it worked</h4>
+<p>Each run either finished or didn&#x27;t, so the finished runs and the unfinished ones add up to all of them. Read each block alone:</p>
+<pre class="python">len(run(statement(SELECT(all_columns(starts)), FROM(starts)), send=example_database.send))</pre>
+<p class="label">Python shows</p><pre class="output">28</pre>
+<pre class="python">len(run(statement(SELECT(all_columns(finishes)), FROM(finishes)), send=example_database.send))</pre>
+<p class="label">Python shows</p><pre class="output">26</pre>
+<pre class="python">len(run(runs_to_look_at, send=example_database.send))</pre>
+<p class="label">Python shows</p><pre class="output">2</pre>
+<p>28 runs started, 26 finished, and 2 didn&#x27;t.</p>
+<h4>Common mistakes</h4>
+<h5>Building one block twice in a Statement</h5>
+<p>A block built from blocks that builds them itself is easy to call, but a Statement that reads it and the inner block too then holds two Derived tables called <code>starts</code>, one from each call. The Toolbox can&#x27;t tell they are the same, so it refuses:</p>
+<pre class="python">def unfinished_between(first_day, last_day):
+    return unfinished_runs(starts_between(first_day, last_day),
+                           finishes_between(first_day, last_day))
+still_going = unfinished_between(&quot;2026-09-11&quot;, &quot;2026-09-24&quot;)
+statement(
+    SELECT(still_going.job_id, still_going.dt),
+    FROM(still_going),
+    JOIN(starts, ON=all_of(equals(starts.job_id, still_going.job_id),
+                           equals(starts.dt, still_going.dt))),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  statement(...) reads two different Derived tables called &#x27;starts&#x27;.
+  Why it matters: Each becomes a named part of the same Hive string, so the names must differ.
+  Usual fix:      Give one of them another name in derived(...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Build each block once, keep it in a variable, and pass that variable to every block that reads it, as <code>unfinished_runs(starts, finishes)</code> does. Two blocks copied from each other and both still called <code>starts</code> are refused the same way: give each its own name.</p>
+<h5>Putting the day in a block&#x27;s name</h5>
+<p>A name that holds the day, such as <code>f&quot;starts_{first_day}&quot;</code>, changes every day. With a day written <code>2026-09-23</code> it can&#x27;t even be a name, since a Derived table&#x27;s name is letters, digits and underscores:</p>
+<pre class="python">def starts_on(day):
+    return derived(f&quot;starts_{day}&quot;, statement(
+        SELECT_DISTINCT(job_events.job_id),
+        FROM(job_events),
+        WHERE(equals(job_events.event_type, &quot;start&quot;), equals(job_events.dt, day)),
+    ))
+starts_on(&quot;2026-09-23&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  derived(&#x27;starts_2026-09-23&#x27;, ...) needs a plain name.
+  Why it matters: The name is how the SQL calls it.
+  Usual fix:      Use letters, digits and _, such as derived(&quot;latest&quot;, ...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Keep the name fixed, <code>derived(&quot;starts&quot;, ...)</code>, and let the days be the block&#x27;s arguments.</p>
+<h5>Bounding the LEFT_JOIN&#x27;s table in WHERE</h5>
+<p>Written without a block, an anti-join on job_events itself needs its days bounded, and <code>WHERE</code> is the first place people put them. But a job with no match has NULL in every job_events column, its day too, so a day bound in <code>WHERE</code> would drop the very jobs the anti-join is for. The Toolbox refuses it:</p>
+<pre class="python">statement(
+    SELECT(jobs.job_id, jobs.job_name),
+    FROM(jobs),
+    LEFT_JOIN(job_events, ON=equals(job_events.job_id, jobs.job_id), many_matches=True),
+    WHERE(between(job_events.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;), is_null(job_events.job_id)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  WHERE has job_events.dt BETWEEN &#x27;2026-09-11&#x27; AND &#x27;2026-09-24&#x27;, a condition on job_events, which LEFT_JOIN brought in.
+  Why it matters: LEFT_JOIN keeps rows with no match in job_events, but those rows have NULL there, so this WHERE throws them away again. The result is an ordinary JOIN.
+  Usual fix:      Move the condition into LEFT_JOIN(job_events, ON=...), next to the join condition, so it only decides which rows match.
+  Opt-out:        LEFT_JOIN(job_events, ON=..., keeps_only_matches=True)</pre>
+<p>Move the day into <code>ON=</code>, as the message says, or use a block such as <code>jobs_that_started</code>, which holds its days inside.</p>
+<h4>Next</h4>
+<ul><li>Use the blocks in a pipeline of Saved tables: <a href="#a_layered_pipeline">A layered pipeline</a>.</li><li>Look things up as of each day, a join on the day as well as the key: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>The gallery&#x27;s <a href="examples.html#jobs_that_never_ran">jobs that never ran</a>, the semi-join and anti-join written without blocks, its <a href="examples.html#step_by_step">job in steps</a>, and its Worked example of <a href="examples.html#derived"><code>derived</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>all_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
 </main>
 <script>
 const filter = document.getElementById("filter"), box = filter.querySelector("input");

@@ -439,6 +439,20 @@ def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
     assert str(tmp_path) not in shown
 
 
+def test_a_step_that_builds_with_a_warning_shows_it(tmp_path) -> None:
+    # A step's names live in the notebook's own globals, as in a notebook, whose __name__ the
+    # Toolbox's Warning names: without one, Python would drop the Warning unseen.
+    path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
+>>> job_runs = example_database.job_runs
+>>> jobs = example_database.jobs
+>>> joined = JOIN(job_runs, ON=equals(job_runs.job_id, jobs.job_id))""")
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    warned = re.search(r'<p class="label">It builds, with a Warning</p>'
+                       r'<pre class="refusal">(.*?)</pre>', shown, re.DOTALL)
+    assert warned is not None
+    assert page_text(warned.group(1)).startswith("RepeatedRowsWarning:")
+
+
 # A Statement sqlglot Composer's Example database can't run: its executor has no week_start.
 WEEKS = """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
