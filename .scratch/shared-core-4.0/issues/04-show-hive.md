@@ -1,7 +1,7 @@
 # Show hive
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 03
 Size: S
 
