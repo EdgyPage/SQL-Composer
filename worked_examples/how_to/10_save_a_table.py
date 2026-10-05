@@ -51,6 +51,9 @@ exist yet, so you write it by hand:
 - Write each type as the warehouse's DESCRIBE prints it, such as `"bigint"`, `"int"` or `"string"`.
 - `date_partition="dt"` makes the table stored a day at a time: each write fills one day, and
   every Statement that reads it gives the days it reads.
+- `key=["run_id"]` names the columns that tell one row from another: no two rows of a day share
+  a `"run_id"`. It isn't sent to the warehouse; the Toolbox reads it to warn when a join could
+  repeat rows, as [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
 
 At work, keep this in its own file, as the gallery's
 [Saved table example](examples.html#saved_table) does, so every Statement that writes or reads
@@ -94,7 +97,8 @@ STORED AS ORC;
 ### Look at a day's rows before you save them
 
 A write is a SELECT with a line on top that says where its rows go. Run the SELECT on its own
-first, to see the rows the write would save. These are the runs that failed on 2026-09-24:
+first, to see the rows the write would save. These are the runs that failed on 2026-09-24.
+`equals` on the Date partition bounds it to one day, its first and last day at once:
 
 >>> failed_on_the_day = statement(
 ...     SELECT(job_runs.run_id, job_runs.job_id),
@@ -132,8 +136,10 @@ Three things to notice:
 - The SELECT doesn't list the Date partition, dt. The Toolbox reads the day from the WHERE,
   which must name one day, and writes it into the first line as PARTITION(dt = '2026-09-24'),
   which fills the Date partition.
-- The SELECT lists every other column of the Table reference, each under its own name. The
-  Toolbox puts them in the table's order, since the warehouse fills columns by position.
+- The SELECT lists every other column of the Table reference, each under its own name:
+  `job_runs.run_id` fills `"run_id"` because the names match. A column named otherwise would
+  need `AS`, such as `AS(job_runs.job_id, "job_id")`. The Toolbox puts them in the table's
+  order, since the warehouse fills columns by position.
 - INSERT OVERWRITE replaces whatever the day held. Sending it twice leaves the same rows, not
   twice as many, which makes it the safe first write of each day.
 
@@ -157,7 +163,16 @@ day, and gives back whatever your send returns for a write, usually an empty Dat
 
 The second kind of run to review, one that succeeded but raised a high alert, comes from a
 second table, `ops.run_alerts`. `INSERT_INTO` adds rows to the day and keeps the ones already
-there:
+there. Two new pieces of SQL appear in it:
+
+- `JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id))` pairs each alert with the
+  run whose `"run_id"` matches, so one row holds columns from both tables. See
+  [`JOIN`](examples.html#JOIN).
+- `SELECT_DISTINCT` keeps each different row once: a run that raised two high alerts would
+  otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT).
+
+The day written comes from the table in `FROM`, here `run_alerts.dt`. The joined table needs a
+bound on its days too; here it is the same day.
 
 >>> def alerted_runs(day):
 ...     return statement(
@@ -215,10 +230,13 @@ one list, in the order they are sent:
 >>> len(day_writes)
 2
 
-At work, the day is sent with a loop, your own send in place of the Example database's:
+At work, a loop sends the day's writes in order. Here it is a function that takes your own
+send, written as in [Start a notebook](#start_a_notebook); it isn't called on this page, since
+the Example database's send would refuse the writes:
 
-    for write in write_day("2026-09-24"):
-        run(write, send=example_database.send)
+>>> def send_day(day, send):
+...     for write in write_day(day):
+...         run(write, send=send)
 
 [Backfill a range of days](#backfill_a_range_of_days) writes many days this way, and
 [Run a daily pipeline](#run_a_daily_pipeline) runs the day's steps every morning.
@@ -260,10 +278,54 @@ PARTITIONED BY (
 )
 STORED AS ORC;
 
-`IF EXISTS` means the drop does nothing, rather than failing, when the table isn't there. Then
-give each write the new column, and write every day again, oldest first, as
-[Backfill a range of days](#backfill_a_range_of_days) shows. Until a write selects
-`job_runs.duration_mins`, the Toolbox refuses it, as the Common mistakes below show.
+`IF EXISTS` means the drop does nothing, rather than failing, when the table isn't there.
+
+The writes must change too. The old `failed_runs` still selects two columns where the table now
+has three, and the warehouse fills a table's columns by position, so values would land in the
+wrong columns. The Toolbox refuses it as it is built:
+
+>>> failed_runs("2026-09-24")
+Traceback (most recent call last):
+...
+composer_core.refusals.GuardRefused:
+  What happened:  INSERT_OVERWRITE(runs_to_review): it leaves out duration_mins.
+...
+
+Give each write the new column. Python looks up `runs_to_review` when the function runs, so
+the functions written again here write the new table:
+
+>>> def failed_runs(day):
+...     return statement(
+...         INSERT_OVERWRITE(runs_to_review),
+...         SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
+...         FROM(job_runs),
+...         WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")),
+...     )
+>>> def alerted_runs(day):
+...     return statement(
+...         INSERT_INTO(runs_to_review),
+...         SELECT_DISTINCT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
+...         FROM(run_alerts),
+...         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
+...         WHERE(
+...             equals(run_alerts.dt, day),
+...             equals(job_runs.dt, day),
+...             equals(run_alerts.severity, "high"),
+...             equals(job_runs.status, "SUCCESS"),
+...         ),
+...     )
+>>> text = show_hive(failed_runs("2026-09-24"))
+INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = '2026-09-24')
+SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
+
+Then write every day again, oldest first, as
+[Backfill a range of days](#backfill_a_range_of_days) shows: the drop deleted them all.
 
 ## Check it worked
 
@@ -295,7 +357,8 @@ Then check that the real table matches its Table reference with
 
 ### Selecting the Date partition in a write
 
-The day comes from the WHERE, so a write that also selects `job_runs.dt` is refused as you build it:
+The day comes from the WHERE, so a write that also selects `job_runs.dt` is refused as you
+build it:
 
 >>> statement(
 ...     INSERT_OVERWRITE(runs_to_review),
@@ -310,21 +373,6 @@ composer_core.refusals.GuardRefused:
 ...
 
 Leave `job_runs.dt` out of SELECT, and bound it to one day in WHERE.
-
-### A write that doesn't select every column
-
-After the Table reference gained `"duration_mins"`, the old write leaves it out, and the
-warehouse would fill the table's columns by position, so values would land in the wrong
-columns. The Toolbox refuses it:
-
->>> failed_runs("2026-09-24")
-Traceback (most recent call last):
-...
-composer_core.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(runs_to_review): it leaves out duration_mins.
-...
-
-Add `job_runs.duration_mins` to the SELECT of each write.
 
 ### A write that reads more than one day
 
@@ -366,8 +414,10 @@ composer_core.refusals.LoadRefused:
   What happened:  JOIN(job_runs, ON=...) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
 ...
 
-Bound `job_runs.dt` in WHERE too, to the same day, or from the day before if a run can raise
-an alert after midnight.
+The day written still comes from `run_alerts.dt`, the table in `FROM`; the joined table's
+bound only limits what it reads. Bound `job_runs.dt` to the same day. If a run can raise an
+alert after midnight, its run is from the day before, so read both days of `job_runs`:
+`between(job_runs.dt, "2026-09-23", "2026-09-24")`.
 
 ### A type the warehouse spells differently
 

@@ -116,6 +116,10 @@ anywhere.
   blocks may hold steps; a how-to's `NAME_in_pandas()` stands in where sqlglot Composer's
   Example database can't run a Statement; the filter script is shared with examples.html; how-to
   1, Start a notebook; the page links to no README anchor.
+- [Getting started how-tos 10 to 18](issues/08-getting-started-how-tos-10-to-18.md): save a
+  table, backfill, a daily pipeline, Lineage of one Statement and of a pipeline, Load limits,
+  Guards, Warnings and opt-outs, Statements in a loop, keeping a Table reference true; each
+  mistake run live; the page now shows a step's Warning (a notebook scope's `__name__`).
 
 ## Not yet specified
 

@@ -5,9 +5,9 @@ For: Getting started
 ## Goal
 
 Stop a Statement before it reads, or brings back, more than the cluster or your notebook can
-take. You switch on the two Load limits that start off, a LIMIT added to every query and a cap
-on the days one Statement reads, with `set_load_limits`; you read what each refusal says; and
-you learn when its opt-out is the right answer.
+take. You switch on the two Load limits that are off until you switch them on, a LIMIT added
+to every query and a cap on the days one Statement reads, with `set_load_limits`; you read
+what each refusal says; and you learn when its opt-out is the right answer.
 
 ## When you'd use it
 
@@ -35,7 +35,8 @@ Two Load limits need no switching on:
 - `ORDER_BY` without a `LIMIT` is refused, since the warehouse would sort every row before
   sending any back: sort in pandas instead. Common mistakes, below, shows it.
 
-The other two start off, since only you know how much your cluster and notebook can take.
+The other two are off until you switch them on, since only you know how much your cluster
+and notebook can take.
 
 ### Switch on the other two
 
@@ -169,7 +170,8 @@ GROUP BY
   job_events.dt
 LIMIT 5
 
-Run them one after another, and put their results together in pandas with `pd.concat`:
+Each day's query keeps the automatic `LIMIT 5`, but gives one row, well under it. Run them one
+after another, and put their results together in pandas with `pd.concat`:
 
 >>> import pandas as pd
 >>> results = [run(day, send=example_database.send) for day in days]
@@ -210,7 +212,7 @@ it.
 
 ## Common mistakes
 
-### A limit written as text, or as 0
+### A limit written as text
 
 A limit is a whole number of rows or days, 1 or more. Anything else is refused at once, so a
 typo can't quietly switch a limit off:
@@ -260,7 +262,9 @@ composer_core.refusals.LoadRefused:
   What happened:  ORDER_BY has no LIMIT.
 ...
 
-Sort in pandas once the rows are back, with pandas' sort_values, or add a LIMIT for a top N.
+Sort the rows in pandas once they are back, with sort_values, or add a LIMIT for a top N. The
+message's opt-out, `sorts_everything=True` on `ORDER_BY`, is right only for a result you know
+is small.
 
 ### A joined table over the cap
 
@@ -289,7 +293,7 @@ enough: `between(job_runs.dt, "2026-09-23", "2026-09-24")`.
 
 - Cut a long range into days, and send them in order:
   [Backfill a range of days](#backfill_a_range_of_days).
-- The other checks the Toolbox runs, which protect the answer rather than the cluster:
+- Guards and Warnings, which protect the answer rather than the cluster:
   [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs).
 - The gallery's [`set_load_limits`](examples.html#set_load_limits) and
   [`LoadRefused`](examples.html#LoadRefused) entries.
