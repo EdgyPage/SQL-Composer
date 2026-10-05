@@ -95,3 +95,20 @@ def test_an_executor_error_that_names_no_function_is_refused_plainly(monkeypatch
     message = str(refused.value)
     assert "what this needs" not in message
     assert "couldn't run this Hive: unsupported operand type(s)" in message
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize(("table", "calculation", "missing"), [
+    ("job_owners", lambda t: row_number(PARTITION_BY=t.job_id, ORDER_BY=descending(t.dt)),
+     "window functions such as row_number"),
+    ("job_events", lambda t: week_start(t.dt), "NEXT_DAY"),
+    ("job_events", lambda t: month_start(t.dt), "TRUNC"),
+])
+def test_the_intermediate_tables_meet_the_same_limits(table, calculation, missing) -> None:
+    """The newest snapshot per key and week and month rollups, which the intermediate how-tos
+    show, run on Spark Composer's Example database; here the gallery shows a pandas result."""
+    t = getattr(example_database, table)
+    s = statement(SELECT(t.job_id, AS(calculation(t), "x")), FROM(t),
+                  WHERE(last_n_days(t.dt, 14)))
+    with pytest.raises(RuntimeError, match=f"its executor has no {missing}"):
+        run(s, send=example_database.send)

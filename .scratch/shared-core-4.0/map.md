@@ -59,7 +59,9 @@ anywhere.
   is sqlglot Composer, so delete `sql_composer`, copy in `sqlglot_composer` and
   `composer_core`, and change `from sql_composer import` and `sql_composer.VERSION` (drift
   review of 403c8fe, D121).
-- Ticket 15's CHANGES 4.0 section also gains `show_hive`, the new public name (ticket 04).
+- Ticket 15's CHANGES 4.0 section also gains `show_hive`, the new public name (ticket 04),
+  and the Example database's three new tables, `job_events`, `job_owners` and
+  `region_costs`, with its unknown-table refusal now naming all six (ticket 05, D123).
 
 ## Records this changes
 
