@@ -5,9 +5,8 @@ For: Intermediate
 ## Goal
 
 Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with
-`hive_function`. Then see the three places where sqlglot Composer and Spark Composer write
-different Hive for the same Statement, each a Declared difference, and check that the results
-are the same.
+`hive_function`. Then see the three places where the two Editions write different Hive for the
+same Statement, and why each gives the same result.
 
 ## When you'd use it
 
@@ -63,38 +62,41 @@ works only over a window of rows, such as lag or rank. The Common mistakes below
 ### Where the two Editions write different Hive
 
 The two Editions take the same Statements and give the same results, but in three places they
-write different Hive, each for a reason. These are the Declared differences, and the README
-lists them too. Each step below builds a Statement with one of them, shows the Hive this
-Edition writes, and runs it. After the three, the Hive both Editions write is shown side by
-side.
+write different Hive, each for a reason. The README lists them too, under "Where the two
+Editions' Hive differs". Each step below builds a Statement with one of them, shows the Hive
+this Edition writes, and runs it. After the three, each line that differs is listed as both
+Editions write it.
 
 ### Dividing by something that could be 0
 
-How many retries each job had per run: the retries, divided by the starts.
+How many retries each job's finished runs needed on 2026-09-24: the retries, divided by the
+finishes.
 
->>> retries_per_run = statement(
+>>> retries_per_finish = statement(
 ...     SELECT(job_events.job_id,
 ...            AS(count_rows(where=equals(job_events.event_type, "retry"))
-...               / count_rows(where=equals(job_events.event_type, "start")),
-...               "retries_per_run")),
+...               / count_rows(where=equals(job_events.event_type, "finish")),
+...               "retries_per_finish")),
 ...     FROM(job_events),
-...     WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
+...     WHERE(between(job_events.dt, "2026-09-24", "2026-09-24")),
 ...     GROUP_BY(job_events.job_id),
 ... )
->>> text = show_hive(retries_per_run)
+>>> text = show_hive(retries_per_finish)
 SELECT
   job_events.job_id,
-  COUNT(CASE WHEN job_events.event_type = 'retry' THEN 1 END) / ... AS retries_per_run
+  COUNT(CASE WHEN job_events.event_type = 'retry' THEN 1 END) / ... AS retries_per_finish
 FROM ops.job_events AS job_events
 WHERE
-  job_events.dt BETWEEN '2026-09-11' AND '2026-09-24'
+  job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'
 GROUP BY
   job_events.job_id;
->>> run(retries_per_run, send=example_database.send)
-   job_id  retries_per_run
-0       1         0.071429
-1       2         0.000000
-2       3         0.250000
+>>> run(retries_per_finish, send=example_database.send)
+   job_id  retries_per_finish
+0       1                 0.0
+1       2                 NaN
+
+invoice_sync, job 2, is still running on 2026-09-24, so it has no finish, and its row divides
+by 0. Both Editions give that row NULL, which pandas shows as NaN, rather than stop.
 
 ### A Python float
 
@@ -151,17 +153,18 @@ WHERE
 3      98     none
 4      99     TEST
 
-### The three side by side
+### The three, listed
 
 [sqlglot_composer only]
 This page is sqlglot Composer's, so the Hive above is sqlglot Composer's. Here is each line
 that differs, as each Edition writes it, and why. Both give the same results.
 
 - Dividing. sqlglot Composer writes the divisor as it is,
-  `COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)`, and Spark Composer writes
-  `NULLIF(COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END), 0)`. With ANSI on,
-  Spark 4's default, Spark stops the whole query when it divides by 0, where Hive gives NULL;
-  NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive.
+  `COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END)`, and Spark Composer writes
+  `NULLIF(COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END), 0)`. With ANSI mode on
+  (Spark's setting for following the SQL standard strictly), Spark 4's default, Spark stops the
+  whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when y is 0, so
+  that row gets NULL, as in Hive.
 - A float. sqlglot Composer writes `HAVING AVG(job_events.minutes) > 15.5`, and Spark Composer
   `HAVING AVG(job_events.minutes) > 15.5D`. Spark reads 15.5 as a DECIMAL, an exact decimal,
   where Hive reads a DOUBLE, SQL's float; the D marks a DOUBLE, and doesn't mean days.
@@ -180,10 +183,11 @@ line it adds to. Here is each line that differs, as each Edition writes it, and 
 the same results.
 
 - Dividing. Spark Composer writes the divisor as
-  `NULLIF(COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END), 0)`, and sqlglot
-  Composer as it is, `COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)`. With ANSI
-  on, Spark 4's default, Spark stops the whole query when it divides by 0, where Hive gives
-  NULL; NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive.
+  `NULLIF(COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END), 0)`, and sqlglot
+  Composer as it is, `COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END)`. With ANSI
+  mode on (Spark's setting for following the SQL standard strictly), Spark 4's default, Spark
+  stops the whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when
+  y is 0, so that row gets NULL, as in Hive.
 - A float. Spark Composer writes `HAVING AVG(job_events.minutes) > 15.5D`, and sqlglot
   Composer `HAVING AVG(job_events.minutes) > 15.5`. Spark reads 15.5 as a DECIMAL, an exact
   decimal, where Hive reads a DOUBLE, SQL's float; the D marks a DOUBLE, and doesn't mean days.
@@ -283,9 +287,9 @@ Spark refuses in a pattern.
 ... )
 
 [sqlglot_composer only]
-sqlglot Composer writes the pattern as sqlglot reads it back, here as yyyy-MM, so this Hive
-runs on Hive. Spark Composer writes YYYY-MM as you gave it, and Spark refuses it: write yyyy,
-and your notebook gives the same Hive on both Editions.
+With sqlglot Composer no message stops you: it writes the pattern as sqlglot reads it back,
+here as yyyy-MM, which is what you meant. Write yyyy anyway, so the same notebook gives the
+same Hive with Spark Composer, which writes the pattern as you gave it, and Spark refuses YYYY.
 
 >>> text = show_hive(by_month)
 SELECT

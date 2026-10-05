@@ -11,10 +11,11 @@ a sliding window of days, split it into one write per day with `by_day`, and see
 
 ## When you'd use it
 
-For any Saved table filled from a table whose recent days can still change: events that arrive
-late, a run that finishes after midnight, a bill that comes in the next day. Rewriting
-yesterday as well as today costs a little more each run, and saves finding and fixing a short
-day by hand later.
+For any Saved table filled from a table whose recent days can still change: events that reach
+the warehouse a day or two after the day they happened, a cost left NULL until its bill comes
+in. Rewriting yesterday as well as today costs a little more each run, and saves finding and
+fixing a short day by hand later. [Save a table](#save_a_table) and [Backfill a range of
+days](#backfill_a_range_of_days) start with writing one day, and many.
 
 ## Steps
 
@@ -35,7 +36,7 @@ goes in a file of its own, table_references/job_day.py:
 ...         "job_id": "bigint",
 ...         "starts": "bigint",
 ...         "finishes": "bigint",
-...         "dt": "string",  # the day the runs started
+...         "dt": "string",  # the day the events happened
 ...     },
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
@@ -59,7 +60,9 @@ STORED AS ORC
 Before writing anything, run the same counts as a plain SELECT, to see what each day will
 hold. `count_rows(where=...)` counts only the rows that meet its condition, so one pass counts
 starts and finishes side by side. `last_n_days(job_events.dt, 3)` reads the three days before
-today: here 2026-09-22 to 2026-09-24.
+today: here 2026-09-22 to 2026-09-24, since this page was run as if today were 2026-09-25. In
+your own notebook today is your real today, so on the Example database it finds no rows: write
+`between(job_events.dt, "2026-09-22", "2026-09-24")` there instead.
 
 >>> preview = statement(
 ...     SELECT(job_events.dt, job_events.job_id,
@@ -78,15 +81,19 @@ today: here 2026-09-22 to 2026-09-24.
 4  2026-09-24       1       1         1
 5  2026-09-24       2       1         0
 
-Job 2, invoice_sync, started on 2026-09-24 and hasn't finished. When its `"finish"` row arrives,
-it lands in 2026-09-24's partition, a day that a run writing only today would never look at
-again.
+Job 2, invoice_sync, is still running on 2026-09-24, so that day has its start and no finish.
+
+Each event lands in the partition of the day it happened, but it can reach the warehouse late.
+Say a run finished at 23:50 on 2026-09-24 and its `"finish"` row arrives at 00:30 the next
+morning, after the day's run wrote 2026-09-24: the row lands in 2026-09-24's partition, a day
+that a run writing only today would never look at again.
 
 ### Write the last three days, one day at a time
 
 A write fills one day of a Saved table. So build the write over the whole window, then
-`by_day` splits it into one write per day, oldest first. Each selects the Saved table's columns
-by name, apart from its Date partition, which the Toolbox fills from the day read. dt stays in
+`by_day` splits it into one write per day, oldest first. The write's `SELECT` lists job_id,
+starts and finishes, every column of mart.job_day but dt: you never select the day, since the
+Toolbox writes it into the Hive's PARTITION(dt = '...') from the day each write reads. dt stays in
 `GROUP_BY`, so each day's counts stay apart:
 
 >>> def rewrite_last_days(n):
@@ -141,7 +148,8 @@ GROUP BY
   job_events.job_id;
 
 The Example database can't be written to, so the writes stop here. At work, a function sends
-them in order through your own send, and you call it once a day, `load_last_days(send)`:
+them in order through your own send, and you call it once a day, `load_last_days(send)`, as
+[Run a daily pipeline](#run_a_daily_pipeline) does for one day:
 
     def load_last_days(send):
         for day in rewrite_last_days(3):
@@ -150,10 +158,10 @@ them in order through your own send, and you call it once a day, `load_last_days
 ### Why sending a day again is safe
 
 `INSERT OVERWRITE ... PARTITION(dt = '2026-09-24')` replaces everything that day held. Today's
-run writes 2026-09-24 with invoice_sync's start and no finish. Tomorrow's run reads
-2026-09-23 to 2026-09-25: it writes 2026-09-24 again, now with the finish that arrived
-overnight, writes 2026-09-23 again with the same rows it already held, and writes 2026-09-25
-for the first time.
+run writes 2026-09-24 with the events that have arrived so far. Tomorrow's run reads
+2026-09-23 to 2026-09-25: it writes 2026-09-24 again, now with any event of that day that
+arrived overnight, writes 2026-09-23 again with the same rows it already held, and writes
+2026-09-25 for the first time.
 
 A day already right comes out the same, and a day that changed comes out new, so the same
 writes can go out any number of times: after a failed run, twice by mistake, or for a whole
@@ -164,7 +172,8 @@ month again with a wider window.
 Rewrite as many days as late rows can take to arrive, plus one. If rows can come in up to two
 days late, rewrite the last three. A day outside the window is never read again, so a row
 arriving later than that needs a one-off backfill of its day: `by_day` over a `between` of the
-days to fix, the same Statement with other days.
+days to fix, the same Statement with other days, as [Backfill a range of
+days](#backfill_a_range_of_days) shows.
 
 ## Check it worked
 
@@ -226,8 +235,8 @@ composer_core.refusals.GuardRefused:
 
 ### Using INSERT_INTO for the window
 
-`INSERT_INTO` adds rows to a day and keeps what it held. Its Hive differs from the steps' in
-one word:
+No message stops you here. `INSERT_INTO` adds rows to a day and keeps what it held. Its Hive
+starts `INSERT INTO` where the steps' starts `INSERT OVERWRITE TABLE`:
 
 >>> print(to_hive(statement(
 ...     INSERT_INTO(job_day),
@@ -247,8 +256,8 @@ day you may write again.
 
 ## Next
 
-- Chain Saved tables into layers, each read by the next: [A layered
-  pipeline](#a_layered_pipeline).
+- Chain Saved tables, each read by the next: [A pipeline of Saved
+  tables](#a_pipeline_of_saved_tables).
 - Roll the days up into weeks and months: [Week and month rollups](#week_and_month_rollups).
 - The gallery's [Saved table Worked example](examples.html#saved_table), which creates, writes,
   adds to, backfills and rebuilds one, and its Worked example of

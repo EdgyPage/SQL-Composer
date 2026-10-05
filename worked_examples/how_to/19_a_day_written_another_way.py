@@ -13,7 +13,9 @@ reads only the days you ask for.
 
 When DESCRIBE lists more than one partition column, or SHOW PARTITIONS lists days written
 some other way, such as `dt=20260911` or `dt=2026/09/11`. Big tables are often split by
-country, region or source first, and by day inside each.
+country, region or source first, and by day inside each. If DESCRIBE and SHOW PARTITIONS are
+new to you, [Import a table's column names](#import_column_names) and [Describe a table by
+hand](#describe_a_table_by_hand) start with them.
 
 ## Steps
 
@@ -182,9 +184,9 @@ first one, 1610.
 
 ### Keeping date_partition=None
 
-A Table reference with `date_partition=None` has no Date partition for the Toolbox to check, so
-nothing stops a Statement that reads every day of every region. Here is the reference as
-`write_table_reference` left it:
+No message stops you here. A Table reference with `date_partition=None` has no Date partition
+for the Toolbox to check, so nothing stops a Statement that reads every day of every region.
+Here is the reference as `write_table_reference` left it:
 
 >>> unfinished = Table("ops.region_costs", columns={"job_id": "bigint",
 ...     "cost_cents": "bigint", "region": "string", "dt": "string"}, date_partition=None)
@@ -253,13 +255,16 @@ ValueError:
   What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-18', which isn't a day written like '20260925'.
 ...
 
-The day in the message is today, written the table's way: it shows how to write a day, not
-which day to read. Write `"20260918"`, or pass `datetime.date(2026, 9, 18)`.
+The day in the message, `'20260925'`, is only an example of a day written the table's way: it
+shows how to write a day, not which day to read. Write `"20260918"`, or pass
+`datetime.date(2026, 9, 18)`.
 
 ## Next
 
 - Look things up as of each day in a table that keeps a copy of itself every day:
   [Look things up as of a day](#look_things_up_as_of_a_day).
+- Keep a Table reference true as its table changes: [Keep a Table reference true over
+  time](#keep_a_table_reference_true_over_time).
 - Rewrite the last few days of a Saved table on every run:
   [Incremental loads and late data](#incremental_loads_and_late_data).
 - The gallery's Worked examples of

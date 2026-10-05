@@ -1,20 +1,23 @@
-"""A library of Building blocks
+"""Share Building blocks between Statements
 
 For: Intermediate
 
 ## Goal
 
 Write the pieces many Statements share once, as Building blocks: functions that take the days
-as arguments and give back a Derived table. You build a block from other blocks, write the two
-joins people reach for most, keep the rows that have a match (a semi-join) and keep those that
-don't (an anti-join), as blocks, and keep each block's name the same wherever it is used.
+as arguments and give back a Derived table. You write a block that reads other blocks, handed
+to it as arguments, write the two joins people reach for most, keep the rows that have a match
+(a semi-join) and keep those that don't (an anti-join), as blocks, and keep each block's name
+the same wherever it is used.
 
 ## When you'd use it
 
 When the same piece, such as "the runs that started on these days", turns up in several
 Statements or several notebooks. Written once, it is worked out the same way everywhere, and
-fixed in one place. At work the blocks live in a file under building_blocks/, Level 1, which
-the Statements import.
+fixed in one place. At work the blocks live in a file under building_blocks/, which the
+Statements import. (Your scripts sit at three Levels: Table references at Level 0, Building
+blocks at Level 1, Statements at Level 2. A script imports only from lower Levels and from the
+Toolbox.)
 
 ## Steps
 
@@ -32,8 +35,9 @@ a day.
 
 A block is a plain function. Its arguments are what changes from one Statement to the next,
 usually the days, and it gives back `derived("starts", statement(...))`, a Derived table other
-Statements read like a table. `SELECT_DISTINCT` keeps each run once, so the block's key is
-job_id and dt, and joins on both don't warn:
+Statements read like a table, as in [Reusable Derived tables](#reusable_derived_tables).
+`SELECT_DISTINCT` keeps each run once, so the block's key is job_id and dt, and joins on both
+don't warn:
 
 >>> def starts_between(first_day, last_day):
 ...     return derived("starts", statement(
@@ -62,7 +66,7 @@ it. Over two days:
 2       2  2026-09-23
 3       2  2026-09-24
 
-### A block built from other blocks: an anti-join
+### A block that reads other blocks: an anti-join
 
 A run that started but has no finish is still going, or failed. To find them, keep each start
 with no matching finish: SQL calls this an anti-join. `LEFT_JOIN` keeps every start, and gives a
@@ -85,7 +89,7 @@ The days live inside the blocks, so `ON=` needs only the match. A day bound writ
 LEFT_JOIN's table in `WHERE` would throw away the very starts with no finish; the last mistake
 below shows the Toolbox refusing it.
 
-### A Statement built from the library
+### A Statement built from the blocks
 
 Over the 14 days, the unfinished runs, with each job's name:
 
@@ -181,12 +185,18 @@ Lineage titles its box. Keep it the same whatever the days, so every day's Hive 
 alike and can be compared line by line, and give each different block a name of its own. A name
 of the form `starts` or `unfinished_runs`, saying what one row is, does both.
 
-### Put the library in a file
+### Put the blocks in a file
 
-At work the blocks go in building_blocks/job_events.py, which imports its Table references
-from Level 0, and each Statement imports what it needs:
+At work the blocks go in one file, building_blocks/job_events.py, which imports its Table
+references from Level 0, and each Statement imports what it needs:
 
     from building_blocks.job_events import finishes_between, starts_between, unfinished_runs
+
+A Building block file never imports another Building block file: both are Level 1, and a script
+imports only from lower Levels. So keep blocks that read each other in one file, as these three
+are. A block that reads a block from another file takes it as an argument, as `unfinished_runs`
+takes `starts` and `finishes`: the Statement, at Level 2, imports both files, builds each block
+and hands it over.
 
 ## Check it worked
 
@@ -206,8 +216,8 @@ of them. Read each block alone:
 
 ### Building one block twice in a Statement
 
-A block built from blocks that builds them itself is easy to call, but a Statement that reads
-it and the inner block too then holds two Derived tables called `starts`, one from each call.
+A block that builds the blocks it reads itself is easy to call, but a Statement that reads it
+and the inner block too then holds two Derived tables called `starts`, one from each call.
 The Toolbox can't tell they are the same, so it refuses:
 
 >>> def unfinished_between(first_day, last_day):
@@ -256,7 +266,9 @@ Keep the name fixed, `derived("starts", ...)`, and let the days be the block's a
 Written without a block, an anti-join on job_events itself needs its days bounded, and `WHERE`
 is the first place people put them. But a job with no match has NULL in every job_events
 column, its day too, so a day bound in `WHERE` would drop the very jobs the anti-join is for.
-The Toolbox refuses it:
+The Toolbox refuses it. (`many_matches=True` is the opt-out of the Warning that a job matches
+many events, and so repeats: here that is fine, since the anti-join keeps only the jobs with
+none.)
 
 >>> statement(
 ...     SELECT(jobs.job_id, jobs.job_name),
@@ -270,12 +282,27 @@ composer_core.refusals.GuardRefused:
   What happened:  WHERE has job_events.dt BETWEEN '2026-09-11' AND '2026-09-24', a condition on job_events, which LEFT_JOIN brought in.
 ...
 
-Move the day into `ON=`, as the message says, or use a block such as `jobs_that_started`,
-which holds its days inside.
+Move the day into `ON=`, as the message says. A bound in `ON=` bounds the table as one in
+`WHERE` does, and for a LEFT_JOIN's table `ON=` is the place for it: there it decides which
+rows match, and keeps every job.
+
+>>> run(statement(
+...     SELECT(jobs.job_id, jobs.job_name),
+...     FROM(jobs),
+...     LEFT_JOIN(job_events, ON=all_of(equals(job_events.job_id, jobs.job_id),
+...                                     between(job_events.dt, "2026-09-11", "2026-09-24")),
+...               many_matches=True),
+...     WHERE(is_null(job_events.job_id)),
+... ), send=example_database.send)
+   job_id    job_name
+0       4  cache_warm
+
+Or use a block such as `jobs_that_started`, which holds its days inside.
 
 ## Next
 
-- Use the blocks in a pipeline of Saved tables: [A layered pipeline](#a_layered_pipeline).
+- Use the blocks in a pipeline of Saved tables: [A pipeline of Saved
+  tables](#a_pipeline_of_saved_tables).
 - Look things up as of each day, a join on the day as well as the key:
   [Look things up as of a day](#look_things_up_as_of_a_day).
 - The gallery's [jobs that never ran](examples.html#jobs_that_never_ran), the semi-join and

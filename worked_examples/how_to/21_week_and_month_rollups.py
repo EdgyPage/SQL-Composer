@@ -27,7 +27,8 @@ has one `"start"` row, so counting the `"start"` rows counts the runs.
 
 `week_start(job_events.dt)` gives the Monday that starts each day's week, as text like
 `2026-09-14`. Name it in `SELECT` with `AS`, then group by that name in `GROUP_BY`, with any
-other column you group by:
+other column you group by, as [Count and add up per group](#count_and_add_up_per_group) does with
+plain columns:
 
 >>> starts_per_week = statement(
 ...     SELECT(AS(week_start(job_events.dt), "week"), job_events.job_id,
@@ -62,13 +63,17 @@ GROUP BY
 8  2026-09-21       3       1
 
 [sqlglot_composer only]
-sqlglot Composer's Example database can't run `week_start` or `month_start`, so these results
-were worked out in pandas from the same rows. Your warehouse runs the Hive as it is.
+Pasted into your own notebook, this `run`, and each `run` of a week or a month below, stops with
+a RuntimeError saying the Example database can't run this Hive: sqlglot Composer's Example
+database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The results here were worked
+out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as
+it is, and Check it worked below runs on the Example database too.
 [end]
 
-The Hive works the Monday out from the day: its DATE_ADD(job_events.dt, 7 * -1) is the day a
-week earlier, and NEXT_DAY(..., 'MO') the first Monday after that. In `GROUP_BY`, Hive needs the
-calculation written out again, so the Toolbox writes it for you; you give only the name.
+The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it
+is the day a week earlier, and NEXT_DAY(..., 'MO') is the first Monday after that. In
+`GROUP_BY`, Hive needs the calculation written out again, so the Toolbox writes it for you; you
+give only the name.
 
 The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of
 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.
@@ -129,21 +134,40 @@ each day's count instead, and what the Toolbox says.
 
 ## Check it worked
 
-Every run is in exactly one week and one month, so each rollup's runs add up to the 28 runs
-over the 14 days:
+Each week's runs are its days' runs added up, and the weeks' runs add up to the 28 runs over the
+14 days. Check both from a count per day, which the Example database runs in either Edition, with
+each day's Monday worked out in pandas: `days.dt.weekday` is 0 on a Monday and 6 on a Sunday, so
+taking that many days off a day gives its Monday.
 
->>> int(run(starts_per_week, send=example_database.send)["starts"].sum())
+>>> import pandas as pd
+>>> starts_per_day = statement(
+...     SELECT(job_events.dt, AS(count_rows(), "starts")),
+...     FROM(job_events),
+...     WHERE(equals(job_events.event_type, "start"),
+...           between(job_events.dt, "2026-09-11", "2026-09-24")),
+...     GROUP_BY(job_events.dt),
+... )
+>>> per_day = run(starts_per_day, send=example_database.send)
+>>> days = pd.to_datetime(per_day["dt"])
+>>> per_day["week"] = (days - pd.to_timedelta(days.dt.weekday, unit="D")).dt.strftime("%Y-%m-%d")
+>>> per_day.groupby("week")["starts"].sum()
+week
+2026-09-07     5
+2026-09-14    14
+2026-09-21     9
+Name: starts, dtype: int64
+>>> int(per_day["starts"].sum())
 28
->>> int(run(starts_per_month, send=example_database.send)["starts"].sum())
-28
+
+These are `starts_per_week`'s rows added up per week: 3 + 1 + 1, 7 + 5 + 2 and 4 + 4 + 1.
 
 ## Common mistakes
 
 ### Adding up each day's count of different jobs
 
-A daily table of different jobs is often already there, so adding its days up looks like the
-quick way to a week. But a job that ran on five days is in five days' counts, so the week would
-count it five times. The Toolbox refuses it as you build the Statement:
+Say a count of the different jobs on each day is already there. Adding up its days looks like
+the quick way to a week, but a job that ran on five days is in five days' counts, so the week
+would count it five times. The Toolbox refuses it as you build the Statement:
 
 >>> jobs_per_day = derived("jobs_per_day", statement(
 ...     SELECT(job_events.dt, AS(count_distinct(job_events.job_id), "jobs_that_ran")),
@@ -213,7 +237,7 @@ last day.
 ## Next
 
 - Save each day once, and roll it up into weeks from the Saved table:
-  [A layered pipeline](#a_layered_pipeline).
+  [A pipeline of Saved tables](#a_pipeline_of_saved_tables).
 - Keep a Saved table's last few days up to date: [Incremental loads and late
   data](#incremental_loads_and_late_data).
 - The gallery's Worked examples of [`week_start`](examples.html#week_start),

@@ -21,7 +21,9 @@ every row of the days you give it, and your notebook gets back only the few rows
 This how-to reads three of the Example database's tables, each holding 14 days, 2026-09-11 to
 2026-09-24: `ops.job_owners`, which says each day who owns each job; `ops.job_events`, each
 run's start, finish, retry or fail; and `ops.region_costs`, what each run cost, in cents.
-`region_costs` writes its days like 20260911, not 2026-09-11.
+`region_costs` writes its days like 20260911, not 2026-09-11, so its days are written that way
+below. A Python date works for every table, as [Generate Table references and Statements from
+settings](#generate_from_settings) shows.
 
 >>> from sqlglot_composer import *
 >>> import pandas as pd
@@ -57,9 +59,9 @@ checks every day you give it.
 ### Count the NULLs in every column
 
 [`all_columns`](examples.html#all_columns) gives every column of a Table reference, in a list,
-so one short function writes a NULL count for each column of any table. `str(column)` is the
-column as the Hive names it, such as `job_owners.owner`, and the part after the dot is its
-name, which names each count:
+so one short function writes a NULL count for each column of any table. A column has no name
+of its own to ask for, but `str(column)` gives it as the Hive names it, such as
+`job_owners.owner`, and the part after the dot is its name, which names each count:
 
 >>> def null_counts(t, first_day, last_day):
 ...     counts = [AS(count_rows(where=is_null(column)), "null_" + str(column).split(".")[1])
@@ -166,7 +168,7 @@ its bill comes in when it finishes.
 ### Run every check and gather what they find
 
 Two more checks, each giving the rows that are problems: jobs with no owner on the newest day,
-and costs not billed yet.
+and costs not billed yet. `between` with the same day twice reads just that one day:
 
 >>> no_owner = statement(
 ...     SELECT(job_owners.job_id, job_owners.dt),
@@ -184,7 +186,8 @@ Keep the checks in a dict, by name, and run each in a loop. Add the days on whic
 disagree, already in pandas, then count each check's problem rows:
 
 >>> checks = {"repeated_keys": repeated_keys, "no_owner": no_owner, "not_billed": not_billed}
->>> found = {name: run(check, send=example_database.send) for name, check in checks.items()}
+>>> found = {name: run(check_statement, send=example_database.send)
+...          for name, check_statement in checks.items()}
 >>> found["starts_not_billed"] = both[both["starts"] != both["bills"]]
 >>> summary = pd.DataFrame({"check": list(found),
 ...                         "problem_rows": [len(rows) for rows in found.values()]})
@@ -258,6 +261,9 @@ Here the four are weekends, as expected. A missing weekday would be a load to lo
 
 - [Test your own Statements](#test_your_own_statements): check that a Statement gives the
   numbers you meant, against pandas.
+- Keep the checks you run every morning in a file, as functions like `null_counts`, the way
+  [Share Building blocks between Statements](#share_building_blocks_between_statements) keeps
+  blocks.
 - [Finish in pandas](#finish_in_pandas): more of what pandas does once `run` gives back the
   rows, such as merging the results of several Statements.
 - The gallery's [`check_table_reference`](examples.html#check_table_reference) checks that a
