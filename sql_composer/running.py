@@ -7,7 +7,7 @@ CSVs stay in it. The Toolbox never imports it.
 
 from __future__ import annotations
 
-from . import writing
+from . import edition
 from .clauses import (
     FROM,
     WHERE,
@@ -215,11 +215,11 @@ def _statement_tree(s: Statement) -> Node:
 
 
 def _self_check(text: str) -> None:
-    """The Hive must read back as the same text (writing.read_back), or nothing is sent."""
-    again = writing.read_back(text)
+    """The Hive must read back as the same text (edition.read_back), or nothing is sent."""
+    again = edition.read_back(text)
     if again != text:
         raise RuntimeError(
-            "sql_composer wrote Hive that doesn't read back the same. This is a bug in the "
+            f"{edition.FOLDER} wrote Hive that doesn't read back the same. This is a bug in the "
             "Toolbox, not in your Statement: nothing was sent. Please report it with the "
             f"Statement that caused it.\n\nWritten:\n{text}\n\nRead back:\n{again}"
         )
@@ -253,7 +253,7 @@ def to_hive(s):
         )
     if s._ddl is None:
         _check_dates_cap(s)
-    text = writing.hive_statement(_statement_tree(s))
+    text = edition.hive_statement(_statement_tree(s))
     _self_check(text)
     return text
 

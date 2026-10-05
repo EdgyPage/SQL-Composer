@@ -56,10 +56,14 @@ def _four_part_message(what: str, why: str, fix: str, opt_out: str | None) -> st
     )
 
 
-def _stop(what, why, fix):
-    """Stop the import with the four-part message. No import stop can be switched off."""
+def _stop(what, why, fix, folder=None):
+    """Stop the import of `folder` with the four-part message. No import stop can be switched off.
+
+    `folder` is this one unless another folder's import is the one stopping.
+    """
     # The folder the import found, which a __init__.py pasted in from another folder can't know.
-    raise ImportError(f"{os.path.basename(_HERE)} stopped on import:"
+    folder = folder or os.path.basename(_HERE)
+    raise ImportError(f"{folder} stopped on import:"
                       + _four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
@@ -223,6 +227,11 @@ from . import engine  # noqa: E402
 engine.check_installed()
 
 VERSION = _version_text()
+
+# The rest of the Toolbox reaches this Edition's writing.py and engine.py through edition.py.
+from . import edition, writing  # noqa: E402
+
+edition.plug(_FOLDER, _PRODUCT, VERSION, writing, engine)
 
 from . import example_database  # noqa: E402
 from .calculations import (  # noqa: E402

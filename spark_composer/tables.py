@@ -25,6 +25,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from . import edition
+from .edition import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
     guard_control_character,
@@ -43,7 +45,6 @@ from .trees import (
     number,
     string,
 )
-from .writing import check_writable_type, hive_text, readable_text
 
 TOOLBOX_VERSION = "3.2"
 
@@ -936,7 +937,7 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
 def _reference_text(name, variable, columns, comments, date_lines) -> str:
     lines = [
         f'"""{name} - TODO: say in one line what one row is."""',
-        "from spark_composer import Table",
+        f"from {edition.FOLDER} import Table",
         "",
         f"{variable} = Table(",
         f'    "{name}",',

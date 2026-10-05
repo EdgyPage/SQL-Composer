@@ -57,7 +57,7 @@ BY_OPTION = {edition.option: edition for edition in EDITIONS.values()}
 # The Editions the export ships to `main`: both, from 3.0.
 EXPORTED = (SQL_COMPOSER, SPARK_COMPOSER)
 
-SHARED_FILES = ("__init__.py", "calculations.py", "clauses.py", "conditions.py",
+SHARED_FILES = ("__init__.py", "calculations.py", "clauses.py", "conditions.py", "edition.py",
                 "example_database.py", "lineage.py", "refusals.py", "running.py", "tables.py",
                 "trees.py")
 EDITION_FILES = ("writing.py", "engine.py")
