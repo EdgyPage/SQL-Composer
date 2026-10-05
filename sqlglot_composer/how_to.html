@@ -2340,7 +2340,7 @@ run(first_runs, send=example_database.send)</pre>
 <tr><td>2</td><td>96</td><td>SUCCESS</td></tr>
 <tr><td>3</td><td>97</td><td>FAILED</td></tr>
 </table></div>
-<p>Each job&#x27;s first run of the two days. Its Hive numbers with <code>ORDER BY job_runs.run_id</code>, with no DESC, where numbering newest first says DESC.</p>
+<p>Each job&#x27;s first run of the two days. Its Hive numbers with <code>ORDER BY job_runs.run_id ASC</code>, where numbering newest first says DESC.</p>
 <h5>A row number without a name</h5>
 <pre class="python">unnamed = derived(&quot;unnamed&quot;, statement(
     SELECT(job_runs.job_id, job_runs.run_id,
