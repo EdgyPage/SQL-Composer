@@ -432,10 +432,11 @@ def step_output_html(source: str, notebook: Notebook) -> str:
     return html
 
 
-def steps_html(text: str, notebook: Notebook) -> str:
-    """Prose and `>>>` steps, run in `notebook`.
+def live_steps_html(text: str, notebook: Notebook) -> str:
+    """Prose and `>>>` steps, run in `notebook`, each shown with what it really gives.
 
-    Steps in a row that show nothing share one block of Python with the step after them.
+    The gallery's steps_html shows what a docstring writes under a step instead, and
+    handed_html the Statements its example scope noted. Steps in a row that show nothing share one block of Python with the step after them.
     """
     shown, waiting = [], []
     for part in doctest.DocTestParser().parse(text):
@@ -460,7 +461,7 @@ def chunk_html(text: str, notebook: Notebook) -> str:
     """Text under one heading, with each block only this Edition's page shows marked as such."""
     shown = []
     for position, piece in enumerate(MARKED.split(text)):
-        html = steps_html(piece, notebook)
+        html = live_steps_html(piece, notebook)
         if position % 2 and html:  # a block only this Edition's page shows
             html = f'<div class="only">\n{html}\n</div>'
         shown.append(html)
