@@ -198,7 +198,9 @@ def test_each_group_has_its_heading_and_contents_and_each_how_to_its_badge() -> 
             assert f'<p class="note">No {group.name.lower()} how-tos yet.</p>' in text
         for how_to in in_group:
             assert how_to.number in group.numbers
-            assert (f'<h3>{how_to.number}. {how_to.title} <span class="badge {group.id}">'
+            # A title is shown as prose is, so a ' in it, as in "a table's", is escaped.
+            title = example_gallery.inline(how_to.title)
+            assert (f'<h3>{how_to.number}. {title} <span class="badge {group.id}">'
                     f"{group.name}</span></h3>") in page_sections()[how_to.slug]
     # Getting started comes first.
     assert text.index('id="getting-started"') < text.index('id="intermediate"')
@@ -410,6 +412,23 @@ def a_how_to(tmp_path: Path, steps: str, name: str = "01_try_it.py",
     path = tmp_path / name
     path.write_text(f'"""Try it\n\nFor: {group}\n\n{body}"""\n{stand_ins}', encoding="utf-8")
     return path
+
+
+def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path) -> None:
+    """Common mistakes show the repeated-rows Warning as the step really gives it."""
+    path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
+>>> job_runs = example_database.job_runs
+>>> run_alerts = example_database.run_alerts
+>>> alerts = statement(
+...     SELECT(job_runs.run_id, run_alerts.alert_id),
+...     FROM(job_runs),
+...     JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id)),
+...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(run_alerts.dt, "2026-09-24")),
+... )""")
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    assert '<p class="label">It builds, with a Warning</p>' in shown
+    assert ("JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its "
+            "key (alert_id).") in page_text(shown)
 
 
 @pytest.mark.needs_example_database
