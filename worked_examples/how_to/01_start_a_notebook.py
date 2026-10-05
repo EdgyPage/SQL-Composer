@@ -1,12 +1,13 @@
 """Start a notebook
 
-Level: Getting started
+For: Getting started
 
 ## Goal
 
-Get a notebook ready to write Hive with the Toolbox: import it, write the `send` that runs Hive
-on your warehouse, and try a first Statement on the Example database, which ships inside the
-Toolbox, so you see each piece work before you touch a real table.
+Get a notebook ready to write Hive SQL with the Toolbox. You import the Toolbox, write `send`,
+your own function that runs Hive SQL on your warehouse, and try a first Statement on the
+Example database, the made-up tables that ship inside the Toolbox, so you see each piece work
+before you touch a real table.
 
 ## When you'd use it
 
@@ -41,7 +42,8 @@ notebook uses to reach the warehouse.
 
 [sqlglot_composer only]
 With sqlglot Composer, `send` calls your query API, whatever your team uses to run a Hive
-string, and turns what comes back into a pandas DataFrame. Write it once, in your first cell:
+string, and turns the rows that come back into a pandas DataFrame, each column named. Write it
+once, in your first cell:
 
     import pandas as pd
 
@@ -49,9 +51,15 @@ string, and turns what comes back into a pandas DataFrame. Write it once, in you
         rows = my_api.query(hive)  # your team's own call that runs Hive text goes here
         return pd.DataFrame(rows)
 
-If your notebook runs Spark, with a `spark` session that reads the warehouse's tables, use
-Spark Composer instead: its Hive is written for Spark, and its folder, `spark_composer`, has
-its own copy of this page.
+This works when your API gives each row as a dict, such as `{"run_id": 97, "job_id": 3}`:
+`pd.DataFrame(rows)` takes the column names from its keys. If your API gives each row as a
+tuple, with the column names apart, pass the names too, as in
+`pd.DataFrame(rows, columns=["run_id", "job_id"])`.
+
+If your notebook has a Spark session, `spark`, that reads the warehouse's tables, use Spark
+Composer instead. Its `send` runs the Hive on your `spark`, and where Spark would read a piece
+of Hive differently, it writes that piece so Spark gives what Hive gives; the README lists each
+place. Its folder, `spark_composer`, has its own copy of this page.
 [end]
 [spark_composer only]
 With Spark Composer, `send` runs the Hive on your notebook's own `spark` session, and turns
@@ -62,26 +70,33 @@ Spark's DataFrame into a pandas one. Write it once, in your first cell:
 `lambda hive: ...` is a function on one line: it takes the Hive text as `hive` and gives back
 what follows the colon. `spark.sql(hive)` runs the Hive on Spark, and `.toPandas()` fetches
 the rows into a pandas DataFrame.
+
+The Example database runs on Spark too: its own Spark, apart from yours, which needs Java 17
+to 21 on your computer. The first query a notebook sends it prints a Note saying it is starting
+that Spark, and takes about 15 seconds; later queries take about a second.
 [end]
 
 There is no warehouse on this page, so the next steps use the Example database's own send,
-`example_database.send`, which runs Hive on three made-up tables inside the Toolbox. At work
+`example_database.send`, which runs Hive on the Example database's six made-up tables. At work
 you give `run` your own `send` in its place.
 
 ### Build a first Statement on the Example database
 
-The Example database holds three made-up tables: `ops.jobs`, one row per job; `ops.job_runs`,
-one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and `ops.run_alerts`, the
-alerts a run raised. Their Table references, which say what columns each table has, come with
-the Toolbox. Give the two you need short names:
+The Example database's first three tables are `ops.jobs`, one row per job; `ops.job_runs`, one
+row per run of a job, on two days, 2026-09-23 and 2026-09-24; and `ops.run_alerts`, the alerts
+a run raised. Three more, which the Intermediate how-tos use, hold 14 days each. Each table's
+Table reference, which says what columns it has, comes with the Toolbox. Give the one you need
+a short name:
 
->>> jobs, job_runs = example_database.jobs, example_database.job_runs
+>>> job_runs = example_database.job_runs
 
 A Statement is one query, built from clause functions written in SQL's order: `SELECT` the
-columns you want, `FROM` a table, and keep only some rows with `WHERE`. This one finds the
-runs that failed. `job_runs.dt` is the table's Date partition, the day each row belongs to,
-and every Statement bounds it at both ends, here with `between`, so the warehouse reads only
-those days.
+columns you want, `FROM` a table, and keep only some rows with `WHERE`. `WHERE` keeps a row
+only if every condition in it holds. This Statement finds the runs that failed.
+
+`job_runs.dt` is the table's Date partition: the day each row belongs to. The warehouse stores
+such a table a day at a time, so the Toolbox has a rule: every Statement gives the first and
+the last day it reads, here with `between`.
 
 >>> failed = statement(
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -94,7 +109,8 @@ Nothing has run yet: `failed` holds the Statement, ready to become Hive.
 
 ### See its Hive
 
-`to_hive` gives the Hive as text: exactly what `run` sends.
+`to_hive` gives the Hive as text: exactly what `run` sends. In it, `FROM ops.job_runs AS
+job_runs` reads the table and calls it `job_runs`, the name the other lines use.
 
 >>> print(to_hive(failed))
 SELECT
@@ -107,8 +123,7 @@ WHERE
 
 `show_hive` prints the same Hive with a `;` at the end, ready to paste into another program,
 such as Hue, DBeaver or spark-sql. It gives the text back too, so `text` keeps it to save or
-use again; in a notebook, `show_hive(failed)` on its own line prints it once. End each
-Statement you build with it, to read what will run.
+use again:
 
 >>> text = show_hive(failed)
 SELECT
@@ -118,6 +133,9 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
+
+In a notebook you can also write `show_hive(failed)` on a line of its own; it prints the Hive
+just once. After you build each Statement, call `show_hive` on it to read what will run.
 
 ### Run it
 
@@ -145,8 +163,8 @@ True
 2
 
 At work, try your own send on its own, with a query that reads no table, such as
-`send("SELECT 1 AS one")`. A working send gives back a pandas DataFrame like this one, which
-the Example database's send gives:
+`send("SELECT 1 AS one")`. A working send gives back a pandas DataFrame with one column, named
+`"one"`, like this one, which the Example database's send gives:
 
 >>> example_database.send("SELECT 1 AS one")
    one
@@ -154,12 +172,31 @@ the Example database's send gives:
 
 ## Common mistakes
 
-### A send that gives back Spark's DataFrame
+### A send that gives back the wrong thing
 
+[sqlglot_composer only]
+Many query APIs give each row as a tuple, without the column names. A send that hands those
+rows to `pd.DataFrame` without the names gives back a DataFrame whose columns are numbered 0, 1
+and 2. This page has no query API, so a stand-in plays yours here, giving each row as a tuple:
+
+>>> def query_api(hive):
+...     answer = example_database.send(hive)
+...     return [tuple(row) for row in answer.itertuples(index=False)]
+>>> send_without_column_names = lambda hive: pd.DataFrame(query_api(hive))
+>>> run(failed, send=send_without_column_names)
+     0  1           2
+0   97  3  2026-09-23
+1  102  2  2026-09-24
+
+Nothing stops it, but no column has its name: reading one by name, such as `"run_id"`, stops
+with a `KeyError`. Check that `send("SELECT 1 AS one")` gives back a column named `"one"`. If
+it doesn't, give `pd.DataFrame` the column names, as Write your send shows.
+[end]
+[spark_composer only]
 `spark.sql(hive)` gives back Spark's own DataFrame, which hasn't fetched its rows yet. A send
 that leaves out `.toPandas()` hands that to `run`, which stops: there are no rows yet to count
-or read. This page has no Spark, so a stand-in plays Spark's DataFrame here; like Spark's, it
-has a `toPandas` method:
+or read. Your own `spark` isn't in this notebook, so a stand-in plays its DataFrame here; like
+Spark's, it has a `toPandas` method:
 
 >>> class SparkDataFrame:
 ...     def toPandas(self):
@@ -173,12 +210,13 @@ TypeError:
 ...
 
 The fix is the message's: end your send with `.toPandas()`.
+[end]
 
-### A Statement that doesn't bound its Date partition
+### A Statement that doesn't give the days it reads
 
-A table with a Date partition is stored a day at a time, and a Statement that doesn't say
-which days to read would read every day the table holds. The Toolbox refuses it as you build
-it, before anything runs:
+A table with a Date partition is stored a day at a time, and a Statement that doesn't give the
+first and last day to read would read every day the table holds. The Toolbox refuses it as you
+build it, before anything runs:
 
 >>> every_failed_run = statement(
 ...     SELECT(job_runs.run_id),
@@ -191,7 +229,8 @@ composer_core.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
 ...
 
-Bound it as the message says, with `between` or `last_n_days` in `WHERE`, as `failed` does.
+Give the days as the message says, with `between` or `last_n_days` in `WHERE`, as `failed`
+does. The message's opt-out reads every day: leave it for a small table you truly need whole.
 
 ### Importing both Editions
 
@@ -199,19 +238,19 @@ Bound it as the message says, with `between` or `last_n_days` in `WHERE`, as `fa
 Use one Edition in a notebook. After `from sqlglot_composer import *`, a second import line
 `from spark_composer import *` stops with a message: the two Editions share `composer_core`,
 which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in
-every file it imports, then restart the notebook's kernel.
+any of your own .py files it imports, then restart the notebook's kernel.
 [end]
 [spark_composer only]
 Use one Edition in a notebook. After `from spark_composer import *`, a second import line
 `from sqlglot_composer import *` stops with a message: the two Editions share `composer_core`,
 which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in
-every file it imports, then restart the notebook's kernel.
+any of your own .py files it imports, then restart the notebook's kernel.
 [end]
 
 ## Next
 
 - Read one of your own tables: [`write_table_reference`](examples.html#write_table_reference)
-  writes its Table reference for you, from its columns, through your `send`.
+  reads a table's columns through your send and writes its Table reference for you.
 - Build Statements of your own from the [Example gallery](examples.html), which has a Worked
   example for every Toolbox name, such as [`statement`](examples.html#statement),
   [`run`](examples.html#run) and [`show_hive`](examples.html#show_hive).

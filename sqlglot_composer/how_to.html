@@ -22,9 +22,9 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter{position:sticky;top:0;z-index:1;background:#fff;padding:8px 16px;border-bottom:1px solid #eee}
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 h5{font-size:15px;margin:16px 0 4px;color:#333}
-.levels{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media (max-width:800px){.levels{grid-template-columns:1fr}}
-.levels ul{margin:4px 0}
+.groups{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:800px){.groups{grid-template-columns:1fr}}
+.groups ul{margin:4px 0}
 .badge{font-size:12px;font-weight:600;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:2px}
 .badge.getting-started{color:#1f5a2a;background:#e6f4e8} .badge.intermediate{color:#6b4500;background:#fbefdc}
 .only{margin:0}
@@ -35,24 +35,25 @@ pre.file{white-space:pre-wrap}
 <header>
 <h1>sqlglot Composer 3.2: How-tos</h1>
 <p>Each how-to walks through one job from start to finish: its goal, when you'd use it, its
-steps, how to check it worked, the mistakes people make first, and where to go next. Its steps
+steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
-then what it gives: the Hive, ready to paste into another program, a result from the Example
-database, the three made-up tables that ship inside the Toolbox, and any file it writes. Every
-Hive, result, refusal and Warning here comes from running the steps.</p>
-<p>The steps take today as 2026-09-25, the day after the Example database's last day. Pasted
-into your notebook, a step that uses <code>last_n_days</code> counts back from your own today
-and finds no rows here: write <code>between</code> with the days its Hive shows in its place.
-The <a href="examples.html">Example gallery</a>, beside this page in the <code>sqlglot_composer</code>
-folder, holds every Worked example, and the how-tos link to it.</p>
+then what it gives: its Hive (ready to paste into another program), its result on the Example
+database, or a file it writes. The Example database is six made-up tables that ship inside the
+Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
+<p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
+2026-09-24 (its newer tables hold 14 days), and the steps here were run as if today were
+2026-09-25. In your own notebook, <code>last_n_days</code> counts back from your real today and
+finds no rows on the Example database: write <code>between</code> with the dates instead.</p>
+<p>The <a href="examples.html">Example gallery</a>, beside this page in the
+<code>sqlglot_composer</code> folder, holds every Worked example, and the how-tos link to it.</p>
 </header>
 <p id="filter" hidden><label>Show only the how-tos holding every word:
 <input type="search" placeholder="for example: show_hive or send"></label>
 <span id="count"></span></p>
 <main>
-<nav class="levels">
+<nav class="groups">
 <div>
-<p><b><a href="#getting-started">Getting started</a></b>: your first notebooks: from one Statement to a daily pipeline and its lineage.</p>
+<p><b><a href="#getting-started">Getting started</a></b>: your first notebooks: from one Statement to a daily pipeline and its Lineage.</p>
 <ul>
 <li data-for="start_a_notebook"><a href="#start_a_notebook">1. Start a notebook</a></li>
 </ul>
@@ -66,7 +67,7 @@ folder, holds every Worked example, and the how-tos link to it.</p>
 <section class="entry" id="start_a_notebook">
 <h3>1. Start a notebook <span class="badge getting-started">Getting started</span></h3>
 <h4>Goal</h4>
-<p>Get a notebook ready to write Hive with the Toolbox: import it, write the <code>send</code> that runs Hive on your warehouse, and try a first Statement on the Example database, which ships inside the Toolbox, so you see each piece work before you touch a real table.</p>
+<p>Get a notebook ready to write Hive SQL with the Toolbox. You import the Toolbox, write <code>send</code>, your own function that runs Hive SQL on your warehouse, and try a first Statement on the Example database, the made-up tables that ship inside the Toolbox, so you see each piece work before you touch a real table.</p>
 <h4>When you&#x27;d use it</h4>
 <p>At the top of every notebook, or script, that writes Hive with the Toolbox. Its first cell imports the Toolbox and writes <code>send</code>; every cell after it builds Statements and runs them.</p>
 <h4>Steps</h4>
@@ -79,19 +80,21 @@ folder, holds every Worked example, and the how-tos link to it.</p>
 <h5>Write your send</h5>
 <p>The Toolbox never connects to anything itself. It writes Hive as text, and <code>run</code> hands that text to a function of yours, <code>send</code>, which runs it and gives back a pandas DataFrame. How you connect, retry or save files stays in your <code>send</code>, so the Toolbox works with whatever your notebook uses to reach the warehouse.</p>
 <div class="only">
-<p>With sqlglot Composer, <code>send</code> calls your query API, whatever your team uses to run a Hive string, and turns what comes back into a pandas DataFrame. Write it once, in your first cell:</p>
+<p>With sqlglot Composer, <code>send</code> calls your query API, whatever your team uses to run a Hive string, and turns the rows that come back into a pandas DataFrame, each column named. Write it once, in your first cell:</p>
 <pre class="python">import pandas as pd
 
 def send(hive):
     rows = my_api.query(hive)  # your team&#x27;s own call that runs Hive text goes here
     return pd.DataFrame(rows)</pre>
-<p>If your notebook runs Spark, with a <code>spark</code> session that reads the warehouse&#x27;s tables, use Spark Composer instead: its Hive is written for Spark, and its folder, <code>spark_composer</code>, has its own copy of this page.</p>
+<p>This works when your API gives each row as a dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>: <code>pd.DataFrame(rows)</code> takes the column names from its keys. If your API gives each row as a tuple, with the column names apart, pass the names too, as in <code>pd.DataFrame(rows, columns=[&quot;run_id&quot;, &quot;job_id&quot;])</code>.</p>
+<p>If your notebook has a Spark session, <code>spark</code>, that reads the warehouse&#x27;s tables, use Spark Composer instead. Its <code>send</code> runs the Hive on your <code>spark</code>, and where Spark would read a piece of Hive differently, it writes that piece so Spark gives what Hive gives; the README lists each place. Its folder, <code>spark_composer</code>, has its own copy of this page.</p>
 </div>
-<p>There is no warehouse on this page, so the next steps use the Example database&#x27;s own send, <code>example_database.send</code>, which runs Hive on three made-up tables inside the Toolbox. At work you give <code>run</code> your own <code>send</code> in its place.</p>
+<p>There is no warehouse on this page, so the next steps use the Example database&#x27;s own send, <code>example_database.send</code>, which runs Hive on the Example database&#x27;s six made-up tables. At work you give <code>run</code> your own <code>send</code> in its place.</p>
 <h5>Build a first Statement on the Example database</h5>
-<p>The Example database holds three made-up tables: <code>ops.jobs</code>, one row per job; <code>ops.job_runs</code>, one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and <code>ops.run_alerts</code>, the alerts a run raised. Their Table references, which say what columns each table has, come with the Toolbox. Give the two you need short names:</p>
-<pre class="python">jobs, job_runs = example_database.jobs, example_database.job_runs</pre>
-<p>A Statement is one query, built from clause functions written in SQL&#x27;s order: <code>SELECT</code> the columns you want, <code>FROM</code> a table, and keep only some rows with <code>WHERE</code>. This one finds the runs that failed. <code>job_runs.dt</code> is the table&#x27;s Date partition, the day each row belongs to, and every Statement bounds it at both ends, here with <code>between</code>, so the warehouse reads only those days.</p>
+<p>The Example database&#x27;s first three tables are <code>ops.jobs</code>, one row per job; <code>ops.job_runs</code>, one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and <code>ops.run_alerts</code>, the alerts a run raised. Three more, which the Intermediate how-tos use, hold 14 days each. Each table&#x27;s Table reference, which says what columns it has, comes with the Toolbox. Give the one you need a short name:</p>
+<pre class="python">job_runs = example_database.job_runs</pre>
+<p>A Statement is one query, built from clause functions written in SQL&#x27;s order: <code>SELECT</code> the columns you want, <code>FROM</code> a table, and keep only some rows with <code>WHERE</code>. <code>WHERE</code> keeps a row only if every condition in it holds. This Statement finds the runs that failed.</p>
+<p><code>job_runs.dt</code> is the table&#x27;s Date partition: the day each row belongs to. The warehouse stores such a table a day at a time, so the Toolbox has a rule: every Statement gives the first and the last day it reads, here with <code>between</code>.</p>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     FROM(job_runs),
@@ -100,7 +103,7 @@ def send(hive):
 )</pre>
 <p>Nothing has run yet: <code>failed</code> holds the Statement, ready to become Hive.</p>
 <h5>See its Hive</h5>
-<p><code>to_hive</code> gives the Hive as text: exactly what <code>run</code> sends.</p>
+<p><code>to_hive</code> gives the Hive as text: exactly what <code>run</code> sends. In it, <code>FROM ops.job_runs AS job_runs</code> reads the table and calls it <code>job_runs</code>, the name the other lines use.</p>
 <pre class="python">print(to_hive(failed))</pre>
 <p class="label">Hive</p><pre class="hive">SELECT
   job_runs.run_id,
@@ -109,7 +112,7 @@ def send(hive):
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;</pre>
-<p><code>show_hive</code> prints the same Hive with a <code>;</code> at the end, ready to paste into another program, such as Hue, DBeaver or spark-sql. It gives the text back too, so <code>text</code> keeps it to save or use again; in a notebook, <code>show_hive(failed)</code> on its own line prints it once. End each Statement you build with it, to read what will run.</p>
+<p><code>show_hive</code> prints the same Hive with a <code>;</code> at the end, ready to paste into another program, such as Hue, DBeaver or spark-sql. It gives the text back too, so <code>text</code> keeps it to save or use again:</p>
 <pre class="python">text = show_hive(failed)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">SELECT
   job_runs.run_id,
@@ -118,6 +121,7 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own; it prints the Hive just once. After you build each Statement, call <code>show_hive</code> on it to read what will run.</p>
 <h5>Run it</h5>
 <p><code>run</code> turns the Statement into Hive, hands it to a send, and gives back the DataFrame the send returns. Here the Example database&#x27;s send runs it:</p>
 <pre class="python">run(failed, send=example_database.send)</pre>
@@ -135,49 +139,51 @@ isinstance(result, pd.DataFrame)</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
 <pre class="python">len(result)</pre>
 <p class="label">Python shows</p><pre class="output">2</pre>
-<p>At work, try your own send on its own, with a query that reads no table, such as <code>send(&quot;SELECT 1 AS one&quot;)</code>. A working send gives back a pandas DataFrame like this one, which the Example database&#x27;s send gives:</p>
+<p>At work, try your own send on its own, with a query that reads no table, such as <code>send(&quot;SELECT 1 AS one&quot;)</code>. A working send gives back a pandas DataFrame with one column, named <code>&quot;one&quot;</code>, like this one, which the Example database&#x27;s send gives:</p>
 <pre class="python">example_database.send(&quot;SELECT 1 AS one&quot;)</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>one</th></tr>
 <tr><td>1</td></tr>
 </table></div>
 <h4>Common mistakes</h4>
-<h5>A send that gives back Spark&#x27;s DataFrame</h5>
-<p><code>spark.sql(hive)</code> gives back Spark&#x27;s own DataFrame, which hasn&#x27;t fetched its rows yet. A send that leaves out <code>.toPandas()</code> hands that to <code>run</code>, which stops: there are no rows yet to count or read. This page has no Spark, so a stand-in plays Spark&#x27;s DataFrame here; like Spark&#x27;s, it has a <code>toPandas</code> method:</p>
-<pre class="python">class SparkDataFrame:
-    def toPandas(self):
-        return pd.DataFrame()
-send_without_to_pandas = lambda hive: SparkDataFrame()
-run(failed, send=send_without_to_pandas)</pre>
-<p class="label">Python stops with an error</p><pre class="refusal">TypeError:
-  What happened:  Your send gave back a Spark DataFrame, where a pandas DataFrame goes.
-  Why it matters: A Spark DataFrame hasn&#x27;t fetched its rows yet, so there are none to count or to read.
-  Usual fix:      Make your send give back pandas: send=lambda hive: spark.sql(hive).toPandas().
-  Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>The fix is the message&#x27;s: end your send with <code>.toPandas()</code>.</p>
-<h5>A Statement that doesn&#x27;t bound its Date partition</h5>
-<p>A table with a Date partition is stored a day at a time, and a Statement that doesn&#x27;t say which days to read would read every day the table holds. The Toolbox refuses it as you build it, before anything runs:</p>
+<h5>A send that gives back the wrong thing</h5>
+<div class="only">
+<p>Many query APIs give each row as a tuple, without the column names. A send that hands those rows to <code>pd.DataFrame</code> without the names gives back a DataFrame whose columns are numbered 0, 1 and 2. This page has no query API, so a stand-in plays yours here, giving each row as a tuple:</p>
+<pre class="python">def query_api(hive):
+    answer = example_database.send(hive)
+    return [tuple(row) for row in answer.itertuples(index=False)]
+send_without_column_names = lambda hive: pd.DataFrame(query_api(hive))
+run(failed, send=send_without_column_names)</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>0</th><th>1</th><th>2</th></tr>
+<tr><td>97</td><td>3</td><td>2026-09-23</td></tr>
+<tr><td>102</td><td>2</td><td>2026-09-24</td></tr>
+</table></div>
+<p>Nothing stops it, but no column has its name: reading one by name, such as <code>&quot;run_id&quot;</code>, stops with a <code>KeyError</code>. Check that <code>send(&quot;SELECT 1 AS one&quot;)</code> gives back a column named <code>&quot;one&quot;</code>. If it doesn&#x27;t, give <code>pd.DataFrame</code> the column names, as Write your send shows.</p>
+</div>
+<h5>A Statement that doesn&#x27;t give the days it reads</h5>
+<p>A table with a Date partition is stored a day at a time, and a Statement that doesn&#x27;t give the first and last day to read would read every day the table holds. The Toolbox refuses it as you build it, before anything runs:</p>
 <pre class="python">every_failed_run = statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
     WHERE(equals(job_runs.status, &quot;FAILED&quot;)),
 )</pre>
-<p class="label">Refused</p><pre class="refusal">LoadRefused:
+<p class="label">Python stops with this message</p><pre class="refusal">LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
   Opt-out:        FROM(job_runs, reads_all_partitions=True)</pre>
-<p>Bound it as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does.</p>
+<p>Give the days as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does. The message&#x27;s opt-out reads every day: leave it for a small table you truly need whole.</p>
 <h5>Importing both Editions</h5>
 <div class="only">
-<p>Use one Edition in a notebook. After <code>from sqlglot_composer import *</code>, a second import line <code>from spark_composer import *</code> stops with a message: the two Editions share <code>composer_core</code>, which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in every file it imports, then restart the notebook&#x27;s kernel.</p>
+<p>Use one Edition in a notebook. After <code>from sqlglot_composer import *</code>, a second import line <code>from spark_composer import *</code> stops with a message: the two Editions share <code>composer_core</code>, which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in any of your own .py files it imports, then restart the notebook&#x27;s kernel.</p>
 </div>
 <h4>Next</h4>
-<ul><li>Read one of your own tables: <a href="examples.html#write_table_reference"><code>write_table_reference</code></a> writes its Table reference for you, from its columns, through your <code>send</code>.</li><li>Build Statements of your own from the <a href="examples.html">Example gallery</a>, which has a Worked example for every Toolbox name, such as <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#run"><code>run</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a>.</li><li>See a job built step by step, each step&#x27;s Hive shown, in the gallery&#x27;s <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
+<ul><li>Read one of your own tables: <a href="examples.html#write_table_reference"><code>write_table_reference</code></a> reads a table&#x27;s columns through your send and writes its Table reference for you.</li><li>Build Statements of your own from the <a href="examples.html">Example gallery</a>, which has a Worked example for every Toolbox name, such as <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#run"><code>run</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a>.</li><li>See a job built step by step, each step&#x27;s Hive shown, in the gallery&#x27;s <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
-<p class="note">No how-tos at this level yet.</p>
+<p class="note">No intermediate how-tos yet.</p>
 </main>
 <script>
 const filter = document.getElementById("filter"), box = filter.querySelector("input");
@@ -185,13 +191,18 @@ const entries = [...document.querySelectorAll(".entry")];
 filter.hidden = false;
 box.oninput = () => {
   const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
+  let shown = 0;
   for (const entry of entries) {
     entry.hidden = !words.every(word => entry.textContent.toLowerCase().includes(word));
-    document.querySelector('[data-for="' + entry.id + '"]').hidden = entry.hidden;
+    shown += !entry.hidden;
   }
-  const shown = entries.filter(entry => !entry.hidden).length;
   document.getElementById("count").textContent = shown + " of " + entries.length + " shown";
 };
+box.addEventListener("input", () => {
+  for (const item of document.querySelectorAll("[data-for]")) {
+    item.hidden = document.getElementById(item.dataset.for).hidden;
+  }
+});
 for (const pre of document.querySelectorAll("pre.python, pre.hive")) {
   const text = pre.textContent, holder = document.createElement("div");
   const button = document.createElement("button");

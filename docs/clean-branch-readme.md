@@ -146,6 +146,10 @@ finding rows with no match, and Statements that give a wrong number shown beside
 - `spark_composer/examples.html` shows each result from Spark Composer's Example database,
   which runs Spark, and marks the places where Spark Composer's Hive differs.
 
+New to the Toolbox? Beside each Example gallery, the how-tos walk through one job each from
+start to finish: `sqlglot_composer/how_to.html` and `spark_composer/how_to.html`. How-to 1
+starts a notebook.
+
 ## Before you use Spark Composer at work
 
 Check one setting once, by hand, in your notebook's Spark:
