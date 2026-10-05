@@ -26,12 +26,14 @@ from sqlglot_composer import (
     HAVING,
     INSERT_OVERWRITE,
     JOIN,
+    LEFT_JOIN,
     LIMIT,
     ORDER_BY,
     SELECT,
     WHERE,
     LoadRefused,
     Table,
+    all_of,
     at_least,
     between,
     count_rows,
@@ -41,6 +43,7 @@ from sqlglot_composer import (
     equals,
     example_database,
     export_lineage,
+    fill_null,
     last_n_days,
     not_equals,
     row_number,
@@ -581,6 +584,55 @@ def test_a_saved_table_no_statement_writes_is_an_ordinary_table(tmp_path) -> Non
     assert got["boxes"]["mart.daily_runs.runs"] == "mart.daily_runs"
     assert not [a for a in got["arrows"] if a[1] == "mart.daily_runs.runs"]
     assert "It reads the Saved table" not in markdown
+
+
+alerts_per_job = Table("mart.alerts_per_job", date_partition="dt", key=["job_id", "dt"],
+                       columns={"job_id": "bigint", "alerts": "bigint", "dt": "string"})
+
+
+def html_entry(page: str, name: str, group: str) -> str:
+    """One calculated column's entry in the HTML page's report."""
+    start = page.index(f'<summary><code>{name}</code> <span class="muted">in {group}</span>')
+    return page[start:page.index("</details>", start)]
+
+
+@pytest.mark.parametrize("many_matches", [False, True], ids=["one match", "many matches"])
+def test_a_left_joined_saved_tables_conditions_decide_only_its_own_columns(
+        tmp_path, many_matches) -> None:
+    run_alerts = example_database.run_alerts
+    fill = fill_daily_runs()
+    alerts = statement(
+        INSERT_OVERWRITE(alerts_per_job),
+        SELECT(job_runs.job_id, AS(count_rows(), "alerts")),
+        FROM(run_alerts),
+        JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
+        WHERE(equals(run_alerts.dt, "2026-09-24"),
+              between(job_runs.dt, "2026-09-23", "2026-09-24")),
+        GROUP_BY(job_runs.job_id),
+    )
+    day = statement(
+        SELECT(daily_runs.job_id, AS(sum_of(daily_runs.runs), "runs"),
+               AS(fill_null(sum_of(alerts_per_job.alerts), 0), "alerts")),
+        FROM(daily_runs),
+        LEFT_JOIN(alerts_per_job, ON=all_of(equals(alerts_per_job.job_id, daily_runs.job_id),
+                                            equals(alerts_per_job.dt, "2026-09-24")),
+                  many_matches=many_matches),
+        WHERE(equals(daily_runs.dt, "2026-09-24")),
+        GROUP_BY(daily_runs.job_id),
+    )
+    markdown, page = read(export_lineage(fill, alerts, day, to=tmp_path / "lineage.html"))
+    in_day = section(markdown, "## day")
+    runs, alerts_entry = section(in_day, "#### `runs`"), section(in_day, "#### `alerts`")
+    # A LEFT JOIN keeps every row of daily_runs, so what decided alerts_per_job's rows decides
+    # only the columns read from it, unless each run can match several of its rows.
+    assert ("in alerts:" in runs) is many_matches
+    assert ("in alerts:" in html_entry(page, "runs", "day")) is many_matches
+    assert "- LEFT JOIN ON in day:" in runs and "- WHERE in day:" in runs
+    # The alerts' own column still lists the write's conditions, its date bound aside.
+    assert "- JOIN ON in alerts: `equals(job_runs.run_id, run_alerts.run_id)`" in alerts_entry
+    assert '- WHERE in alerts: `between(job_runs.dt, "2026-09-23", "2026-09-24")`' in alerts_entry
+    assert "equals(run_alerts.dt" not in alerts_entry
+    assert "JOIN ON in alerts:" in html_entry(page, "alerts", "day")
 
 
 def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:
