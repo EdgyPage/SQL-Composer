@@ -30,7 +30,10 @@ import pytest
 
 import editions
 import example_project
-from conftest import ROOT, edition, example_rows, toolbox_module
+from conftest import (
+    INSERT, ROOT, edition, example_rows, project_on_the_path, standing_in, toolbox_module,
+    without_the_write,
+)
 from sqlglot_composer import example_database, run, to_hive
 
 STARTER = ROOT / "example_projects" / "starter"
@@ -43,11 +46,6 @@ DAYS = ("2026-09-23", "2026-09-24")
 # What each step's day parameters are given, by name.
 ARGUMENTS = {"day": DAYS[-1], "first_day": DAYS[0], "last_day": DAYS[-1]}
 TOP_NAMES = ("table_references", "building_blocks", "statements", "run_pipeline", "settings")
-INSERT = "INSERT OVERWRITE TABLE"
-
-
-def _is_the_projects(module: str) -> bool:
-    return module.split(".")[0] in TOP_NAMES
 
 
 def _module_names(folder: Path) -> list[str]:
@@ -59,16 +57,8 @@ def _module_names(folder: Path) -> list[str]:
 def _imported(folder: Path):
     """The project's modules by name, imported with its folder first on the path, then put
     away again, and whatever modules of those names were there before put back."""
-    put_away = {name: sys.modules.pop(name) for name in list(sys.modules)
-                if _is_the_projects(name)}
-    sys.path.insert(0, str(folder))
-    try:
+    with project_on_the_path(folder, TOP_NAMES):
         yield {name: importlib.import_module(name) for name in _module_names(folder)}
-    finally:
-        sys.path.remove(str(folder))
-        for name in [name for name in sys.modules if _is_the_projects(name)]:
-            del sys.modules[name]
-        sys.modules.update(put_away)
 
 
 @pytest.fixture(scope="module")
@@ -106,11 +96,6 @@ def statement_functions(module) -> dict[str, list]:
         if built:
             found[name] = built
     return found
-
-
-def without_the_write(hive: str) -> str:
-    """A write's Hive with its INSERT OVERWRITE line left out: the SELECT it saves."""
-    return "\n".join(line for line in hive.splitlines() if not line.startswith(INSERT))
 
 
 # --- The generated files ---------------------------------------------------------------------
@@ -692,27 +677,6 @@ def test_example_3_groups_each_teams_day_from_job_events(intermediate: dict, day
     got = run(example(intermediate, I_EXAMPLES[2]).team_day_from_job_events(day),
               send=example_database.send)
     same(got, team_day_on(day, with_costs=False))
-
-
-def value_as_hive(x) -> str:
-    if x is None or (isinstance(x, float) and pd.isna(x)):
-        return "NULL"
-    return f"'{x}'" if isinstance(x, str) else str(int(x))
-
-
-def standing_in(hive: str, saved: dict[str, pd.DataFrame]) -> str:
-    """The Hive with each Saved table, by its name in mart., stood in for by rows, each row
-    holding its own day as dt."""
-    for table, rows in saved.items():
-        selects = [", ".join(f"{value_as_hive(x)} AS {column}"
-                             for column, x in zip(rows.columns, row))
-                   for row in rows.itertuples(index=False)]
-        assert selects, f"mart.{table} standing in with no rows"
-        named = f"mart.{table} AS {table}"
-        assert hive.count(named) == 1, table
-        union = " UNION ALL ".join(f"SELECT {select}" for select in selects)
-        hive = hive.replace(named, f"({union}) AS {table}")
-    return hive
 
 
 def previewed_days(module, days) -> pd.DataFrame:
