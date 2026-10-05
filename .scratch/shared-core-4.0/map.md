@@ -53,6 +53,9 @@ anywhere.
 - **The version.** Drift version items from tickets 01-14 are answered "folds into 4.0, the
   user's choice (2026-10-05)" and stay open until ticket 15, as the Spark effort did for 3.0.
   Nothing is exported before ticket 15.
+- **Ticket 15's CHANGES 4.0 section** says, besides the update steps: you copy two folders;
+  importing both Editions in one Python now stops (before 4.0 the two could sit side by side);
+  tracebacks name `composer_core.refusals.GuardRefused` (drift review of 2269d4e).
 
 ## Records this changes
 
