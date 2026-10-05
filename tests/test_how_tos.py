@@ -124,6 +124,8 @@ def names_of(tree: ast.AST) -> tuple[set[str], set[str]]:
             defined.add(node.name)
         elif isinstance(node, ast.arg):
             defined.add(node.arg)
+        elif isinstance(node, ast.ExceptHandler) and node.name:  # except ... as name:
+            defined.add(node.name)
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
             defined |= {(alias.asname or alias.name).split(".")[0] for alias in node.names}
             if any(alias.name == "*" for alias in node.names):
@@ -437,6 +439,18 @@ def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
     assert (f'<p class="note">It writes <code>{stem}.html</code> too, a page to open in your '
             "browser.</p>") in shown
     assert str(tmp_path) not in shown
+
+
+def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path) -> None:
+    path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
+>>> job_runs = example_database.job_runs
+>>> run_alerts = example_database.run_alerts
+>>> joined = JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))""")
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    warned = re.search(r'<p class="label">It builds, with a Warning</p>\n?'
+                       r'<pre class="refusal">(.*?)</pre>', shown, re.DOTALL)
+    assert page_text(warned.group(1)).startswith(
+        "RepeatedRowsWarning: What happened: JOIN(run_alerts) matches on run_id")
 
 
 # A Statement sqlglot Composer's Example database can't run: its executor has no week_start.
