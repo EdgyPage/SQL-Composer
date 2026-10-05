@@ -137,6 +137,13 @@ database's tables, to copy and fill in with the user's own. Where a Worked examp
 Statement and its Hive, an Example project shows the files around many.
 _Avoid_: sample project, demo, template, starter kit
 
+**Template**:
+One of the user's own scripts with its specifics left out - the tables, columns and days -
+each marked as a placeholder, to copy into a project and fill in. Where an Example project shows
+a whole project filled in for the Example database, a Template is the empty shape of one of its
+files; a Template with a placeholder left in doesn't run.
+_Avoid_: skeleton, boilerplate, stub, scaffold, example
+
 **Example gallery**:
 The searchable page holding every Worked example, generated from them; each Edition ships its
 own.
