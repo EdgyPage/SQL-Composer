@@ -25,10 +25,16 @@ from sqlglot_composer import (
     between,
     check_key,
     check_table_reference,
+    count_distinct,
     count_rows,
+    derived,
     equals,
     example_database,
+    fill_null,
+    if_else,
+    is_null,
     last_n_days,
+    max_of,
     run,
     statement,
     sum_of,
@@ -330,3 +336,57 @@ def test_a_snapshot_for_every_job_on_every_day() -> None:
     rows = example_rows("job_owners")
     expected = pd.MultiIndex.from_product([sorted(example_rows("jobs").job_id), DAYS])
     assert sorted(zip(rows.job_id, rows.dt)) == list(expected)
+
+
+# --- What the intermediate how-tos run on both Editions' Example databases -----------------
+
+
+@pytest.mark.needs_example_database
+def test_distinct_event_types_per_job() -> None:
+    s = statement(
+        SELECT(events.job_id, AS(count_distinct(events.event_type), "types")),
+        FROM(events),
+        WHERE(last_n_days(events.dt, 14)),
+        GROUP_BY(events.job_id),
+    )
+    found = run(s, send=example_database.send).set_index("job_id").types.to_dict()
+    assert found == example_rows("job_events").groupby("job_id").event_type.nunique().to_dict()
+
+
+@pytest.mark.needs_example_database
+def test_the_newest_snapshot_day_per_job() -> None:
+    s = statement(
+        SELECT(owners.job_id, AS(max_of(owners.dt), "newest")),
+        FROM(owners),
+        WHERE(last_n_days(owners.dt, 14)),
+        GROUP_BY(owners.job_id),
+    )
+    found = run(s, send=example_database.send).set_index("job_id").newest.to_dict()
+    assert found == example_rows("job_owners").groupby("job_id").dt.max().to_dict()
+
+
+@pytest.mark.needs_example_database
+def test_a_missing_cost_filled_and_labelled() -> None:
+    s = statement(
+        SELECT(costs.job_id, AS(fill_null(costs.cost_cents, 0), "cents"),
+               AS(if_else(is_null(costs.cost_cents), "missing", "known"), "cost")),
+        FROM(costs),
+        WHERE(equals(costs.dt, "20260924")),
+    )
+    found = run(s, send=example_database.send).sort_values("job_id")
+    day = example_rows("region_costs").query("dt == '20260924'").sort_values("job_id")
+    assert list(found.cents) == list(day.cost_cents.fillna(0).astype(int))
+    assert list(found.cost) == ["missing" if pd.isna(c) else "known" for c in day.cost_cents]
+
+
+@pytest.mark.needs_example_database
+def test_a_derived_table_of_events_per_day_is_read_by_the_next_step() -> None:
+    per_day = derived("events_per_day", statement(
+        SELECT(events.dt, AS(count_rows(), "events")),
+        FROM(events),
+        WHERE(last_n_days(events.dt, 14)),
+        GROUP_BY(events.dt),
+    ))
+    s = statement(SELECT(AS(max_of(per_day.events), "busiest")), FROM(per_day))
+    found = run(s, send=example_database.send).busiest.iloc[0]
+    assert found == example_rows("job_events").groupby("dt").size().max()

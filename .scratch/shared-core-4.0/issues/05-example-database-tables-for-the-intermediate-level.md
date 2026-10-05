@@ -69,3 +69,17 @@ Built in the commit that resolves this ticket.
   day"); the README template says six tables, and test_export_clean with it. The goldens are
   unchanged.
 
+**Code review (2026-10-05), after merging 73e8b7c (36c26cd).** Standards: no hard violation;
+judgement calls kept (a private `_PARTITIONS` dict beside the Table reference, comments written
+twice as the module already did). Spec: the executor claims had no tests; the follow-up commit
+adds shared tests of what both Example databases run on the new tables (COUNT(DISTINCT), max_of
+per key, fill_null and if_else, a Derived table read by the next step), a sqlglot-only test that
+its executor refuses row_number, week_start and month_start on them, and a Spark-only test that
+Spark Composer runs all three, checked against pandas. The module docstring says "each run's"
+events and cost, which is what the rows hold.
+
+**Beginner reader (2026-10-05).** Run by the ticket's agent on the uncommitted change; its four
+stops in the module were fixed (the docstring's wording, eu/us against the jobs' regions, "they
+don't match job_runs", a comment that misused "Level"). Four stops in composer_core/tables.py
+are outside this ticket and go to ticket 09, whose how-to 19 shows ops.region_costs.
+

@@ -3,10 +3,10 @@
 It holds the Table references `jobs`, `job_runs` and `run_alerts`, with rows on two days,
 2026-09-23 and 2026-09-24, and three more with rows on 14 days, 2026-09-11 to 2026-09-24:
 
-- `job_events`: each job's events each day, start, finish, retry and fail;
+- `job_events`: each run's events, start, finish, retry and fail;
 - `job_owners`: one row per job per day, with its team and owner, so you can see report_build
   move from data to finance on 2026-09-18;
-- `region_costs`: each job's cost in cents each day, partitioned by region ("eu" or "us", where
+- `region_costs`: each run's cost in cents, partitioned by region ("eu" or "us", where
   the job is billed, not the jobs table's LON, PAR or NYC), then by day, with days written like
   20260911 rather than 2026-09-11.
 
