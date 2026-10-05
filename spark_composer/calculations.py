@@ -33,7 +33,7 @@ from .trees import (
     number,
     string,
 )
-from .writing import check_writable_call
+from .edition import check_writable_call
 
 TOOLBOX_VERSION = "3.2"
 

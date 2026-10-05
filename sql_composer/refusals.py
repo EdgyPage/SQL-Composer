@@ -27,6 +27,7 @@ from typing import NoReturn
 # The one function that builds every four-part message. It lives in __init__.py, since the
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
+from . import edition
 
 TOOLBOX_VERSION = "3.2"
 
@@ -361,11 +362,11 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     Python shows a repeated warning only once per line by default. Passing no registry to
     warn_explicit makes it show on every call that earns it.
     """
-    toolbox = os.path.dirname(os.path.abspath(__file__))
+    toolbox = edition.toolbox_folders()
     frame = sys._getframe(1)
     while frame.f_back is not None and os.path.dirname(
         os.path.abspath(frame.f_code.co_filename)
-    ) == toolbox:
+    ) in toolbox:
         frame = frame.f_back
     warnings.warn_explicit(
         message,

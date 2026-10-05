@@ -23,7 +23,7 @@ from .tables import (
     type_family,
 )
 from .trees import Node, combined, has_aggregate
-from .writing import hive_text
+from .edition import hive_text
 
 TOOLBOX_VERSION = "3.2"
 

@@ -65,7 +65,9 @@ anywhere.
 
 ## Decisions so far
 
-(none yet)
+- [The Edition seam](issues/01-the-edition-seam.md): every shared file reaches the Edition's
+  writing and engine through edition.py, which one Edition plugs into per Python; lineage's
+  time, commit and version can be pinned; the goldens and galleries are unchanged.
 
 ## Not yet specified
 

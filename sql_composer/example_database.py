@@ -29,7 +29,7 @@ import re
 
 import pandas as pd
 
-from . import engine
+from . import edition
 from .refusals import refuse
 from .tables import Table
 
@@ -248,7 +248,7 @@ def send(hive):
             "builds, not text.",
             error=ValueError,
         )
-    columns, rows = engine.run_query(text, _TABLES)
+    columns, rows = edition.run_query(text, _TABLES)
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)
     return pd.DataFrame(rows, columns=columns)

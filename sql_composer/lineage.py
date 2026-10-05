@@ -17,7 +17,7 @@ import os
 import re
 from pathlib import Path
 
-from . import VERSION
+from . import edition
 from .clauses import Statement, derived_tables
 from .refusals import (
     GuardRefused,
@@ -27,7 +27,7 @@ from .refusals import (
 from .running import bottom_read, by_day, steps, to_hive
 from .tables import readable
 from .trees import Node
-from .writing import hive_text
+from .edition import hive_text
 
 TOOLBOX_VERSION = "3.2"
 
@@ -755,7 +755,7 @@ def export_lineage(*statements, to=None):
     """
     statements = _check_statements(statements)
     frame = inspect.currentframe().f_back
-    when = datetime.datetime.now()
+    when = _now()
     names = statement_names(statements, frame)
     caller = calling_file(frame)
     commit = scripts_commit(caller_folder(caller))
@@ -774,9 +774,19 @@ def export_lineage(*statements, to=None):
     return html_path, markdown_path
 
 
+def _now() -> datetime.datetime:
+    """The time a lineage is exported, which names its files and is in their footer."""
+    return datetime.datetime.now()
+
+
+def _version() -> str:
+    """The Toolbox version a lineage's footer names."""
+    return edition.VERSION
+
+
 def _footer(when: datetime.datetime, commit: str) -> str:
     return (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
-            f"{commit}, with {VERSION}.")
+            f"{commit}, with {_version()}.")
 
 
 # The HTML page. to_html fills in each __NAME__ marker; the script at the end draws the lineage.
