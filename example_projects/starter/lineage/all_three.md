@@ -1,4 +1,4 @@
-# Lineage: daily_job_runs, alerts_per_job, team_day
+# Lineage: write_daily_job_runs, write_alerts_per_job, write_team_day
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
 
@@ -22,7 +22,7 @@ flowchart LR
   subgraph g2["filters on runs_per_job_day"]
     n8{{"WHERE in runs_per_job_day<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
   end
-  subgraph g3["daily_job_runs"]
+  subgraph g3["write_daily_job_runs"]
     n9["job_id<br/><small>runs_per_job_day.job_id</small>"]
     n10["runs<br/><small>runs_per_job_day.runs</small>"]
     n11["failed_runs<br/><small>runs_per_job_day.failed_runs</small>"]
@@ -35,7 +35,7 @@ flowchart LR
     n16["mart.daily_job_runs.minutes<br/><small>bigint</small>"]
     n17["mart.daily_job_runs.dt<br/><small>string</small>"]
   end
-  subgraph g5["alerts_per_job"]
+  subgraph g5["write_alerts_per_job"]
     n18["job_id<br/><small>job_runs.job_id</small>"]
     n19["alerts<br/><small>count_rows()</small>"]
     n21["high_alerts<br/><small>count_rows(where=equals(run_alerts.severity…</small>"]
@@ -45,10 +45,10 @@ flowchart LR
     n23["ops.run_alerts.dt<br/><small>string</small>"]
     n27["ops.run_alerts.run_id<br/><small>bigint</small>"]
   end
-  subgraph g7["filters on alerts_per_job"]
-    n22{{"WHERE in alerts_per_job<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
-    n24{{"WHERE in alerts_per_job<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
-    n25{{"JOIN ON in alerts_per_job<br/><small>equals(job_runs.run_id, run_alerts.run_id)</small>"}}
+  subgraph g7["filters on write_alerts_per_job"]
+    n22{{"WHERE in write_alerts_per_job<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n24{{"WHERE in write_alerts_per_job<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+    n25{{"JOIN ON in write_alerts_per_job<br/><small>equals(job_runs.run_id, run_alerts.run_id)</small>"}}
   end
   subgraph g8["mart.alerts_per_job"]
     n28["mart.alerts_per_job.job_id<br/><small>bigint</small>"]
@@ -60,7 +60,7 @@ flowchart LR
     n32["ops.jobs.team<br/><small>string</small>"]
     n41["ops.jobs.job_id<br/><small>bigint</small>"]
   end
-  subgraph g10["team_day"]
+  subgraph g10["write_team_day"]
     n33["team<br/><small>jobs.team</small>"]
     n34["runs<br/><small>sum_of(daily_job_runs.runs)</small>"]
     n35["failed_runs<br/><small>sum_of(daily_job_runs.failed_runs)</small>"]
@@ -68,10 +68,10 @@ flowchart LR
     n37["alerts<br/><small>fill_null(sum_of(alerts_per_job.alerts), 0)</small>"]
     n38["high_alerts<br/><small>fill_null(sum_of(alerts_per_job.high_alerts…</small>"]
   end
-  subgraph g11["filters on team_day"]
-    n39{{"WHERE in team_day<br/><small>equals(daily_job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
-    n40{{"JOIN ON in team_day<br/><small>equals(jobs.job_id, daily_job_runs.job_id)</small>"}}
-    n42{{"LEFT JOIN ON in team_day<br/><small>all_of(equals(alerts_per_job.job_id, daily_…</small>"}}
+  subgraph g11["filters on write_team_day"]
+    n39{{"WHERE in write_team_day<br/><small>equals(daily_job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n40{{"JOIN ON in write_team_day<br/><small>equals(jobs.job_id, daily_job_runs.job_id)</small>"}}
+    n42{{"LEFT JOIN ON in write_team_day<br/><small>all_of(equals(alerts_per_job.job_id, daily_…</small>"}}
   end
   subgraph g12["mart.team_day"]
     n43["mart.team_day.team<br/><small>string</small>"]
@@ -133,7 +133,7 @@ flowchart LR
   n42 -.->|filters| g10
 ```
 
-## daily_job_runs
+## write_daily_job_runs
 
 It writes the Saved table mart.daily_job_runs, one day at a time.
 
@@ -218,7 +218,7 @@ SELECT
 FROM runs_per_job_day
 ```
 
-## alerts_per_job
+## write_alerts_per_job
 
 It writes the Saved table mart.alerts_per_job, one day at a time.
 
@@ -228,33 +228,33 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `alerts`
 
-Calculated in **alerts_per_job** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **write_alerts_per_job** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-alerts_per_job.alerts = count_rows()
+write_alerts_per_job.alerts = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
+- WHERE in write_alerts_per_job: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in write_alerts_per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in write_alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
 
 One value for each different `job_runs.job_id`.
 
 #### `high_alerts`
 
-Calculated in **alerts_per_job** as `count_rows(where=equals(run_alerts.severity, "high"))`, which is `COUNT(CASE WHEN run_alerts.severity = 'high' THEN 1 END)`.
+Calculated in **write_alerts_per_job** as `count_rows(where=equals(run_alerts.severity, "high"))`, which is `COUNT(CASE WHEN run_alerts.severity = 'high' THEN 1 END)`.
 
 ```text
-alerts_per_job.high_alerts = count_rows(where=equals(run_alerts.severity, "high"))
+write_alerts_per_job.high_alerts = count_rows(where=equals(run_alerts.severity, "high"))
 └─ ops.run_alerts.severity  (string)
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
+- WHERE in write_alerts_per_job: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in write_alerts_per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in write_alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
 
 One value for each different `job_runs.job_id`.
 
@@ -276,14 +276,15 @@ FROM ops.run_alerts AS run_alerts
 JOIN ops.job_runs AS job_runs
   ON job_runs.run_id = run_alerts.run_id
 WHERE
-  run_alerts.dt = '2026-09-24' AND job_runs.dt = '2026-09-24'
+  run_alerts.dt = '2026-09-24'
+  AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id
 ```
 
-## team_day
+## write_team_day
 
-It reads the Saved table mart.alerts_per_job, written by alerts_per_job above. It reads the Saved table mart.daily_job_runs, written by daily_job_runs above. It writes the Saved table mart.team_day, one day at a time.
+It reads the Saved table mart.alerts_per_job, written by write_alerts_per_job above. It reads the Saved table mart.daily_job_runs, written by write_daily_job_runs above. It writes the Saved table mart.team_day, one day at a time.
 
 ### Calculated columns
 
@@ -291,102 +292,96 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `runs`
 
-Calculated in **team_day** as `sum_of(daily_job_runs.runs)`, which is `SUM(daily_job_runs.runs)`.
+Calculated in **write_team_day** as `sum_of(daily_job_runs.runs)`, which is `SUM(daily_job_runs.runs)`.
 
 ```text
-team_day.runs = sum_of(daily_job_runs.runs)
+write_team_day.runs = sum_of(daily_job_runs.runs)
 └─ mart.daily_job_runs.runs  (bigint)
-   └─ daily_job_runs.runs
+   └─ write_daily_job_runs.runs
       └─ runs_per_job_day.runs = count_rows()
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
-- WHERE in team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
-- JOIN ON in team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-- LEFT JOIN ON in team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+- LEFT JOIN ON in write_team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
 
 One value for each different `jobs.team`.
 
 #### `failed_runs`
 
-Calculated in **team_day** as `sum_of(daily_job_runs.failed_runs)`, which is `SUM(daily_job_runs.failed_runs)`.
+Calculated in **write_team_day** as `sum_of(daily_job_runs.failed_runs)`, which is `SUM(daily_job_runs.failed_runs)`.
 
 ```text
-team_day.failed_runs = sum_of(daily_job_runs.failed_runs)
+write_team_day.failed_runs = sum_of(daily_job_runs.failed_runs)
 └─ mart.daily_job_runs.failed_runs  (bigint)
-   └─ daily_job_runs.failed_runs
+   └─ write_daily_job_runs.failed_runs
       └─ runs_per_job_day.failed_runs = count_rows(where=equals(job_runs.status, "FAILED"))
          └─ ops.job_runs.status  (string)
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
-- WHERE in team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
-- JOIN ON in team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-- LEFT JOIN ON in team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+- LEFT JOIN ON in write_team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
 
 One value for each different `jobs.team`.
 
 #### `minutes`
 
-Calculated in **team_day** as `sum_of(daily_job_runs.minutes)`, which is `SUM(daily_job_runs.minutes)`.
+Calculated in **write_team_day** as `sum_of(daily_job_runs.minutes)`, which is `SUM(daily_job_runs.minutes)`.
 
 ```text
-team_day.minutes = sum_of(daily_job_runs.minutes)
+write_team_day.minutes = sum_of(daily_job_runs.minutes)
 └─ mart.daily_job_runs.minutes  (bigint)
-   └─ daily_job_runs.minutes
+   └─ write_daily_job_runs.minutes
       └─ runs_per_job_day.minutes = sum_of(job_runs.duration_mins)
          └─ ops.job_runs.duration_mins  (int)
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
-- WHERE in team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
-- JOIN ON in team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-- LEFT JOIN ON in team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+- LEFT JOIN ON in write_team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
 
 One value for each different `jobs.team`.
 
 #### `alerts`
 
-Calculated in **team_day** as `fill_null(sum_of(alerts_per_job.alerts), 0)`, which is `COALESCE(SUM(alerts_per_job.alerts), 0)`.
+Calculated in **write_team_day** as `fill_null(sum_of(alerts_per_job.alerts), 0)`, which is `COALESCE(SUM(alerts_per_job.alerts), 0)`.
 
 ```text
-team_day.alerts = fill_null(sum_of(alerts_per_job.alerts), 0)
+write_team_day.alerts = fill_null(sum_of(alerts_per_job.alerts), 0)
 └─ mart.alerts_per_job.alerts  (bigint)
-   └─ alerts_per_job.alerts = count_rows()
+   └─ write_alerts_per_job.alerts = count_rows()
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
-- WHERE in team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
-- JOIN ON in team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-- LEFT JOIN ON in team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
+- WHERE in write_alerts_per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in write_alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+- LEFT JOIN ON in write_team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
 
 One value for each different `jobs.team`.
 
 #### `high_alerts`
 
-Calculated in **team_day** as `fill_null(sum_of(alerts_per_job.high_alerts), 0)`, which is `COALESCE(SUM(alerts_per_job.high_alerts), 0)`.
+Calculated in **write_team_day** as `fill_null(sum_of(alerts_per_job.high_alerts), 0)`, which is `COALESCE(SUM(alerts_per_job.high_alerts), 0)`.
 
 ```text
-team_day.high_alerts = fill_null(sum_of(alerts_per_job.high_alerts), 0)
+write_team_day.high_alerts = fill_null(sum_of(alerts_per_job.high_alerts), 0)
 └─ mart.alerts_per_job.high_alerts  (bigint)
-   └─ alerts_per_job.high_alerts = count_rows(where=equals(run_alerts.severity, "high"))
+   └─ write_alerts_per_job.high_alerts = count_rows(where=equals(run_alerts.severity, "high"))
       └─ ops.run_alerts.severity  (string)
 ```
 
 Rows that count:
-- WHERE in alerts_per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- JOIN ON in alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
-- WHERE in team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
-- JOIN ON in team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
-- LEFT JOIN ON in team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
+- WHERE in write_alerts_per_job: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in write_alerts_per_job: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
+- WHERE in write_team_day: `equals(daily_job_runs.dt, "2026-09-24")`, which is `daily_job_runs.dt = '2026-09-24'` (reads mart.daily_job_runs.dt)
+- JOIN ON in write_team_day: `equals(jobs.job_id, daily_job_runs.job_id)`, which is `jobs.job_id = daily_job_runs.job_id` (reads mart.daily_job_runs.job_id, ops.jobs.job_id)
+- LEFT JOIN ON in write_team_day: `all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id), equals(alerts_per_job.dt, "2026-09-24"))`, which is `alerts_per_job.job_id = daily_job_runs.job_id AND alerts_per_job.dt = '2026-09-24'` (reads mart.alerts_per_job.dt, mart.alerts_per_job.job_id, mart.daily_job_runs.job_id)
 
 One value for each different `jobs.team`.
 
@@ -421,4 +416,4 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit example, with sqlglot Composer 3.2.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 3.2.

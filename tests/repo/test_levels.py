@@ -1,9 +1,9 @@
 """The Levels of the user's own scripts, checked on the Worked examples in `worked_examples/`
-and on each example project in `example_projects/`.
+and on each Example project in `example_projects/`.
 
 A script imports only from lower Levels and from the Toolbox, never from a higher or equal
 Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
-Each example project has Levels of its own, its generated Table references among them, and the
+Each Example project has Levels of its own, its generated Table references among them, and the
 scripts beside its Level folders, such as `run_pipeline.py`, sit above the Levels, so they may
 import from any of them.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
@@ -13,7 +13,7 @@ and numpy, from `tools/editions.py`), and the Toolbox only from its top level, a
 `from sqlglot_composer import ...`.
 
 Each Statement script's module docstring gives a title and one sentence on why, which the
-Example gallery shows, and so does every script of an example project.
+Example gallery shows, and so does every script of an Example project.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKED_EXAMPLES = ROOT / "worked_examples"
 EXAMPLE_PROJECTS = ROOT / "example_projects"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
-# An example project's scripts beside its Level folders, such as run_pipeline.py.
+# An Example project's scripts beside its Level folders, such as run_pipeline.py.
 ABOVE_THE_LEVELS = 3
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
@@ -53,7 +53,7 @@ def projects() -> list[Path]:
 
 
 def project_scripts() -> list[tuple[Path, int]]:
-    """Every script of every example project, generated or not, with its Level."""
+    """Every script of every Example project, generated or not, with its Level."""
     found = []
     for project in projects():
         for folder, level in LEVELS.items():
