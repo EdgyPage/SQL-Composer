@@ -295,6 +295,8 @@ enough: `between(job_runs.dt, "2026-09-23", "2026-09-24")`.
   [Backfill a range of days](#backfill_a_range_of_days).
 - Guards and Warnings, which protect the answer rather than the cluster:
   [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs).
+- Give each table's days, the joined table's too, and see why a join can repeat rows:
+  [Join tables safely](#join_tables_safely).
 - The gallery's [`set_load_limits`](examples.html#set_load_limits) and
   [`LoadRefused`](examples.html#LoadRefused) entries.
 """

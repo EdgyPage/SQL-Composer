@@ -4,12 +4,14 @@ For: Getting started
 
 ## Goal
 
-Write a step once, as a function, and use it in every Statement that needs it. The step is a
-Derived table: a Statement given a name with `derived`, which another Statement reads like a
-table, and which the Hive writes at its top as `WITH name AS (...)`. Made by a function of
-yours, a Building block, it takes arguments, such as the days to read; it can be checked alone
-with `run`; and steps can be chained, each reading the one before, under names that stay the
-same in every Statement.
+Write a step once, as a function, and use it in every Statement that needs it.
+
+The step is a Derived table: a Statement given a name with `derived`, which another Statement
+reads like a table. The Hive writes it at its top, as `WITH name AS (...)`.
+
+The function that makes it is a Building block. It takes arguments, such as the days to read.
+You check it alone with `run`, chain one onto another, and it keeps the same name in every
+Statement.
 
 ## When you'd use it
 
@@ -42,7 +44,8 @@ same in every Statement.
 derived('job_totals', columns: job_id, runs, minutes)
 
 Its columns are what its `SELECT` makes, checked like a Table reference's. Another Statement
-reads it with `FROM` or `JOIN`, like any table. Here, the minutes per team:
+reads it with `FROM` or `JOIN`, like any table. Here, the minutes per team. `per_team` gives no
+days of its own: the days are inside `job_totals`, and `ops.jobs` has no Date partition.
 
 >>> per_team = statement(
 ...     SELECT(jobs.team, AS(sum_of(job_totals.minutes), "minutes")),
@@ -110,12 +113,50 @@ smallest Statement that reads it: every column, with `all_columns`. Check a bloc
 before you build on it:
 
 >>> check_two_days = statement(SELECT(all_columns(two_days)), FROM(two_days))
+>>> text = show_hive(check_two_days)
+WITH runs_per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs,
+    COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) AS failed_runs,
+    SUM(job_runs.duration_mins) AS minutes
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  runs_per_job.job_id,
+  runs_per_job.runs,
+  runs_per_job.failed_runs,
+  runs_per_job.minutes
+FROM runs_per_job;
 >>> run(check_two_days, send=example_database.send)
    job_id  runs  failed_runs  minutes
 0       1     4            0       67
 1       2     3            1       53
 2       3     2            1       60
 >>> check_last_day = statement(SELECT(all_columns(last_day)), FROM(last_day))
+>>> text = show_hive(check_last_day)
+WITH runs_per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs,
+    COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) AS failed_runs,
+    SUM(job_runs.duration_mins) AS minutes
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  runs_per_job.job_id,
+  runs_per_job.runs,
+  runs_per_job.failed_runs,
+  runs_per_job.minutes
+FROM runs_per_job;
 >>> run(check_last_day, send=example_database.send)
    job_id  runs  failed_runs  minutes
 0       1     2            0       50
@@ -125,23 +166,27 @@ before you build on it:
 ### Chain a second step onto the first
 
 A block can read another block. `busy_jobs` keeps the jobs with at least `min_runs` runs,
-reading `runs_per_job`; the Statement after it adds each job's name:
+reading the Derived table `runs_per_job` gives, which it takes as an argument; the Statement
+after it adds each job's name.
 
->>> def busy_jobs(first_day, last_day, min_runs):
-...     \"\"\"The jobs with at least min_runs runs from first_day to last_day.\"\"\"
-...     per_job = runs_per_job(first_day, last_day)
+The block takes `per_job` as an argument, rather than calling `runs_per_job` itself, because
+each block lives in a file of its own (see Keep it in a file, below), and one block's file
+never imports another's. The Statement builds `runs_per_job` and hands it in:
+
+>>> def busy_jobs(per_job, min_runs):
+...     \"\"\"The jobs of per_job, from runs_per_job, with at least min_runs runs.\"\"\"
 ...     return derived("busy_jobs", statement(
 ...         SELECT(per_job.job_id, per_job.runs, per_job.minutes),
 ...         FROM(per_job),
 ...         WHERE(at_least(per_job.runs, min_runs)),
 ...     ))
->>> busy = busy_jobs("2026-09-23", "2026-09-24", min_runs=3)
->>> busy_report = statement(
+>>> busy = busy_jobs(runs_per_job("2026-09-23", "2026-09-24"), min_runs=3)
+>>> busy_with_names = statement(
 ...     SELECT(jobs.job_name, busy.runs, busy.minutes),
 ...     FROM(busy),
 ...     JOIN(jobs, ON=equals(jobs.job_id, busy.job_id)),
 ... )
->>> text = show_hive(busy_report)
+>>> text = show_hive(busy_with_names)
 WITH runs_per_job AS (
   SELECT
     job_runs.job_id,
@@ -169,7 +214,7 @@ SELECT
 FROM busy_jobs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = busy_jobs.job_id;
->>> run(busy_report, send=example_database.send)
+>>> run(busy_with_names, send=example_database.send)
        job_name  runs  minutes
 0  invoice_sync     3       53
 1  nightly_load     4       67
@@ -216,10 +261,11 @@ GROUP BY
 0     data            0
 1  finance            2
 
-Its Hive starts with the same `WITH runs_per_job AS (...)` as `busy_report`'s. Keep a block's
-name the same in every Statement, and name it like its function: then its Hive reads the same
-everywhere, a Lineage names it the same in every Statement, and a change to the function
-reaches them all.
+Its Hive starts with the same `WITH runs_per_job AS (...)` as `busy_with_names`'s. Keep a
+block's name the same in every Statement, and name it like its function: then its Hive reads
+the same everywhere, a Lineage (the record of which table columns feed each output column, see
+[Lineage of one Statement](#lineage_of_one_statement)) names it the same in every Statement,
+and a change to the function reaches them all.
 
 ### Keep it in a file
 
@@ -249,9 +295,15 @@ references it reads, never a Statement:
             GROUP_BY(job_runs.job_id),
         ))
 
-A notebook then imports it with `from building_blocks.runs_per_job import runs_per_job`. The
-starter Example project, in the Toolbox download's example_projects folder, is laid out this
-way: Table references, Building blocks, then Statements.
+This file imports its Table reference from a folder table_references/, beside
+building_blocks/: once you have many, Table references get a folder of their own too. In
+[Import a table's column names programmatically](#import_column_names) the file sat beside the
+notebook, so the line there was `from job_runs import job_runs`.
+
+A notebook then imports the block with
+`from building_blocks.runs_per_job import runs_per_job`. The starter Example project, in the
+Toolbox download's example_projects folder, is laid out this way: Table references, Building
+blocks, then Statements.
 
 ## Check it worked
 
@@ -306,8 +358,7 @@ ValueError:
 ...
 
 Give each block's Derived table a name of its own, the same as its function's:
-`derived("long_runs_per_job", ...)`. The same stop comes when one Statement reads one block
-twice, for different days: give the second its own block, or work out both in one.
+`derived("long_runs_per_job", ...)`.
 
 ### A column the block doesn't make
 
@@ -323,6 +374,8 @@ AttributeError: runs_per_job has no column 'failed'. Did you mean 'failed_runs'?
 
 - Keep one whole row per key, numbering rows in a Derived table:
   [The latest row per key](#latest_row_per_key).
+- A file of Building blocks built from other blocks, and how to test them:
+  [A library of Building blocks](#a_library_of_building_blocks).
 - The gallery's Worked example of [`derived`](examples.html#derived), and a long Statement
   built in named steps: [Worked example of a job in steps](examples.html#step_by_step).
 """
