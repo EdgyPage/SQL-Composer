@@ -377,7 +377,7 @@ AttributeError: runs_per_job has no column 'failed'. Did you mean 'failed_runs'?
 - Keep one whole row per key, numbering rows in a Derived table:
   [The latest row per key](#latest_row_per_key).
 - A file of Building blocks built from other blocks, and how to test them:
-  [A library of Building blocks](#a_library_of_building_blocks).
+  [Share Building blocks between Statements](#share_building_blocks_between_statements).
 - The gallery's Worked example of [`derived`](examples.html#derived), and a long Statement
   built in named steps: [Worked example of a job in steps](examples.html#step_by_step).
 """

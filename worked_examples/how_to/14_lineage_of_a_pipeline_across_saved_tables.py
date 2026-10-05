@@ -221,6 +221,6 @@ Pass only the writes.
 - See what a change to a Building block does, by its Lineage before and after:
   [Review a change with Lineage](#review_a_change_with_lineage).
 - A longer pipeline of Saved tables, each read by the next:
-  [A pipeline of Saved tables](#a_layered_pipeline).
+  [A pipeline of Saved tables](#a_pipeline_of_saved_tables).
 - The gallery's [`export_lineage`](examples.html#export_lineage) entry.
 """
