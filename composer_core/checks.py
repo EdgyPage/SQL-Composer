@@ -157,7 +157,8 @@ def check_folder(here: str, folder: str, product: str, files, version: str,
         if missing:
             page = ("a missing CHANGES.md leaves you without the change notes"
                     if "CHANGES.md" in files else
-                    "a missing examples.html leaves you without the Example gallery")
+                    "a missing examples.html or how_to.html leaves you without the Example "
+                    "gallery or the how-tos")
             _stop(
                 what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
                 f"from the {on_disk} folder.",
