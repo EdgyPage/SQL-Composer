@@ -34,7 +34,9 @@ Under the headings go:
   one notebook, and tests/test_how_tos.py runs each how-to as a doctest. The page shows what
   each step really gives, run again while it is written: what it prints (the Hive, when it
   calls to_hive or show_hive), a result table for a DataFrame, the refusal or Warning it stops
-  with, and each file it writes: a .py or .md file in full, and an .html file by name;
+  with, and each file it writes: a .py or .md file in full, folded when it is longer than
+  FOLD_AFTER lines, or named only when it is the same as one shown before, and an .html file
+  by name;
 - indented code, shown but not run, for what works only at work, such as your own send;
 - a block that only one Edition's page shows, as written, between a line
   `[sqlglot_composer only]` or `[spark_composer only]` and a line `[end]`: for what differs,
@@ -133,8 +135,8 @@ GROUPS = (
     Group("Getting started", "getting-started", range(1, 19),
           "your first notebooks: from one Statement to a daily pipeline and its Lineage"),
     Group("Intermediate", "intermediate", range(19, 31),
-          "work over many days and many tables: snapshots, rollups, layered pipelines, quality "
-          "checks and testing"),
+          "work over many days and many tables: daily copies, rollups, pipelines of Saved "
+          "tables, quality checks and testing"),
 )
 GROUP_NAMED = {group.name: group for group in GROUPS}
 # What a lineage written on the page says of when, from which commit and with which Toolbox.
@@ -223,12 +225,31 @@ def edition_text(doc: str, edition: editions.Edition, marked: bool = False) -> s
         at = found.end()
     outside.append(doc[at:])
     pieces.append(editions.named_for(edition, outside[-1]))
+    for piece in outside:
+        refuse_one_edition_named_twice(piece)
     stray = [found for piece in outside for found in MARKER.findall(piece)]
     if stray:
         raise HowToRefused(f"A line [{stray[0]}] opens or closes no block: a block is a line "
                            "[sqlglot_composer only] or [spark_composer only], then its text, "
                            "then a line [end].")
     return "".join(pieces)
+
+
+def refuse_one_edition_named_twice(text: str) -> None:
+    """Refuse text outside a block that, named for an Edition, would name it twice in a row.
+
+    "sqlglot Composer and Spark Composer" reads "Spark Composer and Spark Composer" on Spark
+    Composer's page, so text both pages show names both Editions as "the two Editions".
+    """
+    for edition in editions.EDITIONS.values():
+        swapped = editions.named_for(edition, text)
+        for name in (edition.product, edition.folder):
+            twice = re.search(rf"{re.escape(name)},?\s+(?:and|or)\s+{re.escape(name)}", swapped)
+            if twice:
+                read = " ".join(twice[0].split())
+                raise HowToRefused(f"{edition.product}'s page would read {read!r}. Outside a "
+                                   "block, write \"the two Editions\", or give each Edition's "
+                                   "text a block of its own.")
 
 
 LAYOUT = re.compile(r"(?P<title>[^\n]+)\n\nFor: (?P<group>[^\n]+)\n\n(?P<rest>.*)", re.DOTALL)
@@ -321,6 +342,8 @@ class Notebook:
     sources: list = field(default_factory=list)
     # The Hive of each query a pandas stand-in answered: see pandas_standing_in.
     answered: list = field(default_factory=list)
+    # Each .py or .md file the steps have shown, by its text: see written_files_html.
+    files_shown: dict = field(default_factory=dict)
 
 
 @contextlib.contextmanager
@@ -350,14 +373,22 @@ def pandas_standing_in(stand_ins: dict, scope: dict, answered: list):
         yield
 
 
+# A written file longer than this, in lines, is folded on the page, such as a Lineage file of
+# several Statements.
+FOLD_AFTER = 120
+
+
 def files_in(folder: Path) -> dict[Path, bytes]:
     return {path: path.read_bytes() for path in folder.rglob("*") if path.is_file()}
 
 
-def written_files_html(folder: Path, before: dict, after: dict) -> str:
+def written_files_html(folder: Path, before: dict, after: dict, shown_before: dict) -> str:
     """Each file a step writes in `folder`: a .py or .md file in full, any other by name.
 
-    `before` and `after` are what files_in gave before and after the step.
+    `before` and `after` are what files_in gave before and after the step. A file longer than
+    FOLD_AFTER lines is folded, opened with a click. `shown_before` holds each .py or .md file
+    the how-to has shown, by its text, so a file the same as one shown before is named only;
+    this adds the files shown here to it.
     """
     written = sorted((path for path, text in after.items() if before.get(path) != text),
                      key=lambda path: (path.suffix not in (".py", ".md"), path.as_posix()))
@@ -365,9 +396,19 @@ def written_files_html(folder: Path, before: dict, after: dict) -> str:
     for path in written:
         name = path.relative_to(folder).as_posix()
         if path.suffix in (".py", ".md"):
+            text = path.read_text(encoding="utf-8")
+            if text in shown_before:
+                shown.append(f'<p class="note">It writes <code>{escape(name)}</code> too, line '
+                             f"for line the same as <code>{escape(shown_before[text])}</code> "
+                             "above.</p>")
+                continue
+            shown_before[text] = name
             kind = "python" if path.suffix == ".py" else "file"
-            shown += [label(f"It writes {name}"),
-                      code_html(path.read_text(encoding="utf-8"), kind)]
+            lines = len(text.splitlines())
+            shown.append(label(f"It writes {name}"))
+            shown.append(code_html(text, kind) if lines <= FOLD_AFTER else
+                         f"<details><summary>Show its {lines} lines</summary>\n"
+                         f"{code_html(text, kind)}\n</details>")
         elif path.suffix == ".html":
             shown.append(f'<p class="note">It writes <code>{escape(name)}</code> too, a page '
                          "to open in your browser.</p>")
@@ -421,7 +462,8 @@ def step_output_html(source: str, notebook: Notebook) -> str:
     shown += [label("It builds, with a Warning") + code_html(message_text(message), "refusal")
               for message in toolbox_warnings(caught)]
     shown += [value_html(source, value, len(notebook.answered) > answered),
-              written_files_html(notebook.folder, before, files_in(notebook.folder))]
+              written_files_html(notebook.folder, before, files_in(notebook.folder),
+                                 notebook.files_shown)]
     html = "\n".join(part for part in shown if part)
     # The folder's name is made up afresh on every run.
     for differs in (notebook.folder.name, "WindowsPath(", "PosixPath("):
@@ -586,6 +628,7 @@ HOW_TO_STYLE = """h5{font-size:15px;margin:16px 0 4px;color:#333}
 .badge.getting-started{color:#1f5a2a;background:#e6f4e8} .badge.intermediate{color:#6b4500;background:#fbefdc}
 .only{margin:0}
 pre.file{white-space:pre-wrap}
+details summary{cursor:pointer;color:#555;margin:4px 0}
 .code{position:relative} .code pre{padding-right:64px}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
 """

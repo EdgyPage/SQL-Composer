@@ -461,6 +461,23 @@ def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
     assert str(tmp_path) not in shown
 
 
+def test_a_long_file_a_step_writes_is_folded_and_a_file_shown_before_is_not_shown_again(
+        tmp_path) -> None:
+    lines = how_to_page.FOLD_AFTER + 1
+    path = a_how_to(tmp_path, f""">>> from pathlib import Path
+>>> long_text = "".join(f"line {{number}}" + chr(10) for number in range({lines}))
+>>> size = Path("short.md").write_text("A short file." + chr(10))
+>>> size = Path("long.md").write_text(long_text)
+>>> size = Path("again.md").write_text(long_text)""")
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    assert '<p class="label">It writes short.md</p>\n<pre class="file">A short file.</pre>' in shown
+    assert (f'<p class="label">It writes long.md</p>\n<details><summary>Show its '
+            f'{lines} lines</summary>\n<pre class="file">line 0\n') in shown
+    assert shown.count("line 0\n") == 1
+    assert ('<p class="note">It writes <code>again.md</code> too, line for line the same as '
+            "<code>long.md</code> above.</p>") in shown
+
+
 def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
@@ -552,6 +569,22 @@ def test_a_step_in_an_edition_block_runs_only_for_its_own_edition(tmp_path) -> N
 def test_an_edition_block_that_breaks_the_rules_is_refused(doc: str, says: str) -> None:
     with pytest.raises(how_to_page.HowToRefused, match=says):
         how_to_page.edition_text(doc, edition())
+
+
+@pytest.mark.parametrize("doc", [
+    "Both sqlglot Composer and Spark Composer write it.\n",
+    "Import sqlglot_composer or\nspark_composer.\n",
+])
+def test_text_that_would_name_one_edition_twice_on_a_page_is_refused(doc: str) -> None:
+    """Outside a block, sqlglot Composer's name becomes Spark Composer's on its page."""
+    with pytest.raises(how_to_page.HowToRefused, match="Spark Composer's page would read"):
+        how_to_page.edition_text(doc, edition())
+
+
+def test_an_edition_block_may_name_both_editions() -> None:
+    doc = "[sqlglot_composer only]\nsqlglot Composer and Spark Composer differ.\n[end]\n"
+    assert how_to_page.edition_text(doc, editions.SQLGLOT_COMPOSER) == (
+        "sqlglot Composer and Spark Composer differ.\n")
 
 
 def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> None:

@@ -51,6 +51,7 @@ Job 3, report_build, moved from the data team to finance on 2026-09-18:
 
 A run is a `"start"` row of job_events. Join the snapshot on both parts of its key: the same
 job, and the same day. Each run then meets exactly one row, its job's row on the day it ran.
+[Join tables safely](#join_tables_safely) shows why a join on only part of a key repeats rows.
 
 The snapshot is a table with days too, so it needs its own bound in `WHERE`: the Toolbox checks
 each table's days separately, and `equals(job_owners.dt, job_events.dt)` in `ON=` matches the
@@ -115,7 +116,10 @@ To know who owns each job now, take each job's newest row of the snapshot. `row_
 each job's rows from the newest day down; the Statement that reads them keeps number 1. Its
 `PARTITION_BY=` is SQL's word for the groups to number within, here each job, not the table's
 partitions. Hive can't keep a row by its number in the same SELECT that numbers it, so the
-numbering goes in a Derived table:
+numbering goes in a Derived table, a Statement given a name for the next one to read, which the
+Hive writes at its top as `WITH numbered AS (...)`. [Reusable Derived
+tables](#reusable_derived_tables) and [The latest row per key](#latest_row_per_key) start with
+both:
 
 >>> numbered = derived("numbered", statement(
 ...     SELECT(job_owners.job_id, job_owners.team, job_owners.owner, job_owners.dt,
@@ -157,14 +161,16 @@ WHERE
 3       4      web   None  2026-09-24
 
 [sqlglot_composer only]
-sqlglot Composer's Example database can't run `row_number`, so this result was worked out in
-pandas from the same rows. Your warehouse runs the Hive above as it is.
+Pasted into your own notebook, this `run` stops with a RuntimeError saying the Example database
+can't run this Hive: sqlglot Composer's Example database runs Hive with sqlglot, which has no
+`row_number`. The result above was worked out in pandas from the same rows, to show what the
+Hive gives. Your warehouse runs the Hive above as it is.
 [end]
 
 Here every job is in every day's copy, so each newest row is from 2026-09-24, and reading that
 one day would give the same. At work a row can drop out of a snapshot, such as a job that was
 deleted, and then `row_number` still finds its last row, from whichever day that was. Nobody
-owns cache_warm, so its owner is NULL, shown as None.
+owns cache_warm, so its owner is NULL (pandas shows it as None).
 
 ## Check it worked
 
@@ -208,7 +214,8 @@ Each run counted 14 times, once per day of the snapshot. Join on both parts of t
 
 ### Taking the team from today's table
 
-`ops.jobs` holds each job's team as it is today, so joining it gives every run today's team:
+No message stops you here. `ops.jobs` holds each job's team as it is today, so joining it
+gives every run today's team:
 
 >>> runs_per_team_today = statement(
 ...     SELECT(jobs.team, AS(count_rows(), "runs")),
@@ -223,8 +230,8 @@ Each run counted 14 times, once per day of the snapshot. Join on both parts of t
 0     data    14
 1  finance    14
 
-Nothing stops it, and the total is still 28, but report_build's two runs before 2026-09-18
-count for finance, a team that didn't own it then. Use today's table only for what you want as
+The total is still 28, but report_build's two runs before 2026-09-18 count for finance, a
+team that didn't own it then. Use today's table only for what you want as
 it is today.
 
 ### Leaving the snapshot's days unbounded
@@ -247,13 +254,15 @@ composer_core.refusals.LoadRefused:
   What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but nothing bounds its Date partition dt at both ends.
 ...
 
-Bound it with the same days as the table it is joined to, as the steps do.
+Bound it with the same days as the table it is joined to, in `WHERE` as the steps do. A bound
+in `ON=`, such as `between(job_owners.dt, "2026-09-11", "2026-09-24")` inside the `all_of`,
+counts too.
 
 ## Next
 
 - Roll the days up into weeks and months: [Week and month rollups](#week_and_month_rollups).
 - Save each team's day, as of its day, in a pipeline of Saved tables:
-  [A layered pipeline](#a_layered_pipeline).
+  [A pipeline of Saved tables](#a_pipeline_of_saved_tables).
 - The gallery's [latest run per job](examples.html#latest_and_top_n), which shows why `max_of`
   on each column can mix values from different rows, and its Worked example of
   [`row_number`](examples.html#row_number).
