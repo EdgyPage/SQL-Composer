@@ -1,12 +1,13 @@
 """Events, runs and minutes per job and day, as a Derived table to read.
 
-Why: example 2 and example 3's try-out both need these numbers, and writing them once here
-means the two can never work them out two different ways.
+Why: example 2 and example 3's team_day_from_job_events both need these numbers, and writing
+them once here means the two can never work them out two different ways.
 
 A run's events are its start, any retries, then its finish or a fail, each with the minutes
 since the run started. So the minutes on the event that ends a run are how long the run took.
-A run still going at the end of the day has a start and no end yet: it counts as a run, with no
-minutes until it ends.
+A run still going at the end of the day has a start and no end yet: it counts as a run, with 0
+minutes, until its end event comes in. An event lands in the partition of the day it
+happened, so a run that ends on a later day counts its minutes on that later day.
 """
 
 from sqlglot_composer import (

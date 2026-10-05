@@ -5,8 +5,13 @@ missing: each job and day in ops.job_owners with no match in ops.job_events.
 
 This is an anti-join. LEFT_JOIN keeps every job and day of job_owners, with NULL in the joined
 columns where the job had no event that day, and the WHERE keeps only those rows. The Toolbox
-lets that WHERE through, since is_null(...) on a joined column keeps the rows with no match
-rather than dropping them.
+refuses most conditions on a LEFT_JOIN's table in WHERE, since they would drop the rows
+LEFT_JOIN keeps, but lets is_null(...) on a joined column through: it keeps exactly those rows.
+
+It is a Building block, though only quality_checks.py reads it today, so any Statement that
+asks which jobs didn't run, such as a check or a list for whoever is on call, gets the same
+answer. A Building block can't import another, since a script imports only from lower Levels,
+so it lists the days with an event itself rather than reading events_per_job_day.
 """
 
 from sqlglot_composer import (

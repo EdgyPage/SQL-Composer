@@ -9,9 +9,9 @@ handed to between(...) as a datetime.date, which the Toolbox writes the table's 
 datetime.date(2026, 9, 24) is written '20260924'. Written "2026-09-24", the day would be
 refused, since it would match none of the table's days.
 
-The table is partitioned by region, then by dt. Only the Date partition, dt, must be bounded:
-reading every region is what this needs, and a job billed in two regions has a row in each,
-which this adds up.
+The table is partitioned by region, then by its Date partition, dt, and only the Date
+partition must be bounded: reading every region is what this needs, and a job billed in two
+regions has a row in each, which this adds up.
 """
 
 import datetime

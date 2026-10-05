@@ -13,7 +13,7 @@ from sqlglot_composer import Table
 team_days = Table(
     "mart.team_days",
     columns={
-        "team": "string",
+        "team": "string",  # NULL for the jobs whose day had no snapshot to say
         "events": "bigint",
         "runs": "bigint",
         "minutes": "bigint",

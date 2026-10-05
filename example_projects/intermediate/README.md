@@ -4,8 +4,10 @@ A project laid out the way one should be at work, written for sqlglot Composer o
 Example database's tables, each with 14 days of rows, 2026-09-11 to 2026-09-24:
 `ops.job_events` (each run's start, retries, and finish or fail), `ops.job_owners` (a snapshot
 of each job's team and owner every day) and `ops.region_costs` (what each job's runs cost, in
-cents, partitioned by region, then by a day written like 20260924). Read the starter Example
-project, `example_projects/starter/`, first: this one builds on its layout and steps.
+cents, partitioned by region, then by a day written like 20260924). The jobs are those of
+`ops.jobs`, which this project doesn't read: job 1 is nightly_load, job 2 invoice_sync, job 3
+report_build and job 4 cache_warm, which never runs. Read the starter Example project,
+`example_projects/starter/`, first: this one builds on its layout and steps.
 
 It has three examples and a set of quality checks. Example 1 saves each job's cost per day,
 example 2 each job's day with the team that owned the job that day, and example 3 combines them
@@ -33,7 +35,7 @@ references.
 
 | File | What it is |
 |---|---|
-| `settings.py` | **Level 0.** One dict per table the project reads: its name, key and measures. The quality checks are written from it. |
+| `settings.py` | **Level 0.** One dict per table the project reads: its name, Date partition, key and the columns to add up. The quality checks are written from it. |
 | `table_references/` | **Level 0.** One Table reference per table: its columns and their types, its Date partition and its key. |
 | `table_references/job_events.py` | `ops.job_events`, one row per event of a run. **Generated**, then filled in by hand. |
 | `table_references/job_owners.py` | `ops.job_owners`, one row per job per day, with its team and owner. **Generated**, then filled in by hand. |
@@ -70,11 +72,14 @@ references.
   so. The Saved tables' Table references are written by hand, since those tables don't exist
   until `create_table` makes them.
 - The lineage files were written by `write_lineage_files("2026-09-24")` in `run_pipeline.py`,
-  but for `lineage/review_before_edit.html` and its Markdown twin, written before the edit.
+  except `lineage/review_before_edit.html` and its Markdown twin, which
+  `write_lineage_review("2026-09-24", to=...)` wrote before the Building block edit described
+  below. `write_lineage_files` writes only the "after" file again.
 
 ## A table whose days are written another way
 
-`ops.region_costs` is partitioned by region, then by dt, and writes its days like 20260924.
+`ops.region_costs` is partitioned by region, then by its Date partition, dt, and writes its
+days like 20260924.
 `write_table_reference` finds a Date partition only when the first partition holds days, so for
 this table it wrote `date_partition=None` with a TODO line. Filled in by hand, the lines say
 which partition holds the days, and how they are written:
@@ -91,7 +96,9 @@ written "2026-09-24" is refused, since it would match none of the table's days; 
 bounded: reading every region is fine.
 
 Two tables whose days are written differently can't be joined on the day: `ON=` compares the
-days as text, and 20260924 never equals 2026-09-24. So example 1 saves the costs first, in
+days as text, and 20260924 never equals 2026-09-24. The Toolbox doesn't stop such a join, so
+check how both tables write their days before joining on the day. Here, example 1 saves the
+costs first, in
 `mart.job_day_costs`, which writes its days like 2026-09-24, as the other tables do: a write
 fills `PARTITION(dt = '...')` written the Saved table's way, whatever way the table it read
 writes its days. From then on, the costs join on the day like any other table.
@@ -105,14 +112,20 @@ Each example file has the same steps, as functions that return Statements:
 3. `write_days(first_day, last_day)`: save every day from `first_day` to `last_day`, one write
    per day, each replacing whatever its day held. Send them in order.
 
+The starter's examples have `write_day(day)` for every day and `backfill(first_day,
+last_day)` for days past. Here every run writes several days, so one step, `write_days`, does
+both: a backfill is `write_days` from an earlier first day.
+
 `write_days` builds one Statement over all the days, then `by_day` cuts it into one write per
 day, oldest first. Each write keeps its day in `GROUP_BY`, directly or in a Building block, so
 no day's numbers are mixed with another's. No step selects the Date partition, dt, of the Saved
 table it writes: the Toolbox reads the day from each write's WHERE bound and writes it as
 `PARTITION(dt = '...')`.
 
-**Late rows, and writing a day again.** A day's bill or a run's last event can come in a day or
-two after the day was saved. So every run writes the last 3 days again, not just the newest
+**Late rows, and writing a day again.** A bill or an event lands in the partition of the day
+it is for, but can reach the table a day or two after that day was saved: invoice_sync's bill
+for 2026-09-24 is still NULL. (A run that ends on a later day is another matter: its end
+event is that later day's, so its minutes count on that day.) So every run writes the last 3 days again, not just the newest
 one: an incremental load. `INSERT_OVERWRITE` replaces each day it writes, so a day written
 again holds the same rows once, and a run sent twice by mistake does no harm. To fill in days
 already past, such as when a Saved table is new, write from an earlier first day: that is a
@@ -126,10 +139,11 @@ all of report_build's past days for finance.
 
 **The newest snapshot of each job.** Example 2's `newest_owners(day)` answers who owns each job
 now: it numbers each job's snapshots from the 7 days up to the day with `row_number`, newest
-first, and keeps number 1. `row_number` is a window function, which not every Example database
-can run: one that runs its queries with sqlglot, rather than on Spark, stops with a message
-saying so. `newest_owners_by_newest_day(day)` gives the same rows another way, so every Example
-database runs it: each job's newest day with `max_of`, joined back to that day's snapshot.
+first, and keeps number 1. `row_number` is a window function. Each Edition ships its own
+Example database, and the one that runs its queries with sqlglot, rather than on Spark, has no
+window functions: it stops with a message saying so. `newest_owners_by_newest_day(day)` gives
+the same rows another way, so either Example database runs it: each job's newest day with
+`max_of`, joined back to that day's snapshot.
 
 **Days and weeks.** A write fills one day of a Saved table, so `mart.team_days` holds days, and
 example 3's `week_totals(first_day, last_day)` adds each team's week up when it reads them,
@@ -150,11 +164,13 @@ the joined table's row of the same day.
   key means a join on it counts a row twice.
 - `null_counts`: how many rows hold NULL in each column, every column from `all_columns`, so a
   column added to a Table reference later is checked too.
-- `rows_per_day`: each day's rows, and each measure added up, so a day much bigger or smaller
-  than the rest stands out.
+- `rows_per_day`: each day's rows, and each of its `add_up` columns added up, so a day much
+  bigger or smaller than the rest stands out.
 
-To check one more table, add its dict to `settings.py` and its Table reference to
-`TABLE_REFERENCES` in `quality_checks.py`. Two more checks are written by hand:
+To check one more table, write its Table reference, add its dict to `settings.py` and to
+`TABLES_READ` there, and add its Table reference to `TABLE_REFERENCES` in `quality_checks.py`.
+`settings.py` names each table and its key again, rather than importing the Table references:
+it is Level 0, as they are, and a script imports only from lower Levels. Two more checks are written by hand:
 `costs_billed_and_saved`, the cents `ops.region_costs` holds for the days against the cents
 example 1 saved, which must be equal, and `jobs_not_run`, the jobs with an owner but no event
 on a day. `every_check(first_day, last_day)` gives them all by name, and `run_pipeline.py`'s
@@ -171,12 +187,14 @@ uses the cluster too, so this line was edited to count a fail's minutes as well:
 ```
 
 Before editing a Building block, write the lineage of everything it feeds; after, write it
-again, and compare the two Markdown files. `write_lineage_review(day, to=...)` in
+again, and compare the two Markdown files, side by side or with
+`git diff --no-index lineage/review_before_edit.md lineage/review_after_edit.md`. `write_lineage_review(day, to=...)` in
 `run_pipeline.py` writes the lineage of example 2's write, which reads the Building block, and
 of example 3's, which reads what example 2 saves. `lineage/review_before_edit.md` was written
-before the edit, and `lineage/review_after_edit.md` after. Compared, they show the edit
-reaching `mart.job_day_facts`' minutes and, through it, `mart.team_days`' minutes, and nothing
-else.
+before the edit, and `lineage/review_after_edit.md` after. Compared, they differ only in how
+`events_per_job_day.minutes` is worked out, in the Python and in the Hive. Each file shows that
+column copied into `mart.job_day_facts`' minutes and, through it, summed into `mart.team_days`'
+minutes: those are the two outputs the edit reaches.
 
 ## Running it here, on the Example database
 
@@ -220,6 +238,11 @@ run(example_2.newest_owners_by_newest_day("2026-09-24"), send=example_database.s
 run(example_3.team_day_from_job_events("2026-09-18"), send=example_database.send)
 run(quality_checks.jobs_not_run("2026-09-22", "2026-09-24"), send=example_database.send)
 ```
+
+`example_2.preview("2026-09-18")` shows report_build (job 3) in finance, and
+`preview("2026-09-14")` in data. `example_1.preview("2026-09-24")` shows job 2's cost as NaN,
+pandas' way of showing NULL, and so job 1's as 100.0 rather than 100: a column holding NaN is
+a column of floats in pandas.
 
 Example 3's `preview` and `week_totals`, and the check `costs_billed_and_saved`, read the Saved
 tables, which only your warehouse holds.

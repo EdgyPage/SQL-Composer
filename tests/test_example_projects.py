@@ -83,8 +83,8 @@ def intermediate() -> dict:
     yield from _imported(INTERMEDIATE)
 
 
-def example(starter: dict, name: str):
-    return starter[f"statements.{name}"]
+def example(project: dict, name: str):
+    return project[f"statements.{name}"]
 
 
 def statements_in(result) -> list:
@@ -424,10 +424,6 @@ NO_WEEK_START = ("sqlglot's executor has no NEXT_DAY, so it can't run week_start
                  "Composer's run checks it")
 
 
-def i_example(intermediate: dict, name: str):
-    return intermediate[f"statements.{name}"]
-
-
 def skip_in_sqlglot_composer(reason: str) -> None:
     if edition() is editions.SQLGLOT_COMPOSER:
         pytest.skip(reason)
@@ -442,7 +438,8 @@ def i_arguments(intermediate: dict) -> dict:
 def built_by(module, arguments: dict) -> dict[str, list]:
     """Each function a script defines that returns Statements, by name, with what it returns
     when its parameters are given `arguments`. A function with a parameter `arguments` doesn't
-    name, such as quality_checks.column_name(column), is a helper, and is left out."""
+    name, such as quality_checks.column_name(column), builds no Statement, and is left
+    out."""
     statement_type = toolbox_module("clauses").Statement
     found = {}
     for name, function in vars(module).items():
@@ -482,7 +479,8 @@ def test_settings_name_each_tables_key_as_its_table_reference_does(intermediate:
         t = checks.TABLE_REFERENCES[table["name"]]
         assert t._name == table["name"]
         assert t._key == table["key"], table["name"]
-        assert set(table["measures"]) <= set(t._columns), table["name"]
+        assert t._date_partition == table["date_partition"], table["name"]
+        assert set(table["add_up"]) <= set(t._columns), table["name"]
 
 
 def test_the_review_edit_is_refused_where_its_line_isnt(tmp_path: Path) -> None:
@@ -515,6 +513,9 @@ def test_the_lineage_review_differs_only_by_the_edit() -> None:
         assert old in edited
         edited = edited.replace(old, "".join(new.split()))
     assert edited == "".join(after.split())
+    team_days = after[after.index("## write_team_days"):]
+    minutes = team_days[team_days.index("#### `minutes`"):].split("####")[1]
+    assert 'where=is_in(job_events.event_type, ["finish", "fail"])' in minutes
 
 
 # --- The Statements ----------------------------------------------------------------------------
@@ -522,7 +523,7 @@ def test_the_lineage_review_differs_only_by_the_edit() -> None:
 
 def test_each_intermediate_example_has_every_step(intermediate: dict) -> None:
     for name in I_EXAMPLES:
-        module = i_example(intermediate, name)
+        module = example(intermediate, name)
         missing = [step for step in I_STEPS if not callable(getattr(module, step, None))]
         assert missing == [], f"{name} has no {missing}"
 
@@ -531,7 +532,7 @@ def test_only_a_select_has_a_day_already_filled_in(intermediate: dict) -> None:
     """A write is never sent for a day nobody chose; a SELECT of the Example database's last
     day may be."""
     for name in I_EXAMPLES:
-        module = i_example(intermediate, name)
+        module = example(intermediate, name)
         parameters = inspect.signature(module.write_days).parameters.values()
         assert all(p.default is inspect.Parameter.empty for p in parameters), name
         assert inspect.signature(module.preview).parameters["day"].default == DAYS[-1]
@@ -540,7 +541,7 @@ def test_only_a_select_has_a_day_already_filled_in(intermediate: dict) -> None:
 def test_every_intermediate_statement_function_builds(intermediate: dict) -> None:
     arguments = i_arguments(intermediate)
     for name in (*I_EXAMPLES, "quality_checks"):
-        functions = built_by(i_example(intermediate, name), arguments)
+        functions = built_by(example(intermediate, name), arguments)
         if name in I_EXAMPLES:
             assert set(I_STEPS) <= set(functions), name
         for function, statements in functions.items():
@@ -549,7 +550,7 @@ def test_every_intermediate_statement_function_builds(intermediate: dict) -> Non
 
 @pytest.mark.parametrize("name", I_EXAMPLES)
 def test_write_days_writes_each_day_once_oldest_first(intermediate: dict, name: str) -> None:
-    writes = i_example(intermediate, name).write_days(*WINDOW)
+    writes = example(intermediate, name).write_days(*WINDOW)
     firsts = [to_hive(write).split(INSERT)[1].splitlines()[0] for write in writes]
     target = {"example_1_job_day_costs": "mart.job_day_costs",
               "example_2_owner_as_of": "mart.job_day_facts",
@@ -559,13 +560,13 @@ def test_write_days_writes_each_day_once_oldest_first(intermediate: dict, name: 
 
 
 def test_example_1_reads_region_costs_days_its_own_way(intermediate: dict) -> None:
-    hive = to_hive(i_example(intermediate, I_EXAMPLES[0]).write_days(*WINDOW)[0])
+    hive = to_hive(example(intermediate, I_EXAMPLES[0]).write_days(*WINDOW)[0])
     assert "region_costs.dt = '20260922'" in hive
     assert "PARTITION(dt = '2026-09-22')" in hive
 
 
 def test_example_3_reads_both_saved_tables(intermediate: dict) -> None:
-    hive = to_hive(i_example(intermediate, I_EXAMPLES[2]).preview())
+    hive = to_hive(example(intermediate, I_EXAMPLES[2]).preview())
     assert "FROM mart.job_day_facts AS job_day_facts" in hive
     assert "LEFT JOIN mart.job_day_costs AS job_day_costs" in hive
 
@@ -618,7 +619,7 @@ def newest_owners_on(day: str) -> pd.DataFrame:
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_intermediate_example_1_previews_each_jobs_cost(intermediate: dict, day: str) -> None:
-    got = run(i_example(intermediate, I_EXAMPLES[0]).preview(day), send=example_database.send)
+    got = run(example(intermediate, I_EXAMPLES[0]).preview(day), send=example_database.send)
     same(got, costs_on(day))
 
 
@@ -626,14 +627,14 @@ def test_intermediate_example_1_previews_each_jobs_cost(intermediate: dict, day:
 @pytest.mark.parametrize("day", I_DAYS)
 def test_intermediate_example_2_previews_each_jobs_day_with_its_team_then(
         intermediate: dict, day: str) -> None:
-    got = run(i_example(intermediate, I_EXAMPLES[1]).preview(day), send=example_database.send)
+    got = run(example(intermediate, I_EXAMPLES[1]).preview(day), send=example_database.send)
     same(got, facts_on(day))
 
 
 @pytest.mark.needs_example_database
 def test_example_2_counts_report_builds_days_for_the_team_it_had_then(
         intermediate: dict) -> None:
-    module = i_example(intermediate, I_EXAMPLES[1])
+    module = example(intermediate, I_EXAMPLES[1])
     teams = {day: run(module.preview(day), send=example_database.send).set_index("job_id")
              .team.get(3) for day in ("2026-09-14", "2026-09-18")}
     assert teams == {"2026-09-14": "data", "2026-09-18": "finance"}
@@ -643,7 +644,7 @@ def test_example_2_counts_report_builds_days_for_the_team_it_had_then(
 @pytest.mark.parametrize("name", I_EXAMPLES[:2])
 def test_each_day_of_write_days_saves_what_its_preview_shows(
         intermediate: dict, name: str) -> None:
-    module = i_example(intermediate, name)
+    module = example(intermediate, name)
     days = ("2026-09-22", "2026-09-23", "2026-09-24")
     for day, write in zip(days, module.write_days(*WINDOW), strict=True):
         saved = example_database.send(without_the_write(to_hive(write)))
@@ -651,10 +652,26 @@ def test_each_day_of_write_days_saves_what_its_preview_shows(
 
 
 @pytest.mark.needs_example_database
+def test_each_day_of_example_3s_write_days_saves_what_its_preview_shows(
+        intermediate: dict) -> None:
+    """The Saved tables only a warehouse holds are stood in for, in both, by the rows examples
+    1 and 2 preview for each day."""
+    days = ("2026-09-22", "2026-09-23", "2026-09-24")
+    saved = {"job_day_facts": previewed_days(example(intermediate, I_EXAMPLES[1]), days),
+             "job_day_costs": previewed_days(example(intermediate, I_EXAMPLES[0]), days)}
+    module = example(intermediate, I_EXAMPLES[2])
+    for day, write in zip(days, module.write_days(*WINDOW), strict=True):
+        written = example_database.send(standing_in(without_the_write(to_hive(write)), saved))
+        previewed = example_database.send(standing_in(to_hive(module.preview(day)), saved))
+        same(written, previewed)
+        same(written, team_day_on(day))
+
+
+@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_example_2_finds_each_jobs_newest_owner_without_row_number(
         intermediate: dict, day: str) -> None:
-    module = i_example(intermediate, I_EXAMPLES[1])
+    module = example(intermediate, I_EXAMPLES[1])
     got = run(module.newest_owners_by_newest_day(day), send=example_database.send)
     same(got, newest_owners_on(day))
 
@@ -664,7 +681,7 @@ def test_example_2_finds_each_jobs_newest_owner_without_row_number(
 def test_example_2_finds_each_jobs_newest_owner_with_row_number(
         intermediate: dict, day: str) -> None:
     skip_in_sqlglot_composer(NO_WINDOW_FUNCTIONS)
-    module = i_example(intermediate, I_EXAMPLES[1])
+    module = example(intermediate, I_EXAMPLES[1])
     got = run(module.newest_owners(day), send=example_database.send)
     same(got, newest_owners_on(day))
 
@@ -672,7 +689,7 @@ def test_example_2_finds_each_jobs_newest_owner_with_row_number(
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_example_3_groups_each_teams_day_from_job_events(intermediate: dict, day: str) -> None:
-    got = run(i_example(intermediate, I_EXAMPLES[2]).team_day_from_job_events(day),
+    got = run(example(intermediate, I_EXAMPLES[2]).team_day_from_job_events(day),
               send=example_database.send)
     same(got, team_day_on(day, with_costs=False))
 
@@ -710,9 +727,9 @@ def test_intermediate_example_3_previews_each_teams_day_from_both_saved_tables(
         intermediate: dict, day: str) -> None:
     """The Saved tables only a warehouse holds are stood in for by the rows examples 1 and 2
     preview for the day."""
-    saved = {"job_day_facts": previewed_days(i_example(intermediate, I_EXAMPLES[1]), [day]),
-             "job_day_costs": previewed_days(i_example(intermediate, I_EXAMPLES[0]), [day])}
-    hive = standing_in(to_hive(i_example(intermediate, I_EXAMPLES[2]).preview(day)), saved)
+    saved = {"job_day_facts": previewed_days(example(intermediate, I_EXAMPLES[1]), [day]),
+             "job_day_costs": previewed_days(example(intermediate, I_EXAMPLES[0]), [day])}
+    hive = standing_in(to_hive(example(intermediate, I_EXAMPLES[2]).preview(day)), saved)
     same(example_database.send(hive), team_day_on(day))
 
 
@@ -722,7 +739,7 @@ def test_example_3_adds_each_teams_days_up_into_weeks(intermediate: dict) -> Non
     days = [(datetime.date(2026, 9, 11) + datetime.timedelta(days=n)).isoformat()
             for n in range(14)]
     team_days = pd.concat([team_day_on(day).assign(dt=day) for day in days], ignore_index=True)
-    hive = standing_in(to_hive(i_example(intermediate, I_EXAMPLES[2]).week_totals(*ALL_DAYS)),
+    hive = standing_in(to_hive(example(intermediate, I_EXAMPLES[2]).week_totals(*ALL_DAYS)),
                        {"team_days": team_days})
     monday = pd.to_datetime(team_days.dt)
     monday = (monday - pd.to_timedelta(monday.dt.weekday, unit="D")).dt.strftime("%Y-%m-%d")
@@ -761,7 +778,7 @@ def test_the_quality_checks_find_what_pandas_finds(intermediate: dict) -> None:
         same(nulls, expected)
         per_day = run(checks[f"rows_per_day {name}"], send=example_database.send)
         expected = rows.groupby("dt").agg(row_count=("dt", "size"),
-                                          **{m: (m, "sum") for m in table["measures"]})
+                                          **{c: (c, "sum") for c in table["add_up"]})
         same(per_day, expected.reset_index())
 
 
@@ -782,7 +799,7 @@ def test_the_costs_saved_match_the_costs_billed(intermediate: dict) -> None:
     """mart.job_day_costs, which only a warehouse holds, is stood in for by what example 1
     previews for each day."""
     days = ("2026-09-22", "2026-09-23", "2026-09-24")
-    saved = previewed_days(i_example(intermediate, I_EXAMPLES[0]), days)
+    saved = previewed_days(example(intermediate, I_EXAMPLES[0]), days)
     hive = to_hive(intermediate["statements.quality_checks"].costs_billed_and_saved(*WINDOW))
     got = example_database.send(standing_in(hive, {"job_day_costs": saved}))
     billed = window_rows("region_costs", day_column_compact=True).cost_cents.sum()
@@ -797,13 +814,13 @@ def test_every_intermediate_select_on_the_example_databases_tables_runs(
     ran = []
     arguments = i_arguments(intermediate)
     for name in (*I_EXAMPLES, "quality_checks"):
-        for function, statements in built_by(i_example(intermediate, name), arguments).items():
+        for function, statements in built_by(example(intermediate, name), arguments).items():
             for s in statements:
                 hive = to_hive(s)
                 if s._ddl is not None or s._write is not None or "mart." in hive:
                     continue
                 if edition() is editions.SQLGLOT_COMPOSER and "ROW_NUMBER" in hive:
-                    continue
+                    continue  # NO_WINDOW_FUNCTIONS: Spark Composer's run runs it
                 run(s, send=example_database.send)
                 ran.append(f"{name}.{function}")
     expected = [f"{I_EXAMPLES[0]}.preview", f"{I_EXAMPLES[1]}.preview",
@@ -811,7 +828,10 @@ def test_every_intermediate_select_on_the_example_databases_tables_runs(
                 f"{I_EXAMPLES[2]}.team_day_from_job_events",
                 *[f"quality_checks.{check}" for check in
                   ("repeated_keys", "null_counts", "rows_per_day")],
-                *["quality_checks.every_check"] * 10, "quality_checks.jobs_not_run"]
+                # every check but costs_billed_and_saved, which reads a Saved table
+                *["quality_checks.every_check"] * (3 * len(intermediate["settings"].TABLES_READ)
+                                                   + 1),
+                "quality_checks.jobs_not_run"]
     if edition() is editions.SQLGLOT_COMPOSER:
         expected.remove(f"{I_EXAMPLES[1]}.newest_owners")
     assert sorted(ran) == sorted(expected)

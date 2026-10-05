@@ -18,8 +18,8 @@ region_costs = Table(
         "region": "string",
         "dt": "string",
     },
-    # filled in by hand: region, the first partition, holds no day; dt holds the days,
-    # written like 20260911
+    # filled in by hand: region, the first partition, holds no day; the Date partition,
+    # dt, holds the days, written like 20260911
     date_partition="dt",
     date_format="%Y%m%d",
     key=["job_id", "region", "dt"],  # filled in by hand

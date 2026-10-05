@@ -8,8 +8,9 @@ table_references/job_day_costs.py. The steps, in order: create() once, preview(d
 day's rows before writing them, and write_days(first_day, last_day) on every run.
 
 Each run writes the last 3 days, not just the newest one: run_pipeline.py works the days out.
-That is an incremental load. A bill that came in late, such as invoice_sync's for 2026-09-24,
-still NULL in ops.region_costs, is saved on the next run that rewrites its day. INSERT_OVERWRITE
+That is an incremental load. A bill lands in the partition of the day it is for, but can come
+in after that day was saved: invoice_sync's (job 2's) for 2026-09-24 is still NULL in
+ops.region_costs. The next run that rewrites the day saves it. INSERT_OVERWRITE
 replaces each day it writes, so writing a day again leaves one copy of its rows, and a run sent
 twice by mistake does no harm. To fill in days already past, such as when the Saved table is
 new, pass write_days an earlier first_day: that is a backfill, the same Statement over more
@@ -18,7 +19,8 @@ days.
 ops.region_costs writes its days like 20260924. mart.job_day_costs writes them like
 2026-09-24, as ops.job_events and ops.job_owners do, so example 3 can join the costs to the
 other tables on the day: ON= compares the days as text, so 20260924 would never match
-2026-09-24.
+2026-09-24, and the Toolbox doesn't stop such a join, so check how both tables write their
+days before joining on the day.
 """
 
 from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, by_day, create_table, statement

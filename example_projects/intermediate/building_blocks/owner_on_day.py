@@ -13,11 +13,11 @@ from sqlglot_composer import LEFT_JOIN, all_of, between, equals
 from table_references.job_owners import job_owners
 
 
-def owner_on_day(job_id, day, first_day, last_day):
+def owner_on_day(job_id_column, day_column, first_day, last_day):
     """LEFT_JOIN ops.job_owners on the job and the day, so job_owners.team is the team then.
 
-    job_id and day are the reading Statement's columns: its job and its day. first_day and
-    last_day are the days it reads. Every read of a table must bound its Date partition at
+    job_id_column and day_column are the reading Statement's columns, such as events.job_id and
+    events.dt; first_day and last_day are the days it reads, written like "2026-09-24". Every read of a table must bound its Date partition at
     both ends, a joined table's too, so they bound job_owners here, in ON=. by_day leaves a
     joined table's bound as written, and the match on the day keeps each row to its own day's
     snapshot.
@@ -28,6 +28,6 @@ def owner_on_day(job_id, day, first_day, last_day):
     """
     return LEFT_JOIN(
         job_owners,
-        ON=all_of(equals(job_owners.job_id, job_id), equals(job_owners.dt, day),
+        ON=all_of(equals(job_owners.job_id, job_id_column), equals(job_owners.dt, day_column),
                   between(job_owners.dt, first_day, last_day)),
     )
