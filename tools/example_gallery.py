@@ -627,6 +627,7 @@ def gallery_page() -> str:
         common="\n".join(entry for _, _, entry in common),
         fixes="\n".join(entry for _, _, entry in fixes),
         documented="\n".join(entry for _, entry in documented),
+        filter_script=FILTER_SCRIPT,
     )
 
 
@@ -678,6 +679,8 @@ PAGE = """<!doctype html>
 {docstring_count} examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox{or_pandas}. Press Ctrl+F to search the page.</p>
+<p>New to the Toolbox? Start with the <a href="how_to.html">how-tos</a>, on the page beside
+this one in the <code>{folder}</code> folder: how-to 1 starts a notebook.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's last day, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
@@ -715,20 +718,25 @@ number beside its fix:</p>
 {documented}
 </main>
 <script>
-const filter = document.getElementById("filter"), box = filter.querySelector("input");
+{filter_script}</script>
+</body></html>
+"""
+
+# The script that shows the filter box, `<p id="filter" hidden>`, and keeps only the entries
+# holding every word typed in it, which the how-to page (tools/how_to_page.py) shares. This is
+# an ordinary Python string, so a backslash in the script is written twice.
+FILTER_SCRIPT = """const filter = document.getElementById("filter"), box = filter.querySelector("input");
 const entries = [...document.querySelectorAll(".entry")];
 filter.hidden = false;
-box.oninput = () => {{
+box.oninput = () => {
   const words = box.value.toLowerCase().split(/\\s+/).filter(Boolean);
   let shown = 0;
-  for (const entry of entries) {{
+  for (const entry of entries) {
     entry.hidden = !words.every(word => entry.textContent.toLowerCase().includes(word));
     shown += !entry.hidden;
-  }}
+  }
   document.getElementById("count").textContent = shown + " of " + entries.length + " shown";
-}};
-</script>
-</body></html>
+};
 """
 
 

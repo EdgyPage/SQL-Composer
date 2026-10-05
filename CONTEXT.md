@@ -142,7 +142,8 @@ _Avoid_: cookbook, docs site, examples page
 
 **How-to**:
 A walkthrough of one job from start to finish, as one notebook: its goal, when you'd use it, its
-steps, how to check it worked, the mistakes people make first, and what to read next. Every step
-runs on the Example database. The how-tos come at two levels, Getting started and Intermediate,
-on a page each Edition ships beside its Example gallery.
+steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
+run on the Example database; what works only at work, such as your own send, is shown and not
+run. There are Getting started how-tos and Intermediate how-tos, on a page each Edition ships
+beside its Example gallery.
 _Avoid_: tutorial, guide, lesson, recipe
