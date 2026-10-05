@@ -129,6 +129,12 @@ anywhere.
   last 3 days or a backfill; settings-driven quality checks; a lineage review whose "before"
   file the generator writes with the edit undone. How-to 24's "blocks built from other blocks"
   breaks the Levels rule: ticket 09 decides.
+- [Getting started how-tos 2 to 9](issues/07-getting-started-how-tos-2-to-9.md): import a
+  table's column names, describe a table by hand, a first Statement and its Hive to paste,
+  filter rows, count per group, join safely, Derived tables as Building blocks (a block reading
+  another takes it as an argument), the latest row per key; every new Statement's Hive shown;
+  sqlglot Composer's page shows the row_number stop once and labels its pandas results;
+  Next and in-prose links among how-tos 1-18 and to 19-30.
 - [Getting started how-tos 10 to 18](issues/08-getting-started-how-tos-10-to-18.md): save a
   table, backfill, a daily pipeline, Lineage of one Statement and of a pipeline, Load limits,
   Guards, Warnings and opt-outs, Statements in a loop, keeping a Table reference true; each

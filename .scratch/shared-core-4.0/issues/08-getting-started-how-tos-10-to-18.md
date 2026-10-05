@@ -78,7 +78,8 @@ resolves this ticket.
   16 → 8 for `derived`; 17 → 25 (Data-quality checks) and 26 (generated from settings);
   18 → 2 (Import a table's column names) and 19 (`date_format`). When ticket 14 ships the
   example projects, 12 can point to the starter project's run_pipeline.py again (dropped here,
-  since the page can't link to it yet).
+  since the page can't link to it yet). Done in ticket 07's fix-up (2026-10-05), as its Answer
+  lists, except the run_pipeline.py link, which still waits for ticket 14.
 
 **Code review (2026-10-05).** Standards: no hard violations. Judgement calls, each fixed or
 answered: the "at work" loops in 10 and 11 showed `send=example_database.send` (now functions
