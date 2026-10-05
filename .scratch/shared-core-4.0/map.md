@@ -62,6 +62,13 @@ anywhere.
 - Ticket 15's CHANGES 4.0 section also gains `show_hive`, the new public name (ticket 04),
   and the Example database's three new tables, `job_events`, `job_owners` and
   `region_costs`, with its unknown-table refusal now naming all six (ticket 05, D123).
+- Ticket 15's CHANGES 4.0 section also gains a fixed bug (ticket 11): **export_lineage no
+  longer lists a LEFT JOIN's table's conditions under "Rows that count" for the columns that
+  don't come from it.** A LEFT_JOIN keeps every row before it, so what decided the joined
+  table's rows (its own WHERE, or the WHERE and JOIN of the Statement that wrote it) decides
+  only the columns read from it; before 4.0 those conditions were listed under every column,
+  as if they had dropped rows. With many_matches=True they are still listed, since each row
+  can then count several times.
 
 ## Records this changes
 
