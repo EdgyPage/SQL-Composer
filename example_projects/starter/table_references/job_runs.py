@@ -20,6 +20,7 @@ job_runs = Table(
         "dt": "string",
     },
     date_partition="dt",
-    key=["run_id"],
-    does_not_add_up=["avg_retry_secs"],  # avg_retry_secs is an average
+    key=["run_id"],  # filled in by hand
+    # filled in by hand: summing these gives a wrong total, since avg_retry_secs is an average
+    does_not_add_up=["avg_retry_secs"],
 )

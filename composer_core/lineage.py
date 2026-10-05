@@ -115,18 +115,24 @@ def _resolver(graph: Graph, step: Statement, index: int):
     return resolve
 
 
-def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str]]:
-    """Each condition that decides which rows `step` keeps: (clause, condition, tree, then).
+def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | None]]:
+    """Each condition that decides which rows `step` keeps:
+    (clause, condition, tree, then, kept).
 
-    `then` is text written after the tree: a LIMIT's count, after its ORDER BY.
+    `then` is text written after the tree: a LIMIT's count, after its ORDER BY. `kept` is the
+    alias of a LEFT JOIN's table, whose rows decide only the columns read from it: the join
+    keeps every row before it. It is None for any other condition, and for a LEFT JOIN with
+    many_matches=True, where each row can match, and so count, several times.
     """
-    found = [("WHERE", c, c._tree, "") for c in step._where]
-    found += [(f"{read._name.replace('_', ' ')} ON", read.on, read.on._tree, "")
+    found = [("WHERE", c, c._tree, "", None) for c in step._where]
+    found += [(f"{read._name.replace('_', ' ')} ON", read.on, read.on._tree, "",
+               read.table._alias if read._name == "LEFT_JOIN" and not read.many_matches
+               else None)
               for read in step._reads if read.on is not None]
-    found += [("HAVING", c, c._tree, "") for c in step._having]
+    found += [("HAVING", c, c._tree, "", None) for c in step._having]
     if step._limit is not None:
         order = Node("Order", expressions=[o.copy() for o in step._order_by])
-        found.append(("LIMIT", None, order, f"LIMIT {step._limit}"))
+        found.append(("LIMIT", None, order, f"LIMIT {step._limit}", None))
     return found
 
 
@@ -163,16 +169,22 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
-    for number, (clause, condition, tree, then) in enumerate(_conditions_of(step)):
+    for number, (clause, condition, tree, then, kept) in enumerate(_conditions_of(step)):
         sql, formula = _condition_text(tree, then)
+        # `joined`: the boxes of the LEFT JOIN's table this condition reads, where the rows
+        # that count stop (see _deciding).
+        joined = []
         key = graph.add(_box_key("condition", index, group, number), kind="condition",
                         group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
-                        type=None, sql=sql, formula=formula, calculated=False, statement=index)
+                        type=None, sql=sql, formula=formula, calculated=False, statement=index,
+                        joined=joined)
         # `conditions` is filled in here for the caller, which passes it on to _add_write so
         # a write's date bound can find its condition's box.
         conditions[(id(step), id(condition))] = key
         for used in tree.find_all("Column"):
             graph.arrow(resolve(used), key, "rows")
+            if kept is not None and used.table == kept:
+                joined.append(resolve(used))
         for target in made:
             graph.arrow(key, target, "rows")
 
@@ -326,13 +338,31 @@ def tree_lines(graph: Graph, key: str, prefix: str = "", last: bool = True,
     return lines
 
 
+def _deciding(graph: Graph, key: str) -> list[str]:
+    """Every box upstream of `key` that can decide its rows: as Graph.upstream, but not back
+    from a LEFT JOIN's condition into the table it joins.
+
+    A LEFT JOIN keeps every row before it, so the conditions that decided the joined table's
+    rows decide only the columns read from that table, which reach `key` by their own arrows.
+    """
+    seen, todo = [], [key]
+    while todo:
+        at = todo.pop()
+        stop = graph.boxes[at].get("joined", [])
+        for parent in graph.parents(at):
+            if parent not in seen and parent not in stop:
+                seen.append(parent)
+                todo.append(parent)
+    return seen
+
+
 def _rows_that_count(graph: Graph, key: str) -> list[tuple[dict, list[str]]]:
-    """Each condition upstream of a box, with the table columns it reads.
+    """Each condition upstream of a box that decides its rows, with the table columns it reads.
 
     A write's date bound decides which day of its Saved table is written, not which of
     those days a later Statement reads, so it counts only in the write's own section.
     """
-    found, upstream = [], graph.upstream(key)
+    found, upstream = [], _deciding(graph, key)
     day_bounds = {a for a, _, kind in graph.arrows if kind == "day"}
     for condition in [k for k in graph.boxes if k in upstream]:
         box = graph.boxes[condition]

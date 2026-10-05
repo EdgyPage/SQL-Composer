@@ -18,6 +18,7 @@ run_alerts = Table(
         "dt": "string",
     },
     date_partition="dt",
-    key=["alert_id"],
+    key=["alert_id"],  # filled in by hand
+    # filled in by hand: none of the columns is an average, a ratio or a distinct count
     does_not_add_up=[],
 )

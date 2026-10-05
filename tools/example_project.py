@@ -1,17 +1,17 @@
-"""Write an example project's generated files: its Table references and its lineage.
+"""Write an Example project's generated files: its Table references and its lineage.
 
-An example project, such as `example_projects/starter/`, is a folder laid out as a project at
+An Example project, such as `example_projects/starter/`, is a folder laid out as a project at
 work is: Table references, Building blocks, Statements and a script that runs them in order.
 Most of its files are written by hand. This writes the rest, so they stay what the Toolbox
 writes today:
 
     python tools/example_project.py
-    python tools/example_project.py --level starter --edition spark --into <folder>
+    python tools/example_project.py --project starter --edition spark --into <folder>
 
 The first rewrites the generated files of `example_projects/starter/` itself. The second
-writes the whole project, named for Spark Composer, into an empty folder; dev keeps only
-sqlglot Composer's copy. A test fails while a committed generated file differs from what this
-writes.
+writes the whole project, named for Spark Composer, into a folder that is new or empty, and
+refuses one that holds anything; dev keeps only sqlglot Composer's copy. A test fails while a
+committed generated file differs from what this writes.
 
 For each project it:
 
@@ -19,8 +19,9 @@ For each project it:
   the Example database, then fills in its TODO lines (the one-line description, the key and
   the columns that don't add up) from FILLED_IN, as a user fills them in by hand;
 - exports the lineage of each example and of the whole project with its run_pipeline.py's
-  export_lineages(), with the time, the commit and the version pinned, so the files are the
-  same on every computer.
+  write_lineage_files(DAY), with the time and the commit pinned, so the files are the same on
+  every computer. The version is the Toolbox's own, so raising TOOLBOX_VERSION makes the
+  committed lineage stale until this is run again.
 
 It runs no SELECT, so Spark Composer's needs no Java. The writing happens in a second Python
 whose folder is the project's: the project's folder names, such as table_references/, are the
@@ -41,16 +42,17 @@ from pathlib import Path
 import editions
 
 ROOT = Path(__file__).resolve().parent.parent
-PROJECTS = ROOT / "example_projects"
+EXAMPLE_PROJECTS = ROOT / "example_projects"
 LINEAGE = "lineage"
 TABLE_REFERENCES = "table_references"
-# The lineage's footer and Markdown name the time, the commit and the version: pinned, so the
-# files don't change with the day or the commit they were made at.
+# The lineage's footer names the time, the commit and the version. The time and the commit are
+# pinned, so the files don't change with the day or the commit they were made at; the version
+# is the Toolbox's own, so the files say which Toolbox wrote them.
 PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
-PINNED_COMMIT = "example"
+PINNED_COMMIT = "pinned"
 
 # What a user fills in by hand after write_table_reference: each table's one-line description,
-# its key, and the columns that don't add up, with the reason, for each project level.
+# its key, and the columns that don't add up, with what each is, for each Example project.
 FILLED_IN = {
     "starter": {
         "ops.jobs": {
@@ -70,7 +72,8 @@ FILLED_IN = {
         },
     },
 }
-LEVELS = tuple(FILLED_IN)
+# The Example projects, by the name of their folder in example_projects/.
+PROJECTS = tuple(FILLED_IN)
 
 # The docstring every generated Table reference is given, after its first line.
 WHY = (
@@ -82,6 +85,8 @@ HOW = (
     "three TODO lines were then filled in by hand: this docstring's first line, the key, and "
     "does_not_add_up."
 )
+# The comment on each line filled in where write_table_reference left a TODO.
+BY_HAND = "# filled in by hand"
 
 
 class TodoMissing(RuntimeError):
@@ -93,14 +98,14 @@ def table_reference_name(table: str) -> str:
     return f"{table.split('.')[-1]}.py"
 
 
-def generated(level: str) -> list[str]:
+def generated(project: str) -> list[str]:
     """The project's generated Table references, as paths inside its folder."""
-    return [f"{TABLE_REFERENCES}/{table_reference_name(table)}" for table in FILLED_IN[level]]
+    return [f"{TABLE_REFERENCES}/{table_reference_name(table)}" for table in FILLED_IN[project]]
 
 
-def is_generated(relative: str, level: str) -> bool:
+def is_generated(relative: str, project: str) -> bool:
     """Whether a file of the project, by its path inside the folder, is generated."""
-    return relative in generated(level) or relative.startswith(f"{LINEAGE}/")
+    return relative in generated(project) or relative.startswith(f"{LINEAGE}/")
 
 
 def project_files(folder: Path) -> list[str]:
@@ -115,7 +120,7 @@ def filled_in(text: str, table: str, filling: dict) -> str:
         (f'"""{table} - TODO: say in one line what one row is."""',
          f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(HOW)}\n"""'),
         ('    key=None,  # TODO: the columns that pick out one row, such as key=',
-         f"    key={_python_list(filling['key'])},"),
+         f"    key={_python_list(filling['key'])},  {BY_HAND}"),
         ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
          _does_not_add_up_line(filling["does_not_add_up"])),
     ]
@@ -141,10 +146,13 @@ def _python_list(names) -> str:
 
 
 def _does_not_add_up_line(columns: dict) -> str:
+    """The does_not_add_up line, under a comment saying why it holds what it holds."""
     if not columns:
-        return "    does_not_add_up=[],"
-    reasons = "; ".join(f"{column} is {why}" for column, why in columns.items())
-    return f"    does_not_add_up={_python_list(columns)},  # {reasons}"
+        why = "none of the columns is an average, a ratio or a distinct count"
+    else:
+        what = " and ".join(f"{column} is {kind}" for column, kind in columns.items())
+        why = f"summing these gives a wrong total, since {what}"
+    return f"    {BY_HAND}: {why}\n    does_not_add_up={_python_list(columns)},"
 
 
 def _write_with_unix_endings(path: Path) -> None:
@@ -156,41 +164,41 @@ def _write_with_unix_endings(path: Path) -> None:
 # --- In the second Python, whose folder is the project's -----------------------------------
 
 
-def write_here(level: str, edition_asked: editions.Edition) -> None:
+def write_here(project: str, edition_asked: editions.Edition) -> None:
     """Write the generated files into the project in the folder this Python runs in."""
-    project = Path.cwd()
+    folder = Path.cwd()
     # The project's folders first, as in a notebook started in the project's folder, then the
     # Toolbox's.
-    sys.path[:0] = [str(project), str(ROOT)]
+    sys.path[:0] = [str(folder), str(ROOT)]
     editions.use(edition_asked)  # before any Toolbox import
     import sqlglot_composer
     from composer_core import edition, lineage
 
-    os.chdir(project / TABLE_REFERENCES)
-    for table, filling in FILLED_IN[level].items():
+    os.chdir(folder / TABLE_REFERENCES)
+    for table, filling in FILLED_IN[project].items():
         path = sqlglot_composer.write_table_reference(
             table, send=sqlglot_composer.example_database.send).resolve()
         path.write_text(filled_in(path.read_text(encoding="utf-8"), table, filling),
                         encoding="utf-8", newline="\n")
-    os.chdir(project)
+    os.chdir(folder)
 
     lineage._now = lambda: PINNED_TIME
-    lineage.scripts_commit = lambda folder: PINNED_COMMIT
+    lineage.scripts_commit = lambda _scripts_folder: PINNED_COMMIT
     lineage._version = lambda: f"{edition.PRODUCT} {edition.TOOLBOX_VERSION}"
     import run_pipeline
 
-    run_pipeline.export_lineages()
-    for path in (project / LINEAGE).iterdir():
+    run_pipeline.write_lineage_files(run_pipeline.DAY)
+    for path in (folder / LINEAGE).iterdir():
         _write_with_unix_endings(path)
 
 
 # --- In the Python you run -------------------------------------------------------------------
 
 
-def copy_project(source: Path, into: Path, edition: editions.Edition, level: str) -> None:
+def copy_project(source: Path, into: Path, edition: editions.Edition, project: str) -> None:
     """Copy the project's hand-written files into `into`, named for `edition`."""
     for relative in project_files(source):
-        if is_generated(relative, level):
+        if is_generated(relative, project):
             continue
         text = (source / relative).read_text(encoding="utf-8")
         target = into / relative
@@ -199,37 +207,38 @@ def copy_project(source: Path, into: Path, edition: editions.Edition, level: str
                           newline="\n")
 
 
-def remove_generated(into: Path, level: str) -> None:
-    for relative in generated(level):
+def remove_generated(into: Path, project: str) -> None:
+    for relative in generated(project):
         (into / relative).unlink(missing_ok=True)
     shutil.rmtree(into / LINEAGE, ignore_errors=True)
     for cache in into.rglob("__pycache__"):
         shutil.rmtree(cache, ignore_errors=True)
 
 
-def make(level: str, edition: editions.Edition, into: Path) -> int:
-    """Write the project at `level` into `into`, for `edition`, its generated files and all."""
-    source = PROJECTS / level
+def make(project: str, edition: editions.Edition, into: Path) -> int:
+    """Write the project into `into`, for `edition`, its generated files and all."""
+    source = EXAMPLE_PROJECTS / project
     if into.resolve() != source.resolve():
-        copy_project(source, into, edition, level)
-    remove_generated(into, level)
+        copy_project(source, into, edition, project)
+    remove_generated(into, project)
     (into / TABLE_REFERENCES).mkdir(parents=True, exist_ok=True)
     environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     return subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), "--write-here", "--level", level,
+        [sys.executable, str(Path(__file__).resolve()), "--write-here", "--project", project,
          "--edition", edition.option],
         cwd=into, env=environment, check=False,
     ).returncode
 
 
 def arguments(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Write an example project's generated files.")
-    parser.add_argument("--level", choices=LEVELS, default=LEVELS[0])
+    parser = argparse.ArgumentParser(description="Write an Example project's generated files.")
+    parser.add_argument("--project", choices=PROJECTS, default=PROJECTS[0])
     parser.add_argument("--edition", choices=sorted(editions.BY_OPTION),
                         default=editions.SQLGLOT_COMPOSER.option)
     parser.add_argument("--into", type=Path,
-                        help="the folder to write the whole project into; leave it out to "
-                        "rewrite example_projects/<level>/ itself (sqlglot Composer only)")
+                        help="a new or empty folder to write the whole project into; leave it "
+                        "out to rewrite example_projects/<project>/ itself (sqlglot Composer "
+                        "only)")
     parser.add_argument("--write-here", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
@@ -238,20 +247,24 @@ def main(argv: list[str]) -> int:
     given = arguments(argv)
     edition = editions.BY_OPTION[given.edition]
     if given.write_here:
-        write_here(given.level, edition)
+        write_here(given.project, edition)
         return 0
     into = given.into
     if into is None:
         if edition is not editions.SQLGLOT_COMPOSER:
-            print(f"dev keeps only sqlglot Composer's example projects: name a folder to write "
+            print(f"dev keeps only sqlglot Composer's Example projects: name a folder to write "
                   f"{edition.product}'s into with --into <folder>.", file=sys.stderr)
             return 2
-        into = PROJECTS / given.level
-    if make(given.level, edition, into) != 0:
-        print(f"The {given.level} example project's generated files weren't all written: "
+        into = EXAMPLE_PROJECTS / given.project
+    elif into.exists() and (not into.is_dir() or any(into.iterdir())):
+        print(f"{into} isn't an empty folder: name a new or empty one with --into, so no "
+              "file of yours is written over.", file=sys.stderr)
+        return 2
+    if make(given.project, edition, into) != 0:
+        print(f"The {given.project} Example project's generated files weren't all written: "
               "see the error above.", file=sys.stderr)
         return 1
-    print(f"Wrote the {given.level} example project's generated files in {into}.")
+    print(f"Wrote the {given.project} Example project's generated files in {into}.")
     return 0
 
 

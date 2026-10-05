@@ -4349,7 +4349,6 @@ statement.minutes = sum_of(job_runs.duration_mins)
 ```
 
 Rows that count:
-- WHERE in alerts_per_run: `between(run_alerts.dt, "2026-09-24", "2026-09-24")`, which is `run_alerts.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.run_alerts.dt)
 - WHERE in statement: `between(job_runs.dt, "2026-09-24", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.job_runs.dt)
 - LEFT JOIN ON in statement: `equals(alerts_per_run.run_id, job_runs.run_id)`, which is `alerts_per_run.run_id = job_runs.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
 

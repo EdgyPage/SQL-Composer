@@ -1,4 +1,4 @@
-# Lineage: daily_job_runs
+# Lineage: write_daily_job_runs
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
 
@@ -21,7 +21,7 @@ flowchart LR
   subgraph g2["filters on runs_per_job_day"]
     n8{{"WHERE in runs_per_job_day<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
   end
-  subgraph g3["daily_job_runs"]
+  subgraph g3["write_daily_job_runs"]
     n9["job_id<br/><small>runs_per_job_day.job_id</small>"]
     n10["runs<br/><small>runs_per_job_day.runs</small>"]
     n11["failed_runs<br/><small>runs_per_job_day.failed_runs</small>"]
@@ -50,7 +50,7 @@ flowchart LR
   n8 -.->|filters| g1
 ```
 
-## daily_job_runs
+## write_daily_job_runs
 
 It writes the Saved table mart.daily_job_runs, one day at a time.
 
@@ -137,4 +137,4 @@ FROM runs_per_job_day
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit example, with sqlglot Composer 3.2.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 3.2.

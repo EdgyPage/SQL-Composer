@@ -47,7 +47,8 @@ _Avoid_: backend, engine, server, platform
 
 **Level**:
 One of three tiers of the user's own scripts. A script imports only from lower Levels and from the
-Toolbox, never from a higher or equal Level.
+Toolbox, never from a higher or equal Level. A script that runs Statements in order, such as an
+Example project's run_pipeline.py, sits above the three Levels, so it may import from all of them.
 _Avoid_: layer, tier, stage
 
 **Table reference**:
@@ -126,6 +127,13 @@ _Avoid_: fixture, sample data, demo database, test tables
 A Statement written for the Example database's tables, or for a Saved table made from them, shown
 with the Python that builds it and the Hive it emits. It sits either in a Toolbox function's docstring or on its own.
 _Avoid_: case, sample, recipe, demo
+
+**Example project**:
+A folder of the user's own scripts laid out as a project at work should be - Table references,
+Building blocks, Statements and a script that runs them in order - written for the Example
+database's tables, to copy and fill in with the user's own. Where a Worked example shows one
+Statement and its Hive, an Example project shows the files around many.
+_Avoid_: sample project, demo, template, starter kit
 
 **Example gallery**:
 The searchable page holding every Worked example, generated from them; each Edition ships its
