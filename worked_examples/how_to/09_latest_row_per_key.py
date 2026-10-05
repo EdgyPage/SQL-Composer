@@ -38,6 +38,16 @@ write takes the largest of each column:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id),
 ... )
+>>> text = show_hive(careless)
+SELECT
+  job_runs.job_id,
+  MAX(job_runs.run_id) AS run_id,
+  MAX(job_runs.status) AS status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  job_runs.job_id;
 >>> run(careless, send=example_database.send)
    job_id  run_id   status
 0       1     104     TEST
@@ -68,9 +78,43 @@ for the next Statement to read:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... ))
 
+[sqlglot_composer only]
+sqlglot Composer's Example database runs only part of Hive, and not `row_number`. Pasted into
+your own notebook with sqlglot Composer, running a Statement that reads `numbered`, here and in
+the steps below, stops with this message:
+
+>>> run(statement(SELECT(all_columns(numbered)), FROM(numbered)), send=example_database.send)
+Traceback (most recent call last):
+...
+RuntimeError:
+  What happened:  The Example database can't run this Hive: its executor has no window functions such as row_number.
+...
+
+So the results below that read `numbered`, or `ranked` and `oldest_first` like it, are what
+Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the
+Hive your warehouse runs.
+[end]
+
 Check the numbering alone first, with a Statement that reads every column of it:
 
 >>> numbering = statement(SELECT(all_columns(numbered)), FROM(numbered))
+>>> text = show_hive(numbering)
+WITH numbered AS (
+  SELECT
+    job_runs.job_id,
+    job_runs.run_id,
+    job_runs.status,
+    ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC) AS newest_first
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+SELECT
+  numbered.job_id,
+  numbered.run_id,
+  numbered.status,
+  numbered.newest_first
+FROM numbered;
 >>> run(numbering, send=example_database.send)
    job_id  run_id   status  newest_first
 0       1      95  SUCCESS             4
@@ -82,12 +126,6 @@ Check the numbering alone first, with a Statement that reads every column of it:
 6       2     102   FAILED             1
 7       3      97   FAILED             2
 8       3     103  SUCCESS             1
-
-[sqlglot_composer only]
-sqlglot Composer's Example database runs Hive on a small executor that has no `row_number`,
-so here the result is worked out in pandas, as the label says. At work, Hive runs it, and
-gives the same rows.
-[end]
 
 Each job's runs are numbered 1, 2, 3, ... from its newest.
 
@@ -190,7 +228,8 @@ Keep each job once: one row per job, as many rows as jobs that ran.
 True
 
 And check each job's run against the largest run id worked out another way, with `max_of`,
-which is right for one column on its own:
+which is right for one column on its own. Each side becomes a dict, from each job to its run,
+so the order the rows came back in doesn't matter:
 
 >>> newest_ids = statement(
 ...     SELECT(job_runs.job_id, AS(max_of(job_runs.run_id), "run_id")),
@@ -198,7 +237,17 @@ which is right for one column on its own:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id),
 ... )
->>> run(newest_ids, send=example_database.send)["run_id"].tolist() == newest["run_id"].tolist()
+>>> text = show_hive(newest_ids)
+SELECT
+  job_runs.job_id,
+  MAX(job_runs.run_id) AS run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  job_runs.job_id;
+>>> largest = run(newest_ids, send=example_database.send)
+>>> dict(zip(largest["job_id"], largest["run_id"])) == dict(zip(newest["job_id"], newest["run_id"]))
 True
 
 ## Common mistakes
@@ -270,6 +319,10 @@ Name it with `AS`, so the Statement that reads it can test it by that name.
 
 - Keep the numbering step as a Building block every Statement can call:
   [Reusable Derived tables](#reusable_derived_tables).
+- Each job's newest row from a table that keeps a full copy of itself every day:
+  [Look things up as of a day](#look_things_up_as_of_a_day).
+- A rank, the row before, or a rolling sum, which the Toolbox doesn't write as Hive:
+  [Finish in pandas](#finish_in_pandas).
 - The gallery's Worked examples of [`row_number`](examples.html#row_number) and
   [`descending`](examples.html#descending), and the careless and fixed Statements side by side:
   [latest and top N](examples.html#latest_and_top_n).
@@ -294,9 +347,9 @@ def every_run() -> pd.DataFrame:
                send=example_database.send)
 
 
-def numbered_runs(by: list[str], newest: bool) -> pd.DataFrame:
+def numbered_runs(by: list[str], largest_first: bool) -> pd.DataFrame:
     """Every run, numbered within its job in the order of the columns `by`, from 1."""
-    runs = every_run().sort_values(by, ascending=not newest, kind="stable")
+    runs = every_run().sort_values(by, ascending=not largest_first, kind="stable")
     return runs.assign(number=runs.groupby("job_id").cumcount() + 1)
 
 
@@ -306,20 +359,20 @@ def in_order(rows: pd.DataFrame) -> pd.DataFrame:
 
 
 def numbering_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["run_id"], newest=True).rename(columns={"number": "newest_first"})
+    rows = numbered_runs(["run_id"], largest_first=True).rename(columns={"number": "newest_first"})
     return in_order(rows[["job_id", "run_id", "status", "newest_first"]])
 
 
 def latest_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["run_id"], newest=True)
+    rows = numbered_runs(["run_id"], largest_first=True)
     return in_order(rows[rows["number"] == 1][["job_id", "run_id", "status"]])
 
 
 def top_two_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["duration_mins", "run_id"], newest=True)
+    rows = numbered_runs(["duration_mins", "run_id"], largest_first=True)
     return in_order(rows[rows["number"] <= 2][["job_id", "run_id", "duration_mins"]])
 
 
 def first_runs_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["run_id"], newest=False)
+    rows = numbered_runs(["run_id"], largest_first=False)
     return in_order(rows[rows["number"] == 1][["job_id", "run_id", "status"]])

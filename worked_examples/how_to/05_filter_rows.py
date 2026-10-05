@@ -24,7 +24,8 @@ runs that took too long.
 >>> job_runs = example_database.job_runs
 
 `ops.job_runs` holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still
-running, so its status is missing: NULL, which pandas shows as None.
+running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in
+your notebook as None.
 
 ### Give the days to read
 
@@ -82,6 +83,14 @@ condition in it holds, so the days and the status go side by side:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           equals(job_runs.status, "FAILED")),
 ... )
+>>> text = show_hive(failed)
+SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  job_runs.dt
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED';
 >>> run(failed, send=example_database.send)
    run_id  job_id          dt
 0      97       3  2026-09-23
@@ -165,7 +174,7 @@ every run of the jobs that failed at least once, with the job_ids from the resul
 ### Keep text that contains or starts with a word
 
 `contains` keeps the rows whose text holds a piece of text anywhere, and `starts_with` those
-whose text begins with it. `ops.jobs` has no days, so it needs no Date partition bound:
+whose text begins with it. `ops.jobs` has no days, so `WHERE` gives no days for it:
 
 >>> named = statement(
 ...     SELECT(jobs.job_id, jobs.job_name),
@@ -277,10 +286,11 @@ days it reads. Here, `to_check`: the runs that failed or took 30 minutes or more
 >>> kept = run(to_check, send=example_database.send)
 >>> every_run = run(two_days, send=example_database.send)
 >>> in_pandas = every_run[(every_run["status"] == "FAILED") | (every_run["duration_mins"] >= 30)]
->>> list(in_pandas["run_id"]) == list(kept["run_id"])
+>>> sorted(in_pandas["run_id"]) == sorted(kept["run_id"])
 True
 
-The same rows, worked out twice. At work, do this on a day small enough to look at, and look
+The same rows, worked out twice. Both lists are sorted first: without `ORDER_BY`, the warehouse
+may give the rows in any order. At work, do this on a day small enough to look at, and look
 at a few of the rows left out too.
 
 ## Common mistakes

@@ -268,6 +268,10 @@ Nothing about the table is known from this: fix the send, or the table's name, a
   [`check_table_reference`](examples.html#check_table_reference) entries, and
   [`check_key`](examples.html#check_key).
 - After a Saved table's columns change, rebuild it: [Save a table](#save_a_table).
+- Write a table's Table reference in the first place:
+  [Import a table's column names programmatically](#import_column_names).
+- A table whose days are written like 20260924, or which is split by a second column too:
+  [A day written another way, and a second partition](#a_day_written_another_way).
 - Build many Statements, or check many tables, in a loop:
   [Generate Statements in a loop](#generate_statements_in_a_loop).
 """

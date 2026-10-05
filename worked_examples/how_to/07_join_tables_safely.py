@@ -102,6 +102,17 @@ since sometimes that is what you want, but warns at the JOIN:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           between(run_alerts.dt, "2026-09-23", "2026-09-24")),
 ... )
+>>> text = show_hive(runs_with_alerts)
+SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  run_alerts.alert_id
+FROM ops.job_runs AS job_runs
+JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+  AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24';
 >>> run(runs_with_alerts, send=example_database.send)
    run_id  duration_mins  alert_id
 0      97             30         1
@@ -129,19 +140,32 @@ Add up the minutes over that join, and the repeated runs are added again:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           between(run_alerts.dt, "2026-09-23", "2026-09-24")),
 ... )
+>>> text = show_hive(careless_total)
+SELECT
+  SUM(job_runs.duration_mins) AS minutes,
+  COUNT(*) AS alerts
+FROM ops.job_runs AS job_runs
+JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+  AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24';
 >>> run(careless_total, send=example_database.send)
    minutes  alerts
 0      210       9
 
 The nine runs took 180 minutes in all, as `per_team` shows (67 + 113). Here the minutes come out
-as 210: run 101's are added three times, and the runs with no alert aren't added at all.
+as 210. Runs 97 and 103 are added twice (30 more minutes each), run 101 three times (20 more),
+and the four runs with no alert, 95, 96, 98 and 99, not at all (50 fewer):
+180 + 30 + 30 + 20 - 50 = 210.
 
-### Add up before you join
+### Add up first, with derived
 
-The fix is to give `run_alerts` one row per run before joining it. A Derived table does that: a
-Statement given a name with `derived`, which another Statement reads like a table. It groups
-the alerts by run, so it has one row per run, and the Toolbox takes its GROUP_BY column,
-`alerts_per_run.run_id`, as its key:
+The fix is to give `run_alerts` one row per run before joining it. `derived` gives a Statement
+a name, so that another Statement can read it like a table: a Derived table.
+[Reusable Derived tables](#reusable_derived_tables) covers them fully. This one groups the
+alerts by run, so it has one row per run, and the Toolbox takes its GROUP_BY column,
+`alerts_per_run.run_id`, as its key. The alerts' days are in its own `WHERE` now:
 
 >>> alerts_per_run = derived("alerts_per_run", statement(
 ...     SELECT(run_alerts.run_id, AS(count_rows(), "alerts")),
@@ -150,8 +174,11 @@ the alerts by run, so it has one row per run, and the Toolbox takes its GROUP_BY
 ...     GROUP_BY(run_alerts.run_id),
 ... ))
 
-`LEFT_JOIN` keeps every run, also those with no alert, and gives them NULL in the joined
-columns; `fill_null` turns that NULL into 0:
+### Keep every run with LEFT_JOIN
+
+Now join it. `LEFT_JOIN` keeps every run, also those with no alert, and gives them NULL in the
+joined columns; `fill_null` turns that NULL into 0, written COALESCE in the Hive. The
+Statement's `WHERE` gives only the runs' days: the alerts' days are inside `alerts_per_run`.
 
 >>> runs_and_alerts = statement(
 ...     SELECT(job_runs.run_id, job_runs.duration_mins,
@@ -202,6 +229,25 @@ One row per run, and no Warning. The Derived table is written at the top of the 
 ...     LEFT_JOIN(alerts_per_run, ON=equals(alerts_per_run.run_id, job_runs.run_id)),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
+>>> text = show_hive(fixed_total)
+WITH alerts_per_run AS (
+  SELECT
+    run_alerts.run_id,
+    COUNT(*) AS alerts
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+  GROUP BY
+    run_alerts.run_id
+)
+SELECT
+  SUM(job_runs.duration_mins) AS minutes,
+  COALESCE(SUM(alerts_per_run.alerts), 0) AS alerts
+FROM ops.job_runs AS job_runs
+LEFT JOIN alerts_per_run
+  ON alerts_per_run.run_id = job_runs.run_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
 >>> run(fixed_total, send=example_database.send)
    minutes  alerts
 0      180       9
@@ -222,6 +268,24 @@ first so each job meets at most one row; `ops.jobs` has a job that never ran, ca
 ...     FROM(jobs),
 ...     LEFT_JOIN(runs_per_job, ON=equals(runs_per_job.job_id, jobs.job_id)),
 ... )
+>>> text = show_hive(every_job)
+WITH runs_per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  jobs.job_id,
+  jobs.job_name,
+  COALESCE(runs_per_job.runs, 0) AS runs
+FROM ops.jobs AS jobs
+LEFT JOIN runs_per_job
+  ON runs_per_job.job_id = jobs.job_id;
 >>> run(every_job, send=example_database.send)
    job_id      job_name  runs
 0       1  nightly_load     4
@@ -234,7 +298,7 @@ A plain `JOIN` would have left cache_warm out, with nothing to say it was missin
 ### Find the rows with no match
 
 A row with no match has NULL in every joined column, so `is_null` on one of them keeps just
-those rows. Here, the jobs that never ran on the two days:
+those rows. Here, the jobs that never ran on the two days, with the same `runs_per_job`:
 
 >>> never_ran = statement(
 ...     SELECT(jobs.job_id, jobs.job_name),
@@ -281,8 +345,9 @@ totals. Count the runs of the two days on their own, then after the join:
 >>> len(run(runs_and_alerts, send=example_database.send))
 9
 
-Nine runs and 180 minutes alone, and nine rows after the fixed join, whose total is 180 too.
-On the page, only the two Statements built to show the Warning gave one.
+Nine runs and 180 minutes alone, and nine rows after the fixed join, whose total,
+`fixed_total`, is 180 too. Of the Statements here, only `runs_with_alerts` and
+`careless_total`, built to show the Warning, gave one.
 
 ## Common mistakes
 
@@ -304,6 +369,7 @@ make the Warning go away, it leaves the total just as wrong, and now nothing say
 
 Use the Opt-out when one row per match is the point, such as a list of every alert with its
 run's minutes, and nothing over it is added up. To add up, add up before you join.
+[Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) says when each opt-out is right.
 
 ### A JOIN with no ON=
 
@@ -325,7 +391,8 @@ Without `ON=`, every run would be paired with every job: 9 runs times 4 jobs, 36
 
 `WHERE` runs after the join. A row `LEFT_JOIN` kept for having no match has NULL in the
 joined columns, so a condition on them in `WHERE` throws it away again, and the LEFT_JOIN
-becomes a plain JOIN:
+becomes a plain JOIN. (`many_matches=True` is there because a job has many runs: it says the
+repeated rows are meant, so that only the mistake shown here stops.)
 
 >>> runs_of_every_job = statement(
 ...     SELECT(jobs.job_id, job_runs.run_id),
@@ -341,12 +408,16 @@ composer_core.refusals.GuardRefused:
 
 Move it into `ON=` with `all_of`, next to the join condition, as the message says:
 `ON=all_of(equals(job_runs.job_id, jobs.job_id), between(job_runs.dt, "2026-09-23",
-"2026-09-24"))`. `is_null`, as in the step Find the rows with no match, is the one condition
-on the joined table that belongs in `WHERE`.
+"2026-09-24"))`. A condition on the joined table belongs in `WHERE` only when it keeps the rows
+with no match: `is_null`, as in the step Find the rows with no match, or an `any_of` with such
+an `is_null` among its conditions.
 
 ### Forgetting the joined table's days
 
-Each table with a Date partition needs its own days, the joined one too:
+Each table with a Date partition needs its own days, the joined one too. (Here too,
+`many_matches=True` says that a run's several alerts are meant, so only the missing days
+stop.) The message says "bounds": to bound a Date partition is to give its first and last
+day.
 
 >>> alerts_any_day = statement(
 ...     SELECT(job_runs.run_id, run_alerts.alert_id),
@@ -366,6 +437,8 @@ composer_core.refusals.LoadRefused:
   needs it: [Reusable Derived tables](#reusable_derived_tables).
 - Keep one whole row per key, such as each job's newest run:
   [The latest row per key](#latest_row_per_key).
+- Every Guard, Warning and opt-out, and when an opt-out is right:
+  [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs).
 - The gallery's Worked examples of [`JOIN`](examples.html#JOIN) and
   [`LEFT_JOIN`](examples.html#LEFT_JOIN), and the traps beside their fixes:
   [repeated rows](examples.html#repeated_rows),

@@ -33,7 +33,8 @@ The table this how-to saves, mart.runs_to_review, holds the runs someone should 
 day: the runs that failed, and the runs that succeeded but raised a high alert. Like every
 table, it gets a Table reference: its name, its columns and their types, its Date partition
 and its key. `write_table_reference` can't write this one for you, since the table doesn't
-exist yet, so you write it by hand:
+exist yet, so you write it by hand, as [Describe a table by hand](#describe_a_table_by_hand)
+shows argument by argument:
 
 >>> runs_to_review = Table(
 ...     "mart.runs_to_review",
@@ -167,7 +168,8 @@ there. Two new pieces of SQL appear in it:
 
 - `JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id))` pairs each alert with the
   run whose `"run_id"` matches, so one row holds columns from both tables. See
-  [`JOIN`](examples.html#JOIN).
+  [`JOIN`](examples.html#JOIN), and [Join tables safely](#join_tables_safely) for why a join
+  can repeat rows.
 - `SELECT_DISTINCT` keeps each different row once: a run that raised two high alerts would
   otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT).
 
@@ -436,6 +438,8 @@ ValueError:
 ## Next
 
 - Write many past days at once: [Backfill a range of days](#backfill_a_range_of_days).
+- Build and check the SELECT a write sends, before you write it:
+  [Build a first Statement and paste its Hive](#build_a_first_statement).
 - Write each day's tables in order, every day: [Run a daily pipeline](#run_a_daily_pipeline).
 - The same steps as functions in a file, in the gallery's
   [Saved table example](examples.html#saved_table), and each name's own entry:
