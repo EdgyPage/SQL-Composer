@@ -329,7 +329,7 @@ table exists, and `run_day` stops before writing anything. In a list that runs e
 - Rewrite the last few days each morning, for rows that arrive late:
   [Incremental loads and late data](#incremental_loads_and_late_data).
 - Several Saved tables, each read by the next, written in order every day:
-  [A pipeline of Saved tables](#a_layered_pipeline).
+  [A pipeline of Saved tables](#a_pipeline_of_saved_tables).
 - The gallery's [`run`](examples.html#run), [`create_table`](examples.html#create_table) and
   [`show_hive`](examples.html#show_hive) entries.
 """
