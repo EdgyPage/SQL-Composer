@@ -155,17 +155,40 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path) -> None:
         with_file_list(core)
         (core / "refusals.py").unlink()
 
-    assert f"What happened:  refusals.py is missing from the {CORE_FOLDER} folder." in (
-        import_copy(tmp_path, change_core=missing))
+    stopped = import_copy(tmp_path, change_core=missing)
+    assert f"What happened:  refusals.py is missing from the {CORE_FOLDER} folder." in stopped
+    # Only what is missing is named.
+    assert (f"Why it matters: Every file of {CORE_FOLDER} {VERSION} is needed: a missing .py "
+            "file would make a part of it fail later, far from the cause.\n") in stopped
 
 
-@pytest.mark.parametrize("page", editions.PAGES)
-def test_a_missing_page_stops_the_import(tmp_path, page: str) -> None:
+@pytest.mark.parametrize(("pages", "lost"), [
+    (["examples.html"], "and a missing examples.html leaves you without the Example gallery"),
+    (["how_to.html"], "and a missing how_to.html leaves you without the how-tos"),
+    (["examples.html", "how_to.html"], "a missing examples.html leaves you without the Example "
+     "gallery, and a missing how_to.html leaves you without the how-tos"),
+])
+def test_a_missing_page_stops_the_import_and_says_what_it_holds(tmp_path, pages: list[str],
+                                                                lost: str) -> None:
+    assert sorted(pages) == [page for page in editions.PAGES if page in pages]
+
     def missing(copy: Path) -> None:
         with_file_list(copy)
-        (copy / page).unlink()
+        for page in pages:
+            (copy / page).unlink()
 
-    assert f"{page} is missing" in import_copy(tmp_path, missing)
+    assert import_copy(tmp_path, missing).endswith(import_stop(
+        what=f"{', '.join(pages)} {'is' if len(pages) == 1 else 'are'} missing from the "
+        f"{FOLDER} folder.",
+        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a part "
+        f"of it fail later, far from the cause, {lost}.",
+        fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the "
+        f"{VERSION} download.",
+    ) + "\n")
+
+
+def test_every_page_is_one_the_missing_file_stop_says_what_it_holds() -> None:
+    assert set(editions.PAGES) <= set(checks._PAGES)
 
 
 def stamp_every_file(copy: Path, odd: str | None = None, product: str = PRODUCT,

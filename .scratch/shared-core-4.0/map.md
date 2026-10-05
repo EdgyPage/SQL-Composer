@@ -73,6 +73,9 @@ anywhere.
   again for each Example project ticket 12 adds): an Example project's lineage footers name the
   Toolbox version, which the generator takes from TOOLBOX_VERSION rather than pinning, so the
   staleness test in tests/test_example_projects.py fails until it is rerun (ticket 11).
+- Ticket 15's CHANGES 4.0 section also says each Edition's folder now holds `how_to.html`, the
+  how-to page, beside `examples.html`, and that the import now stops when it is missing, as it
+  does for `examples.html` (ticket 06, D127).
 
 ## Records this changes
 
@@ -107,10 +110,16 @@ anywhere.
   `tools/example_project.py --project` regenerates its Table references and lineage, the
   time and commit pinned, the version not; the glossary gains Example project; export_lineage
   no longer lists a LEFT JOIN's table's conditions under the other columns' rows that count.
+- [The how-to page](issues/06-the-how-to-page.md): `tools/how_to_page.py` writes `how_to.html`
+  per Edition from `worked_examples/how_to/NN_slug.py` docstrings (`For: Getting started` or
+  `Intermediate`, six fixed headings), every step run live with lineage pinned; Edition-only
+  blocks may hold steps; a how-to's `NAME_in_pandas()` stands in where sqlglot Composer's
+  Example database can't run a Statement; the filter script is shared with examples.html; how-to
+  1, Start a notebook; the page links to no README anchor.
 
 ## Not yet specified
 
-- Whether a how-to page links to a fixed anchor in the README (ticket 06).
+- Nothing open.
 
 ## Out of scope
 
