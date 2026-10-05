@@ -836,7 +836,11 @@ def write_table_reference(name, send):
     description, never its rows) and writes `<table>.py` in the folder you're working in, or
     `t_<table>.py` for a table named like a Python word or a module Python already has, such as
     calendar or pandas, which the file would be imported in place of. The
-    newest day SHOW PARTITIONS lists gives the Date partition's date_format. It never guesses
+    newest day SHOW PARTITIONS lists gives the Date partition's date_format. The Date partition
+    is looked for in the first partition column only: a table partitioned first by something
+    else, such as a region, gets date_partition=None and a TODO naming its partition columns.
+    Name the one that holds the days, and check_table_reference(t, send=...) then gives the
+    line its date_format needs, if any. It never guesses
     the key or which columns don't add up: those are TODOs for you. The file is yours from then
     on, and this refuses to overwrite it.
 
