@@ -7,9 +7,10 @@ For each table in settings.py's TABLES_READ:
 
 - repeated_keys: each key that picks out more than one row, which should find nothing;
 - null_counts: how many rows hold NULL in each column, every column from all_columns(...);
-- rows_per_day: each day's rows, and each measure added up, to spot a day that looks wrong.
+- rows_per_day: each day's rows, and each of its add_up columns added up, to spot a day
+  that looks wrong.
 
-Two more checks are written by hand, since each is about one question:
+Two more checks are written by hand, since each answers a question of its own:
 
 - costs_billed_and_saved: the cents ops.region_costs holds for the days, and the cents example
   1 saved for them in mart.job_day_costs, which must be equal;
@@ -38,7 +39,9 @@ from table_references.job_events import job_events
 from table_references.job_owners import job_owners
 from table_references.region_costs import region_costs
 
-# Each table settings.py names, by its name, with its Table reference.
+# Each table settings.py names, by its name, with its Table reference. settings.py can't hold
+# the Table references itself: it is Level 0, as they are, and a script imports only from
+# lower Levels.
 TABLE_REFERENCES = {
     "ops.job_events": job_events,
     "ops.job_owners": job_owners,
@@ -46,15 +49,23 @@ TABLE_REFERENCES = {
 }
 
 
-def days_between(t, first_day, last_day):
-    """The condition that bounds t's Date partition, dt, from first_day to last_day, written
-    like "2026-09-24": as a datetime.date, each table gets the days written its own way."""
-    return between(t.dt, datetime.date.fromisoformat(first_day),
+def on_the_days(t, table, first_day, last_day):
+    """The condition that bounds the table's Date partition from first_day to last_day.
+
+    The days are written like "2026-09-24". Handed to between(...) as a datetime.date, each
+    table gets them written its own way: '20260924' for ops.region_costs.
+    """
+    date_partition = getattr(t, table["date_partition"])
+    return between(date_partition, datetime.date.fromisoformat(first_day),
                    datetime.date.fromisoformat(last_day))
 
 
 def column_name(column):
-    """A column's own name: column_name(job_events.minutes) is "minutes"."""
+    """A column's own name: column_name(job_events.minutes) is "minutes".
+
+    A column prints as its Table reference's name, a dot, then its own name, as
+    all_columns(...) shows: job_events.minutes. This keeps the part after the dot.
+    """
     return str(column).split(".")[-1]
 
 
@@ -69,7 +80,7 @@ def repeated_keys(table, first_day, last_day):
     return statement(
         SELECT(*key, AS(count_rows(), "times_seen")),
         FROM(t),
-        WHERE(days_between(t, first_day, last_day)),
+        WHERE(on_the_days(t, table, first_day, last_day)),
         GROUP_BY(*key),
         HAVING(more_than(count_rows(), 1)),
     )
@@ -79,27 +90,29 @@ def null_counts(table, first_day, last_day):
     """How many rows of the table hold NULL in each column, as one row: null_<column> each.
 
     all_columns(t) gives every column of the Table reference, so a column added to it later is
-    checked too. The Date partition, dt, is left out: a row read by its day always has one.
+    checked too. The Date partition is left out: a row read by its day always has one.
     """
     t = TABLE_REFERENCES[table["name"]]
-    columns = [column for column in all_columns(t) if column_name(column) != "dt"]
+    columns = [column for column in all_columns(t)
+               if column_name(column) != table["date_partition"]]
     return statement(
         SELECT(*[AS(count_rows(where=is_null(column)), f"null_{column_name(column)}")
                  for column in columns]),
         FROM(t),
-        WHERE(days_between(t, first_day, last_day)),
+        WHERE(on_the_days(t, table, first_day, last_day)),
     )
 
 
 def rows_per_day(table, first_day, last_day):
-    """Each day's rows in the table, with each of its measures added up for the day."""
+    """Each day's rows in the table, with each of its add_up columns added up for the day."""
     t = TABLE_REFERENCES[table["name"]]
-    measures = [AS(sum_of(getattr(t, name)), name) for name in table["measures"]]
+    date_partition = getattr(t, table["date_partition"])
+    added_up = [AS(sum_of(getattr(t, name)), name) for name in table["add_up"]]
     return statement(
-        SELECT(t.dt, AS(count_rows(), "row_count"), *measures),
+        SELECT(date_partition, AS(count_rows(), "row_count"), *added_up),
         FROM(t),
-        WHERE(days_between(t, first_day, last_day)),
-        GROUP_BY(t.dt),
+        WHERE(on_the_days(t, table, first_day, last_day)),
+        GROUP_BY(date_partition),
     )
 
 
@@ -142,8 +155,10 @@ def every_check(first_day, last_day):
     "repeated_keys ops.job_events"."""
     checks = {}
     for table in TABLES_READ:
-        for check in (repeated_keys, null_counts, rows_per_day):
-            checks[f"{check.__name__} {table['name']}"] = check(table, first_day, last_day)
+        name = table["name"]
+        checks[f"repeated_keys {name}"] = repeated_keys(table, first_day, last_day)
+        checks[f"null_counts {name}"] = null_counts(table, first_day, last_day)
+        checks[f"rows_per_day {name}"] = rows_per_day(table, first_day, last_day)
     checks["costs_billed_and_saved"] = costs_billed_and_saved(first_day, last_day)
     checks["jobs_not_run"] = jobs_not_run(first_day, last_day)
     return checks

@@ -4,8 +4,8 @@ Why: example 3 reads what examples 1 and 2 write, so each run's steps must go in
 order, writers before readers, and keeping that order in one file means nobody has to remember
 it.
 
-Run this file to print every step's Hive for the Example database's last day, without sending
-anything (a dry run):
+Run this file to print every step's Hive for the last 3 days up to the Example database's last
+day, without sending anything (a dry run):
 
     python run_pipeline.py
 
@@ -65,7 +65,13 @@ def steps(day, backfill_from=None):
 
 def in_order(pipeline):
     """The Statements of the steps, one by one: each list of writes taken apart, in order."""
-    return [one for step in pipeline for one in (step if isinstance(step, list) else [step])]
+    statements = []
+    for step in pipeline:
+        if isinstance(step, list):  # a write_days list: one write per day
+            statements.extend(step)
+        else:  # a create: one Statement
+            statements.append(step)
+    return statements
 
 
 def send_all(send, day, backfill_from=None):
@@ -77,9 +83,10 @@ def send_all(send, day, backfill_from=None):
 def dry_run(day, backfill_from=None):
     """Print every step's Hive for the run, in order, ready to paste elsewhere, and return it.
 
-    show_hive heads each step's Hive with its number and the name of the variable it is in,
-    such as -- 4 of 12: write_job_day_costs[0], the first day of example 1's writes, so each
-    step is put in a variable of its own first.
+    show_hive heads each step's Hive with its number and the name of the variable passed to
+    it, such as -- 4 of 12: write_job_day_costs[0], the first day of example 1's writes. It
+    reads those names from this function's own variables, so the steps are unpacked into
+    variables here, one per step, before they are passed.
     """
     pipeline = steps(day, backfill_from)
     (create_job_day_costs, create_job_day_facts, create_team_days,
@@ -108,9 +115,10 @@ def write_lineage_files(day):
     ops.job_events, ops.job_owners and ops.region_costs, through the Saved tables examples 1
     and 2 write, to mart.team_days.
     """
-    (write_job_day_costs,) = example_1.write_days(day, day)
-    (write_job_day_facts,) = example_2.write_days(day, day)
-    (write_team_days,) = example_3.write_days(day, day)
+    # write_days(day, day) is a list of one write, the day's
+    write_job_day_costs = example_1.write_days(day, day)[0]
+    write_job_day_facts = example_2.write_days(day, day)[0]
+    write_team_days = example_3.write_days(day, day)[0]
     # to= gives each file a fixed name, so each export replaces the last; leave to= out to
     # keep every export, named by time and commit.
     export_lineage(write_job_day_costs, to=LINEAGE / "example_1_job_day_costs.html")
@@ -125,12 +133,13 @@ def write_lineage_review(day, to):
     """Write the lineage of every write that the Building block events_per_job_day feeds.
 
     Before editing a Building block, write this to one file; after, to another, and compare
-    the two Markdown files: what changed shows which output columns the edit reaches.
+    the two Markdown files, side by side or with git diff --no-index before.md after.md: what
+    changed shows which output columns the edit reaches.
     Example 2's write reads the Building block, and example 3's reads what example 2 saves,
     so a change to the Building block's minutes reaches mart.team_days' minutes too.
     """
-    (write_job_day_facts,) = example_2.write_days(day, day)
-    (write_team_days,) = example_3.write_days(day, day)
+    write_job_day_facts = example_2.write_days(day, day)[0]
+    write_team_days = example_3.write_days(day, day)[0]
     export_lineage(write_job_day_facts, write_team_days, to=to)
 
 

@@ -6,21 +6,37 @@ here, and statements/quality_checks.py writes every table's checks from them.
 One dict per table:
 
 - "name": the table's name, as its Table reference names it;
-- "key": the columns that pick out one row, as its Table reference's key names them;
-- "measures": the columns worth adding up each day, to see a day that looks too big or too
-  small.
+- "date_partition": its Date partition, the column each check bounds to the days it reads;
+- "key": the columns that pick out one row, as its Table reference's key names them. The
+  checks look for a key that picks out more than one row among all the days read;
+  check_key(t, send=...) looks only at the newest day;
+- "add_up": the columns to add up each day, so a day that looks too big or too small stands
+  out. ops.job_events' minutes are each event's minutes since its run started, which mean
+  nothing added up, so it has none.
 
-To check one more table, write its Table reference, add its dict here, and add it to
-quality_checks.py's TABLE_REFERENCES. This file is Level 0, beside the Table references: it
-imports nothing, so any script above it may import it.
+This file is Level 0, beside the Table references, so it can't import them: a script imports
+only from lower Levels. That is why the name and the key are written here again. To check one
+more table, write its Table reference, add its dict here and to TABLES_READ, and add its Table
+reference to quality_checks.py's TABLE_REFERENCES, by the same name.
 """
 
-JOB_EVENTS = {"name": "ops.job_events", "key": ["event_id"], "measures": ["minutes"]}
-JOB_OWNERS = {"name": "ops.job_owners", "key": ["job_id", "dt"], "measures": []}
+JOB_EVENTS = {
+    "name": "ops.job_events",
+    "date_partition": "dt",
+    "key": ["event_id"],
+    "add_up": [],
+}
+JOB_OWNERS = {
+    "name": "ops.job_owners",
+    "date_partition": "dt",
+    "key": ["job_id", "dt"],
+    "add_up": [],
+}
 REGION_COSTS = {
     "name": "ops.region_costs",
+    "date_partition": "dt",
     "key": ["job_id", "region", "dt"],
-    "measures": ["cost_cents"],
+    "add_up": ["cost_cents"],
 }
 
 # Every table the project reads, in the order the checks run.

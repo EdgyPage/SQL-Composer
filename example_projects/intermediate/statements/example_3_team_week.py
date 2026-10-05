@@ -46,7 +46,8 @@ def preview(day=LAST_DAY):
 
     A job's day with no row in job_day_costs, since it wasn't billed, keeps its events through
     LEFT_JOIN, with a NULL cost, which sum_of leaves out. The costs' day goes in LEFT_JOIN's
-    ON=, not in WHERE, since a WHERE on job_day_costs would drop the days LEFT_JOIN keeps.
+    ON=, not in WHERE, since a WHERE on job_day_costs would drop the days LEFT_JOIN keeps;
+    equals(job_day_costs.dt, day) bounds the Date partition at both ends, to one day.
     """
     return statement(
         SELECT(
@@ -110,6 +111,7 @@ def week_totals(first_day, last_day):
         ),
         FROM(team_days),
         WHERE(between(team_days.dt, first_day, last_day)),
+        # "week" names the SELECT's week_start(...) column: the Hive repeats the calculation
         GROUP_BY("week", team_days.team),
     )
 
@@ -118,10 +120,11 @@ def team_day_from_job_events(day=LAST_DAY):
     """Try example 3's team grouping on the Example database: each team's events, runs and
     minutes for a day, from ops.job_events and ops.job_owners themselves.
 
-    It reads example 2's Building blocks, so the numbers are worked out exactly as example 2
-    saves them, then groups them by team as preview does. It leaves the costs out: they would
-    need ops.region_costs joined on the day, which it writes like 20260924, so only example
-    1's Saved table, which writes it like 2026-09-24, can be joined that way.
+    It reads the Building blocks example 2 reads, so the numbers are worked out exactly as
+    example 2 saves them, then groups them by team as preview does. It leaves the costs out:
+    ops.region_costs writes its days like 20260924, so it can't be joined on the day to
+    ops.job_events, which writes them like 2026-09-24. Only example 1's Saved table, which
+    writes the costs' days like 2026-09-24, can be.
     """
     events = events_per_job_day(day, day)
     return statement(
@@ -132,6 +135,6 @@ def team_day_from_job_events(day=LAST_DAY):
             AS(sum_of(events.minutes), "minutes"),
         ),
         FROM(events),
-        owner_on_day(events.job_id, events.dt, day, day),
+        owner_on_day(events.job_id, events.dt, first_day=day, last_day=day),
         GROUP_BY(job_owners.team),
     )

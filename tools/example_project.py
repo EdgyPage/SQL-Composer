@@ -214,9 +214,10 @@ def _does_not_add_up_line(columns: dict) -> str:
 def _date_partition_lines(partition: dict) -> str:
     """The date_partition and date_format lines, under a comment saying why they hold what they
     hold."""
-    return (f"    {BY_HAND}: {partition['first']}, the first partition, holds no day; "
-            f"{partition['column']} holds the days,\n"
-            f"    # written like {partition['written_like']}\n"
+    return (f"    {BY_HAND}: {partition['first']}, the first partition, holds no day; the Date "
+            f"partition,\n"
+            f"    # {partition['column']}, holds the days, written like "
+            f"{partition['written_like']}\n"
             f'    date_partition="{partition["column"]}",\n'
             f'    date_format="{partition["date_format"]}",')
 

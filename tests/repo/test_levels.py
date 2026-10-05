@@ -34,9 +34,9 @@ LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
 # An Example project's scripts beside its Level folders, such as run_pipeline.py.
 ABOVE_THE_LEVELS = 3
 # The scripts beside an Example project's Level folders that are Level 0 all the same.
-LEVEL_0_BESIDE = {"settings": 0}
+LEVEL_0_BESIDE = {"settings"}
 # Each name a script imports its Level's scripts by, with that Level.
-IMPORTED_LEVELS = {**LEVELS, **LEVEL_0_BESIDE}
+IMPORTED_LEVELS = {**LEVELS, **dict.fromkeys(LEVEL_0_BESIDE, 0)}
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
     "repeated_rows", "regrouping", "left_join_then_where", "none_in_equals", "nan_in_a_list",
@@ -63,7 +63,7 @@ def project_scripts() -> list[tuple[Path, int]]:
     for project in projects():
         for folder, level in LEVELS.items():
             found += [(path, level) for path in sorted((project / folder).glob("*.py"))]
-        found += [(path, LEVEL_0_BESIDE.get(path.stem, ABOVE_THE_LEVELS))
+        found += [(path, 0 if path.stem in LEVEL_0_BESIDE else ABOVE_THE_LEVELS)
                   for path in sorted(project.glob("*.py"))]
     return found
 
