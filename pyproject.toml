@@ -26,6 +26,9 @@ filterwarnings = [
 [tool.ruff]
 line-length = 96
 target-version = "py311"
+# A template's placeholders, such as <TABLE>, stop it parsing until it is filled in, on
+# purpose: tests/test_templates.py fills each one in and checks that it parses and runs.
+extend-exclude = ["templates"]
 
 [tool.ruff.lint]
 extend-select = ["C901"]
