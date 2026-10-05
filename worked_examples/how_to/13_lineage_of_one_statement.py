@@ -68,38 +68,44 @@ scripts, by which notebook, and for which Statement:
 - Then the notebook's name. In JupyterLab, it is your notebook's own name; here, where the
   steps don't run in a saved notebook, it is `"notebook"`.
 - Last, the name of the variable that holds the Statement, `team_runs`. So put a Statement in
-  a variable with a meaningful name before you export it: written inline, it would be named
-  `statement`.
+  a variable with a meaningful name before you export it: passed straight in, as
+  `export_lineage(statement(...))`, its files would be named `"statement"`.
 
 Each export without `to=` gets a new name, so the files of earlier exports stay as they were.
 
 ### Read the Markdown file
 
-The Markdown file is shown in full above. Read it from the top:
+The Markdown file is shown in full above. Read it from the top, one heading at a time.
 
-- **The title** names the Statement, and a short paragraph says what the arrows in the chart
-  mean.
-- **Graph** is a chart written in Mermaid, a text format for charts, which JupyterLab, GitHub
-  and many editors draw. Each table read is a group holding only the columns the Statement
-  uses: `ops.jobs` and `ops.job_runs`. The group `team_runs` holds the Statement's three
-  output columns, each with what it is made of, and the group of filters holds its WHERE and
-  its JOIN's `ON=`. A solid arrow carries a value, such as `ops.jobs.team` into `"team"`. A
-  dotted arrow carries a column into a condition, or a condition to the rows it decides.
-- **team_runs**, the Statement's own section, starts with **Calculated columns**: each column
-  that is worked out rather than copied, here `"runs"` and `"failed_runs"`. For each, it says the
-  Toolbox call and the Hive it becomes, then:
-  - a small tree from the column down to the table columns it reads: `"failed_runs"` reads
-    `ops.job_runs.status`, and `"runs"` reads no column, since it counts rows;
-  - **Rows that count**: every condition that decides which rows are counted, here the two
-    days in WHERE and the match between the two tables in JOIN's `ON=`. When a number looks
-    wrong, look here first;
-  - **One value for each different** `jobs.team`: what one row of the result stands for, from
-    `GROUP_BY`.
-- **Copied columns** is a table of the columns copied as they are: `"team"` comes from
-  `ops.jobs.team`.
-- **Hive as submitted** is the Hive `run` sends, exactly as `to_hive` gives it.
-- The last line says when the file was made, from which commit, and with which Toolbox
-  version.
+The title names the Statement, and a short paragraph under it says what the chart's arrows
+mean.
+
+Graph is a chart written in Mermaid, a text format for charts. JupyterLab, GitHub and many
+editors draw it; on this page it shows as text. Each table read is a group, a subgraph in Mermaid,
+holding only the columns the Statement uses: `ops.jobs` and `ops.job_runs`. The group
+team_runs holds the Statement's three output columns, each with what it is made of, and the
+group of filters holds its WHERE and its JOIN's `ON=`. A solid arrow, `-->`, carries a value,
+such as `ops.jobs.team` into `"team"`. A dotted arrow, `-.->`, carries a column into a
+condition, or a condition to the rows it decides.
+
+team_runs, the Statement's own section, starts with Calculated columns: each column that is
+worked out rather than copied, here `"runs"` and `"failed_runs"`. For each, it says the Toolbox
+call and the Hive it becomes, then three things:
+
+- A small tree from the column down to the table columns it reads: `"failed_runs"` reads
+  `ops.job_runs.status`, and `"runs"` reads no column, since it counts rows.
+- Rows that count: every condition that decides which rows are counted, here the two days in
+  WHERE and the match between the two tables in JOIN's `ON=`. When a number looks wrong, look
+  here first.
+- One value for each different `jobs.team`: what one row of the result stands for, from
+  `GROUP_BY`.
+
+Copied columns is a table of the columns copied as they are: `"team"` comes from
+`ops.jobs.team`.
+
+Hive as submitted is the Hive `run` sends, exactly as `to_hive` gives it.
+
+The last line says when the file was made, from which commit, and with which Toolbox version.
 
 ### Open the HTML page
 
@@ -165,22 +171,6 @@ Traceback (most recent call last):
 ValueError:
   What happened:  export_lineage(..., to='lineage/team_runs.md'): to= must name an .html file.
 ...
-
-### Passing a Derived table
-
-A Derived table is a step inside the Statement that reads it, so its Lineage is part of that
-Statement's. Passed on its own, it is refused:
-
->>> teams = derived("teams", team_runs)
->>> export_lineage(teams)
-Traceback (most recent call last):
-...
-TypeError:
-  What happened:  export_lineage was given ..., which isn't a Statement that reads a table.
-...
-
-Pass the Statement that reads it. Its Lineage draws the Derived table as a step of its own,
-between the tables and the outputs.
 
 ## Next
 

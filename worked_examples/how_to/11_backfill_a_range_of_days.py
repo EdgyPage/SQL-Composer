@@ -61,6 +61,11 @@ Write the Statement once, as a function of the first and the last day. It reads 
 ...     )
 >>> backfill = daily_counts("2026-09-23", "2026-09-24")
 
+`GROUP_BY(job_runs.job_id, job_runs.dt)` makes one row per job and day, and `count_rows()`
+counts the runs in each; `count_rows(where=...)` counts only those that meet its condition,
+which the Hive writes as `COUNT(CASE WHEN ... THEN 1 END)`. See
+[`GROUP_BY`](examples.html#GROUP_BY) and [`count_rows`](examples.html#count_rows).
+
 `job_runs.dt` is in `GROUP_BY` but not in `SELECT`. In `GROUP_BY`, it keeps each day's counts
 apart, so no day's runs are counted with another's. It stays out of `SELECT` because a write
 never selects the Date partition: each day's write names its day in its first line instead.
@@ -73,7 +78,7 @@ steps check its rows, then split it.
 The same counts as a plain SELECT, with the day shown, run on the Example database. These are
 the rows the backfill would save, one per job and day:
 
->>> check = statement(
+>>> preview = statement(
 ...     SELECT(
 ...         job_runs.dt,
 ...         job_runs.job_id,
@@ -84,7 +89,7 @@ the rows the backfill would save, one per job and day:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.dt, job_runs.job_id),
 ... )
->>> run(check, send=example_database.send)
+>>> run(preview, send=example_database.send)
            dt  job_id  runs  failed_runs
 0  2026-09-23       1     2            0
 1  2026-09-23       2     2            0
@@ -139,11 +144,13 @@ GROUP BY
 
 ### Send them in order
 
-From a notebook, send each write in turn with `run`. At work, your own send goes where this
-shows the Example database's, which would refuse the writes:
+From a notebook, send each write in turn with `run`, oldest first. At work, a loop does it,
+here a function that takes your own send, written as in [Start a notebook](#start_a_notebook).
+It isn't called on this page, since the Example database's send would refuse the writes:
 
-    for write in days:
-        run(write, send=example_database.send)
+>>> def send_backfill(writes, send):
+...     for write in writes:
+...         run(write, send=send)
 
 Each write is an INSERT OVERWRITE, which replaces its day. So if the loop stops halfway, say
 on a network error, send it again from the day that failed, or from the start: a day written
@@ -230,9 +237,9 @@ composer_core.refusals.GuardRefused:
 
 ### Leaving the day out of GROUP_BY
 
-Group by the job alone, and the range's counts would add up each job's runs across every day:
-one total, not one per day. `by_day` refuses to split it, since each day's partial counts
-couldn't always be added back up:
+Group by the job alone, and the Statement means something different whole and split. Whole,
+it gives one total per job over the range; cut into days, it would give one per job and day.
+`by_day` never changes what a Statement means, so it refuses:
 
 >>> per_job_only = statement(
 ...     INSERT_OVERWRITE(daily_job_runs),
@@ -252,7 +259,10 @@ composer_core.refusals.GuardRefused:
   What happened:  by_day can't split this Statement: it groups rows without keeping the Date partition job_runs.dt.
 ...
 
-Add `job_runs.dt` to `GROUP_BY`, as `daily_counts` does.
+Add `job_runs.dt` to `GROUP_BY`, as `daily_counts` does: then whole and split both give one
+row per job and day. A write of a single day, bounded with `equals`, needn't group by the day,
+as [Run a daily pipeline](#run_a_daily_pipeline) shows: only a range you cut with `by_day`
+does.
 
 ### A range written back to front
 

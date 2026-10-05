@@ -69,6 +69,35 @@ variable with a meaningful name. These are one day's two writes:
 ...     GROUP_BY(jobs.team),
 ... )
 
+Both writes' Hive, each headed by its variable's name:
+
+>>> text = show_hive(write_daily_job_runs, write_team_day)
+-- 1 of 2: write_daily_job_runs
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) AS failed_runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id;
+<BLANKLINE>
+-- 2 of 2: write_team_day
+INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
+SELECT
+  jobs.team,
+  SUM(daily_job_runs.runs) AS runs,
+  SUM(daily_job_runs.failed_runs) AS failed_runs
+FROM mart.daily_job_runs AS daily_job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = daily_job_runs.job_id
+WHERE
+  daily_job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team;
+
 ### Export them together
 
 Pass every write of the pipeline, each as its own argument. `to=` gives the files a fixed name,
@@ -82,30 +111,36 @@ Statements that read the Saved table it fills, which is also the order to run th
 
 ### Read the Markdown file, section by section
 
-The Markdown file is shown in full above.
+The Markdown file is shown in full above. Read it one heading at a time.
 
-- **The title** names both writes, in the order they run.
-- **Graph** draws the whole pipeline. On the left, the columns of `ops.job_runs` that the job
-  write uses. In the middle, the Saved table mart.daily_job_runs: the job write's outputs flow
-  into it, and the team write reads from it, with `ops.jobs` joined. On the right,
-  mart.team_day. A dotted arrow labelled "day written" runs from each write's WHERE to the
-  Date partition of the table it writes: the day in WHERE is the day written.
-- **write_daily_job_runs** is the first write's section. It says which Saved table it writes,
-  then its Calculated columns, `"runs"` and `"failed_runs"`, each with its tree, its Rows that
-  count and what one row stands for, then its Copied columns and its Hive.
-- **write_team_day** is the second write's section. Its first line says it reads the Saved
-  table mart.daily_job_runs, written by write_daily_job_runs above. Each tree now goes on
-  through the Saved table: the team's `"failed_runs"` is a sum of the Saved
-  table's column `daily_job_runs.failed_runs`, which write_daily_job_runs counted from
-  `ops.job_runs.status`. So the file answers "what counts as a failed run here?" in one
-  place: a run whose status is FAILED.
-- **Rows that count**, under each of the team write's columns, lists the conditions that
-  decide which rows of the Saved table count: the team write's day, and its match on job_id
-  with `ops.jobs`. The job write's day isn't listed again: it is the day it writes, which the
-  chart shows as "day written". Had the job write kept only some runs, say with a condition
-  on their status, that condition would be listed here too, since it decides which runs the
-  team counts add up.
-- **Hive as submitted**, in each section, is the Hive `run` sends for that write.
+The title names both writes, in the order they run.
+
+Graph is the whole pipeline as one Mermaid chart, shown here as text. Drawn in JupyterLab or
+GitHub, it runs from the columns of `ops.job_runs` the job write uses, through the Saved table
+mart.daily_job_runs, which the job write's outputs flow into and the team write reads from,
+with `ops.jobs` joined, to mart.team_day. In the text, each table is a subgraph of its own,
+and an arrow labelled `|day written|` runs from each write's WHERE to the Date partition of the
+table it writes: the day in WHERE is the day written.
+
+write_daily_job_runs is the first write's section. It says which Saved table it writes, then
+its Calculated columns, `"runs"` and `"failed_runs"`, each with its tree, its Rows that count
+and what one row stands for, then its Copied columns and its Hive.
+
+write_team_day is the second write's section. Its first line says it reads the Saved table
+mart.daily_job_runs, written by write_daily_job_runs above. Each tree now goes on through the
+Saved table: the team's `"failed_runs"` is a sum of the Saved table's column
+`daily_job_runs.failed_runs`, which write_daily_job_runs counted from `ops.job_runs.status`. So
+the file answers "what counts as a failed run here?" in one place: a run whose status is
+FAILED.
+
+Rows that count, under each of the team write's columns, lists the conditions that decide
+which rows of the Saved table count: the team write's day, and its match on job_id with
+`ops.jobs`. The job write's day isn't listed again: it is the day it writes, which the chart
+shows as day written. Had the job write kept only some runs, say with a condition on their
+status, that condition would be listed here too, since it decides which runs the team counts
+add up.
+
+Hive as submitted, in each section, is the Hive `run` sends for that write.
 
 ### Open the HTML page
 
@@ -164,7 +199,8 @@ to="lineage/pipeline.html")`, which hands each Statement in it on as its own arg
 ### Passing the create steps too
 
 A day's list of steps from [Run a daily pipeline](#run_a_daily_pipeline) starts with
-`create_table` Statements. They read no table, so they have no Lineage, and are refused:
+`create_table` Statements. They read no table, so they have no Lineage, and are refused. The
+message shows the create Statement it was given as `<Statement - print(to_hive(s)) shows it>`:
 
 >>> create_daily_job_runs = create_table(daily_job_runs, may_exist=True)
 >>> export_lineage(create_daily_job_runs, write_daily_job_runs, write_team_day,

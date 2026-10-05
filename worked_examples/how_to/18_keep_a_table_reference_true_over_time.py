@@ -75,6 +75,9 @@ At work, a Table reference lives in its own file, written months ago, perhaps by
 ...     does_not_add_up=["avg_retry_secs"],
 ... )
 
+`does_not_add_up=[...]` lists the columns a sum would make meaningless, such as an average: the
+Toolbox refuses `sum_of` on them. `job_runs.avg_retry_secs` is an average per run, so it is listed.
+
 ### The table changes
 
 Say the team that owns `ops.job_runs` replaces `"avg_retry_secs"` with `"retries"`, the number of
@@ -115,13 +118,14 @@ Notes:
 
 It sorts what it finds in two:
 
-- **Problems** make Statements wrong, or make the warehouse refuse them: a column the table no
+- Problems make Statements wrong, or make the warehouse refuse them: a column the table no
   longer has, or one whose type changed. Fix every one.
-- **Notes** may not matter: a new column the Table reference doesn't list is simply not
+- Notes may not matter: a new column the Table reference doesn't list is simply not
   available to your Statements. Add it if you want to use it.
 
 Each line ends with the line to write in the Table reference file. The check never edits the
-file itself: the Table reference is yours, with your key and notes in it.
+file itself: the Table reference is yours, with your key and comments in it. Copy each line
+as it is, comma included: it is a line of the `columns={...}` dict.
 
 ### Update the Table reference
 
@@ -165,9 +169,10 @@ it, in the middle of a run.
 
 ### When the days are written another way
 
-The check also reads the newest day SHOW PARTITIONS lists, and checks it is written as the
-Table reference's `date_format=...` says. Say the team starts writing new days as 20260925 rather
-than 2026-09-25. Another stand-in send plays that, answering SHOW PARTITIONS with the new day:
+A Table reference can say how its days are written with `date_format=...`; left out, as in
+every Table reference so far, it is `"%Y-%m-%d"`, as in 2026-09-25. The check also reads the
+newest day SHOW PARTITIONS lists, and checks it is written that way. Say the team starts
+writing new days as 20260925 rather than 2026-09-25. Another stand-in send plays that, answering SHOW PARTITIONS with the new day:
 
 >>> def send_with_a_new_day(hive):
 ...     if hive.startswith("SHOW PARTITIONS"):
@@ -186,7 +191,8 @@ older days again the new way.
 ### Check every Table reference at once
 
 A loop checks every table your notebooks read. At work, it is one cell of a notebook you run
-every week, with your own send and your own Table references:
+every week, with your own send and your own Table references. A notebook shows what a cell's
+last line gives, but inside a loop nothing is shown unless you `print` it:
 
 >>> for table in [example_database.jobs, example_database.job_runs, example_database.run_alerts]:
 ...     print(check_table_reference(table, send=example_database.send))
@@ -243,8 +249,8 @@ ValueError:
 
 ### Reading a failed check as a changed table
 
-The check never stops with an error: when the send itself fails, say the warehouse can't be
-reached, it says so, and compares nothing. A stand-in send that fails plays that here:
+When the send itself fails, say the warehouse can't be reached, the check doesn't stop with
+an error: it says so, and compares nothing. A stand-in send that fails plays that here:
 
 >>> def send_that_fails(hive):
 ...     raise ConnectionError("the warehouse can't be reached")

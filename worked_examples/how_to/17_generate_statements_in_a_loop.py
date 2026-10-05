@@ -48,6 +48,8 @@ in one query:
       team  failed_runs
 0  finance            2
 
+Teams with no failed run don't appear: only finance had one.
+
 A loop is for when each Statement must be its own: its own result to send somewhere, its own
 table, or its own columns and conditions.
 
@@ -66,7 +68,8 @@ a function of the team:
 ...               equals(jobs.team, team)),
 ...     )
 
-Then loop over the teams, keeping each team's Statement in a dict, by team:
+Then loop over the three teams in `ops.jobs`, keeping each team's Statement in a dict, by
+team:
 
 >>> per_team = {}
 >>> for team in ["data", "finance", "web"]:
@@ -135,8 +138,9 @@ The three differ only in their last line, the team.
 
 ### One Statement per table
 
-How many rows does each table hold per day? The question is the same for every table with a
-Date partition, so the function takes the table itself, a Table reference, as an argument:
+How many rows does each table hold per day? The question is the same for every table whose
+Date partition is dt, so the function takes the table itself, a Table reference, as an
+argument:
 
 >>> def rows_per_day(table, first_day, last_day):
 ...     return statement(
@@ -195,8 +199,9 @@ The loop builds and runs each check, and gathers one row per check:
 
 >>> found = []
 >>> for name, setting in CHECKS.items():
-...     s = matching_rows(setting["table"], setting["column"], setting["value"], "2026-09-24")
-...     result = run(s, send=example_database.send)
+...     check = matching_rows(setting["table"], setting["column"], setting["value"],
+...                           "2026-09-24")
+...     result = run(check, send=example_database.send)
 ...     found.append({"check": name, "matching": result["matching"][0]})
 >>> pd.DataFrame(found)
          check  matching
@@ -212,7 +217,8 @@ json module, with each table's name looked up in a dict like `tables` above.
 
 The per-team Statements together find the same failed runs as the one grouped Statement: two.
 
->>> sum(len(run(s, send=example_database.send)) for s in per_team.values())
+>>> sum(len(run(team_statement, send=example_database.send))
+...     for team_statement in per_team.values())
 2
 
 And the loops made one Statement per team, per table and per check:

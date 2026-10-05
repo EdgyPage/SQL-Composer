@@ -58,6 +58,9 @@ morning, or a day from last week when it has to be written again.
 ...         GROUP_BY(job_runs.job_id),
 ...     )
 
+It writes one day, bounded with `equals`, so it needn't group by the day: only a range cut
+with `by_day` must, as [Backfill a range of days](#backfill_a_range_of_days) shows.
+
 The team step reads the Saved table the job step writes, through its Table reference, like
 any other table, and reads the same day of it:
 
@@ -192,9 +195,8 @@ The day to write each morning is yesterday's, worked out from today's date:
 ...     run_day(str(yesterday), send=send)
 
 The last cell of a notebook you run every morning calls `run_yesterday`, giving it your own
-send. Keep `day_steps`, `run_day` and `run_yesterday` in a .py file beside your notebook, as
-the starter Example project's run_pipeline.py does, so every notebook runs the same steps in
-the same order.
+send. Keep `day_steps`, `run_day` and `run_yesterday` in a .py file of their own beside your
+notebook, and import them, so every notebook runs the same steps in the same order.
 
 ### Re-run a day safely
 
@@ -252,8 +254,8 @@ this. The same numbers mean both steps ran, in the right order.
 
 ### Handing run the whole list
 
-`run` sends one Statement, and refuses a list. Send the list's steps one at a time, as
-`run_day` does:
+`run` sends one Statement, and refuses a list. The message names `to_hive`, which `run` calls
+first to write the Hive, and which takes one Statement:
 
 >>> run(steps, send=print_first_line)
 Traceback (most recent call last):
@@ -261,6 +263,8 @@ Traceback (most recent call last):
 TypeError:
   What happened:  to_hive was given [...], which isn't a Statement.
 ...
+
+Send the list's steps one at a time, with a loop, as `run_day` does.
 
 ### Reading a Saved table without naming its day
 
