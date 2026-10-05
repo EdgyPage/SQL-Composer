@@ -1,27 +1,31 @@
 """Write an Example project's generated files: its Table references and its lineage.
 
-An Example project, such as `example_projects/starter/`, is a folder laid out as a project at
-work is: Table references, Building blocks, Statements and a script that runs them in order.
-Most of its files are written by hand. This writes the rest, so they stay what the Toolbox
-writes today:
+An Example project, such as `example_projects/starter/` or `example_projects/intermediate/`, is
+a folder laid out as a project at work is: Table references, Building blocks, Statements and a
+script that runs them in order. Most of its files are written by hand. This writes the rest, so
+they stay what the Toolbox writes today:
 
-    python tools/example_project.py
+    python tools/example_project.py --project intermediate
     python tools/example_project.py --project starter --edition spark --into <folder>
 
-The first rewrites the generated files of `example_projects/starter/` itself. The second
-writes the whole project, named for Spark Composer, into a folder that is new or empty, and
-refuses one that holds anything; dev keeps only sqlglot Composer's copy. A test fails while a
-committed generated file differs from what this writes.
+The first rewrites the generated files of `example_projects/intermediate/` itself (the starter
+project when --project is left out). The second writes the whole project, named for Spark
+Composer, into a folder that is new or empty, and refuses one that holds anything; dev keeps
+only sqlglot Composer's copy. A test fails while a committed generated file differs from what
+this writes.
 
 For each project it:
 
 - writes the Table reference of each table the project reads with write_table_reference, on
-  the Example database, then fills in its TODO lines (the one-line description, the key and
-  the columns that don't add up) from FILLED_IN, as a user fills them in by hand;
+  the Example database, then fills in its TODO lines (the one-line description, the key, the
+  columns that don't add up, and the Date partition where the table's first partition holds no
+  day) from FILLED_IN, as a user fills them in by hand;
 - exports the lineage of each example and of the whole project with its run_pipeline.py's
   write_lineage_files(DAY), with the time and the commit pinned, so the files are the same on
   every computer. The version is the Toolbox's own, so raising TOOLBOX_VERSION makes the
-  committed lineage stale until this is run again.
+  committed lineage stale until this is run again;
+- for a project in REVIEWED_EDIT, first exports its lineage review's "before" file, from a copy
+  of the project with one Building block edit undone, as the user wrote it before the edit.
 
 It runs no SELECT, so Spark Composer's needs no Java. The writing happens in a second Python
 whose folder is the project's: the project's folder names, such as table_references/, are the
@@ -36,6 +40,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -71,9 +76,43 @@ FILLED_IN = {
             "does_not_add_up": {},
         },
     },
+    "intermediate": {
+        "ops.job_events": {
+            "one_row": "one row per event of a run: start, retry, finish or fail.",
+            "key": ["event_id"],
+            "does_not_add_up": {},
+        },
+        "ops.job_owners": {
+            "one_row": "one row per job per day: the team and owner it had that day.",
+            "key": ["job_id", "dt"],
+            "does_not_add_up": {},
+        },
+        "ops.region_costs": {
+            "one_row": "one row per job, region and day: its cost there, in cents.",
+            # Its first partition, region, holds no day, so write_table_reference leaves the
+            # Date partition as a TODO: dt, the second, holds the days.
+            "date_partition": {"first": "region", "column": "dt", "date_format": "%Y%m%d",
+                               "written_like": "20260911"},
+            "key": ["job_id", "region", "dt"],
+            "does_not_add_up": {},
+        },
+    },
 }
 # The Example projects, by the name of their folder in example_projects/.
 PROJECTS = tuple(FILLED_IN)
+
+# The Building block edit an Example project's lineage review shows, by project: the file, and
+# its line after the edit and before it. The project's run_pipeline.py writes the review's
+# "after" file with write_lineage_review(day, to=...); its "before" file is written the same
+# way, from a copy of the project with the edit undone, as a user writes it before editing.
+REVIEWED_EDIT = {
+    "intermediate": {
+        "file": "building_blocks/events_per_job_day.py",
+        "after": '    ends_a_run = is_in(job_events.event_type, ["finish", "fail"])',
+        "before": '    ends_a_run = equals(job_events.event_type, "finish")',
+    },
+}
+REVIEW_BEFORE = "review_before_edit.html"
 
 # The docstring every generated Table reference is given, after its first line.
 WHY = (
@@ -85,12 +124,25 @@ HOW = (
     "three TODO lines were then filled in by hand: this docstring's first line, the key, and "
     "does_not_add_up."
 )
+# The same, for a table whose first partition holds no day, so write_table_reference left its
+# Date partition as a TODO too.
+HOW_WITH_THE_DATE_PARTITION = (
+    "write_table_reference wrote this file from the table's DESCRIBE and SHOW PARTITIONS. The "
+    "table's first partition, {first}, holds no day, so it left the Date partition as a TODO "
+    "too. Its four TODO lines were then filled in by hand: this docstring's first line, the "
+    "Date partition, {column}, with the way it writes its days, the key, and does_not_add_up."
+)
+TODO_DATE_PARTITION = "    date_partition=None,  # TODO: "
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"
 
 
 class TodoMissing(RuntimeError):
     """A TODO line FILLED_IN fills in isn't in the file write_table_reference wrote."""
+
+
+class EditMissing(RuntimeError):
+    """The line REVIEWED_EDIT undoes isn't in the Building block it names."""
 
 
 def table_reference_name(table: str) -> str:
@@ -115,15 +167,19 @@ def project_files(folder: Path) -> list[str]:
 
 
 def filled_in(text: str, table: str, filling: dict) -> str:
-    """A Table reference with its three TODO lines replaced by what a user writes there."""
+    """A Table reference with its TODO lines replaced by what a user writes there."""
+    partition = filling.get("date_partition")
+    how = HOW_WITH_THE_DATE_PARTITION.format(**partition) if partition else HOW
     replacements = [
         (f'"""{table} - TODO: say in one line what one row is."""',
-         f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(HOW)}\n"""'),
+         f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(how)}\n"""'),
         ('    key=None,  # TODO: the columns that pick out one row, such as key=',
          f"    key={_python_list(filling['key'])},  {BY_HAND}"),
         ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
          _does_not_add_up_line(filling["does_not_add_up"])),
     ]
+    if partition:
+        replacements.append((TODO_DATE_PARTITION, _date_partition_lines(partition)))
     lines = text.split("\n")
     for todo, written in replacements:
         found = [index for index, line in enumerate(lines) if line.startswith(todo)]
@@ -153,6 +209,16 @@ def _does_not_add_up_line(columns: dict) -> str:
         what = " and ".join(f"{column} is {kind}" for column, kind in columns.items())
         why = f"summing these gives a wrong total, since {what}"
     return f"    {BY_HAND}: {why}\n    does_not_add_up={_python_list(columns)},"
+
+
+def _date_partition_lines(partition: dict) -> str:
+    """The date_partition and date_format lines, under a comment saying why they hold what they
+    hold."""
+    return (f"    {BY_HAND}: {partition['first']}, the first partition, holds no day; "
+            f"{partition['column']} holds the days,\n"
+            f"    # written like {partition['written_like']}\n"
+            f'    date_partition="{partition["column"]}",\n'
+            f'    date_format="{partition["date_format"]}",')
 
 
 def _write_with_unix_endings(path: Path) -> None:
@@ -185,11 +251,45 @@ def write_here(project: str, edition_asked: editions.Edition) -> None:
     lineage._now = lambda: PINNED_TIME
     lineage.scripts_commit = lambda _scripts_folder: PINNED_COMMIT
     lineage._version = lambda: f"{edition.PRODUCT} {edition.TOOLBOX_VERSION}"
+    if project in REVIEWED_EDIT:
+        write_review_before_the_edit(folder, REVIEWED_EDIT[project])
     import run_pipeline
 
     run_pipeline.write_lineage_files(run_pipeline.DAY)
     for path in (folder / LINEAGE).iterdir():
         _write_with_unix_endings(path)
+
+
+def write_review_before_the_edit(folder: Path, edit: dict) -> None:
+    """Write the lineage review's "before" file, from a copy of the project with the edit undone.
+
+    The copy's scripts are imported first, then put away, so the project's own are imported
+    afresh after.
+    """
+    names = {relative.split("/")[0].removesuffix(".py") for relative in project_files(folder)
+             if relative.endswith(".py")}
+    with tempfile.TemporaryDirectory() as temporary:
+        copy = Path(temporary) / folder.name
+        shutil.copytree(folder, copy, ignore=shutil.ignore_patterns(LINEAGE, "__pycache__"))
+        edited = copy / edit["file"]
+        text = edited.read_text(encoding="utf-8")
+        if text.count(edit["after"]) != 1:
+            raise EditMissing(
+                f"{edit['file']} has {text.count(edit['after'])} lines {edit['after']!r}, where "
+                "the lineage review undoes one. Change REVIEWED_EDIT in "
+                "tools/example_project.py, and the README's review section, to match the file."
+            )
+        edited.write_text(text.replace(edit["after"], edit["before"]), encoding="utf-8")
+        sys.path.insert(0, str(copy))
+        try:
+            import run_pipeline
+
+            run_pipeline.write_lineage_review(run_pipeline.DAY,
+                                              to=folder / LINEAGE / REVIEW_BEFORE)
+        finally:
+            sys.path.remove(str(copy))
+            for name in [name for name in sys.modules if name.split(".")[0] in names]:
+                del sys.modules[name]
 
 
 # --- In the Python you run -------------------------------------------------------------------
