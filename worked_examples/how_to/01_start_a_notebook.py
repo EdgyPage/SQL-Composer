@@ -101,8 +101,8 @@ columns you want, `FROM` a table, and keep only some rows with `WHERE`. `WHERE` 
 only if every condition in it holds. This Statement finds the runs that failed.
 
 `job_runs.dt` is the table's Date partition: the day each row belongs to. The warehouse stores
-such a table a day at a time, so the Toolbox has a rule: every Statement gives the first and
-the last day it reads, here with `between`.
+such a table a day at a time, so every Statement must give the first and the last day it
+reads, here with `between`: a Load limit refuses one that doesn't.
 
 >>> failed = statement(
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
