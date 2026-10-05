@@ -9,7 +9,8 @@ in `composer_core/`, the Composer core, which is written once. Each Toolbox file
 - an Edition file, written by hand in each Edition's folder: `__init__.py` checks both folders
   and plugs the other two into the core, `writing.py` turns a Statement into Hive, and
   `engine.py` checks the library and runs the Example database;
-- the Example gallery page, which `tools/example_gallery.py` writes for each Edition.
+- a page each Edition's folder holds: the Example gallery, which `tools/example_gallery.py`
+  writes, and the how-to page, which `tools/how_to_page.py` writes.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
 and `imports_outside` lists every import that breaks it.
@@ -82,7 +83,7 @@ EDITION_INTERFACE = {
         "run_query": ["text", "tables"],
     },
 }
-PAGES = ("examples.html",)
+PAGES = ("examples.html", "how_to.html")
 
 # What every Toolbox file may import, besides the standard library and its own folder.
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
