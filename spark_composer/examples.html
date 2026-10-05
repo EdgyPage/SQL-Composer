@@ -26,9 +26,9 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 <h1>Spark Composer 3.2: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
 63 examples from the Toolbox's docstrings. Each shows its Python and, for each
-Statement it builds, the Hive and any result: from the Example database, the three made-up
-tables that ship inside the Toolbox. Press Ctrl+F to search the page.</p>
-<p>The examples take today as 2026-09-25, the day after the Example database's two days, so
+Statement it builds, the Hive and any result: from the Example database, the made-up tables
+that ship inside the Toolbox. Press Ctrl+F to search the page.</p>
+<p>The examples take today as 2026-09-25, the day after the Example database's last day, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
@@ -2435,8 +2435,11 @@ GROUP BY
 </section>
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
-<p class="why">The Example database: three made-up tables, and a send to run Statements on.</p>
-<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
+<p class="why">The Example database: six made-up tables, and a send to run Statements on.</p>
+<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, with rows on two days, 2026-09-23 and 2026-09-24, and three more with rows on 14 days, 2026-09-11 to 2026-09-24:</p>
+<ul><li><code>job_events</code>: each job&#x27;s events each day, start, finish, retry and fail;</li><li><code>job_owners</code>: one row per job per day, with its team and owner, so you can see report_build move from data to finance on 2026-09-18;</li><li><code>region_costs</code>: each job&#x27;s cost in cents each day, partitioned by region (&quot;eu&quot; or &quot;us&quot;, where the job is billed, not the jobs table&#x27;s LON, PAR or NYC), then by day, with days written like 20260911 rather than 2026-09-11.</li></ul>
+<p>These three keep a record of their own: they have no run_id, and don&#x27;t match job_runs run for run.</p>
+<p><code>send</code> runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
 <p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(

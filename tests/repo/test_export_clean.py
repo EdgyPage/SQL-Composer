@@ -123,7 +123,7 @@ def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> Non
 
 def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) -> None:
     section = readme(clean).split("### `example_database.py`\n", 1)[1]
-    assert section.count("The Example database: three made-up tables") == 1
+    assert section.count("The Example database: six made-up tables") == 1
 
 
 def exported_files() -> list[str]:
