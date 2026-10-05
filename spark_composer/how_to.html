@@ -41,9 +41,10 @@ then what it gives: its Hive (ready to paste into another program), its result o
 database, or a file it writes. The Example database is six made-up tables that ship inside the
 Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
-2026-09-24 (its newer tables hold 14 days), and the steps here were run as if today were
-2026-09-25. In your own notebook, <code>last_n_days</code> counts back from your real today and
-finds no rows on the Example database: write <code>between</code> with the dates instead.</p>
+2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
+run as if today were 2026-09-25. Where a step uses <code>last_n_days</code>, it counts back from
+your real today, so in your own notebook it finds no rows on the Example database: write
+<code>between</code> with the dates instead.</p>
 <p>The <a href="examples.html">Example gallery</a>, beside this page in the
 <code>spark_composer</code> folder, holds every Worked example, and the how-tos link to it.</p>
 </header>
@@ -72,9 +73,9 @@ finds no rows on the Example database: write <code>between</code> with the dates
 <p>At the top of every notebook, or script, that writes Hive with the Toolbox. Its first cell imports the Toolbox and writes <code>send</code>; every cell after it builds Statements and runs them.</p>
 <h4>Steps</h4>
 <h5>Put the two folders beside your notebook</h5>
-<p>The Toolbox is two folders: <code>composer_core</code>, the code both Editions share, and <code>spark_composer</code>, this Edition&#x27;s own. Copy both, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
+<p>The Toolbox is two folders: <code>composer_core</code>, the code both Editions share, and <code>spark_composer</code>, this Edition&#x27;s own. Copy both from the Toolbox you downloaded, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
 <h5>Import the Toolbox</h5>
-<p>One line imports every Toolbox name: <code>statement</code>, the clause functions such as <code>SELECT</code>, <code>FROM</code> and <code>WHERE</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, and the rest.</p>
+<p>One line imports every Toolbox name: <code>statement</code>, the clause functions such as <code>SELECT</code>, <code>FROM</code> and <code>WHERE</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, and the rest.</p>
 <pre class="python">from spark_composer import *</pre>
 <p>If the import stops instead, its message says what happened, why it matters and the usual fix. Most often a file or a folder is missing, or the two folders come from different downloads.</p>
 <h5>Write your send</h5>
@@ -117,7 +118,7 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
-<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own; it prints the Hive just once. After you build each Statement, call <code>show_hive</code> on it to read what will run.</p>
+<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own: it prints the Hive once, and the text it gives back isn&#x27;t shown a second time. After you build each Statement, call <code>show_hive</code> on it to read what will run.</p>
 <h5>Run it</h5>
 <p><code>run</code> turns the Statement into Hive, hands it to a send, and gives back the DataFrame the send returns. Here the Example database&#x27;s send runs it:</p>
 <pre class="python">run(failed, send=example_database.send)</pre>
@@ -135,7 +136,7 @@ isinstance(result, pd.DataFrame)</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
 <pre class="python">len(result)</pre>
 <p class="label">Python shows</p><pre class="output">2</pre>
-<p>At work, try your own send on its own, with a query that reads no table, such as <code>send(&quot;SELECT 1 AS one&quot;)</code>. A working send gives back a pandas DataFrame with one column, named <code>&quot;one&quot;</code>, like this one, which the Example database&#x27;s send gives:</p>
+<p>At work, try your own send on its own, with a query that reads no table, such as <code>send(&quot;SELECT 1 AS one&quot;)</code>. A working send gives back a pandas DataFrame with one column, named <code>&quot;one&quot;</code>. The Example database&#x27;s send shows what to expect:</p>
 <pre class="python">example_database.send(&quot;SELECT 1 AS one&quot;)</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>one</th></tr>
@@ -144,7 +145,7 @@ isinstance(result, pd.DataFrame)</pre>
 <h4>Common mistakes</h4>
 <h5>A send that gives back the wrong thing</h5>
 <div class="only">
-<p><code>spark.sql(hive)</code> gives back Spark&#x27;s own DataFrame, which hasn&#x27;t fetched its rows yet. A send that leaves out <code>.toPandas()</code> hands that to <code>run</code>, which stops: there are no rows yet to count or read. Your own <code>spark</code> isn&#x27;t in this notebook, so a stand-in plays its DataFrame here; like Spark&#x27;s, it has a <code>toPandas</code> method:</p>
+<p><code>spark.sql(hive)</code> gives back Spark&#x27;s own DataFrame, which hasn&#x27;t fetched its rows yet. A send that leaves out <code>.toPandas()</code> hands that to <code>run</code>, which stops: there are no rows yet to count or read. Your own <code>spark</code> isn&#x27;t in this notebook, so a stand-in plays its DataFrame here; like Spark&#x27;s, it has a <code>toPandas</code> method, which is how <code>run</code> knows it is Spark&#x27;s:</p>
 <pre class="python">class SparkDataFrame:
     def toPandas(self):
         return pd.DataFrame()
@@ -169,7 +170,7 @@ run(failed, send=send_without_to_pandas)</pre>
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
   Opt-out:        FROM(job_runs, reads_all_partitions=True)</pre>
-<p>Give the days as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does. The message&#x27;s opt-out reads every day: leave it for a small table you truly need whole.</p>
+<p>Give the days as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does. The message&#x27;s Opt-out, <code>reads_all_partitions=True</code>, reads every day: use it only for a small table you truly need whole.</p>
 <h5>Importing both Editions</h5>
 <div class="only">
 <p>Use one Edition in a notebook. After <code>from spark_composer import *</code>, a second import line <code>from sqlglot_composer import *</code> stops with a message: the two Editions share <code>composer_core</code>, which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in any of your own .py files it imports, then restart the notebook&#x27;s kernel.</p>
