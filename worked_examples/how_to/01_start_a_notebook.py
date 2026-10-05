@@ -259,8 +259,11 @@ any of your own .py files it imports, then restart the notebook's kernel.
 
 ## Next
 
-- Read one of your own tables: [`write_table_reference`](examples.html#write_table_reference)
-  reads a table's columns through your send and writes its Table reference for you.
+- Read one of your own tables: `write_table_reference` reads a table's columns through your
+  send and writes its Table reference for you, in
+  [Import a table's column names programmatically](#import_column_names).
+- Build a Statement a clause at a time, then paste its Hive into another program:
+  [Build a first Statement and paste its Hive](#build_a_first_statement).
 - Build Statements of your own from the [Example gallery](examples.html), which has a Worked
   example for every Toolbox name, such as [`statement`](examples.html#statement),
   [`run`](examples.html#run) and [`show_hive`](examples.html#show_hive).

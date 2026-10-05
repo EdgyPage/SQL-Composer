@@ -57,6 +57,14 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <p><b><a href="#getting-started">Getting started</a></b>: your first notebooks: from one Statement to a daily pipeline and its Lineage.</p>
 <ul>
 <li data-for="start_a_notebook"><a href="#start_a_notebook">1. Start a notebook</a></li>
+<li data-for="import_column_names"><a href="#import_column_names">2. Import a table&#x27;s column names programmatically</a></li>
+<li data-for="describe_a_table_by_hand"><a href="#describe_a_table_by_hand">3. Describe a table by hand</a></li>
+<li data-for="build_a_first_statement"><a href="#build_a_first_statement">4. Build a first Statement and paste its Hive</a></li>
+<li data-for="filter_rows"><a href="#filter_rows">5. Filter rows</a></li>
+<li data-for="count_and_add_up_per_group"><a href="#count_and_add_up_per_group">6. Count and add up per group</a></li>
+<li data-for="join_tables_safely"><a href="#join_tables_safely">7. Join tables safely</a></li>
+<li data-for="reusable_derived_tables"><a href="#reusable_derived_tables">8. Reusable Derived tables (WITH ... AS in the Hive)</a></li>
+<li data-for="latest_row_per_key"><a href="#latest_row_per_key">9. The latest row per key, and the top N per group</a></li>
 </ul>
 </div>
 <div>
@@ -191,8 +199,1951 @@ run(failed, send=send_without_column_names)</pre>
 <p>Use one Edition in a notebook. After <code>from sqlglot_composer import *</code>, a second import line <code>from spark_composer import *</code> stops with a message: the two Editions share <code>composer_core</code>, which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in any of your own .py files it imports, then restart the notebook&#x27;s kernel.</p>
 </div>
 <h4>Next</h4>
-<ul><li>Read one of your own tables: <a href="examples.html#write_table_reference"><code>write_table_reference</code></a> reads a table&#x27;s columns through your send and writes its Table reference for you.</li><li>Build Statements of your own from the <a href="examples.html">Example gallery</a>, which has a Worked example for every Toolbox name, such as <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#run"><code>run</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a>.</li><li>See a job built step by step, each step&#x27;s Hive shown, in the gallery&#x27;s <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
+<ul><li>Read one of your own tables: <code>write_table_reference</code> reads a table&#x27;s columns through your send and writes its Table reference for you, in <a href="#import_column_names">Import a table&#x27;s column names programmatically</a>.</li><li>Build a Statement a clause at a time, then paste its Hive into another program: <a href="#build_a_first_statement">Build a first Statement and paste its Hive</a>.</li><li>Build Statements of your own from the <a href="examples.html">Example gallery</a>, which has a Worked example for every Toolbox name, such as <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#run"><code>run</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a>.</li><li>See a job built step by step, each step&#x27;s Hive shown, in the gallery&#x27;s <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="import_column_names">
+<h3>2. Import a table&#x27;s column names programmatically <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Get every column of a table, its name and its Hive type, into your notebook without typing them. <code>write_table_reference</code> asks the table itself and writes its Table reference, a small .py file describing the table. You fill in what it can&#x27;t know, check the file against the table, and then build Statements from its columns: all of them at once, or the ones a list of names picks.</p>
+<h4>When you&#x27;d use it</h4>
+<p>The first time you read a table at work. A Statement reads a table through its Table reference, so every table you read needs one, and a table with forty columns is forty chances to mistype a name or a type. Generate it instead, then keep the file beside your notebook, for every notebook that reads the table.</p>
+<p>A table that doesn&#x27;t exist yet, such as a Saved table you are about to create, has nothing to ask: describe it by hand, as <a href="#describe_a_table_by_hand">Describe a table by hand</a> shows.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from sqlglot_composer import *</pre>
+<p>Every step here passes <code>send=example_database.send</code>, the Example database&#x27;s own send. At work, pass your own send, from <a href="#start_a_notebook">Start a notebook</a>, and name your own tables.</p>
+<h5>See what the table says about itself</h5>
+<p>A table in the warehouse can describe itself. The Hive command DESCRIBE lists its columns and their types, and SHOW PARTITIONS lists the days it holds. Neither reads a single row, so both are quick on the biggest table. Here is what DESCRIBE says of <code>ops.run_alerts</code>, sent straight through the Example database&#x27;s send:</p>
+<pre class="python">example_database.send(&quot;DESCRIBE ops.run_alerts&quot;)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>col_name</th><th>data_type</th><th>comment</th></tr>
+<tr><td>alert_id</td><td>bigint</td><td></td></tr>
+<tr><td>run_id</td><td>bigint</td><td></td></tr>
+<tr><td>severity</td><td>string</td><td>low / high</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+<tr><td></td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td># Partition Information</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
+<tr><td># col_name</td><td>data_type</td><td>comment</td></tr>
+<tr><td>dt</td><td>string</td><td></td></tr>
+</table></div>
+<p>The first four rows are its columns. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
+<h5>Write one table&#x27;s Table reference</h5>
+<p><code>write_table_reference</code> sends those two commands through your send and turns what comes back into a Table reference file. It writes the file in the folder your notebook runs in, named after the table, and gives back the file&#x27;s path:</p>
+<pre class="python">path = write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
+<p class="label">It writes job_runs.py</p>
+<pre class="python">&quot;&quot;&quot;ops.job_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+job_runs = Table(
+    &quot;ops.job_runs&quot;,
+    columns={
+        &quot;run_id&quot;: &quot;bigint&quot;,
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;status&quot;: &quot;string&quot;,  # SUCCESS / FAILED / TEST, NULL while running
+        &quot;duration_mins&quot;: &quot;int&quot;,
+        &quot;avg_retry_secs&quot;: &quot;double&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    date_partition=&quot;dt&quot;,
+    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;run_id&quot;]
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)</pre>
+<pre class="python">path.name</pre>
+<p class="label">Python shows</p><pre class="output">&#x27;job_runs.py&#x27;</pre>
+<p>Read the file it wrote. It imports <code>Table</code>, then makes one variable, <code>job_runs</code>, named like the file:</p>
+<ul><li><code>columns</code> holds every column and its type, and a column&#x27;s comment in the warehouse comes along as a <code>#</code> comment, such as status&#x27;s <code>SUCCESS / FAILED / TEST, NULL while running</code>;</li><li><code>date_partition=&quot;dt&quot;</code> comes from <code>SHOW PARTITIONS</code>;</li><li>three lines say TODO: the description on the first line, <code>key=None</code> and <code>does_not_add_up=[]</code>. The table can&#x27;t tell anyone those, so the file leaves them to you.</li></ul>
+<h5>Write several in a loop</h5>
+<p><code>write_table_reference</code> is a plain function, so a Python <code>for</code> loop writes one file per table in a list:</p>
+<pre class="python">for name in [&quot;ops.jobs&quot;, &quot;ops.run_alerts&quot;]:
+    path = write_table_reference(name, send=example_database.send)
+    print(path.name)</pre>
+<p class="label">Python prints</p><pre class="output">jobs.py
+run_alerts.py</pre>
+<p class="label">It writes jobs.py</p>
+<pre class="python">&quot;&quot;&quot;ops.jobs - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+jobs = Table(
+    &quot;ops.jobs&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;job_name&quot;: &quot;string&quot;,
+        &quot;team&quot;: &quot;string&quot;,
+        &quot;region&quot;: &quot;string&quot;,
+    },
+    date_partition=None,
+    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)</pre>
+<p class="label">It writes run_alerts.py</p>
+<pre class="python">&quot;&quot;&quot;ops.run_alerts - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+run_alerts = Table(
+    &quot;ops.run_alerts&quot;,
+    columns={
+        &quot;alert_id&quot;: &quot;bigint&quot;,
+        &quot;run_id&quot;: &quot;bigint&quot;,
+        &quot;severity&quot;: &quot;string&quot;,  # low / high
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    date_partition=&quot;dt&quot;,
+    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;alert_id&quot;]
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)</pre>
+<p>Each file, and the variable in it, is named after the part of the table&#x27;s name after the dot: <code>ops.jobs</code> gives jobs.py, holding a variable named jobs. A table named like a word Python keeps for itself, such as class, or like a module Python already has, such as calendar or pandas, gets t_ in front: <code>ops.calendar</code> would give t_calendar.py, holding t_calendar, because <code>import calendar</code> would bring in Python&#x27;s own calendar module, not your file.</p>
+<h5>Fill in the TODOs</h5>
+<p>Open job_runs.py in your editor and replace the three TODO lines. This is the file with them filled in; nothing else changes:</p>
+<pre class="python">&quot;&quot;&quot;ops.job_runs - one row per run of a job.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+job_runs = Table(
+    &quot;ops.job_runs&quot;,
+    columns={
+        &quot;run_id&quot;: &quot;bigint&quot;,
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;status&quot;: &quot;string&quot;,  # SUCCESS / FAILED / TEST, NULL while running
+        &quot;duration_mins&quot;: &quot;int&quot;,
+        &quot;avg_retry_secs&quot;: &quot;double&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    date_partition=&quot;dt&quot;,
+    key=[&quot;run_id&quot;],
+    does_not_add_up=[&quot;avg_retry_secs&quot;],
+)</pre>
+<ul><li>The first line says, in your own words, what one row is.</li><li><code>key=</code> lists the columns that pick out one row. Every run has its own <code>job_runs.run_id</code>, so it is <code>key=[&quot;run_id&quot;]</code>. Ask whoever owns the table if you aren&#x27;t sure: <code>check_key</code>, below, checks it. JOIN uses the key to warn you when a join would repeat rows.</li><li><code>does_not_add_up=</code> lists the columns that are averages, ratios or counts of different values. <code>job_runs.avg_retry_secs</code> is each run&#x27;s average wait between retries: adding up two runs&#x27; averages gives a number that means nothing, so the Toolbox refuses to add it up once it is listed here.</li></ul>
+<p>Then import the file in your notebook, as you import any of your own .py files:</p>
+<pre class="python">from job_runs import job_runs</pre>
+<p>The Example database ships this same Table reference, filled in the same way, so the steps here use its copy:</p>
+<pre class="python">job_runs = example_database.job_runs</pre>
+<h5>Check the file against the table</h5>
+<p><code>check_table_reference</code> asks the table for its columns again and compares them with the file. Run it after you edit a Table reference, and whenever the table may have changed:</p>
+<pre class="python">check_table_reference(job_runs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.job_runs matches its Table reference.</pre>
+<p>When something differs, it lists each problem with the line to change in the file. It never edits the file itself.</p>
+<h5>Check the key you wrote</h5>
+<p>The warehouse never checks a key: nothing stops two rows sharing one <code>job_runs.run_id</code>. <code>check_key</code> counts the rows for each key on the newest day the table holds, and lists any key that repeats:</p>
+<pre class="python">check_key(job_runs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
+<h5>Take a first look at the rows</h5>
+<p><code>first_look</code> builds an ordinary Statement that reads every column and 20 rows of yesterday, here 2026-09-24, so it is safe to run on a big table. <code>show_hive</code> prints its Hive, and <code>run</code> runs it:</p>
+<pre class="python">text = show_hive(first_look(job_runs))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  job_runs.status,
+  job_runs.duration_mins,
+  job_runs.avg_retry_secs,
+  job_runs.dt
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;
+LIMIT 20;</pre>
+<pre class="python">run(first_look(job_runs), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>101</td><td>1</td><td>SUCCESS</td><td>10</td><td>1.0</td><td>2026-09-24</td></tr>
+<tr><td>102</td><td>2</td><td>FAILED</td><td>20</td><td>6.0</td><td>2026-09-24</td></tr>
+<tr><td>103</td><td>3</td><td>SUCCESS</td><td>30</td><td>0.0</td><td>2026-09-24</td></tr>
+<tr><td>104</td><td>1</td><td>SUCCESS</td><td>40</td><td>3.0</td><td>2026-09-24</td></tr>
+</table></div>
+<h5>Build a SELECT from every column</h5>
+<p><code>all_columns</code> gives a Table reference&#x27;s columns as a Python list, in the table&#x27;s order:</p>
+<pre class="python">all_columns(job_runs)</pre>
+<p class="label">Python shows</p><pre class="output">[job_runs.run_id, job_runs.job_id, job_runs.status, job_runs.duration_mins, job_runs.avg_retry_secs, job_runs.dt]</pre>
+<p><code>SELECT</code> takes a list as well as single columns, so <code>SELECT(all_columns(job_runs))</code> asks for every column by name. Hive&#x27;s <code>SELECT *</code> would ask for whatever the table holds on the day it runs, so a column added later would quietly change your result; a list of names doesn&#x27;t.</p>
+<pre class="python">every_column = statement(
+    SELECT(all_columns(job_runs)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-23&quot;)),
+)
+run(every_column, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th><th>avg_retry_secs</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>SUCCESS</td><td>12</td><td>2.0</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td><td>18</td><td>0.0</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td><td>8.0</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
+</table></div>
+<h5>Build a SELECT from a list of column names</h5>
+<p>Each column of a Table reference is one of its attributes, such as <code>job_runs.status</code>. When the names you want come as text, from a list in your settings or from another table&#x27;s columns, the built-in Python function <code>getattr</code> takes the attribute by its name, so the list of names becomes a list of columns:</p>
+<pre class="python">wanted = [&quot;run_id&quot;, &quot;status&quot;, &quot;duration_mins&quot;]
+columns = [getattr(job_runs, name) for name in wanted]
+columns</pre>
+<p class="label">Python shows</p><pre class="output">[job_runs.run_id, job_runs.status, job_runs.duration_mins]</pre>
+<pre class="python">chosen = statement(
+    SELECT(columns),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-23&quot;)),
+)
+text = show_hive(chosen)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-23&#x27;;</pre>
+<p>A name that isn&#x27;t one of the table&#x27;s columns stops the list at once: see Common mistakes.</p>
+<h4>Check it worked</h4>
+<p>The three Table reference files are in the folder your notebook runs in:</p>
+<pre class="python">from pathlib import Path
+sorted(file.name for file in Path(&quot;.&quot;).glob(&quot;*.py&quot;))</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;job_runs.py&#x27;, &#x27;jobs.py&#x27;, &#x27;run_alerts.py&#x27;]</pre>
+<p>The TODOs in each are filled in, and both checks pass for each table you read:</p>
+<pre class="python">check_table_reference(job_runs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.job_runs matches its Table reference.</pre>
+<pre class="python">check_key(job_runs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
+<h4>Common mistakes</h4>
+<h5>A column name the table doesn&#x27;t have</h5>
+<p>A Table reference is there so you never type a column&#x27;s name as text. A misspelt column stops the line it is on, and lists the columns the table has:</p>
+<pre class="python">job_runs.stauts</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">AttributeError:
+job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;status&#x27;? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.</pre>
+<p>A name in a list you pass to <code>getattr</code> is checked the same way:</p>
+<pre class="python">columns = [getattr(job_runs, name) for name in [&quot;run_id&quot;, &quot;duration&quot;]]</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">AttributeError:
+job_runs has no column &#x27;duration&#x27;. Did you mean &#x27;duration_mins&#x27;? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.</pre>
+<p>Copy the name from the list the message gives, here <code>&quot;duration_mins&quot;</code>.</p>
+<h5>Adding up a column that doesn&#x27;t add up</h5>
+<p>With <code>job_runs.avg_retry_secs</code> listed in <code>does_not_add_up=</code>, a total of it stops as you build it, before anything runs:</p>
+<pre class="python">total_wait = statement(
+    SELECT(AS(sum_of(job_runs.avg_retry_secs), &quot;wait&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is listed in does_not_add_up in its Table reference.
+  Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
+  Usual fix:      It could be an average, a ratio or a distinct count, so work it out again from the table it was made from. For an average or a ratio, add up its two parts and divide after your own GROUP_BY. For a distinct count, count again with count_distinct(...).
+  Opt-out:        sum_of(job_runs.avg_retry_secs, adds_up=True)</pre>
+<p>If you leave <code>does_not_add_up=[]</code> empty, nothing stops it, and the total means nothing.</p>
+<h5>Writing a Table reference that is already there</h5>
+<p><code>write_table_reference</code> never overwrites a file: once written, the file is yours, and rewriting it would lose the key and the notes you added. Run a second time for the same table, it stops and says the file already exists. Edit the file instead, and run <code>check_table_reference</code> to see what has changed in the table since.</p>
+<h5>A key that doesn&#x27;t pick out one row</h5>
+<p>The table ops.run_alerts has a run_id column too, and a run can raise several alerts. A key of <code>[&quot;run_id&quot;]</code> looks right, but <code>check_key</code> shows the run_ids that repeat:</p>
+<pre class="python">wrong_key = Table(
+    &quot;ops.run_alerts&quot;,
+    columns={&quot;alert_id&quot;: &quot;bigint&quot;, &quot;run_id&quot;: &quot;bigint&quot;, &quot;severity&quot;: &quot;string&quot;,
+             &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;run_id&quot;],
+)
+check_key(wrong_key, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.run_alerts: the key (run_id) repeats on 2026-09-24. Keys with more than one row:
+ run_id  copies
+    101       3
+    103       2</pre>
+<p>Its key is <code>[&quot;alert_id&quot;]</code>: one row per alert.</p>
+<h4>Next</h4>
+<ul><li>Describe a Saved table that doesn&#x27;t exist yet, by hand: <a href="#describe_a_table_by_hand">Describe a table by hand</a>.</li><li>Build your first Statement on the table and paste its Hive into another program: <a href="#build_a_first_statement">Build a first Statement and paste its Hive</a>.</li><li>Each function here has a Worked example in the gallery: <a href="examples.html#write_table_reference"><code>write_table_reference</code></a>, <a href="examples.html#check_table_reference"><code>check_table_reference</code></a>, <a href="examples.html#check_key"><code>check_key</code></a>, <a href="examples.html#first_look"><code>first_look</code></a> and <a href="examples.html#all_columns"><code>all_columns</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>write_table_reference</code>, <code>first_look</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="describe_a_table_by_hand">
+<h3>3. Describe a table by hand <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Write a Table reference yourself, one argument at a time, for a table <code>write_table_reference</code> can&#x27;t ask about. Here it is mart.job_day, a Saved table you are about to create, with one row per job per day. Along the way you see what each argument of <code>Table</code> is for: the columns and their types, <code>date_partition=</code>, <code>key=</code>, <code>does_not_add_up=</code>, and <code>date_format=</code> for a table whose days are written another way.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>Before you create a Saved table. It doesn&#x27;t exist yet, so there is nothing to ask: <code>create_table</code> makes the table from the Table reference you write here.</li><li>When you know a table better than the warehouse does: its key and the columns that don&#x27;t add up are never in its description, so even a generated Table reference needs your hand, as <a href="#import_column_names">Import a table&#x27;s column names programmatically</a> shows.</li></ul>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from sqlglot_composer import *</pre>
+<h5>Decide what one row is</h5>
+<p>Before you write anything, say in one sentence what one row of the table is. For mart.job_day it is &quot;one job on one day&quot;: how many times the job ran that day, how many of those runs failed, their minutes in all, and the average minutes of a run. Each of those becomes a column, and the sentence decides the key.</p>
+<h5>Write the Table reference</h5>
+<p>A Table reference is one call to <code>Table</code>:</p>
+<pre class="python">job_day = Table(
+    &quot;mart.job_day&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;runs&quot;: &quot;bigint&quot;,
+        &quot;failed_runs&quot;: &quot;bigint&quot;,
+        &quot;minutes&quot;: &quot;bigint&quot;,
+        &quot;avg_minutes&quot;: &quot;double&quot;,  # minutes / runs: the average run that day
+        &quot;dt&quot;: &quot;string&quot;,  # the day of the runs, as 2026-09-24
+    },
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+    does_not_add_up=[&quot;avg_minutes&quot;],
+)
+job_day</pre>
+<p class="label">Python shows</p><pre class="output">Table(&#x27;mart.job_day&#x27;, columns: job_id, runs, failed_runs, minutes, avg_minutes, dt)</pre>
+<p>What each argument says:</p>
+<ul><li><code>&quot;mart.job_day&quot;</code> is the table&#x27;s name as the warehouse knows it: the database, a dot, then the table.</li><li><code>columns=</code> maps each column&#x27;s name to its Hive type, spelled as DESCRIBE prints it: <code>&quot;bigint&quot;</code> for whole numbers, <code>&quot;string&quot;</code> for text, <code>&quot;double&quot;</code> for numbers with a decimal point, <code>&quot;decimal(10,2)&quot;</code> for exact amounts such as money. The Toolbox checks the values you compare a typed column with, so <code>equals(job_day.runs, &quot;3&quot;)</code> stops, since <code>&quot;3&quot;</code> is text.</li><li><code>date_partition=&quot;dt&quot;</code> names the one column the table is split into days by. The warehouse stores a day at a time, and every Statement that reads the table must give its first and last day. A table with no days, such as <code>ops.jobs</code>, says <code>date_partition=None</code>. It is the one argument you can&#x27;t leave out.</li><li><code>key=[&quot;job_id&quot;, &quot;dt&quot;]</code> lists the columns that pick out one row. A job has a row on every day, so <code>job_day.job_id</code> alone repeats; the job and the day together pick out one row. JOIN reads the key to warn you when a join could repeat rows.</li><li><code>does_not_add_up=[&quot;avg_minutes&quot;]</code> lists the columns that are averages, ratios or counts of different values. Adding up two days&#x27; averages gives a number that means nothing, so the Toolbox refuses to add these up.</li><li>There is no <code>date_format=</code>: its days are written like 2026-09-24, the usual way. The step after next shows a table whose days are written another way.</li></ul>
+<h5>Keep it in a file</h5>
+<p>Save the Table reference as job_day.py, beside your notebook, so every notebook and script that reads the table imports the same one:</p>
+<pre class="python">&quot;&quot;&quot;mart.job_day - one row per job and day: runs, failed runs, minutes and the average.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+job_day = Table(
+    &quot;mart.job_day&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;runs&quot;: &quot;bigint&quot;,
+        &quot;failed_runs&quot;: &quot;bigint&quot;,
+        &quot;minutes&quot;: &quot;bigint&quot;,
+        &quot;avg_minutes&quot;: &quot;double&quot;,  # minutes / runs: the average run that day
+        &quot;dt&quot;: &quot;string&quot;,  # the day of the runs, as 2026-09-24
+    },
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+    does_not_add_up=[&quot;avg_minutes&quot;],
+)</pre>
+<p>Then, in a notebook:</p>
+<pre class="python">from job_day import job_day</pre>
+<h5>Read it in a Statement</h5>
+<p>A hand-written Table reference works exactly like a generated one. Its columns are its attributes, and a Statement reads it with <code>FROM</code>:</p>
+<pre class="python">long_days = statement(
+    SELECT(job_day.job_id, job_day.dt, job_day.minutes),
+    FROM(job_day),
+    WHERE(between(job_day.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;), at_least(job_day.minutes, 30)),
+)
+text = show_hive(long_days)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_day.job_id,
+  job_day.dt,
+  job_day.minutes
+FROM mart.job_day AS job_day
+WHERE
+  job_day.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_day.minutes &gt;= 30;</pre>
+<p>The table mart.job_day isn&#x27;t on the Example database, so this how-to shows its Hive but can&#x27;t run it. At work, once the table exists and holds some days, <code>run</code> runs it with your own send.</p>
+<h5>A table whose days are written another way</h5>
+<p>The Toolbox expects a Date partition&#x27;s days written like 2026-09-24. Some tables write them like 20260924 instead. The Example database&#x27;s <code>ops.region_costs</code>, each job&#x27;s cost in cents per day, is one. Its Table reference says how, with <code>date_format=</code>:</p>
+<pre class="python">region_costs = Table(
+    &quot;ops.region_costs&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;cost_cents&quot;: &quot;bigint&quot;, &quot;region&quot;: &quot;string&quot;,
+             &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    date_format=&quot;%Y%m%d&quot;,
+    key=[&quot;job_id&quot;, &quot;region&quot;, &quot;dt&quot;],
+)</pre>
+<p><code>&quot;%Y%m%d&quot;</code> uses the codes of Python&#x27;s own <code>datetime.strftime</code>: <code>&quot;%Y&quot;</code> is the year, <code>&quot;%m&quot;</code> the month and <code>&quot;%d&quot;</code> the day, with nothing between them. The pattern must put the year first, then the month, then the day: Hive compares the days as text, and only days written year first sort in date order.</p>
+<p>You then write each day the table&#x27;s way:</p>
+<pre class="python">costs = statement(
+    SELECT(region_costs.job_id, region_costs.cost_cents),
+    FROM(region_costs),
+    WHERE(equals(region_costs.dt, &quot;20260923&quot;)),
+)
+run(costs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>cost_cents</th></tr>
+<tr><td>1</td><td>120</td></tr>
+<tr><td>2</td><td>180</td></tr>
+</table></div>
+<p>Or pass a <code>datetime.date</code>, which the Toolbox writes the table&#x27;s way for you, so the same Python works on tables that write their days differently:</p>
+<pre class="python">import datetime
+two_days = statement(
+    SELECT(region_costs.job_id, region_costs.cost_cents),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, datetime.date(2026, 9, 23),
+                  datetime.date(2026, 9, 24))),
+)
+text = show_hive(two_days)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  region_costs.job_id,
+  region_costs.cost_cents
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.dt BETWEEN &#x27;20260923&#x27; AND &#x27;20260924&#x27;;</pre>
+<h4>Check it worked</h4>
+<p>A table that already exists can be compared with your Table reference:</p>
+<pre class="python">check_table_reference(region_costs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.region_costs matches its Table reference.
+Notes:
+  - the table is also partitioned by region, which a Statement may bound too.</pre>
+<p>It matches. The note is about a second partition, <code>region_costs.region</code>, which the Intermediate how-tos cover: a Statement may give its region too, but doesn&#x27;t have to.</p>
+<p>The table mart.job_day doesn&#x27;t exist yet. <code>create_table</code> writes the Hive that makes it from your Table reference: read it to check the columns, their types and the partition are what you meant.</p>
+<pre class="python">text = show_hive(create_table(job_day))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE TABLE mart.job_day (
+  job_id BIGINT,
+  runs BIGINT,
+  failed_runs BIGINT,
+  minutes BIGINT,
+  avg_minutes DOUBLE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC;</pre>
+<p>At work, once <code>run</code> has sent <code>create_table(job_day)</code> through your own send and made the table, <code>check_table_reference</code> compares it with your file, as above.</p>
+<h4>Common mistakes</h4>
+<h5>Leaving out date_partition</h5>
+<p><code>date_partition=</code> has no default, so that a table you forgot to describe the days of can&#x27;t quietly be read whole. Leaving it out stops with Python&#x27;s own message:</p>
+<pre class="python">jobs = Table(
+    &quot;ops.jobs&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;job_name&quot;: &quot;string&quot;, &quot;team&quot;: &quot;string&quot;,
+             &quot;region&quot;: &quot;string&quot;},
+    key=[&quot;job_id&quot;],
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+Table.__init__() missing 1 required positional argument: &#x27;date_partition&#x27;</pre>
+<p>For a table with no days, write <code>date_partition=None</code>.</p>
+<h5>A key that names a column the table doesn&#x27;t have</h5>
+<pre class="python">job_day_typo = Table(
+    &quot;mart.job_day&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;day&quot;],
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  Table(&#x27;mart.job_day&#x27;): key names &#x27;day&#x27;, which isn&#x27;t one of its columns.
+  Why it matters: Every name there must be a column in columns={...}.
+  Usual fix:      Use one of: job_id, runs, dt.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p><code>key=</code>, <code>date_partition=</code> and <code>does_not_add_up=</code> each name columns from <code>columns=</code>, spelled the same way.</p>
+<h5>Adding up a column that doesn&#x27;t add up</h5>
+<pre class="python">week = statement(
+    SELECT(job_day.job_id, AS(sum_of(job_day.avg_minutes), &quot;avg_minutes&quot;)),
+    FROM(job_day),
+    WHERE(between(job_day.dt, &quot;2026-09-21&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_day.job_id),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  sum_of(job_day.avg_minutes) adds up job_day.avg_minutes, which is listed in does_not_add_up in its Table reference.
+  Why it matters: Averages, ratios and distinct counts don&#x27;t add up: the average of daily averages is not the weekly average, and a user seen on two days would be counted twice.
+  Usual fix:      It could be an average, a ratio or a distinct count, so work it out again from the table it was made from. For an average or a ratio, add up its two parts and divide after your own GROUP_BY. For a distinct count, count again with count_distinct(...).
+  Opt-out:        sum_of(job_day.avg_minutes, adds_up=True)</pre>
+<p>Each day&#x27;s average is right for its day, but a week&#x27;s average isn&#x27;t the sum of the days&#x27;, nor their average when the days had different numbers of runs. The table keeps <code>job_day.minutes</code> and <code>job_day.runs</code>, which add up: total those over the week, and work the average out from the totals. The Opt-out is for a column you listed by mistake.</p>
+<h5>A day written the other way</h5>
+<p>With <code>date_format=&quot;%Y%m%d&quot;</code>, a day written like 2026-09-23 would match no day of the table, so it stops:</p>
+<pre class="python">wrong_day = statement(
+    SELECT(region_costs.job_id),
+    FROM(region_costs),
+    WHERE(equals(region_costs.dt, &quot;2026-09-23&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  equals(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;2026-09-23&#x27;, which isn&#x27;t a day written like &#x27;20260925&#x27;.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as &#x27;20260925&#x27;, or pass a datetime.date.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>A date_format that doesn&#x27;t put the year first</h5>
+<pre class="python">costs_by_hand = Table(
+    &quot;ops.region_costs&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;cost_cents&quot;: &quot;bigint&quot;, &quot;region&quot;: &quot;string&quot;,
+             &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    date_format=&quot;%d%m%Y&quot;,
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  date_format=&#x27;%d%m%Y&#x27; doesn&#x27;t write the year first, then the month, then the day.
+  Why it matters: Hive compares a Date partition&#x27;s days as text, and only days written year first sort in date order, so BETWEEN, last_n_days and check_key&#x27;s newest day would read the wrong days.
+  Usual fix:      Use a pattern such as &quot;%Y-%m-%d&quot; or &quot;%Y%m%d&quot;. If the table&#x27;s days really are written another way, leave its Date partition out with date_partition=None, and filter that column with equals(...) or is_in(...), not at_least(...) or between(...), which compare text.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>If a table&#x27;s days really are written day first, its message says what to do instead.</p>
+<h4>Next</h4>
+<ul><li>Build a Statement on your table and paste its Hive into another program: <a href="#build_a_first_statement">Build a first Statement and paste its Hive</a>.</li><li>Join your table to another without repeating rows, which is what <code>key=</code> is for: <a href="#join_tables_safely">Join tables safely</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#Table"><code>Table</code></a> and <a href="examples.html#create_table"><code>create_table</code></a>, and a Saved table built and written step by step: <a href="examples.html#saved_table">Worked example of a Saved table</a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="build_a_first_statement">
+<h3>4. Build a first Statement and paste its Hive <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Build a Statement a clause at a time, reading its Hive after each change, then run it, and copy the finished Hive into another program, such as Hue, Beeline, DBeaver or spark-sql, exactly as <code>run</code> sends it. Three functions do the work: <code>to_hive</code> gives the Hive as text, <code>show_hive</code> prints it ready to paste, and <code>run</code> runs it through a send and gives back a pandas DataFrame.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>Every time you write a new Statement: read its Hive before you run it.</li><li>When someone who doesn&#x27;t use Python needs the query: a colleague, a dashboard, a scheduled job, or your warehouse&#x27;s own editor, where you can run it again by hand.</li><li>When a result looks wrong: the Hive shows exactly what the warehouse was asked.</li></ul>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the table</h5>
+<pre class="python">from sqlglot_composer import *
+job_runs = example_database.job_runs</pre>
+<p>The question here is: which runs on 2026-09-24 took 20 minutes or more?</p>
+<h5>Start with SELECT, FROM and the day</h5>
+<p>Start with the columns you want, the table, and the day to read. <code>equals(job_runs.dt, &quot;2026-09-24&quot;)</code> reads one day: it gives the first and the last day at once.</p>
+<pre class="python">runs_that_day = statement(
+    SELECT(job_runs.run_id, job_runs.status, job_runs.duration_mins),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<p><code>runs_that_day</code> is a Statement: Python&#x27;s own object, which holds the clauses and hasn&#x27;t run anything. Shown on its own, it says what it reads, and how to see its Hive:</p>
+<pre class="python">runs_that_day</pre>
+<p class="label">Python shows</p><pre class="output">&lt;Statement reading ops.job_runs - print(to_hive(s)) shows its Hive&gt;</pre>
+<h5>Read its Hive</h5>
+<p><code>to_hive</code> gives the Hive as text. <code>print</code> shows the text as it is, one clause per line:</p>
+<pre class="python">print(to_hive(runs_that_day))</pre>
+<p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p><code>job_runs.dt = &#x27;2026-09-24&#x27;</code> is how the Hive reads one day. <code>FROM ops.job_runs AS job_runs</code> reads the table and calls it job_runs, which is why every column in the Hive starts with <code>job_runs.</code>, just as it does in your Python.</p>
+<h5>Add a condition, and read the Hive again</h5>
+<p><code>WHERE</code> takes any number of conditions, and keeps a row only if every one holds. Add a second one: at least 20 minutes.</p>
+<pre class="python">long_runs = statement(
+    SELECT(job_runs.run_id, job_runs.status, job_runs.duration_mins),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), at_least(job_runs.duration_mins, 20)),
+)
+print(to_hive(long_runs))</pre>
+<p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20</pre>
+<p>The two conditions are joined with AND. Comparing the Hive before and after a change is the quickest way to see what the change did.</p>
+<h5>Name a column in the result</h5>
+<p><code>AS</code> gives a column the name you want in the result, here <code>&quot;minutes&quot;</code> in place of <code>&quot;duration_mins&quot;</code>:</p>
+<pre class="python">long_runs = statement(
+    SELECT(job_runs.run_id, job_runs.status, AS(job_runs.duration_mins, &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), at_least(job_runs.duration_mins, 20)),
+)</pre>
+<p><code>WHERE</code> still uses <code>job_runs.duration_mins</code>: the new name is the result&#x27;s, and WHERE reads the table.</p>
+<h5>Print it ready to paste</h5>
+<p><code>show_hive</code> prints the same Hive as <code>to_hive</code> with a <code>;</code> at the end, which Hue, Beeline, DBeaver and spark-sql need to tell one Statement from the next:</p>
+<pre class="python">text = show_hive(long_runs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins AS minutes
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20;</pre>
+<p>Copy what it prints, from <code>SELECT</code> to the <code>;</code>, and paste it into the other program. It gives back the same text too, kept here as <code>text</code>.</p>
+<h5>Print several at once</h5>
+<p>Give <code>show_hive</code> several Statements, and it prints them all, each headed by a comment line starting <code>--</code>, which Hive skips. The comment gives its number and the name of the variable it is in:</p>
+<pre class="python">text = show_hive(runs_that_day, long_runs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2: runs_that_day
+SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;;
+
+-- 2 of 2: long_runs
+SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins AS minutes
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20;</pre>
+<p>Paste the lot into a program that runs several Statements in a row, such as a Beeline script.</p>
+<h5>Save it to a file</h5>
+<p><code>text</code> is a plain Python string, so Python can write it to a file, for a program that reads its SQL from a file, such as <code>beeline -f long_runs.sql</code>:</p>
+<pre class="python">from pathlib import Path
+Path(&quot;long_runs.sql&quot;).write_text(text)</pre>
+<p class="label">Python shows</p><pre class="output">362</pre>
+<p class="note">It writes <code>long_runs.sql</code> too.</p>
+<p><code>Path.write_text</code> gives back how many characters it wrote.</p>
+<h5>Run it</h5>
+<p><code>run</code> turns the Statement into Hive, exactly the text <code>to_hive</code> gave, without the <code>;</code>, hands it to a send, and gives back the pandas DataFrame the send returns:</p>
+<pre class="python">result = run(long_runs, send=example_database.send)
+result</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th><th>minutes</th></tr>
+<tr><td>102</td><td>FAILED</td><td>20</td></tr>
+<tr><td>103</td><td>SUCCESS</td><td>30</td></tr>
+<tr><td>104</td><td>SUCCESS</td><td>40</td></tr>
+</table></div>
+<p>The column names are the Statement&#x27;s: <code>&quot;minutes&quot;</code>, as <code>AS</code> named it. From here it is pandas:</p>
+<pre class="python">print(result[&quot;minutes&quot;].sum())</pre>
+<p class="label">Python prints</p><pre class="output">90</pre>
+<p>At work, pass your own send in place of <code>example_database.send</code>, as <a href="#start_a_notebook">Start a notebook</a> shows.</p>
+<h4>Check it worked</h4>
+<p>The file holds exactly the Hive <code>run</code> sends, <code>to_hive</code>&#x27;s text, with a <code>;</code> at the end:</p>
+<pre class="python">to_hive(long_runs) + &quot;;&quot; in Path(&quot;long_runs.sql&quot;).read_text()</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<p>The result holds the three runs of 20 minutes or more:</p>
+<pre class="python">list(result[&quot;run_id&quot;])</pre>
+<p class="label">Python shows</p><pre class="output">[102, 103, 104]</pre>
+<h4>Common mistakes</h4>
+<h5>Showing the Hive without print</h5>
+<p>In a notebook, <code>to_hive(long_runs)</code> on its own line shows the text as Python writes a string, with each line break written <code>\n</code>:</p>
+<pre class="python">to_hive(long_runs)</pre>
+<p class="label">Python shows</p><pre class="output">&quot;SELECT\n  job_runs.run_id,\n  job_runs.status,\n  job_runs.duration_mins AS minutes\nFROM ops.job_runs AS job_runs\nWHERE\n  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20&quot;</pre>
+<p>Wrap it in <code>print(...)</code>, or use <code>show_hive</code>, which prints it for you.</p>
+<h5>Giving run the Hive text</h5>
+<p><code>run</code> takes the Statement and makes the Hive itself, so it can check it first. Given the text, it stops:</p>
+<pre class="python">run(to_hive(long_runs), send=example_database.send)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  to_hive was given &quot;SELECT\n  job_runs.run_id,\n  job_runs.status,\n  job_runs.duration_mins AS minutes\nFROM ops.job_runs AS job_runs\nWHERE\n  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20&quot;, which isn&#x27;t a Statement.
+  Why it matters: It writes the Hive for a Statement made by statement(...).
+  Usual fix:      Pass statement(SELECT(...), FROM(...), ...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Pass the Statement itself: <code>run(long_runs, send=example_database.send)</code>.</p>
+<h5>Giving a send the Statement</h5>
+<p>A send works the other way round: it takes Hive text, not a Statement. The Example database&#x27;s send stops:</p>
+<pre class="python">example_database.send(long_runs)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  example_database.send was given &lt;Statement reading ops.job_runs - print(to_hive(s)) shows its Hive&gt;, which isn&#x27;t Hive text.
+  Why it matters: Like your send at work, it takes Hive text to run.
+  Usual fix:      To run a Statement, pass it to run(s, send=example_database.send), which turns it into Hive; to_hive(s) shows that Hive.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p><code>run(long_runs, send=example_database.send)</code> makes the text and hands it to the send for you.</p>
+<h5>Pasting Hive that was built with last_n_days</h5>
+<p>The Hive is fixed text once the Statement is built. <code>last_n_days</code> counts back from the day you build the Statement, and writes those days into the Hive as dates. These steps ran as if today were 2026-09-25:</p>
+<pre class="python">last_two_days = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(last_n_days(job_runs.dt, 2)),
+)
+text = show_hive(last_two_days)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<p>Pasted into a job that runs every day, this Hive reads 2026-09-23 and 2026-09-24 every day. For a job that runs every day, build the Statement again on each day, in Python, and run it with <code>run</code>.</p>
+<h4>Next</h4>
+<ul><li>Keep only the rows you want, with every kind of condition: <a href="#filter_rows">Filter rows</a>.</li><li>Count and add up per group: <a href="#count_and_add_up_per_group">Count and add up per group</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#to_hive"><code>to_hive</code></a>, <a href="examples.html#show_hive"><code>show_hive</code></a> and <a href="examples.html#run"><code>run</code></a>, and a long Statement built in named steps: <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>last_n_days</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="filter_rows">
+<h3>5. Filter rows <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Keep only the rows you want, with the condition functions <code>WHERE</code> takes: the days to read, an exact value, a number above or below a line, one of a list, a piece of text, one condition or another, and missing values (NULL). Each step shows the condition&#x27;s Hive and the rows it keeps on the Example database, so you can see each one work.</p>
+<h4>When you&#x27;d use it</h4>
+<p>In nearly every Statement. Every Statement on a table with a Date partition gives the days it reads, and most keep only some rows of those days: the failed runs, the jobs of one team, the runs that took too long.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<pre class="python">from sqlglot_composer import *
+jobs = example_database.jobs
+job_runs = example_database.job_runs</pre>
+<p><code>ops.job_runs</code> holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still running, so its status is missing: NULL, which pandas shows as None.</p>
+<h5>Give the days to read</h5>
+<p>Each Statement on <code>job_runs</code> gives the first and the last day it reads, through its Date partition, <code>job_runs.dt</code>. There are three ways to write them:</p>
+<ul><li><code>equals(job_runs.dt, &quot;2026-09-24&quot;)</code> reads one day;</li><li><code>between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)</code> reads from the first day to the last, both included;</li><li><code>last_n_days(job_runs.dt, 7)</code> reads the 7 days before today, today itself left out.</li></ul>
+<pre class="python">two_days = statement(
+    SELECT(job_runs.run_id, job_runs.status, job_runs.duration_mins, job_runs.dt),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+run(two_days, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th><th>duration_mins</th><th>dt</th></tr>
+<tr><td>95</td><td>SUCCESS</td><td>12</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>SUCCESS</td><td>18</td><td>2026-09-23</td></tr>
+<tr><td>97</td><td>FAILED</td><td>30</td><td>2026-09-23</td></tr>
+<tr><td>98</td><td><i>NULL</i></td><td>15</td><td>2026-09-23</td></tr>
+<tr><td>99</td><td>TEST</td><td>5</td><td>2026-09-23</td></tr>
+<tr><td>101</td><td>SUCCESS</td><td>10</td><td>2026-09-24</td></tr>
+<tr><td>102</td><td>FAILED</td><td>20</td><td>2026-09-24</td></tr>
+<tr><td>103</td><td>SUCCESS</td><td>30</td><td>2026-09-24</td></tr>
+<tr><td>104</td><td>SUCCESS</td><td>40</td><td>2026-09-24</td></tr>
+</table></div>
+<p><code>last_n_days</code> writes its days into the Hive as dates, counted back from the day you build the Statement. These steps ran as if today were 2026-09-25, so it gives the same two days:</p>
+<pre class="python">recent = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(last_n_days(job_runs.dt, 2)),
+)
+text = show_hive(recent)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<p>In your own notebook today is your real today, so on the Example database write <code>between</code> with the dates instead.</p>
+<h5>Keep one value</h5>
+<p><code>equals</code> keeps the rows where a column holds one value. <code>WHERE</code> keeps a row only if every condition in it holds, so the days and the status go side by side:</p>
+<pre class="python">failed = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          equals(job_runs.status, &quot;FAILED&quot;)),
+)
+run(failed, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>dt</th></tr>
+<tr><td>97</td><td>3</td><td>2026-09-23</td></tr>
+<tr><td>102</td><td>2</td><td>2026-09-24</td></tr>
+</table></div>
+<h5>Keep numbers above or below a line</h5>
+<p><code>at_least</code> (&gt;=), <code>at_most</code> (&lt;=), <code>more_than</code> (&gt;) and <code>less_than</code> (&lt;) compare a column with a number. Two of them make a range:</p>
+<pre class="python">middling = statement(
+    SELECT(job_runs.run_id, job_runs.duration_mins),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          at_least(job_runs.duration_mins, 15), less_than(job_runs.duration_mins, 30)),
+)
+text = show_hive(middling)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  AND job_runs.duration_mins &gt;= 15
+  AND job_runs.duration_mins &lt; 30;</pre>
+<pre class="python">run(middling, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th></tr>
+<tr><td>96</td><td>18</td></tr>
+<tr><td>98</td><td>15</td></tr>
+<tr><td>102</td><td>20</td></tr>
+</table></div>
+<h5>Keep one of a list</h5>
+<p><code>is_in</code> keeps the rows whose value is in a Python list, and <code>is_not_in</code> those whose value isn&#x27;t. Here, the runs of jobs 1 and 3:</p>
+<pre class="python">some_jobs = statement(
+    SELECT(job_runs.run_id, job_runs.job_id),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;), is_in(job_runs.job_id, [1, 3])),
+)
+text = show_hive(some_jobs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.job_id IN (1, 3);</pre>
+<pre class="python">run(some_jobs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th></tr>
+<tr><td>95</td><td>1</td></tr>
+<tr><td>97</td><td>3</td></tr>
+<tr><td>99</td><td>1</td></tr>
+<tr><td>101</td><td>1</td></tr>
+<tr><td>103</td><td>3</td></tr>
+<tr><td>104</td><td>1</td></tr>
+</table></div>
+<p>The list can come from anywhere in your notebook, such as a column of another result. Here, every run of the jobs that failed at least once, with the job_ids from the result of <code>failed</code>, above:</p>
+<pre class="python">failed_jobs = run(failed, send=example_database.send)[&quot;job_id&quot;].tolist()
+failed_jobs</pre>
+<p class="label">Python shows</p><pre class="output">[3, 2]</pre>
+<pre class="python">runs_of_failed_jobs = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          is_in(job_runs.job_id, failed_jobs)),
+)
+run(runs_of_failed_jobs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th></tr>
+<tr><td>96</td><td>2</td><td>SUCCESS</td></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td></tr>
+<tr><td>98</td><td>2</td><td><i>NULL</i></td></tr>
+<tr><td>102</td><td>2</td><td>FAILED</td></tr>
+<tr><td>103</td><td>3</td><td>SUCCESS</td></tr>
+</table></div>
+<p><code>.tolist()</code> turns the pandas column into a plain Python list.</p>
+<h5>Keep text that contains or starts with a word</h5>
+<p><code>contains</code> keeps the rows whose text holds a piece of text anywhere, and <code>starts_with</code> those whose text begins with it. <code>ops.jobs</code> has no days, so it needs no Date partition bound:</p>
+<pre class="python">named = statement(
+    SELECT(jobs.job_id, jobs.job_name),
+    FROM(jobs),
+    WHERE(contains(jobs.job_name, &quot;sync&quot;)),
+)
+text = show_hive(named)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+WHERE
+  jobs.job_name LIKE &#x27;%sync%&#x27;;</pre>
+<pre class="python">run(named, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th></tr>
+<tr><td>2</td><td>invoice_sync</td></tr>
+</table></div>
+<p>In the Hive, <code>LIKE &#x27;%sync%&#x27;</code> means &quot;sync, with anything before and after it&quot;. Both functions match the text exactly as you give it, capitals and all.</p>
+<h5>Keep one condition or another</h5>
+<p><code>any_of</code> keeps a row where at least one of its conditions holds: SQL&#x27;s OR. Here, the runs that failed or took 30 minutes or more:</p>
+<pre class="python">to_check = statement(
+    SELECT(job_runs.run_id, job_runs.status, job_runs.duration_mins),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          any_of(equals(job_runs.status, &quot;FAILED&quot;), at_least(job_runs.duration_mins, 30))),
+)
+text = show_hive(to_check)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.status,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  AND (
+    job_runs.status = &#x27;FAILED&#x27; OR job_runs.duration_mins &gt;= 30
+  );</pre>
+<pre class="python">run(to_check, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th><th>duration_mins</th></tr>
+<tr><td>97</td><td>FAILED</td><td>30</td></tr>
+<tr><td>102</td><td>FAILED</td><td>20</td></tr>
+<tr><td>103</td><td>SUCCESS</td><td>30</td></tr>
+<tr><td>104</td><td>SUCCESS</td><td>40</td></tr>
+</table></div>
+<p>The Hive puts brackets around the OR, so the days still hold for every row kept.</p>
+<p><code>all_of</code> groups conditions that must all hold, for use inside <code>any_of</code>. Here: job 1&#x27;s runs of 30 minutes or more, or any run that failed:</p>
+<pre class="python">slow_or_failed = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.status, job_runs.duration_mins),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          any_of(all_of(equals(job_runs.job_id, 1), at_least(job_runs.duration_mins, 30)),
+                 equals(job_runs.status, &quot;FAILED&quot;))),
+)
+text = show_hive(slow_or_failed)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  job_runs.status,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  AND (
+    (
+      job_runs.job_id = 1 AND job_runs.duration_mins &gt;= 30
+    )
+    OR job_runs.status = &#x27;FAILED&#x27;
+  );</pre>
+<pre class="python">run(slow_or_failed, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>status</th><th>duration_mins</th></tr>
+<tr><td>97</td><td>3</td><td>FAILED</td><td>30</td></tr>
+<tr><td>102</td><td>2</td><td>FAILED</td><td>20</td></tr>
+<tr><td>104</td><td>1</td><td>SUCCESS</td><td>40</td></tr>
+</table></div>
+<h5>Find missing values</h5>
+<p>A missing value is NULL. <code>is_null</code> keeps the rows where a column is NULL, and <code>is_not_null</code> the rows where it holds a value. Run 98 has no status yet:</p>
+<pre class="python">still_running = statement(
+    SELECT(job_runs.run_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;), is_null(job_runs.status)),
+)
+text = show_hive(still_running)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.status IS NULL;</pre>
+<pre class="python">run(still_running, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th></tr>
+<tr><td>98</td><td><i>NULL</i></td></tr>
+</table></div>
+<h4>Check it worked</h4>
+<p>Check a Statement&#x27;s rows against the same condition worked out in pandas, on every row of the days it reads. Here, <code>to_check</code>: the runs that failed or took 30 minutes or more.</p>
+<pre class="python">kept = run(to_check, send=example_database.send)
+every_run = run(two_days, send=example_database.send)
+in_pandas = every_run[(every_run[&quot;status&quot;] == &quot;FAILED&quot;) | (every_run[&quot;duration_mins&quot;] &gt;= 30)]
+list(in_pandas[&quot;run_id&quot;]) == list(kept[&quot;run_id&quot;])</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<p>The same rows, worked out twice. At work, do this on a day small enough to look at, and look at a few of the rows left out too.</p>
+<h4>Common mistakes</h4>
+<h5>Comparing with None</h5>
+<p><code>equals(job_runs.status, None)</code> looks like the way to find run 98, but in SQL nothing equals NULL, not even NULL, so it would keep no rows at all. The Toolbox stops it:</p>
+<pre class="python">no_status = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;), equals(job_runs.status, None)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  equals(job_runs.status, None) compares with None.
+  Why it matters: In SQL nothing is equal to NULL, not even NULL, so this would match no rows and quietly give an empty or wrong result.
+  Usual fix:      Use is_null(column) or is_not_null(column) to find missing values.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Use <code>is_null(job_runs.status)</code>, as the step Find missing values does. A None in a list given to <code>is_in</code> stops the same way.</p>
+<h5>Expecting not_equals to keep NULL</h5>
+<p>pandas&#x27; <code>!=</code> keeps a row whose value is missing; SQL&#x27;s <code>&lt;&gt;</code>, which <code>not_equals</code> writes, drops it. Leaving out the TEST runs on 2026-09-23 also leaves out run 98, still running:</p>
+<pre class="python">not_test = statement(
+    SELECT(job_runs.run_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-23&quot;), not_equals(job_runs.status, &quot;TEST&quot;)),
+)
+run(not_test, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th></tr>
+<tr><td>95</td><td>SUCCESS</td></tr>
+<tr><td>96</td><td>SUCCESS</td></tr>
+<tr><td>97</td><td>FAILED</td></tr>
+</table></div>
+<p>Nothing stops this, since the Toolbox can&#x27;t know which columns may be NULL. To keep run 98, ask for the NULL rows too:</p>
+<pre class="python">not_test = statement(
+    SELECT(job_runs.run_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-23&quot;),
+          any_of(not_equals(job_runs.status, &quot;TEST&quot;), is_null(job_runs.status))),
+)
+run(not_test, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th></tr>
+<tr><td>95</td><td>SUCCESS</td></tr>
+<tr><td>96</td><td>SUCCESS</td></tr>
+<tr><td>97</td><td>FAILED</td></tr>
+<tr><td>98</td><td><i>NULL</i></td></tr>
+</table></div>
+<p><code>is_not_in</code> drops NULL rows the same way.</p>
+<h5>Two conditions on one column in WHERE</h5>
+<p><code>WHERE</code> keeps a row only if every condition holds, and no run is both FAILED and TEST, so this keeps nothing, without any message:</p>
+<pre class="python">failed_and_test = statement(
+    SELECT(job_runs.run_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          equals(job_runs.status, &quot;FAILED&quot;), equals(job_runs.status, &quot;TEST&quot;)),
+)
+run(failed_and_test, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><p class="note">No rows.</p>
+<p>For one value or another, use <code>is_in(job_runs.status, [&quot;FAILED&quot;, &quot;TEST&quot;])</code>, or <code>any_of</code>.</p>
+<h5>A value of the wrong type</h5>
+<p><code>job_runs.job_id</code> holds numbers. Comparing it with text, as if <code>&quot;3&quot;</code> were 3, would leave the warehouse to convert one into the other, which can quietly match nothing. The Toolbox stops it:</p>
+<pre class="python">job_3 = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;), equals(job_runs.job_id, &quot;3&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with &#x27;3&#x27;.
+  Why it matters: The warehouse would convert one side to the other&#x27;s type, so the comparison could quietly match nothing or the wrong rows, or stop with an error.
+  Usual fix:      Pass a value of the column&#x27;s own type, such as 42.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Write <code>equals(job_runs.job_id, 3)</code>.</p>
+<h5>The days the wrong way round</h5>
+<pre class="python">backwards = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-24&quot;, &quot;2026-09-23&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  between(job_runs.dt, &#x27;2026-09-24&#x27;, &#x27;2026-09-23&#x27;) starts after it ends.
+  Why it matters: No day is both on or after the first and on or before the second, so this would match nothing.
+  Usual fix:      Put the earlier day first.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h4>Next</h4>
+<ul><li>Count and add up the rows you kept, per job or per day: <a href="#count_and_add_up_per_group">Count and add up per group</a>.</li><li>Keep conditions you use again and again in one place: <a href="#reusable_derived_tables">Reusable Derived tables</a>.</li><li>The gallery&#x27;s Worked examples of each condition, such as <a href="examples.html#between"><code>between</code></a>, <a href="examples.html#is_in"><code>is_in</code></a> and <a href="examples.html#any_of"><code>any_of</code></a>, and the traps side by side with their fixes: <a href="examples.html#not_equals_drops_null"><code>not_equals</code> drops NULL</a>, <a href="examples.html#none_in_equals">None in <code>equals</code></a> and <a href="examples.html#lists_and_text">lists and text</a>.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>not_equals</code>, <code>is_null</code>, <code>at_least</code>, <code>less_than</code>, <code>between</code>, <code>last_n_days</code>, <code>is_in</code>, <code>contains</code>, <code>any_of</code>, <code>all_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="count_and_add_up_per_group">
+<h3>6. Count and add up per group <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Answer &quot;how many, and how much, per something&quot;: runs per job, minutes per day, failed runs per job. <code>GROUP_BY</code> makes one output row per group, the counting functions (<code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>min_of</code>, <code>max_of</code>) work out each group&#x27;s numbers, <code>HAVING</code> keeps only some groups, and <code>ORDER_BY</code> with <code>LIMIT</code> keeps the top N.</p>
+<h4>When you&#x27;d use it</h4>
+<p>Whenever the answer is a table of totals rather than a list of rows: a daily count for a dashboard, the busiest jobs of the week, the teams over a budget. The warehouse does the counting, so only the totals come back to your notebook, however many rows they were counted from.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the table</h5>
+<pre class="python">from sqlglot_composer import *
+job_runs = example_database.job_runs</pre>
+<h5>Count every row</h5>
+<p><code>count_rows()</code> counts rows. Every calculation in <code>SELECT</code> needs a name for its column in the result, which <code>AS</code> gives:</p>
+<pre class="python">all_runs = statement(
+    SELECT(AS(count_rows(), &quot;runs&quot;), AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+run(all_runs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>runs</th><th>minutes</th></tr>
+<tr><td>9</td><td>180</td></tr>
+</table></div>
+<p>Without <code>GROUP_BY</code>, the whole of the two days is one group: one row comes back.</p>
+<h5>One row per job</h5>
+<p><code>GROUP_BY(job_runs.job_id)</code> makes one group per job. <code>SELECT</code> then holds the columns you group by, and calculations over each group:</p>
+<pre class="python">per_job = statement(
+    SELECT(
+        job_runs.job_id,
+        AS(count_rows(), &quot;runs&quot;),
+        AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;),
+        AS(min_of(job_runs.duration_mins), &quot;shortest&quot;),
+        AS(max_of(job_runs.duration_mins), &quot;longest&quot;),
+    ),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)
+text = show_hive(per_job)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  SUM(job_runs.duration_mins) AS minutes,
+  MIN(job_runs.duration_mins) AS shortest,
+  MAX(job_runs.duration_mins) AS longest
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id;</pre>
+<pre class="python">run(per_job, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>minutes</th><th>shortest</th><th>longest</th></tr>
+<tr><td>1</td><td>4</td><td>67</td><td>5</td><td>40</td></tr>
+<tr><td>2</td><td>3</td><td>53</td><td>15</td><td>20</td></tr>
+<tr><td>3</td><td>2</td><td>60</td><td>30</td><td>30</td></tr>
+</table></div>
+<h5>Count only some rows of each group</h5>
+<p><code>count_rows</code> and <code>sum_of</code> take <code>where=</code>, a condition, to count or add up only the rows where it holds, while the group keeps every row. Here, each job&#x27;s runs and its failed runs side by side:</p>
+<pre class="python">failures = statement(
+    SELECT(
+        job_runs.job_id,
+        AS(count_rows(), &quot;runs&quot;),
+        AS(count_rows(where=equals(job_runs.status, &quot;FAILED&quot;)), &quot;failed_runs&quot;),
+    ),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)
+text = show_hive(failures)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END) AS failed_runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id;</pre>
+<pre class="python">run(failures, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>failed_runs</th></tr>
+<tr><td>1</td><td>4</td><td>0</td></tr>
+<tr><td>2</td><td>3</td><td>1</td></tr>
+<tr><td>3</td><td>2</td><td>1</td></tr>
+</table></div>
+<p>Putting <code>equals(job_runs.status, &quot;FAILED&quot;)</code> in <code>WHERE</code> instead would drop the other runs before counting, so <code>&quot;runs&quot;</code> would count only failed runs too.</p>
+<h5>Count different values</h5>
+<p><code>count_distinct</code> counts the different values in a column, each once. Here, how many runs each job had, and on how many different days:</p>
+<pre class="python">days_per_job = statement(
+    SELECT(
+        job_runs.job_id,
+        AS(count_rows(), &quot;runs&quot;),
+        AS(count_distinct(job_runs.dt), &quot;days_with_runs&quot;),
+    ),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)
+run(days_per_job, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>days_with_runs</th></tr>
+<tr><td>1</td><td>4</td><td>2</td></tr>
+<tr><td>2</td><td>3</td><td>2</td></tr>
+<tr><td>3</td><td>2</td><td>2</td></tr>
+</table></div>
+<p>Job 1 ran 4 times, on 2 different days.</p>
+<h5>Group by two columns</h5>
+<p><code>GROUP_BY</code> takes several columns: one group per different pair. Here, each job on each day:</p>
+<pre class="python">per_job_day = statement(
+    SELECT(job_runs.job_id, job_runs.dt, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id, job_runs.dt),
+)
+run(per_job_day, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>runs</th></tr>
+<tr><td>1</td><td>2026-09-23</td><td>2</td></tr>
+<tr><td>1</td><td>2026-09-24</td><td>2</td></tr>
+<tr><td>2</td><td>2026-09-23</td><td>2</td></tr>
+<tr><td>2</td><td>2026-09-24</td><td>1</td></tr>
+<tr><td>3</td><td>2026-09-23</td><td>1</td></tr>
+<tr><td>3</td><td>2026-09-24</td><td>1</td></tr>
+</table></div>
+<h5>Keep only some groups with HAVING</h5>
+<p><code>WHERE</code> picks rows before they are counted, so it can&#x27;t test a count. <code>HAVING</code> tests each group after <code>GROUP_BY</code> has counted it. Here, the jobs with 3 runs or more:</p>
+<pre class="python">busy_jobs = statement(
+    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+    HAVING(at_least(count_rows(), 3)),
+)
+text = show_hive(busy_jobs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id
+HAVING
+  COUNT(*) &gt;= 3;</pre>
+<pre class="python">run(busy_jobs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th></tr>
+<tr><td>1</td><td>4</td></tr>
+<tr><td>2</td><td>3</td></tr>
+</table></div>
+<p><code>HAVING</code> repeats the calculation itself, <code>count_rows()</code>, rather than its name, <code>&quot;runs&quot;</code>.</p>
+<h5>Keep the top N</h5>
+<p><code>ORDER_BY</code> sorts the result, and <code>LIMIT</code> keeps the first rows. <code>descending</code> sorts from largest to smallest. A calculation is sorted by its name. Here, the two jobs with the most minutes:</p>
+<pre class="python">top_two = statement(
+    SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+    ORDER_BY(descending(&quot;minutes&quot;)),
+    LIMIT(2),
+)
+text = show_hive(top_two)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.job_id,
+  SUM(job_runs.duration_mins) AS minutes
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id
+ORDER BY
+  minutes DESC
+LIMIT 2;</pre>
+<pre class="python">run(top_two, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>minutes</th></tr>
+<tr><td>1</td><td>67</td></tr>
+<tr><td>3</td><td>60</td></tr>
+</table></div>
+<p>Job 2&#x27;s 53 minutes didn&#x27;t make the top two.</p>
+<h4>Check it worked</h4>
+<p>Count the same groups in pandas from the rows themselves, and compare. <code>every_run</code> reads every run of the two days:</p>
+<pre class="python">every_run = run(statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+), send=example_database.send)
+in_pandas = every_run.groupby(&quot;job_id&quot;)[&quot;duration_mins&quot;].sum()
+in_pandas.tolist() == run(per_job, send=example_database.send)[&quot;minutes&quot;].tolist()</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<p>The totals of every group also add up to the total of all rows, from <code>all_runs</code>:</p>
+<pre class="python">print(run(per_job, send=example_database.send)[&quot;minutes&quot;].sum())</pre>
+<p class="label">Python prints</p><pre class="output">180</pre>
+<h4>Common mistakes</h4>
+<h5>A column that isn&#x27;t grouped</h5>
+<p>Each output row is one group, so every column in <code>SELECT</code> must be in <code>GROUP_BY</code> or inside a calculation. Here <code>job_runs.status</code> is neither, and one job&#x27;s runs have several statuses:</p>
+<pre class="python">status_per_job = statement(
+    SELECT(job_runs.job_id, job_runs.status, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  SELECT has job_runs.status, which GROUP_BY leaves out.
+  Why it matters: Each output row is one group, so a column that isn&#x27;t grouped has no single value to show. Hive would refuse the Statement.
+  Usual fix:      Add job_runs.status to GROUP_BY. To keep one whole row per group instead, such as each job&#x27;s latest run, number the rows with row_number(...) inside derived(...), then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Add it to <code>GROUP_BY</code> for one row per job and status. To keep one whole row per job, such as each job&#x27;s newest run, see <a href="#latest_row_per_key">The latest row per key</a>.</p>
+<h5>A calculation without a name</h5>
+<pre class="python">unnamed = statement(
+    SELECT(job_runs.job_id, count_rows()),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  SELECT has a calculation with no name: COUNT(*).
+  Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
+  Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
+  Opt-out:        none - a calculation always needs a name.</pre>
+<p>Name it: <code>AS(count_rows(), &quot;runs&quot;)</code>.</p>
+<h5>Testing a count in WHERE</h5>
+<pre class="python">busy_in_where = statement(
+    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;), at_least(count_rows(), 3)),
+    GROUP_BY(job_runs.job_id),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  WHERE has COUNT(*) &gt;= 3, which counts or adds up rows.
+  Why it matters: Rows are counted after WHERE has done its work, so Hive would refuse it there.
+  Usual fix:      Test a count or a sum in HAVING(...), which tests groups after GROUP_BY.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Move it to <code>HAVING</code>, as <code>busy_jobs</code> does.</p>
+<h5>Testing a calculation&#x27;s name in HAVING</h5>
+<p><code>HAVING</code> takes conditions on columns and calculations, not on the names <code>AS</code> gives:</p>
+<pre class="python">busy_by_name = statement(
+    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+    HAVING(at_least(&quot;runs&quot;, 3)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  at_least(&quot;runs&quot;, ...) was given &#x27;runs&#x27; where a column goes.
+  Why it matters: A condition tests a column of a table, such as job_runs.status.
+  Usual fix:      Pass the column as an attribute of its Table reference, such as equals(job_runs.status, &quot;FAILED&quot;).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Write the calculation again: <code>HAVING(at_least(count_rows(), 3))</code>.</p>
+<h5>Sorting without a LIMIT</h5>
+<p>Sorting a whole result makes the warehouse put every row in order before any comes back, which is slow on a big table. The Toolbox stops a sort with no <code>LIMIT</code>:</p>
+<pre class="python">sorted_jobs = statement(
+    SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+    ORDER_BY(descending(&quot;minutes&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">LoadRefused:
+  What happened:  ORDER_BY has no LIMIT.
+  Why it matters: Sorting the whole result makes the warehouse put every row in order before any comes back, which is slow on a big result; pandas can sort the rows once you have them.
+  Usual fix:      Sort in pandas after run(...), with df.sort_values(...). For a top N, add LIMIT(n).
+  Opt-out:        ORDER_BY(..., sorts_everything=True), but not in a Statement you pass to derived(...), where the order of rows may not be kept anyway, so this refusal can&#x27;t be switched off there.</pre>
+<p>For a top N, add <code>LIMIT(2)</code> or however many you want. To sort every row, sort in pandas once the result is back:</p>
+<pre class="python">run(per_job, send=example_database.send).sort_values(&quot;minutes&quot;, ascending=False)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>minutes</th><th>shortest</th><th>longest</th></tr>
+<tr><td>1</td><td>4</td><td>67</td><td>5</td><td>40</td></tr>
+<tr><td>3</td><td>2</td><td>60</td><td>30</td><td>30</td></tr>
+<tr><td>2</td><td>3</td><td>53</td><td>15</td><td>20</td></tr>
+</table></div>
+<h4>Next</h4>
+<ul><li>Count across two tables, such as runs per team, without counting a row twice: <a href="#join_tables_safely">Join tables safely</a>.</li><li>Keep each job&#x27;s newest run, or each job&#x27;s top N runs, whole: <a href="#latest_row_per_key">The latest row per key</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#GROUP_BY"><code>GROUP_BY</code></a>, <a href="examples.html#HAVING"><code>HAVING</code></a> and <a href="examples.html#count_distinct"><code>count_distinct</code></a>, the four shapes side by side in <a href="examples.html#groups_and_top_n">groups and the top N</a>, and why a sum of distinct counts is refused: <a href="examples.html#regrouping">re-grouping</a>.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>ORDER_BY</code>, <code>LIMIT</code>, <code>statement</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>min_of</code>, <code>max_of</code>, <code>descending</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="join_tables_safely">
+<h3>7. Join tables safely <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Put two tables&#x27; columns side by side with <code>JOIN</code>, without counting any row twice. You join on a table&#x27;s key where you can, read the repeated-rows Warning when you can&#x27;t, add the other table up first so it has one row per value you join on, and use <code>LEFT_JOIN</code> to keep the rows with no match, or to find them.</p>
+<h4>When you&#x27;d use it</h4>
+<p>Whenever the numbers you want live in more than one table: each run&#x27;s team, which is in <code>ops.jobs</code>; each run&#x27;s alerts, which are in <code>ops.run_alerts</code>; the jobs that never ran. A join that repeats rows still runs and still gives numbers. They are just too big, so it is worth knowing why it happens before it happens to you.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<pre class="python">from sqlglot_composer import *
+jobs = example_database.jobs
+job_runs = example_database.job_runs
+run_alerts = example_database.run_alerts</pre>
+<h5>Know each table&#x27;s key</h5>
+<p>A table&#x27;s key is the columns that pick out one of its rows, as its Table reference says:</p>
+<ul><li><code>jobs</code> has one row per job: its key is <code>jobs.job_id</code>;</li><li><code>job_runs</code> has one row per run: its key is <code>job_runs.run_id</code>, and each run names its job in <code>job_runs.job_id</code>;</li><li><code>run_alerts</code> has one row per alert: its key is <code>run_alerts.alert_id</code>, and each alert names its run in <code>run_alerts.run_id</code>. A run can raise several alerts, or none.</li></ul>
+<p><code>check_key</code> checks a key holds on the table itself:</p>
+<pre class="python">check_key(jobs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.jobs: the key (job_id) holds.</pre>
+<h5>Join on the other table&#x27;s key</h5>
+<p><code>JOIN</code> adds another table&#x27;s columns to each row, matched by its <code>ON=</code> condition. Each run names one job, and <code>jobs.job_id</code> is the key of <code>jobs</code>, so each run meets exactly one row of <code>jobs</code>: nothing is repeated.</p>
+<pre class="python">runs_with_team = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, jobs.team, job_runs.duration_mins),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+text = show_hive(runs_with_team)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  jobs.team,
+  job_runs.duration_mins
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<pre class="python">run(runs_with_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>team</th><th>duration_mins</th></tr>
+<tr><td>95</td><td>1</td><td>data</td><td>12</td></tr>
+<tr><td>96</td><td>2</td><td>finance</td><td>18</td></tr>
+<tr><td>97</td><td>3</td><td>finance</td><td>30</td></tr>
+<tr><td>98</td><td>2</td><td>finance</td><td>15</td></tr>
+<tr><td>99</td><td>1</td><td>data</td><td>5</td></tr>
+<tr><td>101</td><td>1</td><td>data</td><td>10</td></tr>
+<tr><td>102</td><td>2</td><td>finance</td><td>20</td></tr>
+<tr><td>103</td><td>3</td><td>finance</td><td>30</td></tr>
+<tr><td>104</td><td>1</td><td>data</td><td>40</td></tr>
+</table></div>
+<p>Nine runs in, nine rows out. Counting per team after this join is safe:</p>
+<pre class="python">per_team = statement(
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;), AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(jobs.team),
+)
+run(per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>runs</th><th>minutes</th></tr>
+<tr><td>data</td><td>4</td><td>67</td></tr>
+<tr><td>finance</td><td>5</td><td>113</td></tr>
+</table></div>
+<h5>See the repeated-rows Warning</h5>
+<p>Now each run&#x27;s alerts. <code>run_alerts.run_id</code> isn&#x27;t the key of <code>run_alerts</code>: a run with two alerts matches two rows, so the run comes out twice. The Toolbox lets the Statement through, since sometimes that is what you want, but warns at the JOIN:</p>
+<pre class="python">runs_with_alerts = statement(
+    SELECT(job_runs.run_id, job_runs.duration_mins, run_alerts.alert_id),
+    FROM(job_runs),
+    JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
+  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its key (alert_id).
+  Why it matters: Each row before the join is repeated once per matching run_alerts row, so sums and counts over it may come out too big.
+  Usual fix:      Group run_alerts first so it has one row per value you join on, and join that.
+  Opt-out:        JOIN(run_alerts, ON=..., many_matches=True)</pre>
+<pre class="python">run(runs_with_alerts, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>alert_id</th></tr>
+<tr><td>97</td><td>30</td><td>1</td></tr>
+<tr><td>97</td><td>30</td><td>2</td></tr>
+<tr><td>101</td><td>10</td><td>3</td></tr>
+<tr><td>101</td><td>10</td><td>4</td></tr>
+<tr><td>101</td><td>10</td><td>5</td></tr>
+<tr><td>102</td><td>20</td><td>6</td></tr>
+<tr><td>103</td><td>30</td><td>7</td></tr>
+<tr><td>103</td><td>30</td><td>8</td></tr>
+<tr><td>104</td><td>40</td><td>9</td></tr>
+</table></div>
+<p>Run 101 is there three times, with its 10 minutes each time, and the runs with no alert, such as 95, are gone, because <code>JOIN</code> keeps only rows that match. <code>run_alerts</code> has a Date partition too, so it gets its own days in <code>WHERE</code>.</p>
+<h5>Watch a total come out too big</h5>
+<p>Add up the minutes over that join, and the repeated runs are added again:</p>
+<pre class="python">careless_total = statement(
+    SELECT(AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;), AS(count_rows(), &quot;alerts&quot;)),
+    FROM(job_runs),
+    JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
+  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its key (alert_id).
+  Why it matters: Each row before the join is repeated once per matching run_alerts row, so sums and counts over it may come out too big.
+  Usual fix:      Group run_alerts first so it has one row per value you join on, and join that.
+  Opt-out:        JOIN(run_alerts, ON=..., many_matches=True)</pre>
+<pre class="python">run(careless_total, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>minutes</th><th>alerts</th></tr>
+<tr><td>210</td><td>9</td></tr>
+</table></div>
+<p>The nine runs took 180 minutes in all, as <code>per_team</code> shows (67 + 113). Here the minutes come out as 210: run 101&#x27;s are added three times, and the runs with no alert aren&#x27;t added at all.</p>
+<h5>Add up before you join</h5>
+<p>The fix is to give <code>run_alerts</code> one row per run before joining it. A Derived table does that: a Statement given a name with <code>derived</code>, which another Statement reads like a table. It groups the alerts by run, so it has one row per run, and the Toolbox takes its GROUP_BY column, <code>alerts_per_run.run_id</code>, as its key:</p>
+<pre class="python">alerts_per_run = derived(&quot;alerts_per_run&quot;, statement(
+    SELECT(run_alerts.run_id, AS(count_rows(), &quot;alerts&quot;)),
+    FROM(run_alerts),
+    WHERE(between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(run_alerts.run_id),
+))</pre>
+<p><code>LEFT_JOIN</code> keeps every run, also those with no alert, and gives them NULL in the joined columns; <code>fill_null</code> turns that NULL into 0:</p>
+<pre class="python">runs_and_alerts = statement(
+    SELECT(job_runs.run_id, job_runs.duration_mins,
+           AS(fill_null(alerts_per_run.alerts, 0), &quot;alerts&quot;)),
+    FROM(job_runs),
+    LEFT_JOIN(alerts_per_run, ON=equals(alerts_per_run.run_id, job_runs.run_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+text = show_hive(runs_and_alerts)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH alerts_per_run AS (
+  SELECT
+    run_alerts.run_id,
+    COUNT(*) AS alerts
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  GROUP BY
+    run_alerts.run_id
+)
+SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  COALESCE(alerts_per_run.alerts, 0) AS alerts
+FROM ops.job_runs AS job_runs
+LEFT JOIN alerts_per_run
+  ON alerts_per_run.run_id = job_runs.run_id
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
+<pre class="python">run(runs_and_alerts, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>alerts</th></tr>
+<tr><td>95</td><td>12</td><td>0</td></tr>
+<tr><td>96</td><td>18</td><td>0</td></tr>
+<tr><td>97</td><td>30</td><td>2</td></tr>
+<tr><td>98</td><td>15</td><td>0</td></tr>
+<tr><td>99</td><td>5</td><td>0</td></tr>
+<tr><td>101</td><td>10</td><td>3</td></tr>
+<tr><td>102</td><td>20</td><td>1</td></tr>
+<tr><td>103</td><td>30</td><td>2</td></tr>
+<tr><td>104</td><td>40</td><td>1</td></tr>
+</table></div>
+<p>One row per run, and no Warning. The Derived table is written at the top of the Hive, as <code>WITH alerts_per_run AS (...)</code>. The totals now come out right:</p>
+<pre class="python">fixed_total = statement(
+    SELECT(AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;),
+           AS(fill_null(sum_of(alerts_per_run.alerts), 0), &quot;alerts&quot;)),
+    FROM(job_runs),
+    LEFT_JOIN(alerts_per_run, ON=equals(alerts_per_run.run_id, job_runs.run_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+run(fixed_total, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>minutes</th><th>alerts</th></tr>
+<tr><td>180</td><td>9</td></tr>
+</table></div>
+<h5>Keep the rows with no match</h5>
+<p><code>LEFT_JOIN</code> keeps every row of the table in <code>FROM</code>. Here every job, with its runs counted first so each job meets at most one row; <code>ops.jobs</code> has a job that never ran, cache_warm:</p>
+<pre class="python">runs_per_job = derived(&quot;runs_per_job&quot;, statement(
+    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+))
+every_job = statement(
+    SELECT(jobs.job_id, jobs.job_name, AS(fill_null(runs_per_job.runs, 0), &quot;runs&quot;)),
+    FROM(jobs),
+    LEFT_JOIN(runs_per_job, ON=equals(runs_per_job.job_id, jobs.job_id)),
+)
+run(every_job, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th><th>runs</th></tr>
+<tr><td>1</td><td>nightly_load</td><td>4</td></tr>
+<tr><td>2</td><td>invoice_sync</td><td>3</td></tr>
+<tr><td>3</td><td>report_build</td><td>2</td></tr>
+<tr><td>4</td><td>cache_warm</td><td>0</td></tr>
+</table></div>
+<p>A plain <code>JOIN</code> would have left cache_warm out, with nothing to say it was missing.</p>
+<h5>Find the rows with no match</h5>
+<p>A row with no match has NULL in every joined column, so <code>is_null</code> on one of them keeps just those rows. Here, the jobs that never ran on the two days:</p>
+<pre class="python">never_ran = statement(
+    SELECT(jobs.job_id, jobs.job_name),
+    FROM(jobs),
+    LEFT_JOIN(runs_per_job, ON=equals(runs_per_job.job_id, jobs.job_id)),
+    WHERE(is_null(runs_per_job.job_id)),
+)
+text = show_hive(never_ran)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH runs_per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN runs_per_job
+  ON runs_per_job.job_id = jobs.job_id
+WHERE
+  runs_per_job.job_id IS NULL;</pre>
+<pre class="python">run(never_ran, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th></tr>
+<tr><td>4</td><td>cache_warm</td></tr>
+</table></div>
+<h4>Check it worked</h4>
+<p>A join that doesn&#x27;t repeat rows gives as many rows as the table in <code>FROM</code> has, and the same totals. Count the runs of the two days on their own, then after the join:</p>
+<pre class="python">runs_alone = statement(
+    SELECT(AS(count_rows(), &quot;runs&quot;), AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+run(runs_alone, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>runs</th><th>minutes</th></tr>
+<tr><td>9</td><td>180</td></tr>
+</table></div>
+<pre class="python">len(run(runs_and_alerts, send=example_database.send))</pre>
+<p class="label">Python shows</p><pre class="output">9</pre>
+<p>Nine runs and 180 minutes alone, and nine rows after the fixed join, whose total is 180 too. On the page, only the two Statements built to show the Warning gave one.</p>
+<h4>Common mistakes</h4>
+<h5>Silencing the Warning instead of fixing the join</h5>
+<p>The Warning&#x27;s Opt-out, <code>many_matches=True</code>, says the repeated rows are what you mean. Pasted to make the Warning go away, it leaves the total just as wrong, and now nothing says so:</p>
+<pre class="python">silenced = statement(
+    SELECT(AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)
+run(silenced, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>minutes</th></tr>
+<tr><td>210</td></tr>
+</table></div>
+<p>Use the Opt-out when one row per match is the point, such as a list of every alert with its run&#x27;s minutes, and nothing over it is added up. To add up, add up before you join.</p>
+<h5>A JOIN with no ON=</h5>
+<pre class="python">no_on = statement(
+    SELECT(job_runs.run_id, jobs.team),
+    FROM(job_runs),
+    JOIN(jobs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  JOIN(jobs) has no ON=.
+  Why it matters: Without ON, every row is paired with every row of jobs, which multiplies the rows and every sum and count over them.
+  Usual fix:      Say how the rows match, as in JOIN(jobs, ON=equals(...)).
+  Opt-out:        CROSS_JOIN(jobs), if you really mean every row with every row.</pre>
+<p>Without <code>ON=</code>, every run would be paired with every job: 9 runs times 4 jobs, 36 rows.</p>
+<h5>A condition on the LEFT_JOIN&#x27;s table in WHERE</h5>
+<p><code>WHERE</code> runs after the join. A row <code>LEFT_JOIN</code> kept for having no match has NULL in the joined columns, so a condition on them in <code>WHERE</code> throws it away again, and the LEFT_JOIN becomes a plain JOIN:</p>
+<pre class="python">runs_of_every_job = statement(
+    SELECT(jobs.job_id, job_runs.run_id),
+    FROM(jobs),
+    LEFT_JOIN(job_runs, ON=equals(job_runs.job_id, jobs.job_id), many_matches=True),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  WHERE has job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;, a condition on job_runs, which LEFT_JOIN brought in.
+  Why it matters: LEFT_JOIN keeps rows with no match in job_runs, but those rows have NULL there, so this WHERE throws them away again. The result is an ordinary JOIN.
+  Usual fix:      Move the condition into LEFT_JOIN(job_runs, ON=...), next to the join condition, so it only decides which rows match.
+  Opt-out:        LEFT_JOIN(job_runs, ON=..., keeps_only_matches=True)</pre>
+<p>Move it into <code>ON=</code> with <code>all_of</code>, next to the join condition, as the message says: <code>ON=all_of(equals(job_runs.job_id, jobs.job_id), between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;))</code>. <code>is_null</code>, as in the step Find the rows with no match, is the one condition on the joined table that belongs in <code>WHERE</code>.</p>
+<h5>Forgetting the joined table&#x27;s days</h5>
+<p>Each table with a Date partition needs its own days, the joined one too:</p>
+<pre class="python">alerts_any_day = statement(
+    SELECT(job_runs.run_id, run_alerts.alert_id),
+    FROM(job_runs),
+    JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">LoadRefused:
+  What happened:  JOIN(run_alerts, ON=...) reads ops.run_alerts, but nothing bounds its Date partition dt at both ends.
+  Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
+  Usual fix:      Bound it in WHERE, as in WHERE(between(run_alerts.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(run_alerts.dt, 7)).
+  Opt-out:        JOIN(run_alerts, ON=..., reads_all_partitions=True)</pre>
+<h4>Next</h4>
+<ul><li>Keep a step such as <code>alerts_per_run</code> as a function, and use it in every Statement that needs it: <a href="#reusable_derived_tables">Reusable Derived tables</a>.</li><li>Keep one whole row per key, such as each job&#x27;s newest run: <a href="#latest_row_per_key">The latest row per key</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#JOIN"><code>JOIN</code></a> and <a href="examples.html#LEFT_JOIN"><code>LEFT_JOIN</code></a>, and the traps beside their fixes: <a href="examples.html#repeated_rows">repeated rows</a>, <a href="examples.html#left_join_then_where">a LEFT_JOIN then WHERE</a> and <a href="examples.html#jobs_that_never_ran">jobs that never ran</a>.</li></ul>
+<p class="names">Toolbox names used: <code>check_key</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>fill_null</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="reusable_derived_tables">
+<h3>8. Reusable Derived tables (WITH ... AS in the Hive) <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Write a step once, as a function, and use it in every Statement that needs it. The step is a Derived table: a Statement given a name with <code>derived</code>, which another Statement reads like a table, and which the Hive writes at its top as <code>WITH name AS (...)</code>. Made by a function of yours, a Building block, it takes arguments, such as the days to read; it can be checked alone with <code>run</code>; and steps can be chained, each reading the one before, under names that stay the same in every Statement.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>When two Statements need the same numbers, such as each job&#x27;s runs and minutes: written once, they can&#x27;t be worked out two different ways.</li><li>When a Statement grows long: in named steps, it can be read and checked one step at a time.</li><li>When you add up before a join, as <a href="#join_tables_safely">Join tables safely</a> does: the added-up table is a Derived table.</li></ul>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<pre class="python">from sqlglot_composer import *
+jobs = example_database.jobs
+job_runs = example_database.job_runs</pre>
+<h5>Name one step with derived</h5>
+<p><code>derived</code> gives a Statement a name. Here, each job&#x27;s runs and minutes over two days:</p>
+<pre class="python">job_totals = derived(&quot;job_totals&quot;, statement(
+    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;),
+           AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+))
+job_totals</pre>
+<p class="label">Python shows</p><pre class="output">derived(&#x27;job_totals&#x27;, columns: job_id, runs, minutes)</pre>
+<p>Its columns are what its <code>SELECT</code> makes, checked like a Table reference&#x27;s. Another Statement reads it with <code>FROM</code> or <code>JOIN</code>, like any table. Here, the minutes per team:</p>
+<pre class="python">per_team = statement(
+    SELECT(jobs.team, AS(sum_of(job_totals.minutes), &quot;minutes&quot;)),
+    FROM(job_totals),
+    JOIN(jobs, ON=equals(jobs.job_id, job_totals.job_id)),
+    GROUP_BY(jobs.team),
+)
+text = show_hive(per_team)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH job_totals AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs,
+    SUM(job_runs.duration_mins) AS minutes
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  jobs.team,
+  SUM(job_totals.minutes) AS minutes
+FROM job_totals
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_totals.job_id
+GROUP BY
+  jobs.team;</pre>
+<pre class="python">run(per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>minutes</th></tr>
+<tr><td>data</td><td>67</td></tr>
+<tr><td>finance</td><td>113</td></tr>
+</table></div>
+<p>The Hive starts with <code>WITH job_totals AS (...)</code>, holding the step&#x27;s own Hive; then the Statement reads <code>job_totals</code> by name. A Derived table lives only inside the Statement that reads it: nothing is saved in the warehouse.</p>
+<h5>Make it a Building block</h5>
+<p>A Building block is a function that gives back the Derived table, so any Statement can call it. The days become its arguments, and the name is written once, inside it:</p>
+<pre class="python">def runs_per_job(first_day, last_day):
+    &quot;&quot;&quot;One row per job: its runs, failed runs and minutes from first_day to last_day.&quot;&quot;&quot;
+    return derived(&quot;runs_per_job&quot;, statement(
+        SELECT(
+            job_runs.job_id,
+            AS(count_rows(), &quot;runs&quot;),
+            AS(count_rows(where=equals(job_runs.status, &quot;FAILED&quot;)), &quot;failed_runs&quot;),
+            AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, first_day, last_day)),
+        GROUP_BY(job_runs.job_id),
+    ))</pre>
+<p>Each call gives a Derived table for the days you ask:</p>
+<pre class="python">two_days = runs_per_job(&quot;2026-09-23&quot;, &quot;2026-09-24&quot;)
+last_day = runs_per_job(&quot;2026-09-24&quot;, &quot;2026-09-24&quot;)</pre>
+<h5>Check a block alone with run</h5>
+<p><code>run</code> runs a Statement, and a Derived table is a step inside one, so wrap the block in the smallest Statement that reads it: every column, with <code>all_columns</code>. Check a block like this before you build on it:</p>
+<pre class="python">check_two_days = statement(SELECT(all_columns(two_days)), FROM(two_days))
+run(check_two_days, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>failed_runs</th><th>minutes</th></tr>
+<tr><td>1</td><td>4</td><td>0</td><td>67</td></tr>
+<tr><td>2</td><td>3</td><td>1</td><td>53</td></tr>
+<tr><td>3</td><td>2</td><td>1</td><td>60</td></tr>
+</table></div>
+<pre class="python">check_last_day = statement(SELECT(all_columns(last_day)), FROM(last_day))
+run(check_last_day, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>runs</th><th>failed_runs</th><th>minutes</th></tr>
+<tr><td>1</td><td>2</td><td>0</td><td>50</td></tr>
+<tr><td>2</td><td>1</td><td>1</td><td>20</td></tr>
+<tr><td>3</td><td>1</td><td>0</td><td>30</td></tr>
+</table></div>
+<h5>Chain a second step onto the first</h5>
+<p>A block can read another block. <code>busy_jobs</code> keeps the jobs with at least <code>min_runs</code> runs, reading <code>runs_per_job</code>; the Statement after it adds each job&#x27;s name:</p>
+<pre class="python">def busy_jobs(first_day, last_day, min_runs):
+    &quot;&quot;&quot;The jobs with at least min_runs runs from first_day to last_day.&quot;&quot;&quot;
+    per_job = runs_per_job(first_day, last_day)
+    return derived(&quot;busy_jobs&quot;, statement(
+        SELECT(per_job.job_id, per_job.runs, per_job.minutes),
+        FROM(per_job),
+        WHERE(at_least(per_job.runs, min_runs)),
+    ))
+busy = busy_jobs(&quot;2026-09-23&quot;, &quot;2026-09-24&quot;, min_runs=3)
+busy_report = statement(
+    SELECT(jobs.job_name, busy.runs, busy.minutes),
+    FROM(busy),
+    JOIN(jobs, ON=equals(jobs.job_id, busy.job_id)),
+)
+text = show_hive(busy_report)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH runs_per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs,
+    COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END) AS failed_runs,
+    SUM(job_runs.duration_mins) AS minutes
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_runs.job_id
+), busy_jobs AS (
+  SELECT
+    runs_per_job.job_id,
+    runs_per_job.runs,
+    runs_per_job.minutes
+  FROM runs_per_job
+  WHERE
+    runs_per_job.runs &gt;= 3
+)
+SELECT
+  jobs.job_name,
+  busy_jobs.runs,
+  busy_jobs.minutes
+FROM busy_jobs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = busy_jobs.job_id;</pre>
+<pre class="python">run(busy_report, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_name</th><th>runs</th><th>minutes</th></tr>
+<tr><td>invoice_sync</td><td>3</td><td>53</td></tr>
+<tr><td>nightly_load</td><td>4</td><td>67</td></tr>
+</table></div>
+<p>The Hive holds both steps, in order, each under its own name: <code>runs_per_job</code>, then <code>busy_jobs</code> reading it. In <code>busy_jobs</code>, <code>per_job.runs</code> is a plain column, one number per row, so <code>WHERE</code> can test it.</p>
+<h5>Use the same block in another Statement</h5>
+<p>Any Statement that needs each job&#x27;s runs calls the same function, and gets the same step under the same name. Here, each team&#x27;s failed runs:</p>
+<pre class="python">per_job = runs_per_job(&quot;2026-09-23&quot;, &quot;2026-09-24&quot;)
+failed_per_team = statement(
+    SELECT(jobs.team, AS(sum_of(per_job.failed_runs), &quot;failed_runs&quot;)),
+    FROM(per_job),
+    JOIN(jobs, ON=equals(jobs.job_id, per_job.job_id)),
+    GROUP_BY(jobs.team),
+)
+text = show_hive(failed_per_team)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH runs_per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs,
+    COUNT(CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END) AS failed_runs,
+    SUM(job_runs.duration_mins) AS minutes
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  jobs.team,
+  SUM(runs_per_job.failed_runs) AS failed_runs
+FROM runs_per_job
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = runs_per_job.job_id
+GROUP BY
+  jobs.team;</pre>
+<pre class="python">run(failed_per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>failed_runs</th></tr>
+<tr><td>data</td><td>0</td></tr>
+<tr><td>finance</td><td>2</td></tr>
+</table></div>
+<p>Its Hive starts with the same <code>WITH runs_per_job AS (...)</code> as <code>busy_report</code>&#x27;s. Keep a block&#x27;s name the same in every Statement, and name it like its function: then its Hive reads the same everywhere, a Lineage names it the same in every Statement, and a change to the function reaches them all.</p>
+<h5>Keep it in a file</h5>
+<p>Building blocks go in their own .py files, in a folder of their own beside your notebook, such as building_blocks/runs_per_job.py. A block&#x27;s file imports the Toolbox and the Table references it reads, never a Statement:</p>
+<pre class="python">&quot;&quot;&quot;Each job&#x27;s runs, failed runs and minutes, as a Derived table to read.&quot;&quot;&quot;
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, statement,
+    sum_of,
+)
+from table_references.job_runs import job_runs
+
+def runs_per_job(first_day, last_day):
+    &quot;&quot;&quot;One row per job: its runs, failed runs and minutes from first_day to last_day.&quot;&quot;&quot;
+    return derived(&quot;runs_per_job&quot;, statement(
+        SELECT(
+            job_runs.job_id,
+            AS(count_rows(), &quot;runs&quot;),
+            AS(count_rows(where=equals(job_runs.status, &quot;FAILED&quot;)), &quot;failed_runs&quot;),
+            AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, first_day, last_day)),
+        GROUP_BY(job_runs.job_id),
+    ))</pre>
+<p>A notebook then imports it with <code>from building_blocks.runs_per_job import runs_per_job</code>. The starter Example project, in the Toolbox download&#x27;s example_projects folder, is laid out this way: Table references, Building blocks, then Statements.</p>
+<h4>Check it worked</h4>
+<p>The block, checked alone, and a Statement built on it give the same numbers. The failed runs of the two days, from the block alone, add up to those per team:</p>
+<pre class="python">from_block = run(check_two_days, send=example_database.send)
+from_teams = run(failed_per_team, send=example_database.send)
+print(from_block[&quot;failed_runs&quot;].sum(), from_teams[&quot;failed_runs&quot;].sum())</pre>
+<p class="label">Python prints</p><pre class="output">2 2</pre>
+<h4>Common mistakes</h4>
+<h5>Running a Derived table itself</h5>
+<p><code>run</code> takes a Statement. A Derived table is a step to read, so on its own it stops:</p>
+<pre class="python">run(two_days, send=example_database.send)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  to_hive was given derived(&#x27;runs_per_job&#x27;, columns: job_id, runs, failed_runs, minutes), which isn&#x27;t a Statement.
+  Why it matters: It writes the Hive for a Statement made by statement(...).
+  Usual fix:      Pass statement(SELECT(...), FROM(...), ...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Wrap it in a Statement that reads it, as the step Check a block alone with run does.</p>
+<h5>Two blocks with one name</h5>
+<p>A second block, copied from the first and changed, keeps the first one&#x27;s name unless you change it. Here a block of each job&#x27;s long runs keeps the name <code>runs_per_job</code>. A Statement that reads it beside <code>busy</code>, which reads the real <code>runs_per_job</code>, holds two different steps under one name, and stops:</p>
+<pre class="python">def long_runs_per_job(first_day, last_day):
+    return derived(&quot;runs_per_job&quot;, statement(
+        SELECT(job_runs.job_id, AS(count_rows(), &quot;long_runs&quot;)),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, first_day, last_day),
+              at_least(job_runs.duration_mins, 30)),
+        GROUP_BY(job_runs.job_id),
+    ))
+long_runs = long_runs_per_job(&quot;2026-09-23&quot;, &quot;2026-09-24&quot;)
+busy_and_long = statement(
+    SELECT(busy.job_id, busy.runs, AS(fill_null(long_runs.long_runs, 0), &quot;long_runs&quot;)),
+    FROM(busy),
+    LEFT_JOIN(long_runs, ON=equals(long_runs.job_id, busy.job_id)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  statement(...) reads two different Derived tables called &#x27;runs_per_job&#x27;.
+  Why it matters: Each becomes a named part of the same Hive string, so the names must differ.
+  Usual fix:      Give one of them another name in derived(...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Give each block&#x27;s Derived table a name of its own, the same as its function&#x27;s: <code>derived(&quot;long_runs_per_job&quot;, ...)</code>. The same stop comes when one Statement reads one block twice, for different days: give the second its own block, or work out both in one.</p>
+<h5>A column the block doesn&#x27;t make</h5>
+<p>A Derived table&#x27;s columns are checked like a Table reference&#x27;s, so a name it doesn&#x27;t have stops at once, with the names it has:</p>
+<pre class="python">per_job.failed</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">AttributeError:
+runs_per_job has no column &#x27;failed&#x27;. Did you mean &#x27;failed_runs&#x27;? Its columns are: job_id, runs, failed_runs, minutes.</pre>
+<h4>Next</h4>
+<ul><li>Keep one whole row per key, numbering rows in a Derived table: <a href="#latest_row_per_key">The latest row per key</a>.</li><li>The gallery&#x27;s Worked example of <a href="examples.html#derived"><code>derived</code></a>, and a long Statement built in named steps: <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>fill_null</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="latest_row_per_key">
+<h3>9. The latest row per key, and the top N per group <span class="badge getting-started">Getting started</span></h3>
+<h4>Goal</h4>
+<p>Keep one whole row per key, such as each job&#x27;s newest run, or the top N rows of each group, such as each job&#x27;s two longest runs. <code>row_number</code> numbers the rows of each group in the order you choose, inside a Derived table, and the Statement that reads it keeps number 1, or numbers 1 to N.</p>
+<h4>When you&#x27;d use it</h4>
+<ul><li>The latest row per key: each job&#x27;s newest run, each customer&#x27;s last order, each table&#x27;s newest snapshot.</li><li>The top N per group: each job&#x27;s two longest runs, each team&#x27;s three busiest days.</li><li>Whenever you are tempted to take <code>max_of</code> of several columns to get &quot;the newest row&quot;: each <code>max_of</code> picks its own row, so the columns can come from different rows. The first step shows it happen.</li></ul>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the table</h5>
+<pre class="python">from sqlglot_composer import *
+job_runs = example_database.job_runs</pre>
+<h5>See why max_of isn&#x27;t the latest row</h5>
+<p>The question: what was each job&#x27;s newest run, and how did it end? Run ids grow as runs start, so the newest run is the one with the largest <code>job_runs.run_id</code>. The first thing most people write takes the largest of each column:</p>
+<pre class="python">careless = statement(
+    SELECT(job_runs.job_id, AS(max_of(job_runs.run_id), &quot;run_id&quot;),
+           AS(max_of(job_runs.status), &quot;status&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)
+run(careless, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>run_id</th><th>status</th></tr>
+<tr><td>1</td><td>104</td><td>TEST</td></tr>
+<tr><td>2</td><td>102</td><td>SUCCESS</td></tr>
+<tr><td>3</td><td>103</td><td>SUCCESS</td></tr>
+</table></div>
+<p>It runs, and it is wrong. Job 2&#x27;s newest run, 102, FAILED, but <code>max_of(job_runs.status)</code> takes the largest status in alphabetical order from any of job 2&#x27;s runs, SUCCESS. Job 1 shows TEST, from run 99, though run 104 succeeded. Each <code>max_of</code> picks its own row.</p>
+<h5>Number each job&#x27;s runs, newest first</h5>
+<p><code>row_number</code> numbers the rows of each group from 1:</p>
+<ul><li><code>PARTITION_BY=</code> names the column whose values make the groups, here each job. The word is SQL&#x27;s; it has nothing to do with a table&#x27;s Date partition.</li><li><code>ORDER_BY=</code> says the order to number them in. <code>descending</code> makes the largest come first, so each job&#x27;s newest run gets 1.</li></ul>
+<p>The number is a calculation, so it needs a name with <code>AS</code>, and it goes in a Derived table, for the next Statement to read:</p>
+<pre class="python">numbered = derived(&quot;numbered&quot;, statement(
+    SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
+           AS(row_number(PARTITION_BY=job_runs.job_id,
+                         ORDER_BY=descending(job_runs.run_id)), &quot;newest_first&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+))</pre>
+<p>Check the numbering alone first, with a Statement that reads every column of it:</p>
+<pre class="python">numbering = statement(SELECT(all_columns(numbered)), FROM(numbered))
+run(numbering, send=example_database.send)</pre>
+<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>run_id</th><th>status</th><th>newest_first</th></tr>
+<tr><td>1</td><td>95</td><td>SUCCESS</td><td>4</td></tr>
+<tr><td>1</td><td>99</td><td>TEST</td><td>3</td></tr>
+<tr><td>1</td><td>101</td><td>SUCCESS</td><td>2</td></tr>
+<tr><td>1</td><td>104</td><td>SUCCESS</td><td>1</td></tr>
+<tr><td>2</td><td>96</td><td>SUCCESS</td><td>3</td></tr>
+<tr><td>2</td><td>98</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>2</td><td>102</td><td>FAILED</td><td>1</td></tr>
+<tr><td>3</td><td>97</td><td>FAILED</td><td>2</td></tr>
+<tr><td>3</td><td>103</td><td>SUCCESS</td><td>1</td></tr>
+</table></div>
+<div class="only">
+<p>sqlglot Composer&#x27;s Example database runs Hive on a small executor that has no <code>row_number</code>, so here the result is worked out in pandas, as the label says. At work, Hive runs it, and gives the same rows.</p>
+</div>
+<p>Each job&#x27;s runs are numbered 1, 2, 3, ... from its newest.</p>
+<h5>Keep number 1</h5>
+<p>The Statement that reads <code>numbered</code> keeps the rows numbered 1: one whole row per job.</p>
+<pre class="python">latest = statement(
+    SELECT(numbered.job_id, numbered.run_id, numbered.status),
+    FROM(numbered),
+    WHERE(equals(numbered.newest_first, 1)),
+)
+text = show_hive(latest)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH numbered AS (
+  SELECT
+    job_runs.job_id,
+    job_runs.run_id,
+    job_runs.status,
+    ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC) AS newest_first
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+)
+SELECT
+  numbered.job_id,
+  numbered.run_id,
+  numbered.status
+FROM numbered
+WHERE
+  numbered.newest_first = 1;</pre>
+<pre class="python">run(latest, send=example_database.send)</pre>
+<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>run_id</th><th>status</th></tr>
+<tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
+<tr><td>2</td><td>102</td><td>FAILED</td></tr>
+<tr><td>3</td><td>103</td><td>SUCCESS</td></tr>
+</table></div>
+<p>Job 2&#x27;s newest run is 102, and it FAILED, as it should be: the status comes from the same row as the run.</p>
+<h5>Keep the top N of each group</h5>
+<p>Keep numbers 1 to N instead, with <code>at_most</code>. Here, each job&#x27;s two longest runs: number them from the longest. Two runs of job 3 took 30 minutes each, so <code>ORDER_BY=</code> takes a list, and a second column breaks the tie, the newest of the two first. Without one, which of two tied rows gets the lower number can change from one run to the next.</p>
+<pre class="python">ranked = derived(&quot;ranked&quot;, statement(
+    SELECT(job_runs.job_id, job_runs.run_id, job_runs.duration_mins,
+           AS(row_number(PARTITION_BY=job_runs.job_id,
+                         ORDER_BY=[descending(job_runs.duration_mins),
+                                   descending(job_runs.run_id)]), &quot;longest_first&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+))
+top_two = statement(
+    SELECT(ranked.job_id, ranked.run_id, ranked.duration_mins),
+    FROM(ranked),
+    WHERE(at_most(ranked.longest_first, 2)),
+)
+text = show_hive(top_two)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH ranked AS (
+  SELECT
+    job_runs.job_id,
+    job_runs.run_id,
+    job_runs.duration_mins,
+    ROW_NUMBER() OVER (
+      PARTITION BY job_runs.job_id
+      ORDER BY job_runs.duration_mins DESC, job_runs.run_id DESC
+    ) AS longest_first
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+)
+SELECT
+  ranked.job_id,
+  ranked.run_id,
+  ranked.duration_mins
+FROM ranked
+WHERE
+  ranked.longest_first &lt;= 2;</pre>
+<pre class="python">run(top_two, send=example_database.send)</pre>
+<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>run_id</th><th>duration_mins</th></tr>
+<tr><td>1</td><td>95</td><td>12</td></tr>
+<tr><td>1</td><td>104</td><td>40</td></tr>
+<tr><td>2</td><td>96</td><td>18</td></tr>
+<tr><td>2</td><td>102</td><td>20</td></tr>
+<tr><td>3</td><td>97</td><td>30</td></tr>
+<tr><td>3</td><td>103</td><td>30</td></tr>
+</table></div>
+<p>Two rows per job, or fewer for a job with fewer runs. <code>ORDER_BY</code> with <code>LIMIT</code>, as in <a href="#count_and_add_up_per_group">Count and add up per group</a>, keeps the top N rows of the whole result; <code>row_number</code> keeps the top N of each group.</p>
+<h4>Check it worked</h4>
+<p>Keep each job once: one row per job, as many rows as jobs that ran.</p>
+<pre class="python">newest = run(latest, send=example_database.send)
+newest[&quot;job_id&quot;].is_unique</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<p>And check each job&#x27;s run against the largest run id worked out another way, with <code>max_of</code>, which is right for one column on its own:</p>
+<pre class="python">newest_ids = statement(
+    SELECT(job_runs.job_id, AS(max_of(job_runs.run_id), &quot;run_id&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)
+run(newest_ids, send=example_database.send)[&quot;run_id&quot;].tolist() == newest[&quot;run_id&quot;].tolist()</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<h4>Common mistakes</h4>
+<h5>Testing the row number in the same Statement</h5>
+<p>A row&#x27;s number is given last, after the rows are picked, so Hive can&#x27;t test it in the <code>WHERE</code> of the Statement that makes it:</p>
+<pre class="python">in_one_go = statement(
+    SELECT(job_runs.job_id, job_runs.run_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          equals(row_number(PARTITION_BY=job_runs.job_id,
+                            ORDER_BY=descending(job_runs.run_id)), 1)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  WHERE has ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC) = 1, which numbers rows.
+  Why it matters: Rows are numbered last, after the rows are picked and grouped, so Hive can&#x27;t use the number in WHERE of the SELECT that makes it.
+  Usual fix:      Number the rows in a derived(...) table, then use the number in the Statement that reads it; help(row_number) shows how.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Number the rows in a Derived table, then keep number 1 in the Statement that reads it, as the steps do.</p>
+<h5>Numbering from the wrong end</h5>
+<p>Without <code>descending</code>, <code>ORDER_BY=</code> numbers from the smallest, so number 1 is each job&#x27;s oldest run, not its newest. Nothing stops it:</p>
+<pre class="python">oldest_first = derived(&quot;oldest_first&quot;, statement(
+    SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
+           AS(row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id),
+              &quot;position&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+))
+first_runs = statement(
+    SELECT(oldest_first.job_id, oldest_first.run_id, oldest_first.status),
+    FROM(oldest_first),
+    WHERE(equals(oldest_first.position, 1)),
+)
+run(first_runs, send=example_database.send)</pre>
+<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>run_id</th><th>status</th></tr>
+<tr><td>1</td><td>95</td><td>SUCCESS</td></tr>
+<tr><td>2</td><td>96</td><td>SUCCESS</td></tr>
+<tr><td>3</td><td>97</td><td>FAILED</td></tr>
+</table></div>
+<p>Each job&#x27;s first run of the two days. In the Hive, the ORDER BY inside OVER (...) says DESC when it numbers newest first.</p>
+<h5>A row number without a name</h5>
+<pre class="python">unnamed = derived(&quot;unnamed&quot;, statement(
+    SELECT(job_runs.job_id, job_runs.run_id,
+           row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+))</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  SELECT has a calculation with no name: ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC).
+  Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
+  Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
+  Opt-out:        none - a calculation always needs a name.</pre>
+<p>Name it with <code>AS</code>, so the Statement that reads it can test it by that name.</p>
+<h4>Next</h4>
+<ul><li>Keep the numbering step as a Building block every Statement can call: <a href="#reusable_derived_tables">Reusable Derived tables</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#row_number"><code>row_number</code></a> and <a href="examples.html#descending"><code>descending</code></a>, and the careless and fixed Statements side by side: <a href="examples.html#latest_and_top_n">latest and top N</a>.</li></ul>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>row_number</code>, <code>descending</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
 <section class="entry" id="check_data_quality">

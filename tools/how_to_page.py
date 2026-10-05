@@ -496,7 +496,9 @@ def how_to_html(how_to: HowTo) -> str:
     """A how-to's entry on the page, its steps run in a fresh notebook's scope."""
     shown = []
     with example_setting(), lineage_pinned():
-        notebook = Notebook(scope={}, folder=Path.cwd())
+        # A notebook's own scope is named __main__. Python drops a Warning the Toolbox gives
+        # from a scope with no __name__, so without it no Warning would reach the page.
+        notebook = Notebook(scope={"__name__": "__main__"}, folder=Path.cwd())
         with pandas_standing_in(how_to.stand_ins, notebook.scope, notebook.answered):
             for heading, text in sections(how_to):
                 shown += [f"<h4>{escape(heading)}</h4>", section_html(text, notebook)]
