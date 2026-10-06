@@ -9,6 +9,15 @@
             "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect_main.py\""
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/offline_guard.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

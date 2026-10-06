@@ -44,3 +44,8 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   address-taking methods (a name is looked up before their event); RuntimeError; loopback,
   Unix paths and no-name lookups allowed, a bind to every interface and every client library
   refused; a backstop keeps the trap's own tests off the network.
+- [The offline guard hook](issues/02-the-offline-guard-hook.md): `.claude/hooks/offline_guard.py`
+  judges the file as the edit would leave it, in the project or its worktree, by that
+  checkout's own policy; it refuses unparseable code in the strict folders, fails closed there
+  and open elsewhere; `hook_io.py` holds what the hooks share; the policy now reads `.pyw`,
+  refuses a non-UTF-8 coding cookie and skips no folder inside the strict folders.

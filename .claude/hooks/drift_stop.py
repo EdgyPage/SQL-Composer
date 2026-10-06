@@ -15,11 +15,11 @@ from drift_list import (
     git,
     on_this_branch,
     open_items,
-    read_hook_input,
     read_requests,
     reviewed_commits,
     same_commit,
 )
+from hook_io import read_hook_input
 
 
 def what_blocks(my_commits: list[str], drift_text: str) -> str | None:
