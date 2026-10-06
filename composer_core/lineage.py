@@ -194,32 +194,48 @@ def _aliases_read(tree: Node) -> set[str]:
     return {used.table for used in tree.find_all("Column") if used.table}
 
 
-def _date_bounds(s: Statement) -> tuple[Statement, list, list]:
-    """The step that reads a write's real table through FROM, its date-bound conditions, and
-    the conditions that do nothing but bound a joined table's Date partition, where a JOIN's ON
-    sets that Date partition equal to the FROM table's: they follow the day written."""
+def _date_bounds(s: Statement) -> tuple[Statement, list]:
+    """The step that reads a write's real table through FROM, and its date-bound conditions."""
     step = steps(s)[-1][0]
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]
     key = (table._alias, table._date_partition)
-    tied = {(read.table._alias, read.table._date_partition) for read in step._reads
-            if read._name == "JOIN" and read.table._date_partition
-            and _sets_equal(read.on, (read.table._alias, read.table._date_partition), key)}
-    return (step, [c for c in step._where + inner if key in c._spans],
-            [c for c in step._where if c._only_bounds in tied])
+    return step, [c for c in step._where + inner if key in c._spans]
+
+
+def _bounds_that_follow_the_day_written(s: Statement) -> list:
+    """The conditions in a write's WHERE that do nothing but bound a joined table's Date
+    partition, where that table's JOIN sets its Date partition equal to the FROM table's, the
+    day written: as how-to 23's team write reads each job's team from that day's snapshot."""
+    step = steps(s)[-1][0]
+    table = step._reads[0].table
+    written = (table._alias, table._date_partition)
+    tied = []
+    for read in step._reads:
+        joined = (read.table._alias, read.table._date_partition)
+        if read._name == "JOIN" and read.table._date_partition and _sets_equal(
+                read.on, joined, written):
+            tied.append(joined)
+    return [c for c in step._where if c._only_bounds in tied]
 
 
 def _sets_equal(on, one: tuple[str, str], other: tuple[str, str]) -> bool:
     """Whether an ON= condition sets two columns, each (table alias, column), equal: with an
     equals(...) between them, alone or in all_of(...)."""
-    def parts(tree: Node) -> list[Node]:
-        return [part for side in tree.flatten() for part in parts(side)] if (
-            tree.kind == "And") else [tree]
-
-    return any(part.kind == "EQ" and {(side.table, side.name) for side in
-                                      (part.parts["this"], part.parts["expression"])
-                                      if side.kind == "Column"} == {one, other}
-               for part in parts(on._tree))
+    parts, todo = [], [on._tree]
+    while todo:
+        tree = todo.pop()
+        if tree.kind == "And":
+            todo += tree.flatten()
+        else:
+            parts.append(tree)
+    for part in parts:
+        if part.kind == "EQ":
+            sides = (part.parts["this"], part.parts["expression"])
+            if {(side.table, side.name) for side in sides if side.kind == "Column"} == {
+                    one, other}:
+                return True
+    return False
 
 
 def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list[str]:
@@ -231,10 +247,10 @@ def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list
         written.append(target)
     day = _table_box(graph, table, table._date_partition)
     written.append(day)
-    step, bounds, following = _date_bounds(s)
+    step, bounds = _date_bounds(s)
     for condition in bounds:
         graph.arrow(conditions.get((id(step), id(condition))), day, "day")
-    for condition in following:
+    for condition in _bounds_that_follow_the_day_written(s):
         graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
     return written
 
@@ -371,9 +387,9 @@ def _deciding(graph: Graph, key: str) -> list[str]:
 
     A LEFT JOIN keeps every row before it, once each unless many_matches=True. So its ON=, and
     the conditions that decided the joined table's rows, decide only the columns read from that
-    table, which reach `key` by their own arrows; unless another condition of the same step
-    reads that table, as WHERE(is_null(...)) does to keep the rows with no match. Then the ON=
-    decides every column of the step.
+    table, which reach `key` by their own arrows; unless a condition of the same step that can
+    drop rows reads that table, as WHERE(is_null(...)) does to keep the rows with no match.
+    Then the ON= decides every column of the step (see _decides).
     """
     seen, todo = [], [key]
     while todo:
@@ -387,14 +403,32 @@ def _deciding(graph: Graph, key: str) -> list[str]:
 
 
 def _decides(graph: Graph, parent: str, at: str) -> bool:
-    """Whether box `parent` can decide the rows of box `at`, one arrow away (see _deciding)."""
+    """Whether box `parent` can decide the rows of box `at`, one arrow away (see _deciding).
+
+    A LEFT JOIN's ON= that keeps every row decides `at` when its table is among those `at`
+    depends on: the tables `at` reads, and those every condition of its step that can drop
+    rows reads, and, through each other such LEFT JOIN whose table is among them, the tables
+    its ON= reads, as a second LEFT JOIN matching on the first one's columns does.
+    """
     box = graph.boxes[parent]
     kept = box.get("kept")
-    if kept is None or kept in graph.boxes[at].get("reads", ()):
+    if kept is None:
         return True
-    return any(other is not box and other["kind"] == "condition"
-               and (other["statement"], other["group"]) == (box["statement"], box["group"])
-               and kept in other["reads"] for other in graph.boxes.values())
+    step = [other for other in graph.boxes.values() if other["kind"] == "condition"
+            and (other["statement"], other["group"]) == (box["statement"], box["group"])]
+    depends_on = set(graph.boxes[at].get("reads", ()))
+    for other in step:
+        if other.get("kept") is None:
+            depends_on |= other["reads"]
+    keeping = [other for other in step if other.get("kept") is not None]
+    grown = True
+    while grown:
+        grown = False
+        for other in keeping:
+            if other["kept"] in depends_on and not other["reads"] <= depends_on:
+                depends_on |= other["reads"]
+                grown = True
+    return kept in depends_on
 
 
 def _rows_that_count(graph: Graph, key: str) -> list[tuple[dict, list[str]]]:
@@ -402,7 +436,8 @@ def _rows_that_count(graph: Graph, key: str) -> list[tuple[dict, list[str]]]:
 
     A write's date bound decides which day of its Saved table is written, not which of
     those days a later Statement reads, so it counts only in the write's own section. So does a
-    bound on a joined table's Date partition that follows the day written (see _date_bounds).
+    bound on a joined table's Date partition that follows the day written
+    (see _bounds_that_follow_the_day_written).
     """
     found, upstream = [], _deciding(graph, key)
     day_bounds = {a for a, _, kind in graph.arrows if kind == "day"}

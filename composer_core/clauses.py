@@ -318,8 +318,8 @@ def _matched_columns(table: Table, on: Condition) -> list[str]:
 
 
 def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition) -> None:
-    """Refuse an ON= that sets a column of the joined table equal to a column of that name in
-    a table of that name, as when one Statement reads one Building block twice.
+    """Refuse an ON= that sets a column of the joined table equal to the same column of a table
+    with the same name, as when one Statement reads one Building block twice.
 
     The SQL reads both sides as the same column of the same table, so ON= pairs every row with
     every row. Refused here, at the join, before the repeated-rows Warning, which would say
@@ -332,18 +332,21 @@ def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition
                 sides[0].name == sides[1].name):
             column = f"{alias}.{sides[0].name}"
             if table._statement is None:
-                fix = (f'To read {alias} twice, give the second a name of its own with AS, '
-                       f'such as AS({alias}, "earlier"), and compare with its columns.')
+                called = f"both sides are tables called {alias}"
+                fix = (f'To read {alias} twice, give the second a name of its own with AS: '
+                       f'earlier = AS({alias}, "earlier"), then JOIN(earlier, ON=...) with '
+                       "earlier's columns.")
             else:
-                fix = (f'To read {alias} twice, give the second a name of its own: '
-                       f'AS({alias}, "earlier") when both are the same Derived table, or '
-                       "another name in derived(...) when they differ, such as for other "
-                       "days.")
+                called = (f"both sides are Derived tables called {alias}, the name given to "
+                          "derived(...)")
+                fix = (f"To read a Derived table twice, give the second a name of its own. "
+                       f"Built for other days, give it another name in derived(...), such as "
+                       f'"{alias}_earlier": a Building block can take the name as an '
+                       f'argument. The same one twice: AS(it, "earlier").')
             refuse(
-                what=f"{call}({alias}, ON=...) compares {column} with {column}.",
-                why=f"Both sides are called {alias}, so the SQL reads them as one column of "
-                f"one table, and ON= would pair each row before the join with every {alias} "
-                "row.",
+                what=f"{call}({alias}, ON=...) compares {column} with {column}: {called}.",
+                why="The SQL reads both sides as one column of one table, so every row of the "
+                f"tables before the join would match every {alias} row.",
                 fix=fix,
                 error=ValueError,
             )

@@ -152,8 +152,10 @@ def test_it_refuses_to_add_up_rows_after_a_left_join_to_a_column_named_like_one_
         run(unfinished_per_job, send=example_database.send)
     message = str(refused.value)
     assert ("The Example database can't run this Hive: its executor would mix up "
-            "starts.job_id and finishes.job_id" in message)
+            "starts.job_id and finishes.job_id, two columns called job_id" in message)
     assert "to_hive(...)" in message
+    assert ('in the SELECT of derived("finishes", ...), wrap its job_id in '
+            'AS(..., "finishes_job_id"), then read finishes.finishes_job_id' in message)
     assert "Opt-out:        none" in message
 
 
