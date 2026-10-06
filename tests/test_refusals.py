@@ -13,6 +13,7 @@ import inspect
 import sys
 import warnings
 
+import pandas as pd
 import pytest
 
 from sqlglot_composer import (
@@ -30,6 +31,8 @@ from sqlglot_composer import (
     GuardRefused,
     LoadRefused,
     Table,
+    all_of,
+    at_least,
     average_of,
     between,
     by_day,
@@ -38,15 +41,24 @@ from sqlglot_composer import (
     derived,
     descending,
     equals,
+    is_in,
     is_null,
     run,
     set_load_limits,
     statement,
     sum_of,
     to_hive,
+    week_start,
 )
 from composer_core import refusals
-from composer_core.example_database import job_runs, jobs, run_alerts
+from composer_core.example_database import (
+    job_events,
+    job_owners,
+    job_runs,
+    jobs,
+    region_costs,
+    run_alerts,
+)
 from composer_core.refusals import RepeatedRowsWarning
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
@@ -60,7 +72,7 @@ daily_runs = Table(
 
 def rows_of(n: int):
     """A stand-in for `send` that returns n rows, whatever it is sent."""
-    return lambda hive: [None] * n
+    return lambda hive: pd.DataFrame({"job_name": ["a"] * n})
 
 
 # --- Guards -------------------------------------------------------------------------------
@@ -185,6 +197,31 @@ def test_guard_missing_group_by_fix_keeps_whole_rows() -> None:
     assert "max_of" not in fix
 
 
+def test_guard_missing_group_by_fix_groups_a_calculation_by_its_name() -> None:
+    """Grouping by the column inside week_start would give one row per day, not per week."""
+    with pytest.raises(GuardRefused) as refused:
+        statement(
+            SELECT(AS(week_start(job_events.dt), "week"), AS(count_rows(), "starts")),
+            FROM(job_events),
+            WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
+        )
+    fix = usual_fix(refused)
+    assert 'GROUP_BY("week")' in fix
+    assert "GROUP_BY(job_events.dt)" not in fix
+
+
+def test_guard_missing_group_by_fix_adds_a_calculation_by_its_name() -> None:
+    with pytest.raises(GuardRefused) as refused:
+        statement(
+            SELECT(AS(week_start(job_events.dt), "week"), job_events.job_id,
+                   AS(count_rows(), "starts")),
+            FROM(job_events),
+            WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
+            GROUP_BY(job_events.job_id),
+        )
+    assert usual_fix(refused).startswith('Add "week" to GROUP_BY.')
+
+
 def test_guard_left_join_then_where_refuses() -> None:
     with pytest.raises(GuardRefused, match="LEFT_JOIN brought in"):
         statement(
@@ -221,6 +258,40 @@ def test_guard_order_by_in_derived_table_refuses() -> None:
                                                                    sorts_everything=True))
     with pytest.raises(GuardRefused, match="may not keep the order"):
         derived("sorted_jobs", inner)
+
+
+def test_guard_date_formats_differ_refuses() -> None:
+    with pytest.raises(GuardRefused) as refused:
+        equals(region_costs.dt, job_events.dt)
+    message = str(refused.value)
+    assert "date_format='%Y%m%d'" in message and "date_format='%Y-%m-%d'" in message
+    assert "Opt-out:        none" in message
+
+
+@pytest.mark.parametrize("make", [
+    lambda: JOIN(job_events, ON=all_of(equals(job_events.job_id, region_costs.job_id),
+                                       equals(job_events.dt, region_costs.dt))),
+    lambda: at_least(job_events.dt, region_costs.dt),
+    lambda: between(job_events.dt, region_costs.dt, region_costs.dt),
+    lambda: is_in(job_events.dt, [region_costs.dt]),
+], ids=["join_on", "at_least", "between", "is_in"])
+def test_guard_date_formats_differ_refuses_every_comparison(make) -> None:
+    with pytest.raises(GuardRefused, match="written like '20260925'"):
+        make()
+
+
+def test_guard_date_formats_differ_follows_a_derived_tables_column() -> None:
+    costs = derived("costs", statement(
+        SELECT(region_costs.job_id, region_costs.dt),
+        FROM(region_costs),
+        WHERE(between(region_costs.dt, "20260918", "20260924")),
+    ))
+    with pytest.raises(GuardRefused, match=r"costs\.dt"):
+        equals(job_events.dt, costs.dt)
+
+
+def test_date_partitions_written_the_same_way_are_compared() -> None:
+    assert repr(equals(job_owners.dt, job_events.dt)) == "job_owners.dt = job_events.dt"
 
 
 def test_guard_write_lines_up_refuses() -> None:
@@ -291,6 +362,14 @@ def test_a_table_with_no_key_warns_and_says_to_declare_one() -> None:
                    date_partition=None)
     with pytest.warns(RepeatedRowsWarning, match=r"declares no key.*key=\[\.\.\.\]"):
         JOIN(no_key, ON=equals(no_key.job_id, job_runs.job_id))
+
+
+def test_a_join_on_part_of_a_snapshots_key_says_to_match_the_day_too() -> None:
+    """job_owners holds one row per job per day: the fix is to match the day, not to group."""
+    with pytest.warns(RepeatedRowsWarning) as caught:
+        JOIN(job_owners, ON=equals(job_owners.job_id, job_events.job_id))
+    fix = str(caught[0].message).split("Usual fix:")[1].split("\n")[0]
+    assert "equals(job_owners.dt, ...)" in fix
 
 
 def test_a_join_on_the_whole_key_does_not_warn() -> None:

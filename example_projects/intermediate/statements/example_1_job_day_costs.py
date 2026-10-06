@@ -19,8 +19,7 @@ days.
 ops.region_costs writes its days like 20260924. mart.job_day_costs writes them like
 2026-09-24, as ops.job_events and ops.job_owners do, so example 3 can join the costs to the
 other tables on the day: ON= compares the days as text, so 20260924 would never match
-2026-09-24, and the Toolbox doesn't stop such a join, so check how both tables write their
-days before joining on the day.
+2026-09-24, and the Toolbox refuses such a join, naming how each table writes its days.
 """
 
 from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, by_day, create_table, statement

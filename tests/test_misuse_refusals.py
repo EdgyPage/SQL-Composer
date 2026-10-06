@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import editions
 
@@ -20,10 +21,13 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     Table,
+    all_columns,
     any_of,
+    at_least,
     by_day,
     contains,
     count_rows,
+    create_table,
     derived,
     descending,
     equals,
@@ -39,7 +43,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from composer_core.example_database import job_runs, jobs
+from composer_core.example_database import job_owners, job_runs, jobs
 
 MISUSES = [
     pytest.param(lambda: LIMIT(0), ValueError, "LIMIT(0) needs a whole number of rows",
@@ -121,7 +125,15 @@ MISUSES = [
                  id="contains_5"),
     pytest.param(lambda: equals(jobs.team, ["a", "b"]), TypeError, "isn't a single value",
                  id="equals_a_list"),
+    pytest.param(lambda: run(teams(), send=lambda hive: [("data",), ("finance",)]), TypeError,
+                 "Your send gave back a list, where a pandas DataFrame goes", id="run_send_list"),
+    pytest.param(lambda: run(to_hive(teams()), send=example_database.send), TypeError,
+                 "run was given 'SELECT", id="run_hive_text"),
 ]
+
+
+def teams():
+    return statement(SELECT(jobs.team), FROM(jobs))
 
 
 @pytest.mark.parametrize(("make", "error", "said"), MISUSES)
@@ -159,3 +171,63 @@ def test_every_raise_in_refusals_py_has_four_parts() -> None:
             built = node.exc.args[0] if node.exc.args else None
             assert (isinstance(built, ast.Call) and isinstance(built.func, ast.Name)
                     and built.func.id == "four_part_message"), f"line {node.lineno}"
+
+
+# --- run given what isn't a Statement --------------------------------------------------------
+
+
+def usual_fix(refused: pytest.ExceptionInfo) -> str:
+    """The "Usual fix" line of a refusal."""
+    return str(refused.value).split("Usual fix:")[1].split("\n")[0].strip()
+
+
+def test_run_given_a_derived_table_says_to_wrap_it_in_a_statement() -> None:
+    per_team = derived("per_team", teams())
+    with pytest.raises(TypeError) as refused:
+        run(per_team, send=example_database.send)
+    assert "run was given derived('per_team'" in str(refused.value)
+    assert "statement(SELECT(all_columns(per_team)), FROM(per_team))" in usual_fix(refused)
+    # The fix it gives is a Statement that reads the Derived table.
+    sent = []
+    run(statement(SELECT(all_columns(per_team)), FROM(per_team)),
+        send=lambda hive: sent.append(hive) or pd.DataFrame({"team": []}))
+    assert sent[0].endswith("FROM per_team")
+
+
+def test_run_given_a_list_says_to_send_each_in_turn() -> None:
+    steps = [teams(), teams()]
+    with pytest.raises(TypeError, match=r"run was given \[") as refused:
+        run(steps, send=example_database.send)
+    assert "for step in steps:" in usual_fix(refused)
+
+
+# --- what a send gives back ------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("answer", "said"), [
+    pytest.param([("data",), ("finance",)], "a list", id="a_list"),
+    pytest.param(None, "None", id="none"),
+    pytest.param({"team": ["data"]}, "a dict", id="a_dict"),
+])
+def test_a_send_that_doesnt_give_back_a_dataframe_is_refused(answer, said) -> None:
+    with pytest.raises(TypeError) as refused:
+        run(teams(), send=lambda hive: answer)
+    message = str(refused.value)
+    assert f"Your send gave back {said}, where a pandas DataFrame goes." in message
+    assert "pd.DataFrame(rows)" in usual_fix(refused)
+    assert "columns=" in usual_fix(refused)
+
+
+def test_a_write_isnt_refused_for_what_its_send_gives_back() -> None:
+    """A write has been carried out once its send returns, so what comes back isn't read."""
+    assert run(create_table(job_owners, may_exist=True), send=lambda hive: None) is None
+
+
+# --- a calculation's name where a column goes ------------------------------------------------
+
+
+def test_a_calculations_name_in_a_condition_says_to_write_the_calculation() -> None:
+    with pytest.raises(TypeError) as refused:
+        at_least("runs", 3)
+    fix = usual_fix(refused)
+    assert "AS(" in fix and "write the calculation itself" in fix

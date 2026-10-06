@@ -66,6 +66,36 @@ def test_a_day_python_reads_is_shown_as_it_should_be_written() -> None:
         equals(dt, "2026-9-24")
 
 
+def usual_fix(refused: pytest.ExceptionInfo) -> str:
+    """The "Usual fix" line of a refusal."""
+    return str(refused.value).split("Usual fix:")[1].split("\n")[0].strip()
+
+
+def test_a_day_that_isnt_a_day_is_shown_an_example_written_like_one() -> None:
+    """No day can be read from it, so the day in the message is only an example."""
+    with pytest.raises(ValueError) as refused:
+        equals(dt, "yesterday")
+    assert usual_fix(refused).startswith("Write the day like '2026-09-25'")
+
+
+def test_a_day_written_another_tables_way_is_shown_its_own_day_and_date_format() -> None:
+    with pytest.raises(ValueError) as refused:
+        equals(dt, "20260918")
+    fix = usual_fix(refused)
+    assert fix.startswith("Write the day as '2026-09-18'")
+    assert 'date_format="%Y%m%d"' in fix
+
+
+def test_a_compact_tables_day_written_with_dashes_is_shown_its_own_day() -> None:
+    compact = Table("ops.compact", columns={"dt": "string"}, date_partition="dt",
+                    date_format="%Y%m%d")
+    with pytest.raises(ValueError) as refused:
+        equals(compact.dt, "2026-09-18")
+    fix = usual_fix(refused)
+    assert fix.startswith("Write the day as '20260918'")
+    assert 'date_format="%Y-%m-%d"' in fix
+
+
 @pytest.mark.parametrize("pattern", ["%Y-%m-%d", "%Y%m%d", "%Y/%m/%d", "%Y_%m_%d", "%Y.%m.%d"])
 def test_a_year_first_date_format_is_taken(pattern) -> None:
     Table("ops.days", columns={"dt": "string"}, date_partition="dt", date_format=pattern)

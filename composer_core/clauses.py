@@ -324,7 +324,8 @@ def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> C
     key = table._key
     if key is None or not set(key) <= set(matched):
         warning_repeated_rows(call, table._alias, matched, key, many_matches,
-                              derived=table._statement is not None)
+                              derived=table._statement is not None,
+                              date_partition=table._date_partition)
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
                   many_matches=many_matches, **more)
 
@@ -884,15 +885,23 @@ def _guard_group_by(s: Statement) -> None:
         ("ORDER_BY", [key.parts["this"] for key in s._order_by]),
     ]
     for place, trees in places:
-        missing = []
-        for tree in trees:
-            for column in _ungrouped(tree, groups):
+        missing, group_by = [], []
+        for tree, name in zip(trees, names if place == "SELECT" else [None] * len(trees)):
+            ungrouped = _ungrouped(tree, groups)
+            for column in ungrouped:
                 text = hive_text(column)
                 is_a_name = place == "ORDER_BY" and not column.table and column.name in names
                 if not is_a_name and text not in missing:
                     missing.append(text)
+            # A calculation such as week_start(dt) is grouped by its name: grouped by the
+            # column inside it, it would give one row per day, not per week.
+            if ungrouped and name and tree.kind != "Column" and not has_aggregate(tree):
+                group_by.append(f'"{name}"')
+            else:
+                group_by += [hive_text(c) for c in ungrouped if hive_text(c) in missing]
         if missing:
-            guard_missing_group_by(place, missing, bool(s._group_by))
+            guard_missing_group_by(place, missing, bool(s._group_by),
+                                   group_by=list(dict.fromkeys(group_by)))
 
 
 def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:

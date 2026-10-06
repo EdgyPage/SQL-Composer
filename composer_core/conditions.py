@@ -141,11 +141,19 @@ def _no_combining(symbol: str, instead: str) -> None:
 def _need_column(column, call: str) -> Column:
     if isinstance(column, Column):
         return column
+    fix = ("Pass the column as an attribute of its Table reference, such as "
+           "equals(job_runs.status, \"FAILED\").")
+    if isinstance(column, str):
+        # Most often a name given with AS, tested in HAVING, which works before SELECT names.
+        function = call.split("(")[0]
+        fix += (f" If {column!r} is a name you gave with AS, such as AS(count_rows(), "
+                f"{python_text(column)}), write the calculation itself in its place: "
+                f"{function}(count_rows(), ...). A condition is worked out before SELECT names "
+                "anything.")
     refuse(
         what=f"{call} was given {column!r} where a column goes.",
         why="A condition tests a column of a table, such as job_runs.status.",
-        fix="Pass the column as an attribute of its Table reference, such as "
-        "equals(job_runs.status, \"FAILED\").",
+        fix=fix,
         given=column, call=call,
     )
 
@@ -175,7 +183,8 @@ def equals(column, value):
     """Rows where the column equals the value.
 
     To find missing values use is_null(column): equals(column, None) is refused, because in
-    SQL nothing equals NULL.
+    SQL nothing equals NULL. So is a match between two tables' Date partitions whose days are
+    written differently, such as '20260925' and '2026-09-25', which no day would pass.
 
     >>> equals(job_runs.status, "FAILED")
     job_runs.status = 'FAILED'

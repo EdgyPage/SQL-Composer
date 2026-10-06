@@ -304,8 +304,17 @@ nothing stops it, and the total means nothing.
 
 `write_table_reference` never overwrites a file: once written, the file is yours, and
 rewriting it would lose the key and the notes you added. Run a second time for the same table,
-it stops and says the file already exists. Edit the file instead, and run
-`check_table_reference` to see what has changed in the table since.
+it stops:
+
+>>> write_table_reference("ops.job_runs", send=example_database.send)
+Traceback (most recent call last):
+...
+FileExistsError:
+  What happened:  job_runs.py already exists in the folder you're working in, so nothing was written.
+...
+
+Edit the file instead, and run `check_table_reference` to see what has changed in the table
+since.
 
 ### A key that doesn't pick out one row
 

@@ -171,8 +171,8 @@ def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatc
         '"cost_cents": "bigint",  # NULL until the bill comes in',
         '"region": "string",',
         '"dt": "string",',
-    ], ["    date_partition=None,  # TODO: partitioned by region, dt; its newest region, 'us', "
-        "isn't a day the Toolbox can bound; if dt holds the days, name it"], "job_id")
+    ], ["    date_partition=None,  # TODO: partitioned by region, dt; its last region value, "
+        "'us', isn't a day the Toolbox can bound; if dt holds the days, name it"], "job_id")
 
 
 @pytest.mark.parametrize("t", [events, owners])
