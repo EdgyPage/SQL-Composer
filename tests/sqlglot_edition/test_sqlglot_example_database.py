@@ -8,10 +8,20 @@ import sqlglot
 from sqlglot_composer import (
     AS,
     FROM,
+    GROUP_BY,
+    JOIN,
+    LEFT_JOIN,
     SELECT,
+    SELECT_DISTINCT,
     WHERE,
+    all_of,
+    between,
+    count_rows,
+    derived,
     descending,
+    equals,
     example_database,
+    is_null,
     last_n_days,
     month_start,
     row_number,
@@ -19,7 +29,7 @@ from sqlglot_composer import (
     statement,
     week_start,
 )
-from composer_core.example_database import job_runs
+from composer_core.example_database import job_runs, jobs
 
 
 def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch) -> None:
@@ -112,3 +122,51 @@ def test_the_intermediate_tables_meet_the_same_limits(table, calculation, missin
                   WHERE(last_n_days(t.dt, 14)))
     with pytest.raises(RuntimeError, match=f"its executor has no {missing}"):
         run(s, send=example_database.send)
+
+
+def _events_of(event_type: str, name: str):
+    """Each job's days with an event of one type, over the 14 days: how-to 24's blocks."""
+    events = example_database.job_events
+    return derived(name, statement(
+        SELECT_DISTINCT(events.job_id, events.dt),
+        FROM(events),
+        WHERE(equals(events.event_type, event_type), last_n_days(events.dt, 14)),
+    ))
+
+
+@pytest.mark.needs_example_database
+def test_it_refuses_to_add_up_rows_after_a_left_join_to_a_column_named_like_one_before_it(
+) -> None:
+    """sqlglot's executor, adding rows up after a join, can read a column of the joined
+    table where a same-named column of a table before it was asked for: for a LEFT_JOIN's
+    unmatched rows, NULL in place of starts.job_id."""
+    starts, finishes = _events_of("start", "starts"), _events_of("finish", "finishes")
+    unfinished_per_job = statement(
+        SELECT(starts.job_id, AS(count_rows(where=is_null(finishes.job_id)), "unfinished")),
+        FROM(starts),
+        LEFT_JOIN(finishes, ON=all_of(equals(finishes.job_id, starts.job_id),
+                                      equals(finishes.dt, starts.dt))),
+        GROUP_BY(starts.job_id),
+    )
+    with pytest.raises(RuntimeError) as refused:
+        run(unfinished_per_job, send=example_database.send)
+    message = str(refused.value)
+    assert ("The Example database can't run this Hive: its executor would mix up "
+            "starts.job_id and finishes.job_id" in message)
+    assert "to_hive(...)" in message
+    assert "Opt-out:        none" in message
+
+
+@pytest.mark.needs_example_database
+def test_it_still_adds_up_rows_after_a_join_whose_on_sets_the_shared_column_equal() -> None:
+    """A JOIN (not a LEFT_JOIN) that sets the shared column equal gives both the same value,
+    so the executor's mix-up can't change the answer."""
+    runs_per_job = statement(
+        SELECT(jobs.job_id, AS(count_rows(), "runs")),
+        FROM(jobs),
+        JOIN(job_runs, ON=equals(job_runs.job_id, jobs.job_id), many_matches=True),
+        WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+        GROUP_BY(jobs.job_id),
+    )
+    found = run(runs_per_job, send=example_database.send)
+    assert found.set_index("job_id").runs.to_dict() == {1: 4, 2: 3, 3: 2}
