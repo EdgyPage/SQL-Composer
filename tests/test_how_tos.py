@@ -28,6 +28,7 @@ import editions
 import example_gallery
 import how_to_page
 import sqlglot_composer
+from offline_policy import external_references
 from conftest import edition, gallery_sections, page_text, toolbox_folder
 from test_example_gallery import TagCounter
 
@@ -220,8 +221,7 @@ def test_the_example_gallery_beside_the_page_points_to_it() -> None:
 
 
 def test_the_page_needs_no_other_file() -> None:
-    for outside in ("src=", "<link", "@import", "url(", "http://", "https://"):
-        assert outside not in page()
+    assert external_references(page()) == []
 
 
 def test_without_its_script_the_page_is_plain_html() -> None:

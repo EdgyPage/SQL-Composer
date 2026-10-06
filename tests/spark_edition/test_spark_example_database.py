@@ -660,7 +660,7 @@ def test_a_stray_connection_doesnt_hold_up_a_start(says: bool) -> None:
         for _ in range(400):
             listener = engine._SPARK.get("listener")
             if listener is not None:
-                stray = socket.create_connection(listener.getsockname())
+                stray = socket.create_connection(("127.0.0.1", listener.getsockname()[1]))
                 knocked.set()
                 if says:
                     strays.append(stray)
