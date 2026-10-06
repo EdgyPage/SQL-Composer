@@ -1,4 +1,4 @@
-# Spark Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit
+# Spark Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
 """What Spark Composer runs on: the pyspark it needs, and the Spark its Example database uses.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it
@@ -39,10 +39,16 @@ from typing import NoReturn
 
 if __package__:
     # Run as a script, this file is the Example database's Spark process, which needs neither.
-    from . import _four_part_message as four_part_message
-    from . import _stop
+    from composer_core import _four_part_message as four_part_message
+    from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "3.2"
+TOOLBOX_VERSION = "4.0"
+
+
+def _stop(what, why, fix):
+    """Stop this Edition's import, named by its own folder, with the four-part message."""
+    _core_stop(what, why, fix, folder=__name__.split(".")[0])
+
 
 _LOWEST = (3, 5, 0)
 _BELOW = (4, 1, 0)
@@ -83,7 +89,7 @@ def check_installed():
             "Example database runs on Spark too.",
             fix="In a notebook that runs Spark, install pyspark from a notebook cell with %pip "
             f"install {_IN_RANGE}, then restart the kernel. {_NO_INSTALLING} Without Spark, "
-            "use SQL Composer, the Edition that needs none.",
+            "use sqlglot Composer, the Edition that needs none.",
         )
     found = getattr(pyspark, "__version__", "unknown")
     version = _numbers(found)
@@ -736,7 +742,7 @@ def _too_slow() -> NoReturn:
 
 def _check_escaping() -> None:
     """Stop unless Spark reads every value of _ESCAPING_CHECK back as it was written."""
-    from .trees import string
+    from composer_core.trees import string
     from .writing import hive_text
 
     written = ", ".join(f"{hive_text(string(value))} AS v{i}"
@@ -766,7 +772,7 @@ def _table_hive(name: str, columns: dict, rows: list) -> str:
 
     Spark calls a table made this way a global temporary view.
     """
-    from .trees import Node
+    from composer_core.trees import Node
     from .writing import hive_text
 
     # A name is written as the writer writes any name, a table's as a column's.
@@ -779,7 +785,7 @@ def _table_hive(name: str, columns: dict, rows: list) -> str:
 
 
 def _value(value) -> str:
-    from .trees import number, string
+    from composer_core.trees import number, string
     from .writing import hive_text
 
     if value is None:

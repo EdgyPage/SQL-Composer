@@ -1,9 +1,9 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# sqlglot Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
 """Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
 
-    from spark_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
+    from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
 The Toolbox is two folders side by side: this one, and composer_core, the code both Editions
 share. To update, delete both folders, copy both in again from one download and restart the
@@ -17,7 +17,7 @@ full text, which also says when this copy was exported.
 >>> TOOLBOX_VERSION
 '4.0'
 >>> VERSION
-'Spark Composer 4.0, ...'
+'sqlglot Composer 4.0, ...'
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ TOOLBOX_VERSION = "4.0"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
-_FOLDER = "spark_composer"
-_PRODUCT = "Spark Composer"
+_FOLDER = "sqlglot_composer"
+_PRODUCT = "sqlglot Composer"
 
 # The export script writes this folder's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.
