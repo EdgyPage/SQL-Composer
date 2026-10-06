@@ -199,6 +199,20 @@ Nothing stops it, but no column has its name: reading one by name, such as `"run
 with a `KeyError`. Check that `send("SELECT 1 AS one")` gives back a column named `"one"`. If
 it doesn't, pass `pd.DataFrame` the column names your API gives, as the step Write your send
 shows.
+
+A send that gives back the rows just as the API gives them, a plain list, without
+`pd.DataFrame`, stops when `run` gets them back:
+
+>>> send_without_a_dataframe = lambda hive: query_api(hive)
+>>> run(failed, send=send_without_a_dataframe)
+Traceback (most recent call last):
+...
+TypeError:
+  What happened:  Your send gave back a list, where a pandas DataFrame goes.
+...
+
+The fix is the message's: end your send with `return pd.DataFrame(rows)`, with the column
+names when each row is a tuple, as the step Write your send shows.
 [end]
 [spark_composer only]
 `spark.sql(hive)` gives back Spark's own DataFrame, which hasn't fetched its rows yet. A send

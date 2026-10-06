@@ -206,7 +206,7 @@ it stops:
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  to_hive was given "SELECT...", which isn't a Statement.
+  What happened:  run was given "SELECT...", which isn't a Statement.
 ...
 
 Pass the Statement itself: `run(long_runs, send=example_database.send)`.

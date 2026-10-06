@@ -171,8 +171,9 @@ def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatc
         '"cost_cents": "bigint",  # NULL until the bill comes in',
         '"region": "string",',
         '"dt": "string",',
-    ], ["    date_partition=None,  # TODO: partitioned by region, dt; its newest region, 'us', "
-        "isn't a day the Toolbox can bound; if dt holds the days, name it"], "job_id")
+    ], ["    date_partition=None,  # TODO: partitioned by region, dt; its last region value, "
+        "'us', isn't a day the Toolbox can bound; if dt holds the days, name it in "
+        "date_partition="], "job_id")
 
 
 @pytest.mark.parametrize("t", [events, owners])
@@ -299,7 +300,8 @@ def test_a_datetime_date_bounds_the_compact_days_the_same_way() -> None:
 
 
 def test_a_day_written_with_dashes_is_refused_on_the_compact_days() -> None:
-    with pytest.raises(ValueError, match=r"'2026-09-14', which isn't a day written like '\d{8}'"):
+    with pytest.raises(ValueError, match=r"'2026-09-14', but its Table reference writes days "
+                       r"like '20260914'"):
         between(costs.dt, "2026-09-14", "2026-09-20")
 
 

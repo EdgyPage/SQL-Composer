@@ -44,7 +44,7 @@ def days_of(s) -> list[str]:
 
 @pytest.mark.parametrize("day", ["2026-9-24", "2026-09-4", "26-09-24", " 2026-09-24"])
 def test_a_day_must_be_written_exactly_like_the_date_format(day) -> None:
-    with pytest.raises(ValueError, match="isn't a day written like '2026-09-"):
+    with pytest.raises(ValueError, match="writes days like '2026-09-"):
         statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, day)))
 
 
@@ -64,6 +64,40 @@ def test_a_letter_in_a_date_format_is_named() -> None:
 def test_a_day_python_reads_is_shown_as_it_should_be_written() -> None:
     with pytest.raises(ValueError, match="Write the day as '2026-09-24'"):
         equals(dt, "2026-9-24")
+
+
+def usual_fix(refused: pytest.ExceptionInfo) -> str:
+    """The "Usual fix" line of a refusal."""
+    return str(refused.value).split("Usual fix:")[1].split("\n")[0].strip()
+
+
+def test_a_day_that_isnt_a_day_is_shown_an_example_written_like_one() -> None:
+    """No day can be read from it, so the day in the message is only an example."""
+    with pytest.raises(ValueError) as refused:
+        equals(dt, "yesterday")
+    assert "writes days like '2026-09-25' (an example day)" in str(refused.value)
+    fix = usual_fix(refused)
+    assert fix.startswith("Write the day like '2026-09-25'")
+    assert "last_n_days(job_runs.dt, n)" in fix
+
+
+def test_a_day_written_another_tables_way_is_shown_its_own_day_and_date_format() -> None:
+    with pytest.raises(ValueError) as refused:
+        equals(dt, "20260918")
+    assert "writes days like '2026-09-18'." in str(refused.value)
+    fix = usual_fix(refused)
+    assert fix.startswith("Write the day as '2026-09-18'")
+    assert 'add date_format="%Y%m%d" to its Table reference' in fix
+
+
+@pytest.mark.parametrize(("day", "own"), [("2026-09-18", "20260918"),
+                                          ("2026-9-18", "20260918")])
+def test_a_compact_tables_day_written_with_dashes_is_shown_its_own_day(day, own) -> None:
+    compact = Table("ops.compact", columns={"dt": "string"}, date_partition="dt",
+                    date_format="%Y%m%d")
+    with pytest.raises(ValueError) as refused:
+        equals(compact.dt, day)
+    assert usual_fix(refused).startswith(f"Write the day as '{own}'")
 
 
 @pytest.mark.parametrize("pattern", ["%Y-%m-%d", "%Y%m%d", "%Y/%m/%d", "%Y_%m_%d", "%Y.%m.%d"])
@@ -136,7 +170,7 @@ def test_a_day_any_of_rules_out_is_never_written() -> None:
 
 
 def test_a_day_left_out_must_be_written_like_the_date_format_too() -> None:
-    with pytest.raises(ValueError, match="isn't a day written like"):
+    with pytest.raises(ValueError, match="but its Table reference writes days like"):
         is_not_in(dt, ["2026-9-24"])
 
 

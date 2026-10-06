@@ -10,6 +10,7 @@ place a Python value, such as "FAILED" or 42, enters a Statement.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import datetime
 import decimal
@@ -30,6 +31,7 @@ from .edition import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
     guard_control_character,
+    guard_date_formats_differ,
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
@@ -49,6 +51,9 @@ from .trees import (
 TOOLBOX_VERSION = "3.2"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
+# The day a message writes when it needs an example of one: the day after the Example
+# database's last day.
+EXAMPLE_DAY = datetime.date(2026, 9, 25)
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
 # The partition Hive and Spark list for the rows with no day: their partition column is NULL.
@@ -323,6 +328,34 @@ def is_date_partition(column: Column | None) -> bool:
         table._date_partition == column._name)
 
 
+def _days_from(column: Column) -> Column | None:
+    """The Date partition a column's days come from: the column itself, or, for a Derived
+    table's column that is a Date partition passed on unchanged, that Date partition."""
+    if is_date_partition(column):
+        return column
+    table = column._table
+    if table is None or table._statement is None:
+        return None
+    for output, name in table._statement._outputs:
+        if name == column._name and output._tree.kind == "Column":
+            return _days_from(output)
+    return None
+
+
+def _guard_days_written_alike(column: Column, other: Column, call: str) -> None:
+    """Refuse a comparison of two columns of days written different ways, which matches no
+    rows. A column that isn't a Date partition, or doesn't come from one, isn't checked."""
+    sides = [(side, _days_from(side)) for side in (column, other)]
+    if any(days is None for _, days in sides):
+        return
+    patterns = [days._table._date_format for _, days in sides]
+    if patterns[0] == patterns[1]:
+        return
+    named = [repr(side) if side is days else f"{side!r}, from {days!r}" for side, days in sides]
+    guard_date_formats_differ(call, named[0], patterns[0], day_text(EXAMPLE_DAY, patterns[0]),
+                              named[1], patterns[1], day_text(EXAMPLE_DAY, patterns[1]))
+
+
 def day_text(day: datetime.date, pattern: str) -> str:
     """A day written in a date_format, its year always in four digits."""
     return day.strftime(pattern.replace("%Y", f"{day.year:04d}"))
@@ -342,15 +375,28 @@ def as_date(value, column: Column, call: str) -> datetime.date:
     # Python also reads "2026-9-24", but Hive compares the text, which matches no day.
     if day is not None and day_text(day, pattern) == str(value):
         return day
-    # Your own day, written as it should be, if Python could read it.
-    shown = day if day is not None else datetime.date(2026, 9, 25)
-    example = day_text(shown, pattern)
+    # The day written another table's way, such as "20260918" where "2026-09-18" goes.
+    other = _day_format_of(str(value))
+    for each in (pattern, DEFAULT_DATE_FORMAT, "%Y%m%d", "%Y/%m/%d"):
+        if day is None:
+            with contextlib.suppress(ValueError):
+                day = datetime.datetime.strptime(str(value), each).date()
+    if day is not None:  # your own day, written as the table writes days
+        written = f"like {day_text(day, pattern)!r}"
+        fix = f"Write the day as {day_text(day, pattern)!r}, or pass a datetime.date."
+    else:  # no day to show, so an example of one
+        written = f"like {day_text(EXAMPLE_DAY, pattern)!r} (an example day)"
+        fix = (f"Write the day like {day_text(EXAMPLE_DAY, pattern)!r}, or pass a "
+               f"datetime.date. For the days before today, use last_n_days({column!r}, n).")
+    if other is not None and other != pattern:
+        fix += (f" If the table's days really are written like {value!r}, add "
+                f'date_format="{other}" to its Table reference instead.')
     refuse(
-        what=f"{call} compares the Date partition {column!r} with {value!r}, which isn't "
-        f"a day written like {example!r}.",
+        what=f"{call} compares the Date partition {column!r} with {value!r}, but its Table "
+        f"reference writes days {written}.",
         why="Hive compares Date partition values as text, so a differently written day "
         "would match no days, or the wrong ones.",
-        fix=f"Write the day as {example!r}, or pass a datetime.date.",
+        fix=fix,
         error=ValueError,
     )
 
@@ -387,6 +433,8 @@ def literal(value, *, call: str, column: Column | None = None, position: str = "
             in_condition: bool = True) -> Node:
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
+        if column is not None:
+            _guard_days_written_alike(column, value, call)
         return value._tree.copy()
     value = _python_value(value)
     if value is None:
@@ -876,7 +924,8 @@ def write_table_reference(name, send):
     path = Path(f"{variable}.py")
     if path.exists():
         refuse(
-            what=f"{path.resolve()} already exists, so nothing was written.",
+            what=f"{path.name} already exists in the folder you're working in, so nothing "
+            "was written.",
             why="A Table reference is yours once written, and rewriting it would lose "
             "your key, filters and notes.",
             fix="Edit that file, or check it against the table with "
@@ -928,10 +977,10 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
                 "run check_table_reference"]
     pattern = _day_format_of(newest)
     if pattern is None:
-        others = f"; if {', '.join(partitions[1:])} holds the days, name it" if len(
+        others = f"; if {', '.join(partitions[1:])} holds the days, name it in date_partition=" if len(
             partitions) > 1 else ""
         return [f"    date_partition=None,  # TODO: partitioned by {', '.join(partitions)}; its "
-                f"newest {first}, {newest!r}, isn't a day the Toolbox can bound{others}"]
+                f"last {first} value, {newest!r}, isn't a day the Toolbox can bound{others}"]
     lines = [f'    date_partition="{first}",{also}']
     if pattern != DEFAULT_DATE_FORMAT:
         lines.append(f'    date_format="{pattern}",')

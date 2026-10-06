@@ -65,9 +65,8 @@ Look at its line starting `date_partition=`. The Date partition is the one colum
 every Statement must bound at both ends, and `write_table_reference` looks for it in the first
 partition column only. Here that is region, which holds `"eu"` and `"us"`, not days, so it
 can't be the Date partition: it writes `date_partition=None` and a TODO. The TODO names both
-partition columns, says the last region SHOW PARTITIONS lists, `'us'` (the TODO calls it the
-newest), isn't a day the Toolbox could bound, and asks you to name dt, the column that holds the
-days, yourself.
+partition columns, says region's last value, `'us'`, isn't a day the Toolbox could bound, and
+asks you to name dt, the column that holds the days, yourself.
 
 ### Finish the Table reference
 
@@ -237,8 +236,12 @@ A Statement written with the table's own days is refused until you add it:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '20260918', which isn't a day written like '2026-09-25'.
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '20260918', but its Table reference writes days like '2026-09-18'.
 ...
+
+Its fix offers both ways out: write the day the Table reference's way, `'2026-09-18'`, or, if
+the table's days really are written like `'20260918'`, add the line
+`date_format="%Y%m%d"`. Here the table is right and the Table reference is short of a line.
 
 ### Writing the day the usual way
 
@@ -253,12 +256,30 @@ since it would match no folder:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-18', which isn't a day written like '20260925'.
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-18', but its Table reference writes days like '20260918'.
 ...
 
-The day in the message, `'20260925'`, is only an example of a day written the table's way: it
-shows how to write a day, not which day to read. Write `"20260918"`, or pass
-`datetime.date(2026, 9, 18)`.
+The message writes your own day the table's way: `"20260918"`. A `datetime.date(2026, 9, 18)`
+works too.
+
+### Joining it on the day to a table that writes days the usual way
+
+`ops.job_events` writes its days like `2026-09-18`. Matching its days with region_costs' in
+`ON=` is refused as you write the condition:
+
+>>> job_events = example_database.job_events
+>>> JOIN(region_costs, ON=all_of(equals(region_costs.job_id, job_events.job_id),
+...                              equals(region_costs.dt, job_events.dt)))
+Traceback (most recent call last):
+...
+composer_core.refusals.GuardRefused:
+  What happened:  equals(region_costs.dt, ...) compares region_costs.dt, whose days are written like '20260925' (date_format='%Y%m%d'), with job_events.dt, whose days are written like '2026-09-25' (date_format='%Y-%m-%d').
+...
+
+Hive compares the days as text, so `'20260918'` never equals `'2026-09-18'`, and no row would
+match. Save region_costs' rows first in a Saved table that writes its days the usual way, then
+join that: a write writes its day the Saved table's way. The intermediate Example project's
+example 1, in the Toolbox download's example_projects folder, does just that.
 
 ## Next
 

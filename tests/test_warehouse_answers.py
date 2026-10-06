@@ -203,7 +203,7 @@ def test_write_table_reference_leaves_out_days_it_cant_bound(tmp_path, monkeypat
     monkeypatch.chdir(tmp_path)
     send = answering(days=("dt=2026-9-24",))
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
-    assert ("date_partition=None,  # TODO: partitioned by dt; its newest dt, '2026-9-24', "
+    assert ("date_partition=None,  # TODO: partitioned by dt; its last dt value, '2026-9-24', "
             "isn't a day the Toolbox can bound") in text
 
 

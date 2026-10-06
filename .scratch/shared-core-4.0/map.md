@@ -76,6 +76,31 @@ anywhere.
 - Ticket 15's CHANGES 4.0 section also says each Edition's folder now holds `how_to.html`, the
   how-to page, beside `examples.html`, and that the import now stops when it is missing, as it
   does for `examples.html` (ticket 06, D127).
+- Ticket 15's CHANGES 4.0 section also gains ticket 16's two new refusals and clearer messages
+  (items 5-13):
+  - **Comparing two tables' days written different ways is refused**, a new Guard with no
+    opt-out: `equals(region_costs.dt, job_events.dt)`, where one Date partition writes its days
+    like 20260925 and the other like 2026-09-25, built without a word and matched no rows. Any
+    comparison of the two is refused, in `ON=` or `WHERE`, and so is one through a Derived
+    table's column that passes a Date partition on unchanged. The message names both
+    date_formats.
+  - **run refuses a send that gives back something other than a pandas DataFrame** for a
+    read, such as the plain list of rows a query API gives, or None from a send with no return,
+    and says to end the send with `return pd.DataFrame(rows)`. Before, the list came back from
+    run as it was. A write's send may still give back anything.
+  - **run, to_hive and show_hive refuse in their own name** what isn't a Statement; for a
+    Derived table the fix wraps it in `statement(SELECT(all_columns(d)), FROM(d))`, and for a
+    list it loops over its Statements.
+  - **Clearer fixes:** a day written the wrong way is shown as the Table reference writes it,
+    your own day where it can be read, and a day written another table's way also offers that
+    table's date_format; a calculation's name in a comparison, as in
+    `HAVING(at_least("runs", 3))`, says to write the calculation itself; a missing GROUP_BY
+    for a calculation such as `week_start(dt)` names the calculation and offers its name,
+    `GROUP_BY("week")`, not the column inside it; the repeated-rows Warning on a table keyed
+    by its Date partition says to match the day too, with `all_of`; write_table_reference
+    names the file it won't overwrite, not its whole path, and its TODO for a table first
+    partitioned by something else says "its last region value" and "name it in
+    date_partition=", not "its newest region" and "name it".
 - **Ticket 15 reruns `python tools/example_project.py` after raising TOOLBOX_VERSION**, and
   `python tools/example_project.py --project intermediate` (ticket 12): an Example project's
   lineage footers name the Toolbox version, which the generator takes from TOOLBOX_VERSION

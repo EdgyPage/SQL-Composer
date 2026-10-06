@@ -24,6 +24,8 @@ import sys
 import warnings
 from typing import NoReturn
 
+import pandas as pd
+
 # The one function that builds every four-part message. It lives in __init__.py, since the
 # import self-check needs it before this file can be trusted.
 from . import _four_part_message as four_part_message
@@ -151,6 +153,31 @@ def guard_time_of_day(call: str, value: object) -> None:
     )
 
 
+def guard_date_formats_differ(call: str, first: str, first_format: str, first_day: str,
+                              second: str, second_format: str, second_day: str) -> None:
+    """Two columns of days compared, each written its own way. No opt-out.
+
+    `first` and `second` name the two columns, each with its date_format and a day written
+    that way, such as '20260925'.
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call} compares {first}, whose days are written like {first_day!r} "
+            f"(date_format={first_format!r}), with {second}, whose days are written like "
+            f"{second_day!r} (date_format={second_format!r}).",
+            why="Hive compares the days as text, and one day written two ways is two "
+            "different texts, so this would match no rows: a join would find no match, and "
+            "a WHERE would keep nothing.",
+            fix="Compare days written the same way. First save one table's rows in a Saved "
+            "table whose Table reference writes its days like the other table's: each write "
+            "puts its day into the Saved table written the Saved table's way, so the days then "
+            "match. The intermediate Example project, in the Toolbox download's "
+            "example_projects folder, does this in statements/example_1_job_day_costs.py.",
+            opt_out=None,
+        )
+    )
+
+
 _REGROUPING_FIXES = {
     "a distinct count": "For a count over the whole span, count again with count_distinct(...) "
     "from the rows it was counted from, under your own GROUP_BY: a week's count comes from "
@@ -190,21 +217,33 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     )
 
 
-def guard_missing_group_by(place: str, columns: list[str], grouped: bool) -> None:
+def guard_missing_group_by(place: str, columns: list[str], grouped: bool,
+                           calculations: list[tuple[str, list[str]]] | None = None) -> None:
     """A column shown, tested or sorted by must be grouped when the Statement aggregates.
     No opt-out.
 
-    `grouped` is whether the Statement has a GROUP_BY at all.
+    `grouped` is whether the Statement has a GROUP_BY at all. `calculations` holds each
+    calculation in SELECT, such as week_start(dt) named "week", that isn't grouped: its name
+    and the columns inside it. A calculation is grouped by its name, not by the columns
+    inside it, which would give one row per day, not per week.
     """
-    listed = ", ".join(columns)
+    calculations = calculations or []
+    listed = ", ".join(columns + [f'the calculation "{name}" (from {", ".join(inside)})'
+                                  for name, inside in calculations])
+    adding = ", ".join(columns + [f'"{name}"' for name, _ in calculations])
     if grouped:
         what = f"{place} has {listed}, which GROUP_BY leaves out."
-        fix = f"Add {listed} to GROUP_BY."
+        fix = f"Add {adding} to GROUP_BY."
     else:
         what = (f"{place} has {listed}, but the Statement counts or adds up rows and has "
                 "no GROUP_BY.")
-        fix = f"Add GROUP_BY({listed}), or put {listed} inside a count or a sum."
-    if place == "SELECT":
+        fix = f"Add GROUP_BY({adding})"
+        if columns:
+            fix += f", or put {', '.join(columns)} inside a count or a sum"
+        fix += "."
+    if calculations:
+        fix += " A calculation is grouped by the name you gave it with AS."
+    if place == "SELECT" and columns:
         fix += (" To keep one whole row per group instead, such as each job's latest run, "
                 "number the rows with row_number(...) inside derived(...), then keep number 1 "
                 "with WHERE(equals(..., 1)); help(row_number) shows how.")
@@ -332,8 +371,16 @@ def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
 
 
 def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[str] | None,
-                          many_matches: bool, derived: bool = False) -> None:
-    """A join off the joined table's key repeats rows: warn, and still join."""
+                          many_matches: bool, derived: bool = False,
+                          date_partition: str | None = None,
+                          matched_with: str | None = None) -> None:
+    """A join off the joined table's key repeats rows: warn, and still join.
+
+    `date_partition` is the joined table's Date partition, if it has one. When its key holds
+    the Date partition and ON= leaves it out, as on a table that keeps a copy of each row
+    every day, the usual fix is to match the day too, and the message says so, with the day
+    of `matched_with`, the table ON= matches it with.
+    """
     if many_matches:
         return
     on = ", ".join(matched) or "nothing"
@@ -348,11 +395,20 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
         what = (f"{call}({table}) matches on {on}, but {table} declares no key, so the "
                 "Toolbox can't tell whether one row matches or several. Declare key=[...] "
                 "in its Table reference.")
+    fix = f"Group {table} first so it has one row per value you join on, and join that."
+    if key and date_partition in key and date_partition not in matched:
+        # The other table's day, guessed to have the same name, as a snapshot's usually does.
+        day = (f"{matched_with}.{date_partition}" if matched_with
+               else "the other table's day")
+        fix = (f"Match the day too, so each row meets its own day's {table} row: "
+               f"ON=all_of(equals(...), equals({table}.{date_partition}, {day})), where "
+               "equals(...) is what ON= has now. If the rows before the join have no day, "
+               f"group {table} first so it has one row per value you join on, and join that.")
     message = four_part_message(
         what=what,
         why=f"Each row before the join is repeated once per matching {table} row, so sums "
         "and counts over it may come out too big.",
-        fix=f"Group {table} first so it has one row per value you join on, and join that.",
+        fix=fix,
         opt_out=f"{call}({table}, ON=..., many_matches=True)",
     )
     warn_at_callers_line(message, RepeatedRowsWarning)
@@ -439,6 +495,30 @@ def refuse_a_spark_dataframe(result) -> None:
         why="A Spark DataFrame hasn't fetched its rows yet, so there are none to count or to "
         "read.",
         fix="Make your send give back pandas: send=lambda hive: spark.sql(hive).toPandas().",
+        opt_out=None,
+    ))
+
+
+def refuse_what_isnt_a_dataframe(result) -> None:
+    """Refuse what a send gave back for a read when it isn't a pandas DataFrame, such as the
+    plain list of rows a query API gives."""
+    refuse_a_spark_dataframe(result)
+    if isinstance(result, pd.DataFrame):
+        return
+    if result is None:
+        given, start = "None", "End your send with return, giving back a DataFrame"
+    else:
+        name = type(result).__name__
+        given = f"{'an' if name[0] in 'aeiou' else 'a'} {name}"
+        start = "Turn the rows into a DataFrame at the end of your send"
+    raise TypeError(four_part_message(
+        what=f"Your send gave back {given}, where a pandas DataFrame goes.",
+        why="run hands you back what your send gives back, and you read the rows from it as "
+        "from a pandas DataFrame, each column by its name.",
+        fix=f"{start}: return pd.DataFrame(rows). That takes the column names from each row's "
+        "keys when your query API gives each row as a dict. When it gives each row as a "
+        "tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to "
+        "1, Start a notebook, shows both.",
         opt_out=None,
     ))
 

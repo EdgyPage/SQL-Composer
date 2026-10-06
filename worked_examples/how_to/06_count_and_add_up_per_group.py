@@ -338,7 +338,7 @@ TypeError:
   What happened:  at_least("runs", ...) was given 'runs' where a column goes.
 ...
 
-Write the calculation again: `HAVING(at_least(count_rows(), 3))`.
+As the message's fix says, write the calculation itself: `HAVING(at_least(count_rows(), 3))`.
 
 ### Sorting without a LIMIT
 
