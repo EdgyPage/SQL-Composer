@@ -36,6 +36,10 @@ It then checks what it built:
   import the other Edition's library, finding the Toolbox as its README says, and leaves no
   file behind; a dry run prints every step's Hive and sends nothing, so Spark Composer's needs
   no Java;
+- each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
+  is imported or run: the Toolbox, each Edition's copies of the Example projects and the
+  Templates, and the README, pages included and Markdown read as pages, so that none of it can
+  reach the network;
 - the folders have one version, and both Editions describe the same public names the same way;
 - the tree holds nothing outside its allowlist: the Composer core's folder and each Edition's,
   flat, each Edition's copies of the Example projects and the Templates, and
@@ -69,6 +73,7 @@ import tempfile
 from pathlib import Path
 
 import editions
+import offline_policy
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIFT_LIST = ".scratch/drift.md"
@@ -303,6 +308,30 @@ def open_drift_items(drift_text: str) -> list[str]:
         )
     items = ("\n" + drift_text).split("\n## Items\n", 1)[1].split("\n## ", 1)[0]
     return re.findall(r"^- \[ \] (D\d+) ", items, re.MULTILINE)
+
+
+def check_offline(into: Path, paths: list[str]) -> None:
+    """Refuse the Clean tree if a file under `paths`, in `into`, holds anything that could reach
+    the network, as `tools/offline_policy.py` reads it under main's path: in the Toolbox, only
+    the reviewed sites in its ALLOWED; in a copy the user takes, nothing. Markdown is read as a
+    page, for what a preview of it would load."""
+    found = offline_policy.scan(into, paths)
+    for path in files_in(into):
+        if path.endswith(".md") and any(path == part or path.startswith(f"{part}/")
+                                        for part in paths):
+            found += offline_policy.page_findings(
+                (into / path).read_text(encoding="utf-8"), path)
+    if found:
+        raise ExportRefused(
+            "The Clean tree holds something that could reach the network, but the Toolbox, "
+            "its Example projects and its Templates reach nothing but the user's send. "
+            "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
+            "stamp:\n"
+            + "".join(f"  {finding}\n" for finding in found)
+            + "Take each out on dev, where a copy in example_projects/<Edition>/ or "
+            "templates/<Edition>/ is in example_projects/ or templates/. A Toolbox site that "
+            "must stay needs a reviewed entry in ALLOWED in tools/offline_policy.py, with the "
+            "user's OK.")
 
 
 def files_in(folder: Path) -> list[str]:
@@ -545,6 +574,7 @@ def build_folder(source: Path, into: Path, folder: str, stamp: str) -> None:
             f"Edition's library where tools/editions.py allows it, which is all work has: "
             f"{'; '.join(f'{folder}/{bad}' for bad in bad_imports)}."
         )
+    check_offline(into, [folder])
 
 
 def build(source: Path, into: Path, when: datetime.datetime) -> str:
@@ -573,6 +603,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
         described.append(import_stamped(into, edition))
         check_needs_the_core(into, edition)
         build_copies(source, into, edition, copy_stamp_text(edition.product, version, when))
+        check_offline(into, [f"{folder}/{edition.folder}" for folder in COPIED])
         check_dry_runs(into, edition)
     check_one_edition_per_python(into)
     check_described_alike(described)
@@ -583,6 +614,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
         readme_text(template, described[0]["groups"], version_text(version, when),
                     stamp_text(products, version, when), source),
         encoding="utf-8", newline="\n")
+    check_offline(into, [README])
     outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")

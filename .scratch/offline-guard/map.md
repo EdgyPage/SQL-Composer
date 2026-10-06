@@ -52,3 +52,8 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   checkout's own policy; it refuses unparseable code in the strict folders, fails closed there
   and open elsewhere; `hook_io.py` holds what the hooks share; the policy now reads `.pyw`,
   refuses a non-UTF-8 coding cookie and skips no folder inside the strict folders.
+- [The export check, CI and the drift hook](issues/04-the-export-check-ci-and-the-drift-hook.md):
+  the export reads each part of the Clean tree with `offline_policy` before it is imported or
+  run, Markdown as pages (`page_findings`), and refuses naming each `file:line kind: code`;
+  CI reads the repo only, with actions pinned to commit SHAs (pip hashes a follow-up); the
+  drift hook prints at most 20 paths, each one plain line of at most 120 characters.

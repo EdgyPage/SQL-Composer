@@ -26,12 +26,21 @@ from drift_list import (
 )
 from hook_io import plain_line, read_hook_input
 
-# Each path is printed into the session's context as one plain line (see hook_io).
+# Each path is printed into the session's context as one plain line (see hook_io), and only
+# so many of them, so many can't flood the context.
 LONGEST_PATH = 120
+MOST_PATHS = 20
+
+
+def plain_paths(paths: list[str]) -> str:
+    """The first MOST_PATHS paths, each made plain, and how many more there are."""
+    shown = ", ".join(plain_line(path, LONGEST_PATH) for path in paths[:MOST_PATHS])
+    more = len(paths) - MOST_PATHS
+    return f"{shown} and {more} more" if more > 0 else shown
 
 
 def review_request(commit: str, watched: list[str]) -> str:
-    touched = ", ".join(plain_line(path, LONGEST_PATH) for path in watched)
+    touched = plain_paths(watched)
     return (
         f"Commit {commit[:7]} touches {touched}, so it needs a drift review. Start a subagent "
         f"now, before other work, with this prompt: \"Read {REVIEWER_BRIEF.as_posix()} and "
