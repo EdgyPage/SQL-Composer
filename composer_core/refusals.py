@@ -366,8 +366,8 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
 
     The module is named as warnings.warn names it, "<string>" for a scope with no __name__:
     warn_explicit drops a Warning whose module is None. No module_globals are passed, as
-    warnings.warn passes none: under `python -c` they make warn_explicit ask __main__'s loader
-    for its source, which stops with an ImportError.
+    CPython's own warnings.warn passes none: under `python -c` they make warn_explicit ask
+    __main__'s loader for its source, which stops with an ImportError.
     """
     toolbox = edition.toolbox_folders()
     frame = sys._getframe(1)

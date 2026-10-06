@@ -345,14 +345,19 @@ def _mix_ups_stopped(tree):
 def _refuse_a_mix_up(mix_up: _MixUp) -> None:
     """Refuse a query the executor would answer wrong, mixing up two columns of one name."""
     asked_for, would_read = mix_up.asked_for, mix_up.would_read
+    table, column = would_read.split(".")
     raise RuntimeError(four_part_message(
         what=f"The Example database can't run this Hive: its executor would mix up {asked_for} "
-        f"and {would_read} when it adds up rows after the join.",
+        f"and {would_read}, two columns called {column}, when it works out GROUP_BY and the "
+        "counts and sums after the join.",
         why="The Example database runs Hive on sqlglot's own small executor, which here would "
         f"read {would_read} where {asked_for} is asked for, and so give a wrong answer without "
         "saying so. Hive at work reads the right one.",
-        fix="See the Hive with to_hive(...), and run it at work with your own send; or, to try "
-        "it here, give one of the two columns another name with AS in a Derived table.",
+        fix="See the Hive with to_hive(...), and run it at work with your own send. To try it "
+        f"here, rename {table}'s {column}: in the SELECT of derived(\"{table}\", ...), wrap "
+        f'its {column} in AS(..., "{table}_{column}"), then read {table}.{table}_{column} in '
+        f"ON= and wherever else you read {would_read}. A Table reference can't be renamed: "
+        "read it through a Derived table that does this.",
         opt_out=None,
     )) from mix_up
 
@@ -399,6 +404,7 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
             result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,
                              dialect="hive")
     except sqlglot.errors.ExecuteError as error:
+        # The executor wraps what stops a step in an ExecuteError, raised from it.
         if isinstance(error.__cause__, _MixUp):
             _refuse_a_mix_up(error.__cause__)
         missing = _missing_function(tree, str(error))

@@ -326,7 +326,8 @@ def test_reading_one_block_twice_stops_at_the_join_with_no_repeated_rows_warning
                            r"runs_per_job.job_id") as stop:
             JOIN(yesterday, ON=equals(yesterday.job_id, today.job_id))
     message = str(stop.value)
-    assert 'AS(runs_per_job, "earlier")' in message and "another name in derived(...)" in message
+    assert "Derived tables called runs_per_job, the name given to derived(...)" in message
+    assert 'another name in derived(...), such as "runs_per_job_earlier"' in message
     assert "Opt-out:        none" in message
 
 

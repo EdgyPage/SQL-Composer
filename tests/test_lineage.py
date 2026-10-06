@@ -36,6 +36,7 @@ from sqlglot_composer import (
     all_of,
     at_least,
     between,
+    count_distinct,
     count_rows,
     create_table,
     derived,
@@ -715,6 +716,29 @@ def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_
     assert "- JOIN ON in team_day_step:" in in_weekly and "- WHERE in weekly:" in in_weekly
     in_write = section(section(markdown, "## team_day_step"), "#### `events`")
     assert '- WHERE in team_day_step: `equals(job_owners.dt, "2026-09-24")`' in in_write
+
+
+def test_a_left_join_read_only_by_a_second_left_join_decides_only_what_that_one_brings(
+        tmp_path) -> None:
+    """The second LEFT_JOIN matches on jobs' columns, so the first decides the owner's team,
+    but neither drops a run, so neither decides the count of runs."""
+    chained = statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"),
+               AS(count_distinct(job_owners.team), "teams")),
+        FROM(job_runs),
+        LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        LEFT_JOIN(job_owners, ON=all_of(equals(job_owners.job_id, jobs.job_id),
+                                        equals(job_owners.dt, job_runs.dt),
+                                        between(job_owners.dt, "2026-09-23", "2026-09-24"))),
+        WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+        GROUP_BY(job_runs.job_id),
+    )
+    markdown, _ = read(export_lineage(chained, to=tmp_path / "lineage.html"))
+    in_chained = section(markdown, "## chained")
+    runs, teams = section(in_chained, "#### `runs`"), section(in_chained, "#### `teams`")
+    assert "LEFT JOIN ON in chained" not in runs and "- WHERE in chained:" in runs
+    assert "`equals(jobs.job_id, job_runs.job_id)`" in teams
+    assert "`all_of(equals(job_owners.job_id, jobs.job_id)" in teams
 
 
 def test_a_left_join_decides_every_column_when_a_condition_reads_its_table(tmp_path) -> None:

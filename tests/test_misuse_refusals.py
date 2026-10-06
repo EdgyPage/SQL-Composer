@@ -63,7 +63,7 @@ MISUSES = [
     pytest.param(lambda: FROM("ops.jobs"), TypeError, "isn't a table", id="from_text"),
     pytest.param(lambda: JOIN(jobs, ON=5), TypeError, "ON= isn't a condition", id="join_on_5"),
     pytest.param(lambda: JOIN(jobs, ON=equals(jobs.job_id, jobs.job_id)), ValueError,
-                 "compares jobs.job_id with jobs.job_id",
+                 "compares jobs.job_id with jobs.job_id: both sides are tables called jobs",
                  id="join_on_itself"),
     pytest.param(lambda: GROUP_BY(5), TypeError, "GROUP_BY was given 5", id="group_by_5"),
     pytest.param(lambda: derived("bad name", statement(SELECT(jobs.team), FROM(jobs))),

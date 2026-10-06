@@ -86,8 +86,9 @@ anywhere.
     notebook tools and `exec` give, was dropped unseen, and under `python -c` it stopped with
     "'__main__' is not a built-in module".
   - **export_lineage lists a LEFT_JOIN's own ON= only under the columns read from its table**
-    (and under every column of its Statement when another of its conditions reads that table,
-    as an anti-join's WHERE(is_null(...)) does, or with many_matches=True), in the Statement
+    (and under every column of its Statement when another of its conditions that can drop rows
+    reads that table, as an anti-join's WHERE(is_null(...)) does, or with many_matches=True;
+    and under what a second LEFT_JOIN matching on its columns brings), in the Statement
     that joins and in every Statement downstream of the Saved table it writes; before 4.0 it was
     listed under every column, as if it dropped rows. And a write's bound on a joined table's
     Date partition that its JOIN's ON= sets equal to the day written is listed only in the
