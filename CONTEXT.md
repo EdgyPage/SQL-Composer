@@ -133,15 +133,17 @@ _Avoid_: case, sample, recipe, demo
 **Example project**:
 A folder of the user's own scripts laid out as a project at work should be - Table references,
 Building blocks, Statements and a script that runs them in order - written for the Example
-database's tables, to copy and fill in with the user's own. Where a Worked example shows one
-Statement and its Hive, an Example project shows the files around many.
+database's tables, to read and copy from. Where a Worked example shows one Statement and its
+Hive, an Example project shows the files around many; a Template is the empty shape to fill in.
 _Avoid_: sample project, demo, template, starter kit
 
 **Template**:
-One of the user's own scripts with its specifics left out - the tables, columns and days -
-each marked as a placeholder, to copy into a project and fill in. Where an Example project shows
-a whole project filled in for the Example database, a Template is the empty shape of one of its
-files; a Template with a placeholder left in doesn't run.
+The shape of one of the user's own scripts, with its specifics left out - the tables, columns,
+days and names - each marked as a placeholder, to copy into a project and fill in; a Template
+with a placeholder left in doesn't run. Where an Example project shows scripts filled in for the
+Example database, a Template is the empty shape of such a script, or of one a project keeps
+beside them, such as a notebook's first cells. Each Edition ships a starter set and an
+intermediate set, beside its Example projects.
 _Avoid_: skeleton, boilerplate, stub, scaffold, example
 
 **Example gallery**:

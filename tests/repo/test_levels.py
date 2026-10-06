@@ -16,29 +16,26 @@ and numpy, from `tools/editions.py`), and the Toolbox only from its top level, a
 Each Statement script's module docstring gives a title and one sentence on why, which the
 Example gallery shows, and so does every script of an Example project.
 
-The templates in `templates/` are Level-shaped too: each says where it is copied to in the
+The Templates in `templates/` are Level-shaped too: each says where it is copied to in the
 user's project ("Copy it to: building_blocks/<BLOCK>.py"), and its imports are held to that
-place's Level, its placeholders read as plain names, since a template with one left in doesn't
-parse.
+place's Level. Its placeholders are read as plain names there, since a Template with one left
+in doesn't parse.
 """
 
 from __future__ import annotations
 
 import ast
-import re
 import sys
 from pathlib import Path
 
 import pytest
 
+from conftest import COPY_IT_TO, PLACEHOLDER, TEMPLATES, template_id
 from editions import SHARED_IMPORTS
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKED_EXAMPLES = ROOT / "worked_examples"
 EXAMPLE_PROJECTS = ROOT / "example_projects"
-TEMPLATES = ROOT / "templates"
-COPY_IT_TO = re.compile(r"^Copy it to: (\S+\.py)", re.MULTILINE)
-PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
 # An Example project's scripts beside its Level folders, such as run_pipeline.py.
 ABOVE_THE_LEVELS = 3
@@ -222,12 +219,12 @@ def test_a_pandas_result_says_so_in_its_first_line(path: Path) -> None:
 
 
 def as_names(source: str) -> str:
-    """A template with each placeholder read as a plain name, <TABLE> as table, so it parses."""
+    """A Template with each placeholder read as a plain name, <TABLE> as table, so it parses."""
     return PLACEHOLDER.sub(lambda placeholder: placeholder.group(1).lower(), source)
 
 
 def template_scripts() -> list[tuple[Path, int]]:
-    """Each template, with the Level of the place its "Copy it to:" line puts it: a Level
+    """Each Template, with the Level of the place its "Copy it to:" line puts it: a Level
     folder's, or above the Levels for a script beside them, such as run_pipeline.py."""
     found = []
     for path in sorted(TEMPLATES.glob("*/*.py")):
@@ -236,8 +233,8 @@ def template_scripts() -> list[tuple[Path, int]]:
     return found
 
 
-def _template_id(script: tuple[Path, int]) -> str:
-    return script[0].relative_to(TEMPLATES).as_posix()
+def template_script_id(script: tuple[Path, int]) -> str:
+    return template_id(script[0])
 
 
 def test_the_templates_sit_at_every_level() -> None:
@@ -245,13 +242,13 @@ def test_the_templates_sit_at_every_level() -> None:
     assert levels == {*LEVELS.values(), ABOVE_THE_LEVELS}
 
 
-@pytest.mark.parametrize("script", template_scripts(), ids=_template_id)
+@pytest.mark.parametrize("script", template_scripts(), ids=template_script_id)
 def test_a_templates_imports_point_only_downward(script: tuple[Path, int]) -> None:
     path, level = script
     assert level_problems(as_names(path.read_text(encoding="utf-8")), level) == []
 
 
-@pytest.mark.parametrize("script", template_scripts(), ids=_template_id)
+@pytest.mark.parametrize("script", template_scripts(), ids=template_script_id)
 def test_a_template_gives_a_title_and_why(script: tuple[Path, int]) -> None:
     path = script[0]
     check_title_and_why(path, as_names(path.read_text(encoding="utf-8")))
