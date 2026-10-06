@@ -56,9 +56,9 @@ While the steps run, today is 2026-09-25, as on the Example gallery, and each ho
 folder of its own, deleted afterwards. A lineage's time, your scripts' commit and the Toolbox
 version are pinned, so the page comes out the same on every run.
 
-A how-to links only to how-tos and the Example gallery: links to the example projects and the
-templates come with tickets 11 and 13, once ticket 14 ships them on `main`, and check_links
-widens to them then.
+A how-to links only to how-tos and the Example gallery, and check_links refuses any other link.
+It names the Example projects and the Templates in prose, by their folders, which main holds
+beside the Editions' folders.
 """
 
 from __future__ import annotations

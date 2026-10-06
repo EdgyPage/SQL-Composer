@@ -89,8 +89,8 @@ Saved tables, so it runs on the Example database too.
 ## Running it here, on the Example database
 
 Python must find the Toolbox's two folders, `composer_core` and `sqlglot_composer`: put them
-beside `run_pipeline.py`, or name the folder holding them in `PYTHONPATH`. In the Toolbox's own
-repository they are two folders up, so in this folder:
+beside `run_pipeline.py`, or name the folder holding them in `PYTHONPATH`. They sit in the
+Toolbox's top folder, the one that holds `example_projects` too, so in this folder:
 
 ```
 PYTHONPATH=../.. python run_pipeline.py
