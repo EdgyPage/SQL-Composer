@@ -13,7 +13,10 @@ twins. These also hold:
 - that its Spark, and everything started for it, ends however it is stopped: told to, killed,
   interrupted as it starts or mid-query, killed from outside, stopped by the query it runs,
   or left behind by a Python that was killed or stopped mid-query; that a Spark left half
-  started isn't used; and that a stray connection doesn't hold up a start.
+  started isn't used; and that a stray connection doesn't hold up a start;
+- that its process refuses the network before it does anything else, and that a Python under
+  its trap refuses a lookup off this computer. Every query here shows it still connects back
+  to your Python and runs its Spark on 127.0.0.1 under that trap.
 """
 
 from __future__ import annotations
@@ -790,3 +793,43 @@ def test_a_folder_with_no_in_use_file_is_deleted_once_old() -> None:
     assert folder.exists(), "a folder just made was deleted"
     _made_old(folder)
     assert _deleted_as_left_over(folder)
+
+
+class _Trapped(Exception):
+    """What a stand-in for the trap raises, to stop the process where it is installed."""
+
+
+def test_its_process_refuses_the_network_before_it_does_anything_else(monkeypatch) -> None:
+    def trap() -> None:
+        raise _Trapped
+
+    monkeypatch.setattr(engine, "_refuse_the_network", trap)
+    # Before it reads what your Python sends on stdin, which pytest refuses, or connects back.
+    with pytest.raises(_Trapped):
+        engine._serve()
+
+
+# A Python given only the Example database's trap, behind the tests' backstop, looking up a name
+# off this computer.
+_LOOKS_UP = f"""
+import importlib.util, socket, sys
+spec = importlib.util.spec_from_file_location("engine", {str(engine.__file__)!r})
+engine = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(engine)
+engine._refuse_the_network()
+sys.path.insert(0, {str(ROOT / "tests")!r})
+import offline_trap
+sys.addaudithook(offline_trap.backstop)
+try:
+    socket.getaddrinfo("example.com", 80)
+except RuntimeError as error:
+    print(error)
+"""
+
+
+def test_a_python_under_its_trap_refuses_a_lookup_off_this_computer() -> None:
+    done = subprocess.run([sys.executable, "-c", _LOOKS_UP], capture_output=True, text=True,
+                          timeout=60)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.startswith("socket.getaddrinfo of 'example.com' was refused: this "
+                                  "Python reaches nothing off this computer")
