@@ -4542,7 +4542,7 @@ region_costs = Table(
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 )</pre>
-<p>Look at its line starting <code>date_partition=</code>. The Date partition is the one column of days that every Statement must bound at both ends, and <code>write_table_reference</code> looks for it in the first partition column only. Here that is region, which holds <code>&quot;eu&quot;</code> and <code>&quot;us&quot;</code>, not days, so it can&#x27;t be the Date partition: it writes <code>date_partition=None</code> and a TODO. The TODO names both partition columns, says the newest region, <code>&#x27;us&#x27;</code>, isn&#x27;t a day the Toolbox could bound, and asks you to name dt, the column that holds the days, yourself.</p>
+<p>Look at its line starting <code>date_partition=</code>. The Date partition is the one column of days that every Statement must bound at both ends, and <code>write_table_reference</code> looks for it in the first partition column only. Here that is region, which holds <code>&quot;eu&quot;</code> and <code>&quot;us&quot;</code>, not days, so it can&#x27;t be the Date partition: it writes <code>date_partition=None</code> and a TODO. The TODO names both partition columns, says the last region SHOW PARTITIONS lists, <code>&#x27;us&#x27;</code> (the TODO calls it the newest), isn&#x27;t a day the Toolbox could bound, and asks you to name dt, the column that holds the days, yourself.</p>
 <h5>Finish the Table reference</h5>
 <p>Change the TODO line into two lines: <code>date_partition=&quot;dt&quot;,</code> names the Date partition, and <code>date_format=&quot;%Y%m%d&quot;,</code> says how its days are written, in the codes Python&#x27;s dates use: <code>%Y</code> is the year, <code>%m</code> the month and <code>%d</code> the day. Fill in the other two TODOs while you are there: one row is one job&#x27;s cost in one region on one day, so the key is job_id, region and dt; and cost_cents is a plain amount, which adds up, so <code>does_not_add_up=[]</code> stays empty.</p>
 <p>Try the finished reference in your notebook first, as below; once the next step says it matches, copy it into <code>region_costs.py</code> and import it from there in every notebook:</p>
@@ -4716,7 +4716,7 @@ run(report_build_owners, send=example_database.send)</pre>
 </table></div>
 <h5>Join each run to its own day&#x27;s row</h5>
 <p>A run is a <code>&quot;start&quot;</code> row of job_events. Join the snapshot on both parts of its key: the same job, and the same day. Each run then meets exactly one row, its job&#x27;s row on the day it ran. <a href="#join_tables_safely">Join tables safely</a> shows why a join on only part of a key repeats rows.</p>
-<p>The snapshot is a table with days too, so it needs its own bound in <code>WHERE</code>: the Toolbox checks each table&#x27;s days separately, and <code>equals(job_owners.dt, job_events.dt)</code> in <code>ON=</code> matches the two tables&#x27; days without saying which days to read.</p>
+<p>The snapshot is a table with days too, so it needs its own bound, in <code>WHERE</code> (or in <code>ON=</code>): the Toolbox checks each table&#x27;s days separately, and <code>equals(job_owners.dt, job_events.dt)</code> in <code>ON=</code> matches the two tables&#x27; days without saying which days to read.</p>
 <pre class="python">report_build_runs = statement(
     SELECT(job_events.dt, job_owners.team),
     FROM(job_events),
@@ -4766,7 +4766,7 @@ run(runs_per_team, send=example_database.send)</pre>
 <tr><td>data</td><td>16</td></tr>
 <tr><td>finance</td><td>12</td></tr>
 </table></div>
-<p>data has nightly_load&#x27;s 14 runs and report_build&#x27;s 2 before the move; finance has invoice_sync&#x27;s 10 and report_build&#x27;s 2 after it.</p>
+<p>data has nightly_load&#x27;s (job 1) 14 runs and report_build&#x27;s (job 3) 2 before the move; finance has invoice_sync&#x27;s (job 2) 10 and report_build&#x27;s 2 after it.</p>
 <h5>Pick each job&#x27;s newest row</h5>
 <p>To know who owns each job now, take each job&#x27;s newest row of the snapshot. <code>row_number</code> numbers each job&#x27;s rows from the newest day down; the Statement that reads them keeps number 1. Its <code>PARTITION_BY=</code> is SQL&#x27;s word for the groups to number within, here each job, not the table&#x27;s partitions. Hive can&#x27;t keep a row by its number in the same SELECT that numbers it, so the numbering goes in a Derived table, a Statement given a name for the next one to read, which the Hive writes at its top as <code>WITH numbered AS (...)</code>. <a href="#reusable_derived_tables">Reusable Derived tables</a> and <a href="#latest_row_per_key">The latest row per key</a> start with both:</p>
 <pre class="python">numbered = derived(&quot;numbered&quot;, statement(
@@ -4812,7 +4812,7 @@ WHERE
 <div class="only">
 <p>Pasted into your own notebook, this <code>run</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive: sqlglot Composer&#x27;s Example database runs Hive with sqlglot, which has no <code>row_number</code>. The result above was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive above as it is.</p>
 </div>
-<p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm, so its owner is NULL (pandas shows it as None).</p>
+<p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm (job 4), so its owner is NULL (pandas shows it as None).</p>
 <h4>Check it worked</h4>
 <p>Each run should meet exactly one row of the snapshot, so the teams&#x27; runs add up to every run over the 14 days:</p>
 <pre class="python">every_run = statement(
@@ -4939,7 +4939,7 @@ GROUP BY
 <div class="only">
 <p>Pasted into your own notebook, this <code>run</code>, and each <code>run</code> of a week or a month below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: sqlglot Composer&#x27;s Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
 </div>
-<p>The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) is the first Monday after that. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
+<p>The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) is the first Monday after that. For Thursday 2026-09-24, a week earlier is 2026-09-17, and the first Monday after it is 2026-09-21; for Monday 2026-09-14, a week earlier is 2026-09-07, and the first Monday after it is 2026-09-14 itself. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
 <p>The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.</p>
 <h5>Count each job&#x27;s runs per month</h5>
 <p><code>month_start</code> gives the first day of each day&#x27;s month, and works the same way. All 14 days are in September, so there is one month:</p>
@@ -5072,7 +5072,7 @@ run(days_per_week, send=example_database.send)</pre>
 <h4>Goal</h4>
 <p>Keep a Saved table up to date by rewriting only its last few days on every run, so rows that reach the warehouse a day or two late still land in the right day. You build one Statement over a sliding window of days, split it into one write per day with <code>by_day</code>, and see why <code>INSERT_OVERWRITE</code> lets you send the same days again safely.</p>
 <h4>When you&#x27;d use it</h4>
-<p>For any Saved table filled from a table whose recent days can still change: events that reach the warehouse a day or two after the day they happened, a cost left NULL until its bill comes in. Rewriting yesterday as well as today costs a little more each run, and saves finding and fixing a short day by hand later. <a href="#save_a_table">Save a table</a> and <a href="#backfill_a_range_of_days">Backfill a range of days</a> start with writing one day, and many.</p>
+<p>For any Saved table filled from a table whose recent days can still change: events that reach the warehouse a day or two after the day they happened, a cost left NULL until its bill comes in. Rewriting the days before yesterday as well as yesterday costs a little more each run, and saves finding and fixing a short day by hand later. <a href="#save_a_table">Save a table</a> and <a href="#backfill_a_range_of_days">Backfill a range of days</a> start with writing one day, and many.</p>
 <h4>Steps</h4>
 <h5>Import the Toolbox</h5>
 <pre class="python">from sqlglot_composer import *
@@ -5122,7 +5122,7 @@ run(preview, send=example_database.send)</pre>
 <tr><td>2026-09-24</td><td>2</td><td>1</td><td>0</td></tr>
 </table></div>
 <p>Job 2, invoice_sync, is still running on 2026-09-24, so that day has its start and no finish.</p>
-<p>Each event lands in the partition of the day it happened, but it can reach the warehouse late. Say a run finished at 23:50 on 2026-09-24 and its <code>&quot;finish&quot;</code> row arrives at 00:30 the next morning, after the day&#x27;s run wrote 2026-09-24: the row lands in 2026-09-24&#x27;s partition, a day that a run writing only today would never look at again.</p>
+<p>Each event lands in the partition of the day it happened, but it can reach the warehouse late. Say a run finished at 23:50 on 2026-09-24 and its <code>&quot;finish&quot;</code> row arrives at 00:30 the next morning, after the run just after midnight wrote 2026-09-24: the row lands in 2026-09-24&#x27;s partition, a day that a run writing only its newest day would never look at again.</p>
 <h5>Write the last three days, one day at a time</h5>
 <p>A write fills one day of a Saved table. So build the write over the whole window, then <code>by_day</code> splits it into one write per day, oldest first. The write&#x27;s <code>SELECT</code> lists job_id, starts and finishes, every column of mart.job_day but dt: you never select the day, since the Toolbox writes it into the Hive&#x27;s PARTITION(dt = &#x27;...&#x27;) from the day each write reads. dt stays in <code>GROUP_BY</code>, so each day&#x27;s counts stay apart:</p>
 <pre class="python">def rewrite_last_days(n):
@@ -5320,7 +5320,7 @@ STORED AS ORC;</pre>
         GROUP_BY(job_day.dt, job_owners.team),
     )</pre>
 <h5>Read the weekly rollup from mart.team_day</h5>
-<p>A write fills one day of its Saved table, the one day its <code>FROM</code> table reads, so the tables you save hold days. The weekly rollup isn&#x27;t saved: it is a Statement that adds up mart.team_day&#x27;s saved days into weeks whenever you read it, which is quick, since each day holds a row per team. Read whole weeks, from a Monday to a Sunday; here the week holding 2026-09-24, the day the pipeline below writes:</p>
+<p>A write fills one day of its Saved table, so Saved tables hold days, not weeks. The weekly rollup isn&#x27;t saved: it is a Statement that adds up mart.team_day&#x27;s saved days into weeks whenever you read it, which is quick, since each day holds a row per team. Read whole weeks, from a Monday to a Sunday; here the week holding 2026-09-24, the day the pipeline below writes:</p>
 <pre class="python">def weekly_rollup(first_day, last_day):
     return statement(
         SELECT(AS(week_start(team_day.dt), &quot;week&quot;), team_day.team,
@@ -6087,7 +6087,7 @@ both[both[&quot;starts&quot;] != both[&quot;bills&quot;]]</pre>
 </table></div>
 <p>On 2026-09-24 two runs started but only one was billed: invoice_sync is still running, and its bill comes in when it finishes.</p>
 <h5>Run every check and gather what they find</h5>
-<p>Two more checks, each giving the rows that are problems: jobs with no owner on the newest day, and costs not billed yet. <code>between</code> with the same day twice reads just that one day:</p>
+<p>Two more checks, each giving the rows that are problems: jobs with no owner on the newest day, and costs not billed yet. <code>between</code> with the same day twice reads just that one day; <code>equals(job_owners.dt, &quot;2026-09-24&quot;)</code> works too:</p>
 <pre class="python">no_owner = statement(
     SELECT(job_owners.job_id, job_owners.dt),
     FROM(job_owners),
@@ -6599,7 +6599,7 @@ GROUP BY
 </table></div>
 <p>invoice_sync, job 2, is still running on 2026-09-24, so it has no finish, and its row divides by 0. Both Editions give that row NULL, which pandas shows as NaN, rather than stop.</p>
 <h5>A Python float</h5>
-<p>The jobs whose finished runs took more than 15.5 minutes on average. 15.5 is a Python float:</p>
+<p>The jobs whose finished runs took more than 15.5 minutes on average. <code>job_events.minutes</code> holds the minutes since the run started, so on a <code>&quot;finish&quot;</code> row it is how long the run took. 15.5 is a Python float:</p>
 <pre class="python">long_runs = statement(
     SELECT(job_events.job_id, AS(count_rows(), &quot;finished_runs&quot;)),
     FROM(job_events),
@@ -6652,7 +6652,7 @@ WHERE
 <h5>The three, listed</h5>
 <div class="only">
 <p>This page is sqlglot Composer&#x27;s, so the Hive above is sqlglot Composer&#x27;s. Here is each line that differs, as each Edition writes it, and why. Both give the same results.</p>
-<ul><li>Dividing. sqlglot Composer writes the divisor as it is, <code>COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END)</code>, and Spark Composer writes <code>NULLIF(COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END), 0)</code>. With ANSI mode on (Spark&#x27;s setting for following the SQL standard strictly), Spark 4&#x27;s default, Spark stops the whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive.</li><li>A float. sqlglot Composer writes <code>HAVING AVG(job_events.minutes) &gt; 15.5</code>, and Spark Composer <code>HAVING AVG(job_events.minutes) &gt; 15.5D</code>. Spark reads 15.5 as a DECIMAL, an exact decimal, where Hive reads a DOUBLE, SQL&#x27;s float; the D marks a DOUBLE, and doesn&#x27;t mean days.</li><li>A hive_function call. sqlglot Composer writes <code>COALESCE(job_runs.status, &#x27;none&#x27;) AS status</code>, and Spark Composer <code>NVL(job_runs.status, &#x27;none&#x27;) AS status</code>. sqlglot Composer writes the call as sqlglot reads it back: sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an argument changed. Spark Composer writes it as you gave it, its name in capitals.</li></ul>
+<ul><li>Dividing. sqlglot Composer writes the divisor as it is, <code>COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END)</code>, and Spark Composer writes <code>NULLIF(COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END), 0)</code>. With ANSI mode on (Spark&#x27;s setting for following the SQL standard strictly), Spark 4&#x27;s default, Spark stops the whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive.</li><li>A float. sqlglot Composer writes <code>HAVING AVG(job_events.minutes) &gt; 15.5</code>, and Spark Composer <code>HAVING AVG(job_events.minutes) &gt; 15.5D</code>. Spark reads 15.5 as a DECIMAL, an exact decimal, where Hive reads a DOUBLE, SQL&#x27;s float; the D marks a DOUBLE, and doesn&#x27;t mean days.</li><li>A hive_function call. sqlglot Composer writes <code>COALESCE(job_runs.status, &#x27;none&#x27;) AS status</code>, and Spark Composer <code>NVL(job_runs.status, &#x27;none&#x27;) AS status</code>. sqlglot Composer writes the call as sqlglot reads it back: sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an argument changed, as a date_format pattern &#x27;YYYY-MM&#x27; written &#x27;yyyy-MM&#x27;. Spark Composer writes it as you gave it, its name in capitals.</li></ul>
 <p>None of the three changes a result: each Edition writes what its own warehouse needs to give the same answer.</p>
 </div>
 <h4>Check it worked</h4>
@@ -7481,7 +7481,7 @@ In longest_jobs, Hive as submitted:
 <tr><td>finance</td><td>124</td></tr>
 </table></div>
 <h5>Find every output a column feeds</h5>
-<p>Say the minutes in <code>ops.job_events</code> are to be stored as seconds instead. Which outputs would change? In the Markdown file, each calculated column&#x27;s part, under its <code>####</code> heading, draws the table columns it comes from as a tree, on lines holding <code>├─</code> or <code>└─</code>, and each copied column&#x27;s row of the Copied columns table says where it is copied from. So search those lines for the column. <code>outputs_fed_by</code> keeps the outputs of the Statements, named like <code>minutes_per_team.minutes</code>, and leaves out the Derived table&#x27;s own columns, whose names hold a dot already:</p>
+<p>Say the minutes in <code>ops.job_events</code> are to be stored as seconds instead. Which outputs would change? In the Markdown file, each calculated column&#x27;s part, under its <code>####</code> heading, draws the table columns it comes from as a tree, on lines holding <code>├─</code> or <code>└─</code>, and each copied column&#x27;s row of the Copied columns table says where it is copied from. So search those lines for the column. <code>outputs_fed_by</code> keeps the outputs of the Statements, named like <code>minutes_per_team.minutes</code>, and leaves out the Derived table&#x27;s own columns, whose headings hold a dot already, such as <code>finished_runs in minutes_per_team.minutes</code>:</p>
 <pre class="python">def outputs_fed_by(column, markdown_file):
     fed, statement_name, output = [], None, None
     for line in Path(markdown_file).read_text(encoding=&quot;utf-8&quot;).splitlines():
@@ -7508,14 +7508,14 @@ outputs_fed_by(&quot;ops.job_events.minutes&quot;, &quot;after.md&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">False</pre>
 <h4>Common mistakes</h4>
 <h5>Exporting the Statements built before the change</h5>
-<p>A Statement holds its Building block as it was when it was built. Change the function, but export the Statements you already had, and the Lineage after looks just like the one before. Here the function goes back to finished runs only, kept as <code>finished_only</code>, and the Statements aren&#x27;t built again:</p>
+<p>A Statement holds its Building block as it was when it was built. Change the function, but export the Statements you already had, and the Lineage after looks just like the one before. Here the change is a step back: the function goes back to finished runs only, kept as <code>finished_only</code>, so the Lineage from before this change is after.md. The Statements aren&#x27;t built again:</p>
 <pre class="python">finished_runs = finished_only
 html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
                                           to=&quot;stale.html&quot;)</pre>
 <p class="note">It writes <code>stale.md</code> too, line for line the same as <code>after.md</code> above.</p>
 <p class="note">It writes <code>stale.html</code> too, a page to open in your browser.</p>
 <pre class="python">changed_lines(&quot;after.md&quot;, &quot;stale.md&quot;)</pre>
-<p>Nothing printed: no line differs, though the function changed. Build the Statements again after each change, with <code>build_statements</code>, then export.</p>
+<p>Nothing printed: no line differs from after.md, though the function changed. Build the Statements again after each change, with <code>build_statements</code>, then export.</p>
 <h5>Comparing the HTML pages</h5>
 <p>The HTML page holds the same Lineage, but as HTML and data for its drawing, on very long lines, so a line by line comparison of two pages shows little you can read. The lines that differ between before.html and after.html, by their length in characters:</p>
 <pre class="python">before_page = Path(&quot;before.html&quot;).read_text(encoding=&quot;utf-8&quot;).splitlines()

@@ -100,7 +100,9 @@ by 0. Both Editions give that row NULL, which pandas shows as NaN, rather than s
 
 ### A Python float
 
-The jobs whose finished runs took more than 15.5 minutes on average. 15.5 is a Python float:
+The jobs whose finished runs took more than 15.5 minutes on average. `job_events.minutes` holds
+the minutes since the run started, so on a `"finish"` row it is how long the run took. 15.5 is a
+Python float:
 
 >>> long_runs = statement(
 ...     SELECT(job_events.job_id, AS(count_rows(), "finished_runs")),
@@ -171,8 +173,8 @@ that differs, as each Edition writes it, and why. Both give the same results.
 - A hive_function call. sqlglot Composer writes `COALESCE(job_runs.status, 'none') AS status`,
   and Spark Composer `NVL(job_runs.status, 'none') AS status`. sqlglot Composer writes the call
   as sqlglot reads it back: sometimes by another name that does the same, as COALESCE for nvl,
-  and sometimes with an argument changed. Spark Composer writes it as you gave it, its name in
-  capitals.
+  and sometimes with an argument changed, as a date_format pattern 'YYYY-MM' written
+  'yyyy-MM'. Spark Composer writes it as you gave it, its name in capitals.
 
 None of the three changes a result: each Edition writes what its own warehouse needs to give
 the same answer.
@@ -195,7 +197,7 @@ the same results.
   call as you gave it, its name in capitals. sqlglot Composer writes
   `COALESCE(job_runs.status, 'none') AS status`: it writes the call as sqlglot reads it back,
   sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an
-  argument changed.
+  argument changed, as a date_format pattern 'YYYY-MM' written 'yyyy-MM'.
 
 None of the three changes a result: each Edition writes what its own warehouse needs to give
 the same answer.
