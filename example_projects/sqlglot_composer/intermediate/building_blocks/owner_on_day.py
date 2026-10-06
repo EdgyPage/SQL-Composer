@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """A join to the team each job had on each row's day: an as-of lookup.
 
 Why: a job can move team, as report_build moves from data to finance on 2026-09-18, so a

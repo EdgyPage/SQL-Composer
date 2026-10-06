@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Quality checks: the same Statements for each table, written from settings.py.
 
 Why: the same few checks catch most bad days in any table, so they are written once here and

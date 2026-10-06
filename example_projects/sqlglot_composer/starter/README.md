@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy -->
+<!-- sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
 # The starter Example project
 
 A small project laid out the way one should be at work, written for sqlglot Composer on three

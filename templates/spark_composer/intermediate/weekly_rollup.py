@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Weekly totals from a Saved table's days, added up when they are read.
 
 Why: a write fills one day of a Saved table, so weeks are added up from its saved days when

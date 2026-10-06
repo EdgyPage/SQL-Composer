@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """A Saved table's Table reference, by hand: name, columns, Date partition, key.
 
 Why: a Saved table doesn't exist until create_table makes it from this file, so

@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Spark Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """How Spark Composer writes a Statement as Hive text, using only Python's standard library.
 
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
@@ -31,7 +31,7 @@ from typing import NoReturn
 
 from composer_core.trees import HIVE_TYPES, Node, plain_name
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 # The width past which a list of pieces, or a call's arguments, go one to a line.
 WIDTH = 80

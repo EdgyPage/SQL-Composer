@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Example 1: each job's cost per day, the last 3 days saved again on every run.
 
 Why: a day's bill can come in after the day was saved, so each run saves the last few days

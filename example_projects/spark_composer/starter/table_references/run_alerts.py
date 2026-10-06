@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """ops.run_alerts - one row per alert a run raised.
 
 Why: the project's Statements read the table through this file, so each column they name, and

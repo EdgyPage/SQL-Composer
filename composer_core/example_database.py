@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """The Example database: six made-up tables, and a send to run Statements on.
 
 It holds the Table references `jobs`, `job_runs` and `run_alerts`, with rows on two days,
@@ -46,7 +46,7 @@ from . import edition
 from .refusals import refuse
 from .tables import Table
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 # --- The Table references -----------------------------------------------------------------
 

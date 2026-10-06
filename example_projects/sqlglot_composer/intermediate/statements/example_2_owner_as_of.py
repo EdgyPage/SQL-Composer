@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Example 2: each job's day, with the team that owned it that day, saved each run.
 
 Why: a job can move team, so each day's events must go to the team that owned the job on that

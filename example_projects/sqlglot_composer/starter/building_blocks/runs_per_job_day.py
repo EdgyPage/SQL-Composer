@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Runs, failed runs and minutes per job and day, as a Derived table to read.
 
 Why: examples 1 and 3 both need these numbers, and writing them once here means the two can

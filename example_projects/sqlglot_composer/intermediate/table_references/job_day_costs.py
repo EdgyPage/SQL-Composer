@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """mart.job_day_costs - one row per job and day it was billed: its cost in cents.
 
 Why: example 1 saves each job's cost per day here with its days written like 2026-09-24, as

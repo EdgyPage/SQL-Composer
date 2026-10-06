@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Events, runs and minutes per job and day, as a Derived table to read.
 
 Why: example 2 and example 3's team_day_from_job_events both need these numbers, and writing

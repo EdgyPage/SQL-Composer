@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """mart.alerts_per_job - one row per job and day with alerts: alerts, high alerts.
 
 Why: example 2 saves these numbers once a day, so example 3 and anyone else can read them

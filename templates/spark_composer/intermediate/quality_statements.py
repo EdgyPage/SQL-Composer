@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Data quality Statements for a table: repeated keys, NULL counts, rows per day.
 
 Why: the same three Statements catch most bad days in any table, so they are worth writing

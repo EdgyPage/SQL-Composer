@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """Guards and Load limits stop a Statement; a Warning shows at the join it's about.
 
 A Guard refuses a Statement that would silently give a wrong answer. A Load limit refuses one
@@ -32,7 +32,7 @@ import pandas as pd
 from . import _four_part_message as four_part_message
 from . import edition
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 
 class GuardRefused(Exception):

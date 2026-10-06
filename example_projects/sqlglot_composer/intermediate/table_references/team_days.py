@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """mart.team_days - one row per team and day: events, runs, minutes and cost.
 
 Why: example 3 saves each team's day here, made from what examples 1 and 2 saved, so each

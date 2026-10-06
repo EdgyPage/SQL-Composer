@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """The import self-check: each Toolbox folder checks itself, then the two check each other.
 
 At work the Toolbox is two folders pasted side by side: composer_core and one Edition's. The
@@ -17,11 +17,11 @@ import sys
 
 from . import _stop
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 _PYTHON_NEEDED = (3, 11)
 
-# Any Toolbox folder's stamp, such as "sqlglot Composer 4.0, exported 2026-10-02 14:05 - ...",
+# Any Toolbox folder's stamp, such as "sqlglot Composer 4.1, exported 2026-10-02 14:05 - ...",
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer|Composer core) \S+, exported ")
 
@@ -67,7 +67,7 @@ def stamp_of(path: str) -> str | None:
 
 
 def _version_and_time(stamp: str) -> str:
-    """A stamp's version and export time, such as "Composer core 4.0, exported 2026-10-02 14:05"."""
+    """A stamp's version and export time, such as "Composer core 4.1, exported 2026-10-02 14:05"."""
     return stamp.split(" - ")[0]
 
 
