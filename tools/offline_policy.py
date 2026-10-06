@@ -220,6 +220,9 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed(ENGINE, "_serve", "network", "multiprocessing.connection.*",
             "the process connects back to the address its parent sent on stdin: the "
             "listener on 127.0.0.1", address=PASSED_IN),
+    Allowed(ENGINE, "_refuse_the_network", "network", "socket.socket.*",
+            "wraps socket's methods given an address, so the process refuses one off this "
+            "computer before Python looks it up; it calls none", address=NOT_CALLED),
     Allowed(ENGINE, "_ask_java", "process", "subprocess.run",
             "runs java -version to ask its version and folder"),
     Allowed(ENGINE, "_end", "process", "subprocess.TimeoutExpired",
@@ -308,6 +311,11 @@ ALLOWED: tuple[Allowed, ...] = (
             "dynamic code", "exec", "runs the test's own line of code as typed at a prompt"),
     Allowed("tests/test_lineage.py", "test_the_pages_script_is_javascript_a_browser_can_read",
             "process", "subprocess.run", "runs node --check on the lineage page's own script"),
+    Allowed("tests/offline_trap.py", "<module>", "network", "socket",
+            "imports socket, to put the trap's backstop in front of its methods"),
+    Allowed("tests/offline_trap.py", "_backstop_the_socket_methods", "network",
+            "socket.socket.*", "wraps socket's methods given an address with the backstop, "
+            "which stops a host the trap's tests try; it calls none", address=NOT_CALLED),
     Allowed("tests/test_offline_trap.py", "<module>", "process", "subprocess", IMPORTS_PYTHON),
     Allowed("tests/test_offline_trap.py",
             "test_the_real_calls_are_refused_before_anything_is_sent", "process",
