@@ -17,6 +17,11 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   hook, the tests and the export call it. A new allowlist entry needs a reason and the user's OK.
 - **Version:** ticket 03 changes Spark Composer's shipped engine, so a drift version item will
   open; ask the user (CLAUDE.md), don't raise it.
+- **For the CHANGES lines (ticket 03):** what a Spark Composer user sees: the Example
+  database's own Spark process now refuses any connection, or lookup of a name, that would
+  leave this computer (a `RuntimeError` naming what it refused, in the process's log); it
+  still talks to your Python and its Java on 127.0.0.1. Nothing changes in your own Python,
+  where `send` still reaches your warehouse. sqlglot Composer is unchanged.
 - Every ticket follows CLAUDE.md's Definition of done.
 
 ## Tickets
@@ -33,3 +38,9 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   reads Python by its syntax tree and pages by their references; `findings_in(text, path)` for
   the hook, `scan(root)` for the export; 81 reviewed ALLOWED sites, the engine's socket held to
   127.0.0.1; maintainer code isn't read for URLs in strings, and `.scratch/` isn't read.
+- [The runtime traps](issues/03-the-runtime-traps.md): one rule, `_off_the_machine` in
+  spark_composer/engine.py, installed by `_refuse_the_network()` first in `_serve` and, loaded
+  by path, by `tests/offline_trap.py` in every test run; an audit hook plus wraps on socket's
+  address-taking methods (a name is looked up before their event); RuntimeError; loopback,
+  Unix paths and no-name lookups allowed, a bind to every interface and every client library
+  refused; a backstop keeps the trap's own tests off the network.

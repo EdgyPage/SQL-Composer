@@ -199,6 +199,8 @@ PYTHON = "runs this same Python on the repo's own code, in a process of its own"
 IMPORTS_GIT = "imports subprocess, to run git on a local repository"
 IMPORTS_PYTHON = "imports subprocess, to run this same Python in a process of its own"
 LOCAL_MODULES = "imports the repo's own modules by name, from its own folders"
+TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the network "
+                        "under the offline trap and its backstop, so nothing is sent")
 ALLOWED: tuple[Allowed, ...] = (
     # Spark Composer's Example database: a Spark in a process of its own, on loopback only.
     Allowed(ENGINE, "<module>", "network", "socket",
@@ -218,6 +220,9 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed(ENGINE, "_serve", "network", "multiprocessing.connection.*",
             "the process connects back to the address its parent sent on stdin: the "
             "listener on 127.0.0.1", address=PASSED_IN),
+    Allowed(ENGINE, "_refuse_the_network", "network", "socket.socket.*",
+            "wraps socket's methods given an address, so the process refuses one off this "
+            "computer before Python looks it up; it calls none", address=NOT_CALLED),
     Allowed(ENGINE, "_ask_java", "process", "subprocess.run",
             "runs java -version to ask its version and folder"),
     Allowed(ENGINE, "_end", "process", "subprocess.TimeoutExpired",
@@ -306,6 +311,15 @@ ALLOWED: tuple[Allowed, ...] = (
             "dynamic code", "exec", "runs the test's own line of code as typed at a prompt"),
     Allowed("tests/test_lineage.py", "test_the_pages_script_is_javascript_a_browser_can_read",
             "process", "subprocess.run", "runs node --check on the lineage page's own script"),
+    Allowed("tests/offline_trap.py", "<module>", "network", "socket",
+            "imports socket, to put the trap's backstop in front of its methods"),
+    Allowed("tests/offline_trap.py", "_backstop_the_socket_methods", "network",
+            "socket.socket.*", "wraps socket's methods given an address with the backstop, "
+            "which stops a host the trap's tests try; it calls none", address=NOT_CALLED),
+    Allowed("tests/test_offline_trap.py", "<module>", "process", "subprocess", IMPORTS_PYTHON),
+    Allowed("tests/test_offline_trap.py",
+            "test_the_real_calls_are_refused_before_anything_is_sent", "process",
+            "subprocess.run", TRIES_UNDER_THE_TRAP),
     Allowed("tests/test_refusals.py", "<module>", "process", "subprocess", IMPORTS_PYTHON),
     Allowed("tests/test_refusals.py",
             "test_a_repeated_rows_warning_shows_from_a_scope_with_no_name", "dynamic code",
@@ -371,6 +385,9 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/spark_edition/test_spark_example_database.py",
             "test_a_python_that_stops_mid_query_stops_at_once_and_leaves_nothing", "process",
             "subprocess.run", PYTHON),
+    Allowed("tests/spark_edition/test_spark_example_database.py",
+            "test_a_python_under_its_trap_refuses_a_lookup_off_this_computer", "process",
+            "subprocess.run", TRIES_UNDER_THE_TRAP),
     Allowed("tests/spark_edition/test_spark_independence.py", "_loaded", "dynamic code",
             "importlib.import_module", LOCAL_MODULES),
 )
