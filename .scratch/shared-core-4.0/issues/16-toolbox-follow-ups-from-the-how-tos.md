@@ -40,11 +40,13 @@ Messages:
 11. write_table_reference's TODO for a table first partitioned by something other than days says
     "its newest region, 'us'": say "its last region value".
 
-To ask the user (new behaviour):
+New behaviour, the user's answers (2026-10-05): both yes, as recommended.
 12. A Guard for `equals` between two Date partitions whose date_format differs (it builds and
-    matches nothing; ticket 12).
+    matches nothing; ticket 12). The user chose a Guard: refuse with a four-part message naming
+    both formats; no opt-out, since it can never be right.
 13. A refusal for a `send` that returns something other than a DataFrame, such as a plain list
-    (ticket 06's beginner read).
+    (ticket 06's beginner read). The user chose a clear refusal: `run` stops with a four-part
+    message showing how-to 1's `pd.DataFrame(rows)` fix.
 
 ## Done when
 
