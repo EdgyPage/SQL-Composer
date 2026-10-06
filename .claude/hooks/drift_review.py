@@ -9,7 +9,6 @@ subagent, which writes to `.scratch/drift.md`.
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 from drift_list import (
@@ -21,26 +20,18 @@ from drift_list import (
     git,
     needs_review,
     new_commits,
-    read_hook_input,
     read_requests,
     reviewed_commits,
     same_commit,
 )
+from hook_io import plain_line, read_hook_input
 
-
-# A path is printed into the session's context, so it goes as one plain line of bounded length:
-# a file name crafted with newlines or terminal codes can't read as an instruction.
-UNPRINTABLE = re.compile(r"[\x00-\x1f\x7f-\x9f]+")
+# Each path is printed into the session's context as one plain line (see hook_io).
 LONGEST_PATH = 120
 
 
-def plain_path(path: str) -> str:
-    shown = UNPRINTABLE.sub(" ", path).strip()
-    return shown if len(shown) <= LONGEST_PATH else shown[:LONGEST_PATH] + "..."
-
-
 def review_request(commit: str, watched: list[str]) -> str:
-    touched = ", ".join(plain_path(path) for path in watched)
+    touched = ", ".join(plain_line(path, LONGEST_PATH) for path in watched)
     return (
         f"Commit {commit[:7]} touches {touched}, so it needs a drift review. Start a subagent "
         f"now, before other work, with this prompt: \"Read {REVIEWER_BRIEF.as_posix()} and "

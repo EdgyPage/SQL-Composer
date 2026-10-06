@@ -10,11 +10,11 @@ stops agents.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
-from drift_list import MAKES_A_COMMIT, git, read_hook_input
+from drift_list import MAKES_A_COMMIT, git
+from hook_io import deny, read_hook_input
 
 CLEAN_BRANCH = "main"
 # The export script run alone, as `python tools/export_clean.py` with any path and arguments.
@@ -68,12 +68,7 @@ def main() -> None:
     hook = read_hook_input()
     why = refusal(hook.get("tool_name", ""), hook.get("tool_input", {}), hook.get("cwd", "."))
     if why:
-        decision = {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": why,
-        }
-        print(json.dumps({"hookSpecificOutput": decision}))
+        deny(why)
 
 
 if __name__ == "__main__":

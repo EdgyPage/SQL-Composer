@@ -1,8 +1,9 @@
 """The offline guard: `.claude/hooks/offline_guard.py` refuses an Edit, Write or NotebookEdit
 that would leave network code in the repo, judged by `tools/offline_policy.py`.
 
-Each test runs the hook as Claude Code runs it: this same Python, the call's JSON on stdin, and
-a deny printed on stdout. It only reads files; nothing here writes to the repo.
+Each test runs the hook as Claude Code runs it: this same Python, the call's JSON on stdin,
+`$CLAUDE_PROJECT_DIR` naming the session's project, and a deny printed on stdout. Nothing here
+writes to the repo: a test that needs a file on disk makes a checkout of its own.
 """
 
 from __future__ import annotations
@@ -25,23 +26,25 @@ sys.path.insert(0, str(HOOK.parent))
 import offline_guard  # noqa: E402
 
 
-def guard(tool: str, tool_input: dict, cwd: Path = ROOT) -> subprocess.CompletedProcess:
-    """Run the hook on one call, sent as Claude Code sends it: JSON in UTF-8."""
-    given = {"tool_name": tool, "tool_input": tool_input, "cwd": str(cwd)}
-    return run_hook(json.dumps(given, ensure_ascii=False).encode("utf-8"))
+def guard(tool: str, tool_input: dict, project: Path = ROOT) -> subprocess.CompletedProcess:
+    """Run the hook on one call, sent as Claude Code sends it: JSON in UTF-8, in a session
+    whose project is `project`."""
+    given = {"tool_name": tool, "tool_input": tool_input, "cwd": str(project)}
+    return run_hook(json.dumps(given, ensure_ascii=False).encode("utf-8"), project)
 
 
-def run_hook(sent: bytes) -> subprocess.CompletedProcess:
+def run_hook(sent: bytes, project: Path = ROOT) -> subprocess.CompletedProcess:
     """This same Python on the hook, told nothing of its encoding, with `sent` on stdin."""
     plain = {name: value for name, value in os.environ.items()
              if name not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+    plain["CLAUDE_PROJECT_DIR"] = str(project)
     return subprocess.run([sys.executable, str(HOOK)], input=sent, capture_output=True,
                           env=plain)
 
 
-def refusal(tool: str, tool_input: dict, cwd: Path = ROOT) -> str | None:
+def refusal(tool: str, tool_input: dict, project: Path = ROOT) -> str | None:
     """The hook's reason for a deny, or None when it lets the call through."""
-    done = guard(tool, tool_input, cwd)
+    done = guard(tool, tool_input, project)
     if not done.stdout.strip():
         return None
     decision = json.loads(done.stdout)["hookSpecificOutput"]
@@ -50,8 +53,31 @@ def refusal(tool: str, tool_input: dict, cwd: Path = ROOT) -> str | None:
     return decision["permissionDecisionReason"]
 
 
-def write(path: Path | str, content: str) -> str | None:
-    return refusal("Write", {"file_path": str(path), "content": content})
+def write(path: Path, content: str, project: Path = ROOT) -> str | None:
+    return refusal("Write", {"file_path": str(path), "content": content}, project)
+
+
+def edit(path: Path, old: str, new: str, project: Path = ROOT, **options) -> str | None:
+    return refusal("Edit", {"file_path": str(path), "old_string": old, "new_string": new,
+                            **options}, project)
+
+
+def a_checkout(folder: Path, files: dict[str, str | bytes]) -> Path:
+    """A checkout of the repo in `folder`: a `.git`, the policy's two files, and `files`."""
+    (folder / ".git").mkdir(parents=True)
+    (folder / "tools").mkdir()
+    for name in ("offline_policy.py", "editions.py"):
+        shutil.copy(ROOT / "tools" / name, folder / "tools" / name)
+    for path, text in files.items():
+        (folder / path).parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(text, bytes):
+            (folder / path).write_bytes(text)
+        else:
+            (folder / path).write_text(text, encoding="utf-8")
+    return folder
+
+
+# --- Write and Edit ----------------------------------------------------------------------------
 
 
 def test_a_write_of_a_network_import_to_the_toolbox_is_refused() -> None:
@@ -70,11 +96,6 @@ def test_a_clean_write_prints_nothing() -> None:
 RUNNING = ROOT / "composer_core" / "running.py"
 
 
-def edit(path: Path, old: str, new: str, **options) -> str | None:
-    return refusal("Edit", {"file_path": str(path), "old_string": old, "new_string": new,
-                            **options})
-
-
 def test_an_edit_that_adds_a_connection_is_refused() -> None:
     dial = 'import inspect\nimport socket\n\nsocket.create_connection(("example.com", 80))'
     why = edit(RUNNING, "import inspect", dial)
@@ -88,33 +109,19 @@ def test_an_edit_that_keeps_the_file_clean_passes() -> None:
     assert edit(RUNNING, "import inspect", "import inspect\nimport textwrap") is None
 
 
-def a_checkout(folder: Path, files: dict[str, str | bytes]) -> Path:
-    """A checkout of the repo in `folder`: a `.git`, the policy's two files, and `files`."""
-    (folder / ".git").mkdir()
-    (folder / "tools").mkdir()
-    for name in ("offline_policy.py", "editions.py"):
-        shutil.copy(ROOT / "tools" / name, folder / "tools" / name)
-    for path, text in files.items():
-        (folder / path).parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(text, bytes):
-            (folder / path).write_bytes(text)
-        else:
-            (folder / path).write_text(text, encoding="utf-8")
-    return folder
-
-
 def test_an_edit_is_judged_on_the_whole_file_it_leaves(tmp_path) -> None:
     # The new text alone is clean: it is the alias already in the file that reaches out.
     checkout = a_checkout(tmp_path, {"composer_core/x.py": "import socket as wire\nwire = None\n"})
-    why = edit(checkout / "composer_core" / "x.py", "wire = None\n", "wire.create_connection(a)\n")
+    why = edit(checkout / "composer_core" / "x.py", "wire = None\n", "wire.create_connection(a)\n",
+               checkout)
     assert why is not None and "x.py:2 network: wire.create_connection(a)" in why
 
 
 def test_replace_all_is_judged_at_every_place_it_changes(tmp_path) -> None:
     checkout = a_checkout(tmp_path, {"composer_core/x.py": "a = 1\nb = 2\na = 1\n"})
     file = checkout / "composer_core" / "x.py"
-    once = edit(file, "a = 1", "import requests")
-    every = edit(file, "a = 1", "import requests", replace_all=True)
+    once = edit(file, "a = 1", "import requests", checkout)
+    every = edit(file, "a = 1", "import requests", checkout, replace_all=True)
     assert once is not None and "x.py:1 " in once and "x.py:3 " not in once
     assert every is not None and "x.py:1 " in every and "x.py:3 " in every
 
@@ -131,7 +138,7 @@ def test_an_edit_matches_a_windows_file_as_claude_code_does(tmp_path) -> None:
     })
     for name, old in (("x.py", "a = 1\nb = 2"), ("y.py", 'a = "q"'),
                       ("z.py", "a = 'été'")):
-        why = edit(checkout / "composer_core" / name, old, "wire.create_connection(a)")
+        why = edit(checkout / "composer_core" / name, old, "wire.create_connection(a)", checkout)
         assert why is not None and f"{name}:2 network: wire.create_connection(a)" in why, name
 
 
@@ -139,9 +146,35 @@ def test_an_edit_whose_text_is_not_found_is_judged_on_its_new_text(tmp_path) -> 
     # Claude Code would refuse the Edit, but the guard doesn't count on matching it exactly.
     checkout = a_checkout(tmp_path, {"composer_core/x.py": "a = 1\n"})
     file = checkout / "composer_core" / "x.py"
-    why = edit(file, "nowhere", "    import requests\n    x = 1")
+    why = edit(file, "nowhere", "    import requests\n    x = 1", checkout)
     assert why is not None and "network: import requests" in why
-    assert edit(file, "nowhere", "    if x:") is None
+    why = edit(file, "nowhere", "x)\nimport requests", checkout)
+    assert why is not None and "unreadable" in why
+
+
+# --- Code that doesn't parse -------------------------------------------------------------------
+
+
+def test_toolbox_code_that_doesnt_parse_is_refused_and_maintainer_code_is_not() -> None:
+    # Code the policy can't read could hide anything, so where it reaches the user it waits
+    # until it parses; tools and tests may pass through a broken state mid-change.
+    broken = "def f(:\n    import requests\n"
+    why = write(ROOT / "composer_core" / "x.py", broken)
+    assert why is not None and "composer_core/x.py:1 unreadable" in why
+    assert write(ROOT / "tools" / "x.py", broken) is None
+
+
+def test_a_file_that_declares_another_encoding_is_refused() -> None:
+    # Python would read this file in UTF-7, where `+AAo-` is a new line.
+    why = write(ROOT / "composer_core" / "x.py", "# coding: utf-7\nx = 1 #+AAo-import requests\n")
+    assert why is not None and "unreadable" in why
+
+
+def test_a_notebook_with_a_broken_cell_hides_no_other_cell(tmp_path) -> None:
+    checkout = a_checkout(tmp_path, {"worked_examples/x.ipynb": notebook(
+        ("a", "code", "def f(:"), ("b", "code", "x = 1"))})
+    file = checkout / "worked_examples" / "x.ipynb"
+    assert notebook_edit(file, "import requests", checkout, cell_id="b") is not None
 
 
 # --- What is read where ------------------------------------------------------------------------
@@ -176,8 +209,26 @@ def test_each_finding_reaches_the_session_as_one_plain_line() -> None:
     assert "... and 10 more" in why
 
 
-def test_a_file_outside_the_repo_passes(tmp_path) -> None:
+def test_a_file_outside_the_project_passes(tmp_path) -> None:
     assert write(tmp_path / "composer_core" / "x.py", "import requests\n") is None
+    # Another checkout of the repo, outside the session's project, isn't the project.
+    other = a_checkout(tmp_path / "other", {})
+    assert write(other / "composer_core" / "x.py", "import requests\n") is None
+
+
+def test_a_worktree_in_the_project_is_judged_at_its_own_paths(tmp_path) -> None:
+    project = a_checkout(tmp_path, {})
+    worktree = a_checkout(project / ".claude" / "worktrees" / "agent-1", {})
+    why = write(worktree / "composer_core" / "x.py", "import requests\n", project)
+    assert why is not None and "\ncomposer_core/x.py:1 network: import requests" in why
+
+
+def test_a_planted_checkout_inside_the_toolbox_is_still_the_toolbox(tmp_path) -> None:
+    project = a_checkout(tmp_path, {"composer_core/a/.git": "gitdir: nowhere\n",
+                                    "composer_core/b/pyvenv.cfg": "home = x\n"})
+    for folder in ("a", "b"):
+        why = write(project / "composer_core" / folder / "x.py", "import requests\n", project)
+        assert why is not None and f"composer_core/{folder}/x.py:1 network" in why, folder
 
 
 def test_a_file_the_policy_does_not_read_passes() -> None:
@@ -209,8 +260,9 @@ def notebook(*cells: tuple[str, str, str]) -> str:
                        "metadata": {}, "nbformat": 4, "nbformat_minor": 5})
 
 
-def notebook_edit(path: Path, source: str, **options) -> str | None:
-    return refusal("NotebookEdit", {"notebook_path": str(path), "new_source": source, **options})
+def notebook_edit(path: Path, source: str, project: Path = ROOT, **options) -> str | None:
+    return refusal("NotebookEdit", {"notebook_path": str(path), "new_source": source,
+                                    **options}, project)
 
 
 def test_a_notebook_cell_that_imports_a_network_module_is_refused() -> None:
@@ -225,12 +277,14 @@ def test_a_notebook_cell_is_judged_with_the_notebook_it_joins(tmp_path) -> None:
     file = checkout / "worked_examples" / "x.ipynb"
     # The first cell's import is refused whatever the edit; what the edit adds is line 2.
     added = "x.ipynb:2 network: wire.create_connection(a)"
-    assert added in (notebook_edit(file, "wire.create_connection(a)", cell_id="b") or "")
-    assert added in (notebook_edit(file, "wire.create_connection(a)", cell_id="a",
+    assert added in (notebook_edit(file, "wire.create_connection(a)", checkout, cell_id="b")
+                     or "")
+    assert added in (notebook_edit(file, "wire.create_connection(a)", checkout, cell_id="a",
                                    edit_mode="insert") or "")
-    assert added not in (notebook_edit(file, "wire.create_connection(a)", cell_id="b",
-                                       cell_type="markdown") or "")
-    assert "x.ipynb:2" not in (notebook_edit(file, "", cell_id="b", edit_mode="delete") or "")
+    assert added not in (notebook_edit(file, "wire.create_connection(a)", checkout,
+                                       cell_id="b", cell_type="markdown") or "")
+    assert "x.ipynb:2" not in (notebook_edit(file, "", checkout, cell_id="b",
+                                             edit_mode="delete") or "")
 
 
 # --- When the guard can't judge ----------------------------------------------------------------
@@ -245,7 +299,7 @@ def test_input_that_isnt_a_call_is_let_through_and_said() -> None:
 def test_a_toolbox_file_the_guard_cant_judge_is_refused(tmp_path) -> None:
     checkout = a_checkout(tmp_path, {})
     (checkout / "composer_core" / "x.py").mkdir(parents=True)
-    why = edit(checkout / "composer_core" / "x.py", "a", "b")
+    why = edit(checkout / "composer_core" / "x.py", "a", "b", checkout)
     assert why is not None and "couldn't judge" in why
 
 
@@ -253,10 +307,10 @@ def test_a_broken_policy_refuses_the_toolbox_but_lets_its_own_fix_through(tmp_pa
     checkout = a_checkout(tmp_path, {})
     (checkout / "tools" / "offline_policy.py").write_text("raise RuntimeError('broken')\n",
                                                          encoding="utf-8")
-    why = write(checkout / "templates" / "x.py", "x = 1\n")
+    why = write(checkout / "templates" / "x.py", "x = 1\n", checkout)
     assert why is not None and "couldn't judge" in why and "broken" in why
     done = guard("Write", {"file_path": str(checkout / "tools" / "offline_policy.py"),
-                           "content": "x = 1\n"})
+                           "content": "x = 1\n"}, checkout)
     assert done.returncode == 1 and done.stdout == b""
     assert b"offline guard" in done.stderr and b"broken" in done.stderr
 
