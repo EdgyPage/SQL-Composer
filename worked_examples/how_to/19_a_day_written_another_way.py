@@ -65,8 +65,9 @@ Look at its line starting `date_partition=`. The Date partition is the one colum
 every Statement must bound at both ends, and `write_table_reference` looks for it in the first
 partition column only. Here that is region, which holds `"eu"` and `"us"`, not days, so it
 can't be the Date partition: it writes `date_partition=None` and a TODO. The TODO names both
-partition columns, says the newest region, `'us'`, isn't a day the Toolbox could bound, and
-asks you to name dt, the column that holds the days, yourself.
+partition columns, says the last region SHOW PARTITIONS lists, `'us'` (the TODO calls it the
+newest), isn't a day the Toolbox could bound, and asks you to name dt, the column that holds the
+days, yourself.
 
 ### Finish the Table reference
 

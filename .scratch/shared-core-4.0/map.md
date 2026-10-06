@@ -81,6 +81,15 @@ anywhere.
   lineage footers name the Toolbox version, which the generator takes from TOOLBOX_VERSION
   rather than pinning, so the staleness test in tests/test_example_projects.py fails until it
   is rerun (ticket 11).
+- Ticket 15's CHANGES 4.0 section also says the how-to page holds 30 how-tos, Getting started
+  (1-18) and Intermediate (19-30), the second group covering a table whose days are written
+  like 20260911 or that is split first by something other than days, as-of lookups, week and
+  month rollups, late data, a pipeline of Saved tables, shared Building blocks, data-quality
+  checks, settings, hive_function, finishing in pandas, reviewing a change with Lineage and
+  testing your own Statements; that write_table_reference's docstring now says it looks for the
+  Date partition in the first partition column only, writing `date_partition=None` and a TODO
+  otherwise (ticket 09, 7f247e8); and that the README's "Where the two Editions' Hive differs"
+  now says what ANSI mode is (tickets 09 and 10).
 
 ## Records this changes
 
@@ -139,6 +148,17 @@ anywhere.
   table, backfill, a daily pipeline, Lineage of one Statement and of a pipeline, Load limits,
   Guards, Warnings and opt-outs, Statements in a loop, keeping a Table reference true; each
   mistake run live; the page now shows a step's Warning (a notebook scope's `__name__`).
+- [Intermediate how-tos 19 to 24](issues/09-intermediate-how-tos-19-to-24.md): a day written
+  like 20260911 behind a region partition, as-of lookups from a daily snapshot, week and month
+  rollups, incremental loads and late data; 23 is "A pipeline of Saved tables" and 24 "Share
+  Building blocks between Statements" (the glossary avoids "layer" and "library"); the weekly
+  rollup is read, not saved (a write fills one day); blocks that read each other share a file,
+  a block from another file is taken as an argument; write_table_reference's TODO left as it is.
+- [Intermediate how-tos 25 to 30](issues/10-intermediate-how-tos-25-to-30.md): data-quality
+  checks, Table references and Statements from settings, hive_function and the three places the
+  Editions' Hive differs (only 27 shows them), lag, rank and a rolling sum in pandas, reviewing a
+  change by comparing Lineage files, testing a Statement against a pandas oracle; no new Toolbox
+  code; the page tool refuses text naming one Edition twice on a page and folds long files.
 
 ## Not yet specified
 

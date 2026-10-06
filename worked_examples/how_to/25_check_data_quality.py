@@ -168,7 +168,8 @@ its bill comes in when it finishes.
 ### Run every check and gather what they find
 
 Two more checks, each giving the rows that are problems: jobs with no owner on the newest day,
-and costs not billed yet. `between` with the same day twice reads just that one day:
+and costs not billed yet. `between` with the same day twice reads just that one day;
+`equals(job_owners.dt, "2026-09-24")` works too:
 
 >>> no_owner = statement(
 ...     SELECT(job_owners.job_id, job_owners.dt),

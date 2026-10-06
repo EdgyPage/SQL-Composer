@@ -118,10 +118,11 @@ class Difference:
 DECLARED_DIFFERENCES = {
     "division": Difference(
         title="Dividing by something that could be 0.",
-        why="With ANSI on, Spark 4's default, Spark stops the whole query with an error when it "
-        "divides by 0, where Hive gives NULL. So Spark Composer writes x / y as "
-        "x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. "
-        "A divisor that is a number other than 0 is written as it is.",
+        why="With ANSI mode on (Spark's setting for following the SQL standard strictly), Spark "
+        "4's default, Spark stops the whole query with an error when it divides by 0, where Hive "
+        "gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL "
+        "when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 "
+        "is written as it is.",
         sqlglot_composer="SUM(job_runs.duration_mins) / COUNT(*)",
         spark_composer="SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)",
         cases=("edge:brackets:nested", "edge:brackets:aggregates",
@@ -130,10 +131,11 @@ DECLARED_DIFFERENCES = {
     ),
     "float": Difference(
         title="A Python float.",
-        why="Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, "
-        "where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python float as "
-        "0.5D: the D marks a DOUBLE, and doesn't mean days. A very small or very large float, "
-        "which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.",
+        why="Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as "
+        "a Decimal, where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python "
+        "float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn't mean days. A very small "
+        "or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE "
+        "already.",
         sqlglot_composer="COALESCE(job_runs.avg_retry_secs, 0.1)",
         spark_composer="COALESCE(job_runs.avg_retry_secs, 0.1D)",
         cases=("worked:nan_in_a_list:fixed", "edge:calculations:values",

@@ -71,9 +71,11 @@ it is, and Check it worked below runs on the Example database too.
 [end]
 
 The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it
-is the day a week earlier, and NEXT_DAY(..., 'MO') is the first Monday after that. In
-`GROUP_BY`, Hive needs the calculation written out again, so the Toolbox writes it for you; you
-give only the name.
+is the day a week earlier, and NEXT_DAY(..., 'MO') is the first Monday after that. For Thursday
+2026-09-24, a week earlier is 2026-09-17, and the first Monday after it is 2026-09-21; for
+Monday 2026-09-14, a week earlier is 2026-09-07, and the first Monday after it is 2026-09-14
+itself. In `GROUP_BY`, Hive needs the calculation written out again, so the Toolbox writes it
+for you; you give only the name.
 
 The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of
 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.

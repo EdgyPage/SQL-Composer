@@ -362,7 +362,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  job_runs.job_id</pre><p class="note">With ANSI on, Spark 4&#x27;s default, Spark stops the whole query with an error when it divides by 0, where Hive gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.</p><p class="note">Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+  job_runs.job_id</pre><p class="note">With ANSI mode on (Spark&#x27;s setting for following the SQL standard strictly), Spark 4&#x27;s default, Spark stops the whole query with an error when it divides by 0, where Hive gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.</p><p class="note">Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>failed_percent</th></tr>
 <tr><td>1</td><td>0.0</td></tr>
 <tr><td>2</td><td>33.333333333333336</td></tr>
@@ -998,7 +998,7 @@ LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND NOT job_runs.job_id IN (2.0D)</pre><p class="note">Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+  job_runs.dt = &#x27;2026-09-24&#x27; AND NOT job_runs.job_id IN (2.0D)</pre><p class="note">Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>runs</th></tr>
 <tr><td>3</td></tr>
 </table></div></div>
