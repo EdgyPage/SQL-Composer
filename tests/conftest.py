@@ -29,6 +29,7 @@ import contextlib
 import datetime
 import html
 import importlib
+import inspect
 import re
 import sys
 from pathlib import Path
@@ -234,6 +235,82 @@ def standing_in(hive: str, saved: dict[str, pd.DataFrame]) -> str:
         union = " UNION ALL ".join(f"SELECT {select}" for select in selects)
         hive = hive.replace(named, f"({union}) AS {table}")
     return hive
+
+
+# --- Example projects and Templates ------------------------------------------------------------
+
+TEMPLATES = ROOT / "templates"
+# A Template's "Copy it to:" line: the place in the user's project it is copied to.
+COPY_IT_TO = re.compile(r"^Copy it to: (\S+\.py)", re.MULTILINE)
+# A Template's placeholder, such as <TABLE>: the name in the brackets is its group.
+PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
+
+
+def template_id(path: Path) -> str:
+    """A Template by its set and file name, such as "starter/saved_table.py"."""
+    return f"{path.parent.name}/{path.name}"
+
+
+def statements_in(result) -> list:
+    """The Statements a function gives: one, a list or a dict of them, or a Building block's
+    Derived table, read whole by a Statement."""
+    toolbox = toolbox_module()
+    statement_type = toolbox_module("clauses").Statement
+    values = (result.values() if isinstance(result, dict)
+              else result if isinstance(result, list) else [result])
+    found = []
+    for value in values:
+        if isinstance(value, statement_type):
+            found.append(value)
+        elif isinstance(value, toolbox.Table) and value._statement is not None:
+            found.append(toolbox.statement(toolbox.SELECT(toolbox.all_columns(value)),
+                                           toolbox.FROM(value)))
+    return found
+
+
+def functions_given(module, given: dict) -> dict[str, list]:
+    """Each function the module defines whose parameters `given` names, by name, with the
+    Statements it gives when they are given those values. A function with a parameter `given`
+    doesn't name, such as column_name(column), is left out, and so is one that gives no
+    Statement."""
+    found = {}
+    for name, function in vars(module).items():
+        if not inspect.isfunction(function) or function.__module__ != module.__name__:
+            continue
+        parameters = inspect.signature(function).parameters
+        if not set(parameters) <= set(given):
+            continue
+        built = statements_in(function(**{parameter: given[parameter]
+                                          for parameter in parameters}))
+        if built:
+            found[name] = built
+    return found
+
+
+def is_a_select_on_the_example_database(s) -> bool:
+    """Whether the Example database can run a Statement: a SELECT, not a create or a write,
+    reading only the Example database's tables, which are all in ops., and so no Saved table,
+    which only a warehouse holds."""
+    hive = toolbox_module().to_hive(s)
+    if hive.startswith("CREATE") or INSERT in hive:
+        return False
+    read = re.findall(r"\b(?:FROM|JOIN) (\w+)\.\w+", hive)
+    return all(database == "ops" for database in read)
+
+
+def every_day(first_day: str, last_day: str) -> list[str]:
+    """Each day from first_day to last_day, both included, written like "2026-09-24"."""
+    first = datetime.date.fromisoformat(first_day)
+    days = (datetime.date.fromisoformat(last_day) - first).days
+    return [(first + datetime.timedelta(days=n)).isoformat() for n in range(days + 1)]
+
+
+def previewed_days(module, days) -> pd.DataFrame:
+    """What the module's preview shows for each of the days on the Example database, with the
+    day as dt: the rows a Saved table its write fills would hold."""
+    toolbox = toolbox_module()
+    return pd.concat([toolbox.run(module.preview(day), send=toolbox.example_database.send)
+                      .assign(dt=day) for day in days], ignore_index=True)
 
 
 def import_stop(what: str, why: str, fix: str, folder: str | None = None) -> str:

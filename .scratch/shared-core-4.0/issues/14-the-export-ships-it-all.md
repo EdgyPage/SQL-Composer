@@ -13,6 +13,10 @@ how_to.html), example_projects/<edition>/{starter,intermediate}/, templates/<edi
 templates), the fresh-Python imports, each run_pipeline.py run, the both-Editions refusal, and
 the README's Install, Update from 3.x, How-tos, Example projects and Templates sections.
 
+`templates/README.md` ships too, beside the two sets, named for each Edition through
+`editions.named_for` like the Templates (ticket 13; `test_the_readme_can_be_named_for_either_edition`
+holds that it can be).
+
 ## Done when
 
 - `python tools/export_clean.py --preview <tmp>` gives exactly that layout; nothing is committed to main.
