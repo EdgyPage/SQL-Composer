@@ -205,9 +205,13 @@ def test_guard_missing_group_by_fix_groups_a_calculation_by_its_name() -> None:
             FROM(job_events),
             WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
         )
+    message = str(refused.value)
+    assert 'SELECT has the calculation "week" (from job_events.dt)' in message
     fix = usual_fix(refused)
     assert 'GROUP_BY("week")' in fix
     assert "GROUP_BY(job_events.dt)" not in fix
+    # A date isn't counted or added up, nor is a whole row kept, for a weekly count.
+    assert "inside a count or a sum" not in fix and "row_number" not in fix
 
 
 def test_guard_missing_group_by_fix_adds_a_calculation_by_its_name() -> None:
@@ -369,7 +373,7 @@ def test_a_join_on_part_of_a_snapshots_key_says_to_match_the_day_too() -> None:
     with pytest.warns(RepeatedRowsWarning) as caught:
         JOIN(job_owners, ON=equals(job_owners.job_id, job_events.job_id))
     fix = str(caught[0].message).split("Usual fix:")[1].split("\n")[0]
-    assert "equals(job_owners.dt, ...)" in fix
+    assert "ON=all_of(equals(...), equals(job_owners.dt, job_events.dt))" in fix
 
 
 def test_a_join_on_the_whole_key_does_not_warn() -> None:

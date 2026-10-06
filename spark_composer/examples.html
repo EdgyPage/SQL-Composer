@@ -1933,7 +1933,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="equals">
 <h3><code>equals</code></h3>
 <p class="why">Rows where the column equals the value.</p>
-<p>To find missing values use is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL. So is a match between two tables&#x27; Date partitions whose days are written differently, such as &#x27;20260925&#x27; and &#x27;2026-09-25&#x27;, which no day would pass.</p>
+<p>To find missing values use is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL. Matching two tables&#x27; Date partitions whose days are written differently, such as &#x27;20260925&#x27; and &#x27;2026-09-25&#x27;, is refused too: no day would match.</p>
 <pre class="python">equals(job_runs.status, &quot;FAILED&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">job_runs.status = &#x27;FAILED&#x27;</pre>

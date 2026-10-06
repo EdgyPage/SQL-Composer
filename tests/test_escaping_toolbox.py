@@ -122,9 +122,9 @@ def test_a_date_format_holding_a_control_character_is_refused() -> None:
 
 @pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
 def test_a_date_partition_bound_refuses_anything_but_a_day(_label, value, _expected) -> None:
-    with pytest.raises(ValueError, match="isn't a day"):
+    with pytest.raises(ValueError, match="its Table reference writes days like"):
         equals(job_runs.dt, value)
-    with pytest.raises(ValueError, match="isn't a day"):
+    with pytest.raises(ValueError, match="its Table reference writes days like"):
         between(job_runs.dt, "2026-09-23", value)
 
 
