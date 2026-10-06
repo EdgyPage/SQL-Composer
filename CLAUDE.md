@@ -1,8 +1,8 @@
 # CLAUDE.md - dev branch
 
 This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
-branch**: the Toolbox and its README, generated from this branch by
-`python tools/export_clean.py` and never edited or committed to by hand. Each export commits to
+branch**: the Toolbox, each Edition's copy of the Example projects and the Templates, and
+its README, generated from this branch by `python tools/export_clean.py` and never edited or committed to by hand. Each export commits to
 `main` locally, replacing whatever it held (before the first export, the v1 draft), and never
 pushes; pushing `main` is the user's step. A hook refuses commits and file edits while `main`
 is checked out.
