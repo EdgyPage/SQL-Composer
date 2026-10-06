@@ -22,9 +22,9 @@ the table from NEW_TABLES to TABLE_REFERENCES, and import its Table reference be
 others.
 
 Python reads a file once, when it is first imported: an import of it again, in the same
-notebook, gives the file as it was then. After editing this file or a Table reference, restart
-the notebook's Python, or reload this file with importlib.reload(references), before
-comparing.
+notebook, gives the file as it was then. After editing a Table reference, restart the
+notebook's Python before comparing: reloading this file would still import the Table reference
+as it was. After editing only this file, importlib.reload(references) is enough.
 
 On first use, when you keep no Table reference yet, delete the import line below and write
 TABLE_REFERENCES = [].

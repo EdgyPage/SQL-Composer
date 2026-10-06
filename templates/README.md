@@ -63,4 +63,5 @@ notebook started in your project's folder. Import a Statement file by its Level 
 `how_to.html` in the `sqlglot_composer` folder, shows how to write your send.
 
 Python reads a file once, when it is first imported. After editing one, restart the notebook's
-Python, or reload the file with `importlib.reload(...)`, before using it again.
+Python before using it, or anything that imports it, again: `importlib.reload(...)` reloads only
+the file you name, and a file that imported it keeps the old one.
