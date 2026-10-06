@@ -38,8 +38,6 @@ and messages that name sqlglot or pyspark, and how its Example database runs.
 
 ## Nothing reaches the network
 
-The Toolbox reaches nothing but the user's `send`, and the rest of the repo nothing off this
-computer, as ADR 0004 records. `tools/offline_policy.py` refuses everything else, apart from the
-reviewed sites in its `ALLOWED`. A new entry there gives its reason and has the user's OK, asked
-for in the session or the ticket. A change that adds an entry without both fails review, however
-local the site looks.
+A new entry in `ALLOWED`, in `tools/offline_policy.py`, gives its reason and has the user's OK,
+asked for in the session or the ticket (ADR 0004). A change that adds an entry without both
+fails review, however local the site looks.

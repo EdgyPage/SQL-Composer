@@ -3,12 +3,15 @@
 On 2026-10-06 the user asked for every line of the repo, and of the libraries it uses, to be read
 for malicious code and for anything that can open an internet connection; for a report with the
 code; and for a redesign that closes each risk, with a hook that keeps network code out. This is
-that report, as the code stands after the redesign (Toolbox 4.1). The plan it was built from,
-and its tickets, are in `.scratch/offline-guard/`.
+that report, as the code stood after the redesign (Toolbox 4.1, 2026-10-06): its line numbers
+and counts are a snapshot of that day, and a later change may move them. The plan it was
+built from, and its tickets, are in `.scratch/offline-guard/`.
 
 Read: the Composer core, both Editions, `tools/`, `tests/`, `.claude/hooks/`, the CI workflow,
 the Worked examples, Example projects and Templates, every page, and the installed libraries:
-sqlglot 30.19.0, pandas 2.0.3, numpy 1.25.2, pyspark 4.0.4 and py4j 0.10.9.9.
+sqlglot 30.19.0, pandas 2.0.3, numpy 1.25.2, pyspark 4.0.4 and py4j 0.10.9.9, the pins in
+`requirements-dev.txt`. The bottoms of the Editions' ranges, which CI also runs (sqlglot 25.24.2
+and pyspark 3.5.0), weren't read; the tests run them under the same trap.
 
 ## The verdict
 
@@ -18,7 +21,7 @@ sqlglot 30.19.0, pandas 2.0.3, numpy 1.25.2, pyspark 4.0.4 and py4j 0.10.9.9.
   to the user's own function, which sends it to their warehouse.
 - What was left before the redesign was a set of local or by-design seams (R1-R8 below), library
   code the Toolbox never reaches, and nothing to stop a future edit adding network code. Each is
-  now closed or guarded, or left open on purpose and said so.
+  now closed or held, or left open on purpose and said so.
 
 ## How to check it yourself
 
@@ -57,9 +60,10 @@ sqlglot 30.19.0, pandas 2.0.3, numpy 1.25.2, pyspark 4.0.4 and py4j 0.10.9.9.
 `ALLOWED` (`tools/offline_policy.py:211-404`) holds 89 entries, each with its file, function,
 kind, name and reason: 17 for Spark Composer's engine, 3 for the drift hooks, 14 for tools and 55
 for tests. Every entry is a local site: git on a local repository, this same Python, ruff,
-powershell listing this computer's processes, Java, a socket on 127.0.0.1, or the gallery's and
-tests' own code. An entry that matches nothing fails the repo test, so the list can't go stale.
-A new entry needs a reason and the user's OK (`docs/agents/standards.md`).
+node on the pages' own scripts, powershell listing this computer's processes, Java, taskkill
+and kernel32 on the Example database's own processes and folder, a socket on 127.0.0.1, or
+the gallery's and tests' own code. An entry that matches nothing fails the repo test, so the
+list can't go stale. A new entry needs a reason and the user's OK (`docs/agents/standards.md`).
 
 ## The risks, one by one
 
@@ -76,7 +80,7 @@ result = send(text)
   it calls the query API, or `spark.sql(hive).toPandas()`; `example_database.send` runs the
   Example database instead, on this computer.
 - **Risk.** By design. What `send` reaches is the user's choice, not the Toolbox's.
-- **What guards it.** `running.py` is Toolbox code, so the reader refuses any network code in it
+- **What holds it.** `running.py` is Toolbox code, so the reader refuses any network code in it
   and `ALLOWED` has no entry for it: the Toolbox can call `send`, and nothing else. No runtime
   trap goes into the user's own Python, since `send` needs the network there (ADR 0004).
 
@@ -113,7 +117,7 @@ _SPARK["process"] = process = subprocess.Popen(                          # engin
   (`engine.py:964-1021`) hold the processes in a Windows job through ctypes, so they end with the
   user's Python.
 - **Risk.** Local only.
-- **What guards it.**
+- **What holds it.**
   - Each site is an `ALLOWED` entry (`tools/offline_policy.py:212-245`). The listener's entry
     holds its address to `"127.0.0.1"`, and the connect-back's and the key check's to a host
     passed in, so the same calls given any other host written out are refused.
@@ -121,12 +125,12 @@ _SPARK["process"] = process = subprocess.Popen(                          # engin
     stdin or imports pyspark or py4j. It adds an audit hook and wraps socket's `connect`,
     `connect_ex`, `bind`, `sendto` and `sendmsg` (`engine.py:1279-1297`), since Python looks up a
     name given to them before it raises their event. What it lets through is decided by
-    `_off_the_machine` (`engine.py:1321-1346`): only localhost, a loopback address, a Unix socket's path, or a
-    lookup of no name; a bind to every interface is refused, and so is every client library
-    (urllib, webbrowser, http.client, ftplib, smtplib, poplib, imaplib, nntplib, telnetlib).
-    Anything else raises `RuntimeError("... was refused: this Python reaches nothing off this
-    computer, only 127.0.0.1, ::1 and localhost.")` (`engine.py:1317-1318`), in the process's
-    log.
+    `_off_the_machine` (`engine.py:1321-1346`): only localhost, a loopback address, a Unix
+    socket's path, or a lookup of no name. A bind to every interface is refused, and so is
+    every client library (urllib, webbrowser, http.client, ftplib, smtplib, poplib, imaplib,
+    nntplib, telnetlib). What is refused raises `RuntimeError("... was refused: this Python
+    reaches nothing off this computer, only 127.0.0.1, ::1 and localhost.")`
+    (`engine.py:1317-1318`), in the process's log.
 
 ### R3. Network code in the libraries (not reached)
 
@@ -134,11 +138,12 @@ pandas, numpy and pyspark hold code that downloads or connects, reached only thr
 Toolbox never makes. See [Third-party libraries](#third-party-libraries) for each one.
 
 - **Risk.** Not reached.
-- **What guards it.** The reader refuses those calls by name wherever they are written: any
+- **What holds it.** The reader refuses those calls by name in any file it reads: any
   pandas `read_*`, numpy's `loadtxt`, `genfromtxt` and `DataSource`, `pyspark.install`,
-  `pyspark.sql.connect`, a `.remote(...)` on a builder, and the settings `spark.jars.packages`,
-  `spark.jars.repositories` and `spark.remote` in a string. The runtime trap catches what is
-  reached anyway, in the tests and the Example database's process.
+  `pyspark.sql.connect` and a `.remote(...)` on a builder; and, in the Toolbox and the files
+  users copy, the settings `spark.jars.packages`, `spark.jars.repositories` and `spark.remote`
+  in a string. The runtime trap catches what is reached anyway, in the tests and the Example
+  database's process.
 
 ### R4. sqlglot's executor evaluates the Python it generates (low)
 
@@ -153,7 +158,7 @@ return eval(code, self.env)                    # sqlglot/executor/context.py:46
   (`STRING_ESCAPES = ["\\"]`, `sqlglot/executor/python.py:555`).
 - **Risk.** Low. It is code execution of text the Toolbox itself wrote, not network, and only
   on the Example database.
-- **What guards it.** Nothing new: library code isn't read by the reader. The tests run it under
+- **What holds it.** Nothing new: library code isn't read by the reader. The tests run it under
   the runtime trap.
 
 ### R5. `export_lineage(to=...)` writes where the user points it (low, local)
@@ -173,10 +178,19 @@ html_path.write_text(page, encoding="utf-8")                 # lineage.py:875
 
 - **What it was.** `.github/workflows/dev.yml` used `actions/checkout@v4`, `setup-python@v5` and
   `setup-java@v4` by tag, which the action's owner can move, and had no `permissions:` block.
-- **What closes it.** `permissions: contents: read` (`dev.yml:18-19`), and each action pinned to
-  a full commit SHA with its tag in a comment, such as
-  `actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4` (`dev.yml:30`, `46`), and
-  likewise `setup-python` (`dev.yml:31`, `47`) and `setup-java` (`dev.yml:50`).
+- **What closes it.** The jobs may only read the repo, and each action is pinned to a full
+  commit SHA, its tag in a comment:
+
+  ```yaml
+  # dev.yml:18-19
+  permissions:
+    contents: read
+  # dev.yml:30 and 46, 31 and 47, 50
+  - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+  - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+  - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+  ```
+
 - **Left open.** pip installs exact versions (`requirements-dev.txt`) but not by hash; see
   [Left open on purpose](#left-open-on-purpose).
 
@@ -185,9 +199,15 @@ html_path.write_text(page, encoding="utf-8")                 # lineage.py:875
 - **What it was.** `.claude/hooks/drift_review.py` names the files a commit touched in the text
   it gives the session, so a crafted file name could carry an instruction.
 - **What closes it.** Each path goes in as one plain line, at most 120 characters, and at most 20
-  of them (`drift_review.py:31-39`). `plain_line` (`.claude/hooks/hook_io.py:22-24`) turns control
-  characters, Unicode line and paragraph separators and direction marks into a space
-  (`UNPRINTABLE`, `hook_io.py:13`). The edit hook prints its findings as plain lines too.
+  of them. `plain_line` turns control characters, Unicode line and paragraph separators and
+  direction marks into a space. The edit hook prints its findings as plain lines too.
+
+  ```python
+  # .claude/hooks/drift_review.py:37
+  shown = ", ".join(plain_line(path, LONGEST_PATH) for path in paths[:MOST_PATHS])
+  # .claude/hooks/hook_io.py:23
+  shown = UNPRINTABLE.sub(" ", text).strip()
+  ```
 
 ### R8. The Example gallery runs its examples (low)
 
@@ -200,7 +220,7 @@ return eval(compile(tree, "<example>", "eval"), scope)   # tools/example_gallery
   doctest would, to build the gallery.
 - **Risk.** Low: it runs only the repo's own docstrings, and the reader reads those examples as
   code, so a docstring example can't hold network code either.
-- **What guards it.** Its `compile`, `exec` and `eval` are `ALLOWED` entries; any other is refused.
+- **What holds it.** Its `compile`, `exec` and `eval` are `ALLOWED` entries; any other is refused.
 
 ### Pages (none)
 
@@ -223,9 +243,9 @@ can't tell the Toolbox from its libraries; the reader reads the source instead.
 - **pandas.** `pandas/io/common.py:263-270` wraps `urllib.request.urlopen`, and lines 356-368
   open any http(s) or ftp string given to a `read_*` function:
   `req_info = urllib.request.Request(filepath_or_buffer, headers=storage_options)` then
-  `with urlopen(req_info) as req:`. The Toolbox uses only `pd.DataFrame`, `pd.Timestamp`,
-  `pd.NA` and `pd.NaT`, and a DataFrame's `itertuples` and `iloc`, and reads no file through
-  pandas.
+  `with urlopen(req_info) as req:`. The Toolbox makes DataFrames, uses `pd.Timestamp`,
+  `pd.NA` and `pd.NaT`, and reads the DataFrames `send` returns (their columns, rows and
+  length). It calls no `read_*` and reads no file through pandas.
 - **numpy.** `numpy/lib/_datasource.py:327-337` opens a URL path with
   `with urlopen(path) as openedurl:`, reached through `DataSource`, `loadtxt` and `genfromtxt`.
   The Toolbox uses numpy only to recognise its number and date types
@@ -253,11 +273,21 @@ can't tell the Toolbox from its libraries; the reader reads the source instead.
   can't name, such as an asyncio loop's `create_connection`. The runtime trap still catches any of
   them run in the tests or the Example database's process.
 - **A file written from a shell command** gets past the edit hook, which sees only Edit, Write
-  and NotebookEdit. The repo test and the export's check read it anyway.
-- **Claude's own shell commands** aren't guarded: the user chose to guard code only, so
+  and NotebookEdit (and not MultiEdit, as `protect_main.py`'s matcher doesn't either). The repo
+  test and the export read it anyway.
+- **When the edit hook can't judge an edit** (its policy won't load, or the file can't be read),
+  it refuses in the Toolbox and the files users copy, and lets the edit through elsewhere,
+  saying so, so a broken policy never refuses the edit that fixes it.
+- **A notebook's code cells are read as one text**, so a cell that doesn't parse hides the
+  others; in the Toolbox and the files users copy, that refuses the edit.
+- **`.scratch/` isn't read**: it holds the tracker's notes and reports, which nothing runs. One
+  report opened by hand loads its styles and charts from CDNs.
+- **Claude's own shell commands** aren't read: the user chose to hold code only, so
   `git push` of dev and reading CI through GitHub's public API stay as they are.
 - **Spark's Java** can't be watched from Python. Its settings and environment hold it to
   127.0.0.1 (R2); the trap holds the Python side.
+- **A raw `_socket.socket`**, used directly instead of `socket.socket`, isn't wrapped by the
+  trap; nothing here uses one, and its numeric addresses still meet the audit hook.
 - **A Python a test starts** (with subprocess) doesn't carry the tests' trap, apart from the
   Example database's process, which installs its own. Nor do Python workers the Spark Java starts
   for Python UDFs, which the Example database doesn't use.

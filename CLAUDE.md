@@ -64,16 +64,18 @@ reviewer looks for anything the commit made untrue and adds one open item per fi
 
 ## Offline
 
-The Toolbox reaches nothing but the user's `send`, and the rest of the repo nothing off this
+The Toolbox reaches nothing but the user's `send`, and the rest of the repo reaches only this
 computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
 
-- `tools/offline_policy.py` is the one reader of that policy, and its `ALLOWED` lists the reviewed
-  sites. A new entry needs a reason and the user's OK: ask before adding one.
+- `tools/offline_policy.py` is the policy reader, the one reader of that policy, and its
+  `ALLOWED` lists the reviewed sites. A new entry needs a reason and the user's OK: ask before
+  adding one.
 - A hook, `.claude/hooks/offline_guard.py`, refuses an Edit, Write or NotebookEdit that would
   add network code; `tests/repo/test_offline_policy.py` reads the whole repo, so a file written
   any other way is caught too.
-- Every test run, and the Example database's own Spark process, runs under a trap that refuses
-  any lookup or connection off this computer (`tests/offline_trap.py`).
+- The Example database's own Spark process runs under a trap that refuses any lookup or
+  connection off this computer (`_refuse_the_network` in `spark_composer/engine.py`), and
+  every test run installs the same trap (`tests/offline_trap.py`).
 - The export reads the Clean tree the same way before anything in it runs, and refuses on any
   finding.
 
