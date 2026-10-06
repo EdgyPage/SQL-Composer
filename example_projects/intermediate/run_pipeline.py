@@ -9,6 +9,8 @@ day, without sending anything (a dry run):
 
     python run_pipeline.py
 
+Python must find the Toolbox's two folders first: README.md's "Running it here" says how.
+
 Each run rewrites the last 3 days, since bills and events can come in a day or two late, and a
 day written again replaces itself. To fill in days already past, pass backfill_from, the first
 day to write: steps(day, backfill_from="2026-09-11").

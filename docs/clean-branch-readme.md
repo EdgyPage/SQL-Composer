@@ -44,6 +44,10 @@ Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
 2. Copy the whole `composer_core` folder, and the whole `sqlglot_composer` folder or the whole
    `spark_composer` folder, side by side into the folder that holds your notebooks and scripts.
 
+The download's two other folders, `example_projects` and `templates`, are for reading and
+copying from, and the Toolbox doesn't need them: see [Example projects](#example-projects) and
+[Templates](#templates).
+
 Keep your own scripts beside the two folders, never inside them, and import from the
 Edition's folder, at its top level:
 
@@ -53,24 +57,40 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 
 ## Update
 
+Updating a copy from before 4.0, with a `sql_composer` folder or no `composer_core` folder?
+See [Update from 3.x](#update-from-3x) instead.
+
 1. Delete both folders: `composer_core` and your Edition's.
 2. From the new download, copy in both whole folders of the same names.
 3. Restart the kernel, which still holds the old code.
 
-From a version before 4.0, the Toolbox was one folder, and sqlglot Composer was named SQL
-Composer, in a folder named `sql_composer`. Delete that folder, copy in `composer_core` and
-`sqlglot_composer`, and in your notebooks and in the Table reference files you wrote, change
-`from sql_composer import` to `from sqlglot_composer import`, and `sql_composer.VERSION` to
-`sqlglot_composer.VERSION`. With Spark Composer, copy in `composer_core` beside
-`spark_composer`; your imports stay as they are.
-
 Keep your own files beside the folders, never inside them, so deleting them is safe. When they
 are imported, the two folders check themselves. If a file is missing, extra, from another
-version or export, or from another Toolbox folder (`composer_core` or the other Edition's),
-or if this Python or the library it needs
-won't work with it, it stops and says what happened, why it matters and the usual fix.
-`sqlglot_composer.VERSION` says which copy you have, and `composer_core/CHANGES.md` says what
-changed in each version.
+version or another download, or from another Toolbox folder (`composer_core` or the other
+Edition's), or if this Python or the library it needs won't work with it, the import stops and
+says what happened, why it matters and the usual fix. `sqlglot_composer.VERSION` says which
+copy you have, and `composer_core/CHANGES.md` says what changed in each version.
+
+## Update from 3.x
+
+Before 4.0, the Toolbox was one folder, with no `composer_core`, and sqlglot Composer was named
+SQL Composer, in a folder named `sql_composer`. To update from it:
+
+1. Delete the `sql_composer` folder.
+2. From the new download, copy in the whole `composer_core` folder and the whole
+   `sqlglot_composer` folder.
+3. In your notebooks and scripts, the Table reference files `write_table_reference` wrote for
+   you included, change every `sql_composer` to `sqlglot_composer`: change
+   `from sql_composer import` to `from sqlglot_composer import`, and `sql_composer.VERSION` to
+   `sqlglot_composer.VERSION`. Each Table reference file it wrote has the line
+   `from sql_composer import Table` below its docstring.
+4. Restart the kernel.
+
+With Spark Composer, delete your `spark_composer` folder, then copy in the new one and the
+`composer_core` folder beside it, and restart the kernel. Your imports stay as they are.
+
+Before 4.0, the two Editions could be imported in one Python. Now that stops: use one per
+notebook.
 
 ## A first Statement
 
@@ -146,9 +166,69 @@ finding rows with no match, and Statements that give a wrong number shown beside
 - `spark_composer/examples.html` shows each result from Spark Composer's Example database,
   which runs Spark, and marks the places where Spark Composer's Hive differs.
 
-New to the Toolbox? Beside each Example gallery, the how-tos walk through one job each from
-start to finish: `sqlglot_composer/how_to.html` and `spark_composer/how_to.html`. How-to 1
-starts a notebook.
+## How-tos
+
+New to the Toolbox? After [A first Statement](#a-first-statement), start here. Beside each
+Example gallery, each Edition's folder holds a how-to page, `sqlglot_composer/how_to.html` and
+`spark_composer/how_to.html`, to open in your browser. A how-to walks through one job from
+start to finish, in steps you paste into one notebook, in order: its goal, its steps, each run
+on the Example database with what it shows, how to check it worked, and the mistakes people
+make first.
+
+The Getting started how-tos take you from your first notebook to a daily pipeline and its
+Lineage. The Intermediate ones are for work over many days and many tables: days written
+another way, week and month totals, rows that come in late, pipelines of Saved tables, quality
+checks and testing.
+
+<!-- HOW-TOS -->
+
+## Example projects
+
+An Example project is a folder of scripts laid out the way a project at work should be: Table
+references, Building blocks, Statements, and a `run_pipeline.py` that runs them in order, all
+written for the Example database's tables. Each Edition has two Example projects of its own,
+written for it: `example_projects/sqlglot_composer/` and `example_projects/spark_composer/`
+each hold
+
+- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Examples 1 and 2 each save
+  one day's numbers in a Saved table, and example 3 reads both to give each team's day.
+- `intermediate/`, which builds on the starter project, on `ops.job_events`, `ops.job_owners`
+  and `ops.region_costs`. Each run writes the last 3 days again, since rows can come in late.
+  Example 1 saves each job's cost per day; example 2 saves each job's daily row beside the team
+  that owned the job on that day; example 3 combines them into each team's days and weeks. It
+  also has quality checks made from a few settings, and compares the Lineage before and after
+  editing a Building block.
+
+Each project's `README.md` says what each file is and how to run it. The Example database can
+be read but not written, so running a project's `run_pipeline.py` prints the Hive of every
+step, in order, without sending anything (a dry run). Python must find the Toolbox's two
+folders, three folders up from a project's folder, so in that folder run, in bash:
+
+```
+PYTHONPATH=../../.. python run_pipeline.py
+```
+
+In PowerShell, run `$env:PYTHONPATH = "..\..\.."` first, and in the Windows command prompt
+`set PYTHONPATH=..\..\..`, then `python run_pipeline.py`.
+
+To start a project of your own, copy one out of the download, put `composer_core` and your
+Edition's folder beside its `run_pipeline.py`, then replace its tables and Statements with
+yours, or write its scripts from the Templates below.
+
+## Templates
+
+A Template is the empty shape of one of your own scripts, to copy into your project and fill
+in. Each placeholder, a word in angle brackets such as `<TABLE>`, is for you to replace,
+brackets and all, with your own; Python stops at a placeholder left in, so a Template can't run
+half filled in. Each Template's docstring says where in your project to copy it, lists its
+placeholders under "Fill in:", with an example of each, and names the Example project file it
+mirrors.
+
+`templates/sqlglot_composer/` and `templates/spark_composer/` each hold a starter set and an
+intermediate set, and a `README.md` saying what each Template needs first. Below, the starter
+set is listed in the order to use it.
+
+<!-- TEMPLATES -->
 
 ## Before you use Spark Composer at work
 

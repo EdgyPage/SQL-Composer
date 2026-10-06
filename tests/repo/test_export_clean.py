@@ -2,7 +2,9 @@
 
 `tools/export_clean.py` builds the Clean tree in a folder. These tests build it into a
 temporary folder and check what `main` would hold: the allowlist, the stamp on line 1 of every
-Toolbox file, the file list in `__init__.py`, and the README with its cheat sheet.
+Toolbox file, the file list in `__init__.py`, each Edition's copy of the Example projects and
+the Templates, and the README with its lists of how-tos and Templates and its cheat sheet; and
+that a Clean tree failing one of the export's own checks is refused.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import editions  # noqa: E402
 import export_clean  # noqa: E402
+from test_pointers import named_paths  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
 
@@ -126,11 +129,28 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
     assert section.count("The Example database: six made-up tables") == 1
 
 
+# The folders main holds a copy of for each Edition, to copy and edit: on dev they hold
+# sqlglot Composer's, and on main each Edition's sits in a folder named for it. Written out
+# here, not taken from export_clean, so the tests say what main holds on their own.
+COPIED = ["example_projects", "templates"]
+
+
+def copied_files(folder: str) -> list[str]:
+    """Each file of one of dev's COPIED folders, as a path inside it, such as
+    "starter/README.md"."""
+    return sorted(path.relative_to(ROOT / folder).as_posix()
+                  for path in (ROOT / folder).rglob("*")
+                  if path.is_file() and "__pycache__" not in path.parts)
+
+
 def exported_files() -> list[str]:
-    """Every file `main` holds: the README, then each Edition's files, sorted."""
-    return [".github/README.md"] + sorted(
-        f"{folder}/{path.name}" for folder in FOLDERS
-        for path in (ROOT / folder).iterdir() if path.name != "__pycache__")
+    """Every file `main` holds, sorted: the README, each Toolbox folder's files, and each
+    Edition's copy of the Example projects and the Templates."""
+    toolbox = [f"{folder}/{path.name}" for folder in FOLDERS
+               for path in (ROOT / folder).iterdir() if path.name != "__pycache__"]
+    copies = [f"{folder}/{edition.folder}/{relative}" for folder in COPIED
+              for edition in editions.EXPORTED for relative in copied_files(folder)]
+    return sorted([".github/README.md", *toolbox, *copies])
 
 
 def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
@@ -145,6 +165,22 @@ def test_anything_outside_the_allowlist_is_named() -> None:
         "README.md", "sqlglot_composer/notes/x.py", "tools/export_clean.py",
         ".github/workflows/dev.yml",
     ]
+
+
+def test_the_example_projects_and_templates_nest_only_under_a_shipped_edition(
+        monkeypatch) -> None:
+    paths = ["example_projects/spark_composer/starter/statements/example_1_daily_job_runs.py",
+             "templates/sqlglot_composer/README.md",
+             "templates/sqlglot_composer/starter/notebook_start.py",
+             "example_projects/starter/run_pipeline.py", "templates/README.md",
+             "templates/composer_core/starter/notebook_start.py",
+             "worked_examples/how_to/01_start_a_notebook.py"]
+    assert export_clean.outside_allowlist(paths) == [
+        "example_projects/starter/run_pipeline.py", "templates/README.md",
+        "templates/composer_core/starter/notebook_start.py",
+        "worked_examples/how_to/01_start_a_notebook.py"]
+    monkeypatch.setattr(editions, "EXPORTED", (editions.SQLGLOT_COMPOSER,))
+    assert export_clean.outside_allowlist(paths[:3]) == [paths[0]]
 
 
 def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> None:
@@ -255,12 +291,15 @@ def test_the_export_refuses_while_a_drift_item_is_open(repo: Path) -> None:
 
 
 def dev_copy(folder: Path) -> Path:
-    """A copy of what the build reads from `dev`, every Toolbox folder, to spoil on purpose."""
-    for name in FOLDERS:
+    """A copy of what the build reads from `dev`, every Toolbox folder and every folder main
+    holds a copy of for each Edition, to spoil on purpose."""
+    for name in [*FOLDERS, *COPIED]:
         shutil.copytree(ROOT / name, folder / name,
                         ignore=shutil.ignore_patterns("__pycache__"))
     (folder / "docs").mkdir()
     shutil.copy(ROOT / export_clean.README_TEMPLATE, folder / export_clean.README_TEMPLATE)
+    shutil.copytree(ROOT / export_clean.HOW_TOS, folder / export_clean.HOW_TOS,
+                    ignore=shutil.ignore_patterns("__pycache__"))
     return folder
 
 
@@ -291,13 +330,58 @@ def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
-def test_a_readme_template_without_its_markers_is_refused(tmp_path: Path) -> None:
+@pytest.mark.parametrize("marker", ["<!-- CHEAT SHEET -->", "<!-- HOW-TOS -->",
+                                    "<!-- TEMPLATES -->"])
+def test_a_readme_template_without_its_markers_is_refused(tmp_path: Path, marker: str) -> None:
     source = dev_copy(tmp_path / "dev")
     template = source / export_clean.README_TEMPLATE
-    template.write_text(template.read_text(encoding="utf-8").replace("<!-- CHEAT SHEET -->", ""),
+    template.write_text(template.read_text(encoding="utf-8").replace(marker, ""),
                         encoding="utf-8")
-    with pytest.raises(export_clean.ExportRefused, match="CHEAT SHEET"):
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(marker)):
         export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def section_of(text: str, heading: str) -> str:
+    return text.split(f"\n## {heading}\n", 1)[1].split("\n## ", 1)[0]
+
+
+def test_every_path_the_readme_names_is_on_main(clean: Path) -> None:
+    """Each path the README names in backticks or as a link: from main's top folder, or, for
+    a name inside a folder it has just named, such as `run_pipeline.py`, somewhere on main."""
+    held = export_clean.files_in(clean)
+    folders = {f"{folder}/" for path in held for folder in
+               ("/".join(path.split("/")[:end]) for end in range(1, path.count("/") + 1))}
+    missing = [path for path in named_paths(readme(clean))
+               if not (clean / path).exists()
+               and not any(f"/{one}".endswith(f"/{path}") for one in [*held, *folders])]
+    assert not missing
+
+
+def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) -> None:
+    section = section_of(readme(clean), "How-tos")
+    numbered = re.findall(r"^(\d+)\. (.+)$", section, re.MULTILINE)
+    assert [int(number) for number, _ in numbered] == list(range(1, 31))
+    assert numbered[0] == ("1", "Start a notebook")
+    assert numbered[18] == ("19", "A day written another way, and a second partition")
+    assert section.index("Getting started, how-tos 1 to 18:\n\n1. Start a notebook\n") < (
+        section.index("Intermediate, how-tos 19 to 30:\n\n19. A day written another way"))
+    assert "<!--" not in section
+
+
+def test_the_readme_lists_each_template_as_the_templates_readme_does(clean: Path) -> None:
+    section = section_of(readme(clean), "Templates")
+    listed = re.findall(r"^- `(\w+)/(\w+\.py)` - ", section, re.MULTILINE)
+    assert listed[:7] == [("starter", name) for name in (
+        "notebook_start.py", "keep_table_references_true.py", "building_block.py",
+        "saved_table_reference.py", "saved_table.py", "daily_pipeline.py",
+        "per_group_statement.py")]
+    assert sorted(listed[7:]) == sorted(
+        ("intermediate", path.name) for path in (ROOT / "templates" / "intermediate").glob("*.py"))
+    assert ("- `starter/notebook_start.py` - A notebook's first cells: your send, a first Table "
+            "reference, a first Statement.\n") in section
+    assert ("- `intermediate/settings_driven.py` - The same Statements for many tables, made "
+            "from settings.") in section
+    assert "<!--" not in section
 
 
 def test_the_export_ships_what_dev_committed_not_ignored_leftovers(repo: Path) -> None:
@@ -325,7 +409,8 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
-        ".github", "composer_core", "spark_composer", "sqlglot_composer"]
+        ".github", "composer_core", "example_projects", "spark_composer", "sqlglot_composer",
+        "templates"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
 
@@ -352,6 +437,52 @@ def test_each_edition_is_stamped_with_its_own_name_and_one_time(clean: Path, edi
 def test_each_folders_file_list_names_its_own_files(clean: Path, folder: str) -> None:
     init = (clean / folder / "__init__.py").read_text(encoding="utf-8")
     assert files_list_in(init) == _files_of(ROOT / folder)
+
+
+@pytest.mark.parametrize("edition", BOTH, ids=lambda edition: edition.folder)
+def test_each_editions_example_projects_and_templates_are_stamped_to_copy(
+        clean: Path, edition) -> None:
+    stamp = (f"{edition.product} {VERSION}, exported 2026-10-02 14:05 - copy it, then edit your "
+             "copy")
+    for folder in COPIED:
+        for relative in copied_files(folder):
+            first = (clean / folder / edition.folder / relative).read_text(
+                encoding="utf-8").split("\n")[0]
+            assert first in (f"# {stamp}", f"<!-- {stamp} -->"), f"{folder}/{relative}"
+
+
+# A path a copied file names, such as example_projects/starter/README.md on dev.
+NAMED_PATH = re.compile(r"\b(?:example_projects|templates)/[\w/]*\w(?:\.\w+)?")
+
+
+@pytest.mark.parametrize("edition", BOTH, ids=lambda edition: edition.folder)
+def test_below_the_stamp_each_copy_is_devs_named_for_its_edition_with_mains_paths(
+        clean: Path, edition) -> None:
+    for folder in COPIED:
+        for relative in copied_files(folder):
+            exported = (clean / folder / edition.folder / relative).read_text(
+                encoding="utf-8").split("\n", 1)[1]
+            dev = editions.named_for(edition, (ROOT / folder / relative).read_text(
+                encoding="utf-8"))
+            # Only the lines naming a place, which sits one folder deeper on main, differ.
+            differ = [(ours, theirs) for ours, theirs in zip(exported.split("\n"),
+                                                             dev.split("\n"), strict=True)
+                      if ours != theirs]
+            assert all(NAMED_PATH.search(ours) or "PYTHONPATH" in ours for ours, _ in differ)
+            for named in NAMED_PATH.findall(exported):
+                assert (clean / named).exists(), f"{folder}/{relative} names {named}"
+
+
+@pytest.mark.parametrize("edition", BOTH, ids=lambda edition: edition.folder)
+def test_each_example_projects_pythonpath_finds_the_toolbox_on_main(
+        clean: Path, edition) -> None:
+    for project in (clean / "example_projects" / edition.folder).iterdir():
+        readme_text = (project / "README.md").read_text(encoding="utf-8")
+        given = re.findall(r"^(?:set )?PYTHONPATH=(\S+)", readme_text, re.MULTILINE)
+        assert len(given) == 2, project.name
+        for path in given:
+            toolbox = (project / path.replace("\\", "/")).resolve()
+            assert (toolbox / "composer_core").is_dir() and (toolbox / edition.folder).is_dir()
 
 
 def test_the_composer_core_is_stamped_with_its_own_name_and_the_same_time(clean: Path) -> None:
@@ -409,12 +540,6 @@ def test_the_readme_says_what_each_edition_needs_as_its_engine_checks_it() -> No
     assert f"needs Java {java['_JAVA_NEEDED']} to {java['_JAVA_NEWEST']}" in template
 
 
-def test_the_clean_tree_holds_only_the_toolbox_folders_and_the_readme(clean: Path) -> None:
-    assert [path for path in export_clean.files_in(clean)
-            if not path.startswith(tuple(f"{folder}/" for folder in FOLDERS))] == [
-        ".github/README.md"]
-
-
 def test_both_editions_are_exported_from_a_checkout_that_writes_crlf(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """git archive writes CRLF under core.autocrlf, which a fresh Windows install sets."""
@@ -436,6 +561,14 @@ def test_an_edition_the_commit_lacks_is_refused(tmp_path: Path,
     with pytest.raises(export_clean.ExportRefused, match="but this commit doesn't have "
                        "spark_composer. Commit the folder on dev, or take its Edition out"):
         export_clean.export(repo, WHEN)
+
+
+def test_a_commit_without_the_templates_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    shutil.rmtree(source / "templates")
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "this commit doesn't have templates. Commit it on dev.")):
+        export_clean.build(source, tmp_path / "clean", WHEN)
 
 
 def test_editions_of_different_versions_are_refused(tmp_path: Path) -> None:
@@ -473,6 +606,55 @@ def test_the_stamped_copy_cannot_import_the_other_editions_library(tmp_path: Pat
     engine.write_text(engine.read_text(encoding="utf-8") + '\n__import__("pyspark")\n',
                       encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused, match="import of pyspark halted"):
+        export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def spoil(path: Path, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    assert text.count(old) == 1, f"{path.name} no longer holds {old!r}"
+    path.write_text(text.replace(old, new), encoding="utf-8")
+
+
+def test_both_editions_importing_in_one_python_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "composer_core" / "edition.py",
+          "if FOLDER is not None and FOLDER != folder:", "if False:")
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "Importing sqlglot_composer and then spark_composer in one Python must stop, but "
+            "it didn't.")):
+        export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+def test_an_edition_that_imports_without_composer_core_beside_it_is_refused(
+        tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "sqlglot_composer" / "__init__.py", "if _CORE is None:", "if False:")
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    assert str(refused.value).startswith(
+        "sqlglot_composer, copied without composer_core beside it, must stop on import and say "
+        "to copy composer_core, but it gave:\nImportError: sqlglot_composer stopped on import:\n"
+        "  What happened:  __init__.py, checks.py are missing from the composer_core folder.\n")
+
+
+def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "example_projects" / "intermediate" / "run_pipeline.py",
+          "    dry_run(DAY)\n", '    dry_run("2026-09-31")\n')
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    assert str(refused.value).startswith(
+        "example_projects/sqlglot_composer/intermediate/run_pipeline.py doesn't run its dry run "
+        "on main, so nothing was exported:\nValueError: ")
+
+
+def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
+          "    dry_run(DAY)\n", '    dry_run(DAY)\n    Path("left_behind.txt").write_text("x")\n')
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "example_projects/sqlglot_composer/starter/run_pipeline.py's dry run left files "
+            "in the Clean tree: ['example_projects/sqlglot_composer/starter/left_behind.txt']")):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
