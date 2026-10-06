@@ -207,12 +207,11 @@ Without `GROUP_BY`, the Statement has no groups for the count to count in:
 Traceback (most recent call last):
 ...
 composer_core.refusals.GuardRefused:
-  What happened:  SELECT has job_events.dt, but the Statement counts or adds up rows and has no GROUP_BY.
+  What happened:  SELECT has the calculation "week" (from job_events.dt), but the Statement counts or adds up rows and has no GROUP_BY.
 ...
 
-The message names job_events.dt, the column inside `week_start`, and its fix offers
-`GROUP_BY(job_events.dt)`, which would give one row per day. To get one row per week, group by
-the name you gave the week instead: `GROUP_BY("week")`.
+Its fix groups by the name you gave the week, `GROUP_BY("week")`: one row per week.
+`GROUP_BY(job_events.dt)`, the column inside `week_start`, would give one row per day instead.
 
 ### Reading weeks your days only partly cover
 
