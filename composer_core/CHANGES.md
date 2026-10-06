@@ -2,6 +2,20 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 4.1
+
+Nothing to change in your notebooks or files: copy the two folders in over 4.0's.
+
+- **Spark Composer's Example database can't reach anything off your computer.** The Spark it
+  starts for its made-up tables runs in a Python of its own, which now refuses any connection,
+  or lookup of a name, that would leave this computer, and stops with a RuntimeError naming
+  what it refused, in that process's log. It still talks to your notebook's Python and to its
+  own Java on 127.0.0.1, as before. Nothing changes in your own Python, where your send still
+  reaches your warehouse, and sqlglot Composer is unchanged.
+- **Every file in the download is checked for code that could reach a network** before it is
+  exported: the Toolbox reaches nothing but your send, and the Example projects and Templates
+  reach nothing at all.
+
 ## 4.0
 
 ### To update from 3.x

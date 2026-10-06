@@ -42,7 +42,7 @@ if __package__:
     from composer_core import _four_part_message as four_part_message
     from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 
 def _stop(what, why, fix):
