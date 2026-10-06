@@ -155,9 +155,9 @@ Say the minutes in `ops.job_events` are to be stored as seconds instead. Which o
 change? In the Markdown file, each calculated column's part, under its `####` heading, draws
 the table columns it comes from as a tree, on lines holding `├─` or `└─`, and each copied
 column's row of the Copied columns table says where it is copied from. So search those lines
-for the column. `outputs_fed_by` keeps the outputs of the Statements, named
-like `minutes_per_team.minutes`, and leaves out the Derived table's own columns, whose names
-hold a dot already:
+for the column. `outputs_fed_by` keeps the outputs of the Statements, named like
+`minutes_per_team.minutes`, and leaves out the Derived table's own columns, whose headings hold a
+dot already, such as `finished_runs in minutes_per_team.minutes`:
 
 >>> def outputs_fed_by(column, markdown_file):
 ...     fed, statement_name, output = [], None, None
@@ -199,16 +199,17 @@ False
 
 A Statement holds its Building block as it was when it was built. Change the function, but
 export the Statements you already had, and the Lineage after looks just like the one before.
-Here the function goes back to finished runs only, kept as `finished_only`, and the
-Statements aren't built again:
+Here the change is a step back: the function goes back to finished runs only, kept as
+`finished_only`, so the Lineage from before this change is after.md. The Statements aren't
+built again:
 
 >>> finished_runs = finished_only
 >>> html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
 ...                                           to="stale.html")
 >>> changed_lines("after.md", "stale.md")
 
-Nothing printed: no line differs, though the function changed. Build the Statements again
-after each change, with `build_statements`, then export.
+Nothing printed: no line differs from after.md, though the function changed. Build the
+Statements again after each change, with `build_statements`, then export.
 
 ### Comparing the HTML pages
 

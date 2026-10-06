@@ -53,9 +53,9 @@ A run is a `"start"` row of job_events. Join the snapshot on both parts of its k
 job, and the same day. Each run then meets exactly one row, its job's row on the day it ran.
 [Join tables safely](#join_tables_safely) shows why a join on only part of a key repeats rows.
 
-The snapshot is a table with days too, so it needs its own bound in `WHERE`: the Toolbox checks
-each table's days separately, and `equals(job_owners.dt, job_events.dt)` in `ON=` matches the
-two tables' days without saying which days to read.
+The snapshot is a table with days too, so it needs its own bound, in `WHERE` (or in `ON=`): the
+Toolbox checks each table's days separately, and `equals(job_owners.dt, job_events.dt)` in
+`ON=` matches the two tables' days without saying which days to read.
 
 >>> report_build_runs = statement(
 ...     SELECT(job_events.dt, job_owners.team),
@@ -107,8 +107,8 @@ The same join, for every job, grouped by team:
 0     data    16
 1  finance    12
 
-data has nightly_load's 14 runs and report_build's 2 before the move; finance has
-invoice_sync's 10 and report_build's 2 after it.
+data has nightly_load's (job 1) 14 runs and report_build's (job 3) 2 before the move; finance
+has invoice_sync's (job 2) 10 and report_build's 2 after it.
 
 ### Pick each job's newest row
 
@@ -170,7 +170,7 @@ Hive gives. Your warehouse runs the Hive above as it is.
 Here every job is in every day's copy, so each newest row is from 2026-09-24, and reading that
 one day would give the same. At work a row can drop out of a snapshot, such as a job that was
 deleted, and then `row_number` still finds its last row, from whichever day that was. Nobody
-owns cache_warm, so its owner is NULL (pandas shows it as None).
+owns cache_warm (job 4), so its owner is NULL (pandas shows it as None).
 
 ## Check it worked
 
