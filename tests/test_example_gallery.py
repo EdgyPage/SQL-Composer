@@ -20,6 +20,7 @@ import pytest
 
 import editions
 import sqlglot_composer
+from offline_policy import external_references
 from conftest import edition, gallery_entries, page_text, toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -204,8 +205,7 @@ def test_each_entry_lists_the_toolbox_names_its_python_uses(
 
 def test_the_page_needs_no_other_file() -> None:
     page = GALLERY.read_text(encoding="utf-8")
-    for outside in ("src=", "<link", "@import", "url(", "http://", "https://"):
-        assert outside not in page
+    assert external_references(page) == []
     scripts = re.findall(r"<script>(.*?)</script>", page, re.DOTALL)
     assert len(scripts) == 1 and len(scripts[0].strip().splitlines()) <= 15
 
