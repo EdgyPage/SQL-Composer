@@ -21,6 +21,9 @@ can't run one, because something it needs is missing or its Spark couldn't start
 skips, saying why; whether it can is asked once a run, by sending it one query. Anything else
 that stops that query is a bug, and fails the test. `--example-database required` turns every
 such skip into a failure too, for a CI job whose Example database must run.
+
+Every test runs under the offline trap, `offline_trap`, installed as this file loads: its Python
+refuses any lookup or connection that would leave this computer.
 """
 
 from __future__ import annotations
@@ -39,6 +42,10 @@ import pandas as pd
 import pytest
 
 import editions
+import offline_trap
+
+# Every test, and every library a test calls, reaches nothing off this computer.
+offline_trap.install()
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"

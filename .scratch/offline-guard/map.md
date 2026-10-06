@@ -17,6 +17,11 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   hook, the tests and the export call it. A new allowlist entry needs a reason and the user's OK.
 - **Version:** ticket 03 changes Spark Composer's shipped engine, so a drift version item will
   open; ask the user (CLAUDE.md), don't raise it.
+- **For the CHANGES lines (ticket 03):** what a Spark Composer user sees: the Example
+  database's own Spark process now refuses any connection, or lookup of a name, that would
+  leave this computer (a `RuntimeError` naming what it refused, in the process's log); it
+  still talks to your Python and its Java on 127.0.0.1. Nothing changes in your own Python,
+  where `send` still reaches your warehouse. sqlglot Composer is unchanged.
 - Every ticket follows CLAUDE.md's Definition of done.
 
 ## Tickets
