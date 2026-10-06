@@ -90,7 +90,8 @@ With Spark Composer, delete your `spark_composer` folder, then copy in the new o
 `composer_core` folder beside it, and restart the kernel. Your imports stay as they are.
 
 Before 4.0, the two Editions could be imported in one Python. Now that stops: use one per
-notebook.
+notebook. The 4.0 section of `composer_core/CHANGES.md` lists what else changed, such as the
+new how-to page and what `run` now refuses.
 
 ## A first Statement
 

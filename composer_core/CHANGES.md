@@ -2,6 +2,121 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 4.0
+
+### To update from 3.2
+
+- **The Toolbox is now two folders: `composer_core`, the code both Editions share, and your
+  Edition's own.** Copy both, each whole, side by side where your notebooks are. An Edition's
+  folder imported without `composer_core` beside it stops, and says to copy it in. To update
+  later, delete both folders and copy both in again from one download.
+- **SQL Composer is now sqlglot Composer, in the folder `sqlglot_composer`.** Delete your
+  `sql_composer` folder, and copy in `sqlglot_composer` and `composer_core`. Then, in your
+  notebooks and scripts, change each `from sql_composer import` to
+  `from sqlglot_composer import`, and each `sql_composer.VERSION` to
+  `sqlglot_composer.VERSION`. That includes every Table reference file write_table_reference
+  wrote for you: each has the line `from sql_composer import Table` below its docstring.
+  Restart the kernel last.
+- **With Spark Composer, your imports stay as they are.** Delete your `spark_composer` folder,
+  copy in the new one and `composer_core` beside it, and restart the kernel.
+- **One Edition per Python.** Before 4.0, the two Editions could be imported side by side in
+  one Python. Now importing the second stops, and says to make every import line name the same
+  Edition, then restart the kernel: the two share the code that builds your Statements, which
+  writes the Hive for one Edition at a time.
+- **A Guard's traceback names `composer_core.refusals.GuardRefused`**, since the Guards are
+  in the folder both Editions share. Before 4.0 it named the Edition's folder, as in
+  `sql_composer.refusals.GuardRefused`. To catch it, import it from your Edition's folder, as
+  before: `from sqlglot_composer import GuardRefused`.
+
+### New
+
+- **show_hive prints the Hive that runs, ready to paste into another program**, such as Hue,
+  DBeaver or spark-sql, and returns it, so `text = show_hive(...)` keeps it. Each Statement's
+  Hive is what to_hive gives and run sends, with a `;` at the end. Given several Statements, or
+  a list such as by_day(...) gives, it heads each with its number and the name of its
+  variable. It is the Toolbox's 64th name.
+- **A how-to page, `how_to.html`, beside `examples.html` in each Edition's folder.** Open it in
+  your browser. Each of its 30 how-tos walks through one job from start to finish, in steps you
+  paste into one notebook, each run on the Example database. Getting started (1-18) goes from a
+  first notebook to a daily pipeline and its Lineage. Intermediate (19-30) covers a table whose
+  days are written like 20260911, or that is split first by something other than days; looking
+  a value up as of a day; week and month totals; rows that come in late; a pipeline of Saved
+  tables; sharing Building blocks; data-quality checks; Statements made from settings;
+  hive_function; finishing in pandas; reviewing a change with Lineage; and testing your own
+  Statements. As for `examples.html`, the import stops when `how_to.html` is missing.
+- **The Example database has three more tables**, `job_events`, `job_owners` and
+  `region_costs`, with rows on 14 days, 2026-09-11 to 2026-09-24, so you can practise week
+  totals, a job that moves to another team (report_build, on 2026-09-18), and a table
+  partitioned by region, then by a day written like 20260911. Its refusal of a table it doesn't
+  hold names all six.
+- **The download holds Example projects and Templates**, in the folders `example_projects`
+  and `templates`, each with a folder per Edition. They are for reading and copying from, and
+  the Toolbox doesn't need them. An Example project is a folder laid out as a project at work
+  should be: Table references, Building blocks, Statements, and a `run_pipeline.py` that runs
+  them in order. There are two, `starter` and `intermediate`, which builds on it. A Template is
+  the empty shape of one of your own scripts to copy and fill in, each placeholder listed in its
+  docstring: a starter set and an intermediate set, with a README giving the order to use them
+  in. Each file's first line says to copy it, then edit your copy.
+- **The README has four new sections**: Update from 3.x, How-tos, Example projects and
+  Templates. Its "Where the two Editions' Hive differs" now says what Spark's ANSI mode is.
+- **write_table_reference's docstring says it looks for the Date partition in the first
+  partition column only.** A table partitioned first by something else, such as region, gets
+  `date_partition=None` and a TODO naming its partition columns, as it did in 3.2.
+
+### Refused now
+
+- **Comparing two tables' days written different ways is refused**, a new Guard with no
+  opt-out. `equals(region_costs.dt, job_events.dt)`, where region_costs writes its days like
+  20260925 and job_events like 2026-09-25, was built without a word and matched no rows: Hive
+  compares days as text. Any comparison of the two is refused, in `ON=` or in `WHERE`, and so
+  is one through a Derived table's column that passes a Date partition on unchanged. The
+  message names both date_formats, and the fix points to the intermediate Example project,
+  which saves one table's days written the other's way.
+- **run refuses a send that gives back something other than a pandas DataFrame** for a read,
+  such as the plain list of rows a query API gives, or None from a send with no `return`. The
+  fix says to end the send with `return pd.DataFrame(rows)`. Before, run gave back the list as
+  it was. A write's send may still give back anything.
+- **run, to_hive and show_hive refuse what isn't a Statement, in their own name.** For a
+  Derived table, the fix wraps it in `statement(SELECT(all_columns(d)), FROM(d))`, and for a
+  list, such as by_day(...) gives, it loops over its Statements.
+- **Clearer fixes.** A day written the wrong way is shown as the Table reference writes it,
+  using your own day where it can be read, and a day written another table's way also offers
+  that table's date_format. A calculation's name in a comparison, as in
+  `HAVING(at_least("runs", 3))`, gets a fix saying to write the calculation itself, since
+  WHERE and HAVING are worked out before SELECT names anything. A calculation such as
+  `AS(week_start(job_events.dt), "week")` that GROUP_BY leaves out is named, with the fix
+  `GROUP_BY("week")`, not the column inside it. The repeated-rows Warning on a table whose key
+  holds its Date partition says to match the day too, with `all_of`. write_table_reference
+  names the file it won't overwrite, not its whole path, and its TODO for a table partitioned
+  first by something else says "its last region value" and "name it in date_partition=".
+
+### Fixed
+
+- **A Warning always shows.** A RepeatedRowsWarning from a scope with no `__name__`, as some
+  notebook tools and `exec` give, was dropped unseen, and under `python -c` it stopped with
+  "'__main__' is not a built-in module".
+- **export_lineage lists a LEFT_JOIN's conditions only under the columns read from its
+  table.** A LEFT_JOIN keeps every row before it, so its own ON=, and what decided the joined
+  table's rows (its WHERE, or the WHERE and JOIN of the Statement that wrote it), decide only
+  the columns that come from it. Before 4.0 they were listed under every column's "Rows that
+  count", in the Statement that joins and in every Statement downstream of the Saved table it
+  writes, as if they had dropped rows. They are still listed under every column with
+  many_matches=True, since each row can then count several times, and when another condition
+  that can drop rows reads the joined table, as an anti-join's `WHERE(is_null(...))` does.
+- **export_lineage lists a write's bound on a joined table's day with the day written.** When
+  a JOIN's ON= sets the joined table's Date partition equal to the day written, a WHERE on
+  that Date partition is listed only in the write's own section, as the day written is, not
+  under the rows that count downstream.
+- **A join that compares a column with itself stops.** A JOIN or LEFT_JOIN whose ON= sets a
+  column of the joined table equal to the same column of a table of the same name, as when one
+  Statement reads one Building block twice, stops with a ValueError saying to give the second
+  a name of its own. Before 4.0 it warned that the join "matches on nothing".
+- **sqlglot Composer's Example database refuses a query it would answer wrong**: one that
+  works out GROUP_BY or a count or a sum after a join, where sqlglot's own executor would read
+  a joined table's column in place of a same-named column of a table before it (NULL after a
+  LEFT_JOIN). It says "The Example database can't run this Hive" and how to rename the column.
+  Spark Composer's Example database runs it right.
+
 ## 3.2
 
 - **hive_function("date_sub", ...) goes back by the whole day count.** With sqlglot older than
