@@ -35,3 +35,11 @@ as `sqlglot_composer/writing.py`, is made in the other's too, unless the Hive ha
 then the difference is a row of `DECLARED_DIFFERENCES` in `tools/editions.py`, with its reason,
 and nowhere else. Only what concerns an Edition's own library may differ otherwise: the checks
 and messages that name sqlglot or pyspark, and how its Example database runs.
+
+## Nothing reaches the network
+
+The Toolbox reaches nothing but the user's `send`, and the rest of the repo nothing off this
+computer, as ADR 0004 records. `tools/offline_policy.py` refuses everything else, apart from the
+reviewed sites in its `ALLOWED`. A new entry there gives its reason and has the user's OK, asked
+for in the session or the ticket. A change that adds an entry without both fails review, however
+local the site looks.
