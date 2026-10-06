@@ -28,3 +28,8 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
 - [05 The records](issues/05-the-records.md)
 
 ## Decisions so far
+
+- [The offline policy reader](issues/01-the-offline-policy-reader.md): `tools/offline_policy.py`
+  reads Python by its syntax tree and pages by their references; `findings_in(text, path)` for
+  the hook, `scan(root)` for the export; 81 reviewed ALLOWED sites, the engine's socket held to
+  127.0.0.1; maintainer code isn't read for URLs in strings, and `.scratch/` isn't read.
