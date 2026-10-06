@@ -135,6 +135,7 @@ NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff
                       ".mypy_cache", "node_modules", "spark-warehouse", "metastore_db"})
 PYTHON_FILES = (".py",)
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")
+READ_FILES = PYTHON_FILES + PAGE_FILES + (".ipynb",)
 
 
 @dataclass(frozen=True)
@@ -343,6 +344,10 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/repo/test_hooks.py",
             "test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook", "process",
             "subprocess.run", "runs this same Python on a hook in .claude/hooks/"),
+    Allowed("tests/repo/test_offline_guard.py", "<module>", "process", "subprocess",
+            "imports subprocess, to run the offline guard hook"),
+    Allowed("tests/repo/test_offline_guard.py", "run_hook", "process", "subprocess.run",
+            "runs this same Python on a hook in .claude/hooks/"),
     Allowed("tests/repo/test_toolbox_checks.py", "<module>", "process", "subprocess",
             IMPORTS_PYTHON),
     Allowed("tests/repo/test_toolbox_checks.py",
@@ -852,8 +857,16 @@ def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:
             subfolders[:] = sorted(name for name in subfolders
                                    if not _not_read(Path(folder, name), root))
             files += [Path(folder, name) for name in sorted(names)
-                      if name.lower().endswith(PYTHON_FILES + PAGE_FILES + (".ipynb",))]
+                      if name.lower().endswith(READ_FILES)]
     return files
+
+
+def reads(root: Path, file: Path) -> bool:
+    """Whether reading the repo at `root` reads `file`: a file of a kind it reads, in no folder
+    it skips. The hook asks this of a file before an edit, which may not exist yet."""
+    if not file.name.lower().endswith(READ_FILES):
+        return False
+    return not any(_not_read(folder, root) for folder in file.parents if root in folder.parents)
 
 
 def _not_read(folder: Path, root: Path) -> bool:
