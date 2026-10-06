@@ -1287,9 +1287,30 @@ def _refuse_the_network() -> None:
     it. The tests run under the same trap.
     """
     sys.addaudithook(_refuse_off_the_machine)
+    # Python looks up a name given to a socket's method before it raises the method's event,
+    # with no event for that lookup, so each method given an address judges it first.
+    socket.socket.connect = _judged_first("socket.connect", socket.socket.connect)
+    socket.socket.connect_ex = _judged_first("socket.connect", socket.socket.connect_ex)
+    socket.socket.bind = _judged_first("socket.bind", socket.socket.bind)
+    socket.socket.sendto = _judged_first("socket.sendto", socket.socket.sendto)
+    if hasattr(socket.socket, "sendmsg"):  # Windows has none
+        socket.socket.sendmsg = _judged_first("socket.sendmsg", socket.socket.sendmsg)
+
+
+def _judged_first(event: str, method):
+    """A socket method that refuses an address off this computer before Python looks it up."""
+
+    def judged_first(self, *args):
+        # The address is the last argument, and sendmsg is given one only with all four.
+        if args and (event != "socket.sendmsg" or len(args) == 4):
+            _refuse_off_the_machine(event, (self, args[-1]))
+        return method(self, *args)
+
+    return judged_first
 
 
 def _refuse_off_the_machine(event: str, args: tuple) -> None:
+    """Raise RuntimeError for an audit event that would reach off this computer."""
     if event in _REACHING:
         off = _off_the_machine(event, args)
         if off is not None:
@@ -1325,12 +1346,12 @@ def _off_the_machine(event: str, args: tuple) -> str | None:
     return None
 
 
-def _as_text(host):
+def _as_text(host: object) -> object:
     """A host given as bytes, as text; any other as it is."""
     return bytes(host).decode("ascii", "replace") if isinstance(host, (bytes, bytearray)) else host
 
 
-def _on_this_machine(host) -> bool:
+def _on_this_machine(host: object) -> bool:
     """Whether a host is this computer: localhost, or a loopback address such as 127.0.0.1."""
     if not isinstance(host, str):
         return False

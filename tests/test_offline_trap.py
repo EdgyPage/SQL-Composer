@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
-import conftest
 import offline_trap
 
 # A socket's own argument, which the trap doesn't read: these events are raised by hand.
@@ -91,7 +91,7 @@ def test_this_python_allows_what_stays_on_this_computer(event: str, args: tuple)
 # prints says what it tried and what became of it.
 TRIES = f"""
 import socket, sys, urllib.request, webbrowser
-sys.path.insert(0, {str(conftest.TESTS)!r})
+sys.path.insert(0, {str(Path(offline_trap.__file__).parent)!r})
 import offline_trap
 offline_trap.install()
 
@@ -112,6 +112,11 @@ tried("create_connection",
 with socket.socket() as stray:
     stray.settimeout(1)
     tried("connect", lambda: stray.connect(("192.0.2.1", 80)))
+    # Python looks a name given to connect up before it raises connect's event.
+    tried("connect by name", lambda: stray.connect(("example.com", 80)))
+    tried("bind by name", lambda: stray.bind(("example.com", 0)))
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as datagrams:
+    tried("sendto by name", lambda: datagrams.sendto(b"x", ("example.com", 53)))
 tried("urlopen", lambda: urllib.request.urlopen("http://example.com", timeout=1))
 # A browser of its own, so the call is the same wherever the test runs: one that does nothing.
 webbrowser.register("offline-trap", None,
@@ -130,6 +135,10 @@ def test_the_real_calls_are_refused_before_anything_is_sent() -> None:
         "getaddrinfo refused: socket.getaddrinfo of 'example.com'",
         "create_connection refused: socket.getaddrinfo of 'example.com'",
         "connect refused: socket.connect to '192.0.2.1'",
+        # Refused before Python looks the name up.
+        "connect by name refused: socket.connect to 'example.com'",
+        "bind by name refused: socket.bind to 'example.com'",
+        "sendto by name refused: socket.sendto to 'example.com'",
         "urlopen refused: urllib.Request of 'http://example.com'",
         "webbrowser.open refused: webbrowser.open of 'http://example.com'",
     ]
