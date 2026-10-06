@@ -139,6 +139,16 @@ anywhere.
     place of a same-named column of a table before it (NULL after a LEFT_JOIN), with "The
     Example database can't run this Hive"; Spark Composer's runs it.
 
+- Ticket 15's CHANGES 4.0 section also says what the download now holds (ticket 14):
+  `example_projects/` and `templates/`, each with a folder per Edition, every file stamped
+  "copy it, then edit your copy", for reading and copying from, which the Toolbox doesn't need;
+  and the README's new sections, Update from 3.x, How-tos, Example projects and Templates.
+  The beginner reader's costliest stop on ticket 14's preview was the README's "This is
+  version 3.2" beside "Update from 3.x" and "Before 4.0", with no 4.0 in CHANGES.md: ticket 15's
+  version raise and CHANGES 4.0 answer it, so check the previewed README reads true after.
+- Ticket 15's export now needs both sqlglot and pyspark installed in the Python that runs it
+  (it already did, to import each Edition) and runs each Example project's dry run; no Java.
+
 ## Records this changes
 
 - ADR 0002's generated-copies paragraph: superseded by ADR 0003 (ticket 02).
@@ -222,6 +232,13 @@ anywhere.
   joins its executor would answer wrong; an ON= comparing a column with itself is refused;
   clearer messages; two new refusals the user chose: days written two ways compared (a Guard,
   no opt-out) and a read's send that gives back no DataFrame.
+- [The export ships it all](issues/14-the-export-ships-it-all.md): main holds
+  `example_projects/<edition>/` and `templates/<edition>/`, dev's copies named for each Edition
+  with named_for, their paths one folder deeper and line 1 stamped "copy it, then edit your
+  copy"; the export also checks an Edition alone stops asking for composer_core, both Editions
+  in one Python stop, and each run_pipeline.py's dry run runs (no Java); the README gains Update
+  from 3.x, How-tos, Example projects and Templates, with generated HOW-TOS and TEMPLATES
+  lists; how_to_page's check_links isn't widened, since no how-to links there.
 
 ## Not yet specified
 
