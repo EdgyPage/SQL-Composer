@@ -2,8 +2,10 @@
 
 The standing docs are `CLAUDE.md` and everything in `docs/agents/`. The Clean branch's README
 template, `docs/clean-branch-readme.md`, names paths as main holds them, so
-tests/repo/test_export_clean.py checks its paths against the Clean tree instead. A path counts when it's written in backticks or as a
-Markdown link target and ends in a known file extension or in `/` (a folder). It may be
+tests/repo/test_export_clean.py checks its paths against the Clean tree instead.
+
+A path counts when it's written in backticks or as a Markdown link target and ends in a known
+file extension or in `/` (a folder). It may be
 relative to the repo root or to the doc's own folder. Anything with a placeholder
 (`<effort>`), a space, a wildcard or a leading `/` (a slash command) is skipped.
 """

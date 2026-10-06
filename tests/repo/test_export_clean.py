@@ -130,7 +130,8 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 
 
 # The folders main holds a copy of for each Edition, to copy and edit: on dev they hold
-# sqlglot Composer's, and on main each Edition's sits in a folder named for it.
+# sqlglot Composer's, and on main each Edition's sits in a folder named for it. Written out
+# here, not taken from export_clean, so the tests say what main holds on their own.
 COPIED = ["example_projects", "templates"]
 
 
@@ -367,7 +368,7 @@ def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) ->
     assert "<!--" not in section
 
 
-def test_the_readme_lists_each_template_with_its_first_line_in_order(clean: Path) -> None:
+def test_the_readme_lists_each_template_as_the_templates_readme_does(clean: Path) -> None:
     section = section_of(readme(clean), "Templates")
     listed = re.findall(r"^- `(\w+)/(\w+\.py)` - ", section, re.MULTILINE)
     assert listed[:7] == [("starter", name) for name in (
@@ -376,8 +377,10 @@ def test_the_readme_lists_each_template_with_its_first_line_in_order(clean: Path
         "per_group_statement.py")]
     assert sorted(listed[7:]) == sorted(
         ("intermediate", path.name) for path in (ROOT / "templates" / "intermediate").glob("*.py"))
-    assert ("- `starter/notebook_start.py` - A notebook's first cells: your send, a Table "
-            "reference and a first Statement.\n") in section
+    assert ("- `starter/notebook_start.py` - A notebook's first cells: your send, a first Table "
+            "reference, a first Statement.\n") in section
+    assert ("- `intermediate/settings_driven.py` - The same Statements for many tables, made "
+            "from settings.") in section
     assert "<!--" not in section
 
 
@@ -643,6 +646,16 @@ def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> No
     assert str(refused.value).startswith(
         "example_projects/sqlglot_composer/intermediate/run_pipeline.py doesn't run its dry run "
         "on main, so nothing was exported:\nValueError: ")
+
+
+def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
+          "    dry_run(DAY)\n", '    dry_run(DAY)\n    Path("left_behind.txt").write_text("x")\n')
+    with pytest.raises(export_clean.ExportRefused, match=re.escape(
+            "example_projects/sqlglot_composer/starter/run_pipeline.py's dry run left files "
+            "in the Clean tree: ['example_projects/sqlglot_composer/starter/left_behind.txt']")):
+        export_clean.build(source, tmp_path / "clean", WHEN)
 
 
 @pytest.mark.parametrize("spelling", ["Spark Composer", "spark_composer", "spark-composer",

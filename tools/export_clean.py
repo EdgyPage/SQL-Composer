@@ -20,8 +20,8 @@ core, `composer_core/`, and each Edition `tools/editions.py` names in EXPORTED:
   `# Spark Composer 2.0, exported 2026-10-02 14:05 - copy it, then edit your copy`;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   places the two Editions' Hive differs, from `DECLARED_DIFFERENCES` in `tools/editions.py`,
-  the list of how-tos, from `worked_examples/how_to/`, the list of Templates, in the order
-  `templates/README.md` gives, and a cheat sheet: one line per public name, grouped by file,
+  the list of how-tos, from `worked_examples/how_to/`, the list of Templates, as
+  `templates/README.md`'s tables give them, and a cheat sheet: one line per public name, grouped by file,
   from each docstring's first line.
 
 It then checks what it built:
@@ -33,8 +33,9 @@ It then checks what it built:
   and says to copy `composer_core`;
 - importing both Editions in one Python stops;
 - each Example project's `run_pipeline.py` runs its dry run, in a fresh Python that can't
-  import the other Edition's library, finding the Toolbox as its README says; a dry run prints
-  every step's Hive and sends nothing, so Spark Composer's needs no Java;
+  import the other Edition's library, finding the Toolbox as its README says, and leaves no
+  file behind; a dry run prints every step's Hive and sends nothing, so Spark Composer's needs
+  no Java;
 - the folders have one version, and both Editions describe the same public names the same way;
 - the tree holds nothing outside its allowlist: the Composer core's folder and each Edition's,
   flat, each Edition's copies of the Example projects and the Templates, and
@@ -188,7 +189,7 @@ def other_libraries(edition: editions.Edition) -> list[str]:
     return [other.library for other in editions.EDITIONS.values() if other is not edition]
 
 
-def fresh_python(folder: Path, code: str, blocked: list[str] = (),
+def fresh_python(folder: Path, code: str, blocked: list[str] | None = None,
                  path: str | None = None) -> subprocess.CompletedProcess:
     """Run `code` in a fresh Python started in `folder`, which can't import the libraries
     `blocked` names, with `path`, if given, as its PYTHONPATH, and nothing else on it."""
@@ -199,7 +200,7 @@ def fresh_python(folder: Path, code: str, blocked: list[str] = (),
     # A None in sys.modules makes any import of that library fail loudly.
     return subprocess.run(
         [sys.executable, "-B", "-c",
-         f"import sys; sys.modules.update(dict.fromkeys({list(blocked)!r})); {code}"],
+         f"import sys; sys.modules.update(dict.fromkeys({blocked or []!r})); {code}"],
         cwd=folder, env=environment, capture_output=True, text=True, encoding="utf-8",
     )
 
@@ -272,10 +273,16 @@ def check_dry_runs(into: Path, edition: editions.Edition) -> None:
     prints no Hive. Its dry run prints the Hive of every step and sends nothing, so it needs
     no Java."""
     for script in sorted((into / EXAMPLE_PROJECTS / edition.folder).glob("*/run_pipeline.py")):
+        before = files_in(into)
         done = fresh_python(
             script.parent, "import runpy; runpy.run_path('run_pipeline.py', run_name='__main__')",
             blocked=other_libraries(edition), path=TOOLBOX_FROM_A_PROJECT)
         where = script.relative_to(into).as_posix()
+        # It runs inside the Clean tree, so anything it writes would ship unstamped.
+        left = [path for path in files_in(into) if path not in before]
+        if left:
+            raise ExportRefused(f"{where}'s dry run left files in the Clean tree: {left}. A dry "
+                                "run only prints: take out what writes them.")
         if done.returncode != 0:
             raise ExportRefused(f"{where} doesn't run its dry run on main, so nothing was "
                                 f"exported:\n{last_error(done.stderr)}")
@@ -346,6 +353,8 @@ def how_tos_text(source: Path) -> str:
     18:", read from the docstrings in worked_examples/how_to/ that how_to.html is written from.
 
     Each docstring's line 1 is its title and line 3 names its group, as `For: Getting started`.
+    tools/how_to_page.py reads them the same way, but importing it loads an Edition into this
+    Python, so the two lines are read here again.
     """
     groups: dict[str, list[tuple[int, str]]] = {}
     for path in sorted((source / HOW_TOS).glob("[0-9][0-9]_*.py")):
@@ -365,25 +374,20 @@ def how_tos_text(source: Path) -> str:
 
 
 def templates_text(source: Path) -> str:
-    """Each Template, by its path inside templates/, with its docstring's first line, in the
-    order templates/README.md's tables give them, each set under its folder's name."""
-    order = re.findall(r"^\| `(\w+/\w+\.py)` \|",
-                       (source / TEMPLATES_README).read_text(encoding="utf-8"), re.MULTILINE)
+    """Each Template, by its path inside templates/, with what it is, as templates/README.md's
+    tables give them and in their order, each set under its folder's name."""
+    rows = re.findall(r"^\| `(\w+/\w+\.py)` \| ([^|]+?) \|",
+                      (source / TEMPLATES_README).read_text(encoding="utf-8"), re.MULTILINE)
     files = [path.relative_to(source / TEMPLATES).as_posix()
              for path in (source / TEMPLATES).glob("*/*.py")]
-    if sorted(order) != sorted(files):
+    if sorted(relative for relative, _ in rows) != sorted(files):
         raise ExportRefused(
             f"{TEMPLATES_README}'s tables must name each Template once, and only those, for the "
-            f"README to list them in that order: it names {sorted(order)}, and "
+            f"README to list them in that order: it names {sorted(row[0] for row in rows)}, and "
             f"{TEMPLATES}/ holds {sorted(files)}.")
     sets: dict[str, list[str]] = {}
-    for relative in order:
-        first = (source / TEMPLATES / relative).read_text(encoding="utf-8").split("\n", 1)[0]
-        if not first.startswith('"""'):
-            raise ExportRefused(f"{TEMPLATES}/{relative} must start with its docstring, whose "
-                                "first line the README lists.")
-        sets.setdefault(relative.split("/")[0], []).append(
-            f"- `{relative}` - {first.removeprefix(chr(34) * 3)}")
+    for relative, what in rows:
+        sets.setdefault(relative.split("/")[0], []).append(f"- `{relative}` - {what}")
     return "\n\n".join(f"In `{folder}/`:\n\n" + "\n".join(lines)
                        for folder, lines in sets.items())
 

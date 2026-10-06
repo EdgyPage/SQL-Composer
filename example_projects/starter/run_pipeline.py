@@ -8,6 +8,8 @@ anything (a dry run):
 
     python run_pipeline.py
 
+Python must find the Toolbox's two folders first: README.md's "Running it here" says how.
+
 At work, send every step for a day with send_all(run_query, "2026-09-24"), run_query being
 your own send function, and draw where each column comes from with
 write_lineage_files("2026-09-24"). This file sits above the Levels, so it may import from any
