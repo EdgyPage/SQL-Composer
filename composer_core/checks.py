@@ -16,11 +16,11 @@ import sys
 
 from . import _stop
 
-TOOLBOX_VERSION = "3.2"
+TOOLBOX_VERSION = "4.0"
 
 _PYTHON_NEEDED = (3, 11)
 
-# Any Toolbox folder's stamp, such as "sqlglot Composer 3.2, exported 2026-10-02 14:05 - ...",
+# Any Toolbox folder's stamp, such as "sqlglot Composer 4.0, exported 2026-10-02 14:05 - ...",
 # whose first words name the folder its file belongs in.
 _STAMP = re.compile(r"(\w+ Composer|Composer core) \S+, exported ")
 
@@ -66,7 +66,7 @@ def stamp_of(path: str) -> str | None:
 
 
 def _version_and_time(stamp: str) -> str:
-    """A stamp's version and export time, such as "Composer core 3.2, exported 2026-10-02 14:05"."""
+    """A stamp's version and export time, such as "Composer core 4.0, exported 2026-10-02 14:05"."""
     return stamp.split(" - ")[0]
 
 

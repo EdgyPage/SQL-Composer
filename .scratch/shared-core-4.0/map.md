@@ -239,6 +239,11 @@ anywhere.
   in one Python stop, and each run_pipeline.py's dry run runs (no Java); the README gains Update
   from 3.x, How-tos, Example projects and Templates, with generated HOW-TOS and TEMPLATES
   lists; how_to_page's check_links isn't widened, since no how-to links there.
+- [Ship 4.0](issues/15-ship-4-0.md): TOOLBOX_VERSION "4.0" in every .py; CHANGES.md's 4.0
+  section in four parts, To update from 3.x, New, Refused now and Fixed, each map note a
+  bullet; both Example projects, galleries and how-to pages regenerated; the README's Update
+  from 3.x also says to import from the Edition's folder itself and which new refusals stop 3.x
+  code; D120 and D122 closed; exported by the main session after CI, pushed by the user.
 
 ## Not yet specified
 
