@@ -81,6 +81,9 @@ anywhere.
   lineage footers name the Toolbox version, which the generator takes from TOOLBOX_VERSION
   rather than pinning, so the staleness test in tests/test_example_projects.py fails until it
   is rerun (ticket 11).
+- Ticket 15's CHANGES 4.0 section also gains the Templates (ticket 13): `templates/`, a
+  starter set and an intermediate set of scripts to copy into a project and fill in, each
+  placeholder listed in its docstring, and a README giving the order to use them in.
 
 ## Records this changes
 
@@ -139,6 +142,14 @@ anywhere.
   table, backfill, a daily pipeline, Lineage of one Statement and of a pipeline, Load limits,
   Guards, Warnings and opt-outs, Statements in a loop, keeping a Table reference true; each
   mistake run live; the page now shows a step's Warning (a notebook scope's `__name__`).
+- [The Templates](issues/13-templates.md): `templates/starter/` (notebook_start,
+  keep_table_references_true, building_block, saved_table_reference, saved_table,
+  daily_pipeline, per_group_statement) and `templates/intermediate/` (incremental_load and
+  incremental_pipeline, which fit the starter pieces, weekly_rollup, as_of_lookup,
+  building_blocks, quality_statements, settings_driven on settings.py's text pattern), with
+  `<UPPER_SNAKE>` placeholders under "Fill in:" and a README giving their order; names avoid
+  "report", "check" and "library"; notebook_start and keep_table_references_true work from an
+  empty folder; the tests fill both sets in as one; the glossary's Template is rewritten.
 
 ## Not yet specified
 

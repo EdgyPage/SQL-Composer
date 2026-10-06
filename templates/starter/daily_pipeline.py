@@ -3,12 +3,21 @@
 Why: a Statement that reads a Saved table must run after the one that writes it, and keeping
 that order in one file means nobody has to remember it.
 
-Copy it to: run_pipeline.py, in your project's folder, beside the Level folders.
+Copy it to: run_pipeline.py, in your project's folder, beside table_references/,
+building_blocks/ and statements/.
+
+It runs a Saved table whose Statement file is a copy of saved_table.py. For a copy of
+intermediate/incremental_load.py, copy intermediate/incremental_pipeline.py instead.
 
 Run python run_pipeline.py to print every step's Hive for DAY without sending anything (a dry
-run). At work, send every step for a day with send_all(send, day), send being your own send
-function, and draw where each column comes from with write_lineage_files(day). This file sits
-above the Levels, so it may import from any of them.
+run). At work, send every step for a day from a notebook started in the project's folder, with
+send as notebook_start.py's cell 1 writes it:
+
+    import run_pipeline
+    run_pipeline.send_all(send, "2026-09-24")
+
+and draw where each column comes from with run_pipeline.write_lineage_files("2026-09-24").
+This file sits above the Levels, so it may import from any of them.
 
 To add a Saved table: import its Statement file as the first is imported; in steps(day), put
 its create() with the creates and its write_day(day) after the write of every table it reads;
@@ -16,7 +25,8 @@ and name both steps in dry_run(day) and write_lineage_files(day).
 
 Mirrors example_projects/starter/run_pipeline.py.
 
-Replace each placeholder, brackets and all, wherever it is written:
+Replace each placeholder, brackets and all, wherever it is written in the code, then delete
+this Fill in: block:
 
 Fill in:
     <SAVED_TABLE>: the Saved table's name in statements/, such as job_day_minutes, whose

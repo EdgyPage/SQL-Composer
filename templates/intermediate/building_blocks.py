@@ -24,7 +24,8 @@ its name whatever the days, so every day's Hive and lineage read alike.
 Mirrors example_projects/intermediate/building_blocks/jobs_without_events.py, written as
 blocks built from blocks, as how-to 24 does.
 
-Replace each placeholder, brackets and all, wherever it is written:
+Replace each placeholder, brackets and all, wherever it is written in the code, then delete
+this Fill in: block:
 
 Fill in:
     <TABLE>: the Table reference of the rows seen, which is also its file's name in
@@ -41,8 +42,8 @@ from sqlglot_composer import (
     FROM, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, all_of, between, derived, equals, is_null,
     statement,
 )
-from table_references.<EXPECTED_TABLE> import <EXPECTED_TABLE>
-from table_references.<TABLE> import <TABLE>
+from table_references.<EXPECTED_TABLE> import <EXPECTED_TABLE>  # the keys and days expected
+from table_references.<TABLE> import <TABLE>  # the rows seen
 
 
 def keys_seen(first_day, last_day):
@@ -70,7 +71,7 @@ def keys_missing(expected, seen):
     return derived("keys_missing", statement(
         SELECT(expected.<EXPECTED_MATCH_COLUMN>, expected.<EXPECTED_DATE_PARTITION>),
         FROM(expected),
-        LEFT_JOIN(seen, ON=all_of(
+        LEFT_JOIN(seen, ON=all_of(  # all_of: every condition in it must hold
             equals(seen.<MATCH_COLUMN>, expected.<EXPECTED_MATCH_COLUMN>),  # the same key
             equals(seen.<DATE_PARTITION>, expected.<EXPECTED_DATE_PARTITION>),  # the same day
         )),

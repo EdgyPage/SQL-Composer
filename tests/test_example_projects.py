@@ -31,7 +31,8 @@ import pytest
 import editions
 import example_project
 from conftest import (
-    INSERT, ROOT, edition, example_rows, project_on_the_path, standing_in, toolbox_module,
+    INSERT, ROOT, edition, every_day, example_rows, functions_given,
+    is_a_select_on_the_example_database, previewed_days, project_on_the_path, standing_in,
     without_the_write,
 )
 from sqlglot_composer import example_database, run, to_hive
@@ -75,27 +76,6 @@ def intermediate() -> dict:
 
 def example(project: dict, name: str):
     return project[f"statements.{name}"]
-
-
-def statements_in(result) -> list:
-    """The Statements a step returns: one, or a list such as by_day gives."""
-    return result if isinstance(result, list) else [result]
-
-
-def statement_functions(module) -> dict[str, list]:
-    """Each function a script defines that returns Statements, by name, with what it returns
-    when its day parameters are given the days in DAYS."""
-    statement_type = toolbox_module("clauses").Statement
-    found = {}
-    for name, function in vars(module).items():
-        if not callable(function) or getattr(function, "__module__", "") != module.__name__:
-            continue
-        given = {parameter: ARGUMENTS[parameter]
-                 for parameter in inspect.signature(function).parameters}
-        built = [s for s in statements_in(function(**given)) if isinstance(s, statement_type)]
-        if built:
-            found[name] = built
-    return found
 
 
 # --- The generated files ---------------------------------------------------------------------
@@ -192,7 +172,7 @@ def test_only_a_preview_has_a_day_already_filled_in(starter: dict) -> None:
 
 
 def test_every_statement_function_builds(starter: dict) -> None:
-    built = {name: statement_functions(example(starter, name)) for name in EXAMPLES}
+    built = {name: functions_given(example(starter, name), ARGUMENTS) for name in EXAMPLES}
     for name, functions in built.items():
         assert set(STEPS) <= set(functions), name
         for function, statements in functions.items():
@@ -336,9 +316,9 @@ def test_every_select_on_the_example_databases_tables_runs(starter: dict) -> Non
     holds."""
     ran = []
     for name in EXAMPLES:
-        for function, statements in statement_functions(example(starter, name)).items():
+        for function, statements in functions_given(example(starter, name), ARGUMENTS).items():
             for s in statements:
-                if s._ddl is None and s._write is None and "mart." not in to_hive(s):
+                if is_a_select_on_the_example_database(s):
                     run(s, send=example_database.send)
                     ran.append(f"{name}.{function}")
     assert ran == [f"{EXAMPLES[0]}.preview", f"{EXAMPLES[1]}.preview",
@@ -418,28 +398,6 @@ def i_arguments(intermediate: dict) -> dict:
     """What each intermediate step's parameters are given, by name."""
     return {"day": DAYS[-1], "first_day": WINDOW[0], "last_day": WINDOW[-1],
             "table": intermediate["settings"].REGION_COSTS}
-
-
-def built_by(module, arguments: dict) -> dict[str, list]:
-    """Each function a script defines that returns Statements, by name, with what it returns
-    when its parameters are given `arguments`. A function with a parameter `arguments` doesn't
-    name, such as quality_checks.column_name(column), builds no Statement, and is left
-    out."""
-    statement_type = toolbox_module("clauses").Statement
-    found = {}
-    for name, function in vars(module).items():
-        if not inspect.isfunction(function) or function.__module__ != module.__name__:
-            continue
-        parameters = inspect.signature(function).parameters
-        if not set(parameters) <= set(arguments):
-            continue
-        given = {parameter: arguments[parameter] for parameter in parameters}
-        result = function(**given)
-        values = result.values() if isinstance(result, dict) else statements_in(result)
-        built = [s for s in values if isinstance(s, statement_type)]
-        if built:
-            found[name] = built
-    return found
 
 
 # --- The generated files and settings.py ---------------------------------------------------------
@@ -526,7 +484,7 @@ def test_only_a_select_has_a_day_already_filled_in(intermediate: dict) -> None:
 def test_every_intermediate_statement_function_builds(intermediate: dict) -> None:
     arguments = i_arguments(intermediate)
     for name in (*I_EXAMPLES, "quality_checks"):
-        functions = built_by(example(intermediate, name), arguments)
+        functions = functions_given(example(intermediate, name), arguments)
         if name in I_EXAMPLES:
             assert set(I_STEPS) <= set(functions), name
         for function, statements in functions.items():
@@ -679,12 +637,6 @@ def test_example_3_groups_each_teams_day_from_job_events(intermediate: dict, day
     same(got, team_day_on(day, with_costs=False))
 
 
-def previewed_days(module, days) -> pd.DataFrame:
-    """What the module's preview shows for each of the days, with the day as dt."""
-    return pd.concat([run(module.preview(day), send=example_database.send).assign(dt=day)
-                      for day in days], ignore_index=True)
-
-
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_intermediate_example_3_previews_each_teams_day_from_both_saved_tables(
@@ -700,8 +652,7 @@ def test_intermediate_example_3_previews_each_teams_day_from_both_saved_tables(
 @pytest.mark.needs_example_database
 def test_example_3_adds_each_teams_days_up_into_weeks(intermediate: dict) -> None:
     skip_in_sqlglot_composer(NO_WEEK_START)
-    days = [(datetime.date(2026, 9, 11) + datetime.timedelta(days=n)).isoformat()
-            for n in range(14)]
+    days = every_day(*ALL_DAYS)
     team_days = pd.concat([team_day_on(day).assign(dt=day) for day in days], ignore_index=True)
     hive = standing_in(to_hive(example(intermediate, I_EXAMPLES[2]).week_totals(*ALL_DAYS)),
                        {"team_days": team_days})
@@ -778,12 +729,12 @@ def test_every_intermediate_select_on_the_example_databases_tables_runs(
     ran = []
     arguments = i_arguments(intermediate)
     for name in (*I_EXAMPLES, "quality_checks"):
-        for function, statements in built_by(example(intermediate, name), arguments).items():
+        for function, statements in functions_given(example(intermediate, name),
+                                                    arguments).items():
             for s in statements:
-                hive = to_hive(s)
-                if s._ddl is not None or s._write is not None or "mart." in hive:
+                if not is_a_select_on_the_example_database(s):
                     continue
-                if edition() is editions.SQLGLOT_COMPOSER and "ROW_NUMBER" in hive:
+                if edition() is editions.SQLGLOT_COMPOSER and "ROW_NUMBER" in to_hive(s):
                     continue  # NO_WINDOW_FUNCTIONS: Spark Composer's run runs it
                 run(s, send=example_database.send)
                 ran.append(f"{name}.{function}")
