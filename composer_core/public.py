@@ -71,7 +71,7 @@ from .tables import (
     write_table_reference,
 )
 
-TOOLBOX_VERSION = "3.2"
+TOOLBOX_VERSION = "4.0"
 
 # Every public name, grouped by the file it lives in.
 __all__ = [
