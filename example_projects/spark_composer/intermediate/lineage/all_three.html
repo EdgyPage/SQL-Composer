@@ -1,0 +1,921 @@
+<!-- Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy -->
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Lineage: write_job_day_costs, write_job_day_facts, write_team_days</title><style>
+body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
+header{padding:12px 16px;border-bottom:1px solid #ddd} h1{font-size:18px;margin:0 0 6px}
+.key span{display:inline-block;margin-right:14px}
+.sw{display:inline-block;width:12px;height:12px;border:1px solid #888;vertical-align:-1px;margin-right:4px}
+#controls{display:none;padding:8px 16px;border-bottom:1px solid #eee;gap:18px;flex-wrap:wrap;align-items:center}
+#controls label{white-space:nowrap} #controls details{position:relative}
+#groups{position:absolute;z-index:2;background:#fff;border:1px solid #ccc;padding:8px 10px;box-shadow:0 2px 8px #0002;min-width:260px}
+#groups div{display:flex;justify-content:space-between;gap:10px;margin:3px 0}
+main{padding:8px 16px 40px} .wrap{overflow-x:auto;border:1px solid #eee}
+svg{width:100%;height:auto;cursor:grab;display:block}
+.n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6} .output rect{fill:#effaf0}
+.condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
+.grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff} .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
+.grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
+.e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
+.n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace} .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
+.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows,.e.day{stroke-dasharray:3 3;stroke:#c9c9c9} .e.day{stroke:#999}
+.dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2} .e.hit{stroke:#d33;stroke-width:2;opacity:1}
+.n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
+summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
+#report details{margin:0 0 12px} #report summary{font-size:15px} footer{padding:8px 16px 24px;color:#777;font-size:12px}
+</style></head><body>
+<header><h1>Lineage: write_job_day_costs, write_job_day_facts, write_team_days</h1><div class="key">
+<span><i class="sw" style="background:#eef4ff"></i>table column</span>
+<span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
+<span><i class="sw" style="background:#effaf0"></i>output column</span>
+<span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+</div></header>
+<div id="controls">
+  <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
+  <label>Tables <select data-kind="table"></select></label>
+  <label>Derived tables <select data-kind="derived"></select></label>
+  <label>Outputs <select data-kind="output"></select></label>
+  <label><input type="checkbox" id="conditions" checked> Conditions</label>
+  <label><input type="checkbox" id="showReport" checked> Report</label>
+  <details><summary>Each group</summary><div id="groups"></div></details>
+</div>
+<main>
+<noscript><p><b>Scripts are off, so the graph can't be drawn.</b> The report below and
+<code>all_three.md</code>, written beside this file, show the same lineage.</p></noscript>
+<div class="wrap" id="graph"></div>
+<section id="report"><h2>write_job_day_costs</h2>
+<p>It writes the Saved table mart.job_day_costs, one day at a time.</p>
+<h3>Calculated columns</h3>
+<details open><summary><code>costs_per_job_day.cost_cents</code> <span class="muted">in costs_per_job_day</span></summary><p>Calculated as <code>sum_of(region_costs.cost_cents)</code>, which is <code>SUM(region_costs.cost_cents)</code>.</p><pre>costs_per_job_day.cost_cents = sum_of(region_costs.cost_cents)
+└─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day: <code>equals(region_costs.dt, datetime.date(2026, 9, 24))</code>, which is <code>region_costs.dt = &#x27;20260924&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul><p>One value for each different <code>region_costs.job_id</code> and <code>region_costs.dt</code>.</p></details>
+<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>costs_per_job_day.job_id ← ops.region_costs.job_id</td></tr><tr><td><code>cost_cents</code></td><td>costs_per_job_day.cost_cents (calculated) ← ops.region_costs.cost_cents</td></tr></table>
+<h3>Hive as submitted</h3>
+<pre>WITH costs_per_job_day AS (
+  SELECT
+    region_costs.job_id,
+    region_costs.dt,
+    SUM(region_costs.cost_cents) AS cost_cents
+  FROM ops.region_costs AS region_costs
+  WHERE
+    region_costs.dt = &#x27;20260924&#x27;
+  GROUP BY
+    region_costs.job_id,
+    region_costs.dt
+)
+INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  costs_per_job_day.job_id,
+  costs_per_job_day.cost_cents
+FROM costs_per_job_day</pre>
+<h2>write_job_day_facts</h2>
+<p>It writes the Saved table mart.job_day_facts, one day at a time.</p>
+<h3>Calculated columns</h3>
+<details open><summary><code>events_per_job_day.events</code> <span class="muted">in events_per_job_day</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>events_per_job_day.events = count_rows()
+└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day: <code>equals(job_events.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
+<details open><summary><code>events_per_job_day.runs</code> <span class="muted">in events_per_job_day</span></summary><p>Calculated as <code>count_rows(where=equals(job_events.event_type, &quot;start&quot;))</code>, which is <code>COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)</code>.</p><pre>events_per_job_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day: <code>equals(job_events.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
+<details open><summary><code>events_per_job_day.minutes</code> <span class="muted">in events_per_job_day</span></summary><p>Calculated as <code>fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)</code>, which is <code>COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)</code>.</p><pre>events_per_job_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
+├─ ops.job_events.minutes  (int)
+└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day: <code>equals(job_events.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
+<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>events_per_job_day.job_id ← ops.job_events.job_id</td></tr><tr><td><code>team</code></td><td>ops.job_owners.team</td></tr><tr><td><code>events</code></td><td>events_per_job_day.events (calculated)</td></tr><tr><td><code>runs</code></td><td>events_per_job_day.runs (calculated) ← ops.job_events.event_type</td></tr><tr><td><code>minutes</code></td><td>events_per_job_day.minutes (calculated) ← ops.job_events.minutes</td></tr></table>
+<h3>Hive as submitted</h3>
+<pre>WITH events_per_job_day AS (
+  SELECT
+    job_events.job_id,
+    job_events.dt,
+    COUNT(*) AS events,
+    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
+    COALESCE(
+      SUM(
+        CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
+      ),
+      0
+    ) AS minutes
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt = &#x27;2026-09-24&#x27;
+  GROUP BY
+    job_events.job_id,
+    job_events.dt
+)
+INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  events_per_job_day.job_id,
+  job_owners.team,
+  events_per_job_day.events,
+  events_per_job_day.runs,
+  events_per_job_day.minutes
+FROM events_per_job_day
+LEFT JOIN ops.job_owners AS job_owners
+  ON job_owners.job_id = events_per_job_day.job_id
+  AND job_owners.dt = events_per_job_day.dt
+  AND job_owners.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;</pre>
+<h2>write_team_days</h2>
+<p>It reads the Saved table mart.job_day_costs, written by write_job_day_costs above. It reads the Saved table mart.job_day_facts, written by write_job_day_facts above. It writes the Saved table mart.team_days, one day at a time.</p>
+<h3>Calculated columns</h3>
+<details open><summary><code>events</code> <span class="muted">in write_team_days</span></summary><p>Calculated as <code>sum_of(job_day_facts.events)</code>, which is <code>SUM(job_day_facts.events)</code>.</p><pre>write_team_days.events = sum_of(job_day_facts.events)
+└─ mart.job_day_facts.events  (bigint)
+   └─ write_job_day_facts.events
+      └─ events_per_job_day.events = count_rows()</pre><p>Rows that count:</p><ul><li>WHERE in write_team_days: <code>equals(job_day_facts.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_day_facts.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads mart.job_day_facts.dt</span></li></ul><p>One value for each different <code>job_day_facts.dt</code> and <code>job_day_facts.team</code>.</p></details>
+<details open><summary><code>runs</code> <span class="muted">in write_team_days</span></summary><p>Calculated as <code>sum_of(job_day_facts.runs)</code>, which is <code>SUM(job_day_facts.runs)</code>.</p><pre>write_team_days.runs = sum_of(job_day_facts.runs)
+└─ mart.job_day_facts.runs  (bigint)
+   └─ write_job_day_facts.runs
+      └─ events_per_job_day.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+         └─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in write_team_days: <code>equals(job_day_facts.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_day_facts.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads mart.job_day_facts.dt</span></li></ul><p>One value for each different <code>job_day_facts.dt</code> and <code>job_day_facts.team</code>.</p></details>
+<details open><summary><code>minutes</code> <span class="muted">in write_team_days</span></summary><p>Calculated as <code>sum_of(job_day_facts.minutes)</code>, which is <code>SUM(job_day_facts.minutes)</code>.</p><pre>write_team_days.minutes = sum_of(job_day_facts.minutes)
+└─ mart.job_day_facts.minutes  (bigint)
+   └─ write_job_day_facts.minutes
+      └─ events_per_job_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
+         ├─ ops.job_events.minutes  (int)
+         └─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in write_team_days: <code>equals(job_day_facts.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_day_facts.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads mart.job_day_facts.dt</span></li></ul><p>One value for each different <code>job_day_facts.dt</code> and <code>job_day_facts.team</code>.</p></details>
+<details open><summary><code>cost_cents</code> <span class="muted">in write_team_days</span></summary><p>Calculated as <code>sum_of(job_day_costs.cost_cents)</code>, which is <code>SUM(job_day_costs.cost_cents)</code>.</p><pre>write_team_days.cost_cents = sum_of(job_day_costs.cost_cents)
+└─ mart.job_day_costs.cost_cents  (bigint)
+   └─ write_job_day_costs.cost_cents
+      └─ costs_per_job_day.cost_cents = sum_of(region_costs.cost_cents)
+         └─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in write_team_days: <code>equals(job_day_facts.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_day_facts.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads mart.job_day_facts.dt</span></li><li>LEFT JOIN ON in write_team_days: <code>all_of(equals(job_day_costs.job_id, job_day_facts.job_id), equals(job_day_costs.dt, job_day_facts.dt), between(job_day_costs.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;))</code>, which is <code>job_day_costs.job_id = job_day_facts.job_id AND job_day_costs.dt = job_day_facts.dt AND job_day_costs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;</code> <span class="muted">reads mart.job_day_costs.dt, mart.job_day_costs.job_id, mart.job_day_facts.dt, mart.job_day_facts.job_id</span></li></ul><p>One value for each different <code>job_day_facts.dt</code> and <code>job_day_facts.team</code>.</p></details>
+<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>team</code></td><td>mart.job_day_facts.team ← write_job_day_facts.team ← ops.job_owners.team</td></tr></table>
+<h3>Hive as submitted</h3>
+<pre>INSERT OVERWRITE TABLE mart.team_days PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_day_facts.team,
+  SUM(job_day_facts.events) AS events,
+  SUM(job_day_facts.runs) AS runs,
+  SUM(job_day_facts.minutes) AS minutes,
+  SUM(job_day_costs.cost_cents) AS cost_cents
+FROM mart.job_day_facts AS job_day_facts
+LEFT JOIN mart.job_day_costs AS job_day_costs
+  ON job_day_costs.job_id = job_day_facts.job_id
+  AND job_day_costs.dt = job_day_facts.dt
+  AND job_day_costs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+WHERE
+  job_day_facts.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_day_facts.dt,
+  job_day_facts.team</pre></section>
+</main>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with Spark Composer 4.0.</footer>
+<script>
+// This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
+// It is plain JavaScript that any browser runs, with nothing to install or download.
+
+// Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
+// the boxes sit in (a table, a Derived table or a Statement's outputs).
+const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.job_id", "bigint"], "title": "ops.region_costs.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.job_id", "region_costs.job_id"], "title": "costs_per_job_day.job_id\nregion_costs.job_id"}, {"id": "n2", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.dt", "string"], "title": "ops.region_costs.dt\nstring"}, {"id": "n3", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.cost_cents", "bigint"], "title": "ops.region_costs.cost_cents\nbigint"}, {"id": "n4", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n5", "kind": "condition", "group": "costs_per_job_day", "lines": ["WHERE in costs_per_job_day", "equals(region_costs.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in costs_per_job_day\nregion_costs.dt = '20260924'"}, {"id": "n6", "kind": "output", "group": "write_job_day_costs", "lines": ["job_id", "costs_per_job_day.job_id"], "title": "write_job_day_costs.job_id\ncosts_per_job_day.job_id"}, {"id": "n7", "kind": "output", "group": "write_job_day_costs", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "write_job_day_costs.cost_cents\ncosts_per_job_day.cost_cents"}, {"id": "n8", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.job_id", "bigint"], "title": "mart.job_day_costs.job_id\nbigint"}, {"id": "n9", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.cost_cents", "bigint"], "title": "mart.job_day_costs.cost_cents\nbigint"}, {"id": "n10", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.dt", "string"], "title": "mart.job_day_costs.dt\nstring"}, {"id": "n11", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.job_id", "bigint"], "title": "ops.job_events.job_id\nbigint"}, {"id": "n12", "kind": "derived", "group": "events_per_job_day", "lines": ["events_per_job_day.job_id", "job_events.job_id"], "title": "events_per_job_day.job_id\njob_events.job_id"}, {"id": "n13", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n14", "kind": "derived", "group": "events_per_job_day", "lines": ["events_per_job_day.dt", "job_events.dt"], "title": "events_per_job_day.dt\njob_events.dt"}, {"id": "n15", "kind": "derived", "group": "events_per_job_day", "lines": ["events_per_job_day.events", "count_rows()"], "title": "events_per_job_day.events\nCOUNT(*)"}, {"id": "n16", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.event_type", "string"], "title": "ops.job_events.event_type\nstring"}, {"id": "n17", "kind": "derived", "group": "events_per_job_day", "lines": ["events_per_job_day.runs", "count_rows(where=equals(job_events.event_type, \"start\"))"], "title": "events_per_job_day.runs\nCOUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)"}, {"id": "n18", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.minutes", "int"], "title": "ops.job_events.minutes\nint"}, {"id": "n19", "kind": "derived", "group": "events_per_job_day", "lines": ["events_per_job_day.minutes", "fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [\"finish\", \"fail\"])), 0)"], "title": "events_per_job_day.minutes\nCOALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)"}, {"id": "n20", "kind": "condition", "group": "events_per_job_day", "lines": ["WHERE in events_per_job_day", "equals(job_events.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in events_per_job_day\njob_events.dt = '2026-09-24'"}, {"id": "n21", "kind": "output", "group": "write_job_day_facts", "lines": ["job_id", "events_per_job_day.job_id"], "title": "write_job_day_facts.job_id\nevents_per_job_day.job_id"}, {"id": "n22", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.team", "string"], "title": "ops.job_owners.team\nstring"}, {"id": "n23", "kind": "output", "group": "write_job_day_facts", "lines": ["team", "job_owners.team"], "title": "write_job_day_facts.team\njob_owners.team"}, {"id": "n24", "kind": "output", "group": "write_job_day_facts", "lines": ["events", "events_per_job_day.events"], "title": "write_job_day_facts.events\nevents_per_job_day.events"}, {"id": "n25", "kind": "output", "group": "write_job_day_facts", "lines": ["runs", "events_per_job_day.runs"], "title": "write_job_day_facts.runs\nevents_per_job_day.runs"}, {"id": "n26", "kind": "output", "group": "write_job_day_facts", "lines": ["minutes", "events_per_job_day.minutes"], "title": "write_job_day_facts.minutes\nevents_per_job_day.minutes"}, {"id": "n27", "kind": "condition", "group": "write_job_day_facts", "lines": ["LEFT JOIN ON in write_job_day_facts", "all_of(equals(job_owners.job_id, events_per_job_day.job_id), equals(job_owners.dt, events_per_job_day.dt), between(job_owners.dt, \"2026-09-24\", \"2026-09-24\"))"], "title": "LEFT JOIN ON in write_job_day_facts\njob_owners.job_id = events_per_job_day.job_id AND job_owners.dt = events_per_job_day.dt AND job_owners.dt BETWEEN '2026-09-24' AND '2026-09-24'"}, {"id": "n28", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.dt", "string"], "title": "ops.job_owners.dt\nstring"}, {"id": "n29", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.job_id", "bigint"], "title": "ops.job_owners.job_id\nbigint"}, {"id": "n30", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.job_id", "bigint"], "title": "mart.job_day_facts.job_id\nbigint"}, {"id": "n31", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.team", "string"], "title": "mart.job_day_facts.team\nstring"}, {"id": "n32", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.events", "bigint"], "title": "mart.job_day_facts.events\nbigint"}, {"id": "n33", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.runs", "bigint"], "title": "mart.job_day_facts.runs\nbigint"}, {"id": "n34", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.minutes", "bigint"], "title": "mart.job_day_facts.minutes\nbigint"}, {"id": "n35", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.dt", "string"], "title": "mart.job_day_facts.dt\nstring"}, {"id": "n36", "kind": "output", "group": "write_team_days", "lines": ["team", "job_day_facts.team"], "title": "write_team_days.team\njob_day_facts.team"}, {"id": "n37", "kind": "output", "group": "write_team_days", "lines": ["events", "sum_of(job_day_facts.events)"], "title": "write_team_days.events\nSUM(job_day_facts.events)"}, {"id": "n38", "kind": "output", "group": "write_team_days", "lines": ["runs", "sum_of(job_day_facts.runs)"], "title": "write_team_days.runs\nSUM(job_day_facts.runs)"}, {"id": "n39", "kind": "output", "group": "write_team_days", "lines": ["minutes", "sum_of(job_day_facts.minutes)"], "title": "write_team_days.minutes\nSUM(job_day_facts.minutes)"}, {"id": "n40", "kind": "output", "group": "write_team_days", "lines": ["cost_cents", "sum_of(job_day_costs.cost_cents)"], "title": "write_team_days.cost_cents\nSUM(job_day_costs.cost_cents)"}, {"id": "n41", "kind": "condition", "group": "write_team_days", "lines": ["WHERE in write_team_days", "equals(job_day_facts.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in write_team_days\njob_day_facts.dt = '2026-09-24'"}, {"id": "n42", "kind": "condition", "group": "write_team_days", "lines": ["LEFT JOIN ON in write_team_days", "all_of(equals(job_day_costs.job_id, job_day_facts.job_id), equals(job_day_costs.dt, job_day_facts.dt), between(job_day_costs.dt, \"2026-09-24\", \"2026-09-24\"))"], "title": "LEFT JOIN ON in write_team_days\njob_day_costs.job_id = job_day_facts.job_id AND job_day_costs.dt = job_day_facts.dt AND job_day_costs.dt BETWEEN '2026-09-24' AND '2026-09-24'"}, {"id": "n43", "kind": "table", "group": "mart.team_days", "lines": ["mart.team_days.team", "string"], "title": "mart.team_days.team\nstring"}, {"id": "n44", "kind": "table", "group": "mart.team_days", "lines": ["mart.team_days.events", "bigint"], "title": "mart.team_days.events\nbigint"}, {"id": "n45", "kind": "table", "group": "mart.team_days", "lines": ["mart.team_days.runs", "bigint"], "title": "mart.team_days.runs\nbigint"}, {"id": "n46", "kind": "table", "group": "mart.team_days", "lines": ["mart.team_days.minutes", "bigint"], "title": "mart.team_days.minutes\nbigint"}, {"id": "n47", "kind": "table", "group": "mart.team_days", "lines": ["mart.team_days.cost_cents", "bigint"], "title": "mart.team_days.cost_cents\nbigint"}, {"id": "n48", "kind": "table", "group": "mart.team_days", "lines": ["mart.team_days.dt", "string"], "title": "mart.team_days.dt\nstring"}], "arrows": [["n0", "n1", "value"], ["n3", "n4", "value"], ["n2", "n5", "rows"], ["n5", "n1", "rows"], ["n5", "n4", "rows"], ["n1", "n6", "value"], ["n4", "n7", "value"], ["n6", "n8", "value"], ["n7", "n9", "value"], ["n5", "n10", "day"], ["n11", "n12", "value"], ["n13", "n14", "value"], ["n16", "n17", "value"], ["n18", "n19", "value"], ["n16", "n19", "value"], ["n13", "n20", "rows"], ["n20", "n12", "rows"], ["n20", "n14", "rows"], ["n20", "n15", "rows"], ["n20", "n17", "rows"], ["n20", "n19", "rows"], ["n12", "n21", "value"], ["n22", "n23", "value"], ["n15", "n24", "value"], ["n17", "n25", "value"], ["n19", "n26", "value"], ["n28", "n27", "rows"], ["n29", "n27", "rows"], ["n12", "n27", "rows"], ["n14", "n27", "rows"], ["n27", "n21", "rows"], ["n27", "n23", "rows"], ["n27", "n24", "rows"], ["n27", "n25", "rows"], ["n27", "n26", "rows"], ["n21", "n30", "value"], ["n23", "n31", "value"], ["n24", "n32", "value"], ["n25", "n33", "value"], ["n26", "n34", "value"], ["n20", "n35", "day"], ["n31", "n36", "value"], ["n32", "n37", "value"], ["n33", "n38", "value"], ["n34", "n39", "value"], ["n9", "n40", "value"], ["n35", "n41", "rows"], ["n41", "n36", "rows"], ["n41", "n37", "rows"], ["n41", "n38", "rows"], ["n41", "n39", "rows"], ["n41", "n40", "rows"], ["n10", "n42", "rows"], ["n8", "n42", "rows"], ["n30", "n42", "rows"], ["n35", "n42", "rows"], ["n42", "n36", "rows"], ["n42", "n37", "rows"], ["n42", "n38", "rows"], ["n42", "n39", "rows"], ["n42", "n40", "rows"], ["n36", "n43", "value"], ["n37", "n44", "value"], ["n38", "n45", "value"], ["n39", "n46", "value"], ["n40", "n47", "value"], ["n41", "n48", "day"]], "groups": [{"name": "ops.region_costs", "kind": "table"}, {"name": "costs_per_job_day", "kind": "derived"}, {"name": "write_job_day_costs", "kind": "output"}, {"name": "mart.job_day_costs", "kind": "table"}, {"name": "ops.job_events", "kind": "table"}, {"name": "events_per_job_day", "kind": "derived"}, {"name": "write_job_day_facts", "kind": "output"}, {"name": "ops.job_owners", "kind": "table"}, {"name": "mart.job_day_facts", "kind": "table"}, {"name": "write_team_days", "kind": "output"}, {"name": "mart.team_days", "kind": "table"}]};
+
+// Sizes in the drawing, in pixels.
+const BOX_WIDTH = 250;
+const COLUMN_GAP = 80;  // between two columns of boxes
+const BOX_GAP = 14;  // between two boxes in one column
+const LINE_HEIGHT = 15;  // one line of text in a box
+const GROUP_PADDING = 12;  // around the boxes inside a group, in the Grouped flowchart
+const GROUP_HEADING = 26;  // room for a group's name above its boxes
+const GROUP_GAP = 24;  // between two groups in one column
+
+// How each kind of group can be shown. Outputs can be collapsed, but not hidden.
+const MODES_BY_KIND = {
+  table: ['expanded', 'collapsed', 'hidden'],
+  derived: ['expanded', 'collapsed', 'hidden'],
+  output: ['expanded', 'collapsed'],
+};
+
+// What the reader has chosen: the Graph or the Grouped flowchart ('graph' or 'flow'), each
+// group's mode, and whether the conditions and the report show.
+const state = {view: 'graph', groupMode: {}, conditions: true, report: true};
+
+// An object holding each item under the key that keyFor(item) gives, to look items up by key.
+function indexBy(items, keyFor) {
+  const index = {};
+  items.forEach(item => {
+    index[keyFor(item)] = item;
+  });
+  return index;
+}
+
+// Each box, looked up by its id.
+const boxById = indexBy(graph.boxes, box => box.id);
+
+// Text made safe to put inside the page's markup: & < > and " become their HTML codes.
+function escapeHtml(text) {
+  const codes = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'};
+  return text.replace(/[&<>"]/g, character => codes[character]);
+}
+
+// Text cut to at most maxLength characters, ending in an ellipsis when it was cut, so it fits
+// in a box.
+function shortened(text, maxLength) {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  // The ellipsis character. Its backslash is written twice only in the Python file.
+  return text.slice(0, maxLength - 1) + '\u2026';
+}
+
+// Start from the settings saved in the page's address (after the ?), so a link opens the page
+// as it was left. Any group the address doesn't mention starts expanded.
+function readSettingsFromAddress() {
+  graph.groups.forEach(group => {
+    state.groupMode[group.name] = 'expanded';
+  });
+  const settings = new URLSearchParams(location.search);
+  graph.groups.forEach(group => {
+    const mode = settings.get('g:' + group.name);
+    if (MODES_BY_KIND[group.kind].includes(mode)) {
+      state.groupMode[group.name] = mode;
+    }
+  });
+  if (settings.get('view') === 'flow') {
+    state.view = 'flow';
+  }
+  if (settings.get('conditions') === 'off') {
+    state.conditions = false;
+  }
+  if (settings.get('report') === 'off') {
+    state.report = false;
+  }
+}
+
+// Save the settings in the page's address, so reloading the page or sharing its link keeps
+// them. Only settings that differ from where the page starts are written.
+function saveSettingsInAddress() {
+  const settings = new URLSearchParams();
+  if (state.view !== 'graph') {
+    settings.set('view', state.view);
+  }
+  Object.entries(state.groupMode).forEach(([name, mode]) => {
+    if (mode !== 'expanded') {
+      settings.set('g:' + name, mode);
+    }
+  });
+  if (!state.conditions) {
+    settings.set('conditions', 'off');
+  }
+  if (!state.report) {
+    settings.set('report', 'off');
+  }
+  try {
+    const address = settings.toString() ? '?' + settings.toString() : location.pathname;
+    history.replaceState(null, '', address);
+  } catch (error) {
+    // A browser may refuse to change the address, as for some pages opened from a file. The
+    // drawing still works; only the settings aren't kept.
+  }
+}
+
+// --- Which boxes and arrows to draw -------------------------------------------------------
+
+// The id of the box drawn in a box's place: its own id; its group's id when the group is
+// collapsed; 'skip' when the group is hidden; or null for a condition while conditions are off.
+function drawnAs(box) {
+  if (box.kind === 'condition') {
+    return state.conditions ? box.id : null;
+  }
+  const mode = state.groupMode[box.group];
+  if (mode === 'expanded') {
+    return box.id;
+  }
+  if (mode === 'collapsed') {
+    return 'group:' + box.group;
+  }
+  return 'skip';
+}
+
+// The kind of the one arrow drawn for two arrows in a row, when the box between them is
+// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
+// otherwise 'rows'.
+function joinedArrowKind(first, second) {
+  if (first === 'value' && second === 'value') {
+    return 'value';
+  }
+  if (first === 'day' || second === 'day') {
+    return 'day';
+  }
+  return 'rows';
+}
+
+// The boxes and arrows to draw now, after collapsing, hiding and switching off conditions. A
+// collapsed group is drawn as one box, and arrows through a hidden box are joined around it.
+function visibleGraph() {
+  // For each box, the arrows coming into it, as [source id, arrow kind].
+  const arrowsInto = {};
+  graph.arrows.forEach(([source, target, kind]) => {
+    if (!arrowsInto[target]) {
+      arrowsInto[target] = [];
+    }
+    arrowsInto[target].push([source, kind]);
+  });
+
+  // Where an arrow really starts, as a list of [box id, arrow kind]. When the box it starts
+  // from is hidden, it goes on back through the arrows into that box, joining their kinds.
+  // A condition switched off is returned as it is, and the caller leaves its arrow out.
+  // `visited` holds the boxes already passed, so a loop of arrows can't go round forever.
+  function drawnStarts(id, kind, visited) {
+    if (visited.has(id)) {
+      return [];
+    }
+    visited.add(id);
+    if (drawnAs(boxById[id]) !== 'skip') {
+      return [[id, kind]];
+    }
+    let starts = [];
+    (arrowsInto[id] || []).forEach(([source, sourceKind]) => {
+      starts = starts.concat(drawnStarts(source, joinedArrowKind(kind, sourceKind), visited));
+    });
+    return starts;
+  }
+
+  const drawnBoxes = {};
+  graph.boxes.forEach(box => {
+    const drawnId = drawnAs(box);
+    if (!drawnId || drawnId === 'skip') {
+      return;
+    }
+    if (drawnId === box.id) {
+      drawnBoxes[drawnId] = {
+        id: drawnId,
+        kind: box.kind,
+        group: box.kind === 'condition' ? 'filters on ' + box.group : box.group,
+        lines: box.lines,
+        title: box.title,
+      };
+    } else if (!drawnBoxes[drawnId]) {
+      // The first box met in a collapsed group makes the one box that stands for the group.
+      const columnCount = graph.boxes.filter(
+        other => other.group === box.group && other.kind !== 'condition').length;
+      drawnBoxes[drawnId] = {
+        id: drawnId,
+        kind: box.kind + ' collapsed',
+        group: box.group,
+        lines: [box.group, columnCount + ' columns, collapsed'],
+        title: box.group,
+      };
+    }
+  });
+
+  // One arrow for each pair of drawn boxes: the first one found, unless a later one carries a
+  // value, which takes its place.
+  const drawnArrows = new Map();
+  graph.arrows.forEach(([source, target, kind]) => {
+    const drawnTarget = drawnAs(boxById[target]);
+    if (!drawnTarget || drawnTarget === 'skip') {
+      return;
+    }
+    drawnStarts(source, kind, new Set()).forEach(([start, startKind]) => {
+      const drawnSource = drawnAs(boxById[start]);
+      if (!drawnSource || drawnSource === 'skip' || drawnSource === drawnTarget) {
+        return;
+      }
+      const pair = drawnSource + '>' + drawnTarget;
+      if (!drawnArrows.has(pair) || startKind === 'value') {
+        drawnArrows.set(pair, [drawnSource, drawnTarget, startKind]);
+      }
+    });
+  });
+  return {boxes: Object.values(drawnBoxes), arrows: Array.from(drawnArrows.values())};
+}
+
+// --- Where each box goes ------------------------------------------------------------------
+
+// A box's height: room for each of its lines of text, plus 10 pixels of padding.
+function boxHeight(box) {
+  return 10 + LINE_HEIGHT * box.lines.length;
+}
+
+// Each drawn box's height, looked up by its id.
+function boxHeights(boxes) {
+  const heights = {};
+  boxes.forEach(box => {
+    heights[box.id] = boxHeight(box);
+  });
+  return heights;
+}
+
+// For each drawn box, the ids of the boxes with an arrow into it (its sources) and the ids of
+// the boxes it has an arrow into (its targets).
+function neighboursOf(visible) {
+  const sources = {};
+  const targets = {};
+  visible.boxes.forEach(box => {
+    sources[box.id] = [];
+    targets[box.id] = [];
+  });
+  visible.arrows.forEach(([source, target]) => {
+    sources[target].push(source);
+    targets[source].push(target);
+  });
+  return {sources: sources, targets: targets};
+}
+
+// The column each item goes in, counting from 0: one column right of its furthest source.
+// sourcesOf(id) lists an item's sources. When sources go round in a loop, the item met again
+// counts as column 0, so the loop ends.
+function columnNumbers(ids, sourcesOf) {
+  const columnOf = {};
+  const working = new Set();  // the items whose column is still being worked out
+  function columnFor(id) {
+    if (id in columnOf) {
+      return columnOf[id];
+    }
+    if (working.has(id)) {
+      return 0;
+    }
+    working.add(id);
+    const column = 1 + Math.max(-1, ...sourcesOf(id).map(source => columnFor(source)));
+    working.delete(id);
+    columnOf[id] = column;
+    return column;
+  }
+  ids.forEach(id => columnFor(id));
+  return columnOf;
+}
+
+// Where each box goes in the Graph. Each box sits one column right of its furthest source,
+// and an output that feeds nothing sits in the last column. Then the boxes in each column are
+// reordered, to sit level with the boxes they are linked to, so fewer arrows cross.
+function graphLayout(visible) {
+  const neighbours = neighboursOf(visible);
+  const boxIds = visible.boxes.map(box => box.id);
+  const columnOf = columnNumbers(boxIds, id => neighbours.sources[id]);
+  const lastColumn = Math.max(0, ...Object.values(columnOf));
+  visible.boxes.forEach(box => {
+    if (box.kind.startsWith('output') && !neighbours.targets[box.id].length) {
+      columnOf[box.id] = lastColumn;
+    }
+  });
+
+  // The ids in each column, from top to bottom.
+  const columns = [];
+  for (let number = 0; number <= lastColumn; number++) {
+    columns.push(visible.boxes.filter(box => columnOf[box.id] === number).map(box => box.id));
+  }
+
+  // Make 8 sweeps across the columns, right, then left, and so on, reordering each column
+  // but the first one a sweep starts from. Sweeping right, each box moves to the average
+  // place of its sources; sweeping left, of its targets.
+  for (let sweep = 0; sweep < 8; sweep++) {
+    const sweepingRight = sweep % 2 === 0;
+    const linked = sweepingRight ? neighbours.sources : neighbours.targets;
+    const place = {};  // each box's place in its column, 0 at the top
+    columns.forEach(ids => {
+      ids.forEach((id, number) => {
+        place[id] = number;
+      });
+    });
+    // The average place of the boxes linked to a box, or its own place if there are none.
+    const averagePlace = id => {
+      if (!linked[id].length) {
+        return place[id];
+      }
+      return linked[id].reduce((total, other) => total + place[other], 0) / linked[id].length;
+    };
+    const reorder = number => {
+      columns[number].sort((a, b) => averagePlace(a) - averagePlace(b));
+      columns[number].forEach((id, newPlace) => {
+        place[id] = newPlace;
+      });
+    };
+    if (sweepingRight) {
+      for (let number = 1; number < columns.length; number++) {
+        reorder(number);
+      }
+    } else {
+      for (let number = columns.length - 2; number >= 0; number--) {
+        reorder(number);
+      }
+    }
+  }
+
+  const heights = boxHeights(visible.boxes);
+  const positions = {};  // each box's top-left corner, as [x, y]
+  columns.forEach((ids, number) => {
+    let y = 0;
+    ids.forEach(id => {
+      positions[id] = [number * (BOX_WIDTH + COLUMN_GAP), y];
+      y += heights[id] + BOX_GAP;
+    });
+  });
+  const columnHeights = columns.map(
+    inColumn => inColumn.reduce((total, id) => total + heights[id] + BOX_GAP, 0));
+  return {
+    positions: positions,
+    heights: heights,
+    width: columns.length * (BOX_WIDTH + COLUMN_GAP) - COLUMN_GAP,
+    height: Math.max(0, ...columnHeights),
+  };
+}
+
+// Where each group and box goes in the Grouped flowchart. Each table, Derived table, Statement
+// and its filters is a labelled group. A group sits one column right of the furthest group
+// feeding it, and an output group that feeds nothing sits in the last column.
+function flowchartLayout(visible) {
+  const visibleBoxById = indexBy(visible.boxes, box => box.id);
+  const heights = boxHeights(visible.boxes);
+  const neighbours = neighboursOf(visible);
+
+  // Each group, with the ids of its boxes.
+  const groups = {};
+  visible.boxes.forEach(box => {
+    if (!groups[box.group]) {
+      groups[box.group] = {name: box.group, kind: box.kind.split(' ')[0], boxes: []};
+    }
+    groups[box.group].boxes.push(box.id);
+  });
+
+  // For each group, the groups with an arrow into it, and the groups it has an arrow into.
+  const groupsFeeding = {};
+  const groupsFed = {};
+  Object.keys(groups).forEach(name => {
+    groupsFeeding[name] = new Set();
+    groupsFed[name] = new Set();
+  });
+  visible.arrows.forEach(([source, target]) => {
+    const sourceGroup = visibleBoxById[source].group;
+    const targetGroup = visibleBoxById[target].group;
+    if (sourceGroup !== targetGroup) {
+      groupsFeeding[targetGroup].add(sourceGroup);
+      groupsFed[sourceGroup].add(targetGroup);
+    }
+  });
+
+  const columnOf = columnNumbers(Object.keys(groups), name => Array.from(groupsFeeding[name]));
+  const lastColumn = Math.max(0, ...Object.values(columnOf));
+  Object.values(groups).forEach(group => {
+    if (group.kind === 'output' && !groupsFed[group.name].size) {
+      columnOf[group.name] = lastColumn;
+    }
+  });
+
+  // The average y (distance down the page) of the middles of the boxes in `ids` placed so
+  // far. When none is placed yet it is far below everything (1e9), so those boxes sort last.
+  function averageMiddle(ids, middles) {
+    const placed = ids.map(id => middles[id]).filter(middle => middle !== undefined);
+    if (!placed.length) {
+      return 1e9;
+    }
+    return placed.reduce((total, middle) => total + middle, 0) / placed.length;
+  }
+
+  // Place every group and its boxes, column by column. In each column, a group's boxes are
+  // sorted by where their sources sit, and the groups by where all their boxes' sources sit,
+  // so each sits level with what feeds it. It returns each box's top-left corner, each
+  // group's frame, and the y of each box's middle.
+  function placeGroups() {
+    const middles = {};
+    const positions = {};
+    const frames = [];
+    for (let number = 0; number <= lastColumn; number++) {
+      const inColumn = Object.values(groups).filter(group => columnOf[group.name] === number);
+      inColumn.forEach(group => {
+        group.boxes.sort((a, b) => averageMiddle(neighbours.sources[a], middles)
+          - averageMiddle(neighbours.sources[b], middles));
+        let allSources = [];
+        group.boxes.forEach(id => {
+          allSources = allSources.concat(neighbours.sources[id]);
+        });
+        group.sortKey = averageMiddle(allSources, middles);
+      });
+      inColumn.sort((a, b) => a.sortKey - b.sortKey);
+      const x = number * (BOX_WIDTH + 2 * GROUP_PADDING + COLUMN_GAP);
+      let top = 0;
+      inColumn.forEach(group => {
+        let y = top + GROUP_HEADING;
+        group.boxes.forEach(id => {
+          positions[id] = [x + GROUP_PADDING, y];
+          middles[id] = y + heights[id] / 2;
+          y += heights[id] + BOX_GAP;
+        });
+        frames.push({
+          name: group.name,
+          kind: group.kind,
+          x: x,
+          y: top,
+          width: BOX_WIDTH + 2 * GROUP_PADDING,
+          height: y - BOX_GAP + GROUP_PADDING - top,
+        });
+        top = y - BOX_GAP + GROUP_PADDING + GROUP_GAP;
+      });
+    }
+    return {positions: positions, frames: frames, middles: middles};
+  }
+
+  let placed = placeGroups();
+  // The first column has no sources to sort by, so sort its boxes by the boxes they feed, now
+  // those are placed, and place everything again.
+  Object.values(groups).filter(group => columnOf[group.name] === 0).forEach(group => {
+    group.boxes.sort((a, b) => averageMiddle(neighbours.targets[a], placed.middles)
+      - averageMiddle(neighbours.targets[b], placed.middles));
+  });
+  placed = placeGroups();
+  return {
+    positions: placed.positions,
+    frames: placed.frames,
+    heights: heights,
+    width: (lastColumn + 1) * (BOX_WIDTH + 2 * GROUP_PADDING + COLUMN_GAP) - COLUMN_GAP,
+    height: Math.max(0, ...placed.frames.map(frame => frame.y + frame.height)),
+  };
+}
+
+// --- The SVG ------------------------------------------------------------------------------
+
+// The SVG for one box: its rectangle, its lines of text (the first in bold), and a tooltip
+// with its full name and its Hive or type.
+function boxSvg(box, x, y, height) {
+  const lines = box.lines.map((line, number) => {
+    const bold = number ? '' : ' class="l"';
+    // How many characters fit across the box: fewer on the first line, which is bold.
+    const text = escapeHtml(shortened(line, number ? 38 : 34));
+    // 8 pixels in from the box's left edge; the first line's baseline 17 pixels down.
+    return `<text x="8" y="${17 + number * LINE_HEIGHT}"${bold}>${text}</text>`;
+  });
+  return `<g class="n ${box.kind}" id="${box.id}" transform="translate(${x},${y})">`
+    + `<rect width="${BOX_WIDTH}" height="${height}" rx="4"/>`
+    + lines.join('')
+    + `<title>${escapeHtml(box.title)}</title></g>`;
+}
+
+// An SVG path from (startX, startY) to (endX, endY) that bends smoothly, leaving and arriving
+// level.
+function curve(startX, startY, endX, endY) {
+  const middleX = (startX + endX) / 2;
+  return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
+}
+
+// The "day written" label, just above the middle of its arrow.
+function dayWrittenLabel(startX, startY, endX, endY) {
+  // 28 pixels is about half the label's width, so the label is centred on the arrow.
+  const x = (startX + endX) / 2 - 28;
+  const y = (startY + endY) / 2 - 4;
+  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
+}
+
+// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
+// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+function arrowSvg(source, target, kind, startX, startY, endX, endY) {
+  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+    + `d="${curve(startX, startY, endX, endY)}"/>`;
+  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
+}
+
+// The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
+// and arrives at the middle of the next box's left side.
+function renderGraph(visible) {
+  const layout = graphLayout(visible);
+  const parts = [];
+  visible.arrows.forEach(([source, target, kind]) => {
+    const [sourceX, sourceY] = layout.positions[source];
+    const [targetX, targetY] = layout.positions[target];
+    const startX = sourceX + BOX_WIDTH;
+    const startY = sourceY + layout.heights[source] / 2;
+    const endY = targetY + layout.heights[target] / 2;
+    parts.push(arrowSvg(source, target, kind, startX, startY, targetX, endY));
+  });
+  visible.boxes.forEach(box => {
+    const [x, y] = layout.positions[box.id];
+    parts.push(boxSvg(box, x, y, layout.heights[box.id]));
+  });
+  return {parts: parts, width: layout.width, height: layout.height};
+}
+
+// The SVG pieces of the Grouped flowchart, and its size. A condition's arrow points once at
+// the group it filters, not at each box in it.
+function renderFlowchart(visible) {
+  const layout = flowchartLayout(visible);
+  const visibleBoxById = indexBy(visible.boxes, box => box.id);
+  const parts = [];
+  layout.frames.forEach(frame => {
+    parts.push(`<g class="grp ${frame.kind}">`
+      + `<rect x="${frame.x}" y="${frame.y}" `
+      + `width="${frame.width}" height="${frame.height}" rx="8"/>`
+      + `<text x="${frame.x + 10}" y="${frame.y + 17}">${escapeHtml(frame.name)}</text></g>`);
+  });
+  const frameByName = indexBy(layout.frames, frame => frame.name);
+  const filterArrowsDrawn = new Set();  // "condition>group" for each filters arrow drawn
+  visible.arrows.forEach(([source, target, kind]) => {
+    const [sourceX, sourceY] = layout.positions[source];
+    const startX = sourceX + BOX_WIDTH;
+    const startY = sourceY + layout.heights[source] / 2;
+    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+      const frame = frameByName[visibleBoxById[target].group];
+      const drawnKey = source + '>' + frame.name;
+      if (!filterArrowsDrawn.has(drawnKey)) {
+        filterArrowsDrawn.add(drawnKey);
+        const endY = frame.y + frame.height / 2;
+        // data-g names the group at the arrow's end, for lighting up a path.
+        const groupName = escapeHtml(frame.name);
+        parts.push(`<path class="e rows filters" data-a="${source}" data-g="${groupName}" `
+          + `d="${curve(startX, startY, frame.x, endY)}"/>`
+          + `<text class="flabel" x="${frame.x - 44}" y="${endY - 4}">filters</text>`);
+      }
+    } else {
+      const [targetX, targetY] = layout.positions[target];
+      const endY = targetY + layout.heights[target] / 2;
+      parts.push(arrowSvg(source, target, kind, startX, startY, targetX, endY));
+    }
+  });
+  visible.boxes.forEach(box => {
+    const [x, y] = layout.positions[box.id];
+    parts.push(boxSvg(box, x, y, layout.heights[box.id]));
+  });
+  return {parts: parts, width: layout.width, height: layout.height};
+}
+
+// --- Drawing, and what the mouse does -----------------------------------------------------
+
+// Draw the page again from `state`: the picture, the report shown or not, the address and
+// the controls. Every control calls this after it changes `state`.
+function draw() {
+  const visible = visibleGraph();
+  const drawing = state.view === 'flow' ? renderFlowchart(visible) : renderGraph(visible);
+  // A 10-pixel margin all round, and the picture never shrunk below 80% of its full size.
+  const viewBox = `-10 -10 ${drawing.width + 20} ${drawing.height + 20}`;
+  const size = `min-width:${Math.round(drawing.width * 0.8)}px;`
+    + `aspect-ratio:${drawing.width + 20}/${drawing.height + 20}`;
+  document.getElementById('graph').innerHTML = `<svg viewBox="${viewBox}" style="${size}">`
+    + `${drawing.parts.join('')}</svg>`;
+  addMouseHandlers(document.querySelector('#graph svg'), visible);
+  document.getElementById('report').style.display = state.report ? '' : 'none';
+  saveSettingsInAddress();
+  syncControls();
+}
+
+// Every box reachable from box `id` by following `next` (sources, or targets) again and
+// again. Each is added to the set `found`, which is returned.
+function collectReachable(id, next, found) {
+  (next[id] || []).forEach(other => {
+    if (!found.has(other)) {
+      found.add(other);
+      collectReachable(other, next, found);
+    }
+  });
+  return found;
+}
+
+// Make the picture answer the mouse: the wheel zooms, dragging pans, and clicking a box
+// lights up its path (everything that feeds it and everything it feeds) and dims the rest.
+function addMouseHandlers(svg, visible) {
+  const neighbours = neighboursOf(visible);
+  const boxIdsByGroup = {};
+  visible.boxes.forEach(box => {
+    if (!boxIdsByGroup[box.group]) {
+      boxIdsByGroup[box.group] = [];
+    }
+    boxIdsByGroup[box.group].push(box.id);
+  });
+
+  // The part of the picture in sight, as [left, top, width, height]. Zooming and panning
+  // change it.
+  let viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+  // Where a drag started, kept from the mouse button going down until just after it comes up.
+  let drag = null;
+
+  function showViewBox() {
+    svg.setAttribute('viewBox', viewBox.join(' '));
+  }
+
+  // Zoom in or out, keeping the point under the mouse where it is.
+  function zoom(event) {
+    event.preventDefault();  // stop the page itself from scrolling
+    const bounds = svg.getBoundingClientRect();
+    const factor = event.deltaY > 0 ? 1.15 : 1 / 1.15;
+    const pointX = viewBox[0] + (event.clientX - bounds.left) / bounds.width * viewBox[2];
+    const pointY = viewBox[1] + (event.clientY - bounds.top) / bounds.height * viewBox[3];
+    viewBox = [
+      pointX - (pointX - viewBox[0]) * factor,
+      pointY - (pointY - viewBox[1]) * factor,
+      viewBox[2] * factor,
+      viewBox[3] * factor,
+    ];
+    showViewBox();
+  }
+
+  function startDrag(event) {
+    drag = {x: event.clientX, y: event.clientY, viewBox: viewBox.slice(), moved: false};
+  }
+
+  // Pan the picture with the mouse, while the button is down.
+  function moveDrag(event) {
+    if (!drag) {
+      return;
+    }
+    const bounds = svg.getBoundingClientRect();
+    const moveX = (event.clientX - drag.x) / bounds.width * viewBox[2];
+    const moveY = (event.clientY - drag.y) / bounds.height * viewBox[3];
+    if (Math.abs(moveX) + Math.abs(moveY) > 1) {
+      drag.moved = true;
+    }
+    viewBox = [drag.viewBox[0] - moveX, drag.viewBox[1] - moveY, viewBox[2], viewBox[3]];
+    showViewBox();
+  }
+
+  // Forget the drag only after the click that the browser sends when the button comes up,
+  // so that click can tell it ended a drag.
+  function endDrag() {
+    setTimeout(() => {
+      drag = null;
+    });
+  }
+
+  // Light up the clicked box's path and dim everything else. A click off every box clears
+  // the lighting; the click that ends a drag does nothing.
+  function lightUpPath(event) {
+    if (drag && drag.moved) {
+      return;
+    }
+    svg.querySelectorAll('.n,.e').forEach(element => element.classList.remove('dim', 'hit'));
+    const clicked = event.target.closest('.n');
+    if (!clicked) {
+      return;
+    }
+    const onPath = collectReachable(clicked.id, neighbours.sources, new Set([clicked.id]));
+    collectReachable(clicked.id, neighbours.targets, onPath);
+    svg.querySelectorAll('.n').forEach(box => {
+      box.classList.add(onPath.has(box.id) ? 'hit' : 'dim');
+    });
+    svg.querySelectorAll('.e').forEach(arrow => {
+      // A filters arrow ends at a group (data-g), so it is on the path if any box in the
+      // group is.
+      const ends = arrow.dataset.g ? boxIdsByGroup[arrow.dataset.g] : [arrow.dataset.b];
+      const lit = onPath.has(arrow.dataset.a) && ends.some(id => onPath.has(id));
+      arrow.classList.add(lit ? 'hit' : 'dim');
+    });
+  }
+
+  // passive: false lets zoom() stop the page from scrolling.
+  svg.addEventListener('wheel', zoom, {passive: false});
+  svg.addEventListener('pointerdown', startDrag);
+  svg.addEventListener('pointermove', moveDrag);
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('click', lightUpPath);
+}
+
+// --- The controls -------------------------------------------------------------------------
+
+// The choices of a menu that sets how a group of this kind is shown.
+function modeOptions(kind) {
+  return MODES_BY_KIND[kind].map(mode => `<option value="${mode}">${mode}</option>`).join('');
+}
+
+// Fill in the controls, and say what each does when it changes. The Tables, Derived tables
+// and Outputs menus set every group of their kind at once; "Each group" sets one at a time.
+function setUpControls() {
+  document.querySelectorAll('#controls select[data-kind]').forEach(menu => {
+    const kind = menu.dataset.kind;
+    if (!graph.groups.some(group => group.kind === kind)) {
+      menu.parentElement.style.display = 'none';  // no group of this kind to set
+    } else {
+      // "mixed" shows when the groups of this kind are set differently; it can't be picked.
+      menu.innerHTML = '<option value="mixed" disabled>mixed</option>' + modeOptions(kind);
+      menu.onchange = () => {
+        graph.groups.filter(group => group.kind === kind).forEach(group => {
+          state.groupMode[group.name] = menu.value;
+        });
+        draw();
+      };
+    }
+  });
+  document.getElementById('groups').innerHTML = graph.groups.map(group => {
+    const name = escapeHtml(group.name);
+    const menu = `<select data-group="${name}">${modeOptions(group.kind)}</select>`;
+    return `<div><span>${name}</span>${menu}</div>`;
+  }).join('');
+  document.querySelectorAll('#groups select').forEach(menu => {
+    menu.onchange = () => {
+      state.groupMode[menu.dataset.group] = menu.value;
+      draw();
+    };
+  });
+  document.getElementById('view').onchange = event => {
+    state.view = event.target.value;
+    draw();
+  };
+  document.getElementById('conditions').onchange = event => {
+    state.conditions = event.target.checked;
+    draw();
+  };
+  document.getElementById('showReport').onchange = event => {
+    state.report = event.target.checked;
+    draw();
+  };
+}
+
+// Make every control show the current settings.
+function syncControls() {
+  document.querySelectorAll('#controls select[data-kind]').forEach(menu => {
+    const ofKind = graph.groups.filter(group => group.kind === menu.dataset.kind);
+    const modes = new Set(ofKind.map(group => state.groupMode[group.name]));
+    menu.value = modes.size === 1 ? Array.from(modes)[0] : 'mixed';
+  });
+  document.querySelectorAll('#groups select').forEach(menu => {
+    menu.value = state.groupMode[menu.dataset.group];
+  });
+  document.getElementById('view').value = state.view;
+  document.getElementById('conditions').checked = state.conditions;
+  document.getElementById('showReport').checked = state.report;
+}
+
+// Start: read the settings, set up the controls, show them (they stay hidden when scripts
+// are off), and draw.
+readSettingsFromAddress();
+setUpControls();
+document.getElementById('controls').style.display = 'flex';
+draw();
+</script></body></html>

@@ -1,8 +1,8 @@
-<!-- Spark Composer 3.2, exported 2026-10-04 00:28 - generated from dev, do not edit -->
+<!-- Spark Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Spark Composer 3.2: Example gallery</title>
+<title>Spark Composer 4.0: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -24,12 +24,14 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>Spark Composer 3.2: Example gallery</h1>
+<h1>Spark Composer 4.0: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
-63 examples from the Toolbox's docstrings. Each shows its Python and, for each
-Statement it builds, the Hive and any result: from the Example database, the three made-up
-tables that ship inside the Toolbox. Press Ctrl+F to search the page.</p>
-<p>The examples take today as 2026-09-25, the day after the Example database's two days, so
+64 examples from the Toolbox's docstrings. Each shows its Python and, for each
+Statement it builds, the Hive and any result: from the Example database, the made-up tables
+that ship inside the Toolbox. Press Ctrl+F to search the page.</p>
+<p>New to the Toolbox? Start with the <a href="how_to.html">how-tos</a>, on the page beside
+this one in the <code>spark_composer</code> folder: how-to 1 starts a notebook.</p>
+<p>The examples take today as 2026-09-25, the day after the Example database's last day, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
@@ -71,7 +73,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#drop_table"><code>drop_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#example_database.send"><code>example_database.send</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#drop_table"><code>drop_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#example_database.send"><code>example_database.send</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -361,7 +363,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
-  job_runs.job_id</pre><p class="note">With ANSI on, Spark 4&#x27;s default, Spark stops the whole query with an error when it divides by 0, where Hive gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.</p><p class="note">Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+  job_runs.job_id</pre><p class="note">With ANSI mode on (Spark&#x27;s setting for following the SQL standard strictly), Spark 4&#x27;s default, Spark stops the whole query with an error when it divides by 0, where Hive gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is.</p><p class="note">Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>failed_percent</th></tr>
 <tr><td>1</td><td>0.0</td></tr>
 <tr><td>2</td><td>33.333333333333336</td></tr>
@@ -997,7 +999,7 @@ LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
   COUNT(*) AS runs
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND NOT job_runs.job_id IN (2.0D)</pre><p class="note">Spark reads 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+  job_runs.dt = &#x27;2026-09-24&#x27; AND NOT job_runs.job_id IN (2.0D)</pre><p class="note">Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL&#x27;s float. So Spark Composer writes a Python float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn&#x27;t mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already.</p><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>runs</th></tr>
 <tr><td>3</td></tr>
 </table></div></div>
@@ -1313,14 +1315,14 @@ WHERE
 <p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from spark_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>To update, delete the <code>spark_composer</code> folder, copy in the new one and restart the kernel. The folder checks itself when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
+<p>The Toolbox is two folders side by side: this one, and composer_core, the code both Editions share. To update, delete both folders, copy both in again from one download and restart the kernel. The two check themselves when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;3.2&#x27;</pre>
+<pre class="output">&#x27;4.0&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;Spark Composer 3.2, ...&#x27;</pre>
+<pre class="output">&#x27;Spark Composer 4.0, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -1346,7 +1348,7 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
 <p class="why">Write a table&#x27;s Table reference as <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in, or <code>t_&lt;table&gt;.py</code> for a table named like a Python word or a module Python already has, such as calendar or pandas, which the file would be imported in place of. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in, or <code>t_&lt;table&gt;.py</code> for a table named like a Python word or a module Python already has, such as calendar or pandas, which the file would be imported in place of. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. The Date partition is looked for in the first partition column only: a table partitioned first by something else, such as a region, gets date_partition=None and a TODO naming its partition columns. Name the one that holds the days, and check_table_reference(t, send=...) then gives the line its date_format needs, if any. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
 <pre class="python">print(path.read_text())</pre>
 <p class="label">Python shows</p>
@@ -1932,7 +1934,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="equals">
 <h3><code>equals</code></h3>
 <p class="why">Rows where the column equals the value.</p>
-<p>To find missing values use is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL.</p>
+<p>To find missing values use is_null(column): equals(column, None) is refused, because in SQL nothing equals NULL. Matching two tables&#x27; Date partitions whose days are written differently, such as &#x27;20260925&#x27; and &#x27;2026-09-25&#x27;, is refused too: no day would match.</p>
 <pre class="python">equals(job_runs.status, &quot;FAILED&quot;)</pre>
 <p class="label">Hive</p>
 <pre class="output">job_runs.status = &#x27;FAILED&#x27;</pre>
@@ -2277,6 +2279,45 @@ WHERE
 </table></div>
 <p class="names">Toolbox names used: <code>to_hive</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code></p>
 </section>
+<section class="entry" id="show_hive">
+<h3><code>show_hive</code></h3>
+<p class="why">Print the Hive that runs, ready to paste into another program, and return it.</p>
+<p>Each Statement&#x27;s Hive is exactly what to_hive gives and run sends, with a ; added at the end, which a program such as Hue, DBeaver or spark-sql needs between Statements; run sends it without one. Pass several Statements, or a list such as by_day(...) gives, and each is headed by a comment: its number, and the name of the variable it is in, such as -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would.</p>
+<p>It returns the same text, so <code>text = show_hive(...)</code> keeps it to use or save. In a notebook, show_hive(...) on its own shows the Hive once.</p>
+<pre class="python">failed_runs = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(job_runs.status, &quot;FAILED&quot;)),
+)</pre>
+<pre class="python">text = show_hive(failed_runs)</pre>
+<p class="label">Python shows</p>
+<pre class="output">SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;;</pre>
+<pre class="python">every_run = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<pre class="python">text = show_hive(failed_runs, every_run)</pre>
+<p class="label">Python shows</p>
+<pre class="output">-- 1 of 2: failed_runs
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;;
+
+-- 2 of 2: every_run
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;;</pre>
+<p class="names">Toolbox names used: <code>show_hive</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code></p>
+</section>
 <section class="entry" id="run">
 <h3><code>run</code></h3>
 <p class="why">Send a Statement&#x27;s Hive through your <code>send</code> function and return what comes back.</p>
@@ -2370,12 +2411,12 @@ GROUP BY
 <section class="entry" id="GuardRefused">
 <h3><code>GuardRefused</code></h3>
 <p class="why">A Guard stopped a Statement that would silently give a wrong answer.</p>
-<p>The message says what happened, why the number would come out wrong and the usual fix. When the Guard has an opt-out, it also gives the keyword to paste if you really mean it; when it has none, it says so. It is raised at your own line.</p>
+<p>The message says what happened, why the number would come out wrong and the usual fix. When the Guard has an opt-out, it also gives the keyword to paste if you really mean it; when it has none, it says so. It is raised at your own line. To catch it, import it with the rest, as <code>from spark_composer import GuardRefused</code>.</p>
 <pre class="python">SELECT(count_rows())</pre>
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-spark_composer.refusals.GuardRefused:
+composer_core.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
   Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
@@ -2385,12 +2426,12 @@ spark_composer.refusals.GuardRefused:
 <section class="entry" id="LoadRefused">
 <h3><code>LoadRefused</code></h3>
 <p class="why">A Load limit stopped a Statement that would read or return too much.</p>
-<p>The message says what happened, why the cluster or the notebook would stall, the usual fix, and the opt-out keyword to paste if you really mean it.</p>
+<p>The message says what happened, why the cluster or the notebook would stall, the usual fix, and the opt-out keyword to paste if you really mean it. To catch it, import it with the rest, as <code>from spark_composer import LoadRefused</code>.</p>
 <pre class="python">statement(SELECT(job_runs.run_id), FROM(job_runs))</pre>
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-spark_composer.refusals.LoadRefused:
+composer_core.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
@@ -2436,8 +2477,11 @@ GROUP BY
 </section>
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
-<p class="why">The Example database: three made-up tables, and a send to run Statements on.</p>
-<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, their rows (two days, 2026-09-23 and 2026-09-24), and <code>send</code>, which runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
+<p class="why">The Example database: six made-up tables, and a send to run Statements on.</p>
+<p>It holds the Table references <code>jobs</code>, <code>job_runs</code> and <code>run_alerts</code>, with rows on two days, 2026-09-23 and 2026-09-24, and three more with rows on 14 days, 2026-09-11 to 2026-09-24:</p>
+<ul><li><code>job_events</code>: each run&#x27;s events, start, finish, retry and fail;</li><li><code>job_owners</code>: one row per job per day, with its team and owner, so you can see report_build move from data to finance on 2026-09-18;</li><li><code>region_costs</code>: each run&#x27;s cost in cents, partitioned by region (&quot;eu&quot; or &quot;us&quot;, where the job is billed, not the jobs table&#x27;s LON, PAR or NYC), then by day, with days written like 20260911 rather than 2026-09-11.</li></ul>
+<p>These three keep a record of their own: they have no run_id, and don&#x27;t match job_runs run for run.</p>
+<p><code>send</code> runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
 <p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(
