@@ -70,7 +70,7 @@ computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
 - `tools/offline_policy.py` is the policy reader, the one reader of that policy, and its
   `ALLOWED` lists the reviewed sites. A new entry needs a reason and the user's OK: ask before
   adding one.
-- A hook, `.claude/hooks/offline_guard.py`, refuses an Edit, Write or NotebookEdit that would
+- A hook, `.claude/hooks/offline_hook.py`, refuses an Edit, Write or NotebookEdit that would
   add network code; `tests/repo/test_offline_policy.py` reads the whole repo, so a file written
   any other way is caught too.
 - The Example database's own Spark process runs under a trap that refuses any lookup or

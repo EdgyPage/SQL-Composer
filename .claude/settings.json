@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/offline_guard.py\""
+            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/offline_hook.py\""
           }
         ]
       }
