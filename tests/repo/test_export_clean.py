@@ -602,8 +602,10 @@ def test_the_stamped_copy_cannot_import_the_other_editions_library(tmp_path: Pat
         pytest.skip("pyspark isn't installed, so there is nothing for the check to block")
     source = dev_copy(tmp_path / "dev")
     engine = source / "sqlglot_composer" / "engine.py"
-    # Written so the check of each file's imports doesn't see it: only the import can.
-    engine.write_text(engine.read_text(encoding="utf-8") + '\n__import__("pyspark")\n',
+    # Written so the check of each file's imports doesn't see it, and the offline reader, which
+    # refuses __import__, takes it as the import of a library: only the import can stop it.
+    engine.write_text(engine.read_text(encoding="utf-8")
+                      + '\nimport importlib\nimportlib.import_module("pyspark")\n',
                       encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused, match="import of pyspark halted"):
         export_clean.build(source, tmp_path / "clean", WHEN)
@@ -656,6 +658,50 @@ def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
             "example_projects/sqlglot_composer/starter/run_pipeline.py's dry run left files "
             "in the Clean tree: ['example_projects/sqlglot_composer/starter/left_behind.txt']")):
         export_clean.build(source, tmp_path / "clean", WHEN)
+
+
+NETWORK_REFUSAL = ("The Clean tree holds code that could reach the network, and the Toolbox, "
+                   "its Example projects and its Templates reach nothing but the user's send. "
+                   "tools/offline_policy.py found, as main would hold it:\n")
+
+
+def test_a_template_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "templates" / "starter" / "daily_pipeline.py",
+          '"""Every step for one day', 'import requests\n"""Every step for one day')
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    # Line 2 on main: the export's stamp is line 1.
+    assert str(refused.value).startswith(
+        NETWORK_REFUSAL
+        + "  templates/sqlglot_composer/starter/daily_pipeline.py:2 network: import requests\n")
+
+
+def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / "example_projects" / "starter" / "lineage" / "all_three.html",
+          "<!doctype html>", '<!doctype html><script src="https://example.com/x.js"></script>')
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    assert str(refused.value).startswith(
+        NETWORK_REFUSAL
+        + "  example_projects/sqlglot_composer/starter/lineage/all_three.html:2 page reference: ")
+    assert '<script src="https://example.com/x.js">' in str(refused.value)
+
+
+def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
+        tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    # Run, it would leave a file behind, which the dry run's own check refuses: read first, the
+    # socket stops it before anything runs.
+    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
+          "    dry_run(DAY)\n",
+          '    dry_run(DAY)\n    import socket\n    Path("left_behind.txt").write_text("x")\n')
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    assert str(refused.value).startswith(NETWORK_REFUSAL)
+    assert "example_projects/sqlglot_composer/starter/run_pipeline.py:" in str(refused.value)
+    assert not list((tmp_path / "clean").rglob("left_behind.txt"))
 
 
 @pytest.mark.parametrize("spelling", ["Spark Composer", "spark_composer", "spark-composer",
