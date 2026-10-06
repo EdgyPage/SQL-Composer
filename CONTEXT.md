@@ -30,8 +30,9 @@ Editions. Two copies of the same Toolbox version are told apart by when they wer
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox's Composer core, its Editions and their README, generated
-from the Dev branch and never edited by hand.
+The branch holding only the Toolbox's Composer core, its Editions, each Edition's copy of the
+Example projects and the Templates, and their README, generated from the Dev branch and never
+edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:
