@@ -57,8 +57,8 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 
 ## Update
 
-Updating a copy from before 4.0, with a `sql_composer` folder or no `composer_core` folder?
-See [Update from 3.x](#update-from-3x) instead.
+Updating from 3.x, SQL Composer or Spark Composer, with no `composer_core` folder? See
+[Update from 3.x](#update-from-3x) instead.
 
 1. Delete both folders: `composer_core` and your Edition's.
 2. From the new download, copy in both whole folders of the same names.
@@ -73,24 +73,33 @@ copy you have, and `composer_core/CHANGES.md` says what changed in each version.
 
 ## Update from 3.x
 
-Before 4.0, the Toolbox was one folder, with no `composer_core`, and sqlglot Composer was named
-SQL Composer, in a folder named `sql_composer`. To update from it:
+Before 4.0, each Edition was one folder you copied on its own, with no `composer_core`, and
+sqlglot Composer was named SQL Composer, in a folder named `sql_composer`. These steps are the
+same from 3.0, 3.1 or 3.2. To update from SQL Composer:
 
 1. Delete the `sql_composer` folder.
 2. From the new download, copy in the whole `composer_core` folder and the whole
    `sqlglot_composer` folder.
-3. In your notebooks and scripts, the Table reference files `write_table_reference` wrote for
-   you included, change every `sql_composer` to `sqlglot_composer`: change
+3. In your notebooks and scripts, change every `sql_composer` to `sqlglot_composer`: change
    `from sql_composer import` to `from sqlglot_composer import`, and `sql_composer.VERSION` to
-   `sqlglot_composer.VERSION`. Each Table reference file it wrote has the line
-   `from sql_composer import Table` below its docstring.
+   `sqlglot_composer.VERSION`. That includes each Table reference file `write_table_reference`
+   wrote for you: each has the line `from sql_composer import Table` below its docstring.
 4. Restart the kernel.
 
 With Spark Composer, delete your `spark_composer` folder, then copy in the new one and the
-`composer_core` folder beside it, and restart the kernel. Your imports stay as they are.
+`composer_core` folder beside it, and restart the kernel. Your `from spark_composer import`
+lines stay as they are.
 
-Before 4.0, the two Editions could be imported in one Python. Now that stops: use one per
-notebook.
+With either Edition, import every name from the Edition's folder itself, never from a file
+inside it: the files inside moved to `composer_core`, so `from sql_composer.refusals import
+GuardRefused` becomes `from sqlglot_composer import GuardRefused`. Importing both Editions in
+one Python, which 3.x advised against, now stops: use one per notebook.
+
+Two new refusals can stop code that ran on 3.x. `run` refuses a read whose `send` gives back
+something other than a pandas DataFrame: if yours gives back a list of rows, end it with
+`return pd.DataFrame(rows)`. And a comparison of two tables' days written different ways, such
+as 20260925 and 2026-09-25, is refused. The 4.0 section of `composer_core/CHANGES.md`, where
+the change notes now are, lists these and everything else that changed.
 
 ## A first Statement
 

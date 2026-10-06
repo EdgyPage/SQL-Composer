@@ -48,7 +48,7 @@ from .trees import (
     string,
 )
 
-TOOLBOX_VERSION = "3.2"
+TOOLBOX_VERSION = "4.0"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 # The day a message writes when it needs an example of one: the day after the Example
