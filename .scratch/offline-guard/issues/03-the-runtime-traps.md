@@ -90,3 +90,8 @@ Built in 2fd1b0d, fixed up after its code review in the commit that resolves thi
   child repeats part of `install()` on purpose: it checks engine.py's trap in a Python that has
   nothing of the tests' but the backstop. The new ALLOWED entries need the user's OK (map
   Notes): asked of the user through the hand-back.
+
+**The user's OK (2026-10-06).** The user approved all 8 ALLOWED entries this ticket added (the
+trap's socket-method wraps in spark_composer/engine.py, tests/offline_trap.py's socket import and
+wraps, and the three tests that start a child Python to try real connections), and chose to
+raise the Toolbox to 4.1 for the Example database's Spark refusing the network (D147, D148).
