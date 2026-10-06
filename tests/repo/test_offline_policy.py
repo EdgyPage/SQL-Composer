@@ -127,6 +127,31 @@ def test_a_file_that_doesnt_parse_cant_be_read() -> None:
     assert kinds("def f(:\n") == ["unreadable"]
 
 
+def test_a_file_that_declares_an_encoding_other_than_utf_8_cant_be_read() -> None:
+    # Python reads this one in UTF-7, where `+AAo-` is a new line before `import requests`.
+    assert kinds("# coding: utf-7\nx = 1 #+AAo-import requests\n") == ["unreadable"]
+    assert kinds("#!/usr/bin/env python\n# -*- coding: latin-1 -*-\nx = 1\n") == ["unreadable"]
+    assert kinds("# -*- coding: utf-8 -*-\nx = 1\n") == []
+
+
+def test_a_windows_script_is_read_as_python() -> None:
+    assert kinds("import requests\n", "composer_core/x.pyw") == ["network"]
+
+
+def test_no_folder_inside_the_toolbox_or_user_copied_code_is_skipped(tmp_path) -> None:
+    # A `.venv`-like folder, or one named like a cache, could otherwise hold code a Toolbox
+    # file imports unread.
+    for folder in ("composer_core/a", "templates/node_modules", "composer_core/.scratch"):
+        (tmp_path / folder).mkdir(parents=True)
+        (tmp_path / folder / "pyvenv.cfg").write_text("home = x\n", encoding="utf-8")
+        (tmp_path / folder / "x.py").write_text("import requests\n", encoding="utf-8")
+    (tmp_path / "tools" / ".venv").mkdir(parents=True)
+    (tmp_path / "tools" / ".venv" / "pyvenv.cfg").write_text("home = x\n", encoding="utf-8")
+    (tmp_path / "tools" / ".venv" / "x.py").write_text("import requests\n", encoding="utf-8")
+    assert sorted(finding.path for finding in scan(tmp_path)) == [
+        "composer_core/.scratch/x.py", "composer_core/a/x.py", "templates/node_modules/x.py"]
+
+
 def test_a_template_is_read_with_its_placeholders_as_names() -> None:
     text = "import <MODULE>\nimport requests\nDAY = <DAY>\n"
     assert kinds(text, "templates/starter/x.py") == ["network"]

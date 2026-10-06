@@ -30,10 +30,12 @@ annotation or an except clause's type are read, since Python runs them. What it 
 a module kept in a variable (`m = os`), a name imported as two modules (the last is read), and
 a method on an object it can't name, such as an asyncio loop's `create_connection`.
 
-A notebook's code cells are read as one Python file, and a `!` or `%` line in one, which runs
-a shell command or an IPython magic, is a process. A Python file that doesn't parse can't be
-read, and says so ("unreadable"); a template's placeholders, such as `<TABLE>`, are read as
-names, so it parses before it is filled in.
+A `.pyw` is read as a Python file. A notebook's code cells are read as one Python file, and a
+`!` or `%` line in one, which runs a shell command or an IPython magic, is a process. A Python
+file that doesn't parse can't be read, and says so ("unreadable"), and so can one that declares
+an encoding other than UTF-8 (`# coding: utf-7`), which Python would read differently; a
+template's placeholders, such as `<TABLE>`, are read as names, so it parses before it is filled
+in.
 
 In a page (`.html`, `.js`), it looks for anything that loads or sends something outside the
 page: `external_references`.
@@ -47,7 +49,8 @@ What is allowed depends on the folder, strictest first:
 - **everything else** (`tools/`, `tests/`, `.claude/hooks/`): the same, apart from URLs and
   Spark settings in strings, which tests and tools hold as text to check pages against.
 
-The tracker, `.scratch/`, holds notes and reports, not code, and isn't read.
+The tracker, `.scratch/`, holds notes and reports, not code, and isn't read, nor are caches and
+Python environments; but inside the Toolbox and user-copied code, every folder is read.
 
 Run it to read the repo, or the files and folders named:
 
@@ -63,10 +66,12 @@ from __future__ import annotations
 import ast
 import builtins
 import doctest
+import io
 import json
 import os
 import re
 import sys
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -133,8 +138,10 @@ USER_COPIED = ("templates", "example_projects", "worked_examples")
 # Folders never read: the tracker's notes, and what tools and Pythons leave behind.
 NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff_cache",
                       ".mypy_cache", "node_modules", "spark-warehouse", "metastore_db"})
-PYTHON_FILES = (".py",)
+# A `.pyw` is a Python file that Windows runs without a console, and imports like a `.py`.
+PYTHON_FILES = (".py", ".pyw")
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")
+READ_FILES = PYTHON_FILES + PAGE_FILES + (".ipynb",)
 
 
 @dataclass(frozen=True)
@@ -357,6 +364,10 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/repo/test_hooks.py",
             "test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook", "process",
             "subprocess.run", "runs this same Python on a hook in .claude/hooks/"),
+    Allowed("tests/repo/test_offline_guard.py", "<module>", "process", "subprocess",
+            "imports subprocess, to run the offline guard hook"),
+    Allowed("tests/repo/test_offline_guard.py", "run_hook", "process", "subprocess.run",
+            "runs this same Python on a hook in .claude/hooks/"),
     Allowed("tests/repo/test_toolbox_checks.py", "<module>", "process", "subprocess",
             IMPORTS_PYTHON),
     Allowed("tests/repo/test_toolbox_checks.py",
@@ -435,10 +446,25 @@ def _found(text: str, path: str) -> list[Finding]:
         return [Finding(path, line, "page reference", around, name=what)
                 for line, what, around in _page_references(text)]
     if suffix in PYTHON_FILES:
+        declared = _declared_encoding(text)
+        if declared not in ("utf-8", "utf-8-sig"):
+            return [Finding(path, 1, "unreadable", f"it declares its encoding as {declared}, "
+                            "which Python would read it in, so it can't be read as UTF-8")]
         return _python_findings(text, path)
     if suffix == ".ipynb":
         return _notebook_findings(text, path)
     return []
+
+
+def _declared_encoding(text: str) -> str:
+    """The encoding a Python file's first two lines declare (`# coding: ...`), which Python
+    reads the file in, or "utf-8" for none."""
+    try:
+        encoding, _ = tokenize.detect_encoding(io.BytesIO(text.encode("utf-8", "replace"))
+                                               .readline)
+    except SyntaxError as error:
+        return f"one Python doesn't know ({error.msg})"
+    return encoding
 
 
 def _page_references(text: str) -> list[tuple[int, str, str]]:
@@ -869,16 +895,29 @@ def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:
             subfolders[:] = sorted(name for name in subfolders
                                    if not _not_read(Path(folder, name), root))
             files += [Path(folder, name) for name in sorted(names)
-                      if name.lower().endswith(PYTHON_FILES + PAGE_FILES + (".ipynb",))]
+                      if name.lower().endswith(READ_FILES)]
     return files
+
+
+def is_read(root: Path, file: Path) -> bool:
+    """Whether reading the repo at `root` reads `file`: a file of a kind it reads, in no folder
+    it skips. The hook asks this of a file before an edit, which may not exist yet."""
+    if not file.name.lower().endswith(READ_FILES):
+        return False
+    return not any(_not_read(folder, root) for folder in file.parents if root in folder.parents)
 
 
 def _not_read(folder: Path, root: Path) -> bool:
     """A folder that holds no code of the repo's: see NOT_READ; Claude Code's worktrees, which
-    are other checkouts; and a Python's own folder, which holds pyvenv.cfg."""
+    are other checkouts; and a Python's own folder, which holds pyvenv.cfg. Nothing in the
+    Toolbox or user-copied code is skipped, since a file there could import what a skipped
+    folder holds."""
+    path = _path_from(root, folder)
+    if scope_of(path) != "maintainer":
+        return False
     if folder.name in NOT_READ or (folder / "pyvenv.cfg").exists():
         return True
-    return _path_from(root, folder) == ".claude/worktrees"
+    return path == ".claude/worktrees"
 
 
 def _path_from(root: Path, file: Path) -> str:

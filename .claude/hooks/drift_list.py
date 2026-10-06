@@ -15,10 +15,8 @@ Which session asked for which review is not tracked: it lives in a file inside t
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 DRIFT_LIST = Path(".scratch") / "drift.md"
@@ -40,10 +38,6 @@ MAKES_A_COMMIT = re.compile(
 )
 OPEN_ITEM = re.compile(r"^- \[ \] (D\d+) \| ([0-9a-f]{7,40}) \|", re.MULTILINE)
 REVIEWED = re.compile(r"^- ([0-9a-f]{7,40}):", re.MULTILINE)
-
-
-def read_hook_input() -> dict:
-    return json.loads(sys.stdin.read() or "{}")
 
 
 def git(folder: str | Path, *args: str) -> str:
