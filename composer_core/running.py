@@ -32,7 +32,7 @@ from .refusals import (
 from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}

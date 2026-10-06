@@ -45,7 +45,7 @@ from . import edition
 from .refusals import refuse
 from .tables import Table
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 # --- The Table references -----------------------------------------------------------------
 
