@@ -331,9 +331,45 @@ def _matched_with(table: Table, on: Condition) -> str | None:
     return None
 
 
+def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition) -> None:
+    """Refuse an ON= that sets a column of the joined table equal to the same column of a table
+    with the same name, as when one Statement reads one Building block twice.
+
+    The SQL reads both sides as the same column of the same table, so ON= pairs every row with
+    every row. Refused here, at the join, before the repeated-rows Warning, which would say
+    the join matches on nothing.
+    """
+    alias = table._alias
+    for part in on._tree.find_all("EQ"):
+        sides = (part.parts["this"], part.parts["expression"])
+        if all(side.kind == "Column" and side.table == alias for side in sides) and (
+                sides[0].name == sides[1].name):
+            column = f"{alias}.{sides[0].name}"
+            if table._statement is None:
+                called = f"both sides are tables called {alias}"
+                fix = (f'To read {alias} twice, give the second a name of its own with AS: '
+                       f'earlier = AS({alias}, "earlier"), then JOIN(earlier, ON=...) with '
+                       "earlier's columns.")
+            else:
+                called = (f"both sides are Derived tables called {alias}, the name given to "
+                          "derived(...)")
+                fix = (f"To read a Derived table twice, give the second a name of its own. "
+                       f"Built for other days, give it another name in derived(...), such as "
+                       f'"{alias}_earlier": a Building block can take the name as an '
+                       f'argument. The same one twice: AS(it, "earlier").')
+            refuse(
+                what=f"{call}({alias}, ON=...) compares {column} with {column}: {called}.",
+                why="The SQL reads both sides as one column of one table, so every row of the "
+                f"tables before the join would match every {alias} row.",
+                fix=fix,
+                error=ValueError,
+            )
+
+
 def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> Clause:
     table = _need_table(table, f"{call}(...)")
     on = _need_on(on, call, table)
+    _refuse_a_column_compared_with_itself(call, table, on)
     matched = _matched_columns(table, on)
     key = table._key
     if key is None or not set(key) <= set(matched):

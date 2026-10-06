@@ -8,6 +8,7 @@ it can be imported to check sqlglot before sqlglot is trusted.
 
 from __future__ import annotations
 
+import contextlib
 import re
 
 from composer_core import _four_part_message as four_part_message
@@ -271,6 +272,96 @@ def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) 
     )) from error
 
 
+class _MixUp(Exception):
+    """The executor was about to read one column where another of the same name was asked for."""
+
+    def __init__(self, asked_for: str, would_read: str):
+        super().__init__(f"{asked_for} would read {would_read}")
+        self.asked_for, self.would_read = asked_for, would_read
+
+
+def _set_equal_by_joins(tree) -> set:
+    """Each pair of same-named columns that a JOIN (not a LEFT JOIN) sets equal in its ON, as
+    {(table, column), (table, column)}: the two have the same value in every joined row."""
+    from sqlglot import exp
+
+    equal = set()
+    for join in tree.find_all(exp.Join):
+        on = join.args.get("on")
+        if join.side or on is None:
+            continue
+        for part in on.flatten() if isinstance(on, exp.And) else [on]:
+            sides = (part.this, part.expression) if isinstance(part, exp.EQ) else ()
+            if all(isinstance(side, exp.Column) for side in sides) and len(
+                    {side.name for side in sides}) == 1:
+                equal.add(frozenset((side.table, side.name) for side in sides))
+    return equal
+
+
+@contextlib.contextmanager
+def _mix_ups_stopped(tree):
+    """While it lasts, the executor stops with a _MixUp before it adds up rows it would mix up.
+
+    To add rows up after a join, sqlglot's executor works out the inside of each count or sum
+    as a new column at the end of each joined row, and widens each joined table by that many
+    columns. A table's columns then run on into the next table's, and a column name the two
+    share reads the next table's value: for a LEFT JOIN's row with no match, NULL. Each time it
+    adds rows up, this looks for such a name that the groups or sums read first; a JOIN (not a
+    LEFT JOIN) whose ON sets the two equal gives both the same value, so that is let through.
+    """
+    from sqlglot import exp
+    from sqlglot.executor.python import PythonExecutor
+
+    equal = _set_equal_by_joins(tree)
+    real = PythonExecutor.aggregate
+
+    def aggregate(executor, step, context):
+        # What it reads from the joined rows once they are widened: the groups, and each
+        # count's or sum's inside that it reads without working it out first.
+        read = {(column.table, column.name) for found in [*step.group.values(),
+                                                          *step.aggregations]
+                for column in found.find_all(exp.Column)}
+        joined = [(name, table) for name, table in context.tables.items()
+                  if table.column_range is not None]
+        for name, table in joined:
+            own = {table.columns[i] for i in table.column_range}
+            widened = range(table.column_range.stop,
+                            min(table.column_range.stop + len(step.operands), len(table.columns)))
+            for i in widened:
+                column = table.columns[i]
+                other = next((n for n, t in joined if i in t.column_range), None)
+                if column in own and other is not None and (name, column) in read and (
+                        frozenset({(name, column), (other, column)}) not in equal):
+                    raise _MixUp(f"{name}.{column}", f"{other}.{column}")
+        return real(executor, step, context)
+
+    PythonExecutor.aggregate = aggregate
+    try:
+        yield
+    finally:
+        PythonExecutor.aggregate = real
+
+
+def _refuse_a_mix_up(mix_up: _MixUp) -> None:
+    """Refuse a query the executor would answer wrong, mixing up two columns of one name."""
+    asked_for, would_read = mix_up.asked_for, mix_up.would_read
+    table, column = would_read.split(".")
+    raise RuntimeError(four_part_message(
+        what=f"The Example database can't run this Hive: its executor would mix up {asked_for} "
+        f"and {would_read}, two columns called {column}, when it works out GROUP_BY and the "
+        "counts and sums after the join.",
+        why="The Example database runs Hive on sqlglot's own small executor, which here would "
+        f"read {would_read} where {asked_for} is asked for, and so give a wrong answer without "
+        "saying so. Hive at work reads the right one.",
+        fix="See the Hive with to_hive(...), and run it at work with your own send. To try it "
+        f"here, rename {table}'s {column}: in the SELECT of derived(\"{table}\", ...), wrap "
+        f'its {column} in AS(..., "{table}_{column}"), then read {table}.{table}_{column} in '
+        f"ON= and wherever else you read {would_read}. A Table reference can't be renamed: "
+        "read it through a Derived table that does this.",
+        opt_out=None,
+    )) from mix_up
+
+
 def _sqlglot_said(error: Exception) -> str:
     """The first line of what sqlglot said, without where it stopped ("Line 1, Col: 45.")."""
     said = (str(error).strip().splitlines() or [type(error).__name__])[0]
@@ -309,9 +400,13 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     if tree.find(exp.Window):
         _refuse_missing_part("window functions such as row_number")
     try:
-        result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,
-                         dialect="hive")
+        with _mix_ups_stopped(tree):
+            result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,
+                             dialect="hive")
     except sqlglot.errors.ExecuteError as error:
+        # The executor wraps what stops a step in an ExecuteError, raised from it.
+        if isinstance(error.__cause__, _MixUp):
+            _refuse_a_mix_up(error.__cause__)
         missing = _missing_function(tree, str(error))
         if missing is None:
             _refuse_unreadable(_sqlglot_said(error), tables, error)
