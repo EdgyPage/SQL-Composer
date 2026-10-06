@@ -36,9 +36,10 @@ So the policy is written down and held in code:
 - **Put the runtime trap into the user's Python too**, when the Toolbox is imported. It would
   refuse `send` itself, or need a hole for it that any code could use. The user chose to trap
   only the processes that are the Toolbox's own: the Example database's, and the tests'.
-- **Guard Claude's shell commands as well as its edits.** The user chose code only: pushing dev
-  and reading CI through GitHub's public API stay as they are. A file written from a shell
-  command gets past the edit hook, and the repo's test and the export's check catch it.
+- **Hold Claude's shell commands to the policy as well as its edits.** The user chose code
+  only: pushing dev and reading CI through GitHub's public API stay as they are. A file
+  written from a shell command gets past the edit hook, and the repo's test and the export's
+  check catch it.
 
 ## Consequences
 

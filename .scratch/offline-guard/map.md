@@ -57,3 +57,7 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   run, Markdown as pages (`page_findings`), and refuses naming each `file:line kind: code`;
   CI reads the repo only, with actions pinned to commit SHAs (pip hashes a follow-up); the
   drift hook prints at most 20 paths, each one plain line of at most 120 characters.
+- [The records](issues/05-the-records.md): `docs/offline-audit.md` (the audit, its line
+  numbers a snapshot of 2026-10-06), ADR 0004, standards.md's allowlist rule and CLAUDE.md's
+  Offline section; CONTEXT.md unchanged, and renaming the "offline guard" hook, beside the
+  glossary's **Guard**, recommended to the user.
