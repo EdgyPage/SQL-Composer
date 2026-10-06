@@ -8,8 +8,9 @@ import re
 import sys
 
 # Text a hook prints into the session goes as one plain line of bounded length: a file name or
-# a line of code crafted with newlines or terminal codes can't read as an instruction.
-UNPRINTABLE = re.compile(r"[\x00-\x1f\x7f-\x9f  ]+")
+# a line of code crafted with newlines, Unicode line breaks, direction marks or terminal codes
+# can't read as an instruction.
+UNPRINTABLE = re.compile("[\x00-\x1f\x7f-\x9f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]+")
 
 
 def read_hook_input() -> dict:
