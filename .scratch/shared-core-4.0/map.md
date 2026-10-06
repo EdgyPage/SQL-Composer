@@ -90,6 +90,9 @@ anywhere.
   Date partition in the first partition column only, writing `date_partition=None` and a TODO
   otherwise (ticket 09, 7f247e8); and that the README's "Where the two Editions' Hive differs"
   now says what ANSI mode is (tickets 09 and 10).
+- Ticket 15's CHANGES 4.0 section also gains the Templates (ticket 13): `templates/`, a
+  starter set and an intermediate set of scripts to copy into a project and fill in, each
+  placeholder listed in its docstring, and a README giving the order to use them in.
 
 ## Records this changes
 
@@ -159,6 +162,14 @@ anywhere.
   Editions' Hive differs (only 27 shows them), lag, rank and a rolling sum in pandas, reviewing a
   change by comparing Lineage files, testing a Statement against a pandas oracle; no new Toolbox
   code; the page tool refuses text naming one Edition twice on a page and folds long files.
+- [The Templates](issues/13-templates.md): `templates/starter/` (notebook_start,
+  keep_table_references_true, building_block, saved_table_reference, saved_table,
+  daily_pipeline, per_group_statement) and `templates/intermediate/` (incremental_load and
+  incremental_pipeline, which fit the starter pieces, weekly_rollup, as_of_lookup,
+  building_blocks, quality_statements, settings_driven on settings.py's text pattern), with
+  `<UPPER_SNAKE>` placeholders under "Fill in:" and a README giving their order; names avoid
+  "report", "check" and "library"; notebook_start and keep_table_references_true work from an
+  empty folder; the tests fill both sets in as one; the glossary's Template is rewritten.
 
 ## Not yet specified
 

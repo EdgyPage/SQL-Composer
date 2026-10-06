@@ -1,4 +1,4 @@
-"""As-of lookups: each row with its own day's snapshot, and each key's newest one.
+"""As-of lookups: rows counted by what was true on their day, and newest snapshots.
 
 Why: a snapshot table holds what each key was on each day, such as each job's team, so a row
 counts for what was true on its own day only if it is matched to that day's snapshot.
@@ -14,14 +14,16 @@ the very rows LEFT_JOIN keeps.
 newest_per_key(day) answers a different question: what is each key now? It takes each key's
 newest snapshot in the SNAPSHOT_DAYS days up to the day, so a key is still found when the
 day's snapshot hasn't come in yet. It numbers each key's snapshots with row_number, newest
-first, then keeps number 1. row_number is a window function. Each Edition ships its own
-Example database, and the one that runs its queries with sqlglot, rather than on Spark, has no
-window functions: it stops with a message saying so. Your warehouse runs it.
+first, then keeps number 1. row_number is a window function. If your Example database stops
+on it with a message saying its executor has no window functions, run
+newest_per_key_by_newest_day(day) there instead: it gives the same rows without one. Your
+warehouse runs both.
 
 Mirrors example_projects/intermediate/statements/example_2_owner_as_of.py and its Building
 block, example_projects/intermediate/building_blocks/owner_on_day.py.
 
-Replace each placeholder, brackets and all, wherever it is written:
+Replace each placeholder, brackets and all, wherever it is written in the code, then delete
+this Fill in: block:
 
 Fill in:
     <TABLE>: the Table reference of the rows to look up for, which is also its file's name in
@@ -29,22 +31,23 @@ Fill in:
     <MATCH_COLUMN>: its column holding the key to look up, such as job_id.
     <DATE_PARTITION>: its Date partition, such as dt.
     <SNAPSHOT>: the snapshot's Table reference, one row per key per day, which is also its
-        file's name in table_references/, such as job_owners.
+        file's name in table_references/, such as job_owners. Its key is the key column and
+        its Date partition, such as key=["job_id", "dt"]: each join names both.
     <SNAPSHOT_MATCH_COLUMN>: the snapshot's column holding the same key, such as job_id.
     <SNAPSHOT_DATE_PARTITION>: the snapshot's Date partition, such as dt.
     <LOOKED_UP_COLUMN>: the snapshot's column to look up, such as team.
-    <SNAPSHOT_DAYS>: how many days, up to the day, newest_per_key looks back for a snapshot,
-        such as 7.
+    <SNAPSHOT_DAYS>: how many days, up to the day, newest_per_key looks back for a snapshot:
+        a number, without quotes, such as 7.
 """
 
 import datetime
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, derived,
-    descending, equals, row_number, statement,
+    AS, FROM, GROUP_BY, JOIN, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, derived,
+    descending, equals, max_of, row_number, statement,
 )
-from table_references.<SNAPSHOT> import <SNAPSHOT>
-from table_references.<TABLE> import <TABLE>
+from table_references.<SNAPSHOT> import <SNAPSHOT>  # the snapshot's Table reference
+from table_references.<TABLE> import <TABLE>  # the Table reference of the rows looked up for
 
 SNAPSHOT_DAYS = <SNAPSHOT_DAYS>  # newest_per_key looks this many days back, the day included
 
@@ -61,7 +64,7 @@ def rows_as_of_their_day(first_day, last_day):
         SELECT(<TABLE>.<DATE_PARTITION>, <SNAPSHOT>.<LOOKED_UP_COLUMN>,
                AS(count_rows(), "row_count")),
         FROM(<TABLE>),
-        LEFT_JOIN(<SNAPSHOT>, ON=all_of(
+        LEFT_JOIN(<SNAPSHOT>, ON=all_of(  # all_of: every condition in it must hold
             equals(<SNAPSHOT>.<SNAPSHOT_MATCH_COLUMN>, <TABLE>.<MATCH_COLUMN>),  # the same key
             equals(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, <TABLE>.<DATE_PARTITION>),  # same day
             between(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, first_day, last_day),  # its days
@@ -95,4 +98,35 @@ def newest_per_key(day):
                numbered.<SNAPSHOT_DATE_PARTITION>),
         FROM(numbered),
         WHERE(equals(numbered.newest_first, 1)),
+    )
+
+
+def newest_per_key_by_newest_day(day):
+    """The rows newest_per_key gives, worked out without row_number, so every Example database
+    runs it.
+
+    It finds each key's newest day with a snapshot, one row per key, then joins that day's
+    snapshot back on. ON= names the snapshot's key, the key column and its day, so each key
+    matches one snapshot row.
+    """
+    first_day = days_before(day, SNAPSHOT_DAYS - 1)
+    newest = derived(
+        "newest",
+        statement(
+            SELECT(<SNAPSHOT>.<SNAPSHOT_MATCH_COLUMN>,
+                   AS(max_of(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>), "newest_day")),
+            FROM(<SNAPSHOT>),
+            WHERE(between(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, first_day, day)),
+            GROUP_BY(<SNAPSHOT>.<SNAPSHOT_MATCH_COLUMN>),
+        ),
+    )
+    return statement(
+        SELECT(newest.<SNAPSHOT_MATCH_COLUMN>, <SNAPSHOT>.<LOOKED_UP_COLUMN>,
+               <SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>),
+        FROM(newest),
+        JOIN(<SNAPSHOT>, ON=all_of(
+            equals(<SNAPSHOT>.<SNAPSHOT_MATCH_COLUMN>, newest.<SNAPSHOT_MATCH_COLUMN>),
+            equals(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, newest.newest_day),  # its newest day
+            between(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, first_day, day),  # the days read
+        )),
     )
