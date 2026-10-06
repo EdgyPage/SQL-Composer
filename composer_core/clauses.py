@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:
@@ -31,7 +31,7 @@ from .tables import Column, Table, aliased
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]

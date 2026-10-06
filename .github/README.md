@@ -1,7 +1,7 @@
-<!-- sqlglot Composer and Spark Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit -->
+<!-- sqlglot Composer and Spark Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit -->
 # sqlglot Composer and Spark Composer
 
-This is version 4.0, exported 2026-10-06 00:26.
+This is version 4.1, exported 2026-10-06 15:49.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -335,8 +335,8 @@ Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'4.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 4.0, exported 2026-10-06 00:26'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'4.1'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 4.1, exported 2026-10-06 15:49'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 

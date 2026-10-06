@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """ops.job_events - one row per event of a run: start, retry, finish or fail.
 
 Why: the project's Statements read the table through this file, so each column they name, and

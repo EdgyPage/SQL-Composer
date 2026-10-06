@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Statements from settings: the same ones for each table, its differences as text.
 
 Why: when the same Statements repeat over many tables, writing each table's few differences

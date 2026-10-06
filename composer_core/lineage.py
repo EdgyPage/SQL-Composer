@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """Lineage: draw where each column comes from, as an HTML page and as Markdown.
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,
@@ -30,7 +30,7 @@ from .tables import readable
 from .trees import Node
 from .edition import hive_text
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------

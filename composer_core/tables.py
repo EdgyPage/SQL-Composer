@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
@@ -49,7 +49,7 @@ from .trees import (
     string,
 )
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 # The day a message writes when it needs an example of one: the day after the Example

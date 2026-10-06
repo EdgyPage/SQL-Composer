@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Example 3: examples 1 and 2 combined into each team's day, saved every day.
 
 Why: once examples 1 and 2 have saved a day, each team's numbers come from a few saved rows

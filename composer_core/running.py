@@ -1,4 +1,4 @@
-# Composer core 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
 run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own
@@ -33,7 +33,7 @@ from .refusals import (
 from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}

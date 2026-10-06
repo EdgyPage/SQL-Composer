@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# Spark Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """What Spark Composer runs on: the pyspark it needs, and the Spark its Example database uses.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it
@@ -24,6 +24,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import functools
+import ipaddress
 import json
 import os
 import re
@@ -42,7 +43,7 @@ if __package__:
     from composer_core import _four_part_message as four_part_message
     from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 
 def _stop(what, why, fix):
@@ -1135,7 +1136,11 @@ def _serve() -> None:
     (None), when the connection closes, and at once when your Python stops, even mid-query: its
     pipe to this process's stdin closes then. On Windows it watches that pipe only once its
     Spark has started; until then the job that holds it ends it with your Python.
+
+    Before anything else, it refuses the network: nothing it, pyspark or py4j does in this
+    Python can reach another computer.
     """
+    _refuse_the_network()
     import traceback
     from multiprocessing.connection import Client
 
@@ -1254,6 +1259,109 @@ def _what_spark_said(error: Exception) -> str:
     except Exception:  # noqa: BLE001 - Java can't say more; Python's text says enough
         pass
     return str(error)
+
+
+# --- The process itself: it reaches nothing off this computer ----------------------------------
+
+# The audit events (PEP 578) through which a Python reaches another computer. A lookup gives the
+# name it looks up first; a socket's event gives the socket, then the address, (host, port) or a
+# Unix socket's path; a client library's gives its URL first, or itself and then its host.
+_LOOKUPS = frozenset({"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyaddr",
+                      "socket.getnameinfo"})
+_SOCKET_ADDRESSES = frozenset({"socket.connect", "socket.bind", "socket.sendto",
+                               "socket.sendmsg"})
+_CLIENT_URLS = frozenset({"urllib.Request", "webbrowser.open"})
+_CLIENT_HOSTS = frozenset({"http.client.connect", "ftplib.connect", "smtplib.connect",
+                           "poplib.connect", "imaplib.open", "nntplib.connect",
+                           "telnetlib.Telnet.open"})
+_REACHING = _LOOKUPS | _SOCKET_ADDRESSES | _CLIENT_URLS | _CLIENT_HOSTS
+
+
+def _refuse_the_network() -> None:
+    """Make this Python refuse, for as long as it runs, anything that would reach another
+    computer.
+
+    It is the Example database's process's first step, before pyspark or py4j is imported, so
+    it holds for them too. It still lets them connect to this computer, by 127.0.0.1, ::1 or
+    localhost: the process connects back to your Python on 127.0.0.1, and pyspark talks to its
+    Java on it. The Java itself is held to 127.0.0.1 by its settings, since this can't watch
+    it. The tests run under the same trap.
+    """
+    sys.addaudithook(_refuse_off_the_machine)
+    # Python looks up a name given to a socket's method before it raises the method's event,
+    # with no event for that lookup, so each method given an address judges it first.
+    socket.socket.connect = _judged_first("socket.connect", socket.socket.connect)
+    socket.socket.connect_ex = _judged_first("socket.connect", socket.socket.connect_ex)
+    socket.socket.bind = _judged_first("socket.bind", socket.socket.bind)
+    socket.socket.sendto = _judged_first("socket.sendto", socket.socket.sendto)
+    if hasattr(socket.socket, "sendmsg"):  # Windows has none
+        socket.socket.sendmsg = _judged_first("socket.sendmsg", socket.socket.sendmsg)
+
+
+def _judged_first(event: str, method):
+    """A socket method that refuses an address off this computer before Python looks it up."""
+
+    def judged_first(self, *args):
+        # The address is the last argument, and sendmsg is given one only with all four.
+        if args and (event != "socket.sendmsg" or len(args) == 4):
+            _refuse_off_the_machine(event, (self, args[-1]))
+        return method(self, *args)
+
+    return judged_first
+
+
+def _refuse_off_the_machine(event: str, args: tuple) -> None:
+    """Raise RuntimeError for an audit event that would reach off this computer."""
+    if event in _REACHING:
+        off = _off_the_machine(event, args)
+        if off is not None:
+            raise RuntimeError(f"{off} was refused: this Python reaches nothing off this "
+                               "computer, only 127.0.0.1, ::1 and localhost.")
+
+
+def _off_the_machine(event: str, args: tuple) -> str | None:
+    """What an audit event would reach off this computer, as "socket.connect to '192.0.2.1'",
+    or None when it stays on it.
+
+    A lookup is allowed for this computer's own names, or for no name at all, which is answered
+    with no lookup. A connection, a bind or a message is allowed to this computer's own
+    addresses, or to a Unix socket's path, which is a file here: a bind to "" or "0.0.0.0"
+    listens on every network the computer is on, so it is refused. A client library, such as
+    urllib or webbrowser, is refused whatever it is given, since nothing here has any use for
+    one.
+    """
+    if event in _CLIENT_URLS:
+        return f"{event} of {args[0]!r}"
+    if event in _CLIENT_HOSTS:
+        return f"{event} to {args[1]!r}"
+    if event in _LOOKUPS:
+        name = _as_text(args[0][0] if isinstance(args[0], tuple) else args[0])
+        return None if name in (None, "") or _on_this_machine(name) else f"{event} of {name!r}"
+    if event in _SOCKET_ADDRESSES:
+        address = args[1]
+        # A connected socket's message, which goes where its connect went; or a Unix socket.
+        if address is None or isinstance(address, (str, bytes, bytearray, os.PathLike)):
+            return None
+        host = _as_text(address[0] if isinstance(address, tuple) and address else address)
+        return None if _on_this_machine(host) else f"{event} to {host!r}"
+    return None
+
+
+def _as_text(host: object) -> object:
+    """A host given as bytes, as text; any other as it is."""
+    return bytes(host).decode("ascii", "replace") if isinstance(host, (bytes, bytearray)) else host
+
+
+def _on_this_machine(host: object) -> bool:
+    """Whether a host is this computer: localhost, or a loopback address such as 127.0.0.1."""
+    if not isinstance(host, str):
+        return False
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.partition("%")[0]).is_loopback
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":

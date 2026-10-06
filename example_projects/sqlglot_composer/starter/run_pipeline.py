@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Run every step of examples 1, 2 and 3 for one day, in order.
 
 Why: example 3 reads what examples 1 and 2 write, so the day's steps must run in one fixed

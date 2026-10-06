@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Example 2: each job's alerts and high alerts per day, saved every day.
 
 Why: an alert names only its run, so finding its job means joining every alert to job_runs,

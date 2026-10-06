@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """What the quality checks need to know about each table the project reads.
 
 Why: the checks are the same for every table, so each table's few differences are written once

@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - generated from dev, do not edit
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
 """How sqlglot Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
@@ -19,7 +19,7 @@ from composer_core.trees import Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "4.0"
+TOOLBOX_VERSION = "4.1"
 
 _DIALECT = "hive"
 

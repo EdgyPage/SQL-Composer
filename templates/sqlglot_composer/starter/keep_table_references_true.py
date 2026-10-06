@@ -1,4 +1,4 @@
-# sqlglot Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """Write Table references for new tables; compare those you keep with their tables.
 
 Why: a table can change under you, a column added or a type changed, and comparing each Table

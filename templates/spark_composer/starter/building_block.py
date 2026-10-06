@@ -1,4 +1,4 @@
-# Spark Composer 4.0, exported 2026-10-06 00:26 - copy it, then edit your copy
+# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
 """A Building block: a Derived table of each group's day, for several Statements.
 
 Why: written once, in a function that takes the days, the numbers are worked out the same way
