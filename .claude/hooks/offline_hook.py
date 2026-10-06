@@ -7,7 +7,7 @@ would leave it and judges it with `tools/offline_policy.py`, the one reader of t
 - **Edit:** the file on disk (empty if there is none) with `old_string` replaced by
   `new_string`, every one with `replace_all` and the first without, matched as Claude Code
   matches it (LF line ends, straight quotes matching curly ones). If Claude Code would find no
-  `old_string`, it refuses the Edit itself; the guard still judges `new_string` on its own.
+  `old_string`, it refuses the Edit itself; the hook still judges `new_string` on its own.
 - **NotebookEdit:** the notebook on disk with the cell replaced, inserted or deleted; if the
   notebook or the cell can't be found, the new source alone, as a code cell.
 
@@ -32,7 +32,7 @@ read, so in the Toolbox and user-copied code it is refused like any finding: an 
 leave the file whole. Elsewhere it passes, since tools and tests may pass through a broken state
 mid-change.
 
-**When the guard itself fails** (input that isn't a call, a file it can't read, a broken
+**When the hook itself fails** (input that isn't a call, a file it can't read, a broken
 policy), it fails closed for a file in the Toolbox or user-copied code (`STRICT_FOLDERS`) of a
 kind the policy reads: those reach the user, so an edit there that can't be judged is refused,
 and says why. Anywhere else it fails open, saying so on stderr with exit code 1, which Claude
@@ -82,7 +82,7 @@ NOTHING_ALLOWED = (
 
 
 class CantJudge(Exception):
-    """The guard can't work out or judge the file as the edit would leave it."""
+    """The hook can't work out or judge the file as the edit would leave it."""
 
 
 def checkout_of(file: Path) -> Path | None:
@@ -192,7 +192,7 @@ def why_refused(relative: PurePosixPath, found: list[str]) -> str:
     if len(found) > MOST_FINDINGS:
         shown.append(f"... and {len(found) - MOST_FINDINGS} more")
     way = NOTHING_ALLOWED if relative.parts[0] in USER_COPIED else WAY_THROUGH
-    return (f"The offline guard refuses this edit: it would leave code in "
+    return (f"The offline hook refuses this edit: it would leave code in "
             f"{plain_line(str(relative), LONGEST_LINE)} that tools/offline_policy.py refuses.\n"
             + "\n".join(shown) + "\n" + way)
 
@@ -203,7 +203,7 @@ def is_strict(relative: PurePosixPath) -> bool:
 
 
 def let_through(why: str) -> NoReturn:
-    print(f"The offline guard let this edit through unjudged: {plain_line(why, LONGEST_LINE)}",
+    print(f"The offline hook let this edit through unjudged: {plain_line(why, LONGEST_LINE)}",
           file=sys.stderr)
     sys.exit(1)
 
@@ -225,8 +225,8 @@ def main() -> None:
     except Exception as error:
         why = f"it couldn't judge the edit to {relative}: {error}"
         if is_strict(relative):
-            deny(f"The offline guard refuses this edit, since {plain_line(why, LONGEST_LINE)}. "
-                 "This folder reaches the user, so an edit the guard can't judge waits until "
+            deny(f"The offline hook refuses this edit, since {plain_line(why, LONGEST_LINE)}. "
+                 "This folder reaches the user, so an edit the hook can't judge waits until "
                  "what stops it is fixed: the file, or tools/offline_policy.py.")
             return
         let_through(why)

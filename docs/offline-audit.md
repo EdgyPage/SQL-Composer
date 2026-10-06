@@ -29,7 +29,7 @@ and pyspark 3.5.0), weren't read; the tests run them under the same trap.
   paths, it reads only those. Each finding prints as `file:line kind: code`, and it exits 1.
 - `python -m pytest` and `python -m pytest --edition spark` run every test under the runtime
   trap, so a test that reached another computer would fail. `tests/repo/test_offline_policy.py`
-  holds what the reader finds, `tests/repo/test_offline_guard.py` what the hook refuses, and
+  holds what the reader finds, `tests/repo/test_offline_hook.py` what the hook refuses, and
   `tests/test_offline_trap.py` what the trap refuses.
 - `python tools/export_clean.py --preview <folder>` builds the Clean tree and reads every part
   of it before anything in it is imported or run.
@@ -39,7 +39,7 @@ and pyspark 3.5.0), weren't read; the tests run them under the same trap.
 | Part | Where | What it does |
 |---|---|---|
 | The reader | `tools/offline_policy.py` | Reads Python by its syntax tree, and pages by their references, for network modules, process launchers, dynamic code, library fetchers and URLs. Holds `ALLOWED`, the reviewed sites. The hook, the tests and the export all call it. |
-| The edit hook | `.claude/hooks/offline_guard.py` | Before an Edit, Write or NotebookEdit lands, judges the file as the edit would leave it, and refuses one that adds a finding. |
+| The edit hook | `.claude/hooks/offline_hook.py` | Before an Edit, Write or NotebookEdit lands, judges the file as the edit would leave it, and refuses one that adds a finding. |
 | The repo test | `tests/repo/test_offline_policy.py` | `test_the_repo_reads_clean` (line 26): the repo has no finding and no stale `ALLOWED` entry. |
 | The runtime trap | `spark_composer/engine.py` `_refuse_the_network`, installed by `tests/offline_trap.py` | An audit hook (PEP 578) that raises RuntimeError on a lookup, connection, bind or message off this computer, or any client library. Runs in every test run and in the Example database's own Spark process. |
 | The export check | `tools/export_clean.py` `check_offline` | Reads each part of the Clean tree before it is imported or run, and refuses to commit `main` on any finding. |
