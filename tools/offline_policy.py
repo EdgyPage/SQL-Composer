@@ -408,6 +408,15 @@ def external_references(text: str) -> list[str]:
     return [f"line {line}: {what}" for line, what, _ in _page_references(text)]
 
 
+def page_findings(text: str, path: str) -> list[Finding]:
+    """Each reference in `text` that loads or sends something outside it, as a finding in the
+    file at `path`, whatever its suffix: the export reads the Clean tree's Markdown so, since a
+    preview of it loads what it embeds. `findings_in` and `scan` leave Markdown alone, so the
+    repo's notes may cite their sources."""
+    return [Finding(_repo_path(path), line, "page reference", around, name=what)
+            for line, what, around in _page_references(text)]
+
+
 def _repo_path(path: str) -> str:
     return PurePosixPath(str(path).replace("\\", "/")).as_posix()
 
@@ -415,8 +424,7 @@ def _repo_path(path: str) -> str:
 def _found(text: str, path: str) -> list[Finding]:
     suffix = PurePosixPath(path).suffix.lower()
     if suffix in PAGE_FILES:
-        return [Finding(path, line, "page reference", around, name=what)
-                for line, what, around in _page_references(text)]
+        return page_findings(text, path)
     if suffix in PYTHON_FILES:
         return _python_findings(text, path)
     if suffix == ".ipynb":

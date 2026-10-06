@@ -28,10 +28,13 @@ from drift_list import (
 )
 
 
-# A path is printed into the session's context, so it goes as one plain line of bounded length:
-# a file name crafted with newlines or terminal codes can't read as an instruction.
-UNPRINTABLE = re.compile(r"[\x00-\x1f\x7f-\x9f]+")
+# A path is printed into the session's context, so it goes as one plain line of bounded length,
+# and only so many of them: a file name crafted with newlines, Unicode line breaks, direction
+# marks or terminal codes can't read as an instruction, and many can't flood the context.
+UNPRINTABLE = re.compile(r"[\x00-\x1f\x7f-\x9f‎‏  ‪-‮"
+                         r"⁦-⁩]+")
 LONGEST_PATH = 120
+MOST_PATHS = 20
 
 
 def plain_path(path: str) -> str:
@@ -39,8 +42,15 @@ def plain_path(path: str) -> str:
     return shown if len(shown) <= LONGEST_PATH else shown[:LONGEST_PATH] + "..."
 
 
+def plain_paths(paths: list[str]) -> str:
+    """The first MOST_PATHS paths, each made plain, and how many more there are."""
+    shown = ", ".join(plain_path(path) for path in paths[:MOST_PATHS])
+    more = len(paths) - MOST_PATHS
+    return f"{shown} and {more} more" if more > 0 else shown
+
+
 def review_request(commit: str, watched: list[str]) -> str:
-    touched = ", ".join(plain_path(path) for path in watched)
+    touched = plain_paths(watched)
     return (
         f"Commit {commit[:7]} touches {touched}, so it needs a drift review. Start a subagent "
         f"now, before other work, with this prompt: \"Read {REVIEWER_BRIEF.as_posix()} and "

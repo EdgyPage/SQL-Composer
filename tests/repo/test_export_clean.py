@@ -660,9 +660,10 @@ def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
-NETWORK_REFUSAL = ("The Clean tree holds code that could reach the network, and the Toolbox, "
-                   "its Example projects and its Templates reach nothing but the user's send. "
-                   "tools/offline_policy.py found, as main would hold it:\n")
+NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network, but the "
+                   "Toolbox, its Example projects and its Templates reach nothing but the "
+                   "user's send. tools/offline_policy.py found, as main would hold it, line 1 "
+                   "being the export's stamp:\n")
 
 
 def test_a_template_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
@@ -687,6 +688,17 @@ def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path)
         NETWORK_REFUSAL
         + "  example_projects/sqlglot_composer/starter/lineage/all_three.html:2 page reference: ")
     assert '<script src="https://example.com/x.js">' in str(refused.value)
+
+
+def test_a_readme_that_embeds_a_picture_from_the_internet_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    spoil(source / export_clean.README_TEMPLATE, "# sqlglot Composer and Spark Composer\n",
+          '# sqlglot Composer and Spark Composer\n<img src="https://example.com/x.png">\n')
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.build(source, tmp_path / "clean", WHEN)
+    assert str(refused.value).startswith(
+        NETWORK_REFUSAL
+        + '  .github/README.md:3 page reference: <img src="https://example.com/x.png">\n')
 
 
 def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(

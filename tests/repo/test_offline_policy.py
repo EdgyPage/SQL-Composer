@@ -160,6 +160,15 @@ def test_a_reference_says_its_line() -> None:
         "line 2: fetch("]
 
 
+def test_markdown_is_read_as_a_page_only_when_asked() -> None:
+    # The hook and the repo's scan leave Markdown alone, so notes may cite their sources; the
+    # export reads the Clean tree's Markdown as pages, since a preview loads what it embeds.
+    text = 'See the picture.\n<img src="https://example.com/x.png">\n'
+    assert findings_in(text, "templates/README.md") == []
+    assert [str(finding) for finding in offline_policy.page_findings(text, "templates/README.md")
+            ] == ['templates/README.md:2 page reference: <img src="https://example.com/x.png">'] * 2
+
+
 def test_user_copied_code_may_hold_nothing_at_all() -> None:
     entry = Allowed("templates/starter/x.py", "<module>", "network", "socket", "a reason")
     for folder in ("templates", "example_projects", "worked_examples"):

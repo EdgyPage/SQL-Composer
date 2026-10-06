@@ -37,9 +37,9 @@ It then checks what it built:
   file behind; a dry run prints every step's Hive and sends nothing, so Spark Composer's needs
   no Java;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
-  is imported or run: the Toolbox and each Edition's copies of the Example projects and the
-  Templates, their pages included, so that none of it can reach the network. The README is
-  Markdown, which nothing runs;
+  is imported or run: the Toolbox, each Edition's copies of the Example projects and the
+  Templates, and the README, pages included and Markdown read as pages, so that none of it can
+  reach the network;
 - the folders have one version, and both Editions describe the same public names the same way;
 - the tree holds nothing outside its allowlist: the Composer core's folder and each Edition's,
   flat, each Edition's copies of the Example projects and the Templates, and
@@ -312,20 +312,26 @@ def open_drift_items(drift_text: str) -> list[str]:
 
 def check_offline(into: Path, paths: list[str]) -> None:
     """Refuse the Clean tree if a file under `paths`, in `into`, holds anything that could reach
-    the network, as `tools/offline_policy.py` reads it under main's path: nothing but the
-    reviewed sites in its ALLOWED in the Toolbox, and nothing at all in a copy the user takes."""
+    the network, as `tools/offline_policy.py` reads it under main's path: in the Toolbox, only
+    the reviewed sites in its ALLOWED; in a copy the user takes, nothing. Markdown is read as a
+    page, for what a preview of it would load."""
     found = offline_policy.scan(into, paths)
+    for path in files_in(into):
+        if path.endswith(".md") and any(path == part or path.startswith(f"{part}/")
+                                        for part in paths):
+            found += offline_policy.page_findings(
+                (into / path).read_text(encoding="utf-8"), path)
     if found:
         raise ExportRefused(
-            "The Clean tree holds code that could reach the network, and the Toolbox, its "
-            "Example projects and its Templates reach nothing but the user's send. "
-            "tools/offline_policy.py found, as main would hold it:\n"
+            "The Clean tree holds something that could reach the network, but the Toolbox, "
+            "its Example projects and its Templates reach nothing but the user's send. "
+            "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
+            "stamp:\n"
             + "".join(f"  {finding}\n" for finding in found)
-            + "Line 1 on main is the export's stamp, so each is one line up on dev, and a copy "
-            "in example_projects/<Edition>/ or templates/<Edition>/ is dev's in "
-            "example_projects/ or templates/. Take it out on dev. A Toolbox site that must stay "
-            "needs a reviewed entry in ALLOWED in tools/offline_policy.py, with the user's OK; "
-            "a copy the user takes may hold none.")
+            + "Take each out on dev, where a copy in example_projects/<Edition>/ or "
+            "templates/<Edition>/ is in example_projects/ or templates/. A Toolbox site that "
+            "must stay needs a reviewed entry in ALLOWED in tools/offline_policy.py, with the "
+            "user's OK.")
 
 
 def files_in(folder: Path) -> list[str]:
@@ -608,6 +614,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
         readme_text(template, described[0]["groups"], version_text(version, when),
                     stamp_text(products, version, when), source),
         encoding="utf-8", newline="\n")
+    check_offline(into, [README])
     outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
