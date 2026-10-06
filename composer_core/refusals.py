@@ -166,8 +166,9 @@ def guard_date_formats_differ(call: str, first: str, first_format: str, first_da
             f"(date_format={first_format!r}), with {second}, whose days are written like "
             f"{second_day!r} (date_format={second_format!r}).",
             why="Hive compares the days as text, and one day written two ways is two "
-            "different texts, so this would match no rows: a join would find no match, and "
-            "a WHERE would keep nothing.",
+            "different texts, so the comparison means nothing: an equals or a join finds no "
+            "match, and a before or after compares the texts' characters, not their days, so "
+            "it keeps the wrong rows.",
             fix="Compare days written the same way. First save one table's rows in a Saved "
             "table whose Table reference writes its days like the other table's: each write "
             "puts its day into the Saved table written the Saved table's way, so the days then "
@@ -515,10 +516,11 @@ def refuse_what_isnt_a_dataframe(result) -> None:
         what=f"Your send gave back {given}, where a pandas DataFrame goes.",
         why="run hands you back what your send gives back, and you read the rows from it as "
         "from a pandas DataFrame, each column by its name.",
-        fix=f"{start}: return pd.DataFrame(rows). That takes the column names from each row's "
-        "keys when your query API gives each row as a dict. When it gives each row as a "
-        "tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to "
-        "1, Start a notebook, shows both.",
+        fix=f"{start}. On Spark, that is spark.sql(hive).toPandas(). From a query API, it is "
+        "pd.DataFrame(rows), which takes the column names from each row's keys when the API "
+        "gives each row as a dict; when it gives each row as a tuple, pass the column names it "
+        "gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows how to "
+        "write your send.",
         opt_out=None,
     ))
 
