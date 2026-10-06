@@ -1,8 +1,11 @@
 """Every file path the standing docs name exists, so a doc can't point at something gone.
 
-The standing docs are `CLAUDE.md`, everything in `docs/agents/`, and the Clean branch's README
-template, `docs/clean-branch-readme.md`. A path counts when it's written in backticks or as a
-Markdown link target and ends in a known file extension or in `/` (a folder). It may be
+The standing docs are `CLAUDE.md` and everything in `docs/agents/`. The Clean branch's README
+template, `docs/clean-branch-readme.md`, names paths as main holds them, so
+tests/repo/test_export_clean.py checks its paths against the Clean tree instead.
+
+A path counts when it's written in backticks or as a Markdown link target and ends in a known
+file extension or in `/` (a folder). It may be
 relative to the repo root or to the doc's own folder. Anything with a placeholder
 (`<effort>`), a space, a wildcard or a leading `/` (a slash command) is skipped.
 """
@@ -17,7 +20,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 STANDING_DOCS = sorted([
     ROOT / "CLAUDE.md",
-    ROOT / "docs" / "clean-branch-readme.md",
     *(ROOT / "docs" / "agents").glob("*.md"),
 ])
 
