@@ -65,6 +65,45 @@ def test_each_forbidden_form_is_found_in_the_toolbox(text: str, kind: str) -> No
     assert kind in kinds(text)
 
 
+@pytest.mark.parametrize(("text", "kind"), [
+    ("def f(a: __import__('socket')): pass\n", "dynamic code"),
+    ("x: eval('1') = 2\n", "dynamic code"),
+    ("def f() -> exec('x'): pass\n", "dynamic code"),
+    ("try:\n    pass\nexcept eval('Exception'):\n    pass\n", "dynamic code"),
+    ("import os\ngetattr(os, 'system')('ls')\n", "process"),
+    ("import importlib\ngetattr(importlib, 'import_module')(name)\n", "dynamic code"),
+    ("__builtins__.__import__('json')\n", "dynamic code"),
+    ("__builtins__['eval'](x)\n", "dynamic code"),
+    ("vars(__builtins__)['eval'](x)\n", "dynamic code"),
+    ("import sys\nsys.modules['os'].system('ls')\n", "process"),
+    ("import os\nos.__dict__['system']('ls')\n", "process"),
+    ("import importlib\nimportlib.import_module('os').system('ls')\n", "process"),
+    ("import importlib\nimportlib.import_module('soc' + 'ket')\n", "network"),
+    ("from os import *\nsystem('ls')\n", "dynamic code"),
+    ("import multiprocessing\nmultiprocessing.Process(target=f).start()\n", "process"),
+    ("from concurrent.futures import ProcessPoolExecutor\n", "process"),
+    ("import pandas as pd\npd.io.parsers.read_csv(path)\n", "library fetcher"),
+    ("import numpy as np\nnp.lib.npyio.loadtxt(path)\n", "library fetcher"),
+    ("from pyspark.sql import SparkSession as S\nS.builder.appName('x').remote(where)\n",
+     "library fetcher"),
+    ("page = 'https:' + '//x'\n", "URL"),
+    ("builder.config('spark.' + 'remote', where)\n", "library fetcher"),
+])
+def test_a_disguised_form_is_found_too(text: str, kind: str) -> None:
+    assert kind in kinds(text)
+
+
+def test_a_call_named_in_capitals_is_no_constant() -> None:
+    found = findings_in("import ctypes\n\ndef f():\n    ctypes.CDLL('x')\n", TOOLBOX_FILE)
+    assert [finding.name for finding in found] == ["ctypes", "ctypes.CDLL"]
+
+
+def test_a_name_from_a_network_module_that_reaches_nothing_is_not_found() -> None:
+    assert kinds("from http import HTTPStatus\n") == []
+    text = "import subprocess\n\ndef f(p: subprocess.Popen) -> None:\n    pass\n"
+    assert kinds(text) == ["process"]
+
+
 def test_a_url_in_a_docstring_or_a_comment_is_prose() -> None:
     text = ('"""See https://x for more."""\n\n# and https://y\n'
             'def f():\n    """And https://z."""\n')
@@ -153,6 +192,18 @@ def test_the_allowed_socket_is_refused_off_127_0_0_1() -> None:
     assert (finding.kind, finding.name, finding.address) == (
         "network", "socket.create_server", "0.0.0.0")
     assert kinds(launching_on("host"), ENGINE) == ["network"]
+
+
+def test_the_example_database_s_process_connects_only_to_the_address_it_is_sent() -> None:
+    def serving(address: str) -> str:
+        return ("def _serve():\n    from multiprocessing.connection import Client\n"
+                f"    connection = Client({address}, authkey=key)\n")
+
+    assert kinds(serving('tuple(config["address"])'), ENGINE) == []
+    assert kinds(serving('("example.com", 80)'), ENGINE) == ["network"]
+    # Kept to be called later, the listener's address could be anything.
+    assert kinds("import socket\n\ndef _launch():\n    listen = socket.create_server\n",
+                 ENGINE) == ["network"]
 
 
 def test_an_allowed_entry_that_matches_nothing_is_stale() -> None:

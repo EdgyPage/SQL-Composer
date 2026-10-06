@@ -10,10 +10,10 @@ What it looks for, in a Python file, by walking its syntax tree:
 - **network:** importing or using a network module (`socket`, `urllib.request`, `requests` and
   the rest of `NETWORK_MODULES`), or `asyncio.open_connection` / `start_server`;
 - **process:** starting a process or calling native code: `subprocess`, `os.system`,
-  `os.popen`, `os.spawn*`, `os.exec*`, `pty`, `ctypes`;
-- **dynamic code:** `eval`, `exec`, `compile`, `__import__`, and `importlib.import_module` or
-  `getattr` on a module with a name that isn't written out, which could reach any of the above
-  unseen;
+  `os.popen`, `os.spawn*`, `os.exec*`, `pty`, `ctypes`, `multiprocessing`;
+- **dynamic code:** `eval`, `exec`, `compile`, `__import__`, and `importlib.import_module`,
+  `getattr`, `vars(module)[...]` or `module.__dict__[...]` on a module with a name that isn't
+  written out, or `from module import *`, which could reach any of the above unseen;
 - **library fetcher:** a library function that downloads when given a URL or told to:
   `pd.read_*`, `np.loadtxt` / `genfromtxt` / `DataSource`, `pyspark.install`,
   `SparkSession.builder.remote`, and the Spark settings `spark.jars.packages`,
@@ -21,6 +21,14 @@ What it looks for, in a Python file, by walking its syntax tree:
 - **URL:** `http(s)://`, `ftp://` or `ws(s)://` in a string the code uses. A docstring, or any
   string that stands as a statement of its own, is prose, so only the `>>>` examples in it are
   read, as code.
+
+A name is followed however it is reached: through an alias (`import socket as s`), from an
+import (`from socket import create_connection`), through getattr, `vars()`, `__dict__`,
+`sys.modules` or `__builtins__` with a name written out, through `importlib.import_module` with
+a module written out, and through strings added up (`"soc" + "ket"`). The calls in an
+annotation or an except clause's type are read, since Python runs them. What it can't follow:
+a module kept in a variable (`m = os`), a name imported as two modules (the last is read), and
+a method on an object it can't name, such as an asyncio loop's `create_connection`.
 
 A notebook's code cells are read as one Python file, and a `!` or `%` line in one, which runs
 a shell command or an IPython magic, is a process. A Python file that doesn't parse can't be
@@ -69,14 +77,19 @@ ROOT = Path(__file__).resolve().parent.parent
 # --- The rules ----------------------------------------------------------------------------------
 
 NETWORK_MODULES = (
-    "socket", "_socket", "ssl", "_ssl", "http", "urllib.request", "urllib3", "requests",
+    "socket", "_socket", "ssl", "_ssl", "http.client", "http.server", "http.cookiejar",
+    "urllib.request", "urllib3", "requests",
     "httpx", "aiohttp", "websocket", "websockets", "ftplib", "smtplib", "poplib", "imaplib",
     "nntplib", "telnetlib", "xmlrpc", "socketserver", "webbrowser", "grpc", "paramiko",
     "boto3", "botocore", "fsspec", "multiprocessing.connection", "multiprocessing.managers",
     "pyspark.sql.connect",
 )
 NETWORK_FUNCTIONS = ("asyncio.open_connection", "asyncio.start_server")
-PROCESS_MODULES = ("subprocess", "_posixsubprocess", "_winapi", "pty", "ctypes", "_ctypes")
+# multiprocessing's connection and managers are network modules (above); the rest of it
+# starts processes.
+PROCESS_MODULES = ("subprocess", "_posixsubprocess", "_winapi", "pty", "ctypes", "_ctypes",
+                   "multiprocessing", "concurrent.futures.process",
+                   "concurrent.futures.ProcessPoolExecutor")
 # The functions of os (and of posix and nt, which os takes them from) that start a process or
 # hand a path to the system to open, which may be a URL.
 PROCESS_FUNCTIONS = ("system", "popen", "startfile", "fork", "forkpty")
@@ -84,17 +97,26 @@ PROCESS_PREFIXES = ("spawn", "exec", "posix_spawn")
 PROCESS_FUNCTION_MODULES = ("os", "posix", "nt")
 PROCESS_ASYNCIO = ("asyncio.create_subprocess_exec", "asyncio.create_subprocess_shell")
 DYNAMIC_FUNCTIONS = ("eval", "exec", "compile", "__import__", "importlib.__import__")
+# The calls that import a module by its name, given as a string.
+IMPORTERS = ("importlib.import_module", "__import__", "importlib.__import__")
 # runpy runs a module or a file by its name.
 DYNAMIC_MODULES = ("runpy",)
 FETCHER_MODULES = ("pyspark.install", "numpy.lib._datasource")
-FETCHER_FUNCTIONS = ("numpy.loadtxt", "numpy.genfromtxt", "numpy.DataSource")
+# numpy's functions that read a URL, wherever in numpy they are reached from.
+NUMPY_FETCHERS = ("loadtxt", "genfromtxt", "DataSource")
+# What a network finding gives as its address when no host is written out: a call given its
+# host in a variable, or a network function named but not called, which could be called with
+# any host.
+PASSED_IN = "<passed in>"
+NOT_CALLED = "<not called>"
 # A string that names a URL, or a Spark setting that downloads or connects elsewhere.
-URL = re.compile(r"\b(?:https?|ftp|wss?)://", re.IGNORECASE)
+URL_START = r"\b(?:https?|ftp|wss?)://"
+URL = re.compile(URL_START, re.IGNORECASE)
 SPARK_SETTING = re.compile(r"\bspark\.(?:jars\.packages|jars\.repositories|remote)\b")
 # What a page may not hold: anything that loads or sends something outside the page.
 PAGE_REFERENCE = re.compile(
     r"\bsrc\s*=|<link\b|@import\b|\burl\s*\(|\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon"
-    r"|EventSource|<iframe\b|<object\b|<embed\b|\bimport\(|\b(?:https?|ftp|wss?)://",
+    r"|EventSource|<iframe\b|<object\b|<embed\b|\bimport\(|" + URL_START,
     re.IGNORECASE,
 )
 # The names Python has without an import, such as eval; any other name not imported is the
@@ -121,7 +143,9 @@ class Finding:
 
     `function` is the function it is in, as `outer.inner`, or "<module>"; `name` is what it
     uses, as the module imported or the function called, such as "socket.create_server", or the
-    string; `address` is the host a network call is given, when it is written out.
+    string; `address`, for a network finding other than an import, is the host a call is
+    given when it is written out, PASSED_IN when it isn't, and NOT_CALLED for a network
+    function named but not called.
     """
 
     path: str
@@ -141,8 +165,8 @@ class Allowed:
     """One reviewed site where code may do what the policy otherwise refuses.
 
     It matches a finding in `file` (from the repo's root), in `function`, of `kind`, using
-    `name`, or anything in it for a name ending ".*"; with `address`, only a call given exactly
-    that host.
+    `name`, or anything in it for a name ending ".*"; with `address`, only an import or a call
+    given exactly that host, or PASSED_IN for a host that comes from a variable.
     """
 
     file: str
@@ -156,7 +180,7 @@ class Allowed:
         return ((self.file, self.function, self.kind) == (finding.path, finding.function,
                                                          finding.kind)
                 and self.covers(finding.name)
-                and (self.address is None or finding.address == self.address))
+                and (self.address is None or finding.address in (None, self.address)))
 
     def covers(self, name: str) -> bool:
         """`name` is the entry's; an entry's "ctypes.*" covers ctypes and all in it."""
@@ -189,10 +213,11 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed(ENGINE, "_launch", "process", "subprocess.Popen",
             "starts this Python on engine.py itself, as the Example database's process"),
     Allowed(ENGINE, "_check_key", "network", "multiprocessing.connection.*",
-            "checks the 32-byte key on a connection to the 127.0.0.1 listener"),
+            "checks the 32-byte key on a connection to the 127.0.0.1 listener",
+            address=PASSED_IN),
     Allowed(ENGINE, "_serve", "network", "multiprocessing.connection.*",
             "the process connects back to the address its parent sent on stdin: the "
-            "listener on 127.0.0.1"),
+            "listener on 127.0.0.1", address=PASSED_IN),
     Allowed(ENGINE, "_ask_java", "process", "subprocess.run",
             "runs java -version to ask its version and folder"),
     Allowed(ENGINE, "_end", "process", "subprocess.TimeoutExpired",
@@ -446,9 +471,10 @@ def _notebook_findings(text: str, path: str) -> list[Finding]:
         if cell.get("cell_type") == "code":
             source = cell.get("source", "")
             lines += ("".join(source) if isinstance(source, list) else source).splitlines()
+    magic = [line.lstrip().startswith(("!", "%")) for line in lines]
     shell = [Finding(path, number, "process", line.strip(), name=line.strip().split()[0])
-             for number, line in enumerate(lines, 1) if line.lstrip().startswith(("!", "%"))]
-    code = "\n".join("" if line.lstrip().startswith(("!", "%")) else line for line in lines)
+             for number, (line, is_magic) in enumerate(zip(lines, magic), 1) if is_magic]
+    code = "\n".join("" if is_magic else line for line, is_magic in zip(lines, magic))
     return shell + _python_findings(code, path)
 
 
@@ -468,8 +494,9 @@ def kind_of(name: str) -> str | None:
         return "process"
     if name in DYNAMIC_FUNCTIONS or _under(name, DYNAMIC_MODULES):
         return "dynamic code"
-    if (_under(name, FETCHER_MODULES) or name in FETCHER_FUNCTIONS
-            or re.fullmatch(r"pandas\.read_\w+", name) or name.endswith("builder.remote")):
+    if (_under(name, FETCHER_MODULES) or re.fullmatch(r"pandas(\.\w+)*\.read_\w+", name)
+            or (_under(name, ("numpy",)) and name.rpartition(".")[2] in NUMPY_FETCHERS)
+            or name.endswith("builder.remote")):
         return "library fetcher"
     return None
 
@@ -510,20 +537,37 @@ def _imported(node: ast.Import | ast.ImportFrom) -> list[str]:
 
 
 def _literal(node: ast.AST | None) -> str | None:
+    """A string written out, or added up from strings written out, as "soc" + "ket"."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _literal(node.left), _literal(node.right)
+        if left is not None and right is not None:
+            return left + right
     return None
 
 
-def _address(call: ast.Call) -> str | None:
-    """The host a network call is given first, when it is written out, as in
-    socket.create_server(("127.0.0.1", 0))."""
-    if not call.args:
-        return None
-    first = call.args[0]
+def _plain(name: str) -> str:
+    """A full name without the ways round to it: builtins.eval is eval, os.__dict__.system and
+    sys.modules.os.system are os.system."""
+    name = name.replace(".__dict__", "").removeprefix("sys.modules.")
+    return name if name == "builtins" else name.removeprefix("builtins.")
+
+
+def _address(call: ast.Call) -> str:
+    """The host a network call is given first, as in socket.create_server(("127.0.0.1", 0)), or
+    PASSED_IN when it isn't written out."""
+    first = call.args[0] if call.args else None
     if isinstance(first, ast.Tuple) and first.elts:
-        return _literal(first.elts[0])
-    return _literal(first)
+        first = first.elts[0]
+    host = _literal(first)
+    return PASSED_IN if host is None else host
+
+
+def _from_outside(module: str) -> bool:
+    """A module the repo doesn't write: the standard library's, or a library's."""
+    top = module.split(".")[0]
+    return not module.startswith(".") and (top in sys.stdlib_module_names or top in LIBRARIES)
 
 
 class _Reader(ast.NodeVisitor):
@@ -531,8 +575,13 @@ class _Reader(ast.NodeVisitor):
 
     def __init__(self, path: str, lines: list[str], aliases: dict[str, str],
                  read_strings: bool, offset: int = 0, functions: tuple[str, ...] = ()) -> None:
-        self.path, self.lines, self.aliases = path, lines, aliases
-        self.read_strings, self.offset, self.functions = read_strings, offset, functions
+        self.path = path
+        self.lines = lines
+        self.aliases = aliases
+        self.read_strings = read_strings
+        self.offset = offset
+        self.functions = functions
+        self.uses_pyspark = any(_under(name, ("pyspark",)) for name in aliases.values())
         self.found: list[Finding] = []
 
     def add(self, node: ast.AST, kind: str, name: str, address: str | None = None) -> None:
@@ -542,20 +591,36 @@ class _Reader(ast.NodeVisitor):
                                   ".".join(self.functions) or "<module>", name, address))
 
     def full_name(self, node: ast.AST) -> str | None:
-        """What a name or a dotted name stands for, such as "socket.create_server" for
-        s.create_server after `import socket as s`; None for anything else."""
-        attributes = []
-        while isinstance(node, ast.Attribute):
-            attributes.append(node.attr)
-            node = node.value
-        if not isinstance(node, ast.Name):
-            return None
-        root = self.aliases.get(node.id)
-        if root is None and not attributes and node.id in BUILTIN_NAMES:
-            root = node.id
-        if root is None:
-            return None
-        return ".".join([root, *reversed(attributes)]).removeprefix("builtins.")
+        """What an expression stands for, by full name, when it names a module or what is in
+        one: "socket.create_server" for s.create_server after `import socket as s`, and the
+        same through getattr(s, "create_server"), s.__dict__["create_server"] or
+        importlib.import_module("socket").create_server; None for anything else."""
+        if isinstance(node, ast.Name):
+            if node.id == "__builtins__":
+                return "builtins"
+            root = self.aliases.get(node.id) or (node.id if node.id in BUILTIN_NAMES else None)
+            return _plain(root) if root else None
+        if isinstance(node, ast.Attribute | ast.Subscript):
+            base = self.full_name(node.value)
+            last = node.attr if isinstance(node, ast.Attribute) else _literal(node.slice)
+            return _plain(f"{base}.{last}") if base and last else None
+        if isinstance(node, ast.Call):
+            return self.called_name(node)
+        return None
+
+    def called_name(self, node: ast.Call) -> str | None:
+        """The module or name a call gives: an import, getattr or vars given names written
+        out."""
+        function = self.full_name(node.func)
+        written = [_literal(argument) for argument in node.args]
+        if function in IMPORTERS:
+            return written[0] if written else None
+        if function == "getattr" and len(written) >= 2 and written[1] is not None:
+            base = self.full_name(node.args[0])
+            return _plain(f"{base}.{written[1]}") if base else None
+        if function == "vars" and len(node.args) == 1:
+            return self.full_name(node.args[0])
+        return None
 
     # Imports.
 
@@ -564,6 +629,10 @@ class _Reader(ast.NodeVisitor):
             kind = kind_of(name)
             if kind:
                 self.add(node, kind, name)
+        star = isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+        if star and node.level == 0 and _from_outside(node.module or ""):
+            # Everything it brings in is named nowhere, so nothing it brings in can be read.
+            self.add(node, "dynamic code", f"{node.module}.*")
 
     visit_ImportFrom = visit_Import
 
@@ -573,6 +642,12 @@ class _Reader(ast.NodeVisitor):
         for outside in [*node.decorator_list, *node.args.defaults, *node.args.kw_defaults]:
             if outside is not None:
                 self.visit(outside)
+        arguments = node.args
+        for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs,
+                         arguments.vararg, arguments.kwarg]:
+            if argument is not None:
+                self.visit_calls_in(argument.annotation)
+        self.visit_calls_in(node.returns)
         self.inside(node.name, node.body)
 
     visit_AsyncFunctionDef = visit_FunctionDef
@@ -588,57 +663,97 @@ class _Reader(ast.NodeVisitor):
             self.visit(statement)
         self.functions = self.functions[:-1]
 
-    # What is never run: annotations, and the types an except clause names.
+    # Annotations and the types an except clause names: a name there is only looked up, so
+    # only a call in one is read.
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        self.visit_calls_in(node.annotation)
         if node.value is not None:
             self.visit(node.value)
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        self.visit_calls_in(node.type)
         for statement in node.body:
             self.visit(statement)
 
+    def visit_calls_in(self, node: ast.AST | None) -> None:
+        if isinstance(node, ast.Call):
+            self.visit(node)
+        elif node is not None:
+            for part in ast.iter_child_nodes(node):
+                self.visit_calls_in(part)
+
     # Names, and calls.
 
-    def visit_Name(self, node: ast.Name | ast.Attribute) -> None:
-        name = self.full_name(node)
+    def visit_Name(self, node: ast.Name | ast.Attribute | ast.Subscript) -> None:
+        name = self.full_name(node) if isinstance(node.ctx, ast.Load) else None
         if name is None:
+            self.dynamic_subscript(node)
             self.generic_visit(node)
             return
-        last = name.rpartition(".")[2]
         kind = kind_of(name)
-        if kind and not (last.isupper() and "." in name):
-            self.add(node, kind, name)
+        # A constant, such as subprocess.PIPE, only names a value.
+        if kind and not (name.rpartition(".")[2].isupper() and "." in name):
+            self.add(node, kind, name, NOT_CALLED if kind == "network" else None)
 
     visit_Attribute = visit_Name
+    visit_Subscript = visit_Name
+
+    def dynamic_subscript(self, node: ast.AST) -> None:
+        """A module's names looked up by a name that isn't written out, as vars(os)[name],
+        os.__dict__[name] or __builtins__[name], on a module the repo doesn't write."""
+        if not (isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load)
+                and _literal(node.slice) is None):
+            return
+        names = node.value
+        a_namespace = ((isinstance(names, ast.Attribute) and names.attr == "__dict__")
+                       or (isinstance(names, ast.Call) and self.full_name(names.func) == "vars")
+                       or (isinstance(names, ast.Name) and names.id == "__builtins__"))
+        module = self.full_name(names)
+        if a_namespace and module and _from_outside(module):
+            self.add(node, "dynamic code", f"{module}[...]")
 
     def visit_Call(self, node: ast.Call) -> None:
         name = self.full_name(node.func)
-        written_name = _literal(node.args[0]) if node.args else None
-        if name == "importlib.import_module" and written_name is not None:
-            kind = kind_of(written_name)
-            if kind:
-                self.add(node, kind, written_name)
-        elif name == "importlib.import_module":
-            self.add(node, "dynamic code", name)
+        taken = self.called_name(node)
+        if name in IMPORTERS:
+            self.read_import(node, name, taken)
+        elif taken and kind_of(taken):
+            self.add(node, kind_of(taken), taken, NOT_CALLED if kind_of(taken) == "network"
+                     else None)
         elif name == "getattr" and self.dynamic_getattr(node):
             self.add(node, "dynamic code", name)
-        elif name is not None and kind_of(name) == "network":
-            self.add(node, "network", name, _address(node))
+        elif name and kind_of(name):
+            self.add(node, kind_of(name), name,
+                     _address(node) if kind_of(name) == "network" else None)
+        elif self.connects_spark_elsewhere(node):
+            self.add(node, "library fetcher", "SparkSession.builder.remote")
         else:
             self.visit(node.func)
         for argument in [*node.args, *node.keywords]:
             self.visit(argument)
+
+    def read_import(self, node: ast.Call, name: str, module: str | None) -> None:
+        """An import by a call: of a name not written out, or by __import__, dynamic code; of a
+        module the rules name, what that module is."""
+        if module is None or name != "importlib.import_module":
+            self.add(node, "dynamic code", name)
+        if module and kind_of(module):
+            self.add(node, kind_of(module), module)
 
     def dynamic_getattr(self, node: ast.Call) -> bool:
         """getattr with a name that isn't written out, on a module the repo doesn't write."""
         if len(node.args) < 2 or _literal(node.args[1]) is not None:
             return False
         module = self.full_name(node.args[0])
-        if module is None or module.startswith("."):
+        return module is not None and (_from_outside(module) or kind_of(module) is not None)
+
+    def connects_spark_elsewhere(self, node: ast.Call) -> bool:
+        """A .remote(...) call on a Spark session's builder, however it was reached."""
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "remote"):
             return False
-        top = module.split(".")[0]
-        return top in sys.stdlib_module_names or top in LIBRARIES or kind_of(module) is not None
+        return self.uses_pyspark or any(isinstance(part, ast.Attribute) and part.attr == "builder"
+                                        for part in ast.walk(node.func.value))
 
     # Strings: prose is not read, apart from its >>> examples; a used string is.
 
@@ -650,9 +765,20 @@ class _Reader(ast.NodeVisitor):
         self.read_examples(node.value, prose)
 
     def visit_Constant(self, node: ast.Constant) -> None:
-        if not self.read_strings or not isinstance(node.value, str | bytes):
+        if isinstance(node.value, str | bytes):
+            text = node.value if isinstance(node.value, str) else node.value.decode("latin-1")
+            self.read_string(node, text)
+
+    def visit_BinOp(self, node: ast.BinOp) -> None:
+        added = _literal(node)
+        if added is None:
+            self.generic_visit(node)
+        else:
+            self.read_string(node, added)
+
+    def read_string(self, node: ast.AST, text: str) -> None:
+        if not self.read_strings:
             return
-        text = node.value if isinstance(node.value, str) else node.value.decode("latin-1")
         for pattern, kind in ((URL, "URL"), (SPARK_SETTING, "library fetcher")):
             match = pattern.search(text)
             if match:
@@ -679,7 +805,7 @@ class _Reader(ast.NodeVisitor):
 # --- Reading the repo ---------------------------------------------------------------------------
 
 
-def scan(root: Path = ROOT, paths: list | None = None,
+def scan(root: Path = ROOT, paths: list[str | Path] | None = None,
          allowed: tuple[Allowed, ...] = ALLOWED) -> list[Finding]:
     """Each finding in the files under `root`, or in the files and folders `paths` names (from
     `root`, or absolute), that `allowed` doesn't cover."""
@@ -697,9 +823,12 @@ def stale_entries(root: Path = ROOT, allowed: tuple[Allowed, ...] = ALLOWED) -> 
     """Each entry of `allowed` that matches nothing in the files under `root`, and any that
     names user-copied code, where nothing is allowed."""
     stale = []
+    read: dict[str, list[Finding]] = {}
     for entry in allowed:
         file = root / entry.file
-        found = _found(_text(file), entry.file) if file.is_file() else []
+        if entry.file not in read:
+            read[entry.file] = _found(_text(file), entry.file) if file.is_file() else []
+        found = read[entry.file]
         if scope_of(entry.file) == "user-copied":
             why = "names user-copied code, where nothing is allowed"
         elif not any(entry.matches(finding) for finding in found):
@@ -712,7 +841,7 @@ def stale_entries(root: Path = ROOT, allowed: tuple[Allowed, ...] = ALLOWED) -> 
     return stale
 
 
-def _files(root: Path, paths: list | None) -> list[Path]:
+def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:
     starts = [root] if paths is None else [Path(root, path) for path in paths]
     files = []
     for start in starts:
