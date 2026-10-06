@@ -43,7 +43,9 @@ REVIEWED = re.compile(r"^- ([0-9a-f]{7,40}):", re.MULTILINE)
 
 
 def read_hook_input() -> dict:
-    return json.loads(sys.stdin.read() or "{}")
+    """The hook's call, read as the bytes Claude Code sends: a piped stdin on Windows would
+    otherwise be decoded in the local code page, not UTF-8."""
+    return json.loads(sys.stdin.buffer.read() or b"{}")
 
 
 def git(folder: str | Path, *args: str) -> str:
