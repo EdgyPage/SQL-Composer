@@ -17,6 +17,7 @@ import textwrap
 
 import pytest
 from conftest import in_this_edition
+from offline_policy import external_references
 
 import sqlglot_composer
 from sqlglot_composer import (
@@ -823,9 +824,7 @@ def test_the_same_statement_twice_is_drawn_once(tmp_path) -> None:
 
 def test_the_page_needs_nothing_beyond_itself(tmp_path) -> None:
     _, page = read(export_lineage(runs_per_team(), to=tmp_path / "lineage.html"))
-    assert "<script src" not in page
-    assert "http://" not in page and "https://" not in page
-    assert "<link" not in page
+    assert external_references(page) == []
 
 
 def test_without_scripts_the_page_shows_the_report_and_points_at_the_markdown(tmp_path) -> None:
