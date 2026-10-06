@@ -24,6 +24,9 @@ communication out. The approved plan, with the audit's report, is `plan.md` besi
   where `send` still reaches your warehouse. sqlglot Composer is unchanged.
 - Every ticket follows CLAUDE.md's Definition of done.
 
+- **Version (the user, 2026-10-06):** 4.0 is pushed (main 751be06); this effort ships as **4.1**,
+  with a CHANGES 4.1 section. The user approved ticket 03's 8 ALLOWED entries.
+
 ## Tickets
 
 - [01 The offline policy reader](issues/01-the-offline-policy-reader.md)
