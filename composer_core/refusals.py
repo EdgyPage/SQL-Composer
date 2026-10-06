@@ -168,10 +168,11 @@ def guard_date_formats_differ(call: str, first: str, first_format: str, first_da
             why="Hive compares the days as text, and one day written two ways is two "
             "different texts, so this would match no rows: a join would find no match, and "
             "a WHERE would keep nothing.",
-            fix="Compare days written the same way. Save one table's rows in a Saved table "
-            "whose days are written like the other's, and compare with that: a write writes "
-            "its day the Saved table's way, as example 1 of the intermediate Example project "
-            "shows.",
+            fix="Compare days written the same way. First save one table's rows in a Saved "
+            "table whose Table reference writes its days like the other table's: each write "
+            "puts its day into the Saved table written the Saved table's way, so the days then "
+            "match. The intermediate Example project, in the Toolbox download's "
+            "example_projects folder, does this in statements/example_1_job_day_costs.py.",
             opt_out=None,
         )
     )
@@ -217,26 +218,32 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
 
 
 def guard_missing_group_by(place: str, columns: list[str], grouped: bool,
-                           group_by: list[str] | None = None) -> None:
+                           calculations: list[tuple[str, list[str]]] | None = None) -> None:
     """A column shown, tested or sorted by must be grouped when the Statement aggregates.
     No opt-out.
 
-    `grouped` is whether the Statement has a GROUP_BY at all. `group_by` is what to add to
-    GROUP_BY, when it isn't `columns`: a calculation such as week_start(dt) is grouped by its
-    name, such as "week", not by the column inside it.
+    `grouped` is whether the Statement has a GROUP_BY at all. `calculations` holds each
+    calculation in SELECT, such as week_start(dt) named "week", that isn't grouped: its name
+    and the columns inside it. A calculation is grouped by its name, not by the columns
+    inside it, which would give one row per day, not per week.
     """
-    listed = ", ".join(columns)
-    adding = ", ".join(group_by or columns)
+    calculations = calculations or []
+    listed = ", ".join(columns + [f'the calculation "{name}" (from {", ".join(inside)})'
+                                  for name, inside in calculations])
+    adding = ", ".join(columns + [f'"{name}"' for name, _ in calculations])
     if grouped:
         what = f"{place} has {listed}, which GROUP_BY leaves out."
         fix = f"Add {adding} to GROUP_BY."
     else:
         what = (f"{place} has {listed}, but the Statement counts or adds up rows and has "
                 "no GROUP_BY.")
-        fix = f"Add GROUP_BY({adding}), or put {listed} inside a count or a sum."
-    if adding != listed and '"' in adding:
+        fix = f"Add GROUP_BY({adding})"
+        if columns:
+            fix += f", or put {', '.join(columns)} inside a count or a sum"
+        fix += "."
+    if calculations:
         fix += " A calculation is grouped by the name you gave it with AS."
-    if place == "SELECT":
+    if place == "SELECT" and columns:
         fix += (" To keep one whole row per group instead, such as each job's latest run, "
                 "number the rows with row_number(...) inside derived(...), then keep number 1 "
                 "with WHERE(equals(..., 1)); help(row_number) shows how.")
@@ -365,12 +372,14 @@ def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
 
 def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[str] | None,
                           many_matches: bool, derived: bool = False,
-                          date_partition: str | None = None) -> None:
+                          date_partition: str | None = None,
+                          matched_with: str | None = None) -> None:
     """A join off the joined table's key repeats rows: warn, and still join.
 
     `date_partition` is the joined table's Date partition, if it has one. When its key holds
     the Date partition and ON= leaves it out, as on a table that keeps a copy of each row
-    every day, the usual fix is to match the day too, and the message says so.
+    every day, the usual fix is to match the day too, and the message says so, with the day
+    of `matched_with`, the table ON= matches it with.
     """
     if many_matches:
         return
@@ -388,9 +397,13 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
                 "in its Table reference.")
     fix = f"Group {table} first so it has one row per value you join on, and join that."
     if key and date_partition in key and date_partition not in matched:
-        fix = (f"Match the day too: add equals({table}.{date_partition}, ...) to ON=, with "
-               f"the day of the rows before the join, so each meets its own day's {table} "
-               f"row. If they have no day to match, {fix[0].lower()}{fix[1:]}")
+        # The other table's day, guessed to have the same name, as a snapshot's usually does.
+        day = (f"{matched_with}.{date_partition}" if matched_with
+               else "the other table's day")
+        fix = (f"Match the day too, so each row meets its own day's {table} row: "
+               f"ON=all_of(equals(...), equals({table}.{date_partition}, {day})), where "
+               "equals(...) is what ON= has now. If the rows before the join have no day, "
+               f"group {table} first so it has one row per value you join on, and join that.")
     message = four_part_message(
         what=what,
         why=f"Each row before the join is repeated once per matching {table} row, so sums "
@@ -500,8 +513,8 @@ def refuse_what_isnt_a_dataframe(result) -> None:
         start = "Turn the rows into a DataFrame at the end of your send"
     raise TypeError(four_part_message(
         what=f"Your send gave back {given}, where a pandas DataFrame goes.",
-        why="run gives back what your send gives back, and what comes after it, such as "
-        "result[\"team\"], reads the rows as a pandas DataFrame, by their column names.",
+        why="run hands you back what your send gives back, and you read the rows from it as "
+        "from a pandas DataFrame, each column by its name.",
         fix=f"{start}: return pd.DataFrame(rows). That takes the column names from each row's "
         "keys when your query API gives each row as a dict. When it gives each row as a "
         "tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to "

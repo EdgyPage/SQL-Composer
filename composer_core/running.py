@@ -247,7 +247,7 @@ def to_hive(s):
       job_runs.dt = '2026-09-24'
     """
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
-                    why="It writes the Hive for one Statement made by statement(...).")
+                    why="to_hive writes the Hive of one Statement made by statement(...).")
     if s._ddl is None:
         _check_dates_cap(s)
     text = edition.hive_statement(_statement_tree(s))
@@ -255,27 +255,27 @@ def to_hive(s):
     return text
 
 
-def _need_statement(s, call: str, frame, why: str) -> None:
+def _need_statement(s, call: str, frame, why: str, more: str = "") -> None:
     """Refuse what isn't a Statement, in the name of `call`, the function it was given to.
 
     `frame` is the caller's, so the usual fix can name their own variable: a Derived table is
-    wrapped in a Statement that reads it, and a list is sent one Statement at a time.
+    wrapped in a Statement that reads it, and a list is sent one Statement at a time. `more`
+    is what the fix's call takes after the Statement, such as ", send=...".
     """
     if isinstance(s, Statement):
         return
     name = name_in(frame, s) if frame is not None else None
-    more = ", send=..." if call == "run" else ""
     if isinstance(s, Table) and s._statement is not None:
-        d = name or s._alias
+        d = name or "d"
         fix = (f"A Derived table is a step for another Statement to read, so wrap it in the "
                f"smallest Statement that reads it: {call}(statement(SELECT(all_columns({d})), "
-               f"FROM({d})){more}).")
+               f"FROM({d})){more})" + ("." if name else ", where d is the Derived table."))
     elif isinstance(s, (list, tuple)):
         fix = (f"Pass its Statements one at a time, with a loop: for step in "
                f"{name or 'steps'}: {call}(step{more}).")
     elif isinstance(s, str):
         fix = (f"Pass the Statement itself, made by statement(...): {call} writes its Hive "
-               "and checks it.")
+               "for you.")
     else:
         fix = "Pass statement(SELECT(...), FROM(...), ...)."
     refuse(what=f"{call} was given {s!r}, which isn't a Statement.", why=why, fix=fix,
@@ -365,7 +365,7 @@ def show_hive(*statements):
     texts = []
     for position, (name, s) in enumerate(named, start=1):
         _need_statement(s, "show_hive", frame,
-                        why="It prints the Hive of Statements made by statement(...).")
+                        why="show_hive prints the Hive of Statements made by statement(...).")
         hive = to_hive(s) + ";"
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
@@ -401,8 +401,8 @@ def run(s, send):
             fix="Pass your function itself, without calling it: run(s, send=run_query).",
         )
     _need_statement(s, "run", inspect.currentframe().f_back,
-                    why="It writes the Hive of one Statement made by statement(...), checks "
-                    "it, and sends it.")
+                    why="run writes the Hive of one Statement made by statement(...) and "
+                    "sends it.", more=", send=...")
     text = to_hive(s)
     result = send(text)
     # A write has already been carried out when its send returns, so only a read's rows matter.

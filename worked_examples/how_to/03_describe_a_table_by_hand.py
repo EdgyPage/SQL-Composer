@@ -278,7 +278,7 @@ it stops:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  equals(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-23', which isn't a day written like '20260925'.
+  What happened:  equals(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-23', but its Table reference writes days like '20260923'.
 ...
 
 ### A date_format that doesn't put the year first

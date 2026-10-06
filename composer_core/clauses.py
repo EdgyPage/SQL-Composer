@@ -317,6 +317,20 @@ def _matched_columns(table: Table, on: Condition) -> list[str]:
     return sorted(matched)
 
 
+def _matched_with(table: Table, on: Condition) -> str | None:
+    """The table that ON= matches `table`'s columns with, by its name in the Statement, or
+    None when no equals in ON= has a column of another table."""
+    for part in _and_parts(on._tree):
+        if part.kind != "EQ":
+            continue
+        sides = (part.parts["this"], part.parts["expression"])
+        for mine, other in (sides, sides[::-1]):
+            if (mine.kind == "Column" and mine.table == table._alias
+                    and other.kind == "Column" and other.table not in (None, table._alias)):
+                return other.table
+    return None
+
+
 def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> Clause:
     table = _need_table(table, f"{call}(...)")
     on = _need_on(on, call, table)
@@ -325,7 +339,8 @@ def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> C
     if key is None or not set(key) <= set(matched):
         warning_repeated_rows(call, table._alias, matched, key, many_matches,
                               derived=table._statement is not None,
-                              date_partition=table._date_partition)
+                              date_partition=table._date_partition,
+                              matched_with=_matched_with(table, on))
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
                   many_matches=many_matches, **more)
 
@@ -885,23 +900,23 @@ def _guard_group_by(s: Statement) -> None:
         ("ORDER_BY", [key.parts["this"] for key in s._order_by]),
     ]
     for place, trees in places:
-        missing, group_by = [], []
-        for tree, name in zip(trees, names if place == "SELECT" else [None] * len(trees)):
+        missing, calculations = [], []
+        for number, tree in enumerate(trees):
             ungrouped = _ungrouped(tree, groups)
+            # A calculation in SELECT, such as week_start(dt) named "week", is grouped by its
+            # name: grouped by the column inside it, it would give one row per day, not week.
+            if (place == "SELECT" and ungrouped and tree.kind != "Column"
+                    and not has_aggregate(tree)):
+                inside = list(dict.fromkeys(hive_text(column) for column in ungrouped))
+                calculations.append((names[number], inside))
+                continue
             for column in ungrouped:
                 text = hive_text(column)
                 is_a_name = place == "ORDER_BY" and not column.table and column.name in names
                 if not is_a_name and text not in missing:
                     missing.append(text)
-            # A calculation such as week_start(dt) is grouped by its name: grouped by the
-            # column inside it, it would give one row per day, not per week.
-            if ungrouped and name and tree.kind != "Column" and not has_aggregate(tree):
-                group_by.append(f'"{name}"')
-            else:
-                group_by += [hive_text(c) for c in ungrouped if hive_text(c) in missing]
-        if missing:
-            guard_missing_group_by(place, missing, bool(s._group_by),
-                                   group_by=list(dict.fromkeys(group_by)))
+        if missing or calculations:
+            guard_missing_group_by(place, missing, bool(s._group_by), calculations)
 
 
 def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:

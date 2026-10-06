@@ -36,6 +36,7 @@ from sqlglot_composer import (
     hive_function,
     if_else,
     is_in,
+    is_null,
     last_n_days,
     run,
     set_load_limits,
@@ -194,6 +195,15 @@ def test_run_given_a_derived_table_says_to_wrap_it_in_a_statement() -> None:
     assert sent[0].endswith("FROM per_team")
 
 
+def test_a_derived_table_with_no_variable_name_is_called_d_in_the_fix() -> None:
+    """Its name in the Hive isn't a Python name, so the fix doesn't paste it as one."""
+    with pytest.raises(TypeError) as refused:
+        run(derived("per_team", teams()), send=example_database.send)
+    assert usual_fix(refused).endswith(
+        "run(statement(SELECT(all_columns(d)), FROM(d)), send=...), where d is the Derived "
+        "table.")
+
+
 def test_run_given_a_list_says_to_send_each_in_turn() -> None:
     steps = [teams(), teams()]
     with pytest.raises(TypeError, match=r"run was given \[") as refused:
@@ -231,3 +241,10 @@ def test_a_calculations_name_in_a_condition_says_to_write_the_calculation() -> N
         at_least("runs", 3)
     fix = usual_fix(refused)
     assert "AS(" in fix and "write the calculation itself" in fix
+
+
+def test_a_text_in_is_null_isnt_taken_for_a_calculations_name() -> None:
+    """is_null takes no value, and a count is never NULL, so the hint isn't given there."""
+    with pytest.raises(TypeError) as refused:
+        is_null("runs")
+    assert "AS(" not in usual_fix(refused)

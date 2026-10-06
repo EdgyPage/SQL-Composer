@@ -236,7 +236,7 @@ A Statement written with the table's own days is refused until you add it:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '20260918', which isn't a day written like '2026-09-25'.
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '20260918', but its Table reference writes days like '2026-09-18'.
 ...
 
 Its fix offers both ways out: write the day the Table reference's way, `'2026-09-18'`, or, if
@@ -256,11 +256,11 @@ since it would match no folder:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-18', which isn't a day written like '20260925'.
+  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-18', but its Table reference writes days like '20260918'.
 ...
 
-The day in What happened, `'20260925'`, is only an example of a day written the table's way.
-The fix writes your own day that way: `"20260918"`. A `datetime.date(2026, 9, 18)` works too.
+The message writes your own day the table's way: `"20260918"`. A `datetime.date(2026, 9, 18)`
+works too.
 
 ### Joining it on the day to a table that writes days the usual way
 
