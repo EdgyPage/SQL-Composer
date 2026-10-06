@@ -4350,7 +4350,6 @@ statement.minutes = sum_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-24", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(alerts_per_run.run_id, job_runs.run_id)`, which is `alerts_per_run.run_id = job_runs.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
 
 #### `alerts`
 
@@ -11879,7 +11878,6 @@ statement.k1 = week_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 30`
 
 #### `a0`
@@ -11893,7 +11891,6 @@ statement.a0 = average_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 30`
 
 One value for each different `job_runs.status` and `week_start(job_runs.dt)`.
@@ -13863,7 +13860,6 @@ statement.a0 = count_rows(where=contains(job_runs.status, "a_b%"))
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 2)`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a1 DESC LIMIT 26`
 
 One value for each different `jobs.team`.
@@ -13879,7 +13875,6 @@ statement.a1 = sum_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 2)`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a1 DESC LIMIT 26`
 
 One value for each different `jobs.team`.
@@ -14120,7 +14115,6 @@ Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `equals(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")`, which is `job_runs.status = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'` (reads ops.job_runs.status)
 - WHERE in statement: `any_of(more_than(job_runs.duration_mins, 15), is_in(job_runs.status, [""]))`, which is `job_runs.duration_mins > 15 OR job_runs.status IN ('')` (reads ops.job_runs.duration_mins, ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c2`
 
@@ -14135,7 +14129,6 @@ Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `equals(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")`, which is `job_runs.status = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'` (reads ops.job_runs.status)
 - WHERE in statement: `any_of(more_than(job_runs.duration_mins, 15), is_in(job_runs.status, [""]))`, which is `job_runs.duration_mins > 15 OR job_runs.status IN ('')` (reads ops.job_runs.duration_mins, ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c3`
 
@@ -14150,7 +14143,6 @@ Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `equals(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")`, which is `job_runs.status = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'` (reads ops.job_runs.status)
 - WHERE in statement: `any_of(more_than(job_runs.duration_mins, 15), is_in(job_runs.status, [""]))`, which is `job_runs.duration_mins > 15 OR job_runs.status IN ('')` (reads ops.job_runs.duration_mins, ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 ### Copied columns
 
@@ -14396,7 +14388,6 @@ statement.k0 = week_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `a0`
 
@@ -14409,7 +14400,6 @@ statement.a0 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `week_start(job_runs.dt)`.
 
@@ -14424,7 +14414,6 @@ statement.a1 = average_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `week_start(job_runs.dt)`.
 
@@ -14439,7 +14428,6 @@ statement.a2 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `week_start(job_runs.dt)`.
 
@@ -14797,7 +14785,6 @@ statement.c1 = fill_null(job_runs.status, "Berlin – München")
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 4`
 
 ### Copied columns
@@ -15970,7 +15957,6 @@ statement.c0 = hive_function("concat", job_runs.status, "", job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c0 DESC LIMIT 14`
 
 ### Hive as submitted
@@ -17350,7 +17336,6 @@ statement.c0 = if_else(any_of(at_most(job_runs.duration_mins, 35), at_most(job_r
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `any_of(is_not_null(job_runs.avg_retry_secs), is_not_null(job_runs.avg_retry_secs), less_than(job_runs.duration_mins, 5))`, which is `NOT job_runs.avg_retry_secs IS NULL OR NOT job_runs.avg_retry_secs IS NULL OR job_runs.duration_mins < 5` (reads ops.job_runs.avg_retry_secs, ops.job_runs.duration_mins)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c2`
 
@@ -17364,7 +17349,6 @@ statement.c2 = week_start(job_runs.dt)
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `any_of(is_not_null(job_runs.avg_retry_secs), is_not_null(job_runs.avg_retry_secs), less_than(job_runs.duration_mins, 5))`, which is `NOT job_runs.avg_retry_secs IS NULL OR NOT job_runs.avg_retry_secs IS NULL OR job_runs.duration_mins < 5` (reads ops.job_runs.avg_retry_secs, ops.job_runs.duration_mins)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 ### Copied columns
 
@@ -17479,7 +17463,6 @@ statement.a0 = sum_of(job_runs.duration_mins, where=more_than(job_runs.duration_
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY k0 ASC LIMIT 48`
 
 One value for each different `job_runs.job_id` and `jobs.region`.
@@ -17600,7 +17583,6 @@ statement.k0 = month_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a2 ASC LIMIT 18`
 
 #### `k1`
@@ -17614,7 +17596,6 @@ statement.k1 = month_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a2 ASC LIMIT 18`
 
 #### `a0`
@@ -17628,7 +17609,6 @@ statement.a0 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a2 ASC LIMIT 18`
 
 One value for each different `month_start(job_runs.dt)` and `month_start(job_runs.dt)`.
@@ -17644,7 +17624,6 @@ statement.a1 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a2 ASC LIMIT 18`
 
 One value for each different `month_start(job_runs.dt)` and `month_start(job_runs.dt)`.
@@ -17660,7 +17639,6 @@ statement.a2 = count_rows()
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a2 ASC LIMIT 18`
 
 One value for each different `month_start(job_runs.dt)` and `month_start(job_runs.dt)`.
@@ -17787,7 +17765,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `is_null(job_runs.status)`, which is `job_runs.status IS NULL` (reads ops.job_runs.status)
 - WHERE in statement: `is_not_in(job_runs.status, ["C:\\temp", "", "O'Brien"])`, which is `NOT job_runs.status IN ('C:\\temp', '', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c2 DESC LIMIT 27`
 
 #### `c2`
@@ -17803,7 +17780,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `is_null(job_runs.status)`, which is `job_runs.status IS NULL` (reads ops.job_runs.status)
 - WHERE in statement: `is_not_in(job_runs.status, ["C:\\temp", "", "O'Brien"])`, which is `NOT job_runs.status IN ('C:\\temp', '', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c2 DESC LIMIT 27`
 
 #### `c3`
@@ -17819,7 +17795,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `is_null(job_runs.status)`, which is `job_runs.status IS NULL` (reads ops.job_runs.status)
 - WHERE in statement: `is_not_in(job_runs.status, ["C:\\temp", "", "O'Brien"])`, which is `NOT job_runs.status IN ('C:\\temp', '', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c2 DESC LIMIT 27`
 
 ### Copied columns
@@ -18154,7 +18129,6 @@ statement.c0 = hive_function("upper", job_runs.status)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 45`
 
 ### Hive as submitted
@@ -18380,7 +18354,6 @@ statement.a0 = max_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 4)`, which is `COUNT(*) >= 4`
 
 One value for each different `job_runs.dt`.
@@ -18492,7 +18465,6 @@ statement.a0 = count_distinct(job_runs.status, where=any_of(not_equals(job_runs.
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 36`
 
 One value for each different `job_runs.dt`.
@@ -20845,7 +20817,6 @@ Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `at_most(job_runs.duration_mins, 52)`, which is `job_runs.duration_mins <= 52` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `more_than(job_runs.duration_mins, 5)`, which is `job_runs.duration_mins > 5` (reads ops.job_runs.duration_mins)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c1 ASC LIMIT 49`
 
 #### `c2`
@@ -20861,7 +20832,6 @@ Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `at_most(job_runs.duration_mins, 52)`, which is `job_runs.duration_mins <= 52` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `more_than(job_runs.duration_mins, 5)`, which is `job_runs.duration_mins > 5` (reads ops.job_runs.duration_mins)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c1 ASC LIMIT 49`
 
 #### `c3`
@@ -20877,7 +20847,6 @@ Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `at_most(job_runs.duration_mins, 52)`, which is `job_runs.duration_mins <= 52` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `more_than(job_runs.duration_mins, 5)`, which is `job_runs.duration_mins > 5` (reads ops.job_runs.duration_mins)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c1 ASC LIMIT 49`
 
 ### Copied columns
@@ -21218,7 +21187,6 @@ statement.a0 = count_rows()
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `job_runs.job_id`.
 
@@ -21233,7 +21201,6 @@ statement.a1 = average_of(job_runs.duration_mins, where=less_than(job_runs.durat
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `job_runs.job_id`.
 
@@ -21248,7 +21215,6 @@ statement.a2 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `job_runs.job_id`.
 
@@ -21463,7 +21429,6 @@ statement.c0 = if_else(any_of(more_than(job_runs.duration_mins, 11), not_equals(
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c0 ASC LIMIT 24`
 
 ### Hive as submitted
@@ -22496,7 +22461,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `less_than(job_runs.duration_mins, 2)`, which is `job_runs.duration_mins < 2` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_not_null(job_runs.avg_retry_secs)`, which is `NOT job_runs.avg_retry_secs IS NULL` (reads ops.job_runs.avg_retry_secs)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c1`
 
@@ -22511,7 +22475,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `less_than(job_runs.duration_mins, 2)`, which is `job_runs.duration_mins < 2` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_not_null(job_runs.avg_retry_secs)`, which is `NOT job_runs.avg_retry_secs IS NULL` (reads ops.job_runs.avg_retry_secs)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c2`
 
@@ -22526,7 +22489,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `less_than(job_runs.duration_mins, 2)`, which is `job_runs.duration_mins < 2` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_not_null(job_runs.avg_retry_secs)`, which is `NOT job_runs.avg_retry_secs IS NULL` (reads ops.job_runs.avg_retry_secs)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 ### Hive as submitted
 
@@ -22930,7 +22892,6 @@ statement.k0 = week_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY k0 DESC LIMIT 28`
 
 #### `a0`
@@ -22944,7 +22905,6 @@ statement.a0 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY k0 DESC LIMIT 28`
 
 One value for each different `week_start(job_runs.dt)`.
@@ -24639,7 +24599,6 @@ statement.c0 = 0 - job_runs.duration_mins
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c1`
 
@@ -24652,7 +24611,6 @@ statement.c1 = 0 - job_runs.duration_mins
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 ### Hive as submitted
 
@@ -27562,7 +27520,6 @@ Rows that count:
 - WHERE in statement: `all_of(less_than(job_runs.duration_mins, 27), less_than(job_runs.duration_mins, 12))`, which is `job_runs.duration_mins < 27 AND job_runs.duration_mins < 12` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_in(job_runs.status, ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "Berlin – München", "O'Brien"])`, which is `job_runs.status IN ('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
 - WHERE in statement: `all_of(contains(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), is_in(job_runs.status, ["Berlin – München", "O'Brien"]))`, which is `job_runs.status LIKE '%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%' AND job_runs.status IN ('Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 20`
 
 #### `c1`
@@ -27579,7 +27536,6 @@ Rows that count:
 - WHERE in statement: `all_of(less_than(job_runs.duration_mins, 27), less_than(job_runs.duration_mins, 12))`, which is `job_runs.duration_mins < 27 AND job_runs.duration_mins < 12` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_in(job_runs.status, ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "Berlin – München", "O'Brien"])`, which is `job_runs.status IN ('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
 - WHERE in statement: `all_of(contains(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), is_in(job_runs.status, ["Berlin – München", "O'Brien"]))`, which is `job_runs.status LIKE '%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%' AND job_runs.status IN ('Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 20`
 
 #### `c2`
@@ -27597,7 +27553,6 @@ Rows that count:
 - WHERE in statement: `all_of(less_than(job_runs.duration_mins, 27), less_than(job_runs.duration_mins, 12))`, which is `job_runs.duration_mins < 27 AND job_runs.duration_mins < 12` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_in(job_runs.status, ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "Berlin – München", "O'Brien"])`, which is `job_runs.status IN ('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
 - WHERE in statement: `all_of(contains(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), is_in(job_runs.status, ["Berlin – München", "O'Brien"]))`, which is `job_runs.status LIKE '%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%' AND job_runs.status IN ('Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 20`
 
 #### `c3`
@@ -27614,7 +27569,6 @@ Rows that count:
 - WHERE in statement: `all_of(less_than(job_runs.duration_mins, 27), less_than(job_runs.duration_mins, 12))`, which is `job_runs.duration_mins < 27 AND job_runs.duration_mins < 12` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `is_in(job_runs.status, ["xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "Berlin – München", "O'Brien"])`, which is `job_runs.status IN ('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 'Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
 - WHERE in statement: `all_of(contains(job_runs.status, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"), is_in(job_runs.status, ["Berlin – München", "O'Brien"]))`, which is `job_runs.status LIKE '%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx%' AND job_runs.status IN ('Berlin – München', 'O\'Brien')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 20`
 
 ### Hive as submitted
@@ -27736,7 +27690,6 @@ statement.a0 = average_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 32`
 
 One value for each different `job_runs.dt`.
@@ -27752,7 +27705,6 @@ statement.a1 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 32`
 
 One value for each different `job_runs.dt`.
@@ -27769,7 +27721,6 @@ statement.a2 = sum_of(job_runs.duration_mins, where=all_of(between(job_runs.dura
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 32`
 
 One value for each different `job_runs.dt`.
@@ -28043,7 +27994,6 @@ statement.c0 = fill_null(job_runs.status, "C:\\temp")
 
 Rows that count:
 - WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c0 ASC LIMIT 45`
 
 ### Hive as submitted
@@ -28144,7 +28094,6 @@ statement.a0 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 1)`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 19`
 
 One value for each different `job_runs.dt` and `job_runs.job_id`.
@@ -28160,7 +28109,6 @@ statement.a1 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 1)`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 19`
 
 One value for each different `job_runs.dt` and `job_runs.job_id`.
@@ -29296,7 +29244,6 @@ statement.k0 = month_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 2)`, which is `COUNT(*) >= 2`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 39`
 
@@ -29311,7 +29258,6 @@ statement.k1 = week_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 2)`, which is `COUNT(*) >= 2`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 39`
 
@@ -29327,7 +29273,6 @@ statement.a0 = count_rows(where=any_of(between(job_runs.duration_mins, 40, 47), 
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 2)`, which is `COUNT(*) >= 2`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 39`
 
@@ -29344,7 +29289,6 @@ statement.a1 = count_rows()
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 2)`, which is `COUNT(*) >= 2`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 39`
 
@@ -29361,7 +29305,6 @@ statement.a2 = max_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 2)`, which is `COUNT(*) >= 2`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 39`
 
@@ -29683,7 +29626,6 @@ statement.c0 = ((job_runs.duration_mins * 46) - 1) / 1
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `is_in(job_runs.status, ["Berlin – München", "C:\\temp"])`, which is `job_runs.status IN ('Berlin – München', 'C:\\temp')` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 ### Hive as submitted
 
@@ -29852,7 +29794,6 @@ statement.k0 = week_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 1)`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a0 DESC LIMIT 39`
 
 #### `a0`
@@ -29866,7 +29807,6 @@ statement.a0 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 1)`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY a0 DESC LIMIT 39`
 
 One value for each different `week_start(job_runs.dt)`.
@@ -31495,7 +31435,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `at_most(job_runs.duration_mins, 7)`, which is `job_runs.duration_mins <= 7` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `starts_with(job_runs.status, "a_b%")`, which is `job_runs.status LIKE 'a\\_b\\%%'` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c0 DESC LIMIT 29`
 
 #### `c1`
@@ -31511,7 +31450,6 @@ Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
 - WHERE in statement: `at_most(job_runs.duration_mins, 7)`, which is `job_runs.duration_mins <= 7` (reads ops.job_runs.duration_mins)
 - WHERE in statement: `starts_with(job_runs.status, "a_b%")`, which is `job_runs.status LIKE 'a\\_b\\%%'` (reads ops.job_runs.status)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `ORDER BY c0 DESC LIMIT 29`
 
 ### Hive as submitted
@@ -31811,7 +31749,6 @@ Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 2)`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 - WHERE in statement: `equals(job_runs.status, "a_b%")`, which is `job_runs.status = 'a_b%'` (reads ops.job_runs.status)
 - WHERE in statement: `more_than(job_runs.duration_mins, 8)`, which is `job_runs.duration_mins > 8` (reads ops.job_runs.duration_mins)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 7`
 
 ### Hive as submitted
@@ -33908,7 +33845,6 @@ statement.a0 = count_distinct(job_runs.status)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 3)`, which is `COUNT(*) >= 3`
 
 One value for each different `job_runs.dt` and `job_runs.status`.
@@ -33924,7 +33860,6 @@ statement.a1 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 3)`, which is `COUNT(*) >= 3`
 
 One value for each different `job_runs.dt` and `job_runs.status`.
@@ -33940,7 +33875,6 @@ statement.a2 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `is_in(job_runs.dt, ["2026-09-24", "2026-09-23"])`, which is `job_runs.dt IN ('2026-09-24', '2026-09-23')` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 3)`, which is `COUNT(*) >= 3`
 
 One value for each different `job_runs.dt` and `job_runs.status`.
@@ -34055,7 +33989,6 @@ statement.k1 = week_start(job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `a0`
 
@@ -34068,7 +34001,6 @@ statement.a0 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `job_runs.status` and `week_start(job_runs.dt)`.
 
@@ -34083,7 +34015,6 @@ statement.a1 = sum_of(job_runs.avg_retry_secs)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 One value for each different `job_runs.status` and `week_start(job_runs.dt)`.
 
@@ -34673,7 +34604,6 @@ statement.c0 = hive_function("upper", job_runs.status)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 1)`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 #### `c2`
 
@@ -34687,7 +34617,6 @@ statement.c2 = hive_function("concat", job_runs.status, "FAILED", job_runs.dt)
 
 Rows that count:
 - WHERE in statement: `last_n_days(job_runs.dt, 1)`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 
 ### Copied columns
 
@@ -35191,7 +35120,6 @@ statement.a0 = sum_of(job_runs.duration_mins, where=is_in(job_runs.status, ["O'B
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 3)`, which is `COUNT(*) >= 3`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 26`
 
@@ -35208,7 +35136,6 @@ statement.a1 = count_distinct(job_runs.status)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 3)`, which is `COUNT(*) >= 3`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 26`
 
@@ -35225,7 +35152,6 @@ statement.a2 = min_of(job_runs.duration_mins)
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - HAVING in statement: `at_least(count_rows(), 3)`, which is `COUNT(*) >= 3`
 - LIMIT in statement: `ORDER BY a0 ASC LIMIT 26`
 
@@ -36042,7 +35968,6 @@ statement.c0 = ((job_runs.duration_mins * 20) - 3) / 2
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 16`
 
 #### `c1`
@@ -36056,7 +35981,6 @@ statement.c1 = if_else(all_of(is_in(job_runs.status, ["O'Brien", "FAILED", "Berl
 
 Rows that count:
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
-- LEFT JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
 - LIMIT in statement: `LIMIT 16`
 
 ### Hive as submitted

@@ -36,6 +36,7 @@ from sqlglot_composer import (
     all_of,
     at_least,
     between,
+    count_distinct,
     count_rows,
     create_table,
     derived,
@@ -44,6 +45,7 @@ from sqlglot_composer import (
     example_database,
     export_lineage,
     fill_null,
+    is_null,
     last_n_days,
     not_equals,
     row_number,
@@ -627,12 +629,133 @@ def test_a_left_joined_saved_tables_conditions_decide_only_its_own_columns(
     # only the columns read from it, unless each run can match several of its rows.
     assert ("in alerts:" in runs) is many_matches
     assert ("in alerts:" in html_entry(page, "runs", "day")) is many_matches
-    assert "- LEFT JOIN ON in day:" in runs and "- WHERE in day:" in runs
+    # Nor does the LEFT JOIN's own ON= decide them: it only matches each row with its alerts.
+    assert ("- LEFT JOIN ON in day:" in runs) is many_matches and "- WHERE in day:" in runs
+    assert ("LEFT JOIN ON in day" in html_entry(page, "runs", "day")) is many_matches
+    assert "- LEFT JOIN ON in day:" in alerts_entry
     # The alerts' own column still lists the write's conditions, its date bound aside.
     assert "- JOIN ON in alerts: `equals(job_runs.run_id, run_alerts.run_id)`" in alerts_entry
     assert '- WHERE in alerts: `between(job_runs.dt, "2026-09-23", "2026-09-24")`' in alerts_entry
     assert "equals(run_alerts.dt" not in alerts_entry
     assert "JOIN ON in alerts:" in html_entry(page, "alerts", "day")
+
+
+job_events = example_database.job_events
+job_owners = example_database.job_owners
+job_day_facts = Table("mart.job_day_facts", date_partition="dt", key=["job_id", "dt"],
+                      columns={"job_id": "bigint", "team": "string", "events": "bigint",
+                               "dt": "string"})
+
+
+def write_job_day_facts():
+    """Each job's events on 2026-09-24, with the team that owned it that day: a LEFT_JOIN to
+    that day's snapshot, as the intermediate Example project's example 2 does."""
+    return statement(
+        INSERT_OVERWRITE(job_day_facts),
+        SELECT(job_events.job_id, job_owners.team, AS(count_rows(), "events")),
+        FROM(job_events),
+        LEFT_JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
+                                        equals(job_owners.dt, job_events.dt),
+                                        between(job_owners.dt, "2026-09-24", "2026-09-24"))),
+        WHERE(equals(job_events.dt, "2026-09-24")),
+        GROUP_BY(job_events.dt, job_events.job_id, job_owners.team),
+    )
+
+
+def test_a_writers_left_join_decides_only_the_columns_read_from_its_table_downstream(
+        tmp_path) -> None:
+    facts = write_job_day_facts()
+    per_team = statement(
+        SELECT(job_day_facts.team, AS(sum_of(job_day_facts.events), "events"),
+               AS(count_rows(where=is_null(job_day_facts.team)), "days_with_no_team")),
+        FROM(job_day_facts),
+        WHERE(equals(job_day_facts.dt, "2026-09-24")),
+        GROUP_BY(job_day_facts.team),
+    )
+    markdown, page = read(export_lineage(facts, per_team, to=tmp_path / "lineage.html"))
+    in_per_team = section(markdown, "## per_team")
+    events = section(in_per_team, "#### `events`")
+    no_team = section(in_per_team, "#### `days_with_no_team`")
+    # events never reads job_owners, so the LEFT JOIN that looked each team up can't change
+    # which rows it adds up, though it decides the team each row is grouped under.
+    assert "LEFT JOIN ON in facts" not in events
+    assert "LEFT JOIN ON in facts" not in html_entry(page, "events", "per_team")
+    assert "- WHERE in facts: `equals(job_events.dt" not in events  # the day written
+    assert "- WHERE in per_team:" in events
+    # A column worked out from the team does depend on whether the LEFT JOIN matched.
+    assert "- LEFT JOIN ON in facts:" in no_team
+    assert "LEFT JOIN ON in facts" in html_entry(page, "days_with_no_team", "per_team")
+
+
+def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_in_its_section(
+        tmp_path) -> None:
+    """How-to 23's team write reads each job's team from the snapshot of the day it writes:
+    the bound on job_owners.dt follows the day written, so a later reader of many days doesn't
+    list it, as it doesn't list the day written."""
+    team_day = Table("mart.team_day", date_partition="dt", key=["team", "dt"],
+                     columns={"team": "string", "events": "bigint", "dt": "string"})
+    team_day_step = statement(
+        INSERT_OVERWRITE(team_day),
+        SELECT(job_owners.team, AS(sum_of(job_day_facts.events), "events")),
+        FROM(job_day_facts),
+        JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_day_facts.job_id),
+                                   equals(job_owners.dt, job_day_facts.dt))),
+        WHERE(equals(job_day_facts.dt, "2026-09-24"), equals(job_owners.dt, "2026-09-24")),
+        GROUP_BY(job_day_facts.dt, job_owners.team),
+    )
+    weekly = statement(
+        SELECT(team_day.team, AS(sum_of(team_day.events), "events")),
+        FROM(team_day),
+        WHERE(between(team_day.dt, "2026-09-21", "2026-09-27")),
+        GROUP_BY(team_day.team),
+    )
+    markdown, page = read(export_lineage(weekly, team_day_step, to=tmp_path / "lineage.html"))
+    in_weekly = section(section(markdown, "## weekly"), "#### `events`")
+    assert "- WHERE in team_day_step:" not in in_weekly
+    assert "WHERE in team_day_step" not in html_entry(page, "events", "weekly")
+    assert "- JOIN ON in team_day_step:" in in_weekly and "- WHERE in weekly:" in in_weekly
+    in_write = section(section(markdown, "## team_day_step"), "#### `events`")
+    assert '- WHERE in team_day_step: `equals(job_owners.dt, "2026-09-24")`' in in_write
+
+
+def test_a_left_join_read_only_by_a_second_left_join_decides_only_what_that_one_brings(
+        tmp_path) -> None:
+    """The second LEFT_JOIN matches on jobs' columns, so the first decides the owner's team,
+    but neither drops a run, so neither decides the count of runs."""
+    chained = statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"),
+               AS(count_distinct(job_owners.team), "teams")),
+        FROM(job_runs),
+        LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        LEFT_JOIN(job_owners, ON=all_of(equals(job_owners.job_id, jobs.job_id),
+                                        equals(job_owners.dt, job_runs.dt),
+                                        between(job_owners.dt, "2026-09-23", "2026-09-24"))),
+        WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+        GROUP_BY(job_runs.job_id),
+    )
+    markdown, _ = read(export_lineage(chained, to=tmp_path / "lineage.html"))
+    in_chained = section(markdown, "## chained")
+    runs, teams = section(in_chained, "#### `runs`"), section(in_chained, "#### `teams`")
+    assert "LEFT JOIN ON in chained" not in runs and "- WHERE in chained:" in runs
+    assert "`equals(jobs.job_id, job_runs.job_id)`" in teams
+    assert "`all_of(equals(job_owners.job_id, jobs.job_id)" in teams
+
+
+def test_a_left_join_decides_every_column_when_a_condition_reads_its_table(tmp_path) -> None:
+    """An anti-join: WHERE keeps the rows the LEFT JOIN found no match for."""
+    no_snapshot = statement(
+        SELECT(job_events.job_id, AS(count_rows(), "events")),
+        FROM(job_events),
+        LEFT_JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
+                                        equals(job_owners.dt, job_events.dt),
+                                        between(job_owners.dt, "2026-09-24", "2026-09-24"))),
+        WHERE(equals(job_events.dt, "2026-09-24"), is_null(job_owners.team)),
+        GROUP_BY(job_events.job_id),
+    )
+    markdown, _ = read(export_lineage(no_snapshot, to=tmp_path / "lineage.html"))
+    events = section(section(markdown, "## no_snapshot"), "#### `events`")
+    assert "- LEFT JOIN ON in no_snapshot:" in events
+    assert "- WHERE in no_snapshot: `is_null(job_owners.team)`" in events
 
 
 def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:

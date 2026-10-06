@@ -118,6 +118,26 @@ anywhere.
 - Ticket 15's CHANGES 4.0 section also gains the Templates (ticket 13): `templates/`, a
   starter set and an intermediate set of scripts to copy into a project and fill in, each
   placeholder listed in its docstring, and a README giving the order to use them in.
+- Ticket 15's CHANGES 4.0 section also gains ticket 16's four fixed bugs (items 1-4):
+  - **A Warning always shows**: a RepeatedRowsWarning from a scope with no `__name__`, as some
+    notebook tools and `exec` give, was dropped unseen, and under `python -c` it stopped with
+    "'__main__' is not a built-in module".
+  - **export_lineage lists a LEFT_JOIN's own ON= only under the columns read from its table**
+    (and under every column of its Statement when another of its conditions that can drop rows
+    reads that table, as an anti-join's WHERE(is_null(...)) does, or with many_matches=True;
+    and under what a second LEFT_JOIN matching on its columns brings), in the Statement
+    that joins and in every Statement downstream of the Saved table it writes; before 4.0 it was
+    listed under every column, as if it dropped rows. And a write's bound on a joined table's
+    Date partition that its JOIN's ON= sets equal to the day written is listed only in the
+    write's own section, as the day written is.
+  - **A join that compares a column with itself stops**: JOIN or LEFT_JOIN whose ON= sets a
+    column of the joined table equal to the same column of a table of the same name, as when
+    one Statement reads one Building block twice, stops with a ValueError saying to give the
+    second a name of its own; before 4.0 it warned that the join "matches on nothing".
+  - **sqlglot Composer's Example database refuses a query it would answer wrong**: one that
+    adds up rows after a join where sqlglot's executor would read a joined table's column in
+    place of a same-named column of a table before it (NULL after a LEFT_JOIN), with "The
+    Example database can't run this Hive"; Spark Composer's runs it.
 
 ## Records this changes
 
@@ -195,6 +215,13 @@ anywhere.
   `<UPPER_SNAKE>` placeholders under "Fill in:" and a README giving their order; names avoid
   "report", "check" and "library"; notebook_start and keep_table_references_true work from an
   empty folder; the tests fill both sets in as one; the glossary's Template is rewritten.
+- [Toolbox follow-ups the how-tos found](issues/16-toolbox-follow-ups-from-the-how-tos.md):
+  warn_at_callers_line always shows its Warning; a LEFT_JOIN's ON= counts only for the columns
+  read from its table (unless a condition that drops rows reads it), and a joined Date bound tied
+  to the day written is listed with the write; sqlglot Composer's Example database refuses the
+  joins its executor would answer wrong; an ON= comparing a column with itself is refused;
+  clearer messages; two new refusals the user chose: days written two ways compared (a Guard,
+  no opt-out) and a read's send that gives back no DataFrame.
 
 ## Not yet specified
 
