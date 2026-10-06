@@ -82,9 +82,12 @@ def test_write_table_reference_writes_a_file_that_imports(tmp_path, monkeypatch)
 def test_write_table_reference_never_overwrites(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "jobs.py").write_text("mine", encoding="utf-8")
-    with pytest.raises(FileExistsError, match="nothing was written"):
+    with pytest.raises(FileExistsError, match="nothing was written") as refused:
         write_table_reference("ops.jobs", send=example_database.send)
     assert (tmp_path / "jobs.py").read_text(encoding="utf-8") == "mine"
+    # The file by its name, in the folder you're working in: a whole path differs per computer.
+    assert "jobs.py already exists in the folder you're working in" in str(refused.value)
+    assert str(tmp_path.name) not in str(refused.value)
 
 
 def test_write_table_reference_finds_a_date_format(tmp_path, monkeypatch) -> None:

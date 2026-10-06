@@ -443,7 +443,14 @@ job_runs has no column &#x27;duration&#x27;. Did you mean &#x27;duration_mins&#x
   Opt-out:        sum_of(job_runs.avg_retry_secs, adds_up=True)</pre>
 <p><code>GuardRefused</code> is how a Guard stops: a check the Toolbox runs as you build a Statement, which refuses one that would quietly give a wrong number. If you leave <code>does_not_add_up=[]</code> empty, nothing stops it, and the total means nothing.</p>
 <h5>Writing a Table reference that is already there</h5>
-<p><code>write_table_reference</code> never overwrites a file: once written, the file is yours, and rewriting it would lose the key and the notes you added. Run a second time for the same table, it stops and says the file already exists. Edit the file instead, and run <code>check_table_reference</code> to see what has changed in the table since.</p>
+<p><code>write_table_reference</code> never overwrites a file: once written, the file is yours, and rewriting it would lose the key and the notes you added. Run a second time for the same table, it stops:</p>
+<pre class="python">write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">FileExistsError:
+  What happened:  job_runs.py already exists in the folder you&#x27;re working in, so nothing was written.
+  Why it matters: A Table reference is yours once written, and rewriting it would lose your key, filters and notes.
+  Usual fix:      Edit that file, or check it against the table with check_table_reference(t, send=...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Edit the file instead, and run <code>check_table_reference</code> to see what has changed in the table since.</p>
 <h5>A key that doesn&#x27;t pick out one row</h5>
 <p>The table ops.run_alerts has a run_id column too, and a run can raise several alerts. A key of <code>[&quot;run_id&quot;]</code> looks right, but <code>check_key</code> shows the run_ids that repeat:</p>
 <pre class="python">wrong_key = Table(
@@ -639,7 +646,7 @@ Table.__init__() missing 1 required positional argument: &#x27;date_partition&#x
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  equals(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;2026-09-23&#x27;, which isn&#x27;t a day written like &#x27;20260925&#x27;.
   Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
-  Usual fix:      Write the day as &#x27;20260925&#x27;, or pass a datetime.date.
+  Usual fix:      Write the day as &#x27;20260923&#x27;, or pass a datetime.date. If the table&#x27;s days really are written like &#x27;2026-09-23&#x27;, its Table reference needs date_format=&quot;%Y-%m-%d&quot;: check_table_reference(t, send=...) says which.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h5>A date_format that doesn&#x27;t put the year first</h5>
 <pre class="python">costs_by_hand = Table(
@@ -785,9 +792,9 @@ result</pre>
 <p><code>run</code> takes the Statement and makes the Hive itself, so it can check it first. Given the text, it stops:</p>
 <pre class="python">run(to_hive(long_runs), send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
-  What happened:  to_hive was given &quot;SELECT\n  job_runs.run_id,\n  job_runs.status,\n  job_runs.duration_mins AS minutes\nFROM ops.job_runs AS job_runs\nWHERE\n  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20&quot;, which isn&#x27;t a Statement.
-  Why it matters: It writes the Hive for a Statement made by statement(...).
-  Usual fix:      Pass statement(SELECT(...), FROM(...), ...).
+  What happened:  run was given &quot;SELECT\n  job_runs.run_id,\n  job_runs.status,\n  job_runs.duration_mins AS minutes\nFROM ops.job_runs AS job_runs\nWHERE\n  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.duration_mins &gt;= 20&quot;, which isn&#x27;t a Statement.
+  Why it matters: It writes the Hive of one Statement made by statement(...), checks it, and sends it.
+  Usual fix:      Pass the Statement itself, made by statement(...): run writes its Hive and checks it.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Pass the Statement itself: <code>run(long_runs, send=example_database.send)</code>.</p>
 <h5>Giving a send the Statement</h5>
@@ -1416,9 +1423,9 @@ in_pandas == dict(zip(from_hive[&quot;job_id&quot;], from_hive[&quot;minutes&quo
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  at_least(&quot;runs&quot;, ...) was given &#x27;runs&#x27; where a column goes.
   Why it matters: A condition tests a column of a table, such as job_runs.status.
-  Usual fix:      Pass the column as an attribute of its Table reference, such as equals(job_runs.status, &quot;FAILED&quot;).
+  Usual fix:      Pass the column as an attribute of its Table reference, such as equals(job_runs.status, &quot;FAILED&quot;). If &#x27;runs&#x27; is a name you gave with AS, such as AS(count_rows(), &quot;runs&quot;), write the calculation itself in its place: at_least(count_rows(), ...). A condition is worked out before SELECT names anything.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>Write the calculation again: <code>HAVING(at_least(count_rows(), 3))</code>.</p>
+<p>As the message&#x27;s fix says, write the calculation itself: <code>HAVING(at_least(count_rows(), 3))</code>.</p>
 <h5>Sorting without a LIMIT</h5>
 <p>Sorting a whole result makes the warehouse put every row in order before any comes back, which is slow on a big table. The Toolbox stops a sort with no <code>LIMIT</code>:</p>
 <pre class="python">sorted_jobs = statement(
@@ -2062,11 +2069,11 @@ print(from_block[&quot;failed_runs&quot;].sum(), from_teams[&quot;failed_runs&qu
 <p><code>run</code> takes a Statement. A Derived table is a step to read, so on its own it stops:</p>
 <pre class="python">run(two_days, send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
-  What happened:  to_hive was given derived(&#x27;runs_per_job&#x27;, columns: job_id, runs, failed_runs, minutes), which isn&#x27;t a Statement.
-  Why it matters: It writes the Hive for a Statement made by statement(...).
-  Usual fix:      Pass statement(SELECT(...), FROM(...), ...).
+  What happened:  run was given derived(&#x27;runs_per_job&#x27;, columns: job_id, runs, failed_runs, minutes), which isn&#x27;t a Statement.
+  Why it matters: It writes the Hive of one Statement made by statement(...), checks it, and sends it.
+  Usual fix:      A Derived table is a step for another Statement to read, so wrap it in the smallest Statement that reads it: run(statement(SELECT(all_columns(two_days)), FROM(two_days)), send=...).
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>Wrap it in a Statement that reads it, as the step Check a block alone with run does.</p>
+<p>The message&#x27;s fix wraps it in the smallest Statement that reads it, as the step Check a block alone with run does.</p>
 <h5>Two blocks with one name</h5>
 <p>A second block, copied from the first and changed, keeps the first one&#x27;s name unless you change it. Here a block of each job&#x27;s long runs keeps the name <code>runs_per_job</code>. A Statement that reads it beside <code>busy</code>, which reads the real <code>runs_per_job</code>, holds two different steps under one name, and stops:</p>
 <pre class="python">def long_runs_per_job(first_day, last_day):
@@ -3019,14 +3026,14 @@ run(team_runs, send=example_database.send)</pre>
 <p>At work, after the morning&#x27;s run, read the day back from mart.team_day and compare it with this. The same numbers mean both steps ran, in the right order.</p>
 <h4>Common mistakes</h4>
 <h5>Handing run the whole list</h5>
-<p><code>run</code> sends one Statement, and refuses a list. The message names <code>to_hive</code>, which <code>run</code> calls first to write the Hive, and which takes one Statement:</p>
+<p><code>run</code> sends one Statement, and refuses a list:</p>
 <pre class="python">run(steps, send=print_first_line)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
-  What happened:  to_hive was given [&lt;Statement - print(to_hive(s)) shows it&gt;, &lt;Statement - print(to_hive(s)) shows it&gt;, &lt;Statement reading ops.job_runs - print(to_hive(s)) shows its Hive&gt;, &lt;Statement reading mart.daily_job_runs, ops.jobs - print(to_hive(s)) shows its Hive&gt;], which isn&#x27;t a Statement.
-  Why it matters: It writes the Hive for a Statement made by statement(...).
-  Usual fix:      Pass statement(SELECT(...), FROM(...), ...).
+  What happened:  run was given [&lt;Statement - print(to_hive(s)) shows it&gt;, &lt;Statement - print(to_hive(s)) shows it&gt;, &lt;Statement reading ops.job_runs - print(to_hive(s)) shows its Hive&gt;, &lt;Statement reading mart.daily_job_runs, ops.jobs - print(to_hive(s)) shows its Hive&gt;], which isn&#x27;t a Statement.
+  Why it matters: It writes the Hive of one Statement made by statement(...), checks it, and sends it.
+  Usual fix:      Pass its Statements one at a time, with a loop: for step in steps: run(step, send=...).
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>Send the list&#x27;s steps one at a time, with a loop, as <code>run_day</code> does.</p>
+<p>Send the list&#x27;s steps one at a time, with a loop, as the message&#x27;s fix and <code>run_day</code> do.</p>
 <h5>Reading a Saved table without naming its day</h5>
 <p>A step that reads a Saved table must bound its days, like any table with a Date partition. Leave out the WHERE, and the team step is refused as you build it:</p>
 <pre class="python">statement(
@@ -4517,11 +4524,11 @@ region_costs = Table(
         &quot;region&quot;: &quot;string&quot;,
         &quot;dt&quot;: &quot;string&quot;,
     },
-    date_partition=None,  # TODO: partitioned by region, dt; its newest region, &#x27;us&#x27;, isn&#x27;t a day the Toolbox can bound; if dt holds the days, name it
+    date_partition=None,  # TODO: partitioned by region, dt; its last region value, &#x27;us&#x27;, isn&#x27;t a day the Toolbox can bound; if dt holds the days, name it
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 )</pre>
-<p>Look at its line starting <code>date_partition=</code>. The Date partition is the one column of days that every Statement must bound at both ends, and <code>write_table_reference</code> looks for it in the first partition column only. Here that is region, which holds <code>&quot;eu&quot;</code> and <code>&quot;us&quot;</code>, not days, so it can&#x27;t be the Date partition: it writes <code>date_partition=None</code> and a TODO. The TODO names both partition columns, says the newest region, <code>&#x27;us&#x27;</code>, isn&#x27;t a day the Toolbox could bound, and asks you to name dt, the column that holds the days, yourself.</p>
+<p>Look at its line starting <code>date_partition=</code>. The Date partition is the one column of days that every Statement must bound at both ends, and <code>write_table_reference</code> looks for it in the first partition column only. Here that is region, which holds <code>&quot;eu&quot;</code> and <code>&quot;us&quot;</code>, not days, so it can&#x27;t be the Date partition: it writes <code>date_partition=None</code> and a TODO. The TODO names both partition columns, says region&#x27;s last value, <code>&#x27;us&#x27;</code>, isn&#x27;t a day the Toolbox could bound, and asks you to name dt, the column that holds the days, yourself.</p>
 <h5>Finish the Table reference</h5>
 <p>Change the TODO line into two lines: <code>date_partition=&quot;dt&quot;,</code> names the Date partition, and <code>date_format=&quot;%Y%m%d&quot;,</code> says how its days are written, in the codes Python&#x27;s dates use: <code>%Y</code> is the year, <code>%m</code> the month and <code>%d</code> the day. Fill in the other two TODOs while you are there: one row is one job&#x27;s cost in one region on one day, so the key is job_id, region and dt; and cost_cents is a plain amount, which adds up, so <code>does_not_add_up=[]</code> stays empty.</p>
 <p>Try the finished reference in your notebook first, as below; once the next step says it matches, copy it into <code>region_costs.py</code> and import it from there in every notebook:</p>
@@ -4645,8 +4652,9 @@ Notes:
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;20260918&#x27;, which isn&#x27;t a day written like &#x27;2026-09-25&#x27;.
   Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
-  Usual fix:      Write the day as &#x27;2026-09-25&#x27;, or pass a datetime.date.
+  Usual fix:      Write the day as &#x27;2026-09-18&#x27;, or pass a datetime.date. If the table&#x27;s days really are written like &#x27;20260918&#x27;, its Table reference needs date_format=&quot;%Y%m%d&quot;: check_table_reference(t, send=...) says which.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Its fix offers both ways out: write the day the Table reference&#x27;s way, <code>&#x27;2026-09-18&#x27;</code>, or, if the table&#x27;s days really are written like <code>&#x27;20260918&#x27;</code>, add the line <code>date_format=&quot;%Y%m%d&quot;</code>. Here the table is right and the Table reference is short of a line.</p>
 <h5>Writing the day the usual way</h5>
 <p>Once <code>date_format=&quot;%Y%m%d&quot;</code> is in the Table reference, a day written with dashes is refused, since it would match no folder:</p>
 <pre class="python">statement(
@@ -4657,12 +4665,23 @@ Notes:
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;2026-09-18&#x27;, which isn&#x27;t a day written like &#x27;20260925&#x27;.
   Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
-  Usual fix:      Write the day as &#x27;20260925&#x27;, or pass a datetime.date.
+  Usual fix:      Write the day as &#x27;20260918&#x27;, or pass a datetime.date. If the table&#x27;s days really are written like &#x27;2026-09-18&#x27;, its Table reference needs date_format=&quot;%Y-%m-%d&quot;: check_table_reference(t, send=...) says which.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>The day in the message, <code>&#x27;20260925&#x27;</code>, is only an example of a day written the table&#x27;s way: it shows how to write a day, not which day to read. Write <code>&quot;20260918&quot;</code>, or pass <code>datetime.date(2026, 9, 18)</code>.</p>
+<p>The day in What happened, <code>&#x27;20260925&#x27;</code>, is only an example of a day written the table&#x27;s way. The fix writes your own day that way: <code>&quot;20260918&quot;</code>. A <code>datetime.date(2026, 9, 18)</code> works too.</p>
+<h5>Joining it on the day to a table that writes days the usual way</h5>
+<p><code>ops.job_events</code> writes its days like <code>2026-09-18</code>. Matching its days with region_costs&#x27; in <code>ON=</code> is refused as you write the condition:</p>
+<pre class="python">job_events = example_database.job_events
+JOIN(region_costs, ON=all_of(equals(region_costs.job_id, job_events.job_id),
+                             equals(region_costs.dt, job_events.dt)))</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  equals(region_costs.dt, ...) compares region_costs.dt, whose days are written like &#x27;20260925&#x27; (date_format=&#x27;%Y%m%d&#x27;), with job_events.dt, whose days are written like &#x27;2026-09-25&#x27; (date_format=&#x27;%Y-%m-%d&#x27;).
+  Why it matters: Hive compares the days as text, and one day written two ways is two different texts, so this would match no rows: a join would find no match, and a WHERE would keep nothing.
+  Usual fix:      Compare days written the same way. Save one table&#x27;s rows in a Saved table whose days are written like the other&#x27;s, and compare with that: a write writes its day the Saved table&#x27;s way, as example 1 of the intermediate Example project shows.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Hive compares the days as text, so <code>&#x27;20260918&#x27;</code> never equals <code>&#x27;2026-09-18&#x27;</code>, and no row would match. Save region_costs&#x27; rows first in a Saved table that writes its days the usual way, then join that: a write writes its day the Saved table&#x27;s way. The intermediate Example project&#x27;s example 1, in the Toolbox download&#x27;s example_projects folder, does just that.</p>
 <h4>Next</h4>
 <ul><li>Look things up as of each day in a table that keeps a copy of itself every day: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>Keep a Table reference true as its table changes: <a href="#keep_a_table_reference_true_over_time">Keep a Table reference true over time</a>.</li><li>Rewrite the last few days of a Saved table on every run: <a href="#incremental_loads_and_late_data">Incremental loads and late data</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#write_table_reference"><code>write_table_reference</code></a>, <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> and <a href="examples.html#Table"><code>Table</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>write_table_reference</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>write_table_reference</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="look_things_up_as_of_a_day">
 <h3>20. Look things up as of a day <span class="badge intermediate">Intermediate</span></h3>
@@ -4819,7 +4838,7 @@ run(every_run, send=example_database.send)</pre>
 <p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
   What happened:  JOIN(job_owners) matches on job_id, but a job_owners row is only unique by its key (job_id, dt).
   Why it matters: Each row before the join is repeated once per matching job_owners row, so sums and counts over it may come out too big.
-  Usual fix:      Group job_owners first so it has one row per value you join on, and join that.
+  Usual fix:      Match the day too: add equals(job_owners.dt, ...) to ON=, with the day of the rows before the join, so each meets its own day&#x27;s job_owners row. If they have no day to match, group job_owners first so it has one row per value you join on, and join that.
   Opt-out:        JOIN(job_owners, ON=..., many_matches=True)</pre>
 <pre class="python">run(runs_per_team_repeated, send=example_database.send)</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
@@ -4827,7 +4846,7 @@ run(every_run, send=example_database.send)</pre>
 <tr><td>data</td><td>224</td></tr>
 <tr><td>finance</td><td>168</td></tr>
 </table></div>
-<p>Each run counted 14 times, once per day of the snapshot. Join on both parts of the key.</p>
+<p>Each run counted 14 times, once per day of the snapshot. The Warning&#x27;s fix names the part of the key left out, the day: add <code>equals(job_owners.dt, job_events.dt)</code> to <code>ON=</code>, as <code>report_build_runs</code> does.</p>
 <h5>Taking the team from today&#x27;s table</h5>
 <p>No message stops you here. <code>ops.jobs</code> holds each job&#x27;s team as it is today, so joining it gives every run today&#x27;s team:</p>
 <pre class="python">runs_per_team_today = statement(
@@ -5016,9 +5035,9 @@ statement(
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  SELECT has job_events.dt, but the Statement counts or adds up rows and has no GROUP_BY.
   Why it matters: Each output row is one group, so a column that isn&#x27;t grouped has no single value to show. Hive would refuse the Statement.
-  Usual fix:      Add GROUP_BY(job_events.dt), or put job_events.dt inside a count or a sum. To keep one whole row per group instead, such as each job&#x27;s latest run, number the rows with row_number(...) inside derived(...), then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.
+  Usual fix:      Add GROUP_BY(&quot;week&quot;), or put job_events.dt inside a count or a sum. A calculation is grouped by the name you gave it with AS. To keep one whole row per group instead, such as each job&#x27;s latest run, number the rows with row_number(...) inside derived(...), then keep number 1 with WHERE(equals(..., 1)); help(row_number) shows how.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>The message names job_events.dt, the column inside <code>week_start</code>, and its fix offers <code>GROUP_BY(job_events.dt)</code>, which would give one row per day. To get one row per week, group by the name you gave the week instead: <code>GROUP_BY(&quot;week&quot;)</code>.</p>
+<p>The message names job_events.dt, the column inside <code>week_start</code>, and its fix groups by the name you gave the week, <code>GROUP_BY(&quot;week&quot;)</code>: one row per week. <code>GROUP_BY(job_events.dt)</code> would give one row per day instead.</p>
 <h5>Reading weeks your days only partly cover</h5>
 <p>The days you read decide which days each week holds. Counting the days in each week shows it:</p>
 <pre class="python">days_per_week = statement(
@@ -6495,7 +6514,7 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, first_day, last_day)</p
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with &#x27;2026-09-23&#x27;, which isn&#x27;t a day written like &#x27;20260925&#x27;.
   Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
-  Usual fix:      Write the day as &#x27;20260925&#x27;, or pass a datetime.date.
+  Usual fix:      Write the day as &#x27;20260923&#x27;, or pass a datetime.date. If the table&#x27;s days really are written like &#x27;2026-09-23&#x27;, its Table reference needs date_format=&quot;%Y-%m-%d&quot;: check_table_reference(t, send=...) says which.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Pass <code>datetime.date</code> days, as the steps do, and each table gets them in its own way. Text written the table&#x27;s own way, <code>&quot;20260923&quot;</code>, works too, as in <a href="#check_data_quality">Check data quality with Statements</a>, but then each table needs its days written its own way.</p>
 <h4>Next</h4>

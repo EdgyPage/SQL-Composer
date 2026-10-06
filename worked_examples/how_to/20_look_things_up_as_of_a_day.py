@@ -210,7 +210,9 @@ warns at the `JOIN`, since a job_owners row is unique only by job and day:
 0     data   224
 1  finance   168
 
-Each run counted 14 times, once per day of the snapshot. Join on both parts of the key.
+Each run counted 14 times, once per day of the snapshot. The Warning's fix names the part of
+the key left out, the day: add `equals(job_owners.dt, job_events.dt)` to `ON=`, as
+`report_build_runs` does.
 
 ### Taking the team from today's table
 

@@ -327,10 +327,11 @@ of the two days, from the block alone, add up to those per team:
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  to_hive was given derived('runs_per_job', columns: job_id, runs, failed_runs, minutes), which isn't a Statement.
+  What happened:  run was given derived('runs_per_job', columns: job_id, runs, failed_runs, minutes), which isn't a Statement.
 ...
 
-Wrap it in a Statement that reads it, as the step Check a block alone with run does.
+The message's fix wraps it in the smallest Statement that reads it, as the step Check a block
+alone with run does.
 
 ### Two blocks with one name
 

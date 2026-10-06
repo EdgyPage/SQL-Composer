@@ -254,17 +254,16 @@ this. The same numbers mean both steps ran, in the right order.
 
 ### Handing run the whole list
 
-`run` sends one Statement, and refuses a list. The message names `to_hive`, which `run` calls
-first to write the Hive, and which takes one Statement:
+`run` sends one Statement, and refuses a list:
 
 >>> run(steps, send=print_first_line)
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  to_hive was given [...], which isn't a Statement.
+  What happened:  run was given [...], which isn't a Statement.
 ...
 
-Send the list's steps one at a time, with a loop, as `run_day` does.
+Send the list's steps one at a time, with a loop, as the message's fix and `run_day` do.
 
 ### Reading a Saved table without naming its day
 

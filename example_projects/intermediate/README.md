@@ -96,9 +96,8 @@ written "2026-09-24" is refused, since it would match none of the table's days; 
 bounded: reading every region is fine.
 
 Two tables whose days are written differently can't be joined on the day: `ON=` compares the
-days as text, and 20260924 never equals 2026-09-24. The Toolbox doesn't stop such a join, so
-check how both tables write their days before joining on the day. Here, example 1 saves the
-costs first, in
+days as text, and 20260924 never equals 2026-09-24. The Toolbox refuses such a join as you
+write it, naming how each table writes its days. Here, example 1 saves the costs first, in
 `mart.job_day_costs`, which writes its days like 2026-09-24, as the other tables do: a write
 fills `PARTITION(dt = '...')` written the Saved table's way, whatever way the table it read
 writes its days. From then on, the costs join on the day like any other table.

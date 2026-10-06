@@ -27,9 +27,9 @@ from .refusals import (
     load_limit_dates,
     load_limit_rows,
     refuse,
-    refuse_a_spark_dataframe,
+    refuse_what_isnt_a_dataframe,
 )
-from .tables import aliased, day_text, source, table_node
+from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
 
 TOOLBOX_VERSION = "3.2"
@@ -246,18 +246,40 @@ def to_hive(s):
     WHERE
       job_runs.dt = '2026-09-24'
     """
-    if not isinstance(s, Statement):
-        refuse(
-            what=f"to_hive was given {s!r}, which isn't a Statement.",
-            why="It writes the Hive for a Statement made by statement(...).",
-            fix="Pass statement(SELECT(...), FROM(...), ...).",
-            given=s, call="to_hive",
-        )
+    _need_statement(s, "to_hive", inspect.currentframe().f_back,
+                    why="It writes the Hive for one Statement made by statement(...).")
     if s._ddl is None:
         _check_dates_cap(s)
     text = edition.hive_statement(_statement_tree(s))
     _self_check(text)
     return text
+
+
+def _need_statement(s, call: str, frame, why: str) -> None:
+    """Refuse what isn't a Statement, in the name of `call`, the function it was given to.
+
+    `frame` is the caller's, so the usual fix can name their own variable: a Derived table is
+    wrapped in a Statement that reads it, and a list is sent one Statement at a time.
+    """
+    if isinstance(s, Statement):
+        return
+    name = name_in(frame, s) if frame is not None else None
+    more = ", send=..." if call == "run" else ""
+    if isinstance(s, Table) and s._statement is not None:
+        d = name or s._alias
+        fix = (f"A Derived table is a step for another Statement to read, so wrap it in the "
+               f"smallest Statement that reads it: {call}(statement(SELECT(all_columns({d})), "
+               f"FROM({d})){more}).")
+    elif isinstance(s, (list, tuple)):
+        fix = (f"Pass its Statements one at a time, with a loop: for step in "
+               f"{name or 'steps'}: {call}(step{more}).")
+    elif isinstance(s, str):
+        fix = (f"Pass the Statement itself, made by statement(...): {call} writes its Hive "
+               "and checks it.")
+    else:
+        fix = "Pass statement(SELECT(...), FROM(...), ...)."
+    refuse(what=f"{call} was given {s!r}, which isn't a Statement.", why=why, fix=fix,
+           given=s, call=call)
 
 
 def name_in(frame, value) -> str | None:
@@ -342,13 +364,8 @@ def show_hive(*statements):
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        if not isinstance(s, Statement):
-            refuse(
-                what=f"show_hive was given {s!r}, which isn't a Statement.",
-                why="It prints the Hive of Statements made by statement(...).",
-                fix="Pass statement(SELECT(...), FROM(...), ...), or a list of them.",
-                given=s, call="show_hive",
-            )
+        _need_statement(s, "show_hive", frame,
+                        why="It prints the Hive of Statements made by statement(...).")
         hive = to_hive(s) + ";"
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
@@ -383,11 +400,14 @@ def run(s, send):
             "returns a DataFrame.",
             fix="Pass your function itself, without calling it: run(s, send=run_query).",
         )
+    _need_statement(s, "run", inspect.currentframe().f_back,
+                    why="It writes the Hive of one Statement made by statement(...), checks "
+                    "it, and sends it.")
     text = to_hive(s)
     result = send(text)
     # A write has already been carried out when its send returns, so only a read's rows matter.
     if s._ddl is None and s._write is None:
-        refuse_a_spark_dataframe(result)
+        refuse_what_isnt_a_dataframe(result)
     limit = automatic_limit(s) if s._ddl is None else None
     if limit is not None and hasattr(result, "__len__"):
         load_limit_rows(len(result), limit)
