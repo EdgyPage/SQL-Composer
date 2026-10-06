@@ -13,9 +13,9 @@ a sliding window of days, split it into one write per day with `by_day`, and see
 
 For any Saved table filled from a table whose recent days can still change: events that reach
 the warehouse a day or two after the day they happened, a cost left NULL until its bill comes
-in. Rewriting yesterday as well as today costs a little more each run, and saves finding and
-fixing a short day by hand later. [Save a table](#save_a_table) and [Backfill a range of
-days](#backfill_a_range_of_days) start with writing one day, and many.
+in. Rewriting the days before yesterday as well as yesterday costs a little more each run, and
+saves finding and fixing a short day by hand later. [Save a table](#save_a_table) and
+[Backfill a range of days](#backfill_a_range_of_days) start with writing one day, and many.
 
 ## Steps
 
@@ -85,8 +85,8 @@ Job 2, invoice_sync, is still running on 2026-09-24, so that day has its start a
 
 Each event lands in the partition of the day it happened, but it can reach the warehouse late.
 Say a run finished at 23:50 on 2026-09-24 and its `"finish"` row arrives at 00:30 the next
-morning, after the day's run wrote 2026-09-24: the row lands in 2026-09-24's partition, a day
-that a run writing only today would never look at again.
+morning, after the run just after midnight wrote 2026-09-24: the row lands in 2026-09-24's
+partition, a day that a run writing only its newest day would never look at again.
 
 ### Write the last three days, one day at a time
 

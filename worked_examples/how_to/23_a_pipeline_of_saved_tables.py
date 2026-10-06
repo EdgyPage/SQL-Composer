@@ -108,9 +108,9 @@ safe: a sum of counts is still the right count.
 
 ### Read the weekly rollup from mart.team_day
 
-A write fills one day of its Saved table, the one day its `FROM` table reads, so the tables you
-save hold days. The weekly rollup isn't saved: it is a Statement that adds up mart.team_day's
-saved days into weeks whenever you read it, which is quick, since each day holds a row per team.
+A write fills one day of its Saved table, so Saved tables hold days, not weeks. The weekly
+rollup isn't saved: it is a Statement that adds up mart.team_day's saved days into weeks
+whenever you read it, which is quick, since each day holds a row per team.
 Read whole weeks, from a Monday to a Sunday; here the week holding 2026-09-24, the day the
 pipeline below writes:
 
