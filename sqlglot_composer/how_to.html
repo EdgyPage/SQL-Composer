@@ -202,7 +202,7 @@ run(failed, send=send_without_a_dataframe)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  Your send gave back a list, where a pandas DataFrame goes.
   Why it matters: run hands you back what your send gives back, and you read the rows from it as from a pandas DataFrame, each column by its name.
-  Usual fix:      Turn the rows into a DataFrame at the end of your send: return pd.DataFrame(rows). That takes the column names from each row&#x27;s keys when your query API gives each row as a dict. When it gives each row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows both.
+  Usual fix:      Turn the rows into a DataFrame at the end of your send. On Spark, that is spark.sql(hive).toPandas(). From a query API, it is pd.DataFrame(rows), which takes the column names from each row&#x27;s keys when the API gives each row as a dict; when it gives each row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows how to write your send.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>The fix is the message&#x27;s: end your send with <code>return pd.DataFrame(rows)</code>, with the column names when each row is a tuple, as the step Write your send shows.</p>
 </div>
@@ -4705,7 +4705,7 @@ JOIN(region_costs, ON=all_of(equals(region_costs.job_id, job_events.job_id),
                              equals(region_costs.dt, job_events.dt)))</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  equals(region_costs.dt, ...) compares region_costs.dt, whose days are written like &#x27;20260925&#x27; (date_format=&#x27;%Y%m%d&#x27;), with job_events.dt, whose days are written like &#x27;2026-09-25&#x27; (date_format=&#x27;%Y-%m-%d&#x27;).
-  Why it matters: Hive compares the days as text, and one day written two ways is two different texts, so this would match no rows: a join would find no match, and a WHERE would keep nothing.
+  Why it matters: Hive compares the days as text, and one day written two ways is two different texts, so the comparison means nothing: an equals or a join finds no match, and a before or after compares the texts&#x27; characters, not their days, so it keeps the wrong rows.
   Usual fix:      Compare days written the same way. First save one table&#x27;s rows in a Saved table whose Table reference writes its days like the other table&#x27;s: each write puts its day into the Saved table written the Saved table&#x27;s way, so the days then match. The intermediate Example project, in the Toolbox download&#x27;s example_projects folder, does this in statements/example_1_job_day_costs.py.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Hive compares the days as text, so <code>&#x27;20260918&#x27;</code> never equals <code>&#x27;2026-09-18&#x27;</code>, and no row would match. Save region_costs&#x27; rows first in a Saved table that writes its days the usual way, then join that: a write writes its day the Saved table&#x27;s way. The intermediate Example project&#x27;s example 1, in the Toolbox download&#x27;s example_projects folder, does just that.</p>
