@@ -5347,7 +5347,7 @@ GROUP BY
 <pre class="python">html_file, markdown_file = export_lineage(weekly, team_day_step, job_day_step,
                                           to=&quot;lineage/pipeline.html&quot;)</pre>
 <p class="label">It writes lineage/pipeline.md</p>
-<details><summary>Show its 301 lines</summary>
+<details><summary>Show its 299 lines</summary>
 <pre class="file"># Lineage: job_day_step, team_day_step, weekly
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -5598,7 +5598,6 @@ weekly.starts = sum_of(team_day.starts)
 ```
 
 Rows that count:
-- WHERE in team_day_step: `equals(job_owners.dt, &quot;2026-09-24&quot;)`, which is `job_owners.dt = &#x27;2026-09-24&#x27;` (reads ops.job_owners.dt)
 - JOIN ON in team_day_step: `all_of(equals(job_owners.job_id, job_day.job_id), equals(job_owners.dt, job_day.dt))`, which is `job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt` (reads mart.job_day.dt, mart.job_day.job_id, ops.job_owners.dt, ops.job_owners.job_id)
 - WHERE in weekly: `between(team_day.dt, &quot;2026-09-21&quot;, &quot;2026-09-27&quot;)`, which is `team_day.dt BETWEEN &#x27;2026-09-21&#x27; AND &#x27;2026-09-27&#x27;` (reads mart.team_day.dt)
 
@@ -5618,7 +5617,6 @@ weekly.finishes = sum_of(team_day.finishes)
 ```
 
 Rows that count:
-- WHERE in team_day_step: `equals(job_owners.dt, &quot;2026-09-24&quot;)`, which is `job_owners.dt = &#x27;2026-09-24&#x27;` (reads ops.job_owners.dt)
 - JOIN ON in team_day_step: `all_of(equals(job_owners.job_id, job_day.job_id), equals(job_owners.dt, job_day.dt))`, which is `job_owners.job_id = job_day.job_id AND job_owners.dt = job_day.dt` (reads mart.job_day.dt, mart.job_day.job_id, ops.job_owners.dt, ops.job_owners.job_id)
 - WHERE in weekly: `between(team_day.dt, &quot;2026-09-21&quot;, &quot;2026-09-27&quot;)`, which is `team_day.dt BETWEEN &#x27;2026-09-21&#x27; AND &#x27;2026-09-27&#x27;` (reads mart.team_day.dt)
 

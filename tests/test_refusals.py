@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime
 import inspect
+import subprocess
 import sys
 import warnings
 
@@ -48,6 +49,7 @@ from sqlglot_composer import (
 from composer_core import refusals
 from composer_core.example_database import job_runs, jobs, run_alerts
 from composer_core.refusals import RepeatedRowsWarning
+from conftest import edition, toolbox_folder
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 
@@ -284,6 +286,61 @@ def test_a_repeated_rows_warning_shows_on_every_join_that_earns_it() -> None:
         for _ in range(3):
             JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))
     assert len(caught) == 3
+
+
+def test_a_repeated_rows_warning_shows_from_a_scope_with_no_name() -> None:
+    # A notebook tool or exec() can run code in a scope without __name__.
+    scope = {"JOIN": JOIN, "equals": equals, "run_alerts": run_alerts, "job_runs": job_runs}
+    with pytest.warns(RepeatedRowsWarning, match="many_matches=True"):
+        exec("JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))", scope)
+
+
+def test_a_repeated_rows_warning_shows_under_python_dash_c() -> None:
+    joined = subprocess.run(
+        [sys.executable, "-c",
+         f"from {edition().folder} import JOIN, equals\n"
+         "from composer_core.example_database import job_runs, run_alerts\n"
+         "JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))\n"
+         "print('joined')"],
+        cwd=toolbox_folder().parent, capture_output=True, text=True)
+    assert joined.returncode == 0, joined.stderr
+    assert joined.stdout == "joined\n"
+    assert "RepeatedRowsWarning" in joined.stderr and "many_matches=True" in joined.stderr
+
+
+def _runs_per_job(day: str, name: str = "runs_per_job"):
+    """A Building block: each job's runs on one day."""
+    return derived(name, statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, day, day)),
+        GROUP_BY(job_runs.job_id),
+    ))
+
+
+def test_reading_one_block_twice_stops_at_the_join_with_no_repeated_rows_warning() -> None:
+    today, yesterday = _runs_per_job("2026-09-24"), _runs_per_job("2026-09-23")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(ValueError, match=r"compares runs_per_job.job_id with "
+                           r"runs_per_job.job_id") as stop:
+            JOIN(yesterday, ON=equals(yesterday.job_id, today.job_id))
+    message = str(stop.value)
+    assert 'AS(runs_per_job, "earlier")' in message and "another name in derived(...)" in message
+    assert "Opt-out:        none" in message
+
+
+def test_one_block_read_twice_under_two_names_joins_with_no_warning() -> None:
+    today = _runs_per_job("2026-09-24")
+    day_before = _runs_per_job("2026-09-23", name="runs_the_day_before")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        s = statement(
+            SELECT(today.job_id, today.runs, AS(day_before.runs, "runs_the_day_before")),
+            FROM(today),
+            JOIN(day_before, ON=equals(day_before.job_id, today.job_id)),
+        )
+    assert "JOIN runs_the_day_before" in to_hive(s)
 
 
 def test_a_table_with_no_key_warns_and_says_to_declare_one() -> None:

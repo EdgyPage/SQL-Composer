@@ -81,6 +81,25 @@ anywhere.
   lineage footers name the Toolbox version, which the generator takes from TOOLBOX_VERSION
   rather than pinning, so the staleness test in tests/test_example_projects.py fails until it
   is rerun (ticket 11).
+- Ticket 15's CHANGES 4.0 section also gains ticket 16's four fixed bugs (items 1-4):
+  - **A Warning always shows**: a RepeatedRowsWarning from a scope with no `__name__`, as some
+    notebook tools and `exec` give, was dropped unseen, and under `python -c` it stopped with
+    "'__main__' is not a built-in module".
+  - **export_lineage lists a LEFT_JOIN's own ON= only under the columns read from its table**
+    (and under every column of its Statement when another of its conditions reads that table,
+    as an anti-join's WHERE(is_null(...)) does, or with many_matches=True), in the Statement
+    that joins and in every Statement downstream of the Saved table it writes; before 4.0 it was
+    listed under every column, as if it dropped rows. And a write's bound on a joined table's
+    Date partition that its JOIN's ON= sets equal to the day written is listed only in the
+    write's own section, as the day written is.
+  - **A join that compares a column with itself stops**: JOIN or LEFT_JOIN whose ON= sets a
+    column of the joined table equal to the same column of a table of the same name, as when
+    one Statement reads one Building block twice, stops with a ValueError saying to give the
+    second a name of its own; before 4.0 it warned that the join "matches on nothing".
+  - **sqlglot Composer's Example database refuses a query it would answer wrong**: one that
+    adds up rows after a join where sqlglot's executor would read a joined table's column in
+    place of a same-named column of a table before it (NULL after a LEFT_JOIN), with "The
+    Example database can't run this Hive"; Spark Composer's runs it.
 
 ## Records this changes
 

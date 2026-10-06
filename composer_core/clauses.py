@@ -317,9 +317,42 @@ def _matched_columns(table: Table, on: Condition) -> list[str]:
     return sorted(matched)
 
 
+def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition) -> None:
+    """Refuse an ON= that sets a column of the joined table equal to a column of that name in
+    a table of that name, as when one Statement reads one Building block twice.
+
+    The SQL reads both sides as the same column of the same table, so ON= pairs every row with
+    every row. Refused here, at the join, before the repeated-rows Warning, which would say
+    the join matches on nothing.
+    """
+    alias = table._alias
+    for part in on._tree.find_all("EQ"):
+        sides = (part.parts["this"], part.parts["expression"])
+        if all(side.kind == "Column" and side.table == alias for side in sides) and (
+                sides[0].name == sides[1].name):
+            column = f"{alias}.{sides[0].name}"
+            if table._statement is None:
+                fix = (f'To read {alias} twice, give the second a name of its own with AS, '
+                       f'such as AS({alias}, "earlier"), and compare with its columns.')
+            else:
+                fix = (f'To read {alias} twice, give the second a name of its own: '
+                       f'AS({alias}, "earlier") when both are the same Derived table, or '
+                       "another name in derived(...) when they differ, such as for other "
+                       "days.")
+            refuse(
+                what=f"{call}({alias}, ON=...) compares {column} with {column}.",
+                why=f"Both sides are called {alias}, so the SQL reads them as one column of "
+                f"one table, and ON= would pair each row before the join with every {alias} "
+                "row.",
+                fix=fix,
+                error=ValueError,
+            )
+
+
 def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> Clause:
     table = _need_table(table, f"{call}(...)")
     on = _need_on(on, call, table)
+    _refuse_a_column_compared_with_itself(call, table, on)
     matched = _matched_columns(table, on)
     key = table._key
     if key is None or not set(key) <= set(matched):
