@@ -109,11 +109,12 @@ def test_create_table_refuses_a_table_with_no_location() -> None:
 
 
 @pytest.mark.parametrize(("storage", "message"), [
-    ({"location": "data/tables"}, "doesn't start at the top"),
+    ({"location": "data/tables"}, "isn't a whole path"),
     ({"location": ""}, "isn't a folder"),
     ({"location": 3}, "isn't a folder"),
     ({"location": BASE + "/mart/daily_runs"}, "already ends with the table's own folder"),
-    ({"location": BASE + "/daily_runs/"}, "already ends with the table's own folder"),
+    ({"location": BASE, "bucketed_by": ["job_id", "job_id"], "buckets": 2},
+     "bucketed_by= names 'job_id' twice."),
     ({"location": BASE, "purge": "yes"}, "purge='yes' isn't True or False"),
     ({"location": BASE, "stored_as": "csv"}, "stored_as='csv' isn't one"),
     ({"location": BASE, "compression": "gzip"}, "compression='gzip' isn't one"),
@@ -125,13 +126,13 @@ def test_create_table_refuses_a_table_with_no_location() -> None:
     ({"location": BASE, "properties": {"Owner": "me"}}, "Spark keeps that property"),
     ({"location": BASE, "properties": {"comment": "runs"}}, "Spark keeps that property"),
     ({"location": BASE, "properties": ["a"]}, "isn't a dict"),
-    ({"location": BASE, "partitioned_by": ["dt"]}, "names 'dt' which is already a Partition"),
+    ({"location": BASE, "partitioned_by": ["dt"]}, "names 'dt', which is already a Partition"),
     ({"location": BASE, "partitioned_by": ["nope"]}, "partitioned_by names 'nope'"),
     ({"location": BASE, "bucketed_by": ["job_id"]}, "but no buckets="),
     ({"location": BASE, "buckets": 4}, "buckets= but no bucketed_by="),
     ({"location": BASE, "bucketed_by": ["job_id"], "buckets": 0}, "buckets=0 isn't"),
     ({"location": BASE, "bucketed_by": ["dt"], "buckets": 4}, "already a Partition"),
-    ({"location": BASE, "sorted_by": ["job_id"]}, "sorted_by= or buckets= but no"),
+    ({"location": BASE, "sorted_by": ["job_id"]}, "has sorted_by= but no bucketed_by=."),
     ({"purge": True}, "has purge= but no location="),
     ({"bucketed_by": ["job_id"], "buckets": 4}, "has bucketed_by= but no location="),
 ])
@@ -139,6 +140,12 @@ def test_a_table_reference_refuses_storage_create_table_couldnt_write(storage, m
     with pytest.raises(ValueError, match=message):
         Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                           "dt": "string"}, date_partition="dt", **storage)
+
+
+def test_a_base_folder_named_like_the_table_is_its_own_folders_parent() -> None:
+    t = Table("reports.tables", columns={"a": "bigint"}, date_partition=None,
+              location="/data/tables")
+    assert to_hive(create_table(t)).endswith("LOCATION '/data/tables/reports/tables'")
 
 
 def test_partitioned_by_needs_a_date_partition() -> None:
@@ -151,9 +158,13 @@ def test_two_saved_tables_at_one_folder_are_refused() -> None:
     Table("mart.shared_a", columns={"a": "bigint"}, date_partition=None,
           location="/refused/base")
     # Its base is mart.shared_a's own folder, so this table would sit inside that one.
-    with pytest.raises(ValueError, match="a folder inside another's, of mart.shared_a"):
+    with pytest.raises(ValueError, match="inside the folder of mart.shared_a"):
         Table("mart.shared_b", columns={"a": "bigint"}, date_partition=None,
               location="/refused/base/mart/shared_a/more")
+    # A folder written with its storage's name, hdfs://, is compared as the same folder.
+    with pytest.raises(ValueError, match="inside the folder of mart.shared_a"):
+        Table("mart.shared_c", columns={"a": "bigint"}, date_partition=None,
+              location="hdfs:///refused/base/mart/shared_a")
     # The same table again, as a notebook cell run twice makes it, is no second table.
     Table("mart.shared_a", columns={"a": "bigint"}, date_partition=None,
           location="/refused/base")
@@ -330,8 +341,8 @@ def test_a_folder_that_isnt_its_own_is_a_problem_pointing_to_move_to_own_folder(
 
 def test_its_own_folder_under_another_base_says_which_location_to_write() -> None:
     verdict = checked(formatted(location="hdfs://namenode:8020/warehouse/mart/daily_runs"))
-    assert ("  - it is at hdfs://namenode:8020/warehouse/mart/daily_runs, its own folder under "
-            "another base: change the line to location=\"hdfs://namenode:8020/warehouse\","
+    assert ("  - it is at hdfs://namenode:8020/warehouse/mart/daily_runs, its own folder, but "
+            "under another folder than location= names: change the line to location=\"hdfs://namenode:8020/warehouse\","
             in verdict)
 
 
@@ -373,7 +384,7 @@ def test_a_send_that_gives_no_location_leaves_the_storage_uncompared() -> None:
                             columns=["col_name", "data_type", "comment"])
 
     assert checked(describe_only) == (
-        "mart.daily_runs matches its Table reference.\n"
-        "Notes:\n"
-        "  - DESCRIBE FORMATTED listed no Location, so its storage wasn't compared. Check that "
+        "mart.daily_runs differs from its Table reference.\n"
+        "Problems:\n"
+        "  - DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check that "
         "send returns everything DESCRIBE FORMATTED prints.")

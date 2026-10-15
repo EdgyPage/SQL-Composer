@@ -87,7 +87,7 @@ TBLPROPERTIES (
 `partitioned_by=["region"]` makes Partitions inside each day: each day's folder holds a folder
 per region, so a Statement that bounds the region reads only that region's files. A write
 still fills one day, named in its first line, and fills each region from its rows, so its
-SELECT lists region too; the Toolbox puts it last, where the warehouse looks for it. Here
+SELECT lists region too; the Toolbox puts it last, where the warehouse reads it from. Here
 ops.region_costs, whose days are written like 20260921, fills a day of mart.job_costs:
 
 >>> def write_job_costs(day):
@@ -115,13 +115,20 @@ GROUP BY
   region_costs.job_id,
   region_costs.region;
 
-Filling a Partition from the rows needs a Session setting, `"dynamic_partitions"`, so
-`show_hive` prints its SET lines first. `run` sends the write alone: send each SET line through
-your own send once a session, before the first such write. The day is written the Saved
-table's way, 2026-09-21, though the table it reads writes it 20260921.
+`region` in `PARTITION(...)` has no value: the warehouse takes each row's region from the
+SELECT's last column. Doing so is Hive's dynamic partitioning, which a Session setting switches
+on, so `show_hive` prints its two SET lines first. `run` sends the write alone: send each SET
+line through your own send, without its `;`, before the first such write, as below. The
+warehouse keeps them for as long as your send's connection lasts, and sending them again does
+no harm. The day is written the Saved table's way, 2026-09-21, though the table it reads writes
+it 20260921.
+
+    send("SET hive.exec.dynamic.partition=true")
+    send("SET hive.exec.dynamic.partition.mode=nonstrict")
 
 INSERT OVERWRITE replaces only the regions its rows hold: a region with no rows that day keeps
-whatever it held. Write each day whole, as here, and every region it has is written again.
+whatever it held before. So if a region drops out of the table you read, its old rows for the
+day stay in the Saved table until you drop that day.
 
 ### Add Buckets only to a big table
 
@@ -129,7 +136,8 @@ whatever it held. Write each day whole, as here, and every region it has is writ
 some columns, and `sorted_by=` sorts the rows in each. A join on those columns can then pair
 file with file instead of reading everything. It pays off only on big tables, tens of millions
 of rows a day, joined on those columns; and changing it means writing the whole table again.
-Most Saved tables need none:
+Where Spark writes the table, rather than Hive, ask whoever looks after it first: Spark may
+refuse to write a table with Buckets, or write it without them. Most Saved tables need none:
 
 >>> run_facts = Table(
 ...     "mart.run_facts",
@@ -229,7 +237,7 @@ that. A folder copied from a table's own DESCRIBE FORMATTED is refused:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  Table('mart.job_costs'): location='/data/your_team/tables/mart/job_costs' already ends with the table's own folder, job_costs.
+  What happened:  Table('mart.job_costs'): location='/data/your_team/tables/mart/job_costs' already ends with the table's own folder, mart/job_costs.
 ...
 
 Write the folder above it, `location="/data/your_team/tables"`.

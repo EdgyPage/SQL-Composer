@@ -52,4 +52,5 @@ from sqlglot_composer import Table
     date_partition="dt",
     key=[<GROUP_COLUMN_NAME>, "dt"],  # one row per group and day
     location=<BASE_LOCATION>,  # the folder your Saved tables go in
+    purge=True,  # dropping the table deletes its files too, so a rebuild starts empty
 )

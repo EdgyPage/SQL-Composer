@@ -164,6 +164,8 @@ below; this map is the design document, built out ticket by ticket.
 
 ## Decisions so far
 
+- 02 (storage): every Saved table external at `<location>/<database>/<table>`; create_table refuses no `location=`; the options are Table's; check_table_reference reads DESCRIBE FORMATTED; show_hive prints the dynamic_partitions SET lines (`running.settings_needed`); the base folder is written in each Table reference, not settings.py (Level rule; open for the user); how-to 31.
+
 ## Not yet specified
 
 - Which Edition the user runs at work, which only decides whose Example database limits the
