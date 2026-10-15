@@ -32,6 +32,7 @@ from .refusals import (
 from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
 from .unchecked import (
+    SHIPPED,
     SessionSettings,
     UncheckedStatement,
     logged_run,
@@ -306,21 +307,17 @@ def name_in(frame, value) -> str | None:
                  if held is value and not name.startswith("_")), None)
 
 
-# The Session setting a write needs when it fills Partitions after the day from its rows:
-# Hive's dynamic partitioning, switched on: the Session setting "dynamic_partitions", which
-# show_hive prints ahead of such a write, and the user sends once a session.
-DYNAMIC_PARTITIONS = {"hive.exec.dynamic.partition": "true",
-                      "hive.exec.dynamic.partition.mode": "nonstrict"}
-
-
 def settings_needed(s: Statement) -> list[str]:
     """The lines show_hive prints ahead of a Statement: a note and the SET lines of the
-    Session setting it needs, or none. run sends the Statement alone."""
+    Session setting it needs, or none. A write that fills Partitions after the day from its
+    rows needs Hive's dynamic partitioning, the shipped set "dynamic_partitions", which the
+    user sends with run(hive_settings("dynamic_partitions"), send=...). run sends the
+    Statement alone."""
     if s._ddl is not None or s._write is None or not s._write._partitioned_by:
         return []
     filled = ", ".join(s._write._partitioned_by)
     return [f'-- The Session setting "dynamic_partitions": this write fills {filled} from its '
-            "rows."] + [f"SET {name}={value};" for name, value in DYNAMIC_PARTITIONS.items()]
+            "rows."] + [f"SET {name}={value};" for name, value in SHIPPED["dynamic_partitions"].items()]
 
 
 class HiveText(str):
@@ -340,7 +337,8 @@ def show_hive(*statements):
     -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would.
     A write that fills Partitions from its rows, into a table with partitioned_by=, is printed
     after the Session setting it needs: a line saying so, then its SET lines, which run
-    doesn't send (help(INSERT_OVERWRITE) says how to send them).
+    doesn't send with it: send them first with run(hive_settings("dynamic_partitions"),
+    send=...).
 
     It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
     notebook, show_hive(...) on its own shows the Hive once.
@@ -425,8 +423,9 @@ def run(s, send):
     `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
     the query API, or, where your notebook runs Spark, is
     lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
-    instead. A write into a table with partitioned_by= needs a Session setting sent first,
-    which show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone.
+    instead. A write into a table with partitioned_by= needs the Session setting
+    "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"), send=...),
+    as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
