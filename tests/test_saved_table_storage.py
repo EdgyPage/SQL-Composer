@@ -347,7 +347,7 @@ def test_its_own_folder_under_another_base_says_which_location_to_write() -> Non
 
 
 def test_a_managed_table_is_a_problem() -> None:
-    assert ("it is a managed table, where your Saved tables are external" in
+    assert ("it is a managed table, whose files the warehouse keeps where it chooses" in
             checked(formatted(kind="MANAGED_TABLE")))
 
 
