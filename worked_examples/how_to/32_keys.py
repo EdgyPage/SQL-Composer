@@ -6,8 +6,7 @@ For: Intermediate
 
 Give each Saved table a Key, the columns that tell one row from another, and let the Toolbox
 check it: a write whose rows the Toolbox can't see are one per Key is refused before anything
-is sent, the Key is written into the table, and Lineage shows which columns are in each step's
-Key and where one was lost.
+is sent, and Lineage shows which columns are in each step's Key and where one was lost.
 
 ## When you'd use it
 
@@ -157,9 +156,9 @@ reason no Table reference says. Then `unproven_key=True` on the write lets it th
 Use it only when you are sure, and check the day with `check_key` after it is written: here
 one failed run a day per job is a habit of the Example database, not a rule.
 
-### The Key goes into the table
+### The Key in CREATE TABLE
 
-`create_table` writes the Key into the table, for whoever reads it:
+`create_table` makes the table; what it writes of the Key depends on the Edition:
 
 >>> text = show_hive(create_table(job_day))
 CREATE EXTERNAL TABLE mart.job_day (
