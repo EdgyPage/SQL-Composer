@@ -1,0 +1,171 @@
+# Toolbox 5.0: the SQL a fuller Toolbox writes
+
+Label: wayfinder:map
+
+The user, new to databases, asked (2026-10-15) whether the Toolbox had left out key SQL: "right
+joins, anti joins, and the rest, partition by, indexing, and other performance and maintenance
+sql", and wanted to be sure of "the expected functionality without missing out on performance
+gains by better planning eg explicit unique key columns". A grilling session settled the design
+below; this map is the design document, built out ticket by ticket.
+
+## Notes
+
+### Where the Toolbox runs (the user's answers)
+
+- **The warehouse is Hive 3.x**, reached by an API that takes Hive text of any length. The user
+  sends Session settings (`SET ...`) as calls of their own first; the session keeps them.
+- **The user reads tables other teams own**, managed or external, with read access only, and
+  **creates and manages their own tables, all external**, by admin policy, at a location they
+  give on creation.
+- **Size:** mostly thousands to millions of rows a day per table, sometimes tens to hundreds of
+  millions; years are stored, few read.
+- **Both Editions get everything** (the user mostly uses one of them; assume both until told).
+  Each Edition writes the same Hive for every new feature, held by the golden corpora; each
+  feature runs on whichever Example database can run it, and the how-tos say which can't.
+- **The version is 5.0**: the key check refuses writes 4.1 let through, and `drop_table` moves
+  into the admin module.
+
+### What Hive 3 has and hasn't (for the how-tos and the README)
+
+- **No indexes.** Hive removed them in 3.0, and Spark never had them. What makes reads fast is
+  Partitions (a Statement opens only the day folders it bounds, which every Load limit already
+  insists on), fewer and larger files, Buckets for big joins, and statistics so Hive picks good
+  join plans. A short how-to section says so, since "where's indexing?" is what someone new asks.
+- **Keys are never enforced** by Hive or Spark. A declared primary key is information only
+  (`DISABLE NOVALIDATE`); the Toolbox is what checks it.
+- **On an external table, dropping removes only Hive's record**, not the files, unless the
+  table has `'external.table.purge'='true'`. Dropping and recreating at the same location brings
+  the old rows back.
+- **Every external table needs a folder of its own.** The user's tables today share one folder
+  (`DESCRIBE FORMATTED` showed the same `Location` for two of them): each reads the other's
+  files, and an `INSERT OVERWRITE` of a day in one can delete the other's files for that day.
+- **`MERGE`, `UPDATE`, `DELETE` and `TRUNCATE` don't work on external tables** (TRUNCATE is
+  refused on them in Hive 3).
+
+### The design, family by family
+
+1. **Keys** (ADR 0005). A table's **Key** is its primary key, declared on its Table reference.
+   - **Checked before writing:** a write into a Saved table with a key is refused unless the
+     Toolbox can prove each output row unique on the key (a GROUP_BY over the key's columns,
+     SELECT_DISTINCT, a row_number kept at 1 per key, a join that keeps the reading table's key),
+     unless the write carries an opt-out such as `unproven_key=True`.
+   - **Carried through Derived tables:** a Derived table's key is worked out from what it does,
+     so the repeated-rows Warning works on Derived tables without guessing.
+   - **Shown in Lineage:** each output column marked if it is part of a key, and where an output
+     loses one (which join, which step).
+   - **Written into the table:** `create_table` writes `PRIMARY KEY (...) DISABLE NOVALIDATE`.
+   - Not done: a `check_key` run after every write (the user declined; it stays a call of its own).
+2. **The user's Saved tables' storage**, all on the Saved table's Table reference, which
+   `create_table` writes and `check_table_reference` compares with `DESCRIBE FORMATTED`:
+   - `location=`: the user's base path (a plain string in settings.py, such as
+     `BASE_LOCATION`), to which the Toolbox always adds the table's own folder; two Saved tables
+     at one folder are refused, and `check_table_reference` reports a Saved table whose folder is
+     shared or isn't its own, pointing to `admin.move_to_own_folder`.
+   - `purge=True/False`, written as `'external.table.purge'`, and `properties={...}` for any
+     other TBLPROPERTIES.
+   - `stored_as=` (ORC, Parquet) and `compression=`.
+   - `partitioned_by=[...]`: Partitions after the Date partition. A write still fills one day,
+     and fills the other Partitions from its rows (dynamic partitioning); `show_hive` and the dry
+     run print the Session setting this needs (`"dynamic_partitions"`) ahead of the write.
+   - `bucketed_by=[...]` with `buckets=n`, and `sorted_by=[...]`. Never by default: Buckets pay
+     off on big tables only, and changing them means rewriting the table.
+3. **Session settings, the Unchecked statement and the Admin log** (ADR 0006).
+   - **Session settings:** the user's own named sets in settings.py (`HIVE_SETTINGS = {name:
+     {setting: value}}`), and a few the Toolbox ships, each documented with why
+     (`"dynamic_partitions"`, map-joins chosen by Hive, statistics gathered on write, small files
+     merged). `hive_settings("name")` is a Statement of `SET` lines to `run` or list first in a
+     pipeline; Lineage footers say which were set.
+   - **`unchecked_hive("...")`:** Hive text written by hand, run like a Statement. No Guard,
+     Warning or Load limit looks inside; Lineage draws it as one opaque step, linked to the tables
+     its text names, with a warning badge; the dry run marks it. Text starting `DROP`, `ALTER` or
+     `TRUNCATE` warns at the user's line, naming the admin function that writes it, checked.
+   - **The Admin log:** each `run` of an Admin statement or an Unchecked statement appends one
+     entry (time; the call, such as `admin.drop_days(mart.job_day, before=2025-01-01)`; the Hive
+     sent; the script and its git commit; worked or the error) to a Markdown file set once in
+     settings.py (`ADMIN_LOG`), by default `admin_log.md` beside the notebook. `show_hive` writes
+     nothing. Its Unchecked statements are the list of what the Toolbox should learn next.
+4. **The admin module** (ADR 0006): `from sqlglot_composer import admin` (the star import
+   doesn't bring it). Each returns an ordinary Statement, run like any other; `show_hive` prints
+   its description and warnings (what it changes, what can't be undone, whether files go with
+   purge off) and any check queries before its Hive. Each refuses a table that isn't one of the
+   user's Saved tables.
+   - `admin.drop_table` (moved out of the ordinary names), `admin.drop_days(t, before=...)`
+     (retention: `ALTER TABLE ... DROP PARTITION`), `admin.add_columns(t, send=)` (the Table
+     reference's new columns, read against `DESCRIBE`), `admin.set_properties(t, ...)` (purge and
+     the rest), `admin.move_to_own_folder(t, send=)` (a table at its own folder, every day copied
+     with INSERT OVERWRITE, counts compared, the old table dropped).
+   - A how-to, "Move a Saved table to its own folder", walks the user's shared-folder tables out.
+5. **Joins:** `SEMI_JOIN` (rows with a match, never repeated; written `LEFT SEMI JOIN`; only the
+   reading side's columns may be selected), `ANTI_JOIN` (rows with no match; written `LEFT JOIN
+   ... WHERE <key> IS NULL`, since Hive 3 has no `LEFT ANTI JOIN`), `FULL_JOIN`, and
+   `JOIN(..., broadcast=True)` (Hive's `MAPJOIN` hint; its docstring says Hive does it by itself
+   once statistics exist). `RIGHT_JOIN` is refused, its fix the `LEFT_JOIN` with the tables
+   swapped.
+6. **Windows:** `window(PARTITION_BY=, ORDER_BY=, rows=(-6, 0))`, passed as `over=` to
+   `sum_of`, `average_of`, `count_rows`, `min_of`, `max_of` (running totals, moving averages, a
+   group's total beside each row); `rank`, `dense_rank`, `lag`, `lead`, `ntile`, `first_value`,
+   `last_value`, which always take a window; `row_number` takes one too, its 4.x keywords still
+   working. A window's result is filtered in a Derived table, as row_number's is. **`by_day`
+   refuses a window that looks across days** (a `lag` ordered by the day), since splitting by day
+   would cut it off; its fix reads the earlier days and writes one.
+7. **Stacking and subtotals:** `UNION_ALL`, `UNION`, `INTERSECT`, `EXCEPT` over whole
+   Statements, matched by output name; a branch whose names or types don't line up is refused,
+   naming the column. `GROUP_BY(rollup(...))`, `cube(...)`, `grouping_sets(...)`, with
+   `is_total(column)` to tell a total row from a real NULL; a Saved table written from a rollup is
+   refused (its total rows break the key).
+8. **Upkeep and speed, safe to repeat:** `create_table(..., may_exist=True)`,
+   `repair_partitions(t)` (`MSCK REPAIR TABLE`), `compute_statistics(t, day)` (`ANALYZE TABLE ...
+   COMPUTE STATISTICS`, and `FOR COLUMNS`), `explain(s)` (Hive's plan as text). Each refuses a
+   table that isn't the user's (except `explain`, which only reads).
+9. **Lineage for the new kinds:** keys marked; a `UNION_ALL`'s columns fed by each branch; a
+   window's PARTITION BY and ORDER BY under "Rows that count"; Session settings in the footer;
+   Unchecked statements as opaque steps; Admin statements and the upkeep names left out, since
+   they move no data between columns.
+
+### Left out, and why (ADR 0007)
+
+- `MERGE`, `UPDATE`, `DELETE`: they need managed transactional tables, and every table the user
+  may write is external. A daily `INSERT OVERWRITE` does their job, and can be sent again.
+- `TRUNCATE`: refused on external tables; `admin.drop_days` or an overwrite does it.
+- Indexes: Hive 3 has none (above).
+- A `check_key` after every write: declined; it stays a call of its own.
+
+### Building it
+
+- Every ticket follows CLAUDE.md's Definition of done, both Editions included, each new name
+  with its docstring, cheat-sheet line, gallery or how-to, and golden-corpus cases.
+- New how-tos join the how-to page, in Getting started or Intermediate, as each ticket lands.
+- The Example database gains what a feature needs to run (a table for FULL_JOIN and EXCEPT to
+  reconcile, for instance), as ticket 05 did for 4.0.
+- Never raise TOOLBOX_VERSION before ticket 09; the user chose 5.0.
+
+## Tickets
+
+- [01 Keys](issues/01-keys.md)
+- [02 The Saved table's storage](issues/02-the-saved-tables-storage.md)
+- [03 Session settings, the Unchecked statement and the Admin log](issues/03-session-settings-the-unchecked-statement-and-the-admin-log.md)
+- [04 The admin module](issues/04-the-admin-module.md)
+- [05 Joins](issues/05-joins.md)
+- [06 Windows](issues/06-windows.md)
+- [07 Stacking and subtotals](issues/07-stacking-and-subtotals.md)
+- [08 Upkeep and speed](issues/08-upkeep-and-speed.md)
+- [09 Ship 5.0](issues/09-ship-5-0.md)
+
+## Records this changes
+
+- CONTEXT.md (2026-10-15): new words Key, Unchecked statement, Session setting, Bucket, Admin
+  statement and Admin log; Saved table amended (its own location, written only by the user's
+  Statements); Partition's avoid list no longer holds "bucket".
+- ADR 0005 (keys), ADR 0006 (the Unchecked statement and the admin module, reversing "no raw
+  SQL"), ADR 0007 (the user's Saved tables are external only).
+
+## Decisions so far
+
+## Not yet specified
+
+- Which Edition the user runs at work, which only decides whose Example database limits the
+  how-tos are written around.
+
+## Out of scope
+
+- Dialects other than Hive (ADR 0001).

@@ -59,6 +59,12 @@ A Level 0 script describing one table: its columns and their types, its Date par
 and the filters that concern that table alone.
 _Avoid_: table config, schema file, declaration, model, standard query
 
+**Key**:
+The columns whose values name exactly one row of a table on one day: the table's primary key,
+declared on its Table reference. The warehouse never checks it; the Toolbox does, before writing
+a Saved table and when joining, and Lineage shows where an output keeps or loses it.
+_Avoid_: unique key, id, partition key
+
 **Building block**:
 A Level 1 piece of a Statement - a filter, a join or a sub-query - reused across Statements.
 _Avoid_: fragment, component, snippet, helper
@@ -95,8 +101,27 @@ _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what 
 
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
-its own Table reference, like any other table.
+its own Table reference, like any other table. Its files live at a location the user chooses, and
+the user's own Statements are the only ones that write it.
 _Avoid_: materialized view, cache, temp table, output table
+
+**Unchecked statement**:
+Hive text the user writes by hand and runs through the Toolbox when no Clause function covers it
+yet. No Guard, Warning or Load limit looks inside it, and Lineage shows it as one opaque step: each
+one marks something the Toolbox should learn to write.
+_Avoid_: raw SQL, passthrough, custom query
+
+**Admin statement**:
+A Statement from the Toolbox's admin module that changes a Saved table's definition or deletes its
+data, such as dropping a table or its old days, adding columns or setting its properties. It runs
+like any Statement, and shows what it will change and what can't be undone before its Hive.
+_Avoid_: one-time action, migration, maintenance
+
+**Admin log**:
+The text record the Toolbox keeps of every Admin statement and Unchecked statement the user has
+run: when, on which table, the Hive sent, from which script, and whether it worked. Newest last;
+the Toolbox only ever adds to it.
+_Avoid_: audit trail, history
 
 ### Reading and loading
 
@@ -106,12 +131,23 @@ _Avoid_: provenance, trace, data flow
 
 **Partition**:
 A slice of a table that a Statement should constrain rather than read whole.
-_Avoid_: shard, bucket, segment
+_Avoid_: shard, segment
+
+**Bucket**:
+One of a fixed number of files a table's rows are spread into by hashing some of its columns,
+which makes joins and lookups on those columns cheaper. Unlike a Partition, a Statement never
+bounds it.
+_Avoid_: shard, chunk, cluster
 
 **Date partition**:
 The one date column a table is partitioned by, which every Statement reading the table must bound
 at both ends.
 _Avoid_: dt, partition key, date column
+
+**Session setting**:
+A Hive `SET` the user sends before a Statement, which holds for the rest of the session. A named
+set of them can be kept and sent again in one step.
+_Avoid_: config, option, parameter
 
 **Load limit**:
 A check that refuses a Statement that would read or return more than the cluster or the notebook
