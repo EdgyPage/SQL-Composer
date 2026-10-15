@@ -669,10 +669,10 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     region too. Sent again, it replaces only the regions its rows hold: a region with no rows
     that day keeps what it held. Filling a Partition from the rows needs Hive's dynamic
     partitioning switched on, the Session setting the Toolbox calls "dynamic_partitions",
-    whose two SET lines show_hive prints ahead of such a write. Send each through your own
-    send, without its ;, as send("SET hive.exec.dynamic.partition=true"), before the first
-    such write: the warehouse keeps them for as long as send's connection lasts, and sending
-    them again does no harm.
+    whose two SET lines show_hive prints ahead of such a write. Send them with
+    run(hive_settings("dynamic_partitions"), send=send) before the first such write: the
+    warehouse keeps them for as long as send's connection lasts, and sending them again does
+    no harm.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})

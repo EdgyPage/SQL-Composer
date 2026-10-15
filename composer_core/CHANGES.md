@@ -50,7 +50,7 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **show_hive prints the Session setting a write needs first**: a write into a table with
   `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
   partitioning, so its SET lines are printed ahead of it. run sends the write alone: send
-  each SET line through your own send first, as help(INSERT_OVERWRITE) shows.
+  the setting first with `run(hive_settings("dynamic_partitions"), send=...)`.
 - **create_table writes a Table reference's Key into the table** in sqlglot Composer, as
   `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
   never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out.

@@ -176,9 +176,14 @@ below; this map is the design document, built out ticket by ticket.
   held to one value or decided by others left out; a write's day is one value); writes refuse
   an unproven Key, opt-out `unproven_key=True`; Lineage marks "in the Key" and lists each
   step's Keys. create_table writes `PRIMARY KEY (...) DISABLE NOVALIDATE` in sqlglot Composer
-  only, since Spark refuses it (the `primary_key` row of DECLARED_DIFFERENCES): open for the
-  user, in the ticket's Answer. INSERT_INTO is checked on the rows it adds. Ticket 05's joins
+  only, since Spark refuses it (the `primary_key` row of DECLARED_DIFFERENCES), as the user
+  chose (below). INSERT_INTO is checked on the rows it adds. Ticket 05's joins
   and 06's windows extend `keys.py` (`_keeps`, `_row_number_keys`).
+- The user (2026-10-15), on wave 1's open questions: Spark Composer leaves `PRIMARY KEY` out of
+  create_table, a declared difference, since Spark refuses it (its Key is still checked before
+  each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
+  built, passed in from the user's settings.py; each Saved table's Table reference writes its
+  own `location=`, keeping the Level rule, rather than a `BASE_LOCATION` in settings.py.
 
 ## Not yet specified
 
