@@ -87,6 +87,16 @@ def test_a_name_in_no_set_is_refused_listing_every_set() -> None:
     assert "sets=HIVE_SETTINGS" in message
 
 
+def test_a_list_of_names_is_refused_saying_to_pass_them_one_by_one() -> None:
+    with pytest.raises(TypeError, match=r'hive_settings\("map_joins", "dynamic_partitions"\)'):
+        hive_settings(["map_joins", "dynamic_partitions"])
+
+
+def test_a_misspelt_name_is_refused_saying_to_check_the_spelling() -> None:
+    with pytest.raises(ValueError, match='(?s)no set named "map_join".*Check the spelling'):
+        hive_settings("map_join")
+
+
 def test_a_users_set_named_like_a_shipped_one_is_refused() -> None:
     with pytest.raises(ValueError, match="dynamic_partitions.*the Toolbox ships"):
         hive_settings("dynamic_partitions",
@@ -167,8 +177,12 @@ def test_lineage_footers_name_the_settings_passed_with_the_statements(tmp_path) 
     html_file, markdown_file = export_lineage(settings, one_day(), to=tmp_path / "l.html")
     for text in (markdown_file.read_text(encoding="utf-8"),
                  html_file.read_text(encoding="utf-8")):
-        assert "Session settings sent first: map_joins, statistics_on_write." in text
-    assert "SET " not in markdown_file.read_text(encoding="utf-8")
+        assert ("Session settings sent before these Statements, one line at a time (map_joins "
+                "and statistics_on_write): SET hive.auto.convert.join=true | "
+                "SET hive.auto.convert.join.noconditionaltask=true | "
+                "SET hive.stats.autogather=true | SET hive.stats.column.autogather=true.") in text
+    # Drawn nowhere else: only the footer holds them.
+    assert markdown_file.read_text(encoding="utf-8").count("SET hive.auto.convert.join=") == 1
 
 
 def test_lineage_of_settings_alone_is_refused() -> None:

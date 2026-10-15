@@ -1,9 +1,9 @@
-"""Session settings and Unchecked statements: Hive the Toolbox sends without checking it.
+"""Session settings, Unchecked statements and the Admin log: Hive sent as you chose it.
 
 hive_settings(...) gives the SET lines of a named set of Session settings, and
-unchecked_hive(...) wraps Hive you wrote by hand. Neither is a Statement, but run, show_hive
-and export_lineage take each as they take one. Each run of an Unchecked statement, and of an
-Admin statement, adds an entry to the Admin log, a Markdown file set_admin_log can move.
+unchecked_hive(...) wraps Hive you wrote by hand. Neither is a Statement, but to_hive,
+show_hive, run and export_lineage accept them too. Each run of an Unchecked statement, and of
+an Admin statement, adds an entry to the Admin log, a Markdown file set_admin_log can move.
 """
 
 from __future__ import annotations
@@ -11,11 +11,9 @@ from __future__ import annotations
 import datetime
 import os
 import re
-import sys
 from pathlib import Path
 
-from . import edition
-from .refusals import refuse, warn_at_callers_line
+from .refusals import callers_frame, refuse, warn_at_callers_line
 
 TOOLBOX_VERSION = "4.1"
 
@@ -44,7 +42,7 @@ SHIPPED = {
     },
 }
 
-# What a setting's name may hold: letters, digits and . _ - :, as in hive.exec.parallel.
+# What a setting's name may hold: letters, digits, dots, underscores, hyphens and colons.
 _SETTING_NAME = re.compile(r"[A-Za-z0-9_.:\-]+")
 
 
@@ -67,15 +65,18 @@ def hive_settings(*names, sets=None):
     """The SET lines of Session settings, by name, to send before your Statements.
 
     Hive keeps a Session setting for the rest of the session, so send them first, then your
-    Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own.
-    show_hive prints them, and export_lineage, passed them with the Statements, names them in
-    its footer.
+    Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own, and
+    gives back None. They hold only while your send keeps one session across its calls, as
+    spark.sql does in one notebook: if each call of your send opens a new session, each SET is
+    gone before your Statement runs. show_hive prints them, and export_lineage, passed them
+    with the Statements, writes them at the foot of both its files.
 
     Name one or more sets. The Toolbox ships four:
 
     - "dynamic_partitions": hive.exec.dynamic.partition=true and
-      hive.exec.dynamic.partition.mode=nonstrict. A write into a Saved table with Partitions
-      after the day fills those Partitions from its rows, which Hive does only with these on.
+      hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its
+      day, such as by region too: a write gives the day, and Hive fills the other Partitions
+      from each row's own values only with these on.
     - "map_joins": hive.auto.convert.join=true and
       hive.auto.convert.join.noconditionaltask=true. Hive then joins a small table by copying
       it to every worker, which skips sorting the big one, and chooses this by itself from the
@@ -87,7 +88,8 @@ def hive_settings(*names, sets=None):
       hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones,
       since many small files slow down every later read.
 
-    Keep your own sets in your settings.py, as HIVE_SETTINGS = {"nightly":
+    Keep your own sets in a settings.py of your own, beside your notebook, as
+    HIVE_SETTINGS = {"nightly":
     {"hive.exec.parallel": True}}, each a name and its settings, and pass them as sets=. True
     and False are written true and false.
 
@@ -120,8 +122,7 @@ def hive_settings(*names, sets=None):
                     f"{given[setting]} and to {written}.",
                     why="Hive keeps the last SET of a setting, so one of the two would be "
                     "quietly lost.",
-                    fix=f"Take {setting} out of one of the sets, or name the sets one at a "
-                    "time.",
+                    fix=f"Take {setting} out of one of the two sets.",
                     error=ValueError,
                 )
             if setting not in given:
@@ -132,8 +133,13 @@ def hive_settings(*names, sets=None):
 
 def _call(names) -> str:
     """How hive_settings was called, for a message: ("a", "b") is ("a", "b")."""
-    return "(" + ", ".join(f'"{name}"' if isinstance(name, str) else repr(name)
-                           for name in names) + ")"
+    return "(" + ", ".join(_quoted(name) for name in names) + ")"
+
+
+def _quoted(name) -> str:
+    """A set's name as a message writes it: text in double quotes, anything else as Python
+    shows it."""
+    return f'"{name}"' if isinstance(name, str) else repr(name)
 
 
 def _own_sets(sets) -> dict:
@@ -146,7 +152,8 @@ def _own_sets(sets) -> dict:
             what=f"hive_settings(..., sets={sets!r}): sets= takes a dict, each set's name and "
             "its settings.",
             why="It names your own sets, so hive_settings can find one by its name.",
-            fix=f"Keep them in your settings.py as {example}, and pass sets=HIVE_SETTINGS.",
+            fix=f"Keep them in a settings.py of your own as {example}, and pass "
+            "sets=HIVE_SETTINGS.",
         )
     for name, settings in sets.items():
         if name in SHIPPED:
@@ -181,15 +188,22 @@ def _named_set(name, names, own: dict) -> dict:
         return own[name]
     if isinstance(name, str) and name in SHIPPED:
         return SHIPPED[name]
+    if isinstance(name, (list, tuple)):
+        refuse(
+            what=f"hive_settings{_call(names)} was given a list, where the sets' names go.",
+            why="It takes each set's name as text, one after the other.",
+            fix="Pass the names one by one: hive_settings("
+            + ", ".join(_quoted(each) for each in name) + ").",
+        )
     yours = (f"and your sets= gives {', '.join(own)}" if own
              else "and no sets= of your own was given")
     refuse(
-        what=f"hive_settings{_call(names)}: there is no set named {name!r}. The Toolbox ships "
-        f"{', '.join(SHIPPED)}, {yours}.",
+        what=f"hive_settings{_call(names)}: there is no set named {_quoted(name)}. The Toolbox "
+        f"ships {', '.join(SHIPPED)}, {yours}.",
         why="It writes the SET lines of the sets it is given, by name.",
-        fix='Keep your own sets in your settings.py, as HIVE_SETTINGS = {"nightly": '
-        '{"hive.exec.parallel": True}}, and pass them: hive_settings("nightly", '
-        "sets=HIVE_SETTINGS).",
+        fix="Check the spelling against the sets above. For a set of your own, keep it in a "
+        'settings.py of your own, as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": '
+        'True}}, and pass it: hive_settings("nightly", sets=HIVE_SETTINGS).',
         error=ValueError,
     )
 
@@ -202,7 +216,7 @@ def _value(name: str, setting, value) -> str:
             what=f"{where} has a setting named {setting!r}, which can't be written in a SET "
             "line.",
             why="A setting's name is written as it is, as in SET hive.exec.parallel=true, so "
-            "it may hold only letters, digits and . _ - :.",
+            "it may hold only letters, digits, dots, underscores, hyphens and colons.",
             fix="Write the name as Hive's documentation spells it, such as "
             "hive.exec.parallel.",
             error=ValueError,
@@ -259,15 +273,20 @@ def unchecked_hive(text):
     """Hive you write by hand, for run to send when no clause function writes it yet.
 
     No Guard, Warning or Load limit looks inside it: the Toolbox sends the text as you wrote
-    it, without a ; at the end, and can't tell whether it gives the right answer. Use it for
+    it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it for
     the one statement you need now, and keep using the clause functions for the rest. show_hive
     marks it, export_lineage draws it as one step it can't see inside, and each run of it adds
     an entry to the Admin log (see set_admin_log), whose Unchecked statements are the list of
     what the Toolbox should learn to write next.
 
     Text that starts DROP, ALTER or TRUNCATE gets a note at your line, naming the admin
-    function that does the job checked, where one does: admin.drop_days for a TRUNCATE, which
-    Hive refuses on an external table, as every Saved table of yours is.
+    function that does the same job with its checks, where one does. For example, Hive refuses
+    TRUNCATE on an external table (one whose files stay where you put them), and every Saved
+    table of yours is one; admin.drop_days does that job.
+
+    Write one command in each: send several as several unchecked_hive(...), one after the
+    other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
+    since after the comment it would be part of it.
 
     >>> by_hand = unchecked_hive(
     ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'")
@@ -342,10 +361,11 @@ def _note_a_change(text: str) -> None:
     words = re.findall(r"[A-Z_]+", does)
     command, then = (words + ["", ""])[:2]
     if command == "TRUNCATE":
-        note = ("Note: this Unchecked statement truncates a table. Hive refuses TRUNCATE on an "
-                "external table, as every Saved table of yours is: admin.drop_days(t, "
-                "before=...) drops a Saved table's old days checked, and writing a day again "
-                "with INSERT_OVERWRITE replaces it.")
+        note = ("This Unchecked statement truncates a table. Hive refuses TRUNCATE on an "
+                "external table (one whose files stay where you put them), and every Saved "
+                "table of yours is one. admin.drop_days(t, before=...) drops a Saved table's "
+                "old days with its checks, and writing a day again with INSERT_OVERWRITE "
+                "replaces it.")
     elif command in ("DROP", "ALTER"):
         function = None
         if command == "DROP" and then == "TABLE":
@@ -355,12 +375,12 @@ def _note_a_change(text: str) -> None:
                              if re.search(pattern, does)), None)
         verb = "drops" if command == "DROP" else "alters"
         if function is not None:
-            note = (f"Note: this Unchecked statement {verb} a table. {function} does this "
-                    "job checked: it refuses a table that isn't one of your Saved tables, and "
-                    "says first what it changes and what can't be undone.")
+            note = (f"This Unchecked statement {verb} a table. {function} does the same job "
+                    "with its checks: it refuses a table that isn't one of your Saved tables, "
+                    "and says first what it changes and what can't be undone.")
         else:
-            note = (f"Note: this Unchecked statement {verb} something no admin function "
-                    "changes yet. It runs as you wrote it, and the Admin log keeps it as "
+            note = (f"This Unchecked statement {verb} something, and no admin function does "
+                    "that job yet. It runs as you wrote it, and the Admin log keeps it as "
                     "something the Toolbox should learn to write.")
     else:
         return
@@ -375,15 +395,17 @@ _admin_log = {"path": None}
 
 
 def set_admin_log(path=None):
-    """Set where the Admin log is written, such as ADMIN_LOG from your settings.py.
+    """Set where the Admin log is written, such as ADMIN_LOG from your own settings.py.
 
     The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an
     Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and
-    its git commit, and whether it worked. It only ever adds to the file. Left unset, it is
-    admin_log.md beside the script or notebook that calls run. A path that isn't absolute is
-    taken from the folder of the script or notebook that calls set_admin_log. Call it once,
-    from your own notebook or pipeline, since the Toolbox folder is replaced on each update.
-    It returns the path now in force, or None for the default.
+    its git commit, and whether it worked. It only ever adds to the file.
+
+    Left unset, the log is admin_log.md beside the script or notebook that calls run. A path
+    you give that isn't absolute, such as "logs/admin_log.md", starts from the folder of the
+    script or notebook that calls set_admin_log. Call it at the top of each notebook or
+    pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the
+    default.
 
     >>> set_admin_log("logs/admin_log.md").name
     'admin_log.md'
@@ -392,7 +414,14 @@ def set_admin_log(path=None):
     if path is None:
         _admin_log["path"] = None
         return None
-    if not isinstance(path, (str, os.PathLike)) or Path(path).suffix.lower() != ".md":
+    if not isinstance(path, (str, os.PathLike)):
+        refuse(
+            what=f"set_admin_log({path!r}): that isn't a path.",
+            why="It takes the path of the Markdown file the Admin log is written to.",
+            fix='Write it like set_admin_log("admin_log.md"), or call set_admin_log() for '
+            "admin_log.md beside your script or notebook.",
+        )
+    if Path(path).suffix.lower() != ".md":
         refuse(
             what=f"set_admin_log({path!r}): the Admin log is a Markdown file, so its path "
             "ends in .md.",
@@ -405,7 +434,7 @@ def set_admin_log(path=None):
     if not path.is_absolute():
         from .lineage import caller_folder, calling_file  # lineage.py imports this file
 
-        path = caller_folder(calling_file(_callers_frame())) / path
+        path = caller_folder(calling_file(callers_frame())) / path
     _admin_log["path"] = path
     return path
 
@@ -423,17 +452,17 @@ _CALL_LENGTH = 65
 
 def unchecked_call(unchecked: UncheckedStatement) -> str:
     """How an entry names an Unchecked statement's call: its first line, cut short."""
-    first = unchecked._text.splitlines()[0]
-    if len(first) > _CALL_LENGTH or first != unchecked._text:
-        first = first[:_CALL_LENGTH] + "..."
-    return f'unchecked_hive("{first}")'
+    whole = unchecked._text
+    first = whole.splitlines()[0][:_CALL_LENGTH]
+    quoted = '"' + first.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return f"unchecked_hive({quoted}{' ...' if first != whole else ''})"
 
 
 def logged_run(kind: str, call: str, hive: str, send):
     """Send `hive`, then add its entry to the Admin log: worked, or failed with its error,
     which is raised again once the entry is written. `kind` is "Unchecked statement" or
     "Admin statement"."""
-    frame = _callers_frame()
+    frame = callers_frame()
     try:
         result = send(hive)
     except Exception as error:
@@ -452,9 +481,8 @@ def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
     path = _admin_log["path"] or caller_folder(caller) / "admin_log.md"
     script = caller.name if caller is not None else "a notebook"
     tables = tables_named(hive)
-    fence = "`" * max(3, max((len(run) for run in re.findall(r"`+", hive)), default=0) + 1)
-    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, {kind}", "",
-             f"- Call: `{call}`"]
+    fence = "`" * max(3, _longest_backticks(hive) + 1)
+    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, {kind}", "", f"- Call: {_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines += [f"- Script: {script}, at commit {scripts_commit(caller_folder(caller))}",
@@ -467,6 +495,18 @@ def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
         log.write("\n".join(lines))
 
 
+def _longest_backticks(text: str) -> int:
+    """The length of the longest run of backticks in the text, 0 when it has none."""
+    return max((len(run) for run in re.findall(r"`+", text)), default=0)
+
+
+def _code(text: str) -> str:
+    """Markdown inline code, with a fence that survives backticks inside it."""
+    fence = "`" * (_longest_backticks(text) + 1)
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
 def _now() -> datetime.datetime:
     """The time an entry is made."""
     return datetime.datetime.now()
@@ -475,9 +515,9 @@ def _now() -> datetime.datetime:
 # The words after which Hive text names a table: FROM and JOIN read one; INSERT, and ALTER,
 # CREATE, DROP, TRUNCATE, MSCK REPAIR or ANALYZE TABLE, write or change one.
 _READS = re.compile(r"\b(?:FROM|JOIN)\s+([\w.]+)")
-_WRITES = re.compile(r"\b(?:INSERT\s+(?:OVERWRITE|INTO)(?:\s+TABLE)?|(?:ALTER|CREATE(?:\s+EXTERNAL)?"
-                     r"|DROP|TRUNCATE|MSCK\s+REPAIR|ANALYZE)\s+TABLE(?:\s+IF\s+(?:NOT\s+)?EXISTS)?)"
-                     r"\s+([\w.]+)")
+_WRITES = re.compile(r"\b(?:INSERT\s+(?:OVERWRITE|INTO)(?:\s+TABLE)?"
+                     r"|(?:ALTER|CREATE(?:\s+EXTERNAL)?|DROP|TRUNCATE|MSCK\s+REPAIR|ANALYZE)"
+                     r"\s+TABLE(?:\s+IF\s+(?:NOT\s+)?EXISTS)?)\s+([\w.]+)")
 
 
 def tables_named(hive: str) -> list[str]:
@@ -487,23 +527,13 @@ def tables_named(hive: str) -> list[str]:
 
 def tables_read_and_written(hive: str) -> list[tuple[str, str]]:
     """Each table Hive text names, as (name, "reads" or "writes"), in order, found by the
-    words before it, in small letters, as Hive keeps a table's name. A name WITH gives a
-    Derived table isn't a table."""
+    words before it, in small letters, as Hive keeps a table's name. A name given to a
+    Derived table by WITH name AS (...) is left out, since it isn't a table."""
     does = _what_it_does(hive)
     derived = set(re.findall(r"(?:\bWITH|,)\s*(\w+)\s+AS\s*\(", does))
     found = [(match.start(), match.group(1), "reads") for match in _READS.finditer(does)]
     found += [(match.start(), match.group(1), "writes") for match in _WRITES.finditer(does)]
     return [(name.lower(), how) for _, name, how in sorted(found) if name not in derived]
-
-
-def _callers_frame():
-    """The frame of the first call outside the Toolbox: the user's own line."""
-    toolbox = edition.toolbox_folders()
-    frame = sys._getframe(1)
-    while frame.f_back is not None and os.path.dirname(
-            os.path.abspath(frame.f_code.co_filename)) in toolbox:
-        frame = frame.f_back
-    return frame
 
 
 __all__ = ["hive_settings", "unchecked_hive", "set_admin_log"]

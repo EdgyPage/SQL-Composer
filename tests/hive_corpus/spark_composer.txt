@@ -36259,6 +36259,7 @@ WHERE
 
 ---
 
+Session settings sent before these Statements, one line at a time (map_joins): SET hive.auto.convert.join=true | SET hive.auto.convert.join.noconditionaltask=true.
 
 == by_hand:unchecked:select
 -- Statement 1: to_hive

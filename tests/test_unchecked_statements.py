@@ -112,6 +112,7 @@ def test_run_sends_the_text_and_gives_back_what_send_gives() -> None:
     assert sent == ["SELECT 1"]
 
 
+@pytest.mark.needs_example_database
 def test_it_runs_on_the_example_database() -> None:
     rows = run(no_note("SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'"),
                send=example_database.send)
@@ -140,7 +141,7 @@ def test_text_that_changes_a_table_gets_a_note_naming_the_admin_function(text, f
         unchecked_hive(text)
     assert len(noted) == 1
     note = str(noted[0].message)
-    assert note.startswith("Note:")
+    assert note.startswith("This Unchecked statement ")
     assert f"{function}(" in note
     assert noted[0].filename == __file__
 

@@ -13,6 +13,7 @@ import datetime
 import warnings
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from conftest import toolbox_module
 from test_lineage import run_script
@@ -78,7 +79,7 @@ def test_a_run_adds_an_entry_with_the_time_call_hive_script_commit_and_result(lo
         "## 2026-10-15 14:30:05, Unchecked statement\n"
         "\n"
         "- Call: `unchecked_hive(\"ALTER TABLE mart.daily_runs SET TBLPROPERTIES "
-        "('external.table.pu...\")`\n"
+        "('external.table.pu\" ...)`\n"
         "- Tables named: mart.daily_runs\n"
         f"- Script: test_admin_log.py, at commit {commit_here()}\n"
         "- Result: worked\n"
@@ -108,10 +109,11 @@ def test_a_run_that_fails_is_logged_with_its_error_then_raises(log) -> None:
             in log.read_text(encoding="utf-8"))
 
 
-def test_hive_holding_a_fence_keeps_its_entry_whole(log) -> None:
-    run(by_hand("SELECT '```' AS fence"), send=lambda hive: None)
-    assert log.read_text(encoding="utf-8").endswith(
-        "````sql\nSELECT '```' AS fence\n````\n")
+def test_hive_holding_backticks_and_quotes_keeps_its_entry_whole(log) -> None:
+    run(by_hand("SELECT '```' AS fence, \"a\" AS `b`"), send=lambda hive: None)
+    text = log.read_text(encoding="utf-8")
+    assert "- Call: ````unchecked_hive(\"SELECT '```' AS fence, \\\"a\\\" AS `b`\")````\n" in text
+    assert text.endswith("````sql\nSELECT '```' AS fence, \"a\" AS `b`\n````\n")
 
 
 def test_showing_or_writing_the_hive_logs_nothing(log, capsys) -> None:
@@ -123,7 +125,7 @@ def test_showing_or_writing_the_hive_logs_nothing(log, capsys) -> None:
 def test_session_settings_and_statements_are_not_logged(log) -> None:
     run(hive_settings("map_joins"), send=lambda hive: None)
     run(statement(SELECT(job_runs.run_id), FROM(job_runs),
-                  WHERE(equals(job_runs.dt, "2026-09-24"))), send=example_database.send)
+                  WHERE(equals(job_runs.dt, "2026-09-24"))), send=lambda hive: pd.DataFrame())
     run(drop_table(daily_runs), send=lambda hive: None)
     assert not log.exists()
 
@@ -168,7 +170,8 @@ def test_a_missing_folder_is_made(tmp_path) -> None:
     assert (tmp_path / "logs" / "admin_log.md").exists()
 
 
-@pytest.mark.parametrize("path", ["admin_log.txt", 42], ids=["not markdown", "a number"])
-def test_a_path_that_isnt_a_markdown_file_is_refused(path) -> None:
+def test_a_path_that_isnt_a_markdown_file_is_refused() -> None:
     with pytest.raises(ValueError, match=r"ends in \.md"):
-        set_admin_log(path)
+        set_admin_log("admin_log.txt")
+    with pytest.raises(TypeError, match="that isn't a path"):
+        set_admin_log(42)

@@ -9,21 +9,21 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Session settings: `hive_settings("name")` gives the `SET` lines of a named set**, for
   `run` to send before your Statements, one line at a time, as Hive takes them. Four sets come
   with the Toolbox, each documented with why: `"dynamic_partitions"`, `"map_joins"`,
-  `"statistics_on_write"` and `"merge_small_files"`. Keep your own in your settings.py as
+  `"statistics_on_write"` and `"merge_small_files"`. Keep your own in a settings.py of yours as
   `HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}` and pass them:
-  `hive_settings("nightly", sets=HIVE_SETTINGS)`. `show_hive` prints them, and
-  `export_lineage`, passed them with your Statements, names them in its footers.
+  `hive_settings("nightly", sets=HIVE_SETTINGS)`. They hold only while your send keeps one
+  session across its calls. `show_hive` prints them, and `export_lineage`, passed them with
+  your Statements, writes them at the foot of both its files.
 - **`unchecked_hive("...")` runs Hive you write by hand**, for the one statement you need now
-  that no clause function writes yet. No Guard, Warning or Load limit looks inside it, so keep it
-  for what the Toolbox can't write yet. `show_hive` and a dry run mark it, `export_lineage` draws it as one step
-  it can't see inside, linked to the tables its text names, and text that starts `DROP`,
-  `ALTER` or `TRUNCATE` gets a note naming the admin function that does the job checked, where
-  one does.
+  that no clause function writes yet. No Guard, Warning or Load limit looks inside it.
+  `show_hive` marks it, `export_lineage` draws it as one step it can't see inside, linked to
+  the tables its text names, and text that starts `DROP`, `ALTER` or `TRUNCATE` gets a note
+  naming the admin function that does the same job with its checks, where one does.
 - **The Admin log.** Each `run` of an Unchecked statement adds an entry to `admin_log.md`,
   beside the script or notebook that runs it: when, the call, the Hive sent, the script and
   its git commit, and whether it worked. The Toolbox only ever adds to it. To keep it
-  elsewhere, keep its path in your settings.py as `ADMIN_LOG` and call
-  `set_admin_log(ADMIN_LOG)` once, from your notebook or pipeline.
+  elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and call
+  `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
 - The Example database answers a `SET` line, as Spark does, with the setting and its value.
 
 ## 4.1
