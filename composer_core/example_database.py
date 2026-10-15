@@ -474,6 +474,10 @@ def send(hive):
         return _show_partitions(words[-1])
     if words[:1] and words[0].upper() == "SET" and "=" in text:
         return _set(text)
+    if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
+        # The plan of a query, which only Spark Composer's Example database can give.
+        columns, rows = edition.run_query(text, _TABLES)
+        return pd.DataFrame(rows, columns=columns)
     if not _is_query(text):
         refuse(
             what="The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; "

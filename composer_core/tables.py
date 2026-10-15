@@ -1381,6 +1381,30 @@ def _real_table(t, call: str) -> Table:
     return t
 
 
+def need_saved_table(t, what: str) -> Table:
+    """The Table reference of one of the user's Saved tables, one with location=, or a refusal.
+
+    For a call that changes a table, or what the warehouse keeps about it: the Toolbox changes
+    only the user's own Saved tables, never a table someone else owns. `what` is the call's
+    name as the user writes it, such as "repair_partitions" or "admin.drop_days", which the
+    refusal names with the table, as in repair_partitions(job_runs).
+    """
+    t = _real_table(t, f"{what}(...)")
+    if t._location is None:
+        refuse(
+            what=f"{what}({t._alias}): {t._name} isn't one of your Saved tables: its Table "
+            "reference has no location=.",
+            why=f"{what} changes the table, or what the warehouse keeps about it, and the "
+            "Toolbox changes only your own Saved tables, the ones your Statements write. A "
+            "table whose Table reference has no location= is one someone else owns.",
+            fix="Pass the Table reference of one of your Saved tables. If the table is yours, "
+            'add location=... to its Table(...) call, such as location="/data/your_team/'
+            'tables", and compare it with the table with check_table_reference(t, send=...).',
+            error=ValueError,
+        )
+    return t
+
+
 def check_key(t, send):
     """Check on the newest day that no two rows share the Table reference's key.
 

@@ -260,7 +260,8 @@ KINDS = {
     # hive_function's call: the function's name in lower case, its arguments as written, and
     # whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
-    # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
+    # A whole Statement: a query, a write, CREATE TABLE, DROP TABLE or an upkeep command, and
+    # their pieces.
     # A Select's parts are its clauses; group_by and order_by are lists, and limit a number.
     "Select": ("derived_tables", "outputs", "distinct", "source", "joins", "where", "group_by",
                "having", "order_by", "limit"),
@@ -278,6 +279,13 @@ KINDS = {
                "buckets", "stored_as", "location", "properties", "key"),
     "ColumnDef": ("name", "type"),
     "Drop": ("target",),
+    # The upkeep commands. MSCK REPAIR TABLE: the warehouse lists the days in the table's
+    # folder. ANALYZE TABLE ... COMPUTE STATISTICS: target is the table with the PARTITION(...)
+    # it counts, and columns the column names of FOR COLUMNS, or none. EXPLAIN: `this` is the
+    # whole Statement's tree.
+    "Repair": ("target",),
+    "Analyze": ("target", "columns"),
+    "Explain": ("this",),
 }
 
 # The date functions a Call may name: the ones week_start and month_start write.

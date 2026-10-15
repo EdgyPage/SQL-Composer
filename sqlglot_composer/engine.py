@@ -386,6 +386,9 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     import sqlglot
     from sqlglot import exp
 
+    if text.split(None, 1)[:1] == ["EXPLAIN"]:
+        # The executor runs a query step by step, with no plan of Hive's to show.
+        _refuse_missing_part("EXPLAIN")
     try:
         tree = sqlglot.parse_one(text, read="hive")
     except sqlglot.errors.SqlglotError as error:
