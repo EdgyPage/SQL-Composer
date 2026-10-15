@@ -8,6 +8,7 @@ temporary folder. A module that builds one stops it when it ends.
 
 from __future__ import annotations
 
+import copy
 import os
 import re
 import signal
@@ -136,4 +137,13 @@ def wide_table():
     keys = {key for hive in hive_texts(editions.SPARK_COMPOSER)
             for key in re.findall(r"\bwide\.(kx+)\b", hive.text)}
     return Table("ops.wide", columns={**dict.fromkeys(sorted(keys), "string"), "v": "bigint",
-                                      "dt": "string"}, date_partition="dt")
+                                      "dt": "string"}, date_partition="dt",
+                 location="/data/your_team/tables")
+
+
+def in_folder(t, folder: Path):
+    """A copy of a Saved table's Table reference whose own folder is under `folder`, in
+    pytest's temporary folder, so that a real Spark keeps its files there."""
+    copied = copy.copy(t)
+    copied._location = f"{Path(folder).as_posix()}/{t._name.lower().replace('.', '/')}"
+    return copied

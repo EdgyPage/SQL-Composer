@@ -640,6 +640,13 @@ def INSERT_OVERWRITE(table):
     looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
     reference, check it with check_table_reference(t, send=...).
 
+    A Saved table with partitioned_by=["region"] has Partitions inside each day: the write
+    names the day, as here, and fills each region from its rows' values, so SELECT must list
+    region too. It replaces only the regions its rows hold, and leaves that day's other regions
+    as they were. Hive needs the Session setting "dynamic_partitions" for it, which show_hive
+    prints ahead of such a write: send each of those SET lines with your own send, once a
+    session, before the write.
+
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
     >>> print(to_hive(statement(

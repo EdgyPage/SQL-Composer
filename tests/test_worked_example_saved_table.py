@@ -20,9 +20,12 @@ def select_part(s) -> str:
 
 
 def test_create_and_create_if_missing() -> None:
-    assert to_hive(example.create()).startswith("CREATE TABLE mart.runs_to_review (")
+    assert to_hive(example.create()).startswith("CREATE EXTERNAL TABLE mart.runs_to_review (")
+    assert to_hive(example.create()).endswith(
+        "LOCATION '/data/your_team/tables/mart/runs_to_review'\n"
+        "TBLPROPERTIES (\n  'external.table.purge'='true'\n)")
     assert to_hive(example.create_if_missing()).startswith(
-        "CREATE TABLE IF NOT EXISTS mart.runs_to_review (")
+        "CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (")
 
 
 def test_the_first_write_of_a_day_replaces_it_and_the_second_adds_to_it() -> None:
