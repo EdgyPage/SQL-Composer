@@ -70,6 +70,7 @@ from .tables import (
     first_look,
     write_table_reference,
 )
+from .unchecked import hive_settings, set_admin_log, unchecked_hive
 
 TOOLBOX_VERSION = "4.1"
 
@@ -143,6 +144,10 @@ __all__ = [
     "LoadRefused",
     # lineage.py
     "export_lineage",
+    # unchecked.py
+    "hive_settings",
+    "unchecked_hive",
+    "set_admin_log",
     # example_database.py
     "example_database",
 ]

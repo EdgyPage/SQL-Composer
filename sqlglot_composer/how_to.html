@@ -2461,7 +2461,7 @@ WHERE
 <p><code>run</code> sends a write as it sends a read. The Example database can&#x27;t be written to, so here it stops, and says so:</p>
 <pre class="python">run(write_failed, send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
-  What happened:  The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.
+  What happened:  The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.
   Why it matters: Its tables are made up and fixed, so every Worked example gives the same numbers.
   Usual fix:      to_hive(...) shows a write&#x27;s Hive without sending it, as in to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) builds, not text.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>

@@ -116,6 +116,9 @@ class Statement:
         # Set instead by create_table and drop_table, whose Statement is a CREATE or DROP
         # tree ready to write, with none of the parts above.
         self._ddl = None
+        # Set by the admin module on each Admin statement: the call that made it, which the
+        # Admin log names when run sends it.
+        self._admin_call = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:

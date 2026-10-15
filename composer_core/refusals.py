@@ -426,12 +426,7 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     CPython's own warnings.warn passes none: under `python -c` they make warn_explicit ask
     __main__'s loader for its source, which stops with an ImportError.
     """
-    toolbox = edition.toolbox_folders()
-    frame = sys._getframe(1)
-    while frame.f_back is not None and os.path.dirname(
-        os.path.abspath(frame.f_code.co_filename)
-    ) in toolbox:
-        frame = frame.f_back
+    frame = callers_frame()
     warnings.warn_explicit(
         message,
         category,
@@ -439,6 +434,17 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
         frame.f_lineno,
         module=frame.f_globals.get("__name__") or "<string>",
     )
+
+
+def callers_frame():
+    """The frame of the first call outside the Toolbox: the user's own line."""
+    toolbox = edition.toolbox_folders()
+    frame = sys._getframe(1)
+    while frame.f_back is not None and os.path.dirname(
+        os.path.abspath(frame.f_code.co_filename)
+    ) in toolbox:
+        frame = frame.f_back
+    return frame
 
 
 # --- An object another Toolbox folder made ----------------------------------------------------

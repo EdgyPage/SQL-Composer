@@ -1880,6 +1880,15 @@ GROUP BY
 ---
 
 
+== doc:hive_settings
+-- Statement 1: to_hive
+SET hive.exec.dynamic.partition=true
+SET hive.exec.dynamic.partition.mode=nonstrict
+-- Statement 1: show_hive
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+
 == doc:example_database
 -- Statement 1: to_hive
 SELECT
@@ -36131,6 +36140,309 @@ GROUP BY
 
 ---
 
+
+== by_hand:hive_settings:dynamic_partitions
+-- Statement 1: to_hive
+SET hive.exec.dynamic.partition=true
+SET hive.exec.dynamic.partition.mode=nonstrict
+-- Statement 1: show_hive
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+
+== by_hand:hive_settings:map_joins
+-- Statement 1: to_hive
+SET hive.auto.convert.join=true
+SET hive.auto.convert.join.noconditionaltask=true
+-- Statement 1: show_hive
+-- Session settings: map_joins, sent one line at a time
+SET hive.auto.convert.join=true;
+SET hive.auto.convert.join.noconditionaltask=true;
+
+== by_hand:hive_settings:statistics_on_write
+-- Statement 1: to_hive
+SET hive.stats.autogather=true
+SET hive.stats.column.autogather=true
+-- Statement 1: show_hive
+-- Session settings: statistics_on_write, sent one line at a time
+SET hive.stats.autogather=true;
+SET hive.stats.column.autogather=true;
+
+== by_hand:hive_settings:merge_small_files
+-- Statement 1: to_hive
+SET hive.merge.mapfiles=true
+SET hive.merge.mapredfiles=true
+SET hive.merge.tezfiles=true
+-- Statement 1: show_hive
+-- Session settings: merge_small_files, sent one line at a time
+SET hive.merge.mapfiles=true;
+SET hive.merge.mapredfiles=true;
+SET hive.merge.tezfiles=true;
+
+== by_hand:hive_settings:own
+-- Statement 1: to_hive
+SET hive.auto.convert.join=true
+SET hive.auto.convert.join.noconditionaltask=true
+SET hive.exec.parallel=true
+SET mapreduce.job.reduces=8
+-- Statement 1: show_hive
+-- Session settings: map_joins, nightly, sent one line at a time
+SET hive.auto.convert.join=true;
+SET hive.auto.convert.join.noconditionaltask=true;
+SET hive.exec.parallel=true;
+SET mapreduce.job.reduces=8;
+
+== by_hand:hive_settings:before_a_read
+-- Statement 1: to_hive
+SET hive.auto.convert.join=true
+SET hive.auto.convert.join.noconditionaltask=true
+-- Statement 1: show_hive
+-- Session settings: map_joins, sent one line at a time
+SET hive.auto.convert.join=true;
+SET hive.auto.convert.join.noconditionaltask=true;
+-- Statement 2: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 2: the Statement
+output run_id: job_runs.run_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n2 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+Session settings sent before these Statements, one line at a time (map_joins): SET hive.auto.convert.join=true | SET hive.auto.convert.join.noconditionaltask=true.
+
+== by_hand:unchecked:select
+-- Statement 1: to_hive
+SELECT `select` FROM ops.`order` -- a comment;
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+SELECT `select` FROM ops.`order` -- a comment;
+;
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement"]
+    n0["⚠ Unchecked statement<br/><small>SELECT #96;select#96; FROM ops.#96;order#96; -- a comme…</small>"]
+  end
+  subgraph g1["ops.order"]
+    n1["ops.order<br/><small>(the whole table)</small>"]
+  end
+  n1 --> n0
+```
+
+## statement
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It reads ops.order.
+
+### Hive as submitted
+
+```sql
+SELECT `select` FROM ops.`order` -- a comment;
+```
+
+---
+
+
+== by_hand:unchecked:then_a_read
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' GROUP BY job_id
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' GROUP BY job_id;
+-- Statement 2: to_hive
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+-- Statement 2: the Statement
+output job_id: daily_runs.job_id
+output runs: daily_runs.runs
+WHERE: daily_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement_1, statement_2
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement_1"]
+    n0["⚠ Unchecked statement<br/><small>INSERT OVERWRITE TABLE mart.daily_runs PART…</small>"]
+  end
+  subgraph g1["ops.job_runs"]
+    n1["ops.job_runs<br/><small>(the whole table)</small>"]
+  end
+  subgraph g2["mart.daily_runs"]
+    n2["mart.daily_runs<br/><small>(the whole table)</small>"]
+    n3["mart.daily_runs.job_id<br/><small>bigint</small>"]
+    n5["mart.daily_runs.runs<br/><small>bigint</small>"]
+    n8["mart.daily_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g3["statement_2"]
+    n4["job_id<br/><small>daily_runs.job_id</small>"]
+    n6["runs<br/><small>daily_runs.runs</small>"]
+  end
+  subgraph g4["filters on statement_2"]
+    n7{{"WHERE in statement_2<br/><small>equals(daily_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n1 --> n0
+  n0 --> n2
+  n3 --> n4
+  n5 --> n6
+  n8 -.-> n7
+  n2 --> n3
+  n2 --> n5
+  n2 --> n8
+  n7 -.->|filters| g3
+```
+
+## statement_1
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It reads ops.job_runs, and writes or changes mart.daily_runs.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' GROUP BY job_id
+```
+
+## statement_2
+
+It reads the Saved table mart.daily_runs, written by statement_1 above.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | mart.daily_runs.job_id ← mart.daily_runs ← statement_1: Unchecked statement ← ops.job_runs |
+| `runs` | mart.daily_runs.runs ← mart.daily_runs ← statement_1: Unchecked statement ← ops.job_runs |
+
+### Hive as submitted
+
+```sql
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== by_hand:unchecked:alter
+-- Statement 1: to_hive
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true');
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement"]
+    n0["⚠ Unchecked statement<br/><small>ALTER TABLE mart.daily_runs SET TBLPROPERTI…</small>"]
+  end
+  subgraph g1["mart.daily_runs"]
+    n1["mart.daily_runs<br/><small>(the whole table)</small>"]
+  end
+  n0 --> n1
+```
+
+## statement
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It writes or changes mart.daily_runs.
+
+### Hive as submitted
+
+```sql
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')
+```
+
+---
+
+
+== by_hand:unchecked:blank
+-- refused
+ValueError:
+  What happened:  unchecked_hive(' ; ') has no Hive in it.
+  Why it matters: There would be nothing to send.
+  Usual fix:      Write the Hive to send, as in unchecked_hive("ALTER TABLE ...").
+  Opt-out:        none - this one can't be switched off.
 
 == warehouse:ops.jobs
 -- write_table_reference
