@@ -11,10 +11,10 @@ rather than by hand.
 So 5.0 adds two things, each kept apart from the everyday Statements:
 
 - **`unchecked_hive("...")`, the Unchecked statement**, runs Hive text the user writes, the way a
-  Statement is run, though it isn't one. No Guard or Load limit looks inside it, and Lineage draws
-  it as one opaque step with a warning badge. It is allowed, not encouraged: each one marks something the
-  Toolbox should learn to write. Text that starts `DROP`, `ALTER` or `TRUNCATE` warns, naming the
-  admin function that writes it, checked.
+  Statement is run, though it isn't one. No Guard, Warning or Load limit looks inside it, and
+  Lineage draws it as one opaque step with a warning badge. It is allowed, not encouraged: each one
+  marks something the Toolbox should learn to write. Text that starts `DROP`, `ALTER` or
+  `TRUNCATE` gets a note naming the admin function that writes it, checked.
 - **The admin module** (`from sqlglot_composer import admin`, not in the star import) writes the
   changes to a Saved table's definition or data: dropping the table or its old days, adding
   columns, setting properties, moving it to a folder of its own. Each is an ordinary Statement,

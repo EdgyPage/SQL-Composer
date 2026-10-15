@@ -78,10 +78,10 @@ below; this map is the design document, built out ticket by ticket.
      merged). `hive_settings("name")` gives the `SET` lines, not a Statement but run, shown and
      listed first in a pipeline the same way; Lineage footers say which were set.
    - **`unchecked_hive("...")`:** Hive text written by hand, run the way a Statement is,
-     though it isn't one. No Guard or
-     Load limit looks inside, and its one Warning is the DROP/ALTER/TRUNCATE one below; Lineage draws it as one opaque step, linked to the tables
-     its text names, with a warning badge; the dry run marks it. Text starting `DROP`, `ALTER` or
-     `TRUNCATE` warns at the user's line, naming the admin function that writes it, checked.
+     though it isn't one. No Guard, Warning or Load limit looks inside; Lineage draws it as one
+     opaque step, linked to the tables its text names, with a warning badge; the dry run marks it.
+     Text starting `DROP`, `ALTER` or `TRUNCATE` gets a note at the user's line, naming the admin
+     function that writes it, checked.
    - **The Admin log:** each `run` of an Admin statement or an Unchecked statement appends one
      entry (time; the call, such as `admin.drop_days(mart.job_day, before=2025-01-01)`; the Hive
      sent; the script and its git commit; worked or the error) to a Markdown file set once in

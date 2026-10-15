@@ -70,9 +70,10 @@ A Level 1 piece of a Statement - a filter, a join or a sub-query - reused across
 _Avoid_: fragment, component, snippet, helper
 
 **Statement**:
-A Level 2 query, assembled from Table references and Building blocks, or written by the admin
-module for one of the user's Saved tables, that becomes one Hive SQL string. A Session setting's `SET` lines and an Unchecked statement aren't Statements, but are
-run, shown and listed in a pipeline the same way.
+A Level 2 query, assembled from Table references and Building blocks, or written by the Toolbox
+for one of the user's Saved tables, that becomes one Hive SQL string. A Session setting's `SET`
+lines and an Unchecked statement aren't Statements, but are run, shown and listed in a pipeline
+the same way.
 _Avoid_: report, case, output script
 
 ### Writing a Statement
@@ -89,9 +90,9 @@ Guards protect the answer. Load limits protect the cluster, and are not Guards.
 _Avoid_: guardrail, check, validation, rule
 
 **Warning**:
-A check the Toolbox runs while a Statement is composed, or on an Unchecked statement's text, which
-lets it through but says at the offending call why a number may come out wrong or what the Toolbox
-writes checked instead, unless that call carries the Warning's opt-out. Used where the risky Statement is often the one the user meant, such as a join off the
+A check the Toolbox runs while a Statement is composed, which lets the Statement through but says
+at the offending call why a number may come out wrong, unless that call carries the Warning's
+opt-out. Used where the risky Statement is often the one the user meant, such as a join off the
 joined table's key.
 _Avoid_: soft guard, lint, notice, advisory
 
@@ -108,9 +109,9 @@ _Avoid_: materialized view, cache, temp table, output table
 
 **Unchecked statement**:
 Hive text the user writes by hand and runs through the Toolbox, as a Statement is run, when no
-Clause function covers it yet. No Guard or Load limit looks inside it, and its one Warning points
-text that drops, alters or truncates a table to the admin module; Lineage shows it as one opaque
-step. Each one marks something the Toolbox should learn to write.
+Clause function covers it yet. No Guard, Warning or Load limit looks inside it; text that drops,
+alters or truncates a table only gets a note naming the admin function that writes it. Lineage
+shows it as one opaque step. Each one marks something the Toolbox should learn to write.
 _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
