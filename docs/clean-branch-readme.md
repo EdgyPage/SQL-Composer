@@ -18,11 +18,11 @@ one Edition's own folder:
   when your notebook runs Spark, with a `spark` session that reads the warehouse's tables.
 
 Both write the same Hive, except in the few places listed under [Where the two Editions' Hive
-differs](#where-the-two-editions-hive-differs). Two of them, dividing and a Python float, are
-for Spark. So if your query API runs Hive, sqlglot Composer's Hive is right for it. If it runs
-Spark, and you can install pyspark, Spark Composer's Hive fits it better, and works with any
-`send`. The third, a hive_function call, comes from the sqlglot library, which only sqlglot
-Composer uses. Use one Edition per notebook: importing both in one Python stops.
+differs](#where-the-two-editions-hive-differs). Three of them, dividing, a Python float and a
+Saved table's Key in CREATE TABLE, are for Spark. So if your query API runs Hive, sqlglot
+Composer's Hive is right for it. If it runs Spark, and you can install pyspark, Spark Composer's
+Hive fits it better, and works with any `send`. The fourth, a hive_function call, comes from the
+sqlglot library, which only sqlglot Composer uses. Use one Edition per notebook: importing both in one Python stops.
 
 This page writes `sqlglot_composer`. With Spark Composer, write `spark_composer` wherever this
 page writes `sqlglot_composer`: in your imports, and in `sqlglot_composer.VERSION`.

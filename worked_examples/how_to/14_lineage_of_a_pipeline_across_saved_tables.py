@@ -126,7 +126,10 @@ table it writes: the day in WHERE is the day written.
 
 write_daily_job_runs is the first write's section. It says which Saved table it writes, then
 its Calculated columns, `"runs"` and `"failed_runs"`, each with its tree, its Rows that count
-and what one row stands for, then its Copied columns and its Hive.
+and what one row stands for, then its Copied columns, its Keys, and its Hive. Keys says which
+columns tell its rows apart, `"job_id"` here, since its GROUP_BY makes one row for each job on
+the day it writes, and that the Saved table's Key holds: each row it writes has a Key of its
+own. Each column in a Key shows "in the Key" in the chart.
 
 write_team_day is the second write's section. Its first line says it reads the Saved table
 mart.daily_job_runs, written by write_daily_job_runs above. Each tree now goes on through the

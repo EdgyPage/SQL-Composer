@@ -103,6 +103,11 @@ call and the Hive it becomes, then three things:
 Copied columns is a table of the columns copied as they are: `"team"` comes from
 `ops.jobs.team`.
 
+Keys says which columns tell the rows apart: here `"team"`, since GROUP_BY makes one row for
+each team. In the chart, each column that is part of a Key, there and in the tables read, shows
+"in the Key" under its name. A step with no Key the Toolbox can see says where it lost one,
+such as a join that can match several rows to one.
+
 Hive as submitted is the Hive `run` sends, exactly as `to_hive` gives it.
 
 The last line says when the file was made, from which commit, and with which Toolbox version.
