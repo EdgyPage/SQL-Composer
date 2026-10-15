@@ -439,6 +439,15 @@ def _in_order(row: tuple) -> tuple:
     return tuple((value is not None, value) for value in row)
 
 
+def _set(text: str) -> pd.DataFrame:
+    """A Session setting's SET line, answered as Spark answers it: the setting and its value.
+
+    The Example database keeps no setting: its answers are the same whatever is set.
+    """
+    setting, value = text[3:].split("=", 1)
+    return pd.DataFrame({"key": [setting.strip()], "value": [value.strip()]})
+
+
 def send(hive):
     """Run Hive on the Example database and return a DataFrame, like your send at work.
 
@@ -463,10 +472,12 @@ def send(hive):
         return _describe(words[-1])
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
         return _show_partitions(words[-1])
+    if words[:1] and words[0].upper() == "SET" and "=" in text:
+        return _set(text)
     if not _is_query(text):
         refuse(
-            what="The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it "
-            "can't be written to.",
+            what="The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; "
+            "it can't be written to.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers.",
             fix="to_hive(...) shows a write's Hive without sending it, as in "

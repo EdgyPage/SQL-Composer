@@ -4,7 +4,8 @@
 example and Worked example. They reach the corners the examples don't: where a pretty line
 wraps, brackets, Derived tables three deep, writes with and without them, every column type
 create_table may meet, awkward names, compact Date partitions, and about 200 Statements built
-at random from the public names. Each case is a function returning the Statements it builds;
+at random from the public names; and, apart from those, Session settings and Unchecked
+statements beside Statements. Each case is a function returning the Statements it builds;
 a case that a Guard or Load limit refuses is written as its refusal.
 
 Every case builds only through the Toolbox's public names, as a user would.
@@ -47,6 +48,7 @@ from sqlglot_composer import (
     equals,
     fill_null,
     hive_function,
+    hive_settings,
     if_else,
     is_in,
     is_not_in,
@@ -63,6 +65,7 @@ from sqlglot_composer import (
     starts_with,
     statement,
     sum_of,
+    unchecked_hive,
     week_start,
 )
 from composer_core.example_database import job_runs, jobs, run_alerts
@@ -401,6 +404,42 @@ def _structure_cases() -> dict:
         "mart.typed", columns={"c": "bigint"}, date_partition=None))]
     for name, t in EDGE_TABLES.items():
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
+    return found
+
+
+# Hive written by hand: a write into daily_runs, which a Statement then reads.
+BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')\n"
+           "SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' "
+           "GROUP BY job_id")
+
+
+def _reading_daily_runs():
+    return statement(SELECT(daily_runs.job_id, daily_runs.runs), FROM(daily_runs),
+                     WHERE(equals(daily_runs.dt, DAY)))
+
+
+def by_hand_cases() -> list:
+    """Session settings and Unchecked statements, alone and in a pipeline with Statements, as
+    (id, function returning what it builds). They are kept apart from edge_cases, whose
+    every case builds Statements only."""
+    return [(f"by_hand:{name}", build) for name, build in _by_hand_cases().items()]
+
+
+def _by_hand_cases() -> dict:
+    found = {f"hive_settings:{name}": (lambda name=name: [hive_settings(name)])
+             for name in ("dynamic_partitions", "map_joins", "statistics_on_write",
+                          "merge_small_files")}
+    found["hive_settings:own"] = lambda: [hive_settings(
+        "map_joins", "nightly", sets={"nightly": {"hive.exec.parallel": True,
+                                                  "mapreduce.job.reduces": 8}})]
+    found["hive_settings:before_a_read"] = lambda: [hive_settings("map_joins"),
+                                                    _rows(job_runs.run_id)]
+    found["unchecked:select"] = lambda: [unchecked_hive(
+        "SELECT `select` FROM ops.`order` -- a comment;\n;")]
+    found["unchecked:then_a_read"] = lambda: [unchecked_hive(BY_HAND), _reading_daily_runs()]
+    found["unchecked:alter"] = lambda: [unchecked_hive(
+        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')")]
+    found["unchecked:blank"] = lambda: [unchecked_hive(" ; ")]
     return found
 
 

@@ -8,6 +8,7 @@ test can say "this column feeds that one" without depending on the chart's numbe
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import runpy
@@ -54,6 +55,7 @@ from sqlglot_composer import (
     statement,
     sum_of,
     to_hive,
+    unchecked_hive,
     week_start,
 )
 
@@ -796,6 +798,60 @@ def test_a_statement_reading_the_saved_table_it_writes_is_a_loop() -> None:
                       FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
     with pytest.raises(ValueError, match="again writes mart.daily_runs, which again reads"):
         export_lineage(again)
+
+
+# --- Unchecked statements: one opaque step each (ticket toolbox-5/03) -------------------------
+
+BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')\n"
+           "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r JOIN ops.jobs j "
+           "ON j.job_id = r.job_id WHERE r.dt = '2026-09-24' GROUP BY r.job_id")
+
+
+def test_an_unchecked_statement_is_one_opaque_step_linked_to_the_tables_it_names(
+        tmp_path) -> None:
+    fill = unchecked_hive(BY_HAND)
+    markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
+    got = chart(markdown)
+    assert got["boxes"]["⚠ Unchecked statement"] == "fill"
+    assert got["boxes"]["ops.job_runs"] == "ops.job_runs"
+    assert ("ops.job_runs", "⚠ Unchecked statement", "value") in got["arrows"]
+    assert ("ops.jobs", "⚠ Unchecked statement", "value") in got["arrows"]
+    assert ("⚠ Unchecked statement", "mart.daily_runs", "value") in got["arrows"]
+    assert "ops.job_runs.job_id" not in got["boxes"]
+
+
+def test_its_report_says_nothing_inside_it_was_checked_and_shows_its_hive(tmp_path) -> None:
+    fill = unchecked_hive(BY_HAND)
+    markdown, page = read(export_lineage(fill, to=tmp_path / "lineage.html"))
+    about = section(markdown, "## fill")
+    said = ("⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load "
+            "limit looked inside, so its columns can't be followed through it. It reads "
+            "ops.job_runs and ops.jobs, and writes or changes mart.daily_runs.")
+    assert said in about
+    assert f"### Hive as submitted\n\n```sql\n{BY_HAND}\n```" in about
+    assert "### Calculated columns" not in about
+    assert html.escape(said) in page
+
+
+def test_it_is_ordered_before_the_statements_that_read_what_it_writes(tmp_path) -> None:
+    fill, weekly = unchecked_hive(BY_HAND), runs_by_team()
+    markdown, _ = read(export_lineage(weekly, fill, to=tmp_path / "lineage.html"))
+    assert markdown.startswith("# Lineage: fill, weekly\n")
+    got = chart(markdown)
+    assert ("⚠ Unchecked statement", "mart.daily_runs", "value") in got["arrows"]
+    assert ("mart.daily_runs.runs", "runs", "value") in got["arrows"]
+
+
+def test_the_page_draws_it_as_an_output_marked_unchecked(tmp_path) -> None:
+    fill = unchecked_hive(BY_HAND)
+    _, page = read(export_lineage(fill, to=tmp_path / "lineage.html"))
+    data = page_data(page)
+    opaque = [box for box in data["boxes"] if box["lines"][0] == "⚠ Unchecked statement"]
+    assert [box["kind"] for box in opaque] == ["output unchecked"]
+    kinds = {group["name"]: group["kind"] for group in data["groups"]}
+    assert kinds["fill"] == "output"
+    assert kinds["mart.daily_runs"] == "table"
+    assert ".unchecked rect{" in page
 
 
 # --- Misuse ------------------------------------------------------------------------------------
