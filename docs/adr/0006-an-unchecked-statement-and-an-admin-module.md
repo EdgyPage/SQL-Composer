@@ -14,7 +14,8 @@ So 5.0 adds two things, each kept apart from the everyday Statements:
   Statement is run, though it isn't one. No Guard, Warning or Load limit looks inside it, and
   Lineage draws it as one opaque step with a warning badge. It is allowed, not encouraged: each one
   marks something the Toolbox should learn to write. Text that starts `DROP`, `ALTER` or
-  `TRUNCATE` gets a note naming the admin function that writes it, checked.
+  `TRUNCATE` gets a note naming the admin function that does the job checked, where one does
+  (`admin.drop_days` for a TRUNCATE, which Hive refuses on an external table).
 - **The admin module** (`from sqlglot_composer import admin`, not in the star import) writes the
   changes to a Saved table's definition or data: dropping the table or its old days, adding
   columns, setting properties, moving it to a folder of its own. Each is an ordinary Statement,
@@ -34,7 +35,8 @@ This reverses the first design's "no raw SQL" for the one, loudly marked, case.
   privilege, so friction on friction adds clutter; keeping the commands in their own module,
   logged, is the separation.
 - **Leave drops and ALTERs to the Unchecked statement.** Rejected: they are common enough to write
-  checked, with their warnings, and the hatch should hold only real unknowns.
+  checked, saying what they change and what can't be undone, and the hatch should hold only
+  real unknowns.
 
 ## Consequences
 

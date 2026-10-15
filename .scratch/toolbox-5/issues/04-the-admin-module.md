@@ -10,7 +10,7 @@ Size: M
 Map family 4 and ADR 0006. `from sqlglot_composer import admin` (not in the star import):
 `drop_table` (moved from the ordinary names), `drop_days(t, before=)`, `add_columns(t, send=)`,
 `set_properties(t, ...)`, `move_to_own_folder(t, send=)`. Each an ordinary Statement, its
-description and warnings printed by show_hive before its Hive, refused on a table that isn't one
+description (what it changes, what can't be undone) printed by show_hive before its Hive, refused on a table that isn't one
 of the user's Saved tables, logged in the Admin log when run. A how-to, "Move a Saved table to its
 own folder".
 

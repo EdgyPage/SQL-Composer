@@ -110,7 +110,8 @@ _Avoid_: materialized view, cache, temp table, output table
 **Unchecked statement**:
 Hive text the user writes by hand and runs through the Toolbox, as a Statement is run, when no
 Clause function covers it yet. No Guard, Warning or Load limit looks inside it; text that drops,
-alters or truncates a table only gets a note naming the admin function that writes it. Lineage
+alters or truncates a table only gets a note naming the admin function that does the job, where
+one does. Lineage
 shows it as one opaque step. Each one marks something the Toolbox should learn to write.
 _Avoid_: raw SQL, passthrough, custom query
 
