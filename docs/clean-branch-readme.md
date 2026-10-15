@@ -258,9 +258,10 @@ Two other settings may be either:
 Before you read or write a Saved table, check it isn't a Hive ACID table: one Hive keeps its
 own way, so that single rows can be changed. Spark can't read or write those as it reads other
 tables. `spark.sql("SHOW TBLPROPERTIES mart.daily_runs").toPandas()` lists a table's properties,
-and an ACID table has `transactional` set to `true`. A table `create_table` makes is external,
-which Hive never makes an ACID table. If a table you read is one, ask whoever looks after the
-warehouse for a table Spark can read, one with `transactional` set to `false`.
+and an ACID table has `transactional` set to `true`. A table `create_table` makes is never
+one, since Hive makes only its own managed tables ACID, and `create_table` makes external
+ones. If a table you read is one, ask whoever looks after the warehouse for a table Spark can
+read, one with `transactional` set to `false`.
 
 ## Where the two Editions' Hive differs
 

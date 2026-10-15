@@ -161,7 +161,7 @@ def test_check_table_reference_reads_every_storage_option_as_spark_describes_it(
         "mart.stored matches its Table reference.")
     elsewhere = copy.copy(stored)
     elsewhere._location = f"{tmp_path.as_posix()}/shared"
-    assert "its own folder under another base: change the line to location=" in str(
+    assert "its own folder, but under another folder than location= names" in str(
         check_table_reference(elsewhere, send=send))
 
 
