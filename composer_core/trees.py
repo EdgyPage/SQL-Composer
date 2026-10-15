@@ -271,8 +271,11 @@ KINDS = {
     "CTE": ("this", "alias"),
     "Partition": ("expressions",),
     "Insert": ("derived_tables", "target", "select", "overwrite"),
-    # key: the Key's column names, written PRIMARY KEY (...) DISABLE NOVALIDATE, or None.
-    "Create": ("target", "columns", "partitioned_by", "exists", "key"),
+    # CREATE EXTERNAL TABLE: its columns, Partitions and Buckets, its file format, its folder,
+    # and its table properties as (name, value) pairs. key: the Key's column names, written
+    # PRIMARY KEY (...) DISABLE NOVALIDATE after the columns, or None.
+    "Create": ("target", "columns", "partitioned_by", "exists", "bucketed_by", "sorted_by",
+               "buckets", "stored_as", "location", "properties", "key"),
     "ColumnDef": ("name", "type"),
     "Drop": ("target",),
 }

@@ -40,12 +40,13 @@ goes in a file of its own, table_references/job_day.py:
 ...     },
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/tables",
 ... )
 
 Create it once, with `may_exist=True`, so sending it again on later runs does nothing:
 
 >>> print(to_hive(create_table(job_day, may_exist=True)))
-CREATE TABLE IF NOT EXISTS mart.job_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
   finishes BIGINT...
@@ -54,6 +55,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/job_day'
 
 ### Preview the rows for the last three days
 

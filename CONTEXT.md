@@ -104,8 +104,10 @@ _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what 
 
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
-its own Table reference, like any other table. Its files live at a location the user chooses, and
-the user's own Statements are the only ones that write it.
+its own Table reference, like any other table. It is what Hive calls an external table: its
+files are in a folder of its own under the folder the user's Saved tables go in, which its
+Table reference names along with how it is stored; the user's own Statements are the only ones
+that write it.
 _Avoid_: materialized view, cache, temp table, output table
 
 **Unchecked statement**:

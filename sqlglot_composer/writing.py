@@ -269,10 +269,21 @@ def _insert(node: Node) -> exp.Insert:
 
 
 def _create(node: Node) -> exp.Create:
-    properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
+    """CREATE EXTERNAL TABLE, its parts in the order Hive writes them: Partitions, Buckets,
+    the file format, the folder, then the table properties."""
+    properties = [exp.ExternalProperty()]
     if node.parts["partitioned_by"]:
         partition = exp.Schema(expressions=_all_built(node, "partitioned_by"))
-        properties.insert(0, exp.PartitionedByProperty(this=partition))
+        properties.append(exp.PartitionedByProperty(this=partition))
+    if node.parts["bucketed_by"]:
+        sorted_by = [exp.column(_identifier(name)) for name in node.parts["sorted_by"]]
+        properties.append(exp.ClusteredByProperty(
+            expressions=[exp.column(_identifier(name)) for name in node.parts["bucketed_by"]],
+            sorted_by=sorted_by or None, buckets=exp.Literal.number(node.parts["buckets"])))
+    properties.append(exp.FileFormatProperty(this=exp.Var(this=node.parts["stored_as"])))
+    properties.append(exp.LocationProperty(this=exp.Literal.string(node.parts["location"])))
+    properties += [exp.Property(this=exp.Literal.string(name), value=exp.Literal.string(value))
+                   for name, value in node.parts["properties"]]
     columns = _all_built(node, "columns")
     if node.parts["key"]:
         # The Key, which DISABLE NOVALIDATE has Hive keep without ever checking it.

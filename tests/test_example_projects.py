@@ -331,7 +331,7 @@ def test_every_select_on_the_example_databases_tables_runs(starter: dict) -> Non
 def test_the_steps_put_each_writer_before_its_readers(starter: dict) -> None:
     hive = [to_hive(s) for s in starter["run_pipeline"].steps(DAYS[-1])]
     writes = [i for i, text in enumerate(hive) if INSERT in text]
-    creates = [i for i, text in enumerate(hive) if text.startswith("CREATE TABLE")]
+    creates = [i for i, text in enumerate(hive) if text.startswith("CREATE EXTERNAL TABLE")]
     assert max(creates) < min(writes)
     written = {i: text.split(f"{INSERT} ")[1].split()[0] for i, text in
                enumerate(hive) if i in writes}
@@ -759,7 +759,7 @@ def test_the_intermediate_steps_put_each_writer_before_its_readers(intermediate:
     pipeline = intermediate["run_pipeline"]
     hive = [to_hive(s) for s in pipeline.in_order(pipeline.steps(DAYS[-1]))]
     writes = [i for i, text in enumerate(hive) if INSERT in text]
-    creates = [i for i, text in enumerate(hive) if text.startswith("CREATE TABLE")]
+    creates = [i for i, text in enumerate(hive) if text.startswith("CREATE EXTERNAL TABLE")]
     assert max(creates) < min(writes)
     written = {i: (hive[i].split(f"{INSERT} ")[1].split()[0],
                    hive[i].split("PARTITION(dt = ")[1][:12]) for i in writes}

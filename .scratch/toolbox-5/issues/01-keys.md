@@ -58,8 +58,8 @@ that resolves this ticket.
 - **Tests and docs.** `tests/test_keys.py` (each proof and refusal, both Editions), refusal
   tests in `tests/test_refusals.py`, Lineage tests, golden corpus cases (`write:key:*`,
   `create_table:key_with_the_day`); docstrings of INSERT_OVERWRITE, INSERT_INTO, derived,
-  Table, create_table, check_key; a how-to, 31 "Keys, checked before each write"
-  (Intermediate now runs 19 to 31); how-tos 03, 10, 12, 22, 23 show the Key in their CREATE
+  Table, create_table, check_key; a how-to, 32 "Keys, checked before each write"
+  (Intermediate runs 19 to 32: ticket 02 took 31); how-tos 03, 10, 12, 22, 23 show the Key in their CREATE
   TABLE; CHANGES "5.0, in the making"; CONTEXT's Key. The Example projects' Saved tables
   already declared their Keys, and every write shows its Key ("holds" in each Lineage).
 
@@ -78,7 +78,7 @@ INSERT_INTO is checked on the rows it adds, not against the day's rows (its docs
 how-to say so; check_key finds those). The Spark decision is the open question below.
 
 **Beginner reader:** [report](../reports/01-beginner-reader.md), 13 stops. Done: a Key with
-or without the Date partition is explained in how-to 31; the refusal for a SELECT that leaves
+or without the Date partition is explained in how-to 32; the refusal for a SELECT that leaves
 the Key out now reads "job_runs' rows are told apart by run_id, and SELECT leaves out
 job_runs.run_id, so nothing makes its rows one for each job_id"; a reason names a column held
 to one value ("with newest_first held to one value", "GROUP_BY makes one row for each job_id,

@@ -120,6 +120,9 @@ class Statement:
         # Set instead by create_table and drop_table, whose Statement is a CREATE or DROP
         # tree ready to write, with none of the parts above.
         self._ddl = None
+        # Set by the admin module on each Admin statement: the call that made it, which the
+        # Admin log names when run sends it.
+        self._admin_call = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:
@@ -660,6 +663,16 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     table's whole Key. The day written is one value, so a Key that holds the Date partition
     needs only its other columns. unproven_key=True writes it anyway, for rows that are one per
     Key for a reason the Toolbox can't see. Below, GROUP_BY makes one row for each job_id.
+
+    A Saved table with partitioned_by=["region"] has Partitions inside each day: the write
+    still names its one day, and fills each region from its rows' values, so SELECT must list
+    region too. Sent again, it replaces only the regions its rows hold: a region with no rows
+    that day keeps what it held. Filling a Partition from the rows needs Hive's dynamic
+    partitioning switched on, the Session setting the Toolbox calls "dynamic_partitions",
+    whose two SET lines show_hive prints ahead of such a write. Send each through your own
+    send, without its ;, as send("SET hive.exec.dynamic.partition=true"), before the first
+    such write: the warehouse keeps them for as long as send's connection lasts, and sending
+    them again does no harm.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})

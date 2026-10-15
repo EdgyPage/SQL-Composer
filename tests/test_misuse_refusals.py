@@ -233,7 +233,9 @@ def test_a_send_that_doesnt_give_back_a_dataframe_is_refused(answer, said) -> No
 
 def test_a_write_isnt_refused_for_what_its_send_gives_back() -> None:
     """A write has been carried out once its send returns, so what comes back isn't read."""
-    assert run(create_table(job_owners, may_exist=True), send=lambda hive: None) is None
+    owners = Table("mart.job_owners", columns=dict(job_owners._columns), date_partition="dt",
+                   location="/data/your_team/tables")
+    assert run(create_table(owners, may_exist=True), send=lambda hive: None) is None
 
 
 # --- a calculation's name where a column goes ------------------------------------------------

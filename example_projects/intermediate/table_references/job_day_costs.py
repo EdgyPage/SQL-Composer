@@ -19,4 +19,5 @@ job_day_costs = Table(
     },
     date_partition="dt",
     key=["job_id", "dt"],
+    location="/data/your_team/tables",  # the folder your Saved tables go in
 )

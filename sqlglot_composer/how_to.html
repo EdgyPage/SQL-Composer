@@ -92,7 +92,8 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <li data-for="finish_in_pandas"><a href="#finish_in_pandas">28. Finish in pandas</a></li>
 <li data-for="review_a_change_with_lineage"><a href="#review_a_change_with_lineage">29. Review a change with Lineage</a></li>
 <li data-for="test_your_own_statements"><a href="#test_your_own_statements">30. Test your own Statements</a></li>
-<li data-for="keys"><a href="#keys">31. Keys, checked before each write</a></li>
+<li data-for="choose_how_a_saved_table_is_stored"><a href="#choose_how_a_saved_table_is_stored">31. Choose how a Saved table is stored</a></li>
+<li data-for="keys"><a href="#keys">32. Keys, checked before each write</a></li>
 </ul>
 </div>
 </nav>
@@ -514,11 +515,12 @@ check_key(wrong_key, send=example_database.send)</pre>
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
     does_not_add_up=[&quot;avg_minutes&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )
 job_day</pre>
 <p class="label">Python shows</p><pre class="output">Table(&#x27;mart.job_day&#x27;, columns: job_id, runs, failed_runs, minutes, avg_minutes, dt)</pre>
 <p>What each argument says:</p>
-<ul><li><code>&quot;mart.job_day&quot;</code> is the table&#x27;s name as the warehouse knows it: the database, a dot, then the table.</li><li><code>columns=</code> maps each column&#x27;s name to its Hive type, spelled as DESCRIBE prints it: <code>&quot;bigint&quot;</code> for whole numbers, <code>&quot;string&quot;</code> for text, <code>&quot;double&quot;</code> for numbers with a decimal point, <code>&quot;decimal(10,2)&quot;</code> for exact amounts such as money. The Toolbox checks the values you compare a typed column with, so <code>equals(job_day.runs, &quot;3&quot;)</code> stops, since <code>&quot;3&quot;</code> is text.</li><li><code>date_partition=&quot;dt&quot;</code> names the one column the table is split into days by. The warehouse stores a day at a time, and every Statement that reads the table must give its first and last day. A table with no days, such as <code>ops.jobs</code>, says <code>date_partition=None</code>. Unlike <code>key=</code>, <code>does_not_add_up=</code> and <code>date_format=</code>, it has no default, so you can&#x27;t leave it out.</li><li><code>key=[&quot;job_id&quot;, &quot;dt&quot;]</code> lists the columns that pick out one row. A job has a row on every day, so <code>job_day.job_id</code> alone repeats; the job and the day together pick out one row. JOIN reads the key to warn you when a join could repeat rows.</li><li><code>does_not_add_up=[&quot;avg_minutes&quot;]</code> lists the columns that are averages, ratios or counts of different values. Adding up two days&#x27; averages gives a number that means nothing, so the Toolbox refuses to add these up.</li><li>There is no <code>date_format=</code>: its days are written like 2026-09-24, the usual way. The step A table whose days are written another way, below, shows one that needs it.</li></ul>
+<ul><li><code>&quot;mart.job_day&quot;</code> is the table&#x27;s name as the warehouse knows it: the database, a dot, then the table.</li><li><code>columns=</code> maps each column&#x27;s name to its Hive type, spelled as DESCRIBE prints it: <code>&quot;bigint&quot;</code> for whole numbers, <code>&quot;string&quot;</code> for text, <code>&quot;double&quot;</code> for numbers with a decimal point, <code>&quot;decimal(10,2)&quot;</code> for exact amounts such as money. The Toolbox checks the values you compare a typed column with, so <code>equals(job_day.runs, &quot;3&quot;)</code> stops, since <code>&quot;3&quot;</code> is text.</li><li><code>date_partition=&quot;dt&quot;</code> names the one column the table is split into days by. The warehouse stores a day at a time, and every Statement that reads the table must give its first and last day. A table with no days, such as <code>ops.jobs</code>, says <code>date_partition=None</code>. Unlike <code>key=</code>, <code>does_not_add_up=</code> and <code>date_format=</code>, it has no default, so you can&#x27;t leave it out.</li><li><code>key=[&quot;job_id&quot;, &quot;dt&quot;]</code> lists the columns that pick out one row. A job has a row on every day, so <code>job_day.job_id</code> alone repeats; the job and the day together pick out one row. JOIN reads the key to warn you when a join could repeat rows.</li><li><code>does_not_add_up=[&quot;avg_minutes&quot;]</code> lists the columns that are averages, ratios or counts of different values. Adding up two days&#x27; averages gives a number that means nothing, so the Toolbox refuses to add these up.</li><li>There is no <code>date_format=</code>: its days are written like 2026-09-24, the usual way. The step A table whose days are written another way, below, shows one that needs it.</li><li><code>location=&quot;/data/your_team/tables&quot;</code> is the folder your Saved tables go in. Only a table you create yourself has one: the Toolbox adds the table&#x27;s own folder, mart/job_day, so each of your tables has a folder of its own. A table someone else owns, such as <code>ops.jobs</code>, leaves it out.</li></ul>
 <h5>Keep it in a file</h5>
 <p>Save the Table reference as job_day.py, beside your notebook, so every notebook and script that reads the table imports the same one:</p>
 <pre class="python">&quot;&quot;&quot;mart.job_day - one row per job and day: runs, failed runs, minutes and the average.&quot;&quot;&quot;
@@ -537,6 +539,7 @@ job_day = Table(
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
     does_not_add_up=[&quot;avg_minutes&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )</pre>
 <p>Then, in a notebook:</p>
 <pre class="python">from job_day import job_day</pre>
@@ -603,7 +606,7 @@ Notes:
 <p>It matches. The note is about a second partition, <code>region_costs.region</code>: a Statement may give the regions it reads too, but doesn&#x27;t have to. <a href="#a_day_written_another_way">A day written another way, and a second partition</a> covers it.</p>
 <p>The table mart.job_day doesn&#x27;t exist yet. <code>create_table</code> writes the Hive that makes it from your Table reference: read it to check the columns, their types and the partition are what you meant.</p>
 <pre class="python">text = show_hive(create_table(job_day))</pre>
-<p class="label">Hive, ready to paste</p><pre class="hive">CREATE TABLE mart.job_day (
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
   runs BIGINT,
   failed_runs BIGINT,
@@ -614,8 +617,9 @@ Notes:
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;</pre>
-<p>The Date partition, dt, goes under PARTITIONED BY rather than among the other columns: that is how Hive splits a table into days. STORED AS ORC says how Hive keeps the table&#x27;s files: ORC, a compact format Hive reads quickly.</p>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/job_day&#x27;;</pre>
+<p>The Date partition, dt, goes under PARTITIONED BY rather than among the other columns: that is how Hive splits a table into days. STORED AS ORC says how Hive keeps the table&#x27;s files: ORC, a compact format Hive reads quickly. EXTERNAL and LOCATION say the files are yours, in the table&#x27;s own folder.</p>
 <p>At work, once <code>run</code> has sent <code>create_table(job_day)</code> through your own send and made the table, <code>check_table_reference</code> compares it with your file, as above.</p>
 <h4>Common mistakes</h4>
 <h5>Leaving out date_partition</h5>
@@ -2400,14 +2404,16 @@ run_alerts = example_database.run_alerts</pre>
     },
     date_partition=&quot;dt&quot;,
     key=[&quot;run_id&quot;],
+    location=&quot;/data/your_team/tables&quot;,
+    purge=True,
 )</pre>
-<ul><li>Name a database you are allowed to write to, here mart; the tables you read, such as <code>ops.job_runs</code>, usually belong to someone else.</li><li>Write each type as the warehouse&#x27;s DESCRIBE prints it, such as <code>&quot;bigint&quot;</code>, <code>&quot;int&quot;</code> or <code>&quot;string&quot;</code>.</li><li><code>date_partition=&quot;dt&quot;</code> makes the table stored a day at a time: each write fills one day, and every Statement that reads it gives the days it reads.</li><li><code>key=[&quot;run_id&quot;]</code> names the table&#x27;s Key, the columns that tell one row from another: no two rows of a day share a <code>&quot;run_id&quot;</code>. The warehouse never checks it, so the Toolbox does: each write below must show that every row it writes has a <code>&quot;run_id&quot;</code> of its own, or it is refused, as <a href="#keys">Keys</a> shows. It also warns when a join could repeat rows, as <a href="#guards_warnings_and_opt_outs">Guards, Warnings and opt-outs</a> shows.</li></ul>
+<ul><li>Name a database you are allowed to write to, here mart; the tables you read, such as <code>ops.job_runs</code>, usually belong to someone else.</li><li>Write each type as the warehouse&#x27;s DESCRIBE prints it, such as <code>&quot;bigint&quot;</code>, <code>&quot;int&quot;</code> or <code>&quot;string&quot;</code>.</li><li><code>date_partition=&quot;dt&quot;</code> makes the table stored a day at a time: each write fills one day, and every Statement that reads it gives the days it reads.</li><li><code>key=[&quot;run_id&quot;]</code> names the table&#x27;s Key, the columns that tell one row from another: no two rows of a day share a <code>&quot;run_id&quot;</code>. The warehouse never checks it, so the Toolbox does: each write below must show that every row it writes has a <code>&quot;run_id&quot;</code> of its own, or it is refused, as <a href="#keys">Keys</a> shows. It also warns when a join could repeat rows, as <a href="#guards_warnings_and_opt_outs">Guards, Warnings and opt-outs</a> shows.</li><li><code>location=&quot;/data/your_team/tables&quot;</code> is the folder all your Saved tables go in: ask whoever looks after your warehouse which one you may write to. The Toolbox adds the table&#x27;s own folder, here mart/runs_to_review, so no two of your tables ever share one: two tables in one folder read each other&#x27;s files.</li><li><code>purge=True</code> makes dropping the table delete its files too, as the last step below needs. Without it, the warehouse forgets a dropped table but keeps its files, and a table created in the same folder again reads its old rows back.</li></ul>
 <p>At work, keep this in its own file, as the gallery&#x27;s <a href="examples.html#saved_table">Saved table example</a> does, so every Statement that writes or reads the table imports the same reference.</p>
 <h5>Create it</h5>
 <p><code>create_table</code> makes the Statement that creates the table from its Table reference. Like every Statement, it is built first and sent later:</p>
 <pre class="python">create = create_table(runs_to_review)
 text = show_hive(create)</pre>
-<p class="label">Hive, ready to paste</p><pre class="hive">CREATE TABLE mart.runs_to_review (
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -2415,15 +2421,19 @@ text = show_hive(create)</pre>
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;</pre>
-<p><code>PARTITIONED BY (dt STRING)</code> is the Date partition: the table keeps each day apart. <code>STORED AS ORC</code> is the file format the warehouse saves it in.</p>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
+TBLPROPERTIES (
+  &#x27;external.table.purge&#x27;=&#x27;true&#x27;
+);</pre>
+<p>EXTERNAL and LOCATION make it a table whose files are yours, in its own folder. <code>PARTITIONED BY (dt STRING)</code> is the Date partition: the table keeps each day apart. <code>STORED AS ORC</code> is the file format the warehouse saves it in. TBLPROPERTIES holds <code>purge=True</code>. <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> shows the rest of what a Saved table&#x27;s Table reference can say about how it is kept.</p>
 <div class="only">
 <p><code>PRIMARY KEY (run_id) DISABLE NOVALIDATE</code> writes the Key into the table, for whoever reads it: <code>DISABLE NOVALIDATE</code> says Hive keeps it as information only, and never checks it.</p>
 </div>
 <p>You send it once. If the table already exists, the warehouse refuses to create it again, on purpose: after you edit the Table reference, sending this again can&#x27;t quietly look as if it changed the real table. In a notebook you run from the top every day, use <code>may_exist=True</code> instead, which skips the table when it is already there and never changes it:</p>
 <pre class="python">create_if_missing = create_table(runs_to_review, may_exist=True)
 text = show_hive(create_if_missing)</pre>
-<p class="label">Hive, ready to paste</p><pre class="hive">CREATE TABLE IF NOT EXISTS mart.runs_to_review (
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -2431,7 +2441,11 @@ text = show_hive(create_if_missing)</pre>
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;</pre>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
+TBLPROPERTIES (
+  &#x27;external.table.purge&#x27;=&#x27;true&#x27;
+);</pre>
 <h5>Look at a day&#x27;s rows before you save them</h5>
 <p>A write is a SELECT with a line on top that says where its rows go. Run the SELECT on its own first, to see the rows the write would save. These are the runs that failed on 2026-09-24. <code>equals</code> on the Date partition bounds it to one day, its first and last day at once:</p>
 <pre class="python">failed_on_the_day = statement(
@@ -2468,7 +2482,7 @@ WHERE
 <p><code>run</code> sends a write as it sends a read. The Example database can&#x27;t be written to, so here it stops, and says so:</p>
 <pre class="python">run(write_failed, send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
-  What happened:  The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.
+  What happened:  The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.
   Why it matters: Its tables are made up and fixed, so every Worked example gives the same numbers.
   Usual fix:      to_hive(...) shows a write&#x27;s Hive without sending it, as in to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) builds, not text.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
@@ -2543,15 +2557,17 @@ len(day_writes)</pre>
     },
     date_partition=&quot;dt&quot;,
     key=[&quot;run_id&quot;],
+    location=&quot;/data/your_team/tables&quot;,
+    purge=True,
 )</pre>
-<p>The real table still has the old columns, and <code>create_table</code> alone would be refused by the warehouse, since the table exists. To rebuild it, drop it and create it again. <code>drop_table</code> deletes the whole table, every day of it, and the Toolbox can&#x27;t bring it back, so use it only on a Saved table you made:</p>
+<p>The real table still has the old columns, and <code>create_table</code> alone would be refused by the warehouse, since the table exists. To rebuild it, drop it and create it again. <code>drop_table</code> deletes the whole table, every day of it, since <code>purge=True</code>, and the Toolbox can&#x27;t bring it back, so use it only on a Saved table you made:</p>
 <pre class="python">rebuild = [drop_table(runs_to_review), create_table(runs_to_review)]
 text = show_hive(rebuild)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2: rebuild[0]
 DROP TABLE IF EXISTS mart.runs_to_review;
 
 -- 2 of 2: rebuild[1]
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   duration_mins INT,
@@ -2560,7 +2576,11 @@ CREATE TABLE mart.runs_to_review (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;</pre>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
+TBLPROPERTIES (
+  &#x27;external.table.purge&#x27;=&#x27;true&#x27;
+);</pre>
 <p><code>IF EXISTS</code> means the drop does nothing, rather than failing, when the table isn&#x27;t there.</p>
 <p>The writes must change too. The old <code>failed_runs</code> still selects two columns where the table now has three, and the warehouse fills a table&#x27;s columns by position, so values would land in the wrong columns. The Toolbox refuses it as it is built:</p>
 <pre class="python">failed_runs(&quot;2026-09-24&quot;)</pre>
@@ -2674,6 +2694,17 @@ text = show_hive(two_days)</pre>
   Why it matters: create_table takes only the types Hive and Spark both have, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
   Usual fix:      For &#x27;integer&#x27;, write &#x27;int&#x27;. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array&lt;string&gt;, map&lt;string,int&gt; or struct&lt;name:string,runs:int&gt;. A map&#x27;s key is a single value, such as string, and a struct&#x27;s names are plain words, not ones Hive or Spark reserve, such as date or user.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>Leaving out location=</h5>
+<p>Every Saved table is made in a folder of its own, so <code>create_table</code> refuses a Table reference that doesn&#x27;t say where your Saved tables go:</p>
+<pre class="python">create_table(Table(&quot;mart.runs_to_review&quot;,
+    columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;))</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  create_table(runs_to_review): its Table reference has no location=.
+  Why it matters: Each of your Saved tables is an external table, in a folder of its own under the folder your Saved tables go in. The Toolbox adds the table&#x27;s own folder to location=, so no two Saved tables share one.
+  Usual fix:      Add location=... to its Table(...) call, such as location=&quot;/data/your_team/tables&quot;, which puts it at /data/your_team/tables/mart/runs_to_review.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Add <code>location=</code> with the folder your Saved tables go in, as above. The tables you only read need none: they are someone else&#x27;s, in folders of their own.</p>
 <h4>Next</h4>
 <ul><li>Write many past days at once: <a href="#backfill_a_range_of_days">Backfill a range of days</a>.</li><li>Build and check the SELECT a write sends, before you write it: <a href="#build_a_first_statement">Build a first Statement and paste its Hive</a>.</li><li>Write each day&#x27;s tables in order, every day: <a href="#run_a_daily_pipeline">Run a daily pipeline</a>.</li><li>The same steps as functions in a file, in the gallery&#x27;s <a href="examples.html#saved_table">Saved table example</a>, and each name&#x27;s own entry: <a href="examples.html#create_table"><code>create_table</code></a>, <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="examples.html#INSERT_INTO"><code>INSERT_INTO</code></a> and <a href="examples.html#drop_table"><code>drop_table</code></a>.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>drop_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
@@ -2902,12 +2933,14 @@ daily_job_runs = Table(
              &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )
 team_day = Table(
     &quot;mart.team_day&quot;,
     columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;failed_runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;team&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )</pre>
 <h5>Write each step as a function of the day</h5>
 <p>Each step takes the day it writes, so the same lines write any day: yesterday&#x27;s every morning, or a day from last week when it has to be written again.</p>
@@ -2955,7 +2988,7 @@ team_day = Table(
 <pre class="python">steps = day_steps(&quot;2026-09-24&quot;)
 text = show_hive(steps)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 4: steps[0]
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
   job_id BIGINT,
   runs BIGINT,
   failed_runs BIGINT,
@@ -2964,10 +2997,11 @@ CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/daily_job_runs&#x27;;
 
 -- 2 of 4: steps[1]
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   runs BIGINT,
   failed_runs BIGINT,
@@ -2976,7 +3010,8 @@ CREATE TABLE IF NOT EXISTS mart.team_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/team_day&#x27;;
 
 -- 3 of 4: steps[2]
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-24&#x27;)
@@ -3015,8 +3050,8 @@ def print_first_line(hive):
     print(hive.splitlines()[0])
     return pd.DataFrame()
 run_day(&quot;2026-09-24&quot;, send=print_first_line)</pre>
-<p class="label">Python prints</p><pre class="output">CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+<p class="label">Python prints</p><pre class="output">CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-24&#x27;)
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = &#x27;2026-09-24&#x27;)</pre>
 <p>At work it is the same call with your own send. If a step fails, <code>run</code> stops there with the warehouse&#x27;s message, and the steps after it aren&#x27;t sent, so a team day is never written from job counts that weren&#x27;t.</p>
@@ -3030,19 +3065,19 @@ def run_yesterday(send):
 <h5>Re-run a day safely</h5>
 <p>Every step can be sent again without harm. A create with <code>may_exist=True</code> skips a table that is there, and INSERT OVERWRITE replaces the day, so sending a day twice leaves the same rows, not twice as many. To write a day again, after fixing a step or after a morning that failed halfway, run the whole day again:</p>
 <pre class="python">run_day(&quot;2026-09-23&quot;, send=print_first_line)</pre>
-<p class="label">Python prints</p><pre class="output">CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+<p class="label">Python prints</p><pre class="output">CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-23&#x27;)
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = &#x27;2026-09-23&#x27;)</pre>
 <p>Run the whole day, not just the step you fixed: a fixed job count changes the team counts that read it. For several days, run them oldest first, each day whole:</p>
 <pre class="python">for day in [&quot;2026-09-23&quot;, &quot;2026-09-24&quot;]:
     run_day(day, send=print_first_line)</pre>
-<p class="label">Python prints</p><pre class="output">CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+<p class="label">Python prints</p><pre class="output">CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-23&#x27;)
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = &#x27;2026-09-23&#x27;)
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-24&#x27;)
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = &#x27;2026-09-24&#x27;)</pre>
 <h4>Check it worked</h4>
@@ -3105,10 +3140,10 @@ print(to_hive(yesterday_only).splitlines()[0])</pre>
 <p class="label">Hive</p><pre class="hive">INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-24&#x27;)</pre>
 <p>Run it a week later to redo 2026-09-24, and it writes a different day. Give every step the day as an argument, as <code>write_job_day</code> does, and work out yesterday once, in <code>run_yesterday</code>.</p>
 <h5>A create without may_exist in the daily list</h5>
-<p><code>create_table(daily_job_runs)</code> writes a plain CREATE TABLE:</p>
+<p><code>create_table(daily_job_runs)</code> writes a plain CREATE EXTERNAL TABLE:</p>
 <pre class="python">print(to_hive(create_table(daily_job_runs)).splitlines()[0])</pre>
-<p class="label">Hive</p><pre class="hive">CREATE TABLE mart.daily_job_runs (</pre>
-<p>The first morning it creates the table. The second morning the warehouse refuses it, since the table exists, and <code>run_day</code> stops before writing anything. In a list that runs every day, use <code>may_exist=True</code>, which writes CREATE TABLE IF NOT EXISTS.</p>
+<p class="label">Hive</p><pre class="hive">CREATE EXTERNAL TABLE mart.daily_job_runs (</pre>
+<p>The first morning it creates the table. The second morning the warehouse refuses it, since the table exists, and <code>run_day</code> stops before writing anything. In a list that runs every day, use <code>may_exist=True</code>, which writes CREATE EXTERNAL TABLE IF NOT EXISTS.</p>
 <h4>Next</h4>
 <ul><li>See where each column of mart.team_day comes from, through mart.daily_job_runs: <a href="#lineage_of_a_pipeline_across_saved_tables">Lineage of a pipeline across Saved tables</a>.</li><li>Write many past days of the first step at once: <a href="#backfill_a_range_of_days">Backfill a range of days</a>.</li><li>The writes themselves, step by step: <a href="#save_a_table">Save a table</a>.</li><li>Rewrite the last few days each morning, for rows that arrive late: <a href="#incremental_loads_and_late_data">Incremental loads and late data</a>.</li><li>Several Saved tables, each read by the next, written in order every day: <a href="#a_pipeline_of_saved_tables">A pipeline of Saved tables</a>.</li><li>The gallery&#x27;s <a href="examples.html#run"><code>run</code></a>, <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>sum_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
@@ -3320,12 +3355,14 @@ daily_job_runs = Table(
              &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )
 team_day = Table(
     &quot;mart.team_day&quot;,
     columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;failed_runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;team&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )</pre>
 <h5>Put each write in a variable of its own</h5>
 <p>The Lineage names each Statement after the variable that holds it, so give each write a variable with a meaningful name. These are one day&#x27;s two writes:</p>
@@ -5155,10 +5192,11 @@ job_events = example_database.job_events</pre>
     },
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )</pre>
 <p>Create it once, with <code>may_exist=True</code>, so sending it again on later runs does nothing:</p>
 <pre class="python">print(to_hive(create_table(job_day, may_exist=True)))</pre>
-<p class="label">Hive</p><pre class="hive">CREATE TABLE IF NOT EXISTS mart.job_day (
+<p class="label">Hive</p><pre class="hive">CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
   finishes BIGINT,
@@ -5167,7 +5205,8 @@ job_events = example_database.job_events</pre>
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC</pre>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/job_day&#x27;</pre>
 <h5>Preview the rows for the last three days</h5>
 <p>Before writing anything, run the same counts as a plain SELECT, to see what each day will hold. <code>count_rows(where=...)</code> counts only the rows that meet its condition, so one pass counts starts and finishes side by side. <code>last_n_days(job_events.dt, 3)</code> reads the three days before today: here 2026-09-22 to 2026-09-24, since this page was run as if today were 2026-09-25. In your own notebook today is your real today, so on the Example database it finds no rows: write <code>between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)</code> there instead.</p>
 <pre class="python">preview = statement(
@@ -5330,18 +5369,20 @@ job_owners = example_database.job_owners</pre>
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;starts&quot;: &quot;bigint&quot;, &quot;finishes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )
 team_day = Table(
     &quot;mart.team_day&quot;,
     columns={&quot;team&quot;: &quot;string&quot;, &quot;starts&quot;: &quot;bigint&quot;, &quot;finishes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;team&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )</pre>
 <p>Create each once. <code>show_hive</code> prints both, ready to paste:</p>
 <pre class="python">text = show_hive(create_table(job_day, may_exist=True),
                  create_table(team_day, may_exist=True))</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2
-CREATE TABLE IF NOT EXISTS mart.job_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
   finishes BIGINT,
@@ -5350,10 +5391,11 @@ CREATE TABLE IF NOT EXISTS mart.job_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/job_day&#x27;;
 
 -- 2 of 2
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   starts BIGINT,
   finishes BIGINT,
@@ -5362,7 +5404,8 @@ CREATE TABLE IF NOT EXISTS mart.team_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;</pre>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/team_day&#x27;;</pre>
 <h5>Write each Saved table&#x27;s day</h5>
 <p>Each write is a function of the day it writes. mart.job_day is written from the raw events:</p>
 <pre class="python">def write_job_day(day):
@@ -5796,6 +5839,7 @@ run(team_day_from_raw, send=example_database.send)</pre>
              &quot;fails&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )
 write_job_day(&quot;2026-09-24&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
@@ -5811,6 +5855,7 @@ write_job_day(&quot;2026-09-24&quot;)</pre>
     columns={&quot;team&quot;: &quot;string&quot;, &quot;starts&quot;: &quot;bigint&quot;, &quot;finishes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;team&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )
 to_hive(statement(
     INSERT_OVERWRITE(team_week),
@@ -7791,8 +7836,192 @@ same_rows(careless, careless)</pre>
 <ul><li><a href="#check_data_quality">Check data quality with Statements</a>: checks on the data itself, so a Statement you&#x27;ve tested gets rows you can trust.</li><li><a href="#review_a_change_with_lineage">Review a change with Lineage</a>: see what a change does to every Statement it reaches, then run these tests again.</li><li><a href="#finish_in_pandas">Finish in pandas</a>: more of what pandas does with the rows <code>run</code> gives back.</li></ul>
 <p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>run</code>, <code>example_database</code></p>
 </section>
+<section class="entry" id="choose_how_a_saved_table_is_stored">
+<h3>31. Choose how a Saved table is stored <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Say in a Saved table&#x27;s Table reference how the warehouse keeps it: the folder of its own its files go in, whether dropping it deletes them, their format, Partitions inside each day, and Buckets. <code>create_table</code> writes all of it, and <code>check_table_reference</code> compares it with the table. Along the way, see why the Toolbox has no indexes, and what makes reads fast instead.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When you create a Saved table, and when you check one you already have: every Saved table needs at least its folder. The rest is for when a table grows: a big table read a region at a time, or joined on the same column every day, can be kept so that reads touch fewer files. <a href="#save_a_table">Save a table</a> comes first, if you haven&#x27;t saved one yet.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from sqlglot_composer import *
+region_costs = example_database.region_costs</pre>
+<h5>Give it a folder of its own</h5>
+<p>Every Saved table is an external table: its files are yours, in a folder you name. You give <code>location=</code> the folder all your Saved tables go in, and the Toolbox adds the table&#x27;s own folder, its database and its name. mart.job_costs, each job&#x27;s cost per region and day, goes in /data/your_team/tables/mart/job_costs:</p>
+<pre class="python">job_costs = Table(
+    &quot;mart.job_costs&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;region&quot;: &quot;string&quot;,  # eu or us, where the job is billed
+        &quot;cost_cents&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;region&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
+    purge=True,
+    compression=&quot;ZLIB&quot;,
+    partitioned_by=[&quot;region&quot;],
+)</pre>
+<p>A folder of its own matters because the warehouse reads every file in a table&#x27;s folder. Two tables in one folder read each other&#x27;s rows, and an INSERT OVERWRITE of a day in one can delete the other&#x27;s files for that day. The Toolbox always adds the table&#x27;s own folder, so two Table references can&#x27;t share one by mistake, and it refuses one whose folder would sit inside another&#x27;s.</p>
+<h5>Say what dropping it does</h5>
+<p><code>purge=True</code> makes dropping the table delete its files too. Left out, or <code>purge=False</code>, the warehouse only forgets the table: its files stay in its folder, and a table created there again reads the old rows back. Keep <code>purge=True</code> for a table you rebuild from its sources; leave it out for one whose files you would want back.</p>
+<h5>Choose its file format</h5>
+<p><code>stored_as=</code> is the file format: <code>&quot;ORC&quot;</code>, the usual one, which Hive reads fastest, or <code>&quot;PARQUET&quot;</code>, which more tools outside Hive read. <code>compression=</code> is how its files are packed: ORC&#x27;s <code>&quot;ZLIB&quot;</code> makes smaller files, <code>&quot;SNAPPY&quot;</code> faster ones. <code>properties=</code> takes any other table property, such as <code>{&quot;made_by&quot;: &quot;daily_pipeline&quot;}</code>. <code>create_table</code> writes them all:</p>
+<pre class="python">text = show_hive(create_table(job_costs, may_exist=True))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_costs (
+  job_id BIGINT,
+  cost_cents BIGINT,
+  PRIMARY KEY (job_id, region, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/job_costs&#x27;
+TBLPROPERTIES (
+  &#x27;external.table.purge&#x27;=&#x27;true&#x27;,
+  &#x27;orc.compress&#x27;=&#x27;ZLIB&#x27;
+);</pre>
+<h5>Split each day by region</h5>
+<p><code>partitioned_by=[&quot;region&quot;]</code> makes Partitions inside each day: each day&#x27;s folder holds a folder per region, so a Statement that bounds the region reads only that region&#x27;s files. A write still fills one day, named in its first line, and fills each region from its rows, so its SELECT lists region too; the Toolbox puts it last, where the warehouse reads it from. Here ops.region_costs, whose days are written like 20260921, fills a day of mart.job_costs:</p>
+<pre class="python">def write_job_costs(day):
+    return statement(
+        INSERT_OVERWRITE(job_costs),
+        SELECT(region_costs.job_id, region_costs.region,
+               AS(sum_of(region_costs.cost_cents), &quot;cost_cents&quot;)),
+        FROM(region_costs),
+        WHERE(equals(region_costs.dt, day)),
+        GROUP_BY(region_costs.job_id, region_costs.region),
+    )
+text = show_hive(write_job_costs(&quot;20260921&quot;))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- The Session setting &quot;dynamic_partitions&quot;: this write fills region from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.job_costs PARTITION(dt = &#x27;2026-09-21&#x27;, region)
+SELECT
+  region_costs.job_id,
+  SUM(region_costs.cost_cents) AS cost_cents,
+  region_costs.region
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.dt = &#x27;20260921&#x27;
+GROUP BY
+  region_costs.job_id,
+  region_costs.region;</pre>
+<p>The region in PARTITION(...) has no value: the warehouse takes each row&#x27;s region from the SELECT&#x27;s last column. Doing so is Hive&#x27;s dynamic partitioning, which a Session setting switches on, so <code>show_hive</code> prints its two SET lines first. <code>run</code> sends the write alone: send each SET line through your own send, without its ;, before the first such write. The warehouse keeps them for as long as your send&#x27;s connection lasts, and sending them again does no harm. A function of your send does it, called before the day&#x27;s writes at work; here no warehouse is there to send to, so it isn&#x27;t called:</p>
+<pre class="python">def send_dynamic_partitions(send):
+    send(&quot;SET hive.exec.dynamic.partition=true&quot;)
+    send(&quot;SET hive.exec.dynamic.partition.mode=nonstrict&quot;)</pre>
+<p>The day is written the Saved table&#x27;s way, 2026-09-21, though the table it reads writes it 20260921.</p>
+<p>INSERT OVERWRITE replaces only the regions its rows hold: a region with no rows that day keeps whatever it held before. So if a region drops out of the table you read, its old rows for the day stay in the Saved table until you drop that day.</p>
+<h5>Add Buckets only to a big table</h5>
+<p><code>bucketed_by=</code> with <code>buckets=</code> spreads each day&#x27;s rows into that many files by the values of some columns, and <code>sorted_by=</code> sorts the rows in each. A join on those columns can then pair file with file instead of reading everything. It pays off only on big tables, tens of millions of rows a day, joined on those columns; and changing it means writing the whole table again. Where Spark writes the table, rather than Hive, ask whoever looks after it first: Spark may refuse to write a table with Buckets, or write it without them. Most Saved tables need none:</p>
+<pre class="python">run_facts = Table(
+    &quot;mart.run_facts&quot;,
+    columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;int&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;run_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
+    bucketed_by=[&quot;run_id&quot;],
+    buckets=16,
+    sorted_by=[&quot;run_id&quot;],
+)
+print(to_hive(create_table(run_facts)))</pre>
+<p class="label">Hive</p><pre class="hive">CREATE EXTERNAL TABLE mart.run_facts (
+  run_id BIGINT,
+  job_id BIGINT,
+  minutes INT,
+  PRIMARY KEY (run_id, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+CLUSTERED BY (run_id) SORTED BY (run_id) INTO 16 BUCKETS
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/run_facts&#x27;</pre>
+<h5>Why there are no indexes</h5>
+<p>Hive removed indexes in its version 3, and Spark never had them, so the Toolbox writes none. What makes a read fast instead:</p>
+<ul><li>Partitions: a Statement that bounds the Date partition, as every Load limit insists, opens only those days&#x27; folders, and one that bounds a Partition inside them, such as region, opens fewer still.</li><li>Fewer, larger files: a write per day makes one set of files per day, rather than many small ones; ORC and Parquet files keep each column&#x27;s smallest and largest values, so the warehouse skips the parts of a file a condition rules out.</li><li>Buckets, for big tables joined on the same columns, as above.</li><li>Statistics: once the warehouse has counted a table&#x27;s rows and values, it picks how to join it, such as sending a small table to every machine instead of sorting both.</li></ul>
+<h4>Check it worked</h4>
+<p>The write&#x27;s rows come from its SELECT, which the Example database can run on its own: on 2026-09-21, two jobs billed in eu and one in us.</p>
+<pre class="python">costs_on_the_day = statement(
+    SELECT(region_costs.job_id, region_costs.region,
+           AS(sum_of(region_costs.cost_cents), &quot;cost_cents&quot;)),
+    FROM(region_costs),
+    WHERE(equals(region_costs.dt, &quot;20260921&quot;)),
+    GROUP_BY(region_costs.job_id, region_costs.region),
+)
+run(costs_on_the_day, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>region</th><th>cost_cents</th></tr>
+<tr><td>1</td><td>eu</td><td>130</td></tr>
+<tr><td>2</td><td>eu</td><td>210</td></tr>
+<tr><td>3</td><td>us</td><td>330</td></tr>
+</table></div>
+<p>At work, once <code>create_table</code> has made the table, <code>check_table_reference</code> sends DESCRIBE FORMATTED, which lists how the table is kept, and compares that too. A stand-in send plays a table made by hand at a folder it shares with other tables, /data/your_team/tables itself, as the warehouse would describe it:</p>
+<pre class="python">import pandas as pd
+def send_at_work(hive):
+    if hive.startswith(&quot;SHOW PARTITIONS&quot;):
+        return pd.DataFrame({&quot;partition&quot;: [&quot;dt=2026-09-21/region=eu&quot;]})
+    return pd.DataFrame([
+        (&quot;job_id&quot;, &quot;bigint&quot;, &quot;&quot;), (&quot;cost_cents&quot;, &quot;bigint&quot;, &quot;&quot;),
+        (&quot;# Partition Information&quot;, None, None), (&quot;# col_name&quot;, &quot;data_type&quot;, &quot;comment&quot;),
+        (&quot;dt&quot;, &quot;string&quot;, &quot;&quot;), (&quot;region&quot;, &quot;string&quot;, &quot;&quot;),
+        (&quot;# Detailed Table Information&quot;, None, None),
+        (&quot;Location:&quot;, &quot;hdfs://namenode:8020/data/your_team/tables&quot;, None),
+        (&quot;Table Type:&quot;, &quot;EXTERNAL_TABLE&quot;, None),
+        (&quot;Table Parameters:&quot;, None, None),
+        (&quot;&quot;, &quot;external.table.purge&quot;, &quot;true&quot;), (&quot;&quot;, &quot;orc.compress&quot;, &quot;ZLIB&quot;),
+        (&quot;# Storage Information&quot;, None, None),
+        (&quot;InputFormat:&quot;, &quot;org.apache.hadoop.hive.ql.io.orc.OrcInputFormat&quot;, None),
+    ], columns=[&quot;col_name&quot;, &quot;data_type&quot;, &quot;comment&quot;])
+check_table_reference(job_costs, send=send_at_work)</pre>
+<p class="label">Python shows</p><pre class="output">mart.job_costs differs from its Table reference.
+Problems:
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at its own folder /data/your_team/tables/mart/job_costs. A folder that isn&#x27;t a table&#x27;s own may hold other tables&#x27; files: two tables in one folder read each other&#x27;s files, and an INSERT OVERWRITE of a day in one can delete the other&#x27;s files for that day. Move it with admin.move_to_own_folder(t, send=...).</pre>
+<p>Everything else matches. The warehouse writes a folder in full, with <code>hdfs://namenode:8020</code> before it, and the Toolbox compares the folder alone. Moving a table that shares a folder means copying its days into a table made by <code>create_table</code>, then dropping the old one.</p>
+<h4>Common mistakes</h4>
+<h5>Giving location= the table&#x27;s own folder</h5>
+<p><code>location=</code> is the folder all your Saved tables go in, not the table&#x27;s own: the Toolbox adds that. A folder copied from a table&#x27;s own DESCRIBE FORMATTED is refused:</p>
+<pre class="python">Table(&quot;mart.job_costs&quot;, columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+      date_partition=&quot;dt&quot;, location=&quot;/data/your_team/tables/mart/job_costs&quot;)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  Table(&#x27;mart.job_costs&#x27;): location=&#x27;/data/your_team/tables/mart/job_costs&#x27; already ends with the table&#x27;s own folder, mart/job_costs.
+  Why it matters: location= is the folder all your Saved tables go in, and the Toolbox adds each table&#x27;s own folder to it, here mart/job_costs, so this one would be at /data/your_team/tables/mart/job_costs/mart/job_costs.
+  Usual fix:      Write the folder above it, such as location=&quot;/data/your_team/tables&quot;.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Write the folder above it, <code>location=&quot;/data/your_team/tables&quot;</code>.</p>
+<h5>Leaving the Partition out of the write</h5>
+<p>A write fills each region from its rows, so its SELECT must list region. Left out, it is refused as you build it:</p>
+<pre class="python">statement(
+    INSERT_OVERWRITE(job_costs),
+    SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), &quot;cost_cents&quot;)),
+    FROM(region_costs),
+    WHERE(equals(region_costs.dt, &quot;20260921&quot;)),
+    GROUP_BY(region_costs.job_id),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_costs): it leaves out region.
+  Why it matters: The warehouse fills a table&#x27;s columns by position, not by name, so a missing or extra column would put values in the wrong columns.
+  Usual fix:      SELECT every column of job_costs&#x27;s Table reference except its Date partition, each under its own name. The Toolbox puts them in the right order.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h5>Storage on a table you only read</h5>
+<p>Only your own Saved tables are stored as you say. A Table reference with no <code>location=</code> is a table someone else owns, and giving it storage is refused:</p>
+<pre class="python">Table(&quot;ops.job_runs&quot;, columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+      date_partition=&quot;dt&quot;, purge=True)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  Table(&#x27;ops.job_runs&#x27;) has purge= but no location=.
+  Why it matters: purge= is part of how one of your own Saved tables is stored, and each of those is in a folder of its own under location=, the folder your Saved tables go in.
+  Usual fix:      Add location=..., such as location=&quot;/data/your_team/tables&quot;, or remove purge=: a table someone else owns needs none of it.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<h4>Next</h4>
+<ul><li>Create a Saved table, write its days and rebuild it: <a href="#save_a_table">Save a table</a>.</li><li>Check a Table reference against its table again after the table changes: <a href="#keep_a_table_reference_true_over_time">Keep a Table reference true over time</a>.</li><li>Read a table split by region before its days: <a href="#a_day_written_another_way">A day written another way, and a second partition</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> entry, and <code>help(Table)</code>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>sum_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
 <section class="entry" id="keys">
-<h3>31. Keys, checked before each write <span class="badge intermediate">Intermediate</span></h3>
+<h3>32. Keys, checked before each write <span class="badge intermediate">Intermediate</span></h3>
 <h4>Goal</h4>
 <p>Give each Saved table a Key, the columns that tell one row from another, and let the Toolbox check it: a write whose rows the Toolbox can&#x27;t see are one per Key is refused before anything is sent, the Key is written into the table, and Lineage shows which columns are in each step&#x27;s Key and where one was lost.</p>
 <h4>When you&#x27;d use it</h4>
@@ -7810,7 +8039,9 @@ run_alerts = example_database.run_alerts</pre>
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
 )</pre>
+<p><code>location=</code> is the folder your Saved tables go in, as <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> shows.</p>
 <p>The Key holds the Date partition, <code>job_day.dt</code>, since a job has a row on every day. A write fills one day, so within a write every row has the same <code>job_day.dt</code>: the Toolbox checks that the write has one row for each <code>&quot;job_id&quot;</code>.</p>
 <p>A Key may also leave the Date partition out, as <code>key=[&quot;run_id&quot;]</code> does in <a href="#save_a_table">Save a table</a>: a write is checked the same way. Name the Date partition when the same value comes back on every day, as a job does here, so the Key says what one row is over all the days; leave it out when each value appears on one day only, as a run does.</p>
 <h5>A write that shows its Key</h5>
@@ -7890,7 +8121,7 @@ newest = write_newest(&quot;2026-09-24&quot;)</pre>
 <h5>The Key goes into the table</h5>
 <p><code>create_table</code> writes the Key into the table, for whoever reads it:</p>
 <pre class="python">text = show_hive(create_table(job_day))</pre>
-<p class="label">Hive, ready to paste</p><pre class="hive">CREATE TABLE mart.job_day (
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
   runs BIGINT,
   minutes BIGINT,
@@ -7899,7 +8130,8 @@ newest = write_newest(&quot;2026-09-24&quot;)</pre>
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;</pre>
+STORED AS ORC
+LOCATION &#x27;/data/your_team/tables/mart/job_day&#x27;;</pre>
 <div class="only">
 <p><code>PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE</code> is the Key. <code>DISABLE NOVALIDATE</code> tells Hive to keep it as information only: Hive never checks it, which is why the Toolbox does.</p>
 </div>
