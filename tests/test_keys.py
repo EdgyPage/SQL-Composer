@@ -47,9 +47,10 @@ from conftest import edition
 from composer_core.example_database import job_owners, job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
+BASE = "/data/your_team/tables"
 
 per_job = Table("mart.per_job", columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-                date_partition="dt", key=["job_id", "dt"])
+                date_partition="dt", key=["job_id", "dt"], location=BASE)
 per_run = Table("mart.per_run", columns={"run_id": "bigint", "job_id": "bigint",
                                          "status": "string", "dt": "string"},
                 date_partition="dt", key=["run_id"])
@@ -59,7 +60,7 @@ newest_per_job = Table("mart.newest_per_job", columns={
     "job_id": "bigint", "run_id": "bigint", "dt": "string"}, date_partition="dt",
     key=["job_id"])
 no_key = Table("mart.no_key", columns={"job_id": "bigint", "status": "string", "dt": "string"},
-               date_partition="dt")
+               date_partition="dt", location=BASE)
 
 
 def on_the_day():
@@ -313,7 +314,7 @@ def test_create_table_writes_the_key_as_information_hive_never_checks() -> None:
         assert "PRIMARY KEY" not in written
         return
     assert written == (
-        "CREATE TABLE mart.per_job (\n"
+        "CREATE EXTERNAL TABLE mart.per_job (\n"
         "  job_id BIGINT,\n"
         "  runs BIGINT,\n"
         "  PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE\n"
@@ -321,13 +322,14 @@ def test_create_table_writes_the_key_as_information_hive_never_checks() -> None:
         "PARTITIONED BY (\n"
         "  dt STRING\n"
         ")\n"
-        "STORED AS ORC"
+        "STORED AS ORC\n"
+        "LOCATION '/data/your_team/tables/mart/per_job'"
     )
 
 
 def test_create_table_puts_a_key_column_in_backticks_where_hive_needs_them() -> None:
     odd = Table("mart.odd", columns={"select": "string", "dt": "string"}, date_partition="dt",
-                key=["select"])
+                key=["select"], location=BASE)
     written = to_hive(create_table(odd))
     if edition() is not editions.SPARK_COMPOSER:
         assert "PRIMARY KEY (`select`) DISABLE NOVALIDATE" in written

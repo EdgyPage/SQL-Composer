@@ -106,7 +106,7 @@ LIMIT 20
 
 == doc:create_table
 -- Statement 1: to_hive
-CREATE TABLE mart.daily_runs (
+CREATE EXTERNAL TABLE mart.daily_runs (
   job_id BIGINT,
   runs BIGINT
 )
@@ -114,6 +114,22 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+-- Statement 2: to_hive
+CREATE EXTERNAL TABLE mart.region_runs (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/region_runs'
+TBLPROPERTIES (
+  'external.table.purge'='true',
+  'parquet.compression'='SNAPPY'
+)
 
 == doc:drop_table
 -- Statement 1: to_hive
@@ -2021,6 +2037,15 @@ GROUP BY
 
 ---
 
+
+== doc:hive_settings
+-- Statement 1: to_hive
+SET hive.exec.dynamic.partition=true
+SET hive.exec.dynamic.partition.mode=nonstrict
+-- Statement 1: show_hive
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
 
 == doc:example_database
 -- Statement 1: to_hive
@@ -4813,7 +4838,7 @@ WHERE
 
 == worked:saved_table:create
 -- Statement 1: to_hive
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -4822,10 +4847,14 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
 
 == worked:saved_table:create_if_missing
 -- Statement 1: to_hive
-CREATE TABLE IF NOT EXISTS mart.runs_to_review (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -4834,6 +4863,10 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
 
 == worked:saved_table:failed_runs
 -- Statement 1: to_hive
@@ -5392,7 +5425,7 @@ WHERE
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS mart.runs_to_review
 -- Statement 2: to_hive
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -5401,6 +5434,10 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
 
 == worked:step_by_step:minutes_per_job
 -- Statement 1: to_hive
@@ -7780,7 +7817,7 @@ WHERE
 
 == edge:width:struct
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c STRUCT<
     field_0: STRING,
     field_1: STRING,
@@ -7796,6 +7833,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:brackets:add_then_divide
 -- Statement 1: to_hive
@@ -12269,35 +12307,42 @@ DROP TABLE IF EXISTS ops.events
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS mart.daily_runs
 
+== edge:drop_table:region_runs
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.region_runs
+
 == edge:create_table:tinyint
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c TINYINT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:smallint
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c SMALLINT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:int
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c INT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:integer
 -- refused
@@ -12309,33 +12354,36 @@ ValueError:
 
 == edge:create_table:bigint
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BIGINT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:float
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c FLOAT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:double
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DOUBLE
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:real
 -- refused
@@ -12363,23 +12411,25 @@ ValueError:
 
 == edge:create_table:decimal(10,2)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DECIMAL(10, 2)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:decimal(10, 2)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DECIMAL(10, 2)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:numeric(5,1)
 -- refused
@@ -12391,103 +12441,113 @@ ValueError:
 
 == edge:create_table:string
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c STRING
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:varchar(20)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c VARCHAR(20)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:char(3)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c CHAR(3)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:boolean
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BOOLEAN
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:date
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DATE
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:timestamp
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c TIMESTAMP
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:binary
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BINARY
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:array<string>
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c ARRAY<STRING>
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:map<string,int>
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c MAP<STRING, INT>
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:struct<a:int,b:string>
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c STRUCT<a: INT, b: STRING>
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:bigint unsigned
 -- refused
@@ -12531,7 +12591,7 @@ ValueError:
 
 == edge:create_table:may_exist
 -- Statement 1: to_hive
-CREATE TABLE IF NOT EXISTS mart.daily_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs (
   job_id BIGINT,
   runs BIGINT,
   PRIMARY KEY (job_id) DISABLE NOVALIDATE
@@ -12540,6 +12600,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
 
 == edge:create_table:untyped
 -- refused
@@ -12551,14 +12612,15 @@ ValueError:
 
 == edge:create_table:no_date_partition
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BIGINT
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:odd
 -- Statement 1: to_hive
-CREATE TABLE ops.`order` (
+CREATE EXTERNAL TABLE ops.`order` (
   `select` STRING,
   `1st` BIGINT,
   `two words` STRING
@@ -12567,10 +12629,11 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/order'
 
 == edge:create_table:spark_words
 -- Statement 1: to_hive
-CREATE TABLE ops.`semi` (
+CREATE EXTERNAL TABLE ops.`semi` (
   `any` STRING,
   `minus` BIGINT,
   `current_user` STRING
@@ -12579,10 +12642,11 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/semi'
 
 == edge:create_table:compact
 -- Statement 1: to_hive
-CREATE TABLE ops.compact_runs (
+CREATE EXTERNAL TABLE ops.compact_runs (
   run_id BIGINT,
   status STRING,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -12591,10 +12655,11 @@ PARTITIONED BY (
   day STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/compact_runs'
 
 == edge:create_table:events
 -- Statement 1: to_hive
-CREATE TABLE ops.events (
+CREATE EXTERNAL TABLE ops.events (
   event_id BIGINT,
   at TIMESTAMP,
   is_active BOOLEAN,
@@ -12604,10 +12669,11 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/events'
 
 == edge:create_table:daily_runs
 -- Statement 1: to_hive
-CREATE TABLE mart.daily_runs (
+CREATE EXTERNAL TABLE mart.daily_runs (
   job_id BIGINT,
   runs BIGINT,
   PRIMARY KEY (job_id) DISABLE NOVALIDATE
@@ -12616,10 +12682,24 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+
+== edge:create_table:region_runs
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.region_runs (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/region_runs'
 
 == edge:create_table:key_with_the_day
 -- Statement 1: to_hive
-CREATE TABLE mart.runs_per_job_day (
+CREATE EXTERNAL TABLE mart.runs_per_job_day (
   job_id BIGINT,
   run_id BIGINT,
   team STRING,
@@ -12629,6 +12709,451 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_per_job_day'
+
+== edge:storage:no_location
+-- refused
+ValueError:
+  What happened:  create_table(stored): its Table reference has no location=.
+  Why it matters: Each of your Saved tables is an external table, in a folder of its own under the folder your Saved tables go in. The Toolbox adds the table's own folder to location=, so no two Saved tables share one.
+  Usual fix:      Add location=... to its Table(...) call, such as location="/data/your_team/tables", which puts it at /data/your_team/tables/mart/stored.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:storage:location_with_a_scheme
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION 'hdfs:///data/your_team/tables/mart/stored'
+
+== edge:storage:purge
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
+
+== edge:storage:no_purge
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+
+== edge:storage:properties
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'made_by'='it\'s daily',
+  'team'='data'
+)
+
+== edge:storage:parquet
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:orc_compression
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'orc.compress'='ZLIB'
+)
+
+== edge:storage:parquet_compression
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'parquet.compression'='GZIP'
+)
+
+== edge:storage:partitioned_by
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:buckets
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+CLUSTERED BY (job_id) INTO 16 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:sorted_buckets
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+CLUSTERED BY (job_id, region) SORTED BY (region, job_id) INTO 4 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:all
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+CLUSTERED BY (job_id) SORTED BY (job_id) INTO 8 BUCKETS
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'external.table.purge'='true',
+  'parquet.compression'='SNAPPY',
+  'made_by'='runs'
+)
+
+== edge:storage:odd_names_in_buckets
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE ops.order_buckets (
+  `two words` BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  `select` STRING
+)
+CLUSTERED BY (`two words`) SORTED BY (`two words`) INTO 2 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/tables/ops/order_buckets'
+
+== edge:write:partitioned_by:INSERT_OVERWRITE
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+-- Statement 1: the Statement
+output region: jobs.region
+output job_id: job_runs.job_id
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.region<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["region<br/><small>jobs.region</small>"]
+    n3["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["ops.job_runs"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["mart.region_runs"]
+    n9["mart.region_runs.region<br/><small>string</small>"]
+    n10["mart.region_runs.job_id<br/><small>bigint</small>"]
+    n11["mart.region_runs.runs<br/><small>bigint</small>"]
+    n12["mart.region_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n2 -.-> n7
+  n1 --> n9
+  n3 --> n10
+  n4 --> n11
+  n5 -.->|day written| n12
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+It writes the Saved table mart.region_runs, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `job_runs.job_id` and `jobs.region`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `region` | ops.jobs.region |
+| `job_id` | ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.region_runs declares no Key, so its rows aren't checked.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+```
+
+---
+
+
+== edge:write:partitioned_by:INSERT_INTO
+-- Statement 1: to_hive
+INSERT INTO mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+-- Statement 1: the Statement
+output region: jobs.region
+output job_id: job_runs.job_id
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.region<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["region<br/><small>jobs.region</small>"]
+    n3["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["ops.job_runs"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["mart.region_runs"]
+    n9["mart.region_runs.region<br/><small>string</small>"]
+    n10["mart.region_runs.job_id<br/><small>bigint</small>"]
+    n11["mart.region_runs.runs<br/><small>bigint</small>"]
+    n12["mart.region_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n2 -.-> n7
+  n1 --> n9
+  n3 --> n10
+  n4 --> n11
+  n5 -.->|day written| n12
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+It adds to the Saved table mart.region_runs, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `job_runs.job_id` and `jobs.region`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `region` | ops.jobs.region |
+| `job_id` | ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.region_runs declares no Key, so its rows aren't checked.
+
+### Hive as submitted
+
+```sql
+INSERT INTO mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+```
+
+---
+
+
+== edge:write:partitioned_by:leaves_out_the_partition
+-- refused
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(region_runs): it leaves out region.
+  Why it matters: The warehouse fills a table's columns by position, not by name, so a missing or extra column would put values in the wrong columns.
+  Usual fix:      SELECT every column of region_runs's Table reference except its Date partition, each under its own name. The Toolbox puts them in the right order.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:write:key:row_number_kept_at_1_and_a_key_keeping_join
 -- Statement 1: to_hive
@@ -38740,6 +39265,321 @@ GROUP BY
 ---
 
 
+== by_hand:hive_settings:dynamic_partitions
+-- Statement 1: to_hive
+SET hive.exec.dynamic.partition=true
+SET hive.exec.dynamic.partition.mode=nonstrict
+-- Statement 1: show_hive
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+
+== by_hand:hive_settings:map_joins
+-- Statement 1: to_hive
+SET hive.auto.convert.join=true
+SET hive.auto.convert.join.noconditionaltask=true
+-- Statement 1: show_hive
+-- Session settings: map_joins, sent one line at a time
+SET hive.auto.convert.join=true;
+SET hive.auto.convert.join.noconditionaltask=true;
+
+== by_hand:hive_settings:statistics_on_write
+-- Statement 1: to_hive
+SET hive.stats.autogather=true
+SET hive.stats.column.autogather=true
+-- Statement 1: show_hive
+-- Session settings: statistics_on_write, sent one line at a time
+SET hive.stats.autogather=true;
+SET hive.stats.column.autogather=true;
+
+== by_hand:hive_settings:merge_small_files
+-- Statement 1: to_hive
+SET hive.merge.mapfiles=true
+SET hive.merge.mapredfiles=true
+SET hive.merge.tezfiles=true
+-- Statement 1: show_hive
+-- Session settings: merge_small_files, sent one line at a time
+SET hive.merge.mapfiles=true;
+SET hive.merge.mapredfiles=true;
+SET hive.merge.tezfiles=true;
+
+== by_hand:hive_settings:own
+-- Statement 1: to_hive
+SET hive.auto.convert.join=true
+SET hive.auto.convert.join.noconditionaltask=true
+SET hive.exec.parallel=true
+SET mapreduce.job.reduces=8
+-- Statement 1: show_hive
+-- Session settings: map_joins, nightly, sent one line at a time
+SET hive.auto.convert.join=true;
+SET hive.auto.convert.join.noconditionaltask=true;
+SET hive.exec.parallel=true;
+SET mapreduce.job.reduces=8;
+
+== by_hand:hive_settings:before_a_read
+-- Statement 1: to_hive
+SET hive.auto.convert.join=true
+SET hive.auto.convert.join.noconditionaltask=true
+-- Statement 1: show_hive
+-- Session settings: map_joins, sent one line at a time
+SET hive.auto.convert.join=true;
+SET hive.auto.convert.join.noconditionaltask=true;
+-- Statement 2: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 2: the Statement
+output run_id: job_runs.run_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n2 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+Session settings sent before these Statements, one line at a time (map_joins): SET hive.auto.convert.join=true | SET hive.auto.convert.join.noconditionaltask=true.
+
+== by_hand:unchecked:select
+-- Statement 1: to_hive
+SELECT `select` FROM ops.`order` -- a comment;
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+SELECT `select` FROM ops.`order` -- a comment;
+;
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement"]
+    n0["⚠ Unchecked statement<br/><small>SELECT #96;select#96; FROM ops.#96;order#96; -- a comme…</small>"]
+  end
+  subgraph g1["ops.order"]
+    n1["ops.order<br/><small>(the whole table)</small>"]
+  end
+  n1 --> n0
+```
+
+## statement
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It reads ops.order.
+
+### Hive as submitted
+
+```sql
+SELECT `select` FROM ops.`order` -- a comment;
+```
+
+---
+
+
+== by_hand:unchecked:then_a_read
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' GROUP BY job_id
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' GROUP BY job_id;
+-- Statement 2: to_hive
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+-- Statement 2: the Statement
+output job_id: daily_runs.job_id
+output runs: daily_runs.runs
+WHERE: daily_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement_1, statement_2
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement_1"]
+    n0["⚠ Unchecked statement<br/><small>INSERT OVERWRITE TABLE mart.daily_runs PART…</small>"]
+  end
+  subgraph g1["ops.job_runs"]
+    n1["ops.job_runs<br/><small>(the whole table)</small>"]
+  end
+  subgraph g2["mart.daily_runs"]
+    n2["mart.daily_runs<br/><small>(the whole table)</small>"]
+    n3["mart.daily_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["mart.daily_runs.runs<br/><small>bigint</small>"]
+    n8["mart.daily_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g3["statement_2"]
+    n4["job_id<br/><small>daily_runs.job_id</small><br/><small>in the Key</small>"]
+    n6["runs<br/><small>daily_runs.runs</small>"]
+  end
+  subgraph g4["filters on statement_2"]
+    n7{{"WHERE in statement_2<br/><small>equals(daily_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n1 --> n0
+  n0 --> n2
+  n3 --> n4
+  n5 --> n6
+  n8 -.-> n7
+  n2 --> n3
+  n2 --> n5
+  n2 --> n8
+  n7 -.->|filters| g3
+```
+
+## statement_1
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It reads ops.job_runs, and writes or changes mart.daily_runs.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
+SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' GROUP BY job_id
+```
+
+## statement_2
+
+It reads the Saved table mart.daily_runs, written by statement_1 above.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | mart.daily_runs.job_id ← mart.daily_runs ← statement_1: Unchecked statement ← ops.job_runs |
+| `runs` | mart.daily_runs.runs ← mart.daily_runs ← statement_1: Unchecked statement ← ops.job_runs |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_2: Key (job_id), since daily_runs' rows are told apart by job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== by_hand:unchecked:alter
+-- Statement 1: to_hive
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true');
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement"]
+    n0["⚠ Unchecked statement<br/><small>ALTER TABLE mart.daily_runs SET TBLPROPERTI…</small>"]
+  end
+  subgraph g1["mart.daily_runs"]
+    n1["mart.daily_runs<br/><small>(the whole table)</small>"]
+  end
+  n0 --> n1
+```
+
+## statement
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It writes or changes mart.daily_runs.
+
+### Hive as submitted
+
+```sql
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')
+```
+
+---
+
+
+== by_hand:unchecked:blank
+-- refused
+ValueError:
+  What happened:  unchecked_hive(' ; ') has no Hive in it.
+  Why it matters: There would be nothing to send.
+  Usual fix:      Write the Hive to send, as in unchecked_hive("ALTER TABLE ...").
+  Opt-out:        none - this one can't be switched off.
+
 == warehouse:ops.jobs
 -- write_table_reference
 DESCRIBE ops.jobs
@@ -38803,7 +39643,7 @@ LIMIT 20
 DESCRIBE ops.`order`
 SHOW PARTITIONS ops.`order`
 -- check_table_reference
-DESCRIBE ops.`order`
+DESCRIBE FORMATTED ops.`order`
 SHOW PARTITIONS ops.`order`
 -- check_key
 ValueError:
@@ -38817,7 +39657,7 @@ ValueError:
 DESCRIBE ops.`semi`
 SHOW PARTITIONS ops.`semi`
 -- check_table_reference
-DESCRIBE ops.`semi`
+DESCRIBE FORMATTED ops.`semi`
 SHOW PARTITIONS ops.`semi`
 -- check_key
 ValueError:
@@ -38831,7 +39671,7 @@ ValueError:
 DESCRIBE ops.compact_runs
 SHOW PARTITIONS ops.compact_runs
 -- check_table_reference
-DESCRIBE ops.compact_runs
+DESCRIBE FORMATTED ops.compact_runs
 SHOW PARTITIONS ops.compact_runs
 -- check_key
 SHOW PARTITIONS ops.compact_runs
@@ -38852,7 +39692,7 @@ LIMIT 20
 DESCRIBE ops.events
 SHOW PARTITIONS ops.events
 -- check_table_reference
-DESCRIBE ops.events
+DESCRIBE FORMATTED ops.events
 SHOW PARTITIONS ops.events
 -- check_key
 SHOW PARTITIONS ops.events
@@ -38873,7 +39713,7 @@ LIMIT 20
 DESCRIBE mart.daily_runs
 SHOW PARTITIONS mart.daily_runs
 -- check_table_reference
-DESCRIBE mart.daily_runs
+DESCRIBE FORMATTED mart.daily_runs
 SHOW PARTITIONS mart.daily_runs
 -- check_key
 SHOW PARTITIONS mart.daily_runs
@@ -38888,3 +39728,17 @@ GROUP BY
 HAVING
   COUNT(*) > 1
 LIMIT 20
+
+== warehouse:mart.region_runs
+-- write_table_reference
+DESCRIBE mart.region_runs
+SHOW PARTITIONS mart.region_runs
+-- check_table_reference
+DESCRIBE FORMATTED mart.region_runs
+SHOW PARTITIONS mart.region_runs
+-- check_key
+ValueError:
+  What happened:  check_key(region_runs): its Table reference declares no key.
+  Why it matters: There is nothing to check.
+  Usual fix:      Add key=[...] to its Table(...) call, such as key=["run_id"].
+  Opt-out:        none - this one can't be switched off.

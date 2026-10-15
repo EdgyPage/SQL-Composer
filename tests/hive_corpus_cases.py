@@ -4,7 +4,8 @@
 example and Worked example. They reach the corners the examples don't: where a pretty line
 wraps, brackets, Derived tables three deep, writes with and without them, every column type
 create_table may meet, awkward names, compact Date partitions, and about 200 Statements built
-at random from the public names. Each case is a function returning the Statements it builds;
+at random from the public names; and, apart from those, Session settings and Unchecked
+statements beside Statements. Each case is a function returning the Statements it builds;
 a case that a Guard or Load limit refuses is written as its refusal.
 
 Every case builds only through the Toolbox's public names, as a user would.
@@ -47,6 +48,7 @@ from sqlglot_composer import (
     equals,
     fill_null,
     hive_function,
+    hive_settings,
     if_else,
     is_in,
     is_not_in,
@@ -63,12 +65,16 @@ from sqlglot_composer import (
     starts_with,
     statement,
     sum_of,
+    unchecked_hive,
     week_start,
 )
 from composer_core.example_database import job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
+# The folder the corpus's Saved tables go in. The tests that make them on a real Spark make
+# them in pytest's own folder instead.
+BASE = "/data/your_team/tables"
 
 # --- Table references of the edge cases ---------------------------------------------------
 
@@ -76,6 +82,7 @@ odd = Table(
     "ops.order",
     columns={"select": "string", "1st": "bigint", "two words": "string", "dt": "string"},
     date_partition="dt",
+    location=BASE,
 )
 """A table whose name and columns all need backticks: a reserved word, a digit first, a space."""
 
@@ -83,6 +90,7 @@ spark_words = Table(
     "ops.semi",
     columns={"any": "string", "minus": "bigint", "current_user": "string", "dt": "string"},
     date_partition="dt",
+    location=BASE,
 )
 """A table whose name and columns are words Spark reserves and Hive doesn't."""
 
@@ -92,6 +100,7 @@ compact = Table(
     date_partition="day",
     date_format="%Y%m%d",
     key=["run_id"],
+    location=BASE,
 )
 """A Date partition written as 20260924."""
 
@@ -100,6 +109,7 @@ events = Table(
     columns={"event_id": "bigint", "at": "timestamp", "is_active": "boolean", "dt": "string"},
     date_partition="dt",
     key=["event_id"],
+    location=BASE,
 )
 """A timestamp column and a boolean one."""
 
@@ -108,8 +118,18 @@ daily_runs = Table(
     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
     date_partition="dt",
     key=["job_id"],
+    location=BASE,
 )
 """A Saved table, for the writes."""
+
+region_runs = Table(
+    "mart.region_runs",
+    columns={"job_id": "bigint", "region": "string", "runs": "bigint", "dt": "string"},
+    date_partition="dt",
+    location=BASE,
+    partitioned_by=["region"],
+)
+"""A Saved table with a Partition inside each day, filled from the rows of each write."""
 
 TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "real",
          "double precision", "decimal", "decimal(10,2)", "decimal(10, 2)", "numeric(5,1)",
@@ -119,7 +139,7 @@ TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "
 
 
 EDGE_TABLES = {"odd": odd, "spark_words": spark_words, "compact": compact, "events": events,
-               "daily_runs": daily_runs}
+               "daily_runs": daily_runs, "region_runs": region_runs}
 
 
 def edge_tables() -> list:
@@ -184,7 +204,8 @@ def _width_cases() -> list:
         is_in(job_runs.status, [f"{v}{n}" for n in range(5)])]), "x" * 20)))
     wide = "struct<" + ",".join(f"field_{n}:string" for n in range(8)) + ">"
     found.append(("edge:width:struct", lambda: [create_table(Table(
-        "mart.typed", columns={"c": wide, "dt": "string"}, date_partition="dt"))]))
+        "mart.typed", columns={"c": wide, "dt": "string"}, date_partition="dt",
+        location=BASE))]))
     return found
 
 
@@ -393,15 +414,18 @@ def _structure_cases() -> dict:
         found[f"drop_table:{name}"] = lambda t=t: [drop_table(t)]
     for kind in TYPES:
         found[f"create_table:{kind}"] = lambda kind=kind: [create_table(Table(
-            "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt"))]
+            "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt",
+            location=BASE))]
     found["create_table:may_exist"] = lambda: [create_table(daily_runs, may_exist=True)]
     found["create_table:untyped"] = lambda: [create_table(Table(
-        "mart.typed", columns={"c": None, "dt": "string"}, date_partition="dt"))]
+        "mart.typed", columns={"c": None, "dt": "string"}, date_partition="dt",
+        location=BASE))]
     found["create_table:no_date_partition"] = lambda: [create_table(Table(
-        "mart.typed", columns={"c": "bigint"}, date_partition=None))]
+        "mart.typed", columns={"c": "bigint"}, date_partition=None, location=BASE))]
     for name, t in EDGE_TABLES.items():
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
     found["create_table:key_with_the_day"] = lambda: [create_table(runs_per_job_day)]
+    found.update(_storage_cases())
     return {**found, **_key_cases()}
 
 
@@ -410,6 +434,7 @@ runs_per_job_day = Table(
     columns={"job_id": "bigint", "run_id": "bigint", "team": "string", "dt": "string"},
     date_partition="dt",
     key=["job_id", "dt"],
+    location=BASE,
 )
 """A Saved table whose Key holds its Date partition, for the Key's writes."""
 
@@ -447,6 +472,87 @@ def _key_cases() -> dict:
         "write:key:unproven": lambda: [every_run()],
         "write:key:unproven_key": lambda: [every_run(unproven_key=True)],
     }
+
+
+def _stored(location=BASE, **storage):
+    """create_table for a Saved table of three columns, stored as `storage` says."""
+    return lambda: [create_table(Table(
+        "mart.stored", columns={"job_id": "bigint", "region": "string", "runs": "bigint",
+                                "dt": "string"},
+        date_partition="dt", location=location, **storage))]
+
+
+def _storage_cases() -> dict:
+    """A Saved table's storage, each option on its own and all together, and the writes into
+    a table with a Partition inside each day."""
+    found = {
+        "storage:no_location": lambda: [create_table(Table(
+            "mart.stored", columns={"runs": "bigint"}, date_partition=None))],
+        "storage:location_with_a_scheme": _stored(location="hdfs:///data/your_team/tables/"),
+        "storage:purge": _stored(purge=True),
+        "storage:no_purge": _stored(purge=False),
+        "storage:properties": _stored(properties={"made_by": "it's daily", "team": "data"}),
+        "storage:parquet": _stored(stored_as="PARQUET"),
+        "storage:orc_compression": _stored(compression="ZLIB"),
+        "storage:parquet_compression": _stored(stored_as="parquet", compression="gzip"),
+        "storage:partitioned_by": _stored(partitioned_by=["region"]),
+        "storage:buckets": _stored(bucketed_by=["job_id"], buckets=16),
+        "storage:sorted_buckets": _stored(bucketed_by=["job_id", "region"], buckets=4,
+                                          sorted_by=["region", "job_id"]),
+        "storage:all": _stored(purge=True, properties={"made_by": "runs"}, stored_as="PARQUET",
+                               compression="SNAPPY", partitioned_by=["region"],
+                               bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"]),
+        "storage:odd_names_in_buckets": lambda: [create_table(Table(
+            "ops.order_buckets", columns={"select": "string", "two words": "bigint",
+                                          "dt": "string"},
+            date_partition="dt", location=BASE, partitioned_by=["select"],
+            bucketed_by=["two words"], buckets=2, sorted_by=["two words"]))],
+    }
+    for clause in (INSERT_OVERWRITE, INSERT_INTO):
+        found[f"write:partitioned_by:{clause.__name__}"] = lambda clause=clause: [statement(
+            clause(region_runs), SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+            FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+            WHERE(one_day()), GROUP_BY(job_runs.job_id, jobs.region))]
+    found["write:partitioned_by:leaves_out_the_partition"] = lambda: [statement(
+        INSERT_OVERWRITE(region_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs), WHERE(one_day()), GROUP_BY(job_runs.job_id))]
+    return found
+
+
+# Hive written by hand: a write into daily_runs, which a Statement then reads.
+BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')\n"
+           "SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' "
+           "GROUP BY job_id")
+
+
+def _reading_daily_runs():
+    return statement(SELECT(daily_runs.job_id, daily_runs.runs), FROM(daily_runs),
+                     WHERE(equals(daily_runs.dt, DAY)))
+
+
+def by_hand_cases() -> list:
+    """Session settings and Unchecked statements, alone and in a pipeline with Statements, as
+    (id, function returning what it builds). They are kept apart from edge_cases, whose
+    every case builds Statements only."""
+    return [(f"by_hand:{name}", build) for name, build in _by_hand_cases().items()]
+
+
+def _by_hand_cases() -> dict:
+    found = {f"hive_settings:{name}": (lambda name=name: [hive_settings(name)])
+             for name in ("dynamic_partitions", "map_joins", "statistics_on_write",
+                          "merge_small_files")}
+    found["hive_settings:own"] = lambda: [hive_settings(
+        "map_joins", "nightly", sets={"nightly": {"hive.exec.parallel": True,
+                                                  "mapreduce.job.reduces": 8}})]
+    found["hive_settings:before_a_read"] = lambda: [hive_settings("map_joins"),
+                                                    _rows(job_runs.run_id)]
+    found["unchecked:select"] = lambda: [unchecked_hive(
+        "SELECT `select` FROM ops.`order` -- a comment;\n;")]
+    found["unchecked:then_a_read"] = lambda: [unchecked_hive(BY_HAND), _reading_daily_runs()]
+    found["unchecked:alter"] = lambda: [unchecked_hive(
+        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')")]
+    found["unchecked:blank"] = lambda: [unchecked_hive(" ; ")]
+    return found
 
 
 def edge_cases() -> list:

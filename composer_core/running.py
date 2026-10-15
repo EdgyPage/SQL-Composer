@@ -31,6 +31,14 @@ from .refusals import (
 )
 from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
+from .unchecked import (
+    SessionSettings,
+    UncheckedStatement,
+    logged_run,
+    settings_text,
+    unchecked_call,
+    unchecked_text,
+)
 
 TOOLBOX_VERSION = "4.1"
 
@@ -91,7 +99,10 @@ def _select_tree(s: Statement) -> Node:
     """A Statement's SELECT, from FROM to LIMIT, without WITH."""
     outputs = s._outputs
     if s._write is not None:
-        order = list(s._write._columns)
+        # The table's columns in its order, then the Partitions its rows fill, which Hive
+        # fills from the last columns.
+        later = s._write._partitioned_by
+        order = [column for column in s._write._columns if column not in later] + later
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
     return Node(
         "Select",
@@ -195,9 +206,11 @@ def _write_tree(s: Statement) -> Node:
     """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
     table = s._write
     day = day_text(_written_day(s), table._date_format)
+    # The day is named; each Partition after it is filled from the rows, by its column.
     partition = Node("Partition", expressions=[
         Node("EQ", this=Node("Column", name=table._date_partition),
              expression=Node("Literal", this=day, is_string=True)),
+        *[Node("Column", name=column) for column in table._partitioned_by],
     ])
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
@@ -246,6 +259,10 @@ def to_hive(s):
     WHERE
       job_runs.dt = '2026-09-24'
     """
+    if isinstance(s, SessionSettings):
+        return "\n".join(s._lines)
+    if isinstance(s, UncheckedStatement):
+        return s._text
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
                     why="to_hive writes the Hive of one Statement made by statement(...).")
     if s._ddl is None:
@@ -289,6 +306,23 @@ def name_in(frame, value) -> str | None:
                  if held is value and not name.startswith("_")), None)
 
 
+# The Session setting a write needs when it fills Partitions after the day from its rows:
+# Hive's dynamic partitioning, switched on: the Session setting "dynamic_partitions", which
+# show_hive prints ahead of such a write, and the user sends once a session.
+DYNAMIC_PARTITIONS = {"hive.exec.dynamic.partition": "true",
+                      "hive.exec.dynamic.partition.mode": "nonstrict"}
+
+
+def settings_needed(s: Statement) -> list[str]:
+    """The lines show_hive prints ahead of a Statement: a note and the SET lines of the
+    Session setting it needs, or none. run sends the Statement alone."""
+    if s._ddl is not None or s._write is None or not s._write._partitioned_by:
+        return []
+    filled = ", ".join(s._write._partitioned_by)
+    return [f'-- The Session setting "dynamic_partitions": this write fills {filled} from its '
+            "rows."] + [f"SET {name}={value};" for name, value in DYNAMIC_PARTITIONS.items()]
+
+
 class HiveText(str):
     """The Hive show_hive printed, kept as text. In a notebook it isn't shown a second time."""
 
@@ -304,6 +338,9 @@ def show_hive(*statements):
     it without one. Pass several Statements, or a list such as by_day(...) gives, and each is
     headed by a comment: its number, and the name of the variable it is in, such as
     -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would.
+    A write that fills Partitions from its rows, into a table with partitioned_by=, is printed
+    after the Session setting it needs: a line saying so, then its SET lines, which run
+    doesn't send (help(INSERT_OVERWRITE) says how to send them).
 
     It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
     notebook, show_hive(...) on its own shows the Hive once.
@@ -364,9 +401,15 @@ def show_hive(*statements):
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        _need_statement(s, "show_hive", frame,
-                        why="show_hive prints the Hive of Statements made by statement(...).")
-        hive = to_hive(s) + ";"
+        if isinstance(s, SessionSettings):
+            hive = settings_text(s)
+        elif isinstance(s, UncheckedStatement):
+            hive = unchecked_text(s)
+        else:
+            _need_statement(s, "show_hive", frame,
+                            why="show_hive prints the Hive of Statements made by "
+                            "statement(...).")
+            hive = "\n".join([*settings_needed(s), to_hive(s) + ";"])
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
             hive = f"{heading}\n{hive}"
@@ -382,7 +425,8 @@ def run(s, send):
     `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
     the query API, or, where your notebook runs Spark, is
     lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
-    instead.
+    instead. A write into a table with partitioned_by= needs a Session setting sent first,
+    which show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -400,10 +444,18 @@ def run(s, send):
             "returns a DataFrame.",
             fix="Pass your function itself, without calling it: run(s, send=run_query).",
         )
+    if isinstance(s, SessionSettings):
+        for line in s._lines:  # Hive takes one SET per call
+            send(line)
+        return None
+    if isinstance(s, UncheckedStatement):
+        return logged_run("Unchecked statement", unchecked_call(s), s._text, send)
     _need_statement(s, "run", inspect.currentframe().f_back,
                     why="run writes the Hive of one Statement made by statement(...) and "
                     "sends it.", more=", send=...")
     text = to_hive(s)
+    if s._admin_call is not None:
+        return logged_run("Admin statement", s._admin_call, text, send)
     result = send(text)
     # A write has already been carried out when its send returns, so only a read's rows matter.
     if s._ddl is None and s._write is None:

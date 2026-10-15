@@ -164,6 +164,13 @@ below; this map is the design document, built out ticket by ticket.
 
 ## Decisions so far
 
+- [03 Session settings, the Unchecked statement and the Admin log](issues/03-session-settings-the-unchecked-statement-and-the-admin-log.md):
+  `hive_settings(*names, sets=HIVE_SETTINGS)` and `unchecked_hive(text)` live in a new core file,
+  `unchecked.py`, beside the Admin log, which `set_admin_log(path)` moves (a new public name,
+  an open question for the user); an Admin statement is a Statement whose `_admin_call` is set,
+  which `run` logs; Lineage draws an Unchecked statement as one output step marked unchecked,
+  linked to whole-table boxes.
+- 02 (storage): every Saved table external at `<location>/<database>/<table>`; create_table refuses no `location=`; the options are Table's; check_table_reference reads DESCRIBE FORMATTED; show_hive prints the dynamic_partitions SET lines (`running.settings_needed`); the base folder is written in each Table reference, not settings.py (Level rule; open for the user); how-to 31.
 - 01 Keys (resolved): `composer_core/keys.py` works out a Statement's Keys (GROUP_BY,
   SELECT_DISTINCT, totals, the FROM table's Key kept by whole-Key joins, row_number; columns
   held to one value or decided by others left out; a write's day is one value); writes refuse

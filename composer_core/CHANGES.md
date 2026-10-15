@@ -2,9 +2,68 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
-## 5.0, in the making
+## 5.0
 
-5.0 isn't out yet: these are the changes made for it so far.
+### To update from 4.x
+
+- **Give each of your Saved tables' Table references a `location=`**, the folder your Saved
+  tables go in, such as `location="/data/your_team/tables"`. create_table now refuses a Table
+  reference without one, and writes `CREATE EXTERNAL TABLE ... LOCATION '<folder>/<database>/<table>'`:
+  every Saved table is an external table in a folder of its own, which the Toolbox adds to
+  `location=`. A table you only read needs none. A table create_table made before 5.0 is a
+  managed table, in a folder the warehouse chose, and a table made by hand may share a folder
+  with another: check_table_reference(t, send=...) now reports both, and 5.0's
+  admin.move_to_own_folder(t, send=...) copies such a table's days into one create_table
+  makes at its own folder. Until it is moved, writing it works as in 4.x.
+
+### New
+
+- **Session settings: `hive_settings("name")` gives the `SET` lines of a named set**, for
+  `run` to send before your Statements, one line at a time, as Hive takes them. Four sets come
+  with the Toolbox, each documented with why: `"dynamic_partitions"`, `"map_joins"`,
+  `"statistics_on_write"` and `"merge_small_files"`. Keep your own in a settings.py of yours as
+  `HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}` and pass them:
+  `hive_settings("nightly", sets=HIVE_SETTINGS)`. They hold only while your send keeps one
+  session across its calls. `show_hive` prints them, and `export_lineage`, passed them with
+  your Statements, writes them at the foot of both its files.
+- **`unchecked_hive("...")` runs Hive you write by hand**, for the one statement you need now
+  that no clause function writes yet. No Guard, Warning or Load limit looks inside it.
+  `show_hive` marks it, `export_lineage` draws it as one step it can't see inside, linked to
+  the tables its text names, and text that starts `DROP`, `ALTER` or `TRUNCATE` gets a note
+  naming the admin function that does the same job with its checks, where one does.
+- **The Admin log.** Each `run` of an Unchecked statement adds an entry to `admin_log.md`,
+  beside the script or notebook that runs it: when, the call, the Hive sent, the script and
+  its git commit, and whether it worked. The Toolbox only ever adds to it. To keep it
+  elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and call
+  `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
+- The Example database answers a `SET` line, as Spark does, with the setting and its value.
+- **A Saved table's Table reference says how it is stored**, and create_table writes it:
+  `purge=True` (dropping it deletes its files too), `properties={...}` (other table
+  properties), `stored_as="ORC"` or `"PARQUET"`, `compression=`, `partitioned_by=[...]`
+  (Partitions inside each day, filled from each write's rows), and `bucketed_by=[...]` with
+  `buckets=` and `sorted_by=[...]` (Buckets, for big tables joined on those columns).
+  help(Table) lists them, and the how-to "Choose how a Saved table is stored" walks through
+  them, and why there are no indexes.
+- **check_table_reference compares a Saved table's storage** with what DESCRIBE FORMATTED
+  says: that it is external, its folder, purge, its file format and compression, its
+  properties, its Partitions and its Buckets, each difference with the line to change.
+- **show_hive prints the Session setting a write needs first**: a write into a table with
+  `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
+  partitioning, so its SET lines are printed ahead of it. run sends the write alone: send
+  each SET line through your own send first, as help(INSERT_OVERWRITE) shows.
+- **create_table writes a Table reference's Key into the table** in sqlglot Composer, as
+  `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
+  never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out.
+- **A Derived table's Key reaches further**: through a join that matches its joined table's
+  whole Key, through a row_number(...) kept at 1, and past a column whose value another
+  column already fixes, as a run's run_id fixes its job_id. JOIN's repeated-rows Warning asks
+  for `many_matches=` less often, and when a Derived table has no Key it says where its
+  Statement lost one.
+- **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
+  chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
+  holds.
+
+### Refused now
 
 - **A write into a Saved table whose Table reference declares a Key is refused unless the
   Toolbox can see that each row it writes has a Key of its own.** Hive never checks a Key, so
@@ -15,18 +74,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `key=["job_id", "dt"]` needs one row for each job_id. A write 4.1 let through may be refused
   now: its message says how its rows lost the Key. Fix the write, or, when the rows are one
   per Key for a reason the Toolbox can't see, write
-  `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The new
-  how-to, Keys, checked before each write, shows each.
-- **create_table writes a Table reference's Key into the table** in sqlglot Composer, as
-  `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
-  never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out.
-- **A Derived table's Key reaches further**: through a join that matches its joined table's
-  whole Key, through a row_number(...) kept at 1, and past a column whose value another
-  column already fixes, as a run's run_id fixes its job_id. JOIN's repeated-rows Warning asks for `many_matches=` less often, and when
-  a Derived table has no Key it says where its Statement lost one.
-- **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
-  chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
-  holds.
+  `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The how-to
+  "Keys, checked before each write" shows each.
+- create_table refuses a Table reference with no `location=`.
+- Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
+  a whole folder or already ends with the table's own folder, two Saved tables whose folders
+  are one or sit one inside the other, and any option create_table couldn't write.
 
 ## 4.1
 

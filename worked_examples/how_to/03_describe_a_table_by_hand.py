@@ -48,6 +48,7 @@ A Table reference is one call to `Table`:
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
 ...     does_not_add_up=["avg_minutes"],
+...     location="/data/your_team/tables",
 ... )
 >>> job_day
 Table('mart.job_day', columns: job_id, runs, failed_runs, minutes, avg_minutes, dt)
@@ -72,6 +73,10 @@ What each argument says:
   Toolbox refuses to add these up.
 - There is no `date_format=`: its days are written like 2026-09-24, the usual way. The step
   A table whose days are written another way, below, shows one that needs it.
+- `location="/data/your_team/tables"` is the folder your Saved tables go in. Only a table you
+  create yourself has one: the Toolbox adds the table's own folder, mart/job_day, so each of
+  your tables has a folder of its own. A table someone else owns, such as `ops.jobs`, leaves
+  it out.
 
 ### Keep it in a file
 
@@ -94,6 +99,7 @@ that reads the table imports the same one:
         date_partition="dt",
         key=["job_id", "dt"],
         does_not_add_up=["avg_minutes"],
+        location="/data/your_team/tables",
     )
 
 Then, in a notebook:
@@ -190,7 +196,7 @@ The table mart.job_day doesn't exist yet. `create_table` writes the Hive that ma
 Table reference: read it to check the columns, their types and the partition are what you meant.
 
 >>> text = show_hive(create_table(job_day))
-CREATE TABLE mart.job_day (
+CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
   runs BIGINT,
   failed_runs BIGINT,
@@ -200,11 +206,13 @@ CREATE TABLE mart.job_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/job_day';
 
 The Date partition, dt, goes under PARTITIONED BY rather than among the other columns: that is
 how Hive splits a table into days. STORED AS ORC says how Hive keeps the table's files: ORC, a
-compact format Hive reads quickly.
+compact format Hive reads quickly. EXTERNAL and LOCATION say the files are yours, in the
+table's own folder.
 
 At work, once `run` has sent `create_table(job_day)` through your own send and made the table,
 `check_table_reference` compares it with your file, as above.

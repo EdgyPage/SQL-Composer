@@ -39,12 +39,14 @@ its own under table_references/.
 ...     columns={"job_id": "bigint", "starts": "bigint", "finishes": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/tables",
 ... )
 >>> team_day = Table(
 ...     "mart.team_day",
 ...     columns={"team": "string", "starts": "bigint", "finishes": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["team", "dt"],
+...     location="/data/your_team/tables",
 ... )
 
 Create each once. `show_hive` prints both, ready to paste:
@@ -52,7 +54,7 @@ Create each once. `show_hive` prints both, ready to paste:
 >>> text = show_hive(create_table(job_day, may_exist=True),
 ...                  create_table(team_day, may_exist=True))
 -- 1 of 2
-CREATE TABLE IF NOT EXISTS mart.job_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
   finishes BIGINT...
@@ -60,10 +62,11 @@ CREATE TABLE IF NOT EXISTS mart.job_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/job_day';
 <BLANKLINE>
 -- 2 of 2
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   starts BIGINT,
   finishes BIGINT...
@@ -71,7 +74,8 @@ CREATE TABLE IF NOT EXISTS mart.team_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/team_day';
 
 ### Write each Saved table's day
 
@@ -231,6 +235,7 @@ write no longer fills every column, so the Toolbox refuses it:
 ...              "fails": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/tables",
 ... )
 >>> write_job_day("2026-09-24")
 Traceback (most recent call last):
@@ -255,6 +260,7 @@ a week, the write is refused when it becomes Hive, before anything is sent:
 ...     columns={"team": "string", "starts": "bigint", "finishes": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["team", "dt"],
+...     location="/data/your_team/tables",
 ... )
 >>> to_hive(statement(
 ...     INSERT_OVERWRITE(team_week),

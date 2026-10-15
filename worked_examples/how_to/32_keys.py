@@ -35,7 +35,11 @@ says so, with `key=`:
 ...     columns={"job_id": "bigint", "runs": "bigint", "minutes": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/tables",
 ... )
+
+`location=` is the folder your Saved tables go in, as
+[Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) shows.
 
 The Key holds the Date partition, `job_day.dt`, since a job has a row on every day. A write
 fills one day, so within a write every row has the same `job_day.dt`: the Toolbox checks that
@@ -158,7 +162,7 @@ one failed run a day per job is a habit of the Example database, not a rule.
 `create_table` writes the Key into the table, for whoever reads it:
 
 >>> text = show_hive(create_table(job_day))
-CREATE TABLE mart.job_day (
+CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
   runs BIGINT,
   minutes BIGINT...
@@ -166,7 +170,8 @@ CREATE TABLE mart.job_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/job_day';
 
 [sqlglot_composer only]
 `PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE` is the Key. `DISABLE NOVALIDATE` tells Hive to

@@ -422,21 +422,41 @@ def _column_def(node: Node, pretty: bool) -> str:
 
 # After sqlglot's Generator.schema_sql.
 def _columns(defs: list[Node], pretty: bool) -> str:
-    listed = _list([_sql(item, pretty) for item in defs], pretty)
-    return f"({_sep(pretty, '')}{listed}{_seg(')', pretty, sep='')}"
+    return _bracketed([_sql(item, pretty) for item in defs], pretty)
 
 
-# After sqlglot's Generator.create_sql and properties_sql. The Key, node.parts["key"], is left
-# out: Spark refuses a PRIMARY KEY, the primary_key row of DECLARED_DIFFERENCES.
+# After sqlglot's Generator.schema_sql and its Hive properties_sql: a list in brackets, one to
+# a line.
+def _bracketed(sqls: list[str], pretty: bool) -> str:
+    return f"({_sep(pretty, '')}{_list(sqls, pretty)}{_seg(')', pretty, sep='')}"
+
+
+# After sqlglot's Generator.clusteredbyproperty_sql.
+def _buckets(node: Node) -> str:
+    sql = f"CLUSTERED BY ({', '.join(_identifier(name) for name in node.parts['bucketed_by'])})"
+    if node.parts["sorted_by"]:
+        sql += f" SORTED BY ({', '.join(_identifier(name) for name in node.parts['sorted_by'])})"
+    return f"{sql} INTO {node.parts['buckets']} BUCKETS"
+
+
+# After sqlglot's Generator.create_sql and properties_sql, and its Hive dialect's
+# EXTERNAL, LOCATION and TBLPROPERTIES. The Key, node.parts["key"], is left out: Spark refuses
+# a PRIMARY KEY, the primary_key row of DECLARED_DIFFERENCES.
 def _create(node: Node, pretty: bool) -> str:
     exists = " IF NOT EXISTS" if node.parts.get("exists") else ""
-    sql = f"CREATE TABLE{exists} {_part(node, 'target', pretty)}"
+    sql = f"CREATE EXTERNAL TABLE{exists} {_part(node, 'target', pretty)}"
     columns = node.parts["columns"]
     sql += f" {_columns(columns, pretty)}" if columns else ""
     properties = []
     if node.parts["partitioned_by"]:
         properties.append(f"PARTITIONED BY {_columns(node.parts['partitioned_by'], pretty)}")
-    properties.append("STORED AS ORC")
+    if node.parts["bucketed_by"]:
+        properties.append(_buckets(node))
+    properties.append(f"STORED AS {node.parts['stored_as']}")
+    properties.append(f"LOCATION {_quoted(node.parts['location'])}")
+    if node.parts["properties"]:
+        pairs = [f"{_quoted(name)}={_quoted(value)}" for name, value in node.parts["properties"]]
+        properties.append(f"TBLPROPERTIES {_bracketed(pairs, pretty)}")
     return sql + _sep(pretty) + _list(properties, pretty, indent=False, sep=" ")
 
 

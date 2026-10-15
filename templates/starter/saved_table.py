@@ -46,8 +46,8 @@ from table_references.<SAVED_TABLE> import <SAVED_TABLE>  # the Saved table's Ta
 def create():
     """Step 1: create the Saved table from its Table reference, if it isn't there yet.
 
-    may_exist=True writes CREATE TABLE IF NOT EXISTS, so this step can run every day, and does
-    nothing once the table is there.
+    may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so this step can run every day,
+    and does nothing once the table is there.
     """
     return create_table(<SAVED_TABLE>, may_exist=True)
 

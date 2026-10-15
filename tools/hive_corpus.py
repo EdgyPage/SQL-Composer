@@ -15,10 +15,12 @@ corpus without what it adds to sqlglot Composer's Hive, as its readable_text lea
 The file pins, for each case under a stable id, what the Toolbox shows through its public
 names:
 
-- each Statement's Hive, from `to_hive(...)`, or the refusal it stops with;
+- each Statement's Hive, from `to_hive(...)`, or the refusal it stops with, and for Session
+  settings and an Unchecked statement, what `show_hive(...)` prints too;
 - the repr of each output and condition, of the Statement and of each Derived table it reads;
 - the commands `write_table_reference`, `check_table_reference` and `check_key` send;
-- `export_lineage`'s Markdown report of the case's Statements, without its dated last line.
+- `export_lineage`'s Markdown report of the case's Statements, without its dated last line,
+  but for the Session settings it names.
 
 The cases are every docstring example that hands a Statement to `to_hive`, `run` or
 `export_lineage`; every Statement function of the Worked examples; the edge cases and the
@@ -30,6 +32,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import doctest
+import io
 import re
 import sys
 import tempfile
@@ -50,7 +53,8 @@ import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import example_database  # noqa: E402
-from composer_core.clauses import derived_tables  # noqa: E402
+from composer_core.clauses import Statement, derived_tables  # noqa: E402
+from composer_core.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
 EDITION = editions.EDITIONS[sqlglot_composer.__name__]
 
@@ -128,9 +132,10 @@ def _listed(function):
 
 
 def cases() -> list[tuple[str, object]]:
-    """Every case, in a fixed order: docstrings, Worked examples, edge cases, generated ones."""
+    """Every case, in a fixed order: docstrings, Worked examples, edge cases, generated ones,
+    then Session settings and Unchecked statements."""
     found = (docstring_cases() + worked_example_cases() + hive_corpus_cases.edge_cases()
-             + hive_corpus_cases.generated_cases())
+             + hive_corpus_cases.generated_cases() + hive_corpus_cases.by_hand_cases())
     ids = [case_id for case_id, _ in found]
     repeated = sorted({case_id for case_id in ids if ids.count(case_id) > 1})
     if repeated:
@@ -182,17 +187,27 @@ def case_text(case_id: str, build) -> str:
             return "\n".join(lines + [PART_MARK + "refused", refusal_or_raise(error), ""])
         for number, s in enumerate(statements, 1):
             lines += statement_lines(number, s)
-        lines += lineage_lines([s for s in statements if s._ddl is None])
+        lines += lineage_lines([s for s in statements
+                                if not isinstance(s, Statement) or s._ddl is None])
     return "\n".join(lines + [""])
 
 
 def statement_lines(number: int, s) -> list[str]:
-    """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's."""
+    """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's.
+
+    Session settings and an Unchecked statement aren't Statements: their Hive, and what
+    show_hive prints for them, with the comment that names or marks them.
+    """
     lines = [PART_MARK + f"Statement {number}: to_hive"]
     try:
         lines.append(sqlglot_composer.to_hive(s))
     except Exception as error:  # noqa: BLE001 - what to_hive stops with is part of the output
         lines.append(refused_text(error))
+    if isinstance(s, (SessionSettings, UncheckedStatement)):
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            sqlglot_composer.show_hive(s)
+        return lines + [PART_MARK + f"Statement {number}: show_hive",
+                        printed.getvalue().rstrip("\n")]
     for step, name in [(s, "the Statement")] + [
             (table._statement, f"Derived table {table._name}") for table in derived_tables(s)]:
         shown = parts_shown(step)
@@ -213,16 +228,25 @@ def parts_shown(step) -> list[str]:
 
 def lineage_lines(statements: list) -> list[str]:
     """export_lineage's Markdown report of the Statements, without its dated last line."""
-    if not statements:
-        return []
+    if all(isinstance(s, SessionSettings) for s in statements):
+        return []  # none, or only Session settings, which it draws nothing for
     with tempfile.TemporaryDirectory() as folder:
         try:
             _, markdown = sqlglot_composer.export_lineage(*statements, to=Path(folder) / "case.html")
         except Exception as error:  # noqa: BLE001 - as for to_hive
             return [PART_MARK + "export_lineage", refused_text(error)]
         text = markdown.read_text(encoding="utf-8")
-    kept = [line for line in text.splitlines() if not line.startswith("Made by export_lineage on")]
-    return [PART_MARK + "export_lineage", *kept]
+    kept = [_undated(line) for line in text.splitlines()]
+    return [PART_MARK + "export_lineage", *[line for line in kept if line is not None]]
+
+
+def _undated(line: str) -> str | None:
+    """A line of a lineage as the corpus keeps it: its dated last line left out, all but the
+    Session settings it names, if any."""
+    if not line.startswith("Made by export_lineage on"):
+        return line
+    settings = line.find(" Session settings ")
+    return line[settings + 1:] if settings != -1 else None
 
 
 # --- The commands sent to the warehouse ------------------------------------------------------
