@@ -133,7 +133,7 @@ One value for each different `job_day_facts.dt` and `job_day_facts.team`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- write_team_days: Key (team), since GROUP_BY makes one row for each team.
+- write_team_days: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
 - mart.team_days' Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted

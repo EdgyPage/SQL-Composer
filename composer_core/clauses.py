@@ -658,8 +658,8 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     a GROUP_BY over the Key's columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each
     Key in a Derived table, or reading a table by its own Key, each join matching its joined
     table's whole Key. The day written is one value, so a Key that holds the Date partition
-    needs only its other columns. unproven_key=True writes it anyway, for rows that are unique
-    for a reason the Toolbox can't see. Below, GROUP_BY makes one row for each job_id.
+    needs only its other columns. unproven_key=True writes it anyway, for rows that are one per
+    Key for a reason the Toolbox can't see. Below, GROUP_BY makes one row for each job_id.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})

@@ -1527,7 +1527,7 @@ run(per_team, send=example_database.send)</pre>
           between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
 )</pre>
 <p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
-  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its key (alert_id).
+  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only by its Key (alert_id).
   Why it matters: Each row before the join is repeated once per matching run_alerts row, so sums and counts over it may come out too big.
   Usual fix:      Group run_alerts first so it has one row per value you join on, and join that.
   Opt-out:        JOIN(run_alerts, ON=..., many_matches=True)</pre>
@@ -1566,7 +1566,7 @@ WHERE
           between(run_alerts.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
 )</pre>
 <p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
-  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its key (alert_id).
+  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only by its Key (alert_id).
   Why it matters: Each row before the join is repeated once per matching run_alerts row, so sums and counts over it may come out too big.
   Usual fix:      Group run_alerts first so it has one row per value you join on, and join that.
   Opt-out:        JOIN(run_alerts, ON=..., many_matches=True)</pre>
@@ -2442,7 +2442,8 @@ WHERE
 <p>At work, the same <code>run</code>, with your own send in place of <code>example_database.send</code>, writes the day, and gives back whatever your send returns for a write, usually an empty DataFrame. Send <code>create</code> first, once.</p>
 <h5>Add rows to a day with INSERT_INTO</h5>
 <p>The second kind of run to review, one that succeeded but raised a high alert, comes from a second table, <code>ops.run_alerts</code>. <code>INSERT_INTO</code> adds rows to the day and keeps the ones already there. Two new pieces of SQL appear in it:</p>
-<ul><li><code>JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id))</code> pairs each alert with the run whose <code>&quot;run_id&quot;</code> matches, so one row holds columns from both tables. See <a href="examples.html#JOIN"><code>JOIN</code></a>, and <a href="#join_tables_safely">Join tables safely</a> for why a join can repeat rows.</li><li><code>SELECT_DISTINCT</code> keeps each different row once: a run that raised two high alerts would otherwise come out twice. See <a href="examples.html#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>. It is also how the Toolbox sees that each row has a Key of its own: one row for each different <code>&quot;run_id&quot;</code> and <code>&quot;job_id&quot;</code>, and a run&#x27;s <code>&quot;job_id&quot;</code> is decided by its <code>&quot;run_id&quot;</code>, <code>job_runs</code>&#x27; Key. Without it, the write is refused, as <a href="#keys">Keys</a> shows. The Toolbox checks only the rows this write adds; here they can&#x27;t share a <code>&quot;run_id&quot;</code> with the day&#x27;s failed runs, since these runs succeeded.</li></ul>
+<ul><li><code>JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id))</code> pairs each alert with the run whose <code>&quot;run_id&quot;</code> matches, so one row holds columns from both tables. See <a href="examples.html#JOIN"><code>JOIN</code></a>, and <a href="#join_tables_safely">Join tables safely</a> for why a join can repeat rows.</li><li><code>SELECT_DISTINCT</code> keeps each different row once: a run that raised two high alerts would otherwise come out twice. See <a href="examples.html#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>.</li></ul>
+<p><code>SELECT_DISTINCT</code> is also how the Toolbox sees that each row has a Key of its own: it makes one row for each different <code>&quot;run_id&quot;</code> and <code>&quot;job_id&quot;</code>, and one <code>&quot;run_id&quot;</code> always comes with the same <code>&quot;job_id&quot;</code>, so there is one row for each run. Without it, the write is refused, as <a href="#keys">Keys</a> shows. The Toolbox checks only the rows this write adds. Here they can&#x27;t share a <code>&quot;run_id&quot;</code> with the failed runs the day holds already, since these runs succeeded.</p>
 <p>The day written comes from the table in <code>FROM</code>, here <code>run_alerts.dt</code>. The joined table needs a bound on its days too; here it is the same day.</p>
 <pre class="python">def alerted_runs(day):
     return statement(
@@ -3965,7 +3966,7 @@ run_alerts = example_database.run_alerts</pre>
     GROUP_BY(job_runs.job_id),
 )</pre>
 <p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
-  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its key (alert_id).
+  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only by its Key (alert_id).
   Why it matters: Each row before the join is repeated once per matching run_alerts row, so sums and counts over it may come out too big.
   Usual fix:      Group run_alerts first so it has one row per value you join on, and join that.
   Opt-out:        JOIN(run_alerts, ON=..., many_matches=True)</pre>
@@ -4034,7 +4035,7 @@ GROUP BY
     GROUP_BY(jobs.job_name),
 )</pre>
 <p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
-  What happened:  LEFT_JOIN(job_runs) matches on job_id, status, but a job_runs row is only unique by its key (run_id).
+  What happened:  LEFT_JOIN(job_runs) matches on job_id, status, but a job_runs row is told apart only by its Key (run_id).
   Why it matters: Each row before the join is repeated once per matching job_runs row, so sums and counts over it may come out too big.
   Usual fix:      Group job_runs first so it has one row per value you join on, and join that.
   Opt-out:        LEFT_JOIN(job_runs, ON=..., many_matches=True)</pre>
@@ -4867,7 +4868,7 @@ run(every_run, send=example_database.send)</pre>
     GROUP_BY(job_owners.team),
 )</pre>
 <p class="label">It builds, with a Warning</p><pre class="refusal">RepeatedRowsWarning:
-  What happened:  JOIN(job_owners) matches on job_id, but a job_owners row is only unique by its key (job_id, dt).
+  What happened:  JOIN(job_owners) matches on job_id, but a job_owners row is told apart only by its Key (job_id, dt).
   Why it matters: Each row before the join is repeated once per matching job_owners row, so sums and counts over it may come out too big.
   Usual fix:      Match the day too, so each row meets its own day&#x27;s job_owners row: ON=all_of(equals(...), equals(job_owners.dt, job_events.dt)), where equals(...) is what ON= has now. If the rows before the join have no day, group job_owners first so it has one row per value you join on, and join that.
   Opt-out:        JOIN(job_owners, ON=..., many_matches=True)</pre>
@@ -5534,7 +5535,7 @@ One value for each different `job_events.dt` and `job_events.job_id`.
 
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
-- job_day_step: Key (job_id), since GROUP_BY makes one row for each job_id.
+- job_day_step: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - mart.job_day&#x27;s Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -5607,7 +5608,7 @@ One value for each different `job_day.dt` and `job_owners.team`.
 
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
-- team_day_step: Key (team), since GROUP_BY makes one row for each team.
+- team_day_step: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
 - mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -7226,7 +7227,7 @@ One value for each different `job_events.job_id`.
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
 - derived(&#x27;finished_runs&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id.
-- longest_jobs: no Key the Toolbox can see, since SELECT leaves out finished_runs.job_id, which is part of finished_runs&#x27; Key (job_id).
+- longest_jobs: no Key the Toolbox can see, since finished_runs&#x27; rows are told apart by job_id, and SELECT leaves out finished_runs.job_id.
 
 ### Hive as submitted
 
@@ -7483,7 +7484,7 @@ One value for each different `job_events.job_id`.
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
 - derived(&#x27;finished_runs&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id.
-- longest_jobs: no Key the Toolbox can see, since SELECT leaves out finished_runs.job_id, which is part of finished_runs&#x27; Key (job_id).
+- longest_jobs: no Key the Toolbox can see, since finished_runs&#x27; rows are told apart by job_id, and SELECT leaves out finished_runs.job_id.
 
 ### Hive as submitted
 
@@ -7765,7 +7766,8 @@ run_alerts = example_database.run_alerts</pre>
     date_partition=&quot;dt&quot;,
     key=[&quot;job_id&quot;, &quot;dt&quot;],
 )</pre>
-<p>The Key holds the Date partition, <code>job_day.dt</code>, since a job has a row on every day. A write fills one day, so the Toolbox counts the day as one value: a write needs one row for each <code>&quot;job_id&quot;</code>.</p>
+<p>The Key holds the Date partition, <code>job_day.dt</code>, since a job has a row on every day. A write fills one day, so within a write every row has the same <code>job_day.dt</code>: the Toolbox checks that the write has one row for each <code>&quot;job_id&quot;</code>.</p>
+<p>A Key may also leave the Date partition out, as <code>key=[&quot;run_id&quot;]</code> does in <a href="#save_a_table">Save a table</a>: a write is checked the same way. Name the Date partition when the same value comes back on every day, as a job does here, so the Key says what one row is over all the days; leave it out when each value appears on one day only, as a run does.</p>
 <h5>A write that shows its Key</h5>
 <p><code>GROUP_BY(job_runs.job_id)</code> makes one row for each <code>&quot;job_id&quot;</code>, so the Toolbox can see the Key holds, and builds the write:</p>
 <pre class="python">def write_day(day):
@@ -7805,7 +7807,7 @@ GROUP BY
 <p><code>job_runs</code>&#x27; own Key is <code>&quot;run_id&quot;</code>: without GROUP_BY, the rows written are its rows, one for each run, and nothing makes them one for each job.</p>
 <h5>The ways the Toolbox sees a Key</h5>
 <p>The Toolbox looks at how a write makes its rows. Each of these shows a Key:</p>
-<ul><li>**GROUP_BY over the Key&#x27;s columns**, as above: one row for each group.</li><li>**SELECT_DISTINCT**: one row for each different row. A column the rest decide doesn&#x27;t count, such as a run&#x27;s <code>job_runs.job_id</code>, which its <code>job_runs.run_id</code> decides.</li><li>**row_number(...) kept at 1 for each Key**, in a Derived table, as <a href="#latest_row_per_key">The latest row per key</a> does: one row for each <code>PARTITION_BY=</code> value.</li><li>**The rows of the table in FROM, by its own Key**, when SELECT returns that Key&#x27;s columns, and each join matches its joined table&#x27;s whole Key, so it adds at most one row to each.</li></ul>
+<ul><li>**GROUP_BY over the Key&#x27;s columns**, as above: one row for each group.</li><li>**SELECT_DISTINCT**: one row for each different row. A column whose value another column already fixes doesn&#x27;t count: one <code>job_runs.run_id</code> always comes with the same <code>job_runs.job_id</code>, so SELECT_DISTINCT of both makes one row for each run.</li><li>**row_number(...) kept at 1 for each Key**, in a Derived table, as <a href="#latest_row_per_key">The latest row per key</a> does: one row for each <code>PARTITION_BY=</code> value.</li><li>**The rows of the table in FROM, by its own Key**, when SELECT returns that Key&#x27;s columns, and each join matches its joined table&#x27;s whole Key, so each row from FROM meets at most one row of the joined table.</li></ul>
 <p>Here the last two are used together: each job&#x27;s newest run, numbered in a Derived table, then joined to <code>ops.jobs</code> on its whole Key, <code>jobs.job_id</code>, which keeps one row for each job:</p>
 <pre class="python">newest_run = Table(
     &quot;mart.newest_run&quot;,
@@ -7954,7 +7956,7 @@ Rows that count:
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
 - derived(&#x27;numbered&#x27;, ...): Key (run_id), since job_runs&#x27; rows are told apart by run_id; or Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
-- newest: Key (job_id), since numbered&#x27;s rows are told apart by job_id; or Key (run_id), since numbered&#x27;s rows are told apart by run_id.
+- newest: Key (job_id), since numbered&#x27;s rows are told apart by job_id, newest_first, with newest_first held to one value; or Key (run_id), since numbered&#x27;s rows are told apart by run_id.
 - mart.newest_run&#x27;s Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -7991,9 +7993,9 @@ print(keys.split(&quot;###&quot;)[0].strip())</pre>
 <p class="label">Python prints</p><pre class="output">The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
 - derived(&#x27;numbered&#x27;, ...): Key (run_id), since job_runs&#x27; rows are told apart by run_id; or Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
-- newest: Key (job_id), since numbered&#x27;s rows are told apart by job_id; or Key (run_id), since numbered&#x27;s rows are told apart by run_id.
+- newest: Key (job_id), since numbered&#x27;s rows are told apart by job_id, newest_first, with newest_first held to one value; or Key (run_id), since numbered&#x27;s rows are told apart by run_id.
 - mart.newest_run&#x27;s Key (job_id, dt) holds: each row written has its own.</pre>
-<p>The Derived table numbered has two Keys: each run, and each job with its number. The write keeps number 1, which leaves one row for each job.</p>
+<p>The Derived table numbered has two Keys: each run, and each job with its number. The write keeps number 1, holding newest_first to one value, which leaves one row for each job.</p>
 <h4>Check it worked</h4>
 <p>The Toolbox&#x27;s check sees how the rows are made; <code>check_key</code> counts the rows themselves, on the newest day the table holds. Run it on a Saved table after its first writes, and on any table you join to by its Key. On the Example database&#x27;s <code>ops.job_runs</code>:</p>
 <pre class="python">check_key(job_runs, send=example_database.send)</pre>
@@ -8036,11 +8038,11 @@ statement(
     WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(run_alerts.dt, &quot;2026-09-24&quot;)),
 )</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
-  What happened:  INSERT_OVERWRITE(run_and_alert) can&#x27;t show that each row it writes has a Key (run_id, dt) of its own: JOIN(run_alerts, ON=...) can match several run_alerts rows to one row.
+  What happened:  INSERT_OVERWRITE(run_and_alert) can&#x27;t show that each row it writes has a Key (run_id, dt) of its own: JOIN(run_alerts, ON=...) can match several run_alerts rows to one row, so nothing makes its rows one for each run_id.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
   Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(run_and_alert, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
-<p><code>many_matches=True</code> says you mean the repeated rows, so the join doesn&#x27;t warn; the Saved table&#x27;s Key still says one row for each run. Group the alerts first, one row for each run, as <a href="#join_tables_safely">Join tables safely</a> shows, and join that.</p>
+<p>Two checks are at work here. JOIN&#x27;s repeated-rows Warning is silenced by <code>many_matches=True</code>, which says you mean the repeated rows. The write&#x27;s Key check is not: the Saved table&#x27;s Key still says one row for each run, and these rows can repeat a run. Group the alerts first, one row for each run, as <a href="#join_tables_safely">Join tables safely</a> shows, and join that.</p>
 <h5>Silencing the check with unproven_key=True</h5>
 <p><code>unproven_key=True</code> doesn&#x27;t make the rows one per Key: it only stops the Toolbox saying they might not be. Reach for GROUP_BY, SELECT_DISTINCT or row_number first.</p>
 <h4>Next</h4>

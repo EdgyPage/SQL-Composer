@@ -38,8 +38,13 @@ says so, with `key=`:
 ... )
 
 The Key holds the Date partition, `job_day.dt`, since a job has a row on every day. A write
-fills one day, so the Toolbox counts the day as one value: a write needs one row for each
-`"job_id"`.
+fills one day, so within a write every row has the same `job_day.dt`: the Toolbox checks that
+the write has one row for each `"job_id"`.
+
+A Key may also leave the Date partition out, as `key=["run_id"]` does in
+[Save a table](#save_a_table): a write is checked the same way. Name the Date partition when
+the same value comes back on every day, as a job does here, so the Key says what one row is
+over all the days; leave it out when each value appears on one day only, as a run does.
 
 ### A write that shows its Key
 
@@ -93,12 +98,14 @@ run, and nothing makes them one for each job.
 The Toolbox looks at how a write makes its rows. Each of these shows a Key:
 
 - **GROUP_BY over the Key's columns**, as above: one row for each group.
-- **SELECT_DISTINCT**: one row for each different row. A column the rest decide doesn't
-  count, such as a run's `job_runs.job_id`, which its `job_runs.run_id` decides.
+- **SELECT_DISTINCT**: one row for each different row. A column whose value another column
+  already fixes doesn't count: one `job_runs.run_id` always comes with the same
+  `job_runs.job_id`, so SELECT_DISTINCT of both makes one row for each run.
 - **row_number(...) kept at 1 for each Key**, in a Derived table, as
   [The latest row per key](#latest_row_per_key) does: one row for each `PARTITION_BY=` value.
 - **The rows of the table in FROM, by its own Key**, when SELECT returns that Key's columns,
-  and each join matches its joined table's whole Key, so it adds at most one row to each.
+  and each join matches its joined table's whole Key, so each row from FROM meets at most one
+  row of the joined table.
 
 Here the last two are used together: each job's newest run, numbered in a Derived table, then
 joined to `ops.jobs` on its whole Key, `jobs.job_id`, which keeps one row for each job:
@@ -185,12 +192,13 @@ is marked "in the Key" in the chart.
 <BLANKLINE>
 - derived('numbered', ...): Key (run_id), since job_runs' rows are told apart by run_id; or
   Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
-- newest: Key (job_id), since numbered's rows are told apart by job_id; or Key (run_id),
-  since numbered's rows are told apart by run_id.
+- newest: Key (job_id), since numbered's rows are told apart by job_id, newest_first, with
+  newest_first held to one value; or Key (run_id), since numbered's rows are told apart by
+  run_id.
 - mart.newest_run's Key (job_id, dt) holds: each row written has its own.
 
 The Derived table numbered has two Keys: each run, and each job with its number. The write
-keeps number 1, which leaves one row for each job.
+keeps number 1, holding newest_first to one value, which leaves one row for each job.
 
 ## Check it worked
 
@@ -251,11 +259,12 @@ with two alerts comes out twice:
 Traceback (most recent call last):
 ...
 composer_core.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(run_and_alert) can't show that each row it writes has a Key (run_id, dt) of its own: JOIN(run_alerts, ON=...) can match several run_alerts rows to one row.
+  What happened:  INSERT_OVERWRITE(run_and_alert) can't show that each row it writes has a Key (run_id, dt) of its own: JOIN(run_alerts, ON=...) can match several run_alerts rows to one row, so nothing makes its rows one for each run_id.
 ...
 
-`many_matches=True` says you mean the repeated rows, so the join doesn't warn; the Saved
-table's Key still says one row for each run. Group the alerts first, one row for each run, as
+Two checks are at work here. JOIN's repeated-rows Warning is silenced by
+`many_matches=True`, which says you mean the repeated rows. The write's Key check is not: the
+Saved table's Key still says one row for each run, and these rows can repeat a run. Group the alerts first, one row for each run, as
 [Join tables safely](#join_tables_safely) shows, and join that.
 
 ### Silencing the check with unproven_key=True

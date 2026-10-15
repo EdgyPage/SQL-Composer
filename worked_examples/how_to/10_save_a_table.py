@@ -184,12 +184,13 @@ there. Two new pieces of SQL appear in it:
   [`JOIN`](examples.html#JOIN), and [Join tables safely](#join_tables_safely) for why a join
   can repeat rows.
 - `SELECT_DISTINCT` keeps each different row once: a run that raised two high alerts would
-  otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT). It is
-  also how the Toolbox sees that each row has a Key of its own: one row for each different
-  `"run_id"` and `"job_id"`, and a run's `"job_id"` is decided by its `"run_id"`, `job_runs`'
-  Key. Without it, the write is refused, as [Keys](#keys) shows. The Toolbox checks only the
-  rows this write adds; here they can't share a `"run_id"` with the day's failed runs, since
-  these runs succeeded.
+  otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT).
+
+`SELECT_DISTINCT` is also how the Toolbox sees that each row has a Key of its own: it makes one
+row for each different `"run_id"` and `"job_id"`, and one `"run_id"` always comes with the same
+`"job_id"`, so there is one row for each run. Without it, the write is refused, as
+[Keys](#keys) shows. The Toolbox checks only the rows this write adds. Here they can't share a
+`"run_id"` with the failed runs the day holds already, since these runs succeeded.
 
 The day written comes from the table in `FROM`, here `run_alerts.dt`. The joined table needs a
 bound on its days too; here it is the same day.

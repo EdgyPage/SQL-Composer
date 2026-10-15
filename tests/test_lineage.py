@@ -933,6 +933,6 @@ def test_the_report_says_whether_a_writes_key_holds(tmp_path) -> None:
                           SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs")),
                           FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")))
     markdown, _ = read(export_lineage(unchecked, to=tmp_path / "unchecked.html"))
-    assert ("mart.daily_runs' Key (job_id, dt) isn't shown to hold, since SELECT leaves out "
-            "job_runs.run_id") in section(markdown, "### Keys")
+    assert ("mart.daily_runs' Key (job_id, dt) isn't shown to hold, since job_runs' rows are "
+            "told apart by run_id, and SELECT leaves out job_runs.run_id") in section(markdown, "### Keys")
     assert "the write says unproven_key=True." in section(markdown, "### Keys")

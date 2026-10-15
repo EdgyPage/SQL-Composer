@@ -645,7 +645,7 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out jobs.job_id, which is part of jobs' Key (job_id).
+- statement: no Key the Toolbox can see, since jobs' rows are told apart by job_id, and SELECT leaves out jobs.job_id.
 
 ### Hive as submitted
 
@@ -1065,7 +1065,7 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out jobs.job_id, which is part of jobs' Key (job_id).
+- statement: no Key the Toolbox can see, since jobs' rows are told apart by job_id, and SELECT leaves out jobs.job_id.
 
 ### Hive as submitted
 
@@ -1160,7 +1160,7 @@ One value for each different `job_runs.dt` and `job_runs.job_id`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (job_id), since GROUP_BY makes one row for each job_id.
+- statement: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - mart.daily_runs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -1437,7 +1437,7 @@ One value for each different `job_runs.job_id`.
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('runs_per_job', ...): Key (job_id), since GROUP_BY makes one row for each job_id.
-- statement: no Key the Toolbox can see, since SELECT leaves out runs_per_job.job_id, which is part of runs_per_job's Key (job_id).
+- statement: no Key the Toolbox can see, since runs_per_job's rows are told apart by job_id, and SELECT leaves out runs_per_job.job_id.
 
 ### Hive as submitted
 
@@ -1571,7 +1571,7 @@ Rows that count:
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('numbered', ...): Key (run_id), since job_runs' rows are told apart by run_id; or Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
-- statement: Key (run_id), since numbered's rows are told apart by run_id; or Key (job_id), since numbered's rows are told apart by job_id.
+- statement: Key (run_id), since numbered's rows are told apart by run_id; or Key (job_id), since numbered's rows are told apart by job_id, newest_first, with newest_first held to one value.
 
 ### Hive as submitted
 
@@ -1853,7 +1853,7 @@ One value for each different `job_runs.dt` and `job_runs.status`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_1: Key (status), since GROUP_BY makes one row for each status.
+- statement_1: Key (status), since GROUP_BY makes one row for each status, dt, with dt held to one value.
 
 ### Hive as submitted
 
@@ -1901,7 +1901,7 @@ One value for each different `job_runs.dt` and `job_runs.status`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_2: Key (status), since GROUP_BY makes one row for each status.
+- statement_2: Key (status), since GROUP_BY makes one row for each status, dt, with dt held to one value.
 
 ### Hive as submitted
 
@@ -3191,7 +3191,7 @@ Rows that count:
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('numbered', ...): Key (run_id), since job_runs' rows are told apart by run_id; or Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
-- statement: Key (run_id), since numbered's rows are told apart by run_id; or Key (job_id), since numbered's rows are told apart by job_id.
+- statement: Key (run_id), since numbered's rows are told apart by run_id; or Key (job_id), since numbered's rows are told apart by job_id, newest_first, with newest_first held to one value.
 
 ### Hive as submitted
 
@@ -7115,7 +7115,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -7190,7 +7190,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -7267,7 +7267,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -7344,7 +7344,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -7852,7 +7852,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -7927,7 +7927,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -8000,7 +8000,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -8079,7 +8079,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -8957,7 +8957,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9046,7 +9046,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9127,7 +9127,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9201,7 +9201,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9272,7 +9272,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9343,7 +9343,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9413,7 +9413,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9483,7 +9483,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9556,7 +9556,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9627,7 +9627,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9698,7 +9698,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9769,7 +9769,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -9952,7 +9952,7 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out jobs.job_id, which is part of jobs' Key (job_id).
+- statement: no Key the Toolbox can see, since jobs' rows are told apart by job_id, and SELECT leaves out jobs.job_id.
 
 ### Hive as submitted
 
@@ -10988,7 +10988,7 @@ One value for each different `job_runs.job_id` and `job_runs.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_1: Key (job_id), since GROUP_BY makes one row for each job_id.
+- statement_1: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 
 ### Hive as submitted
 
@@ -11036,7 +11036,7 @@ One value for each different `job_runs.job_id` and `job_runs.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_2: Key (job_id), since GROUP_BY makes one row for each job_id.
+- statement_2: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 
 ### Hive as submitted
 
@@ -12749,7 +12749,7 @@ Rows that count:
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('numbered', ...): Key (run_id), since job_runs' rows are told apart by run_id; or Key (job_id, newest), since row_number(...) numbers the rows of each job_id.
-- statement: Key (job_id), since numbered's rows are told apart by job_id; or Key (run_id), since numbered's rows are told apart by run_id.
+- statement: Key (job_id), since numbered's rows are told apart by job_id, newest, with newest held to one value; or Key (run_id), since numbered's rows are told apart by run_id.
 - mart.runs_per_job_day's Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -13517,7 +13517,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -13840,7 +13840,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -13970,7 +13970,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -16274,7 +16274,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -17049,7 +17049,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -18008,7 +18008,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -18705,7 +18705,7 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -18979,7 +18979,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -19444,7 +19444,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -19791,7 +19791,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -21669,7 +21669,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -21953,7 +21953,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -22360,7 +22360,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -22501,7 +22501,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -22654,7 +22654,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -22786,7 +22786,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -22903,7 +22903,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -23157,7 +23157,7 @@ One value for each different `job_runs.dt` and `month_start(job_runs.dt)`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: one row, so it needs no Key: GROUP_BY makes one row for each nothing.
+- statement: one row, so it needs no Key: GROUP_BY makes one row for each k0, with k0 held to one value.
 
 ### Hive as submitted
 
@@ -23260,7 +23260,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -23756,7 +23756,7 @@ One value for each different `job_runs.dt` and `job_runs.job_id`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (k1), since GROUP_BY makes one row for each k1.
+- statement: Key (k1), since GROUP_BY makes one row for each k1, k0, with k0 held to one value.
 
 ### Hive as submitted
 
@@ -24376,7 +24376,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -24570,7 +24570,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -25661,7 +25661,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -25768,7 +25768,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -26615,7 +26615,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -28105,7 +28105,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -28363,7 +28363,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -28459,7 +28459,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -28563,7 +28563,7 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -29382,7 +29382,7 @@ One value for each different `job_runs.dt` and `week_start(job_runs.dt)`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: one row, so it needs no Key: GROUP_BY makes one row for each nothing.
+- statement: one row, so it needs no Key: GROUP_BY makes one row for each k0, with k0 held to one value.
 
 ### Hive as submitted
 
@@ -29729,7 +29729,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -30172,7 +30172,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -30302,7 +30302,7 @@ One value for each different `job_runs.dt` and `job_runs.job_id`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (k1), since GROUP_BY makes one row for each k1.
+- statement: Key (k1), since GROUP_BY makes one row for each k1, k0, with k0 held to one value.
 
 ### Hive as submitted
 
@@ -30739,7 +30739,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -30894,7 +30894,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -31044,7 +31044,7 @@ One value for each different `job_runs.dt` and `job_runs.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: one row, so it needs no Key: GROUP_BY makes one row for each nothing.
+- statement: one row, so it needs no Key: GROUP_BY makes one row for each k0, k0, with k0, k0 held to one value.
 
 ### Hive as submitted
 
@@ -31199,7 +31199,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -31788,7 +31788,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -31967,7 +31967,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -32176,7 +32176,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -32816,7 +32816,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -33803,7 +33803,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -35464,7 +35464,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -35678,7 +35678,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -36053,7 +36053,7 @@ One value for each different `job_runs.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: one row, so it needs no Key: GROUP_BY makes one row for each nothing.
+- statement: one row, so it needs no Key: GROUP_BY makes one row for each k0, with k0 held to one value.
 
 ### Hive as submitted
 
@@ -36697,7 +36697,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -36937,7 +36937,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -37146,7 +37146,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -37251,7 +37251,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -38210,7 +38210,7 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -38334,7 +38334,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
@@ -38575,7 +38575,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id).
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
 
 ### Hive as submitted
 
