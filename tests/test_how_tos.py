@@ -597,7 +597,7 @@ def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> No
 
 @pytest.mark.parametrize(("name", "group", "says"), [
     ("19_try_it.py", "Getting started", "the Getting started how-tos are 1 to 18"),
-    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 30"),
+    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 31"),
     ("02_try_it.py", "Advanced", "says `For: Advanced`"),
 ])
 def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path, name: str,

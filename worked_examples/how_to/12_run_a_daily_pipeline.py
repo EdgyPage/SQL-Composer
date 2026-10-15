@@ -32,12 +32,14 @@ and runs the list with a stand-in send that only shows what it would send.
 ...              "dt": "string"},
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/tables",
 ... )
 >>> team_day = Table(
 ...     "mart.team_day",
 ...     columns={"team": "string", "runs": "bigint", "failed_runs": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["team", "dt"],
+...     location="/data/your_team/tables",
 ... )
 
 ### Write each step as a function of the day
@@ -109,7 +111,7 @@ Two things decide the order:
 >>> steps = day_steps("2026-09-24")
 >>> text = show_hive(steps)
 -- 1 of 4: steps[0]
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
   job_id BIGINT,
   runs BIGINT,
   failed_runs BIGINT
@@ -117,10 +119,11 @@ CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_job_runs';
 <BLANKLINE>
 -- 2 of 4: steps[1]
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   runs BIGINT,
   failed_runs BIGINT
@@ -128,7 +131,8 @@ CREATE TABLE IF NOT EXISTS mart.team_day (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/team_day';
 <BLANKLINE>
 -- 3 of 4: steps[2]
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
@@ -176,8 +180,8 @@ for a write.
 ...     print(hive.splitlines()[0])
 ...     return pd.DataFrame()
 >>> run_day("2026-09-24", send=print_first_line)
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
 
@@ -206,8 +210,8 @@ twice as many. To write a day again, after fixing a step or after a morning that
 halfway, run the whole day again:
 
 >>> run_day("2026-09-23", send=print_first_line)
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-23')
 
@@ -216,12 +220,12 @@ that read it. For several days, run them oldest first, each day whole:
 
 >>> for day in ["2026-09-23", "2026-09-24"]:
 ...     run_day(day, send=print_first_line)
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-23')
-CREATE TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE TABLE IF NOT EXISTS mart.team_day (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
 INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
 
@@ -309,14 +313,14 @@ as an argument, as `write_job_day` does, and work out yesterday once, in `run_ye
 
 ### A create without may_exist in the daily list
 
-`create_table(daily_job_runs)` writes a plain CREATE TABLE:
+`create_table(daily_job_runs)` writes a plain CREATE EXTERNAL TABLE:
 
 >>> print(to_hive(create_table(daily_job_runs)).splitlines()[0])
-CREATE TABLE mart.daily_job_runs (
+CREATE EXTERNAL TABLE mart.daily_job_runs (
 
 The first morning it creates the table. The second morning the warehouse refuses it, since the
 table exists, and `run_day` stops before writing anything. In a list that runs every day, use
-`may_exist=True`, which writes CREATE TABLE IF NOT EXISTS.
+`may_exist=True`, which writes CREATE EXTERNAL TABLE IF NOT EXISTS.
 
 ## Next
 

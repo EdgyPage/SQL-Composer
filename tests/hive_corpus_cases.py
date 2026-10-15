@@ -72,6 +72,9 @@ from composer_core.example_database import job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
+# The folder the corpus's Saved tables go in. The tests that make them on a real Spark make
+# them in pytest's own folder instead.
+BASE = "/data/your_team/tables"
 
 # --- Table references of the edge cases ---------------------------------------------------
 
@@ -79,6 +82,7 @@ odd = Table(
     "ops.order",
     columns={"select": "string", "1st": "bigint", "two words": "string", "dt": "string"},
     date_partition="dt",
+    location=BASE,
 )
 """A table whose name and columns all need backticks: a reserved word, a digit first, a space."""
 
@@ -86,6 +90,7 @@ spark_words = Table(
     "ops.semi",
     columns={"any": "string", "minus": "bigint", "current_user": "string", "dt": "string"},
     date_partition="dt",
+    location=BASE,
 )
 """A table whose name and columns are words Spark reserves and Hive doesn't."""
 
@@ -95,6 +100,7 @@ compact = Table(
     date_partition="day",
     date_format="%Y%m%d",
     key=["run_id"],
+    location=BASE,
 )
 """A Date partition written as 20260924."""
 
@@ -103,6 +109,7 @@ events = Table(
     columns={"event_id": "bigint", "at": "timestamp", "is_active": "boolean", "dt": "string"},
     date_partition="dt",
     key=["event_id"],
+    location=BASE,
 )
 """A timestamp column and a boolean one."""
 
@@ -111,8 +118,18 @@ daily_runs = Table(
     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
     date_partition="dt",
     key=["job_id"],
+    location=BASE,
 )
 """A Saved table, for the writes."""
+
+region_runs = Table(
+    "mart.region_runs",
+    columns={"job_id": "bigint", "region": "string", "runs": "bigint", "dt": "string"},
+    date_partition="dt",
+    location=BASE,
+    partitioned_by=["region"],
+)
+"""A Saved table with a Partition inside each day, filled from the rows of each write."""
 
 TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "real",
          "double precision", "decimal", "decimal(10,2)", "decimal(10, 2)", "numeric(5,1)",
@@ -122,7 +139,7 @@ TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "
 
 
 EDGE_TABLES = {"odd": odd, "spark_words": spark_words, "compact": compact, "events": events,
-               "daily_runs": daily_runs}
+               "daily_runs": daily_runs, "region_runs": region_runs}
 
 
 def edge_tables() -> list:
@@ -187,7 +204,8 @@ def _width_cases() -> list:
         is_in(job_runs.status, [f"{v}{n}" for n in range(5)])]), "x" * 20)))
     wide = "struct<" + ",".join(f"field_{n}:string" for n in range(8)) + ">"
     found.append(("edge:width:struct", lambda: [create_table(Table(
-        "mart.typed", columns={"c": wide, "dt": "string"}, date_partition="dt"))]))
+        "mart.typed", columns={"c": wide, "dt": "string"}, date_partition="dt",
+        location=BASE))]))
     return found
 
 
@@ -396,14 +414,62 @@ def _structure_cases() -> dict:
         found[f"drop_table:{name}"] = lambda t=t: [drop_table(t)]
     for kind in TYPES:
         found[f"create_table:{kind}"] = lambda kind=kind: [create_table(Table(
-            "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt"))]
+            "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt",
+            location=BASE))]
     found["create_table:may_exist"] = lambda: [create_table(daily_runs, may_exist=True)]
     found["create_table:untyped"] = lambda: [create_table(Table(
-        "mart.typed", columns={"c": None, "dt": "string"}, date_partition="dt"))]
+        "mart.typed", columns={"c": None, "dt": "string"}, date_partition="dt",
+        location=BASE))]
     found["create_table:no_date_partition"] = lambda: [create_table(Table(
-        "mart.typed", columns={"c": "bigint"}, date_partition=None))]
+        "mart.typed", columns={"c": "bigint"}, date_partition=None, location=BASE))]
     for name, t in EDGE_TABLES.items():
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
+    found.update(_storage_cases())
+    return found
+
+
+def _stored(location=BASE, **storage):
+    """create_table for a Saved table of three columns, stored as `storage` says."""
+    return lambda: [create_table(Table(
+        "mart.stored", columns={"job_id": "bigint", "region": "string", "runs": "bigint",
+                                "dt": "string"},
+        date_partition="dt", location=location, **storage))]
+
+
+def _storage_cases() -> dict:
+    """A Saved table's storage, each option on its own and all together, and the writes into
+    a table with a Partition inside each day."""
+    found = {
+        "storage:no_location": lambda: [create_table(Table(
+            "mart.stored", columns={"runs": "bigint"}, date_partition=None))],
+        "storage:location_with_a_scheme": _stored(location="hdfs:///data/your_team/tables/"),
+        "storage:purge": _stored(purge=True),
+        "storage:no_purge": _stored(purge=False),
+        "storage:properties": _stored(properties={"made_by": "it's daily", "team": "data"}),
+        "storage:parquet": _stored(stored_as="PARQUET"),
+        "storage:orc_compression": _stored(compression="ZLIB"),
+        "storage:parquet_compression": _stored(stored_as="parquet", compression="gzip"),
+        "storage:partitioned_by": _stored(partitioned_by=["region"]),
+        "storage:buckets": _stored(bucketed_by=["job_id"], buckets=16),
+        "storage:sorted_buckets": _stored(bucketed_by=["job_id", "region"], buckets=4,
+                                          sorted_by=["region", "job_id"]),
+        "storage:all": _stored(purge=True, properties={"made_by": "runs"}, stored_as="PARQUET",
+                               compression="SNAPPY", partitioned_by=["region"],
+                               bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"]),
+        "storage:odd_names_in_buckets": lambda: [create_table(Table(
+            "ops.order_buckets", columns={"select": "string", "two words": "bigint",
+                                          "dt": "string"},
+            date_partition="dt", location=BASE, partitioned_by=["select"],
+            bucketed_by=["two words"], buckets=2, sorted_by=["two words"]))],
+    }
+    for clause in (INSERT_OVERWRITE, INSERT_INTO):
+        found[f"write:partitioned_by:{clause.__name__}"] = lambda clause=clause: [statement(
+            clause(region_runs), SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+            FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+            WHERE(one_day()), GROUP_BY(job_runs.job_id, jobs.region))]
+    found["write:partitioned_by:leaves_out_the_partition"] = lambda: [statement(
+        INSERT_OVERWRITE(region_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs), WHERE(one_day()), GROUP_BY(job_runs.job_id))]
     return found
 
 

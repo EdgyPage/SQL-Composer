@@ -32,8 +32,8 @@ LAST_DAY = "2026-09-24"  # the Example database's last day, which preview reads 
 def create():
     """Step 1: create mart.job_day_costs from its Table reference, if it isn't there yet.
 
-    may_exist=True writes CREATE TABLE IF NOT EXISTS, so running every step from the top each
-    day skips this one once the table is there. It never changes a table that is.
+    may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so running every step from the
+    top each day skips this one once the table is there. It never changes a table that is.
     """
     return create_table(job_day_costs, may_exist=True)
 

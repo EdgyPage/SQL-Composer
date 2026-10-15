@@ -63,7 +63,8 @@ job_runs = example_database.job_runs
 jobs = example_database.jobs
 
 daily_runs = Table("mart.daily_runs", date_partition="dt",
-                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                   location="/data/your_team/tables")
 
 
 def runs_per_team():

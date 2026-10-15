@@ -4,6 +4,18 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 5.0
 
+### To update from 4.x
+
+- **Give each of your Saved tables' Table references a `location=`**, the folder your Saved
+  tables go in, such as `location="/data/your_team/tables"`. create_table now refuses a Table
+  reference without one, and writes `CREATE EXTERNAL TABLE ... LOCATION '<folder>/<database>/<table>'`:
+  every Saved table is an external table in a folder of its own, which the Toolbox adds to
+  `location=`. A table you only read needs none. A table create_table made before 5.0 is a
+  managed table, in a folder the warehouse chose, and a table made by hand may share a folder
+  with another: check_table_reference(t, send=...) now reports both, and 5.0's
+  admin.move_to_own_folder(t, send=...) copies such a table's days into one create_table
+  makes at its own folder. Until it is moved, writing it works as in 4.x.
+
 ### New
 
 - **Session settings: `hive_settings("name")` gives the `SET` lines of a named set**, for
@@ -25,6 +37,27 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and call
   `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
 - The Example database answers a `SET` line, as Spark does, with the setting and its value.
+- **A Saved table's Table reference says how it is stored**, and create_table writes it:
+  `purge=True` (dropping it deletes its files too), `properties={...}` (other table
+  properties), `stored_as="ORC"` or `"PARQUET"`, `compression=`, `partitioned_by=[...]`
+  (Partitions inside each day, filled from each write's rows), and `bucketed_by=[...]` with
+  `buckets=` and `sorted_by=[...]` (Buckets, for big tables joined on those columns).
+  help(Table) lists them, and the how-to "Choose how a Saved table is stored" walks through
+  them, and why there are no indexes.
+- **check_table_reference compares a Saved table's storage** with what DESCRIBE FORMATTED
+  says: that it is external, its folder, purge, its file format and compression, its
+  properties, its Partitions and its Buckets, each difference with the line to change.
+- **show_hive prints the Session setting a write needs first**: a write into a table with
+  `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
+  partitioning, so its SET lines are printed ahead of it. run sends the write alone: send
+  each SET line through your own send first, as help(INSERT_OVERWRITE) shows.
+
+### Refused now
+
+- create_table refuses a Table reference with no `location=`.
+- Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
+  a whole folder or already ends with the table's own folder, two Saved tables whose folders
+  are one or sit one inside the other, and any option create_table couldn't write.
 
 ## 4.1
 
