@@ -401,7 +401,52 @@ def _structure_cases() -> dict:
         "mart.typed", columns={"c": "bigint"}, date_partition=None))]
     for name, t in EDGE_TABLES.items():
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
-    return found
+    found["create_table:key_with_the_day"] = lambda: [create_table(runs_per_job_day)]
+    return {**found, **_key_cases()}
+
+
+runs_per_job_day = Table(
+    "mart.runs_per_job_day",
+    columns={"job_id": "bigint", "run_id": "bigint", "team": "string", "dt": "string"},
+    date_partition="dt",
+    key=["job_id", "dt"],
+)
+"""A Saved table whose Key holds its Date partition, for the Key's writes."""
+
+
+def _key_cases() -> dict:
+    """A write into a Saved table with a Key: each way the Key is shown, and the refusal."""
+    def newest_per_job(**opt_out):
+        numbered = derived("numbered", statement(
+            SELECT(job_runs.job_id, job_runs.run_id, AS(row_number(
+                PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)), "newest")),
+            FROM(job_runs), WHERE(one_day())))
+        return statement(INSERT_OVERWRITE(runs_per_job_day, **opt_out),
+                         SELECT(numbered.job_id, numbered.run_id, AS(jobs.team, "team")),
+                         FROM(numbered), JOIN(jobs, ON=equals(jobs.job_id, numbered.job_id)),
+                         WHERE(equals(numbered.newest, 1)))
+
+    def every_run(**opt_out):
+        return statement(INSERT_OVERWRITE(runs_per_job_day, **opt_out),
+                         SELECT(job_runs.job_id, job_runs.run_id, AS(jobs.team, "team")),
+                         FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                         WHERE(one_day()))
+
+    return {
+        "write:key:row_number_kept_at_1_and_a_key_keeping_join": lambda: [newest_per_job()],
+        "write:key:group_by": lambda: [statement(
+            INSERT_INTO(runs_per_job_day),
+            SELECT(job_runs.job_id, AS(max_of(job_runs.run_id), "run_id"), jobs.team),
+            FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+            WHERE(one_day()), GROUP_BY(job_runs.job_id, jobs.team))],
+        "write:key:select_distinct": lambda: [statement(
+            INSERT_OVERWRITE(runs_per_job_day),
+            SELECT_DISTINCT(job_runs.job_id, AS(job_runs.job_id, "run_id"), jobs.team),
+            FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+            WHERE(one_day()))],
+        "write:key:unproven": lambda: [every_run()],
+        "write:key:unproven_key": lambda: [every_run(unproven_key=True)],
+    }
 
 
 def edge_cases() -> list:

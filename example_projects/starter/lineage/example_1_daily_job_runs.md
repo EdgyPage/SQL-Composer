@@ -13,7 +13,7 @@ flowchart LR
     n6["ops.job_runs.duration_mins<br/><small>int</small>"]
   end
   subgraph g1["runs_per_job_day"]
-    n1["runs_per_job_day.job_id<br/><small>job_runs.job_id</small>"]
+    n1["runs_per_job_day.job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
     n3["runs_per_job_day.runs<br/><small>count_rows()</small>"]
     n5["runs_per_job_day.failed_runs<br/><small>count_rows(where=equals(job_runs.status, #quot;F…</small>"]
     n7["runs_per_job_day.minutes<br/><small>sum_of(job_runs.duration_mins)</small>"]
@@ -22,17 +22,17 @@ flowchart LR
     n8{{"WHERE in runs_per_job_day<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
   end
   subgraph g3["write_daily_job_runs"]
-    n9["job_id<br/><small>runs_per_job_day.job_id</small>"]
+    n9["job_id<br/><small>runs_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n10["runs<br/><small>runs_per_job_day.runs</small>"]
     n11["failed_runs<br/><small>runs_per_job_day.failed_runs</small>"]
     n12["minutes<br/><small>runs_per_job_day.minutes</small>"]
   end
   subgraph g4["mart.daily_job_runs"]
-    n13["mart.daily_job_runs.job_id<br/><small>bigint</small>"]
+    n13["mart.daily_job_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n14["mart.daily_job_runs.runs<br/><small>bigint</small>"]
     n15["mart.daily_job_runs.failed_runs<br/><small>bigint</small>"]
     n16["mart.daily_job_runs.minutes<br/><small>bigint</small>"]
-    n17["mart.daily_job_runs.dt<br/><small>string</small>"]
+    n17["mart.daily_job_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n4 --> n5
@@ -108,6 +108,14 @@ One value for each different `job_runs.job_id` and `job_runs.dt`.
 | `runs` | runs_per_job_day.runs (calculated) |
 | `failed_runs` | runs_per_job_day.failed_runs (calculated) ← ops.job_runs.status |
 | `minutes` | runs_per_job_day.minutes (calculated) ← ops.job_runs.duration_mins |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('runs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- write_daily_job_runs: Key (job_id), since runs_per_job_day's rows are told apart by job_id.
+- mart.daily_job_runs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 

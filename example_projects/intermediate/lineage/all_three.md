@@ -7,25 +7,25 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 ```mermaid
 flowchart LR
   subgraph g0["ops.region_costs"]
-    n0["ops.region_costs.job_id<br/><small>bigint</small>"]
-    n2["ops.region_costs.dt<br/><small>string</small>"]
+    n0["ops.region_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.region_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
     n3["ops.region_costs.cost_cents<br/><small>bigint</small>"]
   end
   subgraph g1["costs_per_job_day"]
-    n1["costs_per_job_day.job_id<br/><small>region_costs.job_id</small>"]
+    n1["costs_per_job_day.job_id<br/><small>region_costs.job_id</small><br/><small>in the Key</small>"]
     n4["costs_per_job_day.cost_cents<br/><small>sum_of(region_costs.cost_cents)</small>"]
   end
   subgraph g2["filters on costs_per_job_day"]
     n5{{"WHERE in costs_per_job_day<br/><small>equals(region_costs.dt, datetime.date(2026,…</small>"}}
   end
   subgraph g3["write_job_day_costs"]
-    n6["job_id<br/><small>costs_per_job_day.job_id</small>"]
+    n6["job_id<br/><small>costs_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n7["cost_cents<br/><small>costs_per_job_day.cost_cents</small>"]
   end
   subgraph g4["mart.job_day_costs"]
-    n8["mart.job_day_costs.job_id<br/><small>bigint</small>"]
+    n8["mart.job_day_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n9["mart.job_day_costs.cost_cents<br/><small>bigint</small>"]
-    n10["mart.job_day_costs.dt<br/><small>string</small>"]
+    n10["mart.job_day_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g5["ops.job_events"]
     n11["ops.job_events.job_id<br/><small>bigint</small>"]
@@ -34,7 +34,7 @@ flowchart LR
     n18["ops.job_events.minutes<br/><small>int</small>"]
   end
   subgraph g6["events_per_job_day"]
-    n12["events_per_job_day.job_id<br/><small>job_events.job_id</small>"]
+    n12["events_per_job_day.job_id<br/><small>job_events.job_id</small><br/><small>in the Key</small>"]
     n14["events_per_job_day.dt<br/><small>job_events.dt</small>"]
     n15["events_per_job_day.events<br/><small>count_rows()</small>"]
     n17["events_per_job_day.runs<br/><small>count_rows(where=equals(job_events.event_ty…</small>"]
@@ -44,7 +44,7 @@ flowchart LR
     n20{{"WHERE in events_per_job_day<br/><small>equals(job_events.dt, datetime.date(2026, 9…</small>"}}
   end
   subgraph g8["write_job_day_facts"]
-    n21["job_id<br/><small>events_per_job_day.job_id</small>"]
+    n21["job_id<br/><small>events_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n23["team<br/><small>job_owners.team</small>"]
     n24["events<br/><small>events_per_job_day.events</small>"]
     n25["runs<br/><small>events_per_job_day.runs</small>"]
@@ -52,22 +52,22 @@ flowchart LR
   end
   subgraph g9["ops.job_owners"]
     n22["ops.job_owners.team<br/><small>string</small>"]
-    n28["ops.job_owners.dt<br/><small>string</small>"]
-    n29["ops.job_owners.job_id<br/><small>bigint</small>"]
+    n28["ops.job_owners.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n29["ops.job_owners.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g10["filters on write_job_day_facts"]
     n27{{"LEFT JOIN ON in write_job_day_facts<br/><small>all_of(equals(job_owners.job_id, events_per…</small>"}}
   end
   subgraph g11["mart.job_day_facts"]
-    n30["mart.job_day_facts.job_id<br/><small>bigint</small>"]
+    n30["mart.job_day_facts.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n31["mart.job_day_facts.team<br/><small>string</small>"]
     n32["mart.job_day_facts.events<br/><small>bigint</small>"]
     n33["mart.job_day_facts.runs<br/><small>bigint</small>"]
     n34["mart.job_day_facts.minutes<br/><small>bigint</small>"]
-    n35["mart.job_day_facts.dt<br/><small>string</small>"]
+    n35["mart.job_day_facts.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g12["write_team_days"]
-    n36["team<br/><small>job_day_facts.team</small>"]
+    n36["team<br/><small>job_day_facts.team</small><br/><small>in the Key</small>"]
     n37["events<br/><small>sum_of(job_day_facts.events)</small>"]
     n38["runs<br/><small>sum_of(job_day_facts.runs)</small>"]
     n39["minutes<br/><small>sum_of(job_day_facts.minutes)</small>"]
@@ -78,12 +78,12 @@ flowchart LR
     n42{{"LEFT JOIN ON in write_team_days<br/><small>all_of(equals(job_day_costs.job_id, job_day…</small>"}}
   end
   subgraph g14["mart.team_days"]
-    n43["mart.team_days.team<br/><small>string</small>"]
+    n43["mart.team_days.team<br/><small>string</small><br/><small>in the Key</small>"]
     n44["mart.team_days.events<br/><small>bigint</small>"]
     n45["mart.team_days.runs<br/><small>bigint</small>"]
     n46["mart.team_days.minutes<br/><small>bigint</small>"]
     n47["mart.team_days.cost_cents<br/><small>bigint</small>"]
-    n48["mart.team_days.dt<br/><small>string</small>"]
+    n48["mart.team_days.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n3 --> n4
@@ -165,6 +165,14 @@ One value for each different `region_costs.job_id` and `region_costs.dt`.
 | --- | --- |
 | `job_id` | costs_per_job_day.job_id ← ops.region_costs.job_id |
 | `cost_cents` | costs_per_job_day.cost_cents (calculated) ← ops.region_costs.cost_cents |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('costs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- write_job_day_costs: Key (job_id), since costs_per_job_day's rows are told apart by job_id.
+- mart.job_day_costs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
@@ -248,6 +256,14 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 | `events` | events_per_job_day.events (calculated) |
 | `runs` | events_per_job_day.runs (calculated) ← ops.job_events.event_type |
 | `minutes` | events_per_job_day.minutes (calculated) ← ops.job_events.minutes |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('events_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- write_job_day_facts: Key (job_id), since events_per_job_day's rows are told apart by job_id.
+- mart.job_day_facts' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
@@ -367,6 +383,13 @@ One value for each different `job_day_facts.dt` and `job_day_facts.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | mart.job_day_facts.team ← write_job_day_facts.team ← ops.job_owners.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_team_days: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_days' Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted
 

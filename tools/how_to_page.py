@@ -18,7 +18,7 @@ out like this:
 
     Start a notebook                    <- the title, on line 1
 
-    For: Getting started                <- Getting started (how-tos 1-18) or Intermediate (19-30)
+    For: Getting started                <- Getting started (how-tos 1-18) or Intermediate (19-31)
 
     ## Goal                             <- the six fixed headings, each once, in this order:
     ## When you'd use it                   Goal, When you'd use it, Steps, Check it worked,
@@ -134,9 +134,9 @@ class Group(NamedTuple):
 GROUPS = (
     Group("Getting started", "getting-started", range(1, 19),
           "your first notebooks: from one Statement to a daily pipeline and its Lineage"),
-    Group("Intermediate", "intermediate", range(19, 31),
+    Group("Intermediate", "intermediate", range(19, 32),
           "work over many days and many tables: daily copies, rollups, pipelines of Saved "
-          "tables, quality checks and testing"),
+          "tables and their Keys, quality checks and testing"),
 )
 GROUP_NAMED = {group.name: group for group in GROUPS}
 # What a lineage written on the page says of when, from which commit and with which Toolbox.

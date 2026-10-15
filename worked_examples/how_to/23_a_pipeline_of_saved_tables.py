@@ -55,7 +55,7 @@ Create each once. `show_hive` prints both, ready to paste:
 CREATE TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
-  finishes BIGINT
+  finishes BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -66,7 +66,7 @@ STORED AS ORC;
 CREATE TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   starts BIGINT,
-  finishes BIGINT
+  finishes BIGINT...
 )
 PARTITIONED BY (
   dt STRING

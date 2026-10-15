@@ -271,7 +271,8 @@ KINDS = {
     "CTE": ("this", "alias"),
     "Partition": ("expressions",),
     "Insert": ("derived_tables", "target", "select", "overwrite"),
-    "Create": ("target", "columns", "partitioned_by", "exists"),
+    # key: the Key's column names, written PRIMARY KEY (...) DISABLE NOVALIDATE, or None.
+    "Create": ("target", "columns", "partitioned_by", "exists", "key"),
     "ColumnDef": ("name", "type"),
     "Drop": ("target",),
 }

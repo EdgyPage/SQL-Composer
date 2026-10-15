@@ -52,9 +52,11 @@ shows argument by argument:
 - Write each type as the warehouse's DESCRIBE prints it, such as `"bigint"`, `"int"` or `"string"`.
 - `date_partition="dt"` makes the table stored a day at a time: each write fills one day, and
   every Statement that reads it gives the days it reads.
-- `key=["run_id"]` names the columns that tell one row from another: no two rows of a day share
-  a `"run_id"`. It isn't sent to the warehouse; the Toolbox reads it to warn when a join could
-  repeat rows, as [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
+- `key=["run_id"]` names the table's Key, the columns that tell one row from another: no two
+  rows of a day share a `"run_id"`. The warehouse never checks it, so the Toolbox does: each
+  write below must show that every row it writes has a `"run_id"` of its own, or it is
+  refused, as [Keys](#keys) shows. It also warns when a join could repeat rows, as
+  [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
 
 At work, keep this in its own file, as the gallery's
 [Saved table example](examples.html#saved_table) does, so every Statement that writes or reads
@@ -69,7 +71,7 @@ every Statement, it is built first and sent later:
 >>> text = show_hive(create)
 CREATE TABLE mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -78,6 +80,17 @@ STORED AS ORC;
 
 `PARTITIONED BY (dt STRING)` is the Date partition: the table keeps each day apart.
 `STORED AS ORC` is the file format the warehouse saves it in.
+
+[sqlglot_composer only]
+`PRIMARY KEY (run_id) DISABLE NOVALIDATE` writes the Key into the table, for whoever reads
+it: `DISABLE NOVALIDATE` says Hive keeps it as information only, and never checks it.
+[end]
+[spark_composer only]
+Spark refuses a `PRIMARY KEY` in `CREATE TABLE`, so Spark Composer leaves the Key out of the
+table; sqlglot Composer, whose Hive runs on Hive, writes it as
+`PRIMARY KEY (run_id) DISABLE NOVALIDATE`, which Hive keeps as information only and never
+checks. Either way, the Toolbox checks the Key itself, before each write.
+[end]
 
 You send it once. If the table already exists, the warehouse refuses to create it again, on
 purpose: after you edit the Table reference, sending this again can't quietly look as if it
@@ -88,7 +101,7 @@ instead, which skips the table when it is already there and never changes it:
 >>> text = show_hive(create_if_missing)
 CREATE TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -171,7 +184,12 @@ there. Two new pieces of SQL appear in it:
   [`JOIN`](examples.html#JOIN), and [Join tables safely](#join_tables_safely) for why a join
   can repeat rows.
 - `SELECT_DISTINCT` keeps each different row once: a run that raised two high alerts would
-  otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT).
+  otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT). It is
+  also how the Toolbox sees that each row has a Key of its own: one row for each different
+  `"run_id"` and `"job_id"`, and a run's `"job_id"` is decided by its `"run_id"`, `job_runs`'
+  Key. Without it, the write is refused, as [Keys](#keys) shows. The Toolbox checks only the
+  rows this write adds; here they can't share a `"run_id"` with the day's failed runs, since
+  these runs succeeded.
 
 The day written comes from the table in `FROM`, here `run_alerts.dt`. The joined table needs a
 bound on its days too; here it is the same day.
@@ -273,7 +291,7 @@ DROP TABLE IF EXISTS mart.runs_to_review;
 CREATE TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
-  duration_mins INT
+  duration_mins INT...
 )
 PARTITIONED BY (
   dt STRING
