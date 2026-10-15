@@ -49,6 +49,8 @@ PUBLIC_NAMES = [
     "export_lineage",
     # Toolbox 5.0, ticket 03: Session settings, the Unchecked statement and the Admin log.
     "hive_settings", "unchecked_hive", "set_admin_log",
+    # Toolbox 5.0, ticket 08: upkeep and speed.
+    "repair_partitions", "compute_statistics", "explain",
     "example_database",
 ]
 
@@ -64,8 +66,8 @@ def toolbox_files() -> list[Path]:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 67
-    assert len(set(PUBLIC_NAMES)) == 67
+    assert len(PUBLIC_NAMES) == 70
+    assert len(set(PUBLIC_NAMES)) == 70
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

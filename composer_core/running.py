@@ -203,16 +203,22 @@ def _written_day(s: Statement):
     return days[0]
 
 
-def _write_tree(s: Statement) -> Node:
-    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
-    table = s._write
-    day = day_text(_written_day(s), table._date_format)
-    # The day is named; each Partition after it is filled from the rows, by its column.
-    partition = Node("Partition", expressions=[
+def day_partition(table: Table, day: str) -> Node:
+    """PARTITION(dt = '<day>', region): the day named, written as the table writes its days,
+    then each Partition after it by its column alone, for every value it holds."""
+    return Node("Partition", expressions=[
         Node("EQ", this=Node("Column", name=table._date_partition),
              expression=Node("Literal", this=day, is_string=True)),
         *[Node("Column", name=column) for column in table._partitioned_by],
     ])
+
+
+def _write_tree(s: Statement) -> Node:
+    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT.
+
+    The day is named; each Partition after it is filled from the rows, by its column."""
+    table = s._write
+    partition = day_partition(table, day_text(_written_day(s), table._date_format))
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
 
@@ -325,6 +331,22 @@ class HiveText(str):
 
     def _ipython_display_(self) -> None:
         pass  # show_hive has printed it already
+
+
+class HivePlan(str):
+    """The plan run(explain(s), send=...) gives back, as text. In a notebook it is printed,
+    line by line, rather than shown as one string."""
+
+    def _ipython_display_(self) -> None:
+        print(self)
+
+
+def _plan(result) -> HivePlan:
+    """The plan an EXPLAIN's send gave back, as one text: Hive gives each line of it as a row,
+    and Spark the whole plan in one row, in the DataFrame's only column."""
+    refuse_what_isnt_a_dataframe(result)
+    lines = [str(line) for line in result.iloc[:, 0]] if len(result.columns) else []
+    return HivePlan("\n".join(lines).rstrip())
 
 
 def show_hive(*statements):
@@ -456,6 +478,8 @@ def run(s, send):
     if s._admin_call is not None:
         return logged_run("Admin statement", s._admin_call, text, send)
     result = send(text)
+    if s._ddl is not None and s._ddl.kind == "Explain":
+        return _plan(result)
     # A write has already been carried out when its send returns, so only a read's rows matter.
     if s._ddl is None and s._write is None:
         refuse_what_isnt_a_dataframe(result)
