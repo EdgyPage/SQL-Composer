@@ -77,7 +77,7 @@ otherwise each export gets a new name, from the time it ran:
 
 The Markdown file holds, for each Statement, every calculated column with the table columns it
 comes from and the conditions that decide which rows count, then the copied columns, then the
-Hive, as [Lineage of one Statement](#lineage_of_one_statement) and [Lineage of a pipeline across
+Keys, the columns that tell each step's rows apart, then the Hive, as [Lineage of one Statement](#lineage_of_one_statement) and [Lineage of a pipeline across
 Saved tables](#lineage_of_a_pipeline_across_saved_tables) show. Open the HTML page in your
 browser to see the same drawn.
 
