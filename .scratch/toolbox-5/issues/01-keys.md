@@ -88,7 +88,8 @@ moved out of its bullet. Left: check_key's lowercase "key" (as above), create_ta
 without a key (its Hive would differ between the Editions' doctests), and the `...` in the
 how-tos' sources, which the pages replace with the real Hive.
 
-**Open question for the user.** The map's Notes say each Edition writes the same Hive; Spark
+**Asked of the user, and answered (2026-10-15): keep it as built** (the map's Decisions). The
+question was: the map's Notes say each Edition writes the same Hive; Spark
 refuses `PRIMARY KEY` in `CREATE TABLE`, so as built Spark Composer leaves the Key out of the
 table (its users whose send runs on Spark would otherwise have create_table fail, and the CI
 tests that create tables on Spark would fail). If your Spark Composer Hive goes to the Hive 3
