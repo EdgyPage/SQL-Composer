@@ -117,15 +117,12 @@ GROUP BY
 
 The region in PARTITION(...) has no value: the warehouse takes each row's region from the
 SELECT's last column. Doing so is Hive's dynamic partitioning, which a Session setting switches
-on, so `show_hive` prints its two SET lines first. `run` sends the write alone: send each SET
-line through your own send, without its ;, before the first such write. The warehouse keeps
-them for as long as your send's connection lasts, and sending them again does no harm. A
-function of your send does it, called before the day's writes at work; here no warehouse is
-there to send to, so it isn't called:
+on, so `show_hive` prints its two SET lines first. `run` sends the write alone: send the
+Session setting first, with `hive_settings`, before the first such write. The warehouse keeps
+it for as long as your send's connection lasts, and sending it again does no harm. Here it
+goes to the Example database, and `run` gives back nothing for it:
 
->>> def send_dynamic_partitions(send):
-...     send("SET hive.exec.dynamic.partition=true")
-...     send("SET hive.exec.dynamic.partition.mode=nonstrict")
+>>> run(hive_settings("dynamic_partitions"), send=example_database.send)
 
 The day is written the Saved table's way, 2026-09-21, though the table it reads writes it
 20260921.

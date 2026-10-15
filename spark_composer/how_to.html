@@ -7766,10 +7766,8 @@ WHERE
 GROUP BY
   region_costs.job_id,
   region_costs.region;</pre>
-<p>The region in PARTITION(...) has no value: the warehouse takes each row&#x27;s region from the SELECT&#x27;s last column. Doing so is Hive&#x27;s dynamic partitioning, which a Session setting switches on, so <code>show_hive</code> prints its two SET lines first. <code>run</code> sends the write alone: send each SET line through your own send, without its ;, before the first such write. The warehouse keeps them for as long as your send&#x27;s connection lasts, and sending them again does no harm. A function of your send does it, called before the day&#x27;s writes at work; here no warehouse is there to send to, so it isn&#x27;t called:</p>
-<pre class="python">def send_dynamic_partitions(send):
-    send(&quot;SET hive.exec.dynamic.partition=true&quot;)
-    send(&quot;SET hive.exec.dynamic.partition.mode=nonstrict&quot;)</pre>
+<p>The region in PARTITION(...) has no value: the warehouse takes each row&#x27;s region from the SELECT&#x27;s last column. Doing so is Hive&#x27;s dynamic partitioning, which a Session setting switches on, so <code>show_hive</code> prints its two SET lines first. <code>run</code> sends the write alone: send the Session setting first, with <code>hive_settings</code>, before the first such write. The warehouse keeps it for as long as your send&#x27;s connection lasts, and sending it again does no harm. Here it goes to the Example database, and <code>run</code> gives back nothing for it:</p>
+<pre class="python">run(hive_settings(&quot;dynamic_partitions&quot;), send=example_database.send)</pre>
 <p>The day is written the Saved table&#x27;s way, 2026-09-21, though the table it reads writes it 20260921.</p>
 <p>INSERT OVERWRITE replaces only the regions its rows hold: a region with no rows that day keeps whatever it held before. So if a region drops out of the table you read, its old rows for the day stay in the Saved table until you drop that day.</p>
 <h5>Add Buckets only to a big table</h5>
@@ -7873,7 +7871,7 @@ Problems:
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h4>Next</h4>
 <ul><li>Create a Saved table, write its days and rebuild it: <a href="#save_a_table">Save a table</a>.</li><li>Check a Table reference against its table again after the table changes: <a href="#keep_a_table_reference_true_over_time">Keep a Table reference true over time</a>.</li><li>Read a table split by region before its days: <a href="#a_day_written_another_way">A day written another way, and a second partition</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> entry, and <code>help(Table)</code>.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>sum_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>sum_of</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>hive_settings</code>, <code>example_database</code></p>
 </section>
 </main>
 <script>
