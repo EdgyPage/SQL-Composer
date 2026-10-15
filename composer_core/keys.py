@@ -12,8 +12,8 @@ out from how it makes its rows:
 - a row_number(...) gives a second Key: its PARTITION_BY columns and the number.
 
 A column WHERE holds to one value, such as the day a write writes or a row number kept at 1,
-is left out of a Key, and so is one the rest of the Key decides, as run_id, job_runs' Key,
-decides a run's job_id.
+is left out of a Key. So is a column the rest of the Key decides: a run's run_id, job_runs'
+Key, decides its job_id, so a Key of run_id and job_id needs only run_id.
 
 statement(...) refuses a write into a Saved table whose Key it can't find this way, derived(...)
 keeps a Derived table's Keys for the joins that read it, and Lineage shows them.
@@ -261,8 +261,17 @@ def _grouped_keys(s, facts: _Facts) -> Keys:
         if not facts.tree_decided(tree, known):
             return Keys([], f"GROUP_BY groups by {hive_text(tree)}, which SELECT leaves out")
     names = _reduced(entries, facts)
-    return Keys([Found(names, f"GROUP_BY makes one row for each {_listed(names)}",
-                       "not one for each")], None)
+    held = [name for name, tree in entries if name not in names and _plain(tree) in facts.fixed]
+    held += [tree.name for tree in left_out if _plain(tree) in facts.fixed]
+    why = f"GROUP_BY makes one row for each {_listed(names + held)}{_held(held)}"
+    return Keys([Found(names, why, "not one for each")], None)
+
+
+def _held(columns: list[str]) -> str:
+    """What a reason adds for the columns of a Key held to one value, as the day written is."""
+    if not columns:
+        return ""
+    return f", with {_listed(columns)} held to one value"
 
 
 def _keeps(read, facts: _Facts) -> str | None:
@@ -300,18 +309,28 @@ def _row_keys(s, facts: _Facts) -> Keys:
     found, lost = [], None
     for key in facts.keys(first):
         columns = [(first._alias, column) for column in key]
-        names, missing = _named(columns + added, [], facts)
+        names, missing = _named(_less_decided(columns + added, facts), [], facts)
+        told_apart = f"{possessive(first._alias)} rows are told apart by {_listed(key)}"
         if missing is None:
-            told_apart = [column for column in key if (first._alias, column) not in facts.fixed]
-            why = joins[0] if joins else f"{possessive(first._alias)} rows are told apart by " \
-                + _listed(told_apart)
+            held = [column for column in key if (first._alias, column) in facts.fixed]
+            why = joins[0] if joins else told_apart + _held(held)
             found.append(Found(names, why, "" if joins else "not by"))
         elif lost is None:
             lost = joins[0] if missing in added else (
-                f"SELECT leaves out {missing[0]}.{missing[1]}, which is part of "
-                f"{possessive(first._alias)} Key ({_listed(key)})")
+                f"{told_apart}, and SELECT leaves out {missing[0]}.{missing[1]}")
     found += _row_number_keys(s, facts)
     return Keys(_once(found), None if found else lost)
+
+
+def _less_decided(columns: list, facts: _Facts) -> list:
+    """The columns, each (table alias, column), less each one the others decide, as a joined
+    run's run_id decides the job_id it was joined on."""
+    kept = list(columns)
+    for column in reversed(columns):
+        others = [other for other in kept if other != column]
+        if column in facts.decided(set(others)):
+            kept = others
+    return kept
 
 
 def _row_number_keys(s, facts: _Facts) -> list[Found]:
@@ -357,18 +376,25 @@ def _once(found: list[Found]) -> list[Found]:
 # --- A write's Key ---------------------------------------------------------------------------
 
 
+def wanted_key(table) -> list[str]:
+    """The columns a write into a Saved table must show its rows are one per: its Key, less
+    its Date partition, since a write fills one day."""
+    return [column for column in table._key or [] if column != table._date_partition]
+
+
 def unproven(s) -> str | None:
     """Why the Toolbox can't see that a write's rows each have a Key of their own, or None
     when it can, or when its Saved table declares no Key."""
     table = s._write
     if not table._key:
         return None
-    wanted = [column for column in table._key if column != table._date_partition]
+    wanted = wanted_key(table)
     keys = statement_keys(s, one_day=True)
     if any(set(found.names) <= set(wanted) for found in keys.found):
         return None
     if not keys.found:
-        return keys.lost
+        what = _listed(wanted) if wanted else "the day"
+        return f"{keys.lost}, so nothing makes its rows one for each {what}"
     first = keys.found[0]
     if not first.instead:
         return first.why

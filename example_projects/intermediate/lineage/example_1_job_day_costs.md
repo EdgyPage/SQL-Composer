@@ -71,7 +71,7 @@ One value for each different `region_costs.job_id` and `region_costs.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- derived('costs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- derived('costs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - write_job_day_costs: Key (job_id), since costs_per_job_day's rows are told apart by job_id.
 - mart.job_day_costs' Key (job_id, dt) holds: each row written has its own.
 

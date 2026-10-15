@@ -21,8 +21,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
   never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out.
 - **A Derived table's Key reaches further**: through a join that matches its joined table's
-  whole Key, through a row_number(...) kept at 1, and past a column that another column of
-  the Key decides. JOIN's repeated-rows Warning asks for `many_matches=` less often, and when
+  whole Key, through a row_number(...) kept at 1, and past a column whose value another
+  column already fixes, as a run's run_id fixes its job_id. JOIN's repeated-rows Warning asks for `many_matches=` less often, and when
   a Derived table has no Key it says where its Statement lost one.
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key

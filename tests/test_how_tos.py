@@ -430,8 +430,8 @@ def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path) -> None:
 ... )""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     assert '<p class="label">It builds, with a Warning</p>' in shown
-    assert ("JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its "
-            "key (alert_id).") in page_text(shown)
+    assert ("JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only by "
+            "its Key (alert_id).") in page_text(shown)
 
 
 @pytest.mark.needs_example_database

@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import edition
 from .clauses import Statement, derived_tables
-from .keys import possessive, statement_keys, unproven
+from .keys import possessive, statement_keys, unproven, wanted_key
 from .refusals import (
     GuardRefused,
     LoadRefused,
@@ -209,7 +209,7 @@ def _step_keys(step: Statement):
     table = step._write
     if table is None or not table._key:
         return keys
-    wanted = set(table._key) - {table._date_partition}
+    wanted = set(wanted_key(table))
     return keys._replace(found=sorted(keys.found,
                                       key=lambda found: not set(found.names) <= wanted))
 

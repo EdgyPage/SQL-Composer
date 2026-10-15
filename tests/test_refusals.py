@@ -446,7 +446,7 @@ def test_one_block_read_twice_under_two_names_joins_with_no_warning() -> None:
 def test_a_table_with_no_key_warns_and_says_to_declare_one() -> None:
     no_key = Table("ops.jobs", columns={"job_id": "bigint", "team": "string"},
                    date_partition=None)
-    with pytest.warns(RepeatedRowsWarning, match=r"declares no key.*key=\[\.\.\.\]"):
+    with pytest.warns(RepeatedRowsWarning, match=r"declares no Key.*key=\[\.\.\.\]"):
         JOIN(no_key, ON=equals(no_key.job_id, job_runs.job_id))
 
 

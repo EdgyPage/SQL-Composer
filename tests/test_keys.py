@@ -152,6 +152,20 @@ def test_a_write_of_several_days_keeps_the_day_in_its_key() -> None:
     assert len(writes) == 2
 
 
+def test_a_join_that_repeats_rows_still_shows_the_key_when_its_own_key_decides_the_rest() -> None:
+    """Each job's owner on each of its runs: the join repeats job_owners' rows, one per run,
+    and run_id, job_runs' Key, decides the job_id the two are joined on."""
+    run_owner = Table("mart.run_owner", columns={"run_id": "bigint", "owner": "string",
+                                                 "dt": "string"},
+                      date_partition="dt", key=["run_id", "dt"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        statement(INSERT_OVERWRITE(run_owner), SELECT(job_runs.run_id, job_owners.owner),
+                  FROM(job_owners),
+                  JOIN(job_runs, ON=equals(job_runs.job_id, job_owners.job_id)),
+                  WHERE(equals(job_owners.dt, DAY), on_the_day()))
+
+
 def test_a_table_with_no_key_is_written_as_before() -> None:
     statement(INSERT_INTO(no_key), SELECT(job_runs.job_id, job_runs.status), FROM(job_runs),
               WHERE(on_the_day()))
@@ -183,7 +197,8 @@ def test_a_write_with_no_proof_is_refused_with_its_opt_out(write) -> None:
     name = write.__name__
     assert f"What happened: {name}(per_job) can't show that each row it writes has a Key " \
            "(job_id, dt) of its own" in said
-    assert "SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id)" in said
+    assert ("job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id, so "
+            "nothing makes its rows one for each job_id") in said
     assert "Hive never checks a Key" in said
     assert f"Opt-out: {name}(per_job, unproven_key=True)" in said
 
@@ -233,7 +248,7 @@ def test_a_select_that_leaves_out_part_of_the_key_is_refused() -> None:
     said = refusal(INSERT_OVERWRITE(newest_per_job),
                    SELECT(job_runs.job_id, AS(job_runs.job_id, "run_id")), FROM(job_runs),
                    WHERE(on_the_day()))
-    assert "SELECT leaves out job_runs.run_id, which is part of job_runs' Key (run_id)" in said
+    assert "job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id" in said
 
 
 def test_unproven_key_must_be_true_or_false() -> None:

@@ -404,14 +404,14 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
         return
     on = ", ".join(matched) or "nothing"
     if key:
-        what = (f"{call}({table}) matches on {on}, but a {table} row is only unique by its "
-                f"key ({', '.join(key)}).")
+        what = (f"{call}({table}) matches on {on}, but a {table} row is told apart only by "
+                f"its Key ({', '.join(key)}).")
     elif derived:
         what = (f"{call}({table}) matches on {on}, but the Derived table {table} has no Key "
                 f"the Toolbox can see, so it can't tell whether one row matches or several: "
                 f"{lost}.")
     else:
-        what = (f"{call}({table}) matches on {on}, but {table} declares no key, so the "
+        what = (f"{call}({table}) matches on {on}, but {table} declares no Key, so the "
                 "Toolbox can't tell whether one row matches or several. Declare key=[...] "
                 "in its Table reference.")
     fix = f"Group {table} first so it has one row per value you join on, and join that."

@@ -1258,7 +1258,7 @@ def alerts_per_run(first_day, last_day):
     )</pre>
 <p class="label">It builds, with a Warning</p>
 <pre class="refusal">RepeatedRowsWarning:
-  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its key (alert_id).
+  What happened:  JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only by its Key (alert_id).
   Why it matters: Each row before the join is repeated once per matching run_alerts row, so sums and counts over it may come out too big.
   Usual fix:      Group run_alerts first so it has one row per value you join on, and join that.
   Opt-out:        JOIN(run_alerts, ON=..., many_matches=True)</pre><p class="label">Hive</p><pre class="hive">SELECT
@@ -1812,7 +1812,7 @@ LIMIT 2</pre>
 <h3><code>INSERT_OVERWRITE</code></h3>
 <p class="why">Write the Statement&#x27;s rows into one day of a Saved table, replacing that day.</p>
 <p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
-<p>When the Saved table&#x27;s Table reference declares a Key, the write is refused unless the Toolbox can see that each row it writes has a Key of its own, since Hive never checks one: a GROUP_BY over the Key&#x27;s columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each Key in a Derived table, or reading a table by its own Key, each join matching its joined table&#x27;s whole Key. The day written is one value, so a Key that holds the Date partition needs only its other columns. unproven_key=True writes it anyway, for rows that are unique for a reason the Toolbox can&#x27;t see. Below, GROUP_BY makes one row for each job_id.</p>
+<p>When the Saved table&#x27;s Table reference declares a Key, the write is refused unless the Toolbox can see that each row it writes has a Key of its own, since Hive never checks one: a GROUP_BY over the Key&#x27;s columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each Key in a Derived table, or reading a table by its own Key, each join matching its joined table&#x27;s whole Key. The day written is one value, so a Key that holds the Date partition needs only its other columns. unproven_key=True writes it anyway, for rows that are one per Key for a reason the Toolbox can&#x27;t see. Below, GROUP_BY makes one row for each job_id.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;, key=[&quot;job_id&quot;, &quot;dt&quot;],
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(

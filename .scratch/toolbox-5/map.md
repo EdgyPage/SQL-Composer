@@ -164,6 +164,15 @@ below; this map is the design document, built out ticket by ticket.
 
 ## Decisions so far
 
+- 01 Keys (resolved): `composer_core/keys.py` works out a Statement's Keys (GROUP_BY,
+  SELECT_DISTINCT, totals, the FROM table's Key kept by whole-Key joins, row_number; columns
+  held to one value or decided by others left out; a write's day is one value); writes refuse
+  an unproven Key, opt-out `unproven_key=True`; Lineage marks "in the Key" and lists each
+  step's Keys. create_table writes `PRIMARY KEY (...) DISABLE NOVALIDATE` in sqlglot Composer
+  only, since Spark refuses it (the `primary_key` row of DECLARED_DIFFERENCES): open for the
+  user, in the ticket's Answer. INSERT_INTO is checked on the rows it adds. Ticket 05's joins
+  and 06's windows extend `keys.py` (`_keeps`, `_row_number_keys`).
+
 ## Not yet specified
 
 - Which Edition the user runs at work, which only decides whose Example database limits the
