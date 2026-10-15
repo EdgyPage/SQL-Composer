@@ -11,6 +11,8 @@ Spark Composer, the two must match, apart from:
   `NVL(job_runs.status, 'none')` where sqlglot Composer writes
   `COALESCE(job_runs.status, 'none')`: a how-to that shows a Declared difference shows that
   row's example;
+- in sqlglot Composer's Hive, what a row's `sqlglot_composer_only` says only it writes, such
+  as a Saved table's PRIMARY KEY (...) DISABLE NOVALIDATE;
 - a result sqlglot Composer's page computes in pandas, labelled so, where its Example database
   can't run the Statement: Spark Composer's page shows the same result from its Example
   database.
@@ -38,7 +40,13 @@ WHY_NOTES = [f'<p class="note">{inline(row.why)}</p>'
 # Each row that adds nothing, as (what Spark Composer's Hive shows, what sqlglot Composer's
 # does), each as the page holds it.
 EXAMPLES = [(escape(row.spark_composer), escape(row.sqlglot_composer))
-            for row in editions.DECLARED_DIFFERENCES.values() if not row.spark_composer_adds]
+            for row in editions.DECLARED_DIFFERENCES.values()
+            if not row.spark_composer_adds and row.sqlglot_composer_only is None]
+# What only sqlglot Composer writes, where Spark Composer writes nothing in its place, such as
+# the primary_key row's PRIMARY KEY (...) DISABLE NOVALIDATE.
+SQLGLOT_COMPOSER_ONLY = [re.compile(row.sqlglot_composer_only)
+                         for row in editions.DECLARED_DIFFERENCES.values()
+                         if row.sqlglot_composer_only is not None]
 # How each page labels a result: sqlglot Composer's computed in pandas, and Spark Composer's
 # from its Example database.
 IN_PANDAS, ON_THE_EXAMPLE_DATABASE = (label(f"Result, {PANDAS_LABEL}"),
@@ -90,6 +98,8 @@ def test_a_how_to_shows_the_same_on_both_pages(slug: str) -> None:
         if position % 2 == 0:
             assert spark_piece == sql_piece, "The two pages differ outside the Hive"
         else:
+            for only in SQLGLOT_COMPOSER_ONLY:
+                sql_piece = only.sub("", sql_piece)
             assert _as_sqlglot_composer_writes_it(spark_piece) == sql_piece, (
                 "A block of Hive differs, beyond what Spark Composer adds to it and the "
                 "examples of the Declared differences")

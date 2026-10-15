@@ -512,7 +512,8 @@ runs_to_review = Table(
     &quot;&quot;&quot;
     return create_table(runs_to_review)</pre><p class="label">Hive</p><pre class="hive">CREATE TABLE mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
 )
 PARTITIONED BY (
   dt STRING
@@ -525,7 +526,8 @@ STORED AS ORC</pre><p class="note">No result here. The Example database only ans
     &quot;&quot;&quot;
     return create_table(runs_to_review, may_exist=True)</pre><p class="label">Hive</p><pre class="hive">CREATE TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
 )
 PARTITIONED BY (
   dt STRING
@@ -633,7 +635,8 @@ WHERE
     &quot;&quot;&quot;
     return [drop_table(runs_to_review), create_table(runs_to_review)]</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">DROP TABLE IF EXISTS mart.runs_to_review</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can&#x27;t be written to.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">CREATE TABLE mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
 )
 PARTITIONED BY (
   dt STRING
@@ -1327,7 +1330,7 @@ WHERE
 <h3><code>Table</code></h3>
 <p class="why">A Table reference: a table&#x27;s columns, the day column it&#x27;s split by, and its key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
-<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row. JOIN warns when a join doesn&#x27;t use all of them.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
+<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row, the table&#x27;s Key. JOIN warns when a join doesn&#x27;t use all of them; a write into a Saved table with a Key is refused unless the Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says how); and create_table writes it into the table. Hive never checks it.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
@@ -1396,7 +1399,7 @@ LIMIT 20</pre>
 <section class="entry" id="check_key">
 <h3><code>check_key</code></h3>
 <p class="why">Check on the newest day that no two rows share the Table reference&#x27;s key.</p>
-<p>JOIN relies on a declared key to warn about repeated rows, and the warehouse never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
+<p>JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table to check its rows, and the warehouse never enforces one. This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows with no day), and shows at most 20 keys that repeat.</p>
 <pre class="python">check_key(job_runs, send=example_database.send)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
@@ -1434,6 +1437,7 @@ Notes:
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE TABLE Statement for a Saved table, one your Statements write into.</p>
 <p>Send it once with run(create_table(t), send=...). Every column needs a type Hive and Spark both have, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...), or, to start the table again, drop it with drop_table(t), which deletes every day it holds. may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.</p>
+<p>A Table reference with a Key, such as key=[&quot;job_id&quot;, &quot;dt&quot;], gets PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever reads the table and never checks. Spark refuses a PRIMARY KEY, so one Edition leaves it out: the README&#x27;s list of where the two Editions&#x27; Hive differs says which. Either way the Toolbox checks the Key itself, before each write.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(create_table(daily_runs)))</pre>
@@ -1580,7 +1584,7 @@ WHERE
 <section class="entry" id="JOIN">
 <h3><code>JOIN</code></h3>
 <p class="why">Add a second table&#x27;s columns to the rows its ON= condition matches.</p>
-<p>When ON= doesn&#x27;t pin down the joined table&#x27;s whole key, one row can match several, and sums over them come out too big. The Statement is still built, with a warning at your JOIN line; many_matches=True says you mean it and silences it.</p>
+<p>When ON= doesn&#x27;t pin down the joined table&#x27;s whole Key, one row can match several, and sums over them come out too big. The Statement is still built, with a warning at your JOIN line; many_matches=True says you mean it and silences it.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id, jobs.team),
     FROM(job_runs),
@@ -1807,7 +1811,8 @@ LIMIT 2</pre>
 <h3><code>INSERT_OVERWRITE</code></h3>
 <p class="why">Write the Statement&#x27;s rows into one day of a Saved table, replacing that day.</p>
 <p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
-<pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
+<p>When the Saved table&#x27;s Table reference declares a Key, the write is refused unless the Toolbox can see that each row it writes has a Key of its own, since Hive never checks one: a GROUP_BY over the Key&#x27;s columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each Key in a Derived table, or reading a table by its own Key, each join matching its joined table&#x27;s whole Key. The day written is one value, so a Key that holds the Date partition needs only its other columns. unproven_key=True writes it anyway, for rows that are unique for a reason the Toolbox can&#x27;t see. Below, GROUP_BY makes one row for each job_id.</p>
+<pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;, key=[&quot;job_id&quot;, &quot;dt&quot;],
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(
     INSERT_OVERWRITE(daily_runs),
@@ -1834,9 +1839,9 @@ GROUP BY
 <section class="entry" id="INSERT_INTO">
 <h3><code>INSERT_INTO</code></h3>
 <p class="why">Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.</p>
-<p>It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the Statement reads, and its columns are matched by name. The difference is what happens to the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and adds more. Use it when a day&#x27;s rows come from more than one table: send INSERT_OVERWRITE for the day first, from the first table, then INSERT_INTO from each other table. Sending the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its INSERT_OVERWRITE. Below, a day of failed runs gets the runs with a high alert added.</p>
+<p>It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the Statement reads, and its columns are matched by name. The difference is what happens to the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and adds more. Use it when a day&#x27;s rows come from more than one table: send INSERT_OVERWRITE for the day first, from the first table, then INSERT_INTO from each other table. Sending the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its INSERT_OVERWRITE. A Saved table&#x27;s Key is checked as INSERT_OVERWRITE checks it, on the rows this write adds: rows the day holds already may share a Key with them, which check_key(t, send=...) finds once the day is written. Below, a day of failed runs gets the runs with a high alert added, each run once, by its Key, run_id.</p>
 <pre class="python">run_alerts = example_database.run_alerts</pre>
-<pre class="python">runs_to_review = Table(&quot;mart.runs_to_review&quot;, date_partition=&quot;dt&quot;,
+<pre class="python">runs_to_review = Table(&quot;mart.runs_to_review&quot;, date_partition=&quot;dt&quot;, key=[&quot;run_id&quot;],
     columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
 <pre class="python">print(to_hive(statement(
     INSERT_INTO(runs_to_review),
@@ -1888,7 +1893,7 @@ WHERE
 <section class="entry" id="derived">
 <h3><code>derived</code></h3>
 <p class="why">Name a Statement so another Statement can read it like a table.</p>
-<p>You then use its output columns like a Table reference&#x27;s, as runs_per_job.runs, and a typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH runs_per_job AS (...). The warehouse usually works it out again each time the Statement reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY columns.</p>
+<p>You then use its output columns like a Table reference&#x27;s, as runs_per_job.runs, and a typo in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH runs_per_job AS (...). The warehouse usually works it out again each time the Statement reads it, so if it gets slow, write it to a Saved table instead. Its Key, which a JOIN on it checks ON= against, is worked out from how it makes its rows: its GROUP_BY columns, every column of a SELECT_DISTINCT, none for a SELECT of only totals (one row), or the Key of the table in its FROM, carried through each join that matches its table&#x27;s whole Key, and through a row_number(...) kept at 1.</p>
 <pre class="python">runs_per_job = derived(&quot;runs_per_job&quot;, statement(
     SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),

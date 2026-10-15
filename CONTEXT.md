@@ -62,7 +62,8 @@ _Avoid_: table config, schema file, declaration, model, standard query
 **Key**:
 The columns whose values name exactly one row of a table on one day: the table's primary key,
 declared on its Table reference. The warehouse never checks it; the Toolbox does, before writing
-a Saved table and when joining, and Lineage shows where an output keeps or loses it.
+a Saved table and when joining, and Lineage shows where an output keeps or loses it. A Derived
+table's Key is worked out from how its Statement makes its rows.
 _Avoid_: unique key, id, partition key
 
 **Building block**:

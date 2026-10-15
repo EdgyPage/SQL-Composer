@@ -62,7 +62,8 @@ EXPORTED = (SQLGLOT_COMPOSER, SPARK_COMPOSER)
 CORE = "composer_core"
 CORE_PRODUCT = "Composer core"
 CORE_FILES = ("__init__.py", "calculations.py", "checks.py", "clauses.py", "conditions.py",
-              "edition.py", "example_database.py", "lineage.py", "public.py", "refusals.py",
+              "edition.py", "example_database.py", "keys.py", "lineage.py", "public.py",
+              "refusals.py",
               "running.py", "tables.py", "trees.py", "CHANGES.md")
 EDITION_FILES = ("__init__.py", "writing.py", "engine.py")
 # The functions each Edition file offers the shared files, and the dev tools and tests
@@ -103,7 +104,10 @@ class Difference:
     its readable_text leaves out. tests/repo/test_edition_parity.py holds that the two goldens
     differ in no other case, that each listed case really differs, and that with what Spark
     Composer adds left out, a case differs only if a row that adds nothing lists it. `title`
-    names what differs, for the README's list.
+    names what differs, for the README's list. `sqlglot_composer_only` is a pattern of text
+    only sqlglot Composer writes, for a row where Spark Composer writes nothing in its place:
+    tests/repo/test_how_to_parity.py takes it out of sqlglot Composer's Hive, where the other
+    rows swap in their examples.
     """
 
     title: str
@@ -112,6 +116,7 @@ class Difference:
     spark_composer: str
     cases: tuple[str, ...]
     spark_composer_adds: bool = False
+    sqlglot_composer_only: str | None = None
 
 
 # Each place the two Editions differ on purpose.
@@ -158,6 +163,20 @@ DECLARED_DIFFERENCES = {
         cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
                "edge:hive_function:regexp_extract", "edge:hive_function:date_format",
                "edge:hive_function:substr", "edge:hive_function:instr"),
+    ),
+    "primary_key": Difference(
+        title="A Saved table's Key in CREATE TABLE.",
+        why="sqlglot Composer's create_table writes a Table reference's Key into the table as "
+        "PRIMARY KEY (...) DISABLE NOVALIDATE, which Hive keeps for whoever reads the table and "
+        "never checks. Spark refuses a PRIMARY KEY in CREATE TABLE, so Spark Composer leaves it "
+        "out. Either way the Toolbox checks the Key itself, before each write.",
+        sqlglot_composer="runs BIGINT,\n  PRIMARY KEY (job_id) DISABLE NOVALIDATE\n)",
+        spark_composer="runs BIGINT\n)",
+        cases=("edge:create_table:daily_runs", "edge:create_table:may_exist",
+               "edge:create_table:compact", "edge:create_table:events",
+               "edge:create_table:key_with_the_day", "worked:saved_table:create",
+               "worked:saved_table:create_if_missing", "worked:saved_table:rebuild"),
+        sqlglot_composer_only=r",\n *PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE",
     ),
 }
 

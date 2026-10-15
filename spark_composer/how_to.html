@@ -78,7 +78,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 </ul>
 </div>
 <div>
-<p><b><a href="#intermediate">Intermediate</a></b>: work over many days and many tables: daily copies, rollups, pipelines of Saved tables, quality checks and testing.</p>
+<p><b><a href="#intermediate">Intermediate</a></b>: work over many days and many tables: daily copies, rollups, pipelines of Saved tables and their Keys, quality checks and testing.</p>
 <ul>
 <li data-for="a_day_written_another_way"><a href="#a_day_written_another_way">19. A day written another way, and a second partition</a></li>
 <li data-for="look_things_up_as_of_a_day"><a href="#look_things_up_as_of_a_day">20. Look things up as of a day</a></li>
@@ -92,6 +92,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <li data-for="finish_in_pandas"><a href="#finish_in_pandas">28. Finish in pandas</a></li>
 <li data-for="review_a_change_with_lineage"><a href="#review_a_change_with_lineage">29. Review a change with Lineage</a></li>
 <li data-for="test_your_own_statements"><a href="#test_your_own_statements">30. Test your own Statements</a></li>
+<li data-for="keys"><a href="#keys">31. Keys, checked before each write</a></li>
 </ul>
 </div>
 </nav>
@@ -2369,7 +2370,7 @@ run_alerts = example_database.run_alerts</pre>
     date_partition=&quot;dt&quot;,
     key=[&quot;run_id&quot;],
 )</pre>
-<ul><li>Name a database you are allowed to write to, here mart; the tables you read, such as <code>ops.job_runs</code>, usually belong to someone else.</li><li>Write each type as the warehouse&#x27;s DESCRIBE prints it, such as <code>&quot;bigint&quot;</code>, <code>&quot;int&quot;</code> or <code>&quot;string&quot;</code>.</li><li><code>date_partition=&quot;dt&quot;</code> makes the table stored a day at a time: each write fills one day, and every Statement that reads it gives the days it reads.</li><li><code>key=[&quot;run_id&quot;]</code> names the columns that tell one row from another: no two rows of a day share a <code>&quot;run_id&quot;</code>. It isn&#x27;t sent to the warehouse; the Toolbox reads it to warn when a join could repeat rows, as <a href="#guards_warnings_and_opt_outs">Guards, Warnings and opt-outs</a> shows.</li></ul>
+<ul><li>Name a database you are allowed to write to, here mart; the tables you read, such as <code>ops.job_runs</code>, usually belong to someone else.</li><li>Write each type as the warehouse&#x27;s DESCRIBE prints it, such as <code>&quot;bigint&quot;</code>, <code>&quot;int&quot;</code> or <code>&quot;string&quot;</code>.</li><li><code>date_partition=&quot;dt&quot;</code> makes the table stored a day at a time: each write fills one day, and every Statement that reads it gives the days it reads.</li><li><code>key=[&quot;run_id&quot;]</code> names the table&#x27;s Key, the columns that tell one row from another: no two rows of a day share a <code>&quot;run_id&quot;</code>. The warehouse never checks it, so the Toolbox does: each write below must show that every row it writes has a <code>&quot;run_id&quot;</code> of its own, or it is refused, as <a href="#keys">Keys</a> shows. It also warns when a join could repeat rows, as <a href="#guards_warnings_and_opt_outs">Guards, Warnings and opt-outs</a> shows.</li></ul>
 <p>At work, keep this in its own file, as the gallery&#x27;s <a href="examples.html#saved_table">Saved table example</a> does, so every Statement that writes or reads the table imports the same reference.</p>
 <h5>Create it</h5>
 <p><code>create_table</code> makes the Statement that creates the table from its Table reference. Like every Statement, it is built first and sent later:</p>
@@ -2384,6 +2385,9 @@ PARTITIONED BY (
 )
 STORED AS ORC;</pre>
 <p><code>PARTITIONED BY (dt STRING)</code> is the Date partition: the table keeps each day apart. <code>STORED AS ORC</code> is the file format the warehouse saves it in.</p>
+<div class="only">
+<p>Spark refuses a <code>PRIMARY KEY</code> in <code>CREATE TABLE</code>, so Spark Composer leaves the Key out of the table; sqlglot Composer, whose Hive runs on Hive, writes it as <code>PRIMARY KEY (run_id) DISABLE NOVALIDATE</code>, which Hive keeps as information only and never checks. Either way, the Toolbox checks the Key itself, before each write.</p>
+</div>
 <p>You send it once. If the table already exists, the warehouse refuses to create it again, on purpose: after you edit the Table reference, sending this again can&#x27;t quietly look as if it changed the real table. In a notebook you run from the top every day, use <code>may_exist=True</code> instead, which skips the table when it is already there and never changes it:</p>
 <pre class="python">create_if_missing = create_table(runs_to_review, may_exist=True)
 text = show_hive(create_if_missing)</pre>
@@ -2438,7 +2442,7 @@ WHERE
 <p>At work, the same <code>run</code>, with your own send in place of <code>example_database.send</code>, writes the day, and gives back whatever your send returns for a write, usually an empty DataFrame. Send <code>create</code> first, once.</p>
 <h5>Add rows to a day with INSERT_INTO</h5>
 <p>The second kind of run to review, one that succeeded but raised a high alert, comes from a second table, <code>ops.run_alerts</code>. <code>INSERT_INTO</code> adds rows to the day and keeps the ones already there. Two new pieces of SQL appear in it:</p>
-<ul><li><code>JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id))</code> pairs each alert with the run whose <code>&quot;run_id&quot;</code> matches, so one row holds columns from both tables. See <a href="examples.html#JOIN"><code>JOIN</code></a>, and <a href="#join_tables_safely">Join tables safely</a> for why a join can repeat rows.</li><li><code>SELECT_DISTINCT</code> keeps each different row once: a run that raised two high alerts would otherwise come out twice. See <a href="examples.html#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>.</li></ul>
+<ul><li><code>JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id))</code> pairs each alert with the run whose <code>&quot;run_id&quot;</code> matches, so one row holds columns from both tables. See <a href="examples.html#JOIN"><code>JOIN</code></a>, and <a href="#join_tables_safely">Join tables safely</a> for why a join can repeat rows.</li><li><code>SELECT_DISTINCT</code> keeps each different row once: a run that raised two high alerts would otherwise come out twice. See <a href="examples.html#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>. It is also how the Toolbox sees that each row has a Key of its own: one row for each different <code>&quot;run_id&quot;</code> and <code>&quot;job_id&quot;</code>, and a run&#x27;s <code>&quot;job_id&quot;</code> is decided by its <code>&quot;run_id&quot;</code>, <code>job_runs</code>&#x27; Key. Without it, the write is refused, as <a href="#keys">Keys</a> shows. The Toolbox checks only the rows this write adds; here they can&#x27;t share a <code>&quot;run_id&quot;</code> with the day&#x27;s failed runs, since these runs succeeded.</li></ul>
 <p>The day written comes from the table in <code>FROM</code>, here <code>run_alerts.dt</code>. The joined table needs a bound on its days too; here it is the same day.</p>
 <pre class="python">def alerted_runs(day):
     return statement(
@@ -3115,10 +3119,10 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 flowchart LR
   subgraph g0[&quot;ops.jobs&quot;]
     n0[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n8[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n8[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;team_runs&quot;]
-    n1[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n1[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n2[&quot;runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
     n4[&quot;failed_runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_runs.status, #quot;F…&lt;/small&gt;&quot;]
   end
@@ -3181,6 +3185,12 @@ One value for each different `jobs.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- team_runs: Key (team), since GROUP_BY makes one row for each team.
 
 ### Hive as submitted
 
@@ -3337,7 +3347,7 @@ GROUP BY
 <pre class="python">html_file, markdown_file = export_lineage(write_daily_job_runs, write_team_day,
                                           to=&quot;lineage/pipeline.html&quot;)</pre>
 <p class="label">It writes lineage/pipeline.md</p>
-<details><summary>Show its 192 lines</summary>
+<details><summary>Show its 206 lines</summary>
 <pre class="file"># Lineage: write_daily_job_runs, write_team_day
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -3352,7 +3362,7 @@ flowchart LR
     n6[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;write_daily_job_runs&quot;]
-    n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&quot;]
+    n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n2[&quot;runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
     n4[&quot;failed_runs&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_runs.status, #quot;F…&lt;/small&gt;&quot;]
   end
@@ -3360,17 +3370,17 @@ flowchart LR
     n5{{&quot;WHERE in write_daily_job_runs&lt;br/&gt;&lt;small&gt;equals(job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
   end
   subgraph g3[&quot;mart.daily_job_runs&quot;]
-    n7[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n7[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n8[&quot;mart.daily_job_runs.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
     n9[&quot;mart.daily_job_runs.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n10[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n10[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g4[&quot;ops.jobs&quot;]
     n11[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n17[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n17[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g5[&quot;write_team_day&quot;]
-    n12[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n12[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n13[&quot;runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.runs)&lt;/small&gt;&quot;]
     n14[&quot;failed_runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.failed_runs)&lt;/small&gt;&quot;]
   end
@@ -3379,10 +3389,10 @@ flowchart LR
     n16{{&quot;JOIN ON in write_team_day&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, daily_job_runs.job_id)&lt;/small&gt;&quot;}}
   end
   subgraph g7[&quot;mart.team_day&quot;]
-    n18[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n18[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n19[&quot;mart.team_day.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
     n20[&quot;mart.team_day.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n21[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n21[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   n0 --&gt; n1
   n3 --&gt; n4
@@ -3448,6 +3458,13 @@ One value for each different `job_runs.job_id`.
 | --- | --- |
 | `job_id` | ops.job_runs.job_id |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- write_daily_job_runs: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -3510,6 +3527,13 @@ One value for each different `jobs.team`.
 | --- | --- |
 | `team` | ops.jobs.team |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- write_team_day: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -3569,28 +3593,28 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 flowchart LR
   subgraph g0[&quot;ops.jobs&quot;]
     n0[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n9[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n9[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;write_team_day&quot;]
-    n1[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n1[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n3[&quot;runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.runs)&lt;/small&gt;&quot;]
     n5[&quot;failed_runs&lt;br/&gt;&lt;small&gt;sum_of(daily_job_runs.failed_runs)&lt;/small&gt;&quot;]
   end
   subgraph g2[&quot;mart.daily_job_runs&quot;]
     n2[&quot;mart.daily_job_runs.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
     n4[&quot;mart.daily_job_runs.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n7[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n10[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n7[&quot;mart.daily_job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n10[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g3[&quot;filters on write_team_day&quot;]
     n6{{&quot;WHERE in write_team_day&lt;br/&gt;&lt;small&gt;equals(daily_job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
     n8{{&quot;JOIN ON in write_team_day&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, daily_job_runs.job_id)&lt;/small&gt;&quot;}}
   end
   subgraph g4[&quot;mart.team_day&quot;]
-    n11[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n11[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n12[&quot;mart.team_day.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
     n13[&quot;mart.team_day.failed_runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n14[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n14[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   n0 --&gt; n1
   n2 --&gt; n3
@@ -3649,6 +3673,13 @@ One value for each different `jobs.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- write_team_day: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
@@ -5366,7 +5397,7 @@ GROUP BY
 <pre class="python">html_file, markdown_file = export_lineage(weekly, team_day_step, job_day_step,
                                           to=&quot;lineage/pipeline.html&quot;)</pre>
 <p class="label">It writes lineage/pipeline.md</p>
-<details><summary>Show its 299 lines</summary>
+<details><summary>Show its 319 lines</summary>
 <pre class="file"># Lineage: job_day_step, team_day_step, weekly
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -5381,7 +5412,7 @@ flowchart LR
     n6[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;job_day_step&quot;]
-    n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n3[&quot;starts&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
     n4[&quot;finishes&lt;br/&gt;&lt;small&gt;count_rows(where=equals(job_events.event_ty…&lt;/small&gt;&quot;]
   end
@@ -5389,18 +5420,18 @@ flowchart LR
     n5{{&quot;WHERE in job_day_step&lt;br/&gt;&lt;small&gt;equals(job_events.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
   end
   subgraph g3[&quot;mart.job_day&quot;]
-    n7[&quot;mart.job_day.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n7[&quot;mart.job_day.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n8[&quot;mart.job_day.starts&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
     n9[&quot;mart.job_day.finishes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n10[&quot;mart.job_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n10[&quot;mart.job_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g4[&quot;ops.job_owners&quot;]
     n11[&quot;ops.job_owners.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n17[&quot;ops.job_owners.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n19[&quot;ops.job_owners.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n17[&quot;ops.job_owners.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n19[&quot;ops.job_owners.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g5[&quot;team_day_step&quot;]
-    n12[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&quot;]
+    n12[&quot;team&lt;br/&gt;&lt;small&gt;job_owners.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n13[&quot;starts&lt;br/&gt;&lt;small&gt;sum_of(job_day.starts)&lt;/small&gt;&quot;]
     n14[&quot;finishes&lt;br/&gt;&lt;small&gt;sum_of(job_day.finishes)&lt;/small&gt;&quot;]
   end
@@ -5410,14 +5441,14 @@ flowchart LR
     n18{{&quot;JOIN ON in team_day_step&lt;br/&gt;&lt;small&gt;all_of(equals(job_owners.job_id, job_day.jo…&lt;/small&gt;&quot;}}
   end
   subgraph g7[&quot;mart.team_day&quot;]
-    n20[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n20[&quot;mart.team_day.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n21[&quot;mart.team_day.starts&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
     n22[&quot;mart.team_day.finishes&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
-    n23[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n23[&quot;mart.team_day.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
   end
   subgraph g8[&quot;weekly&quot;]
-    n24[&quot;week&lt;br/&gt;&lt;small&gt;week_start(team_day.dt)&lt;/small&gt;&quot;]
-    n25[&quot;team&lt;br/&gt;&lt;small&gt;team_day.team&lt;/small&gt;&quot;]
+    n24[&quot;week&lt;br/&gt;&lt;small&gt;week_start(team_day.dt)&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n25[&quot;team&lt;br/&gt;&lt;small&gt;team_day.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n26[&quot;starts&lt;br/&gt;&lt;small&gt;sum_of(team_day.starts)&lt;/small&gt;&quot;]
     n27[&quot;finishes&lt;br/&gt;&lt;small&gt;sum_of(team_day.finishes)&lt;/small&gt;&quot;]
   end
@@ -5499,6 +5530,13 @@ One value for each different `job_events.dt` and `job_events.job_id`.
 | --- | --- |
 | `job_id` | ops.job_events.job_id |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- job_day_step: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.job_day&#x27;s Key (job_id, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -5564,6 +5602,13 @@ One value for each different `job_day.dt` and `job_owners.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | ops.job_owners.team |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- team_day_step: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_day&#x27;s Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
@@ -5646,6 +5691,12 @@ One value for each different `week_start(team_day.dt)` and `team_day.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | mart.team_day.team ← team_day_step.team ← ops.job_owners.team |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- weekly: Key (week, team), since GROUP_BY makes one row for each week, team.
 
 ### Hive as submitted
 
@@ -6275,7 +6326,7 @@ results[&quot;ops.region_costs&quot;]</pre>
 <p><code>export_lineage</code> names each Statement after the variable that holds it. These sit in a dict, in no variable of their own, so it numbers them in the order you passed them: in the file below, statement_1 is <code>ops.job_runs</code>&#x27;s, statement_2 <code>ops.job_events</code>&#x27;s and statement_3 <code>ops.region_costs</code>&#x27;s, and each one&#x27;s Hive, at the end of its part, names its table.</p>
 <pre class="python">html_file, markdown_file = export_lineage(*daily.values(), to=&quot;daily_totals.html&quot;)</pre>
 <p class="label">It writes daily_totals.md</p>
-<details><summary>Show its 205 lines</summary>
+<details><summary>Show its 223 lines</summary>
 <pre class="file"># Lineage: statement_1, statement_2, statement_3
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -6289,7 +6340,7 @@ flowchart LR
     n3[&quot;ops.job_runs.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;statement_1&quot;]
-    n1[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&quot;]
+    n1[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n2[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
     n4[&quot;total_duration_mins&lt;br/&gt;&lt;small&gt;sum_of(job_runs.duration_mins)&lt;/small&gt;&quot;]
   end
@@ -6300,18 +6351,18 @@ flowchart LR
     n6[&quot;ops.job_events.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g4[&quot;statement_2&quot;]
-    n7[&quot;dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&quot;]
+    n7[&quot;dt&lt;br/&gt;&lt;small&gt;job_events.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n8[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
   end
   subgraph g5[&quot;filters on statement_2&quot;]
     n9{{&quot;WHERE in statement_2&lt;br/&gt;&lt;small&gt;between(job_events.dt, datetime.date(2026, …&lt;/small&gt;&quot;}}
   end
   subgraph g6[&quot;ops.region_costs&quot;]
-    n10[&quot;ops.region_costs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n10[&quot;ops.region_costs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n13[&quot;ops.region_costs.cost_cents&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
   end
   subgraph g7[&quot;statement_3&quot;]
-    n11[&quot;dt&lt;br/&gt;&lt;small&gt;region_costs.dt&lt;/small&gt;&quot;]
+    n11[&quot;dt&lt;br/&gt;&lt;small&gt;region_costs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n12[&quot;row_count&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
     n14[&quot;total_cost_cents&lt;br/&gt;&lt;small&gt;sum_of(region_costs.cost_cents)&lt;/small&gt;&quot;]
   end
@@ -6371,6 +6422,12 @@ One value for each different `job_runs.dt`.
 | --- | --- |
 | `dt` | ops.job_runs.dt |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- statement_1: Key (dt), since GROUP_BY makes one row for each dt.
+
 ### Hive as submitted
 
 ```sql
@@ -6410,6 +6467,12 @@ One value for each different `job_events.dt`.
 | Output | Comes from |
 | --- | --- |
 | `dt` | ops.job_events.dt |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- statement_2: Key (dt), since GROUP_BY makes one row for each dt.
 
 ### Hive as submitted
 
@@ -6463,6 +6526,12 @@ One value for each different `region_costs.dt`.
 | Output | Comes from |
 | --- | --- |
 | `dt` | ops.region_costs.dt |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- statement_3: Key (dt), since GROUP_BY makes one row for each dt.
 
 ### Hive as submitted
 
@@ -6952,7 +7021,7 @@ run(minutes_per_team, send=example_database.send)</pre>
 <pre class="python">html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
                                           to=&quot;before.html&quot;)</pre>
 <p class="label">It writes before.md</p>
-<details><summary>Show its 222 lines</summary>
+<details><summary>Show its 236 lines</summary>
 <pre class="file"># Lineage: minutes_per_team, longest_jobs
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -6968,7 +7037,7 @@ flowchart LR
     n7[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;finished_runs in minutes_per_team&quot;]
-    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n3[&quot;finished_runs in minutes_per_team.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
   end
   subgraph g2[&quot;filters on finished_runs in minutes_per_team&quot;]
@@ -6977,18 +7046,18 @@ flowchart LR
   end
   subgraph g3[&quot;ops.jobs&quot;]
     n8[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n18[&quot;ops.jobs.job_name&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g4[&quot;minutes_per_team&quot;]
-    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n10[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(finished_runs.minutes)&lt;/small&gt;&quot;]
   end
   subgraph g5[&quot;filters on minutes_per_team&quot;]
     n11{{&quot;JOIN ON in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
   end
   subgraph g6[&quot;finished_runs in longest_jobs&quot;]
-    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n14[&quot;finished_runs in longest_jobs.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
     n15[&quot;finished_runs in longest_jobs.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
   end
@@ -7076,6 +7145,13 @@ One value for each different `jobs.team`.
 | --- | --- |
 | `team` | ops.jobs.team |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- derived(&#x27;finished_runs&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- minutes_per_team: Key (team), since GROUP_BY makes one row for each team.
+
 ### Hive as submitted
 
 ```sql
@@ -7145,6 +7221,13 @@ One value for each different `job_events.job_id`.
 | `runs` | finished_runs in longest_jobs.runs (calculated) |
 | `minutes` | finished_runs in longest_jobs.minutes (calculated) ← ops.job_events.minutes |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- derived(&#x27;finished_runs&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- longest_jobs: no Key the Toolbox can see, since SELECT leaves out finished_runs.job_id, which is part of finished_runs&#x27; Key (job_id).
+
 ### Hive as submitted
 
 ```sql
@@ -7195,7 +7278,7 @@ minutes_per_team, longest_jobs = build_statements(&quot;2026-09-18&quot;, &quot;
 html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
                                           to=&quot;after.html&quot;)</pre>
 <p class="label">It writes after.md</p>
-<details><summary>Show its 222 lines</summary>
+<details><summary>Show its 236 lines</summary>
 <pre class="file"># Lineage: minutes_per_team, longest_jobs
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -7211,7 +7294,7 @@ flowchart LR
     n7[&quot;ops.job_events.event_type&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g1[&quot;finished_runs in minutes_per_team&quot;]
-    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n1[&quot;finished_runs in minutes_per_team.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n3[&quot;finished_runs in minutes_per_team.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
   end
   subgraph g2[&quot;filters on finished_runs in minutes_per_team&quot;]
@@ -7220,18 +7303,18 @@ flowchart LR
   end
   subgraph g3[&quot;ops.jobs&quot;]
     n8[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
-    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n12[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n18[&quot;ops.jobs.job_name&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
   end
   subgraph g4[&quot;minutes_per_team&quot;]
-    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+    n9[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n10[&quot;minutes&lt;br/&gt;&lt;small&gt;sum_of(finished_runs.minutes)&lt;/small&gt;&quot;]
   end
   subgraph g5[&quot;filters on minutes_per_team&quot;]
     n11{{&quot;JOIN ON in minutes_per_team&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, finished_runs.job_id)&lt;/small&gt;&quot;}}
   end
   subgraph g6[&quot;finished_runs in longest_jobs&quot;]
-    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&quot;]
+    n13[&quot;finished_runs in longest_jobs.job_id&lt;br/&gt;&lt;small&gt;job_events.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n14[&quot;finished_runs in longest_jobs.runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
     n15[&quot;finished_runs in longest_jobs.minutes&lt;br/&gt;&lt;small&gt;sum_of(job_events.minutes)&lt;/small&gt;&quot;]
   end
@@ -7319,6 +7402,13 @@ One value for each different `jobs.team`.
 | --- | --- |
 | `team` | ops.jobs.team |
 
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- derived(&#x27;finished_runs&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- minutes_per_team: Key (team), since GROUP_BY makes one row for each team.
+
 ### Hive as submitted
 
 ```sql
@@ -7387,6 +7477,13 @@ One value for each different `job_events.job_id`.
 | `job_name` | ops.jobs.job_name |
 | `runs` | finished_runs in longest_jobs.runs (calculated) |
 | `minutes` | finished_runs in longest_jobs.minutes (calculated) ← ops.job_events.minutes |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- derived(&#x27;finished_runs&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- longest_jobs: no Key the Toolbox can see, since SELECT leaves out finished_runs.job_id, which is part of finished_runs&#x27; Key (job_id).
 
 ### Hive as submitted
 
@@ -7512,7 +7609,7 @@ html_file, markdown_file = export_lineage(minutes_per_team, longest_jobs,
 after_page = Path(&quot;after.html&quot;).read_text(encoding=&quot;utf-8&quot;).splitlines()
 sorted(len(line) for line in difflib.ndiff(before_page, after_page)
        if line.startswith((&quot;- &quot;, &quot;+ &quot;)))</pre>
-<p class="label">Python shows</p><pre class="output">[52, 52, 73, 73, 88, 89, 662, 663, 671, 702, 703, 711, 888, 928, 5862, 5906]</pre>
+<p class="label">Python shows</p><pre class="output">[52, 52, 73, 73, 88, 89, 662, 663, 671, 702, 703, 711, 888, 928, 5918, 5962]</pre>
 <p>Sixteen lines, most of them hundreds of characters long, the last two thousands. Compare the Markdown files, which <code>export_lineage</code> writes beside each page with the same name, ending in .md.</p>
 <h4>Next</h4>
 <ul><li><a href="#generate_from_settings">Generate Table references and Statements from settings</a>: one Lineage for Statements generated over many tables.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check the numbers a change gives, against pandas, before and after it.</li><li>The gallery&#x27;s <a href="examples.html#export_lineage"><code>export_lineage</code></a> and <a href="examples.html#derived"><code>derived</code></a> entries.</li></ul>
@@ -7647,6 +7744,308 @@ same_rows(careless, careless)</pre>
 <h4>Next</h4>
 <ul><li><a href="#check_data_quality">Check data quality with Statements</a>: checks on the data itself, so a Statement you&#x27;ve tested gets rows you can trust.</li><li><a href="#review_a_change_with_lineage">Review a change with Lineage</a>: see what a change does to every Statement it reaches, then run these tests again.</li><li><a href="#finish_in_pandas">Finish in pandas</a>: more of what pandas does with the rows <code>run</code> gives back.</li></ul>
 <p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="keys">
+<h3>31. Keys, checked before each write <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Give each Saved table a Key, the columns that tell one row from another, and let the Toolbox check it: a write whose rows the Toolbox can&#x27;t see are one per Key is refused before anything is sent, the Key is written into the table, and Lineage shows which columns are in each step&#x27;s Key and where one was lost.</p>
+<h4>When you&#x27;d use it</h4>
+<p>Every time you make a Saved table. Hive never checks a Key, nor does Spark: a table declared with one takes two rows with the same Key without a word. Then every join on that Key repeats rows, and every sum over the join comes out too big, far from the write that caused it. The Toolbox checks the Key while the write is built, where the mistake is.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<pre class="python">from spark_composer import *
+job_runs = example_database.job_runs
+jobs = example_database.jobs
+run_alerts = example_database.run_alerts</pre>
+<h5>Give the Saved table a Key</h5>
+<p>mart.job_day will hold one row for each job on each day: its runs and its minutes. Its Key says so, with <code>key=</code>:</p>
+<pre class="python">job_day = Table(
+    &quot;mart.job_day&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+)</pre>
+<p>The Key holds the Date partition, <code>job_day.dt</code>, since a job has a row on every day. A write fills one day, so the Toolbox counts the day as one value: a write needs one row for each <code>&quot;job_id&quot;</code>.</p>
+<h5>A write that shows its Key</h5>
+<p><code>GROUP_BY(job_runs.job_id)</code> makes one row for each <code>&quot;job_id&quot;</code>, so the Toolbox can see the Key holds, and builds the write:</p>
+<pre class="python">def write_day(day):
+    return statement(
+        INSERT_OVERWRITE(job_day),
+        SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;),
+               AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, day)),
+        GROUP_BY(job_runs.job_id),
+    )
+text = show_hive(write_day(&quot;2026-09-24&quot;))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  SUM(job_runs.duration_mins) AS minutes
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  job_runs.job_id;</pre>
+<h5>A write that can&#x27;t show it is refused</h5>
+<p>Leave GROUP_BY out, and the write would save one row for each run: a job with two runs that day would have two rows with the same Key. It is refused as it is built:</p>
+<pre class="python">statement(
+    INSERT_OVERWRITE(job_day),
+    SELECT(job_runs.job_id, AS(job_runs.run_id, &quot;runs&quot;),
+           AS(job_runs.duration_mins, &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_day) can&#x27;t show that each row it writes has a Key (job_id, dt) of its own: job_runs&#x27; rows are told apart by run_id, not by job_id.
+  Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Opt-out:        INSERT_OVERWRITE(job_day, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
+<p><code>job_runs</code>&#x27; own Key is <code>&quot;run_id&quot;</code>: without GROUP_BY, the rows written are its rows, one for each run, and nothing makes them one for each job.</p>
+<h5>The ways the Toolbox sees a Key</h5>
+<p>The Toolbox looks at how a write makes its rows. Each of these shows a Key:</p>
+<ul><li>**GROUP_BY over the Key&#x27;s columns**, as above: one row for each group.</li><li>**SELECT_DISTINCT**: one row for each different row. A column the rest decide doesn&#x27;t count, such as a run&#x27;s <code>job_runs.job_id</code>, which its <code>job_runs.run_id</code> decides.</li><li>**row_number(...) kept at 1 for each Key**, in a Derived table, as <a href="#latest_row_per_key">The latest row per key</a> does: one row for each <code>PARTITION_BY=</code> value.</li><li>**The rows of the table in FROM, by its own Key**, when SELECT returns that Key&#x27;s columns, and each join matches its joined table&#x27;s whole Key, so it adds at most one row to each.</li></ul>
+<p>Here the last two are used together: each job&#x27;s newest run, numbered in a Derived table, then joined to <code>ops.jobs</code> on its whole Key, <code>jobs.job_id</code>, which keeps one row for each job:</p>
+<pre class="python">newest_run = Table(
+    &quot;mart.newest_run&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;run_id&quot;: &quot;bigint&quot;, &quot;team&quot;: &quot;string&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+)
+def write_newest(day):
+    numbered = derived(&quot;numbered&quot;, statement(
+        SELECT(job_runs.job_id, job_runs.run_id,
+               AS(row_number(PARTITION_BY=job_runs.job_id,
+                             ORDER_BY=descending(job_runs.run_id)), &quot;newest_first&quot;)),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, day)),
+    ))
+    return statement(
+        INSERT_OVERWRITE(newest_run),
+        SELECT(numbered.job_id, numbered.run_id, jobs.team),
+        FROM(numbered),
+        JOIN(jobs, ON=equals(jobs.job_id, numbered.job_id)),
+        WHERE(equals(numbered.newest_first, 1)),
+    )
+newest = write_newest(&quot;2026-09-24&quot;)</pre>
+<p><code>INSERT_INTO</code> is checked the same way, on the rows it adds. The rows the day holds already may share a Key with them, which the Toolbox can&#x27;t see: <a href="examples.html#check_key"><code>check_key</code></a>, in Check it worked below, finds them once the day is written.</p>
+<h5>When the rows are one per Key for a reason the Toolbox can&#x27;t see</h5>
+<p>Sometimes you know more than the Toolbox can see: a table whose rows are one per job for a reason no Table reference says. Then <code>unproven_key=True</code> on the write lets it through:</p>
+<pre class="python">one_per_job = statement(
+    INSERT_OVERWRITE(job_day, unproven_key=True),
+    SELECT(job_runs.job_id, AS(job_runs.run_id, &quot;runs&quot;),
+           AS(job_runs.duration_mins, &quot;minutes&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(job_runs.status, &quot;FAILED&quot;)),
+)</pre>
+<p>Use it only when you are sure, and check the day with <code>check_key</code> after it is written: here one failed run a day per job is a habit of the Example database, not a rule.</p>
+<h5>The Key goes into the table</h5>
+<p><code>create_table</code> writes the Key into the table, for whoever reads it:</p>
+<pre class="python">text = show_hive(create_table(job_day))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">CREATE TABLE mart.job_day (
+  job_id BIGINT,
+  runs BIGINT,
+  minutes BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC;</pre>
+<div class="only">
+<p>Spark refuses a <code>PRIMARY KEY</code> in <code>CREATE TABLE</code>, so Spark Composer leaves the Key out of the table. sqlglot Composer, whose Hive runs on Hive, writes it as <code>PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE</code>, which Hive keeps as information only and never checks. Either way, the Toolbox checks the Key itself, before each write.</p>
+</div>
+<h5>Lineage shows each step&#x27;s Key</h5>
+<p><code>export_lineage</code> marks each column that is part of a Key &quot;in the Key&quot;, and its report lists each step&#x27;s Key, or where it lost one, and whether the write&#x27;s Key holds:</p>
+<pre class="python">html_file, markdown_file = export_lineage(newest, to=&quot;lineage/newest.html&quot;)</pre>
+<p class="label">It writes lineage/newest.md</p>
+<details><summary>Show its 124 lines</summary>
+<pre class="file"># Lineage: newest
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;ops.job_runs&quot;]
+    n0[&quot;ops.job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n2[&quot;ops.job_runs.run_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n6[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;numbered&quot;]
+    n1[&quot;numbered.job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&quot;]
+    n3[&quot;numbered.run_id&lt;br/&gt;&lt;small&gt;job_runs.run_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n4[&quot;numbered.newest_first&lt;br/&gt;&lt;small&gt;row_number(PARTITION_BY=job_runs.job_id, OR…&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;filters on numbered&quot;]
+    n5{{&quot;WHERE in numbered&lt;br/&gt;&lt;small&gt;equals(job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
+  end
+  subgraph g3[&quot;newest&quot;]
+    n7[&quot;job_id&lt;br/&gt;&lt;small&gt;numbered.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n8[&quot;run_id&lt;br/&gt;&lt;small&gt;numbered.run_id&lt;/small&gt;&quot;]
+    n10[&quot;team&lt;br/&gt;&lt;small&gt;jobs.team&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;ops.jobs&quot;]
+    n9[&quot;ops.jobs.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n13[&quot;ops.jobs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+  end
+  subgraph g5[&quot;filters on newest&quot;]
+    n11{{&quot;WHERE in newest&lt;br/&gt;&lt;small&gt;equals(numbered.newest_first, 1)&lt;/small&gt;&quot;}}
+    n12{{&quot;JOIN ON in newest&lt;br/&gt;&lt;small&gt;equals(jobs.job_id, numbered.job_id)&lt;/small&gt;&quot;}}
+  end
+  subgraph g6[&quot;mart.newest_run&quot;]
+    n14[&quot;mart.newest_run.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n15[&quot;mart.newest_run.run_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n16[&quot;mart.newest_run.team&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+    n17[&quot;mart.newest_run.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+  end
+  n0 --&gt; n1
+  n2 --&gt; n3
+  n0 --&gt; n4
+  n2 --&gt; n4
+  n6 -.-&gt; n5
+  n1 --&gt; n7
+  n3 --&gt; n8
+  n9 --&gt; n10
+  n4 -.-&gt; n11
+  n13 -.-&gt; n12
+  n1 -.-&gt; n12
+  n7 --&gt; n14
+  n8 --&gt; n15
+  n10 --&gt; n16
+  n5 -.-&gt;|day written| n17
+  n5 -.-&gt;|filters| g1
+  n11 -.-&gt;|filters| g3
+  n12 -.-&gt;|filters| g3
+```
+
+## newest
+
+It writes the Saved table mart.newest_run, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `numbered.newest_first`
+
+Calculated in **numbered** as `row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))`, which is `ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)`.
+
+```text
+numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in numbered: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | numbered.job_id ← ops.job_runs.job_id |
+| `run_id` | numbered.run_id ← ops.job_runs.run_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- derived(&#x27;numbered&#x27;, ...): Key (run_id), since job_runs&#x27; rows are told apart by run_id; or Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
+- newest: Key (job_id), since numbered&#x27;s rows are told apart by job_id; or Key (run_id), since numbered&#x27;s rows are told apart by run_id.
+- mart.newest_run&#x27;s Key (job_id, dt) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+WITH numbered AS (
+  SELECT
+    job_runs.job_id,
+    job_runs.run_id,
+    ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC) AS newest_first
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = &#x27;2026-09-24&#x27;
+)
+INSERT OVERWRITE TABLE mart.newest_run PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  numbered.job_id,
+  numbered.run_id,
+  jobs.team
+FROM numbered
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = numbered.job_id
+WHERE
+  numbered.newest_first = 1
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with Spark Composer 4.1.</pre>
+</details>
+<p class="note">It writes <code>lineage/newest.html</code> too, a page to open in your browser.</p>
+<pre class="python">keys = markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;### Keys&quot;)[1]
+print(keys.split(&quot;###&quot;)[0].strip())</pre>
+<p class="label">Python prints</p><pre class="output">The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- derived(&#x27;numbered&#x27;, ...): Key (run_id), since job_runs&#x27; rows are told apart by run_id; or Key (job_id, newest_first), since row_number(...) numbers the rows of each job_id.
+- newest: Key (job_id), since numbered&#x27;s rows are told apart by job_id; or Key (run_id), since numbered&#x27;s rows are told apart by run_id.
+- mart.newest_run&#x27;s Key (job_id, dt) holds: each row written has its own.</pre>
+<p>The Derived table numbered has two Keys: each run, and each job with its number. The write keeps number 1, which leaves one row for each job.</p>
+<h4>Check it worked</h4>
+<p>The Toolbox&#x27;s check sees how the rows are made; <code>check_key</code> counts the rows themselves, on the newest day the table holds. Run it on a Saved table after its first writes, and on any table you join to by its Key. On the Example database&#x27;s <code>ops.job_runs</code>:</p>
+<pre class="python">check_key(job_runs, send=example_database.send)</pre>
+<p class="label">Python shows</p><pre class="output">ops.job_runs: the key (run_id) holds on 2026-09-24.</pre>
+<h4>Common mistakes</h4>
+<h5>Grouping by more than the Key</h5>
+<p>A GROUP_BY with one more column makes one row for each pair, not for each Key:</p>
+<pre class="python">job_status = Table(
+    &quot;mart.job_status&quot;,
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;status&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+)
+statement(
+    INSERT_OVERWRITE(job_status),
+    SELECT(job_runs.job_id, job_runs.status, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id, job_runs.status),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_status) can&#x27;t show that each row it writes has a Key (job_id, dt) of its own: GROUP_BY makes one row for each job_id, status, not one for each job_id.
+  Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Opt-out:        INSERT_OVERWRITE(job_status, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
+<p>A job with a failed run and a good one would have two rows. Either the Key is wrong, and should be <code>key=[&quot;job_id&quot;, &quot;status&quot;, &quot;dt&quot;]</code>, or the write should group by <code>job_runs.job_id</code> alone.</p>
+<h5>A join that can repeat rows</h5>
+<p>A join that doesn&#x27;t match its joined table&#x27;s whole Key can add several rows to one. A run with two alerts comes out twice:</p>
+<pre class="python">run_and_alert = Table(
+    &quot;mart.run_and_alert&quot;,
+    columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;severity&quot;: &quot;string&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;run_id&quot;, &quot;dt&quot;],
+)
+statement(
+    INSERT_OVERWRITE(run_and_alert),
+    SELECT(job_runs.run_id, run_alerts.severity),
+    FROM(job_runs),
+    JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(run_alerts.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  INSERT_OVERWRITE(run_and_alert) can&#x27;t show that each row it writes has a Key (run_id, dt) of its own: JOIN(run_alerts, ON=...) can match several run_alerts rows to one row.
+  Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Opt-out:        INSERT_OVERWRITE(run_and_alert, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
+<p><code>many_matches=True</code> says you mean the repeated rows, so the join doesn&#x27;t warn; the Saved table&#x27;s Key still says one row for each run. Group the alerts first, one row for each run, as <a href="#join_tables_safely">Join tables safely</a> shows, and join that.</p>
+<h5>Silencing the check with unproven_key=True</h5>
+<p><code>unproven_key=True</code> doesn&#x27;t make the rows one per Key: it only stops the Toolbox saying they might not be. Reach for GROUP_BY, SELECT_DISTINCT or row_number first.</p>
+<h4>Next</h4>
+<ul><li><a href="#join_tables_safely">Join tables safely</a>: the repeated-rows Warning, which reads the Keys of the tables a Statement joins.</li><li><a href="#latest_row_per_key">The latest row per key</a>: row_number, kept at 1 for each Key.</li><li><a href="#save_a_table">Save a table</a> and <a href="#a_pipeline_of_saved_tables">A pipeline of Saved tables</a>: writes that each show their Key.</li><li>The gallery&#x27;s <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> and <a href="examples.html#check_key"><code>check_key</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>count_rows</code>, <code>sum_of</code>, <code>row_number</code>, <code>descending</code>, <code>show_hive</code>, <code>export_lineage</code>, <code>example_database</code></p>
 </section>
 </main>
 <script>

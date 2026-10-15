@@ -195,7 +195,7 @@ CREATE TABLE mart.job_day (
   runs BIGINT,
   failed_runs BIGINT,
   minutes BIGINT,
-  avg_minutes DOUBLE
+  avg_minutes DOUBLE...
 )
 PARTITIONED BY (
   dt STRING

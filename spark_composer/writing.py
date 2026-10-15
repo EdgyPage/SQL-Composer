@@ -426,7 +426,8 @@ def _columns(defs: list[Node], pretty: bool) -> str:
     return f"({_sep(pretty, '')}{listed}{_seg(')', pretty, sep='')}"
 
 
-# After sqlglot's Generator.create_sql and properties_sql.
+# After sqlglot's Generator.create_sql and properties_sql. The Key, node.parts["key"], is left
+# out: Spark refuses a PRIMARY KEY, the primary_key row of DECLARED_DIFFERENCES.
 def _create(node: Node, pretty: bool) -> str:
     exists = " IF NOT EXISTS" if node.parts.get("exists") else ""
     sql = f"CREATE TABLE{exists} {_part(node, 'target', pretty)}"

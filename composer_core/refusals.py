@@ -324,6 +324,23 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
     )
 
 
+def guard_unproven_key(call: str, key: list[str], why: str) -> None:
+    """A write into a Saved table with a Key must show each row has one of its own."""
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call} can't show that each row it writes has a Key ({', '.join(key)}) of "
+            f"its own: {why}.",
+            why="Hive never checks a Key, so rows that share one would be saved without a "
+            "word, and every join and count that trusts the Key would repeat them.",
+            fix="Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, "
+            "or keep row_number(...) at 1 for each Key in a Derived table, and join only on "
+            "each joined table's whole Key. The how-to on Keys shows each.",
+            opt_out=f"{call[:-1]}, unproven_key=True), if each row has a Key of its own for a "
+            "reason the Toolbox can't see.",
+        )
+    )
+
+
 def guard_one_day_per_write(call: str, days: int) -> None:
     """A write fills one day. No opt-out."""
     raise GuardRefused(
@@ -374,13 +391,14 @@ def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
 def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[str] | None,
                           many_matches: bool, derived: bool = False,
                           date_partition: str | None = None,
-                          matched_with: str | None = None) -> None:
+                          matched_with: str | None = None, lost: str | None = None) -> None:
     """A join off the joined table's key repeats rows: warn, and still join.
 
     `date_partition` is the joined table's Date partition, if it has one. When its key holds
     the Date partition and ON= leaves it out, as on a table that keeps a copy of each row
     every day, the usual fix is to match the day too, and the message says so, with the day
-    of `matched_with`, the table ON= matches it with.
+    of `matched_with`, the table ON= matches it with. `lost` says where a Derived table
+    lost its Key.
     """
     if many_matches:
         return
@@ -389,9 +407,9 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
         what = (f"{call}({table}) matches on {on}, but a {table} row is only unique by its "
                 f"key ({', '.join(key)}).")
     elif derived:
-        what = (f"{call}({table}) matches on {on}, but the Derived table {table} has no key "
-                "the Toolbox can see, so it can't tell whether one row matches or several. "
-                "A Derived table's key is its GROUP_BY columns.")
+        what = (f"{call}({table}) matches on {on}, but the Derived table {table} has no Key "
+                f"the Toolbox can see, so it can't tell whether one row matches or several: "
+                f"{lost}.")
     else:
         what = (f"{call}({table}) matches on {on}, but {table} declares no key, so the "
                 "Toolbox can't tell whether one row matches or several. Declare key=[...] "

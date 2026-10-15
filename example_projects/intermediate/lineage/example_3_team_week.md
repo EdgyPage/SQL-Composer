@@ -11,11 +11,11 @@ flowchart LR
     n2["mart.job_day_facts.events<br/><small>bigint</small>"]
     n4["mart.job_day_facts.runs<br/><small>bigint</small>"]
     n6["mart.job_day_facts.minutes<br/><small>bigint</small>"]
-    n11["mart.job_day_facts.dt<br/><small>string</small>"]
-    n15["mart.job_day_facts.job_id<br/><small>bigint</small>"]
+    n11["mart.job_day_facts.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n15["mart.job_day_facts.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g1["write_team_days"]
-    n1["team<br/><small>job_day_facts.team</small>"]
+    n1["team<br/><small>job_day_facts.team</small><br/><small>in the Key</small>"]
     n3["events<br/><small>sum_of(job_day_facts.events)</small>"]
     n5["runs<br/><small>sum_of(job_day_facts.runs)</small>"]
     n7["minutes<br/><small>sum_of(job_day_facts.minutes)</small>"]
@@ -23,20 +23,20 @@ flowchart LR
   end
   subgraph g2["mart.job_day_costs"]
     n8["mart.job_day_costs.cost_cents<br/><small>bigint</small>"]
-    n13["mart.job_day_costs.dt<br/><small>string</small>"]
-    n14["mart.job_day_costs.job_id<br/><small>bigint</small>"]
+    n13["mart.job_day_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n14["mart.job_day_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g3["filters on write_team_days"]
     n10{{"WHERE in write_team_days<br/><small>equals(job_day_facts.dt, datetime.date(2026…</small>"}}
     n12{{"LEFT JOIN ON in write_team_days<br/><small>all_of(equals(job_day_costs.job_id, job_day…</small>"}}
   end
   subgraph g4["mart.team_days"]
-    n16["mart.team_days.team<br/><small>string</small>"]
+    n16["mart.team_days.team<br/><small>string</small><br/><small>in the Key</small>"]
     n17["mart.team_days.events<br/><small>bigint</small>"]
     n18["mart.team_days.runs<br/><small>bigint</small>"]
     n19["mart.team_days.minutes<br/><small>bigint</small>"]
     n20["mart.team_days.cost_cents<br/><small>bigint</small>"]
-    n21["mart.team_days.dt<br/><small>string</small>"]
+    n21["mart.team_days.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n2 --> n3
@@ -128,6 +128,13 @@ One value for each different `job_day_facts.dt` and `job_day_facts.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | mart.job_day_facts.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_team_days: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_days' Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted
 

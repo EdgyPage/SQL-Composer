@@ -48,7 +48,7 @@ Create it once, with `may_exist=True`, so sending it again on later runs does no
 CREATE TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
-  finishes BIGINT
+  finishes BIGINT...
 )
 PARTITIONED BY (
   dt STRING
