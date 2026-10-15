@@ -81,7 +81,7 @@ below; this map is the design document, built out ticket by ticket.
      though it isn't one. No Guard, Warning or Load limit looks inside; Lineage draws it as one
      opaque step, linked to the tables its text names, with a warning badge; the dry run marks it.
      Text starting `DROP`, `ALTER` or `TRUNCATE` gets a note at the user's line, naming the admin
-     function that writes it, checked.
+     function that does the job checked, where one does (`admin.drop_days` for a TRUNCATE).
    - **The Admin log:** each `run` of an Admin statement or an Unchecked statement appends one
      entry (time; the call, such as `admin.drop_days(mart.job_day, before=2025-01-01)`; the Hive
      sent; the script and its git commit; worked or the error) to a Markdown file set once in
@@ -89,7 +89,7 @@ below; this map is the design document, built out ticket by ticket.
      nothing. Its Unchecked statements are the list of what the Toolbox should learn next.
 4. **The admin module** (ADR 0006): `from sqlglot_composer import admin` (the star import
    doesn't bring it). Each returns an ordinary Statement, run like any other; `show_hive` prints
-   its description and warnings (what it changes, what can't be undone, whether files go with
+   its description (what it changes, what can't be undone, whether files go with
    purge off) and any check queries before its Hive. Each refuses a table that isn't one of the
    user's Saved tables.
    - `admin.drop_table` (moved out of the ordinary names), `admin.drop_days(t, before=...)`
