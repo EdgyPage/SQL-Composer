@@ -7766,9 +7766,11 @@ WHERE
 GROUP BY
   region_costs.job_id,
   region_costs.region;</pre>
-<p><code>region</code> in <code>PARTITION(...)</code> has no value: the warehouse takes each row&#x27;s region from the SELECT&#x27;s last column. Doing so is Hive&#x27;s dynamic partitioning, which a Session setting switches on, so <code>show_hive</code> prints its two SET lines first. <code>run</code> sends the write alone: send each SET line through your own send, without its <code>;</code>, before the first such write, as below. The warehouse keeps them for as long as your send&#x27;s connection lasts, and sending them again does no harm. The day is written the Saved table&#x27;s way, 2026-09-21, though the table it reads writes it 20260921.</p>
-<pre class="python">send(&quot;SET hive.exec.dynamic.partition=true&quot;)
-send(&quot;SET hive.exec.dynamic.partition.mode=nonstrict&quot;)</pre>
+<p>The region in PARTITION(...) has no value: the warehouse takes each row&#x27;s region from the SELECT&#x27;s last column. Doing so is Hive&#x27;s dynamic partitioning, which a Session setting switches on, so <code>show_hive</code> prints its two SET lines first. <code>run</code> sends the write alone: send each SET line through your own send, without its ;, before the first such write. The warehouse keeps them for as long as your send&#x27;s connection lasts, and sending them again does no harm. A function of your send does it, called before the day&#x27;s writes at work; here no warehouse is there to send to, so it isn&#x27;t called:</p>
+<pre class="python">def send_dynamic_partitions(send):
+    send(&quot;SET hive.exec.dynamic.partition=true&quot;)
+    send(&quot;SET hive.exec.dynamic.partition.mode=nonstrict&quot;)</pre>
+<p>The day is written the Saved table&#x27;s way, 2026-09-21, though the table it reads writes it 20260921.</p>
 <p>INSERT OVERWRITE replaces only the regions its rows hold: a region with no rows that day keeps whatever it held before. So if a region drops out of the table you read, its old rows for the day stay in the Saved table until you drop that day.</p>
 <h5>Add Buckets only to a big table</h5>
 <p><code>bucketed_by=</code> with <code>buckets=</code> spreads each day&#x27;s rows into that many files by the values of some columns, and <code>sorted_by=</code> sorts the rows in each. A join on those columns can then pair file with file instead of reading everything. It pays off only on big tables, tens of millions of rows a day, joined on those columns; and changing it means writing the whole table again. Where Spark writes the table, rather than Hive, ask whoever looks after it first: Spark may refuse to write a table with Buckets, or write it without them. Most Saved tables need none:</p>

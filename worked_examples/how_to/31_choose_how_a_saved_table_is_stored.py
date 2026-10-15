@@ -115,16 +115,20 @@ GROUP BY
   region_costs.job_id,
   region_costs.region;
 
-`region` in `PARTITION(...)` has no value: the warehouse takes each row's region from the
+The region in PARTITION(...) has no value: the warehouse takes each row's region from the
 SELECT's last column. Doing so is Hive's dynamic partitioning, which a Session setting switches
 on, so `show_hive` prints its two SET lines first. `run` sends the write alone: send each SET
-line through your own send, without its `;`, before the first such write, as below. The
-warehouse keeps them for as long as your send's connection lasts, and sending them again does
-no harm. The day is written the Saved table's way, 2026-09-21, though the table it reads writes
-it 20260921.
+line through your own send, without its ;, before the first such write. The warehouse keeps
+them for as long as your send's connection lasts, and sending them again does no harm. A
+function of your send does it, called before the day's writes at work; here no warehouse is
+there to send to, so it isn't called:
 
-    send("SET hive.exec.dynamic.partition=true")
-    send("SET hive.exec.dynamic.partition.mode=nonstrict")
+>>> def send_dynamic_partitions(send):
+...     send("SET hive.exec.dynamic.partition=true")
+...     send("SET hive.exec.dynamic.partition.mode=nonstrict")
+
+The day is written the Saved table's way, 2026-09-21, though the table it reads writes it
+20260921.
 
 INSERT OVERWRITE replaces only the regions its rows hold: a region with no rows that day keeps
 whatever it held before. So if a region drops out of the table you read, its old rows for the
