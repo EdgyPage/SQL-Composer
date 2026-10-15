@@ -51,9 +51,31 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
   partitioning, so its SET lines are printed ahead of it. run sends the write alone: send
   the setting first with `run(hive_settings("dynamic_partitions"), send=...)`.
+- **create_table writes a Table reference's Key into the table** in sqlglot Composer, as
+  `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
+  never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out.
+- **A Derived table's Key reaches further**: through a join that matches its joined table's
+  whole Key, through a row_number(...) kept at 1, and past a column whose value another
+  column already fixes, as a run's run_id fixes its job_id. JOIN's repeated-rows Warning asks
+  for `many_matches=` less often, and when a Derived table has no Key it says where its
+  Statement lost one.
+- **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
+  chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
+  holds.
 
 ### Refused now
 
+- **A write into a Saved table whose Table reference declares a Key is refused unless the
+  Toolbox can see that each row it writes has a Key of its own.** Hive never checks a Key, so
+  before 5.0 two rows with the same Key were saved without a word. The Toolbox sees it from a
+  GROUP_BY over the Key's columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each Key
+  in a Derived table, or the rows of the table in FROM, read by its own Key, with each join
+  matching its joined table's whole Key. The day written counts as one value, so a Key such as
+  `key=["job_id", "dt"]` needs one row for each job_id. A write 4.1 let through may be refused
+  now: its message says how its rows lost the Key. Fix the write, or, when the rows are one
+  per Key for a reason the Toolbox can't see, write
+  `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The how-to
+  "Keys, checked before each write" shows each.
 - create_table refuses a Table reference with no `location=`.
 - Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
   a whole folder or already ends with the table's own folder, two Saved tables whose folders

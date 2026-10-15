@@ -114,7 +114,7 @@ Two things decide the order:
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
   job_id BIGINT,
   runs BIGINT,
-  failed_runs BIGINT
+  failed_runs BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -126,7 +126,7 @@ LOCATION '/data/your_team/tables/mart/daily_job_runs';
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   runs BIGINT,
-  failed_runs BIGINT
+  failed_runs BIGINT...
 )
 PARTITIONED BY (
   dt STRING

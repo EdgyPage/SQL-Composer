@@ -54,9 +54,11 @@ shows argument by argument:
 - Write each type as the warehouse's DESCRIBE prints it, such as `"bigint"`, `"int"` or `"string"`.
 - `date_partition="dt"` makes the table stored a day at a time: each write fills one day, and
   every Statement that reads it gives the days it reads.
-- `key=["run_id"]` names the columns that tell one row from another: no two rows of a day share
-  a `"run_id"`. It isn't sent to the warehouse; the Toolbox reads it to warn when a join could
-  repeat rows, as [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
+- `key=["run_id"]` names the table's Key, the columns that tell one row from another: no two
+  rows of a day share a `"run_id"`. The warehouse never checks it, so the Toolbox does: each
+  write below must show that every row it writes has a `"run_id"` of its own, or it is
+  refused, as [Keys](#keys) shows. It also warns when a join could repeat rows, as
+  [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
 - `location="/data/your_team/tables"` is the folder all your Saved tables go in: ask whoever
   looks after your warehouse which one you may write to. The Toolbox adds the table's own
   folder, here mart/runs_to_review, so no two of your tables ever share one: two tables in one
@@ -78,7 +80,7 @@ every Statement, it is built first and sent later:
 >>> text = show_hive(create)
 CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -96,6 +98,17 @@ EXTERNAL and LOCATION make it a table whose files are yours, in its own folder.
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) shows the rest of
 what a Saved table's Table reference can say about how it is kept.
 
+[sqlglot_composer only]
+`PRIMARY KEY (run_id) DISABLE NOVALIDATE` writes the Key into the table, for whoever reads
+it: `DISABLE NOVALIDATE` says Hive keeps it as information only, and never checks it.
+[end]
+[spark_composer only]
+Spark refuses a `PRIMARY KEY` in `CREATE TABLE`, so Spark Composer leaves the Key out of the
+table; sqlglot Composer, whose Hive runs on Hive, writes it as
+`PRIMARY KEY (run_id) DISABLE NOVALIDATE`, which Hive keeps as information only and never
+checks. Either way, the Toolbox checks the Key itself, before each write.
+[end]
+
 You send it once. If the table already exists, the warehouse refuses to create it again, on
 purpose: after you edit the Table reference, sending this again can't quietly look as if it
 changed the real table. In a notebook you run from the top every day, use `may_exist=True`
@@ -105,7 +118,7 @@ instead, which skips the table when it is already there and never changes it:
 >>> text = show_hive(create_if_missing)
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
-  job_id BIGINT
+  job_id BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -193,6 +206,12 @@ there. Two new pieces of SQL appear in it:
   can repeat rows.
 - `SELECT_DISTINCT` keeps each different row once: a run that raised two high alerts would
   otherwise come out twice. See [`SELECT_DISTINCT`](examples.html#SELECT_DISTINCT).
+
+`SELECT_DISTINCT` is also how the Toolbox sees that each row has a Key of its own: it makes one
+row for each different `"run_id"` and `"job_id"`, and one `"run_id"` always comes with the same
+`"job_id"`, so there is one row for each run. Without it, the write is refused, as
+[Keys](#keys) shows. The Toolbox checks only the rows this write adds. Here they can't share a
+`"run_id"` with the failed runs the day holds already, since these runs succeeded.
 
 The day written comes from the table in `FROM`, here `run_alerts.dt`. The joined table needs a
 bound on its days too; here it is the same day.
@@ -296,7 +315,7 @@ DROP TABLE IF EXISTS mart.runs_to_review;
 CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
-  duration_mins INT
+  duration_mins INT...
 )
 PARTITIONED BY (
   dt STRING

@@ -13,7 +13,7 @@ flowchart LR
     n7["ops.job_events.minutes<br/><small>int</small>"]
   end
   subgraph g1["events_per_job_day"]
-    n1["events_per_job_day.job_id<br/><small>job_events.job_id</small>"]
+    n1["events_per_job_day.job_id<br/><small>job_events.job_id</small><br/><small>in the Key</small>"]
     n3["events_per_job_day.dt<br/><small>job_events.dt</small>"]
     n4["events_per_job_day.events<br/><small>count_rows()</small>"]
     n6["events_per_job_day.runs<br/><small>count_rows(where=equals(job_events.event_ty…</small>"]
@@ -23,7 +23,7 @@ flowchart LR
     n9{{"WHERE in events_per_job_day<br/><small>equals(job_events.dt, datetime.date(2026, 9…</small>"}}
   end
   subgraph g3["write_job_day_facts"]
-    n10["job_id<br/><small>events_per_job_day.job_id</small>"]
+    n10["job_id<br/><small>events_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n12["team<br/><small>job_owners.team</small>"]
     n13["events<br/><small>events_per_job_day.events</small>"]
     n14["runs<br/><small>events_per_job_day.runs</small>"]
@@ -31,22 +31,22 @@ flowchart LR
   end
   subgraph g4["ops.job_owners"]
     n11["ops.job_owners.team<br/><small>string</small>"]
-    n17["ops.job_owners.dt<br/><small>string</small>"]
-    n18["ops.job_owners.job_id<br/><small>bigint</small>"]
+    n17["ops.job_owners.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n18["ops.job_owners.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g5["filters on write_job_day_facts"]
     n16{{"LEFT JOIN ON in write_job_day_facts<br/><small>all_of(equals(job_owners.job_id, events_per…</small>"}}
   end
   subgraph g6["mart.job_day_facts"]
-    n19["mart.job_day_facts.job_id<br/><small>bigint</small>"]
+    n19["mart.job_day_facts.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n20["mart.job_day_facts.team<br/><small>string</small>"]
     n21["mart.job_day_facts.events<br/><small>bigint</small>"]
     n22["mart.job_day_facts.runs<br/><small>bigint</small>"]
     n23["mart.job_day_facts.minutes<br/><small>bigint</small>"]
-    n24["mart.job_day_facts.dt<br/><small>string</small>"]
+    n24["mart.job_day_facts.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g7["write_team_days"]
-    n25["team<br/><small>job_day_facts.team</small>"]
+    n25["team<br/><small>job_day_facts.team</small><br/><small>in the Key</small>"]
     n26["events<br/><small>sum_of(job_day_facts.events)</small>"]
     n27["runs<br/><small>sum_of(job_day_facts.runs)</small>"]
     n28["minutes<br/><small>sum_of(job_day_facts.minutes)</small>"]
@@ -54,20 +54,20 @@ flowchart LR
   end
   subgraph g8["mart.job_day_costs"]
     n29["mart.job_day_costs.cost_cents<br/><small>bigint</small>"]
-    n33["mart.job_day_costs.dt<br/><small>string</small>"]
-    n34["mart.job_day_costs.job_id<br/><small>bigint</small>"]
+    n33["mart.job_day_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n34["mart.job_day_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g9["filters on write_team_days"]
     n31{{"WHERE in write_team_days<br/><small>equals(job_day_facts.dt, datetime.date(2026…</small>"}}
     n32{{"LEFT JOIN ON in write_team_days<br/><small>all_of(equals(job_day_costs.job_id, job_day…</small>"}}
   end
   subgraph g10["mart.team_days"]
-    n35["mart.team_days.team<br/><small>string</small>"]
+    n35["mart.team_days.team<br/><small>string</small><br/><small>in the Key</small>"]
     n36["mart.team_days.events<br/><small>bigint</small>"]
     n37["mart.team_days.runs<br/><small>bigint</small>"]
     n38["mart.team_days.minutes<br/><small>bigint</small>"]
     n39["mart.team_days.cost_cents<br/><small>bigint</small>"]
-    n40["mart.team_days.dt<br/><small>string</small>"]
+    n40["mart.team_days.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n2 --> n3
@@ -172,6 +172,14 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 | `events` | events_per_job_day.events (calculated) |
 | `runs` | events_per_job_day.runs (calculated) ← ops.job_events.event_type |
 | `minutes` | events_per_job_day.minutes (calculated) ← ops.job_events.minutes |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('events_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- write_job_day_facts: Key (job_id), since events_per_job_day's rows are told apart by job_id.
+- mart.job_day_facts' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
@@ -283,6 +291,13 @@ One value for each different `job_day_facts.dt` and `job_day_facts.team`.
 | Output | Comes from |
 | --- | --- |
 | `team` | mart.job_day_facts.team ← write_job_day_facts.team ← ops.job_owners.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_team_days: Key (team), since GROUP_BY makes one row for each team, dt, with dt held to one value.
+- mart.team_days' Key (team, dt) holds: each row written has its own.
 
 ### Hive as submitted
 

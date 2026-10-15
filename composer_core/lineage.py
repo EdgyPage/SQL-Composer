@@ -20,6 +20,7 @@ from pathlib import Path
 
 from . import edition
 from .clauses import Statement, derived_tables
+from .keys import possessive, statement_keys, unproven, wanted_key
 from .refusals import (
     GuardRefused,
     LoadRefused,
@@ -47,8 +48,17 @@ def formula_line(box: dict) -> str:
 
 
 def box_lines(box: dict) -> list[str]:
-    """The lines of text a box shows: its name, then its formula line unless that is empty."""
-    return [line for line in (box["name"], formula_line(box)) if line]
+    """The lines of text a box shows: its name, then its formula line unless that is empty,
+    then "in the Key" for a column that is part of its table's or its step's Key."""
+    key = KEY_LINE if box.get("in_key") else ""
+    return [line for line in (box["name"], formula_line(box), key) if line]
+
+
+# The line a column that is part of a Key shows under its name and formula.
+KEY_LINE = "in the Key"
+# What a report says above its list of Keys.
+KEYS_ABOUT = ("The columns that tell each step's rows apart, as the Toolbox works them out. "
+              'A column in one is marked "in the Key" in the chart.')
 
 
 # --- The graph -------------------------------------------------------------------------------
@@ -99,7 +109,8 @@ def _table_box(graph: Graph, table, column: str) -> str:
     return graph.add(_box_key("table", f"{table._name}.{column}"), kind="table",
                      group=table._name, name=f"{table._name}.{column}",
                      full=f"{table._name}.{column}",
-                     type=table._columns.get(column), formula="", calculated=False)
+                     type=table._columns.get(column), formula="", calculated=False,
+                     in_key=column in (table._key or []))
 
 
 def _resolver(graph: Graph, step: Statement, index: int):
@@ -156,6 +167,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     """
     resolve = _resolver(graph, step, index)
     made = []
+    in_key = _step_key(step)
     for column, name in step._outputs:
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all("Column")]
@@ -167,7 +179,8 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                   type=column._type, sql=hive_text(tree), formula=readable(tree),
                   calculated=tree.kind != "Column",
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
-                  else [], statement=index, reads=_aliases_read(tree))
+                  else [], statement=index, reads=_aliases_read(tree),
+                  in_key=name in in_key)
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
@@ -189,6 +202,59 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                 joined.append(resolve(used))
         for target in made:
             graph.arrow(key, target, "rows")
+
+
+def _step_keys(step: Statement):
+    """A step's Keys. A write's are worked out as its write check does, one day at a time,
+    the ones that show its Saved table's Key first."""
+    keys = statement_keys(step, one_day=step._write is not None)
+    table = step._write
+    if table is None or not table._key:
+        return keys
+    wanted = set(wanted_key(table))
+    return keys._replace(found=sorted(keys.found,
+                                      key=lambda found: not set(found.names) <= wanted))
+
+
+def _step_key(step: Statement) -> list[str]:
+    """The output names of the first Key the Toolbox sees for a step, or [] for none."""
+    found = _step_keys(step).found
+    return found[0].names if found else []
+
+
+def _key_line(name: str, step: Statement) -> str:
+    """One line of a report's Keys: which columns tell a step's rows apart, or where it lost
+    its Key."""
+    keys = _step_keys(step)
+    if not keys.found:
+        return f"{name}: no Key the Toolbox can see, since {keys.lost}."
+    if not keys.found[0].names:
+        return f"{name}: one row, so it needs no Key: {keys.found[0].why}."
+    each = [f"Key ({', '.join(found.names)}), since {found.why}" for found in keys.found]
+    return f"{name}: " + "; or ".join(each) + "."
+
+
+def _write_key_line(s: Statement) -> str | None:
+    """What a report says of the Key of the Saved table a Statement writes, if it writes one."""
+    table = s._write
+    if table is None:
+        return None
+    if not table._key:
+        return f"{table._name} declares no Key, so its rows aren't checked."
+    key, why = ", ".join(table._key), unproven(s)
+    if why is not None:
+        return (f"{possessive(table._name)} Key ({key}) isn't shown to hold, since {why}: "
+                "the write says unproven_key=True.")
+    return f"{possessive(table._name)} Key ({key}) holds: each row written has its own."
+
+
+def keys_report(s: Statement, name: str) -> list[str]:
+    """The lines of a report's Keys: each Derived table's, the Statement's, and its write's."""
+    lines = [_key_line(f"derived({table._name!r}, ...)", table._statement)
+             for table in derived_tables(s)]
+    lines.append(_key_line(name, s))
+    written = _write_key_line(s)
+    return lines + ([written] if written else [])
 
 
 def _aliases_read(tree: Node) -> set[str]:
@@ -566,7 +632,8 @@ def report(graph: Graph, ordered) -> list[dict]:
                   if graph.boxes[k]["kind"] == "output" and not graph.boxes[k]["calculated"]]
         sql, note = _submitted(s, name)
         sections.append({"name": name, "about": _about(s, index, ordered),
-                         "calculated": calculated, "copied": copied, "sql": sql, "note": note})
+                         "calculated": calculated, "copied": copied,
+                         "keys": keys_report(s, name), "sql": sql, "note": note})
     return sections
 
 
@@ -695,6 +762,7 @@ def _section_markdown(section: dict) -> list[str]:
         lines += ["### Copied columns", "", "| Output | Comes from |", "| --- | --- |"]
         lines += [f"| {_code(name)} | {' ← '.join(chain)} |" for name, chain in section["copied"]]
         lines.append("")
+    lines += ["### Keys", "", KEYS_ABOUT, ""] + [f"- {line}" for line in section["keys"]] + [""]
     lines += ["### Hive as submitted", ""]
     if section["note"]:
         lines += [section["note"], ""]
@@ -766,6 +834,8 @@ def report_html(sections: list[dict]) -> str:
                            for name, chain in section["copied"])
             parts.append("<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th>"
                          f"</tr>{rows}</table>")
+        keys = "".join(f"<li>{e(line)}</li>" for line in section["keys"])
+        parts.append(f"<h3>Keys</h3><p>{e(KEYS_ABOUT)}</p><ul>{keys}</ul>")
         parts.append("<h3>Hive as submitted</h3>")
         if section["note"]:
             parts.append(f"<p>{e(section['note'])}</p>")

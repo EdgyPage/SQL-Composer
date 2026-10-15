@@ -221,7 +221,7 @@ between before.html and after.html, by their length in characters:
 >>> after_page = Path("after.html").read_text(encoding="utf-8").splitlines()
 >>> sorted(len(line) for line in difflib.ndiff(before_page, after_page)
 ...        if line.startswith(("- ", "+ ")))
-[52, 52, 73, 73, 88, 89, 662, 663, 671, 702, 703, 711, 888, 928, 5862, 5906]
+[52, 52, 73, 73, 88, 89, 662, 663, 671, 702, 703, 711, 888, 928, 5918, 5962]
 
 Sixteen lines, most of them hundreds of characters long, the last two thousands. Compare the
 Markdown files, which `export_lineage` writes beside each page with the same name,

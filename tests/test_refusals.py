@@ -310,6 +310,30 @@ def test_guard_write_lines_up_refuses() -> None:
         )
 
 
+daily_runs_by_job = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
+                          columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+
+
+def runs_written(**opt_out):
+    """A write of each run's job and duration, where the Saved table wants one row per job."""
+    return statement(
+        INSERT_OVERWRITE(daily_runs_by_job, **opt_out),
+        SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs")),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, "2026-09-24")),
+    )
+
+
+def test_guard_unproven_key_refuses() -> None:
+    with pytest.raises(GuardRefused, match=r"can't show that each row it writes has a Key "
+                       r"\(job_id, dt\) of its own"):
+        runs_written()
+
+
+def test_guard_unproven_key_opt_out() -> None:
+    assert to_hive(runs_written(unproven_key=True)).startswith("INSERT OVERWRITE TABLE")
+
+
 def test_guard_one_day_per_write_refuses() -> None:
     backfill = statement(
         INSERT_OVERWRITE(daily_runs),
@@ -422,7 +446,7 @@ def test_one_block_read_twice_under_two_names_joins_with_no_warning() -> None:
 def test_a_table_with_no_key_warns_and_says_to_declare_one() -> None:
     no_key = Table("ops.jobs", columns={"job_id": "bigint", "team": "string"},
                    date_partition=None)
-    with pytest.warns(RepeatedRowsWarning, match=r"declares no key.*key=\[\.\.\.\]"):
+    with pytest.warns(RepeatedRowsWarning, match=r"declares no Key.*key=\[\.\.\.\]"):
         JOIN(no_key, ON=equals(no_key.job_id, job_runs.job_id))
 
 
