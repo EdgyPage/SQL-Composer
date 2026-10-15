@@ -12,7 +12,10 @@ Notes before working any ticket. The PySpark work, which builds the Toolbox a se
 sqlglot, is charted and built through `.scratch/spark-edition/map.md`; read its Notes too before
 working one of its tickets. Toolbox 4.0 (one shared core folder, the sqlglot Composer rename,
 how-tos, example projects and templates) is charted through
-`.scratch/shared-core-4.0/map.md`; read its Notes before working one of its tickets.
+`.scratch/shared-core-4.0/map.md`; read its Notes before working one of its tickets. Toolbox 5.0
+(Keys checked before writing, the Saved table's storage, Session settings, the Unchecked
+statement, the admin module, and the joins, windows, stacking and upkeep SQL still missing) is
+charted through `.scratch/toolbox-5/map.md`.
 
 ## Checks
 
