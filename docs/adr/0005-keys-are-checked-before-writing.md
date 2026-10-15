@@ -14,8 +14,11 @@ So in 5.0 a table's Key, its primary key, declared on its Table reference, does 
   unique on it**: a GROUP_BY over the Key's columns, a SELECT_DISTINCT, a row_number kept at 1 per
   Key, or a join that keeps the reading table's Key. A write that is unique for a reason the
   Toolbox can't see carries an opt-out, such as `unproven_key=True`, as every Guard has.
-- **A Derived table's Key is worked out from what it does**, so the repeated-rows Warning and the
-  check above see through Derived tables instead of asking for `many_matches=`.
+- **A Derived table's Key reaches further.** 4.1 already works one out from a Derived table's
+  GROUP_BY columns, its SELECT_DISTINCT, a SELECT of only totals, or the one table it reads; 5.0
+  carries it through joins that keep the reading table's Key and through a row_number kept at 1
+  per Key, so the repeated-rows Warning and the check above see through more Derived tables
+  instead of asking for `many_matches=`.
 - **Lineage marks each output column that is part of a Key**, and says where an output lost one.
 - **`create_table` writes the Key into the table** as `PRIMARY KEY (...) DISABLE NOVALIDATE`, which
   Hive 3 keeps as information for other people and tools, and never checks.
