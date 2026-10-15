@@ -898,7 +898,7 @@ def _check_statements(statements) -> tuple[list, list]:
     found, settings = [], []
     for s in statements:
         if isinstance(s, SessionSettings):
-            settings += [name for name in s._names if name not in settings]
+            settings.append(s)
             continue
         if not isinstance(s, (Statement, UncheckedStatement)) or (
                 isinstance(s, Statement) and s._ddl is not None):
@@ -916,8 +916,9 @@ def _check_statements(statements) -> tuple[list, list]:
         refuse(
             what="export_lineage was given only Session settings, and no Statement.",
             why="It draws where each column of a Statement comes from, and Session settings "
-            "move no data; it names them in its footer, beside the Statements sent after them.",
-            fix="Pass them with those Statements, as in export_lineage(settings, weekly).",
+            "move no data; it writes them at the foot of both its files, under the Statements.",
+            fix='Pass them with the Statements they are sent before, as in '
+            'export_lineage(hive_settings("map_joins"), weekly).',
         )
     return found, settings
 
@@ -994,13 +995,14 @@ def _version() -> str:
     return edition.VERSION
 
 
-def _footer(when: datetime.datetime, commit: str, settings: list[str]) -> str:
-    """The line both files end with: when, from which commit, with which Toolbox, and the
-    Session settings passed with the Statements, if any."""
+def _footer(when: datetime.datetime, commit: str, settings: list) -> str:
+    """The line both files end with: when, from which commit, with which Toolbox, and each
+    Session settings passed with the Statements: its names, and the SET lines it sends."""
     text = (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
             f"{commit}, with {_version()}.")
-    if settings:
-        text += f" Session settings sent first: {', '.join(settings)}."
+    for each in settings:
+        text += (f" Session settings sent before these Statements, one line at a time "
+                 f"({' and '.join(each._names)}): {' | '.join(each._lines)}.")
     return text
 
 

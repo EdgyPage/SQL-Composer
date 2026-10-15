@@ -19,7 +19,8 @@ names:
   settings and an Unchecked statement, what `show_hive(...)` prints too;
 - the repr of each output and condition, of the Statement and of each Derived table it reads;
 - the commands `write_table_reference`, `check_table_reference` and `check_key` send;
-- `export_lineage`'s Markdown report of the case's Statements, without its dated last line.
+- `export_lineage`'s Markdown report of the case's Statements, without its dated last line,
+  but for the Session settings it names.
 
 The cases are every docstring example that hands a Statement to `to_hive`, `run` or
 `export_lineage`; every Statement function of the Worked examples; the edge cases and the
@@ -235,8 +236,17 @@ def lineage_lines(statements: list) -> list[str]:
         except Exception as error:  # noqa: BLE001 - as for to_hive
             return [PART_MARK + "export_lineage", refused_text(error)]
         text = markdown.read_text(encoding="utf-8")
-    kept = [line for line in text.splitlines() if not line.startswith("Made by export_lineage on")]
-    return [PART_MARK + "export_lineage", *kept]
+    kept = [_undated(line) for line in text.splitlines()]
+    return [PART_MARK + "export_lineage", *[line for line in kept if line is not None]]
+
+
+def _undated(line: str) -> str | None:
+    """A line of a lineage as the corpus keeps it: its dated last line left out, all but the
+    Session settings it names, if any."""
+    if not line.startswith("Made by export_lineage on"):
+        return line
+    settings = line.find(" Session settings ")
+    return line[settings + 1:] if settings != -1 else None
 
 
 # --- The commands sent to the warehouse ------------------------------------------------------
