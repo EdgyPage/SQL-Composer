@@ -78,6 +78,7 @@ FILLS = {
         "<TOTAL>": "minutes",
         "<TOTAL_NAME>": '"minutes"',
         "<TOTAL_TYPE>": '"bigint"',
+        "<BASE_LOCATION>": '"/data/your_team/tables"',
         "<BLOCK>": "minutes_per_job_day",
         "<BLOCK_NAME>": '"minutes_per_job_day"',
         "<STATEMENT>": "minutes_per_job",
@@ -356,7 +357,7 @@ def test_each_statement_it_builds_becomes_hive(request, case: tuple[str, str]) -
 def test_the_saved_table_reference_makes_a_create_table(starter: dict) -> None:
     saved = starter["saved_table_reference"].module.job_day_minutes
     hive = to_hive(create_table(saved))
-    assert hive.startswith("CREATE TABLE mart.job_day_minutes")
+    assert hive.startswith("CREATE EXTERNAL TABLE mart.job_day_minutes")
     columns, partitioned_by = hive.split("PARTITIONED BY")
     assert "row_count BIGINT" in columns and "dt STRING" in partitioned_by
 
@@ -509,7 +510,7 @@ def test_the_daily_pipeline_sends_each_step_in_order(starter: dict, capsys) -> N
     pipeline = starter["daily_pipeline"].module
     steps = pipeline.steps("2026-09-24")
     hive = [to_hive(s) for s in steps]
-    assert hive[0].startswith("CREATE TABLE IF NOT EXISTS mart.job_day_minutes")
+    assert hive[0].startswith("CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day_minutes")
     assert f"{INSERT} mart.job_day_minutes PARTITION(dt = '2026-09-24')" in hive[1]
     sent = []
     pipeline.send_all(sent.append, "2026-09-24")
@@ -561,7 +562,7 @@ def test_the_incremental_pipeline_sends_each_step_in_order(intermediate: dict, c
     pipeline = intermediate["incremental_pipeline"].module
     statements = pipeline.in_order(pipeline.steps("2026-09-24"))
     hive = [to_hive(s) for s in statements]
-    assert hive[0].startswith("CREATE TABLE IF NOT EXISTS mart.job_day_minutes")
+    assert hive[0].startswith("CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day_minutes")
     assert days_written(statements[1:]) == ["2026-09-22", "2026-09-23", "2026-09-24"]
     sent = []
     pipeline.send_all(sent.append, "2026-09-24")

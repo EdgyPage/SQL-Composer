@@ -32,12 +32,14 @@ counts each job's runs per day, and mart.team_day adds those counts up per team.
 ...              "dt": "string"},
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/tables",
 ... )
 >>> team_day = Table(
 ...     "mart.team_day",
 ...     columns={"team": "string", "runs": "bigint", "failed_runs": "bigint", "dt": "string"},
 ...     date_partition="dt",
 ...     key=["team", "dt"],
+...     location="/data/your_team/tables",
 ... )
 
 ### Put each write in a variable of its own

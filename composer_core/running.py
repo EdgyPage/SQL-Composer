@@ -91,7 +91,10 @@ def _select_tree(s: Statement) -> Node:
     """A Statement's SELECT, from FROM to LIMIT, without WITH."""
     outputs = s._outputs
     if s._write is not None:
-        order = list(s._write._columns)
+        # The table's columns in its order, then the Partitions its rows fill, which Hive
+        # fills from the last columns.
+        later = s._write._partitioned_by
+        order = [column for column in s._write._columns if column not in later] + later
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
     return Node(
         "Select",
@@ -195,9 +198,11 @@ def _write_tree(s: Statement) -> Node:
     """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
     table = s._write
     day = day_text(_written_day(s), table._date_format)
+    # The day is named; each Partition after it is filled from the rows, by its column.
     partition = Node("Partition", expressions=[
         Node("EQ", this=Node("Column", name=table._date_partition),
              expression=Node("Literal", this=day, is_string=True)),
+        *[Node("Column", name=column) for column in table._partitioned_by],
     ])
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
@@ -289,6 +294,23 @@ def name_in(frame, value) -> str | None:
                  if held is value and not name.startswith("_")), None)
 
 
+# The Session setting a write needs when it fills Partitions after the day from its rows:
+# Hive's dynamic partitioning, switched on. It is the set ticket 03's shipped "dynamic_partitions"
+# holds; show_hive prints it ahead of such a write, and the user sends it once a session.
+DYNAMIC_PARTITIONS = {"hive.exec.dynamic.partition": "true",
+                      "hive.exec.dynamic.partition.mode": "nonstrict"}
+
+
+def settings_needed(s: Statement) -> list[str]:
+    """The lines show_hive prints ahead of a Statement: a note and the SET lines of the
+    Session setting it needs, or none. run sends the Statement alone."""
+    if s._ddl is not None or s._write is None or not s._write._partitioned_by:
+        return []
+    filled = ", ".join(s._write._partitioned_by)
+    return [f'-- The Session setting "dynamic_partitions": this write fills {filled} from its '
+            "rows."] + [f"SET {name}={value};" for name, value in DYNAMIC_PARTITIONS.items()]
+
+
 class HiveText(str):
     """The Hive show_hive printed, kept as text. In a notebook it isn't shown a second time."""
 
@@ -366,7 +388,7 @@ def show_hive(*statements):
     for position, (name, s) in enumerate(named, start=1):
         _need_statement(s, "show_hive", frame,
                         why="show_hive prints the Hive of Statements made by statement(...).")
-        hive = to_hive(s) + ";"
+        hive = "\n".join([*settings_needed(s), to_hive(s) + ";"])
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
             hive = f"{heading}\n{hive}"

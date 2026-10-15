@@ -326,14 +326,16 @@ def test_create_tables_refusal_says_what_to_write_for_a_type_people_often_use(
     # refuses one where its sqlglot can't write a struct's colons.
 ])
 def test_create_table_takes_each_type_hive_and_spark_share(kind: str, written: str) -> None:
-    t = Table("mart.t", columns={"a": kind}, date_partition=None)
-    assert to_hive(create_table(t)).startswith(f"CREATE TABLE mart.t (\n  a {written}")
+    t = Table("mart.t", columns={"a": kind}, date_partition=None, location="/data/tables")
+    assert to_hive(create_table(t)).startswith(f"CREATE EXTERNAL TABLE mart.t (\n  a {written}")
 
 
 def test_create_table_may_exist() -> None:
-    t = Table("mart.t", columns={"a": "decimal(10,2)"}, date_partition=None)
+    t = Table("mart.t", columns={"a": "decimal(10,2)"}, date_partition=None,
+              location="/data/tables")
     assert to_hive(create_table(t, may_exist=True)) == (
-        "CREATE TABLE IF NOT EXISTS mart.t (\n  a DECIMAL(10, 2)\n)\nSTORED AS ORC")
+        "CREATE EXTERNAL TABLE IF NOT EXISTS mart.t (\n  a DECIMAL(10, 2)\n)\nSTORED AS ORC\n"
+        "LOCATION '/data/tables/mart/t'")
 
 
 # --- drop_table -------------------------------------------------------------------------------

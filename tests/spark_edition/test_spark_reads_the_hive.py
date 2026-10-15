@@ -337,7 +337,8 @@ _TYPES = {"decimal": "decimal(10,2)", "varchar": "varchar(20)", "char": "char(3)
 
 @pytest.mark.parametrize("word", sorted(HIVE_TYPES))
 def test_spark_takes_the_create_table_the_toolbox_writes_for_each_type(spark, word: str) -> None:
-    t = Table("mart.typed", columns={"c": _TYPES.get(word, word)}, date_partition=None)
+    t = Table("mart.typed", columns={"c": _TYPES.get(word, word)}, date_partition=None,
+              location="/data/your_team/tables")
     parse(spark, to_hive(create_table(t)))
 
 

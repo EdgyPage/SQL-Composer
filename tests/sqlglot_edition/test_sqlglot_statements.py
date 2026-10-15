@@ -49,7 +49,8 @@ def test_a_call_sqlglot_cant_build_is_refused_in_the_toolboxs_words() -> None:
 
 def test_a_struct_column_is_written_with_its_colons_or_refused() -> None:
     """Hive reads STRUCT<name: type>; sqlglot 25 writes STRUCT<name type>."""
-    t = Table("mart.t", columns={"a": "struct<name:string,runs:int>"}, date_partition=None)
+    t = Table("mart.t", columns={"a": "struct<name:string,runs:int>"}, date_partition=None,
+              location="/data/tables")
     if writing._writes_struct_colons():
         assert "  a STRUCT<name: STRING, runs: INT>\n" in to_hive(create_table(t))
     else:

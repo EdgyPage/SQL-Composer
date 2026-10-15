@@ -271,7 +271,10 @@ KINDS = {
     "CTE": ("this", "alias"),
     "Partition": ("expressions",),
     "Insert": ("derived_tables", "target", "select", "overwrite"),
-    "Create": ("target", "columns", "partitioned_by", "exists"),
+    # CREATE EXTERNAL TABLE: its columns, Partitions and Buckets, its file format, its folder,
+    # and its table properties as (name, value) pairs.
+    "Create": ("target", "columns", "partitioned_by", "exists", "bucketed_by", "sorted_by",
+               "buckets", "stored_as", "location", "properties"),
     "ColumnDef": ("name", "type"),
     "Drop": ("target",),
 }

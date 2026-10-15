@@ -5,28 +5,37 @@ pytest's own Python, with Hive support, keeps its metastore and its tables' file
 temporary folder, and each Statement goes through the send a Spark user gives at work,
 `lambda hive: spark.sql(hive).toPandas()`:
 
-- create_table makes an ORC table, refuses the second time, and doesn't with may_exist=True;
+- create_table makes an external ORC table in its own folder, refuses the second time, and
+  doesn't with may_exist=True; check_table_reference reads every storage option back from
+  Spark's DESCRIBE FORMATTED;
 - INSERT_OVERWRITE replaces only its day, sent twice as well as once, and INSERT_INTO adds to
-  its day; a week_start is written into a column of type string;
+  its day; a write fills the Partitions after its day from its rows; a week_start is written
+  into a column of type string;
 - drop_table sent twice does nothing the second time;
 - write_table_reference, check_table_reference and check_key read real DESCRIBE and SHOW
   PARTITIONS output, of a day written as yyyy/MM/dd and with a row that has no day;
 - every query in Spark Composer's golden runs on real tables, and one on the Example
   database's tables gives the rows it gives.
+
+Each Saved table keeps its files in pytest's folder, not at the folder its Table reference
+names (in_folder).
 """
 
 from __future__ import annotations
+
+import copy
 
 import pandas as pd
 import pytest
 
 import editions
 from conftest import example_rows, skip_unless_the_example_database_runs
-from hive_corpus_cases import EDGE_TABLES
+from hive_corpus_cases import EDGE_TABLES, region_runs
 from in_process_spark import (
     NEEDS_WINUTILS,
     ON_WINDOWS,
     REFUSED,
+    in_folder,
     in_process_spark,
     queries,
     spark_folder,
@@ -36,12 +45,15 @@ from in_process_spark import (
 from sqlglot_composer import (
     AS,
     FROM,
+    GROUP_BY,
     INSERT_OVERWRITE,
+    JOIN,
     SELECT,
     WHERE,
     Table,
     check_key,
     check_table_reference,
+    count_rows,
     create_table,
     drop_table,
     engine,
@@ -85,8 +97,13 @@ def spark(tmp_path_factory):
     system = session._jvm.java.lang.System
     system.setProperty("derby.system.home", f"{where}/derby")
     system.setProperty("derby.stream.error.file", f"{where}/derby/derby.log")
-    _make_tables(session)
-    yield session
+    with pytest.MonkeyPatch.context() as patch:
+        # The Worked examples' Saved table, which saved_table's steps write, keeps its files in
+        # pytest's folder too.
+        patch.setattr(runs_to_review, "_location",
+                      in_folder(runs_to_review, folder / "saved")._location)
+        _make_tables(session, folder / "saved")
+        yield session
     session.stop()
 
 
@@ -95,16 +112,16 @@ def send(spark):
     return _send(spark)
 
 
-def _make_tables(spark) -> None:
+def _make_tables(spark, saved) -> None:
     """The Example database's tables as real ORC tables holding its rows, made from its own
-    views, and the corpus's own tables, empty, each made by create_table."""
+    views, and the corpus's own tables, empty, each made by create_table in `saved`."""
     for database in ("ops", "mart"):
         spark.sql(f"CREATE DATABASE IF NOT EXISTS {database}")
     for name, (table, rows) in example_database._TABLES.items():
         spark.sql(engine._table_hive(name, table._columns, rows))
         spark.sql(f"CREATE TABLE ops.{name} STORED AS ORC AS SELECT * FROM global_temp.{name}")
     for t in [*EDGE_TABLES.values(), wide_table()]:
-        run(create_table(t), send=_send(spark))
+        run(create_table(in_folder(t, saved)), send=_send(spark))
 
 
 def _rows(spark, sql: str) -> list[tuple]:
@@ -114,15 +131,52 @@ def _rows(spark, sql: str) -> list[tuple]:
 # --- create_table and drop_table ----------------------------------------------------------------
 
 
-def test_create_table_makes_an_orc_table_and_refuses_the_second_time(spark, send) -> None:
+def test_create_table_makes_an_external_orc_table_and_refuses_the_second_time(spark,
+                                                                             send) -> None:
     run(drop_table(runs_to_review), send=send)
     run(create_table(runs_to_review), send=send)
     described = {row.col_name.strip(): (row.data_type or "").strip() for row in
                  spark.sql(f"DESCRIBE FORMATTED {runs_to_review._name}").collect()}
     assert described["Serde Library"] == "org.apache.hadoop.hive.ql.io.orc.OrcSerde"
+    assert described["Type"] == "EXTERNAL"
+    assert described["Location"].endswith("/saved/mart/runs_to_review")
+    assert str(check_table_reference(runs_to_review, send=send)) == (
+        "mart.runs_to_review matches its Table reference.")
     with pytest.raises(Exception, match="ALREADY_EXISTS"):
         run(create_table(runs_to_review), send=send)
     run(create_table(runs_to_review, may_exist=True), send=send)
+
+
+def test_check_table_reference_reads_every_storage_option_as_spark_describes_it(
+        spark, send, tmp_path) -> None:
+    stored = in_folder(Table(
+        "mart.stored", columns={"job_id": "bigint", "region": "string", "runs": "bigint",
+                                "dt": "string"},
+        date_partition="dt", location="/data/your_team/tables", purge=True,
+        properties={"made_by": "daily_pipeline"}, stored_as="PARQUET", compression="SNAPPY",
+        partitioned_by=["region"], bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"]),
+        tmp_path)
+    run(create_table(stored), send=send)
+    assert str(check_table_reference(stored, send=send)) == (
+        "mart.stored matches its Table reference.")
+    elsewhere = copy.copy(stored)
+    elsewhere._location = f"{tmp_path.as_posix()}/shared"
+    assert "its own folder under another base: change the line to location=" in str(
+        check_table_reference(elsewhere, send=send))
+
+
+def test_a_write_fills_the_partitions_after_its_day_from_its_rows(spark, send) -> None:
+    job_runs, jobs = example_database.job_runs, example_database.jobs
+    run(statement(INSERT_OVERWRITE(region_runs),
+                  SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+                  FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                  WHERE(equals(job_runs.dt, "2026-09-24")),
+                  GROUP_BY(job_runs.job_id, jobs.region)), send=send)
+    assert _rows(spark, "SHOW PARTITIONS mart.region_runs") == [
+        ("dt=2026-09-24/region=LON",), ("dt=2026-09-24/region=NYC",),
+        ("dt=2026-09-24/region=PAR",)]
+    assert _rows(spark, "SELECT job_id, region, runs, dt FROM mart.region_runs") == [
+        (1, "LON", 2, "2026-09-24"), (2, "PAR", 1, "2026-09-24"), (3, "NYC", 1, "2026-09-24")]
 
 
 def test_drop_table_sent_twice_does_nothing_the_second_time(spark, send) -> None:
@@ -173,9 +227,10 @@ def test_insert_overwrite_replaces_only_its_day_and_insert_into_adds_to_it(spark
     assert _day(spark, last) == sorted(_failed(last) + _alerted(last))
 
 
-def test_a_week_start_is_written_into_a_column_of_type_string(spark, send) -> None:
-    weeks = Table("mart.weeks", columns={"run_id": "bigint", "week": "string", "dt": "string"},
-                  date_partition="dt")
+def test_a_week_start_is_written_into_a_column_of_type_string(spark, send, tmp_path) -> None:
+    weeks = in_folder(Table("mart.weeks", columns={"run_id": "bigint", "week": "string",
+                                                   "dt": "string"},
+                            date_partition="dt", location="/data/your_team/tables"), tmp_path)
     job_runs = example_database.job_runs
     run(drop_table(weeks), send=send)
     run(create_table(weeks), send=send)
@@ -189,19 +244,22 @@ def test_a_week_start_is_written_into_a_column_of_type_string(spark, send) -> No
 # --- write_table_reference, check_table_reference and check_key on real tables -----------------
 
 SLASHED = Table("ops.slashed", columns={"run_id": "bigint", "status": "string", "dt": "string"},
-                date_partition="dt", date_format="%Y/%m/%d", key=["run_id"])
+                date_partition="dt", date_format="%Y/%m/%d", key=["run_id"],
+                location="/data/your_team/tables")
 
 
 @pytest.fixture
-def slashed(spark, send):
-    """A table whose days are written as 2026/09/24, with a row that has no day."""
-    run(drop_table(SLASHED), send=send)
-    run(create_table(SLASHED), send=send)
+def slashed(spark, send, tmp_path):
+    """A table whose days are written as 2026/09/24, with a row that has no day, in a folder
+    of its own each time: a dropped external table leaves its files behind."""
+    t = in_folder(SLASHED, tmp_path)
+    run(drop_table(t), send=send)
+    run(create_table(t), send=send)
     spark.sql("INSERT INTO ops.slashed PARTITION (dt = '2026/09/23') VALUES (1, 'SUCCESS')")
     spark.sql("INSERT INTO ops.slashed PARTITION (dt = '2026/09/24') VALUES (2, 'FAILED'), "
               "(3, 'SUCCESS')")
     spark.sql("INSERT INTO ops.slashed PARTITION (dt) SELECT 2, 'FAILED', CAST(NULL AS STRING)")
-    return SLASHED
+    return t
 
 
 def test_write_table_reference_reads_a_day_written_with_slashes(slashed, send, tmp_path,

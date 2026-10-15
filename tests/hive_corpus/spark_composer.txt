@@ -100,7 +100,7 @@ LIMIT 20
 
 == doc:create_table
 -- Statement 1: to_hive
-CREATE TABLE mart.daily_runs (
+CREATE EXTERNAL TABLE mart.daily_runs (
   job_id BIGINT,
   runs BIGINT
 )
@@ -108,6 +108,22 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+-- Statement 2: to_hive
+CREATE EXTERNAL TABLE mart.region_runs (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/region_runs'
+TBLPROPERTIES (
+  'external.table.purge'='true',
+  'parquet.compression'='SNAPPY'
+)
 
 == doc:drop_table
 -- Statement 1: to_hive
@@ -4498,7 +4514,7 @@ WHERE
 
 == worked:saved_table:create
 -- Statement 1: to_hive
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT
 )
@@ -4506,10 +4522,14 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
 
 == worked:saved_table:create_if_missing
 -- Statement 1: to_hive
-CREATE TABLE IF NOT EXISTS mart.runs_to_review (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT
 )
@@ -4517,6 +4537,10 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
 
 == worked:saved_table:failed_runs
 -- Statement 1: to_hive
@@ -5033,7 +5057,7 @@ WHERE
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS mart.runs_to_review
 -- Statement 2: to_hive
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT
 )
@@ -5041,6 +5065,10 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
 
 == worked:step_by_step:minutes_per_job
 -- Statement 1: to_hive
@@ -7261,7 +7289,7 @@ WHERE
 
 == edge:width:struct
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c STRUCT<
     field_0: STRING,
     field_1: STRING,
@@ -7277,6 +7305,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:brackets:add_then_divide
 -- Statement 1: to_hive
@@ -11455,35 +11484,42 @@ DROP TABLE IF EXISTS ops.events
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS mart.daily_runs
 
+== edge:drop_table:region_runs
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.region_runs
+
 == edge:create_table:tinyint
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c TINYINT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:smallint
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c SMALLINT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:int
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c INT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:integer
 -- refused
@@ -11495,33 +11531,36 @@ ValueError:
 
 == edge:create_table:bigint
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BIGINT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:float
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c FLOAT
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:double
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DOUBLE
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:real
 -- refused
@@ -11549,23 +11588,25 @@ ValueError:
 
 == edge:create_table:decimal(10,2)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DECIMAL(10, 2)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:decimal(10, 2)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DECIMAL(10, 2)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:numeric(5,1)
 -- refused
@@ -11577,103 +11618,113 @@ ValueError:
 
 == edge:create_table:string
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c STRING
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:varchar(20)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c VARCHAR(20)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:char(3)
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c CHAR(3)
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:boolean
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BOOLEAN
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:date
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c DATE
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:timestamp
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c TIMESTAMP
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:binary
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BINARY
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:array<string>
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c ARRAY<STRING>
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:map<string,int>
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c MAP<STRING, INT>
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:struct<a:int,b:string>
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c STRUCT<a: INT, b: STRING>
 )
 PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:bigint unsigned
 -- refused
@@ -11717,7 +11768,7 @@ ValueError:
 
 == edge:create_table:may_exist
 -- Statement 1: to_hive
-CREATE TABLE IF NOT EXISTS mart.daily_runs (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs (
   job_id BIGINT,
   runs BIGINT
 )
@@ -11725,6 +11776,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
 
 == edge:create_table:untyped
 -- refused
@@ -11736,14 +11788,15 @@ ValueError:
 
 == edge:create_table:no_date_partition
 -- Statement 1: to_hive
-CREATE TABLE mart.typed (
+CREATE EXTERNAL TABLE mart.typed (
   c BIGINT
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/typed'
 
 == edge:create_table:odd
 -- Statement 1: to_hive
-CREATE TABLE ops.`order` (
+CREATE EXTERNAL TABLE ops.`order` (
   `select` STRING,
   `1st` BIGINT,
   `two words` STRING
@@ -11752,10 +11805,11 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/order'
 
 == edge:create_table:spark_words
 -- Statement 1: to_hive
-CREATE TABLE ops.`semi` (
+CREATE EXTERNAL TABLE ops.`semi` (
   `any` STRING,
   `minus` BIGINT,
   `current_user` STRING
@@ -11764,10 +11818,11 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/semi'
 
 == edge:create_table:compact
 -- Statement 1: to_hive
-CREATE TABLE ops.compact_runs (
+CREATE EXTERNAL TABLE ops.compact_runs (
   run_id BIGINT,
   status STRING
 )
@@ -11775,10 +11830,11 @@ PARTITIONED BY (
   day STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/compact_runs'
 
 == edge:create_table:events
 -- Statement 1: to_hive
-CREATE TABLE ops.events (
+CREATE EXTERNAL TABLE ops.events (
   event_id BIGINT,
   at TIMESTAMP,
   is_active BOOLEAN
@@ -11787,10 +11843,11 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/ops/events'
 
 == edge:create_table:daily_runs
 -- Statement 1: to_hive
-CREATE TABLE mart.daily_runs (
+CREATE EXTERNAL TABLE mart.daily_runs (
   job_id BIGINT,
   runs BIGINT
 )
@@ -11798,6 +11855,450 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+
+== edge:create_table:region_runs
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.region_runs (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/region_runs'
+
+== edge:storage:no_location
+-- refused
+ValueError:
+  What happened:  create_table(stored): its Table reference has no location=.
+  Why it matters: Each of your Saved tables is an external table, in a folder of its own under the folder your Saved tables go in. The Toolbox adds the table's own folder to location=, so no two Saved tables share one.
+  Usual fix:      Add location=... to its Table(...) call, such as location="/data/your_team/tables", which puts it at /data/your_team/tables/mart/stored.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:storage:location_with_a_scheme
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION 'hdfs:///data/your_team/tables/mart/stored'
+
+== edge:storage:purge
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+)
+
+== edge:storage:no_purge
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+
+== edge:storage:properties
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'made_by'='it\'s daily',
+  'team'='data'
+)
+
+== edge:storage:parquet
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:orc_compression
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'orc.compress'='ZLIB'
+)
+
+== edge:storage:parquet_compression
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'parquet.compression'='GZIP'
+)
+
+== edge:storage:partitioned_by
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:buckets
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+CLUSTERED BY (job_id) INTO 16 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:sorted_buckets
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  region STRING,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING
+)
+CLUSTERED BY (job_id, region) SORTED BY (region, job_id) INTO 4 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/stored'
+
+== edge:storage:all
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.stored (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+CLUSTERED BY (job_id) SORTED BY (job_id) INTO 8 BUCKETS
+STORED AS PARQUET
+LOCATION '/data/your_team/tables/mart/stored'
+TBLPROPERTIES (
+  'external.table.purge'='true',
+  'parquet.compression'='SNAPPY',
+  'made_by'='runs'
+)
+
+== edge:storage:odd_names_in_buckets
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE ops.order_buckets (
+  `two words` BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  `select` STRING
+)
+CLUSTERED BY (`two words`) SORTED BY (`two words`) INTO 2 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/tables/ops/order_buckets'
+
+== edge:write:partitioned_by:INSERT_OVERWRITE
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+-- Statement 1: the Statement
+output region: jobs.region
+output job_id: job_runs.job_id
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.region<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["region<br/><small>jobs.region</small>"]
+    n3["job_id<br/><small>job_runs.job_id</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["ops.job_runs"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["mart.region_runs"]
+    n9["mart.region_runs.region<br/><small>string</small>"]
+    n10["mart.region_runs.job_id<br/><small>bigint</small>"]
+    n11["mart.region_runs.runs<br/><small>bigint</small>"]
+    n12["mart.region_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n2 -.-> n7
+  n1 --> n9
+  n3 --> n10
+  n4 --> n11
+  n5 -.->|day written| n12
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+It writes the Saved table mart.region_runs, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `job_runs.job_id` and `jobs.region`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `region` | ops.jobs.region |
+| `job_id` | ops.job_runs.job_id |
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+```
+
+---
+
+
+== edge:write:partitioned_by:INSERT_INTO
+-- Statement 1: to_hive
+INSERT INTO mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+-- Statement 1: the Statement
+output region: jobs.region
+output job_id: job_runs.job_id
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.region<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["region<br/><small>jobs.region</small>"]
+    n3["job_id<br/><small>job_runs.job_id</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["ops.job_runs"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["mart.region_runs"]
+    n9["mart.region_runs.region<br/><small>string</small>"]
+    n10["mart.region_runs.job_id<br/><small>bigint</small>"]
+    n11["mart.region_runs.runs<br/><small>bigint</small>"]
+    n12["mart.region_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n2 -.-> n7
+  n1 --> n9
+  n3 --> n10
+  n4 --> n11
+  n5 -.->|day written| n12
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+It adds to the Saved table mart.region_runs, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `job_runs.job_id` and `jobs.region`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `region` | ops.jobs.region |
+| `job_id` | ops.job_runs.job_id |
+
+### Hive as submitted
+
+```sql
+INSERT INTO mart.region_runs PARTITION(dt = '2026-09-24', region)
+SELECT
+  job_runs.job_id,
+  COUNT(*) AS runs,
+  jobs.region
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  job_runs.job_id,
+  jobs.region
+```
+
+---
+
+
+== edge:write:partitioned_by:leaves_out_the_partition
+-- refused
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(region_runs): it leaves out region.
+  Why it matters: The warehouse fills a table's columns by position, not by name, so a missing or extra column would put values in the wrong columns.
+  Usual fix:      SELECT every column of region_runs's Table reference except its Date partition, each under its own name. The Toolbox puts them in the right order.
+  Opt-out:        none - this one can't be switched off.
 
 == gen:000
 -- Statement 1: to_hive
@@ -36195,7 +36696,7 @@ LIMIT 20
 DESCRIBE ops.`order`
 SHOW PARTITIONS ops.`order`
 -- check_table_reference
-DESCRIBE ops.`order`
+DESCRIBE FORMATTED ops.`order`
 SHOW PARTITIONS ops.`order`
 -- check_key
 ValueError:
@@ -36209,7 +36710,7 @@ ValueError:
 DESCRIBE ops.`semi`
 SHOW PARTITIONS ops.`semi`
 -- check_table_reference
-DESCRIBE ops.`semi`
+DESCRIBE FORMATTED ops.`semi`
 SHOW PARTITIONS ops.`semi`
 -- check_key
 ValueError:
@@ -36223,7 +36724,7 @@ ValueError:
 DESCRIBE ops.compact_runs
 SHOW PARTITIONS ops.compact_runs
 -- check_table_reference
-DESCRIBE ops.compact_runs
+DESCRIBE FORMATTED ops.compact_runs
 SHOW PARTITIONS ops.compact_runs
 -- check_key
 SHOW PARTITIONS ops.compact_runs
@@ -36244,7 +36745,7 @@ LIMIT 20
 DESCRIBE ops.events
 SHOW PARTITIONS ops.events
 -- check_table_reference
-DESCRIBE ops.events
+DESCRIBE FORMATTED ops.events
 SHOW PARTITIONS ops.events
 -- check_key
 SHOW PARTITIONS ops.events
@@ -36265,7 +36766,7 @@ LIMIT 20
 DESCRIBE mart.daily_runs
 SHOW PARTITIONS mart.daily_runs
 -- check_table_reference
-DESCRIBE mart.daily_runs
+DESCRIBE FORMATTED mart.daily_runs
 SHOW PARTITIONS mart.daily_runs
 -- check_key
 SHOW PARTITIONS mart.daily_runs
@@ -36280,3 +36781,17 @@ GROUP BY
 HAVING
   COUNT(*) > 1
 LIMIT 20
+
+== warehouse:mart.region_runs
+-- write_table_reference
+DESCRIBE mart.region_runs
+SHOW PARTITIONS mart.region_runs
+-- check_table_reference
+DESCRIBE FORMATTED mart.region_runs
+SHOW PARTITIONS mart.region_runs
+-- check_key
+ValueError:
+  What happened:  check_key(region_runs): its Table reference declares no key.
+  Why it matters: There is nothing to check.
+  Usual fix:      Add key=[...] to its Table(...) call, such as key=["run_id"].
+  Opt-out:        none - this one can't be switched off.

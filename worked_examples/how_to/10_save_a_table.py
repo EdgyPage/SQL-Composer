@@ -45,6 +45,8 @@ shows argument by argument:
 ...     },
 ...     date_partition="dt",
 ...     key=["run_id"],
+...     location="/data/your_team/tables",
+...     purge=True,
 ... )
 
 - Name a database you are allowed to write to, here mart; the tables you read, such as
@@ -55,6 +57,13 @@ shows argument by argument:
 - `key=["run_id"]` names the columns that tell one row from another: no two rows of a day share
   a `"run_id"`. It isn't sent to the warehouse; the Toolbox reads it to warn when a join could
   repeat rows, as [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
+- `location="/data/your_team/tables"` is the folder all your Saved tables go in: ask whoever
+  looks after your warehouse which one you may write to. The Toolbox adds the table's own
+  folder, here mart/runs_to_review, so no two of your tables ever share one: two tables in one
+  folder read each other's files.
+- `purge=True` makes dropping the table delete its files too, as the last step below needs.
+  Without it, the warehouse forgets a dropped table but keeps its files, and a table created
+  in the same folder again reads its old rows back.
 
 At work, keep this in its own file, as the gallery's
 [Saved table example](examples.html#saved_table) does, so every Statement that writes or reads
@@ -67,17 +76,25 @@ every Statement, it is built first and sent later:
 
 >>> create = create_table(runs_to_review)
 >>> text = show_hive(create)
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT
 )
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+);
 
+EXTERNAL and LOCATION make it a table whose files are yours, in its own folder.
 `PARTITIONED BY (dt STRING)` is the Date partition: the table keeps each day apart.
-`STORED AS ORC` is the file format the warehouse saves it in.
+`STORED AS ORC` is the file format the warehouse saves it in. TBLPROPERTIES holds
+`purge=True`.
+[Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) shows the rest of
+what a Saved table's Table reference can say about how it is kept.
 
 You send it once. If the table already exists, the warehouse refuses to create it again, on
 purpose: after you edit the Table reference, sending this again can't quietly look as if it
@@ -86,14 +103,18 @@ instead, which skips the table when it is already there and never changes it:
 
 >>> create_if_missing = create_table(runs_to_review, may_exist=True)
 >>> text = show_hive(create_if_missing)
-CREATE TABLE IF NOT EXISTS mart.runs_to_review (
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT
 )
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+);
 
 ### Look at a day's rows before you save them
 
@@ -257,12 +278,14 @@ Say the reviewers want each run's minutes too. Change the Table reference first:
 ...     },
 ...     date_partition="dt",
 ...     key=["run_id"],
+...     location="/data/your_team/tables",
+...     purge=True,
 ... )
 
 The real table still has the old columns, and `create_table` alone would be refused by the
 warehouse, since the table exists. To rebuild it, drop it and create it again.
-`drop_table` deletes the whole table, every day of it, and the Toolbox can't bring it back, so
-use it only on a Saved table you made:
+`drop_table` deletes the whole table, every day of it, since `purge=True`, and the Toolbox
+can't bring it back, so use it only on a Saved table you made:
 
 >>> rebuild = [drop_table(runs_to_review), create_table(runs_to_review)]
 >>> text = show_hive(rebuild)
@@ -270,7 +293,7 @@ use it only on a Saved table you made:
 DROP TABLE IF EXISTS mart.runs_to_review;
 <BLANKLINE>
 -- 2 of 2: rebuild[1]
-CREATE TABLE mart.runs_to_review (
+CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   duration_mins INT
@@ -278,7 +301,11 @@ CREATE TABLE mart.runs_to_review (
 PARTITIONED BY (
   dt STRING
 )
-STORED AS ORC;
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/runs_to_review'
+TBLPROPERTIES (
+  'external.table.purge'='true'
+);
 
 `IF EXISTS` means the drop does nothing, rather than failing, when the table isn't there.
 
@@ -434,6 +461,23 @@ Traceback (most recent call last):
 ValueError:
   What happened:  create_table(runs_to_review): run_id's type 'integer' isn't one create_table can use.
 ...
+
+### Leaving out location=
+
+Every Saved table is made in a folder of its own, so `create_table` refuses a Table reference
+that doesn't say where your Saved tables go:
+
+>>> create_table(Table("mart.runs_to_review",
+...     columns={"run_id": "bigint", "job_id": "bigint", "dt": "string"},
+...     date_partition="dt"))
+Traceback (most recent call last):
+...
+ValueError:
+  What happened:  create_table(runs_to_review): its Table reference has no location=.
+...
+
+Add `location=` with the folder your Saved tables go in, as above. The tables you only read
+need none: they are someone else's, in folders of their own.
 
 ## Next
 

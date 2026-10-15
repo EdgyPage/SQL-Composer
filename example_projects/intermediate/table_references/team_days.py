@@ -22,4 +22,5 @@ team_days = Table(
     },
     date_partition="dt",
     key=["team", "dt"],
+    location="/data/your_team/tables",  # the folder your Saved tables go in
 )
