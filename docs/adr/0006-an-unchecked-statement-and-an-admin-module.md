@@ -10,9 +10,9 @@ rather than by hand.
 
 So 5.0 adds two things, each kept apart from the everyday Statements:
 
-- **`unchecked_hive("...")`, the Unchecked statement**, runs Hive text the user writes, as a
-  Statement. Nothing looks inside it: no Guard, Warning or Load limit, and Lineage draws it as one
-  opaque step with a warning badge. It is allowed, not encouraged: each one marks something the
+- **`unchecked_hive("...")`, the Unchecked statement**, runs Hive text the user writes, the way a
+  Statement is run, though it isn't one. No Guard or Load limit looks inside it, and Lineage draws
+  it as one opaque step with a warning badge. It is allowed, not encouraged: each one marks something the
   Toolbox should learn to write. Text that starts `DROP`, `ALTER` or `TRUNCATE` warns, naming the
   admin function that writes it, checked.
 - **The admin module** (`from sqlglot_composer import admin`, not in the star import) writes the
@@ -38,7 +38,7 @@ This reverses the first design's "no raw SQL" for the one, loudly marked, case.
 
 ## Consequences
 
-- A Statement can now carry Hive the Toolbox didn't build, so the dry run, Lineage and the Admin
-  log all say so where it appears.
+- A pipeline can now carry Hive the Toolbox didn't build, as an Unchecked statement, so the dry
+  run, Lineage and the Admin log all say so where it appears.
 - The ordinary names lose `drop_table`; 5.0's CHANGES says to import it from `admin`.
 - The Admin log is a file the Toolbox writes beside the user's notebook, like Lineage pages.

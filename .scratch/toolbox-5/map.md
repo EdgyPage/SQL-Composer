@@ -75,10 +75,11 @@ below; this map is the design document, built out ticket by ticket.
    - **Session settings:** the user's own named sets in settings.py (`HIVE_SETTINGS = {name:
      {setting: value}}`), and a few the Toolbox ships, each documented with why
      (`"dynamic_partitions"`, map-joins chosen by Hive, statistics gathered on write, small files
-     merged). `hive_settings("name")` is a Statement of `SET` lines to `run` or list first in a
-     pipeline; Lineage footers say which were set.
-   - **`unchecked_hive("...")`:** Hive text written by hand, run like a Statement. No Guard,
-     Warning or Load limit looks inside; Lineage draws it as one opaque step, linked to the tables
+     merged). `hive_settings("name")` gives the `SET` lines, not a Statement but run, shown and
+     listed first in a pipeline the same way; Lineage footers say which were set.
+   - **`unchecked_hive("...")`:** Hive text written by hand, run the way a Statement is,
+     though it isn't one. No Guard or
+     Load limit looks inside, and its one Warning is the DROP/ALTER/TRUNCATE one below; Lineage draws it as one opaque step, linked to the tables
      its text names, with a warning badge; the dry run marks it. Text starting `DROP`, `ALTER` or
      `TRUNCATE` warns at the user's line, naming the admin function that writes it, checked.
    - **The Admin log:** each `run` of an Admin statement or an Unchecked statement appends one
