@@ -9,8 +9,8 @@ Size: M
 
 Map family 3 and ADR 0006. `hive_settings(name)` from the user's `HIVE_SETTINGS` in settings.py
 or a shipped set (each documented with why); `unchecked_hive(text)`, run like a Statement, with
-no Guard or Load limit inside, drawn opaque in Lineage, marked in dry runs, warning on
-text starting DROP, ALTER or TRUNCATE; the Admin log appended on each run of an Admin statement or
+no Guard, Warning or Load limit inside, drawn opaque in Lineage, marked in dry runs, a note
+naming the admin function on text starting DROP, ALTER or TRUNCATE; the Admin log appended on each run of an Admin statement or
 an Unchecked statement, at `ADMIN_LOG` (default `admin_log.md` beside the notebook). The entry's
 git commit is read as Lineage reads it, from `.git`'s files (`lineage.scripts_commit`), never by
 starting git: ADR 0004 allows the Toolbox no process but the Example database's.
