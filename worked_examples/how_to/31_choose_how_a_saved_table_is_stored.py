@@ -69,7 +69,7 @@ table property, such as `{"made_by": "daily_pipeline"}`. `create_table` writes t
 >>> text = show_hive(create_table(job_costs, may_exist=True))
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_costs (
   job_id BIGINT,
-  cost_cents BIGINT
+  cost_cents BIGINT...
 )
 PARTITIONED BY (
   dt STRING,
@@ -154,7 +154,7 @@ refuse to write a table with Buckets, or write it without them. Most Saved table
 CREATE EXTERNAL TABLE mart.run_facts (
   run_id BIGINT,
   job_id BIGINT,
-  minutes INT
+  minutes INT...
 )
 PARTITIONED BY (
   dt STRING

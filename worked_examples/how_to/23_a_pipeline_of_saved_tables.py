@@ -57,7 +57,7 @@ Create each once. `show_hive` prints both, ready to paste:
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day (
   job_id BIGINT,
   starts BIGINT,
-  finishes BIGINT
+  finishes BIGINT...
 )
 PARTITIONED BY (
   dt STRING
@@ -69,7 +69,7 @@ LOCATION '/data/your_team/tables/mart/job_day';
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
   team STRING,
   starts BIGINT,
-  finishes BIGINT
+  finishes BIGINT...
 )
 PARTITIONED BY (
   dt STRING

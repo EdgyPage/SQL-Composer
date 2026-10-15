@@ -314,7 +314,8 @@ def test_a_box_shows_the_call_it_was_written_with(tmp_path) -> None:
     )
     markdown, _ = read(export_lineage(weekly, to=tmp_path / "lineage.html"))
     assert '    n' in markdown
-    assert re.search(r'\["week<br/><small>week_start\(job_runs\.dt\)</small>"\]', markdown)
+    assert re.search(r'\["week<br/><small>week_start\(job_runs\.dt\)</small>'
+                     r'<br/><small>in the Key</small>"\]', markdown)
     entry = section(markdown, "#### `week`")
     assert ("Calculated in **weekly** as `week_start(job_runs.dt)`, which is "
             "`CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`") in entry
@@ -942,3 +943,53 @@ def test_the_pages_script_is_javascript_a_browser_can_read(tmp_path) -> None:
     checked = subprocess.run(["node", "--check", str(tmp_path / "page.js")],
                              capture_output=True, text=True)
     assert checked.returncode == 0, checked.stderr
+
+
+# --- Keys -------------------------------------------------------------------------------------
+
+
+def test_each_column_in_a_key_is_marked_in_the_chart_and_on_the_page(tmp_path) -> None:
+    team = runs_per_team()
+    markdown, page = read(export_lineage(team, to=tmp_path / "team.html"))
+    lines = {box["lines"][0]: box["lines"] for box in page_data(page)["boxes"]}
+    assert lines["team"][-1] == "in the Key"  # the GROUP_BY column
+    assert lines["runs"][-1] != "in the Key"
+    assert lines["ops.jobs.job_id"][-1] == "in the Key"  # jobs' declared Key
+    assert lines["ops.jobs.team"][-1] != "in the Key"
+    assert '["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]' in markdown
+
+
+def test_the_report_says_where_a_step_lost_its_key(tmp_path) -> None:
+    run_alerts = example_database.run_alerts
+    with_alerts = derived("with_alerts", statement(
+        SELECT(job_runs.run_id, AS(run_alerts.severity, "severity")), FROM(job_runs),
+        JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True),
+        WHERE(equals(job_runs.dt, "2026-09-24"), equals(run_alerts.dt, "2026-09-24"))))
+    alerts = statement(SELECT(with_alerts.run_id, with_alerts.severity), FROM(with_alerts))
+    markdown, page = read(export_lineage(alerts, to=tmp_path / "alerts.html"))
+    keys = section(markdown, "### Keys")
+    lost = ("derived('with_alerts', ...): no Key the Toolbox can see, since "
+            "JOIN(run_alerts, ON=...) can match several run_alerts rows to one row.")
+    assert f"- {lost}" in keys
+    assert ("- alerts: no Key the Toolbox can see, since the Derived table with_alerts has no "
+            "Key the Toolbox can see: JOIN(run_alerts") in keys
+    assert "<h3>Keys</h3>" in page and "can match several run_alerts rows to one row" in page
+
+
+def test_the_report_says_whether_a_writes_key_holds(tmp_path) -> None:
+    daily = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
+                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    fill = statement(INSERT_OVERWRITE(daily), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+                     FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")),
+                     GROUP_BY(job_runs.job_id))
+    markdown, _ = read(export_lineage(fill, to=tmp_path / "fill.html"))
+    keys = section(markdown, "### Keys")
+    assert "- fill: Key (job_id), since GROUP_BY makes one row for each job_id." in keys
+    assert "- mart.daily_runs' Key (job_id, dt) holds: each row written has its own." in keys
+    unchecked = statement(INSERT_OVERWRITE(daily, unproven_key=True),
+                          SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs")),
+                          FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")))
+    markdown, _ = read(export_lineage(unchecked, to=tmp_path / "unchecked.html"))
+    assert ("mart.daily_runs' Key (job_id, dt) isn't shown to hold, since job_runs' rows are "
+            "told apart by run_id, and SELECT leaves out job_runs.run_id") in section(markdown, "### Keys")
+    assert "the write says unproven_key=True." in section(markdown, "### Keys")

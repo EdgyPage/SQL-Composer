@@ -125,15 +125,27 @@ def _make_tables(spark) -> None:
 
 # --- Spark's parser -------------------------------------------------------------------------
 
-def _parse_cases() -> list:
+def _parse_cases(with_a_key: bool) -> list:
+    """Each piece of Hive in both goldens, but for sqlglot Composer's CREATE TABLEs that write
+    a Key, which Spark refuses (the primary_key row of DECLARED_DIFFERENCES); or only those."""
     found = []
     for edition in editions.EDITIONS.values():
         for hive in hive_texts(edition):
-            found.append(pytest.param(hive.text, id=f"{edition.library} {hive.where}"))
+            if ("PRIMARY KEY" in hive.text) is with_a_key:
+                found.append(pytest.param(hive.text, id=f"{edition.library} {hive.where}"))
     return found
 
 
-@pytest.mark.parametrize("text", _parse_cases())
+@pytest.mark.parametrize("text", _parse_cases(with_a_key=True))
+def test_spark_refuses_the_key_sqlglot_composer_writes_into_a_table(spark, text: str) -> None:
+    only_sqlglot_composer = DECLARED_DIFFERENCES["primary_key"].sqlglot_composer_only
+    assert re.search(only_sqlglot_composer, text)
+    with pytest.raises(Exception, match="PRIMARY"):
+        parse(spark, text)
+    parse(spark, re.sub(only_sqlglot_composer, "", text))
+
+
+@pytest.mark.parametrize("text", _parse_cases(with_a_key=False))
 def test_spark_parses_the_hive_with_its_keywords_enforced_or_not(spark, text: str) -> None:
     refused = []
     for ansi, keywords in [(False, False), (True, False), (True, True)]:

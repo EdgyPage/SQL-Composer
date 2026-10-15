@@ -565,8 +565,10 @@ class Table:
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
     - `date_partition` is required: the one date column the table is partitioned by, which
       every Statement must bound at both ends, or None for a table that has none.
-    - `key` lists the columns that pick out one row. JOIN warns when a join doesn't use all
-      of them.
+    - `key` lists the columns that pick out one row, the table's Key. JOIN warns when a join
+      doesn't use all of them; a write into a Saved table with a Key is refused unless the
+      Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says
+      how); and create_table writes it into the table. Hive never checks it.
     - `does_not_add_up` lists columns that are averages, ratios or distinct counts, which
       sum_of(...) and average_of(...) refuse to add up.
     - `date_format` is needed only when the Date partition's days aren't written like
@@ -1381,8 +1383,8 @@ def _real_table(t, call: str) -> Table:
 def check_key(t, send):
     """Check on the newest day that no two rows share the Table reference's key.
 
-    JOIN relies on a declared key to warn about repeated rows, and the warehouse never
-    enforces one.
+    JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table
+    to check its rows, and the warehouse never enforces one.
     This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows
     with no day), and shows at most 20 keys that repeat.
 
@@ -1747,6 +1749,12 @@ def create_table(t, may_exist=False):
     may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table
     alone.
 
+    A Table reference with a Key, such as key=["job_id", "dt"], gets
+    PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
+    reads the table and never checks. Spark refuses a PRIMARY KEY, so one Edition leaves it
+    out: the README's list of where the two Editions' Hive differs says which. Either way the
+    Toolbox checks the Key itself, before each write.
+
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
     ...     location="/data/your_team/tables")
@@ -1818,7 +1826,7 @@ def create_table(t, may_exist=False):
                   partitioned_by=partitioned_by, exists=may_exist,
                   bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),
                   buckets=t._buckets, stored_as=t._stored_as, location=t._location,
-                  properties=properties)
+                  properties=properties, key=t._key)
     return s
 
 

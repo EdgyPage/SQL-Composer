@@ -440,7 +440,8 @@ def _buckets(node: Node) -> str:
 
 
 # After sqlglot's Generator.create_sql and properties_sql, and its Hive dialect's
-# EXTERNAL, LOCATION and TBLPROPERTIES.
+# EXTERNAL, LOCATION and TBLPROPERTIES. The Key, node.parts["key"], is left out: Spark refuses
+# a PRIMARY KEY, the primary_key row of DECLARED_DIFFERENCES.
 def _create(node: Node, pretty: bool) -> str:
     exists = " IF NOT EXISTS" if node.parts.get("exists") else ""
     sql = f"CREATE EXTERNAL TABLE{exists} {_part(node, 'target', pretty)}"

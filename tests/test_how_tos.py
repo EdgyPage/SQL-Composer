@@ -430,8 +430,8 @@ def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path) -> None:
 ... )""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     assert '<p class="label">It builds, with a Warning</p>' in shown
-    assert ("JOIN(run_alerts) matches on run_id, but a run_alerts row is only unique by its "
-            "key (alert_id).") in page_text(shown)
+    assert ("JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only by "
+            "its Key (alert_id).") in page_text(shown)
 
 
 @pytest.mark.needs_example_database
@@ -597,7 +597,7 @@ def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> No
 
 @pytest.mark.parametrize(("name", "group", "says"), [
     ("19_try_it.py", "Getting started", "the Getting started how-tos are 1 to 18"),
-    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 31"),
+    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 32"),
     ("02_try_it.py", "Advanced", "says `For: Advanced`"),
 ])
 def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path, name: str,

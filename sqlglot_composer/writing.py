@@ -48,8 +48,15 @@ def hive_statement(node: Node) -> str:
 
 
 def read_back(text: str) -> str:
-    """The Hive read back and written again. to_hive compares the two, to check its own Hive."""
-    return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
+    """The Hive read back and written again. to_hive compares the two, to check its own Hive.
+
+    sqlglot reads Hive's PRIMARY KEY (...) DISABLE NOVALIDATE, a Key Hive never checks, only
+    once its parser is told that DISABLE NOVALIDATE may end a Key, as it is here, for this read.
+    """
+    dialect = sqlglot.Dialect.get_or_raise(_DIALECT)
+    parser = dialect.parser()
+    parser.KEY_CONSTRAINT_OPTIONS = {**parser.KEY_CONSTRAINT_OPTIONS, "DISABLE": ("NOVALIDATE",)}
+    return sql_text(parser.parse(dialect.tokenize(text), text)[0], pretty=True)
 
 
 def check_writable_call(name: str, args: list[Node], call: str) -> None:
@@ -277,7 +284,12 @@ def _create(node: Node) -> exp.Create:
     properties.append(exp.LocationProperty(this=exp.Literal.string(node.parts["location"])))
     properties += [exp.Property(this=exp.Literal.string(name), value=exp.Literal.string(value))
                    for name, value in node.parts["properties"]]
-    schema = exp.Schema(this=_built(node, "target"), expressions=_all_built(node, "columns"))
+    columns = _all_built(node, "columns")
+    if node.parts["key"]:
+        # The Key, which DISABLE NOVALIDATE has Hive keep without ever checking it.
+        key = [_identifier(name) for name in node.parts["key"]]
+        columns.append(exp.PrimaryKey(expressions=key, options=["DISABLE NOVALIDATE"]))
+    schema = exp.Schema(this=_built(node, "target"), expressions=columns)
     return exp.Create(kind="TABLE", this=schema, properties=exp.Properties(expressions=properties),
                       exists=node.parts["exists"])
 

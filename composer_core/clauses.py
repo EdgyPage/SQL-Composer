@@ -13,12 +13,14 @@ from __future__ import annotations
 
 from .calculations import Ordering, ordered
 from .conditions import Condition, combined_spans
+from .keys import keys_of, statement_keys, unproven
 from .refusals import (
     guard_cross_join,
     guard_left_join_then_where,
     guard_missing_group_by,
     guard_order_by_in_derived_table,
     guard_unnamed_calculation,
+    guard_unproven_key,
     guard_write_lines_up,
     load_limit_date_bound,
     load_limit_order_by,
@@ -48,7 +50,7 @@ class Clause:
     def __init__(self, name: str, *, outputs=None, distinct=False, table=None, on=None,
                  reads_all_partitions=False, many_matches=False, keeps_only_matches=False,
                  conditions=None, group_columns=None, sort_keys=None, sorts_everything=False,
-                 n=None):
+                 n=None, unproven_key=False):
         self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
         # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
         self.outputs = outputs
@@ -59,6 +61,7 @@ class Clause:
         self.reads_all_partitions = reads_all_partitions
         self.many_matches = many_matches
         self.keeps_only_matches = keeps_only_matches
+        self.unproven_key = unproven_key  # the writes' opt-out of the Key check
         # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
         self.conditions = conditions
         self.group_columns = group_columns
@@ -105,6 +108,7 @@ class Statement:
         self._write = None  # the Saved table an INSERT_OVERWRITE or INSERT_INTO writes
         self._write_call = None  # how that write was called, for messages
         self._replaces_day = False  # True for INSERT_OVERWRITE, False for INSERT_INTO
+        self._unproven_key = False  # the write's opt-out of the Key check
         self._outputs = []  # SELECT's (column, output name) pairs
         self._distinct = False  # whether it is SELECT_DISTINCT
         self._reads = []  # the FROM clause, then each join clause
@@ -374,12 +378,12 @@ def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> C
     on = _need_on(on, call, table)
     _refuse_a_column_compared_with_itself(call, table, on)
     matched = _matched_columns(table, on)
-    key = table._key
-    if key is None or not set(key) <= set(matched):
-        warning_repeated_rows(call, table._alias, matched, key, many_matches,
+    if not any(set(key) <= set(matched) for key in keys_of(table)):
+        warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
                               derived=table._statement is not None,
                               date_partition=table._date_partition,
-                              matched_with=_matched_with(table, on))
+                              matched_with=_matched_with(table, on),
+                              lost=table._keys.lost if table._statement is not None else None)
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
                   many_matches=many_matches, **more)
 
@@ -387,7 +391,7 @@ def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> C
 def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False):
     """Add a second table's columns to the rows its ON= condition matches.
 
-    When ON= doesn't pin down the joined table's whole key, one row can match several, and
+    When ON= doesn't pin down the joined table's whole Key, one row can match several, and
     sums over them come out too big. The Statement is still built, with a warning at your
     JOIN line; many_matches=True says you mean it and silences it.
 
@@ -618,9 +622,18 @@ def LIMIT(n):
     return Clause("LIMIT", n=n)
 
 
-def _write_clause(call: str, table) -> Clause:
+def _write_clause(call: str, table, unproven_key) -> Clause:
     """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
     table = _need_table(table, f"{call}(...)")
+    if not isinstance(unproven_key, bool):
+        refuse(
+            what=f"{call}({table._alias}, unproven_key={unproven_key!r}): unproven_key= is "
+            "True or False.",
+            why="unproven_key=True lets through a write whose rows the Toolbox can't see have "
+            "a Key of their own.",
+            fix=f"Write {call}({table._alias}, unproven_key=True), or leave it out.",
+            error=ValueError,
+        )
     if table._statement is not None or table._date_partition is None:
         refuse(
             what=f"{call}({table._alias}) needs a Saved table with a Date partition.",
@@ -629,10 +642,10 @@ def _write_clause(call: str, table) -> Clause:
             fix="Pass the Saved table's own Table reference, with date_partition=... set.",
             error=ValueError,
         )
-    return Clause(call, table=table)
+    return Clause(call, table=table, unproven_key=unproven_key)
 
 
-def INSERT_OVERWRITE(table):
+def INSERT_OVERWRITE(table, unproven_key=False):
     """Write the Statement's rows into one day of a Saved table, replacing that day.
 
     It goes first, before SELECT. The day written is the one day the Statement reads, so loop
@@ -642,6 +655,14 @@ def INSERT_OVERWRITE(table):
     day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever
     looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
     reference, check it with check_table_reference(t, send=...).
+
+    When the Saved table's Table reference declares a Key, the write is refused unless the
+    Toolbox can see that each row it writes has a Key of its own, since Hive never checks one:
+    a GROUP_BY over the Key's columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each
+    Key in a Derived table, or reading a table by its own Key, each join matching its joined
+    table's whole Key. The day written is one value, so a Key that holds the Date partition
+    needs only its other columns. unproven_key=True writes it anyway, for rows that are one per
+    Key for a reason the Toolbox can't see. Below, GROUP_BY makes one row for each job_id.
 
     A Saved table with partitioned_by=["region"] has Partitions inside each day: the write
     still names its one day, and fills each region from its rows' values, so SELECT must list
@@ -653,7 +674,7 @@ def INSERT_OVERWRITE(table):
     warehouse keeps them for as long as send's connection lasts, and sending them again does
     no harm.
 
-    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
+    >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
     >>> print(to_hive(statement(
     ...     INSERT_OVERWRITE(daily_runs),
@@ -673,10 +694,10 @@ def INSERT_OVERWRITE(table):
       job_runs.dt,
       job_runs.job_id
     """
-    return _write_clause("INSERT_OVERWRITE", table)
+    return _write_clause("INSERT_OVERWRITE", table, unproven_key)
 
 
-def INSERT_INTO(table):
+def INSERT_INTO(table, unproven_key=False):
     """Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
 
     It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
@@ -685,10 +706,13 @@ def INSERT_INTO(table):
     adds more. Use it when a day's rows come from more than one table: send INSERT_OVERWRITE
     for the day first, from the first table, then INSERT_INTO from each other table. Sending
     the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its
-    INSERT_OVERWRITE. Below, a day of failed runs gets the runs with a high alert added.
+    INSERT_OVERWRITE. A Saved table's Key is checked as INSERT_OVERWRITE checks it, on the rows
+    this write adds: rows the day holds already may share a Key with them, which
+    check_key(t, send=...) finds once the day is written. Below, a day of failed runs gets the
+    runs with a high alert added, each run once, by its Key, run_id.
 
     >>> run_alerts = example_database.run_alerts
-    >>> runs_to_review = Table("mart.runs_to_review", date_partition="dt",
+    >>> runs_to_review = Table("mart.runs_to_review", date_partition="dt", key=["run_id"],
     ...     columns={"run_id": "bigint", "dt": "string"})
     >>> print(to_hive(statement(
     ...     INSERT_INTO(runs_to_review),
@@ -703,7 +727,7 @@ def INSERT_INTO(table):
     WHERE
       run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
     """
-    return _write_clause("INSERT_INTO", table)
+    return _write_clause("INSERT_INTO", table, unproven_key)
 
 
 # --- statement(...) ------------------------------------------------------------------------
@@ -781,6 +805,7 @@ def statement(*clauses, returns_all_rows=False):
     # How the write was called, for messages: INSERT_INTO(daily_runs).
     s._write_call = f"{write._name}({write.table._alias})" if write else None
     s._replaces_day = write is not None and write._name == "INSERT_OVERWRITE"
+    s._unproven_key = write is not None and write.unproven_key
     select = by_place["SELECT"]
     s._outputs, s._distinct = select.outputs, select.distinct
     s._reads = [c for c in clauses if c._name == "FROM" or c._name in JOINS]
@@ -932,6 +957,9 @@ def _run_guards(s: Statement) -> None:
         extra = [n for n in names if n not in expected]
         if missing or extra:
             guard_write_lines_up(s._write_call, table._alias, missing, extra)
+        why = None if s._unproven_key else unproven(s)
+        if why is not None:
+            guard_unproven_key(s._write_call, table._key, why)
 
 
 def _guard_group_by(s: Statement) -> None:
@@ -1007,37 +1035,17 @@ def _run_load_limits(s: Statement, order: Clause | None) -> None:
 # --- derived(...) --------------------------------------------------------------------------
 
 
-def _derived_key(s: Statement) -> list[str] | None:
-    names = [name for _, name in s._outputs]
-    if s._distinct:
-        return names
-    if s._group_by:
-        key = []
-        for group in s._group_by:
-            match = [n for column, n in s._outputs if column._tree == group._tree]
-            if not match:
-                return None
-            key.append(match[0])
-        return key
-    if any(column._aggregate for column, _ in s._outputs):
-        return []
-    if len(s._reads) != 1 or s._reads[0].table._key is None:
-        return None
-    source = s._reads[0].table
-    plain = {column._name: n for column, n in s._outputs if column._table is source}
-    if all(k in plain for k in source._key):
-        return [plain[k] for k in source._key]
-    return None
-
-
 def derived(name, statement):
     """Name a Statement so another Statement can read it like a table.
 
     You then use its output columns like a Table reference's, as runs_per_job.runs, and a typo
     in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH
     runs_per_job AS (...). The warehouse usually works it out again each time the Statement
-    reads it, so if it gets slow, write it to a Saved table instead. Its key is its GROUP_BY
-    columns.
+    reads it, so if it gets slow, write it to a Saved table instead. Its Key, which a JOIN on it
+    checks ON= against, is worked out from how it makes its rows: its GROUP_BY columns, every
+    column of a SELECT_DISTINCT, none for a SELECT of only totals (one row), or the Key of the
+    table in its FROM, carried through each join that matches its table's whole Key, and
+    through a row_number(...) kept at 1.
 
     >>> runs_per_job = derived("runs_per_job", statement(
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -1087,7 +1095,9 @@ def derived(name, statement):
     columns = {n: column._type for column, n in statement._outputs}
     table = Table(name, columns=columns, date_partition=None)
     table._statement = statement
-    table._key = _derived_key(statement)
+    table._keys = statement_keys(statement)
+    found = table._keys.found
+    table._key = found[0].names if found else None
     table._not_adding_up_because = {
         n: column._not_adding_up_because
         for column, n in statement._outputs if not column._adds_up

@@ -171,6 +171,14 @@ below; this map is the design document, built out ticket by ticket.
   which `run` logs; Lineage draws an Unchecked statement as one output step marked unchecked,
   linked to whole-table boxes.
 - 02 (storage): every Saved table external at `<location>/<database>/<table>`; create_table refuses no `location=`; the options are Table's; check_table_reference reads DESCRIBE FORMATTED; show_hive prints the dynamic_partitions SET lines (`running.settings_needed`); the base folder is written in each Table reference, not settings.py (Level rule; open for the user); how-to 31.
+- 01 Keys (resolved): `composer_core/keys.py` works out a Statement's Keys (GROUP_BY,
+  SELECT_DISTINCT, totals, the FROM table's Key kept by whole-Key joins, row_number; columns
+  held to one value or decided by others left out; a write's day is one value); writes refuse
+  an unproven Key, opt-out `unproven_key=True`; Lineage marks "in the Key" and lists each
+  step's Keys. create_table writes `PRIMARY KEY (...) DISABLE NOVALIDATE` in sqlglot Composer
+  only, since Spark refuses it (the `primary_key` row of DECLARED_DIFFERENCES), as the user
+  chose (below). INSERT_INTO is checked on the rows it adds. Ticket 05's joins
+  and 06's windows extend `keys.py` (`_keeps`, `_row_number_keys`).
 - The user (2026-10-15), on wave 1's open questions: Spark Composer leaves `PRIMARY KEY` out of
   create_table, a declared difference, since Spark refuses it (its Key is still checked before
   each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
