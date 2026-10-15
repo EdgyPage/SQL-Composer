@@ -369,3 +369,11 @@ def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
 def no_load_limits():
     yield
     toolbox_module().set_load_limits()
+
+
+@pytest.fixture(autouse=True)
+def admin_log_where_it_starts():
+    """set_admin_log changes where the Admin log goes for the whole session, so each test
+    starts with it beside the script or notebook that runs."""
+    yield
+    toolbox_module().set_admin_log()

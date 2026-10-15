@@ -153,7 +153,7 @@ stops, and says so:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  The Example database only answers SELECT, DESCRIBE and SHOW PARTITIONS; it can't be written to.
+  What happened:  The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can't be written to.
 ...
 
 At work, the same `run`, with your own send in place of `example_database.send`, writes the
