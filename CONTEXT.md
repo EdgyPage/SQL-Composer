@@ -71,8 +71,8 @@ _Avoid_: fragment, component, snippet, helper
 
 **Statement**:
 A Level 2 query, assembled from Table references and Building blocks, that becomes one Hive SQL
-string. An Admin statement, a Session setting's `SET` lines and an Unchecked statement are run,
-shown and listed in a pipeline the same way, though an Unchecked statement is written by hand.
+string. A Session setting's `SET` lines and an Unchecked statement aren't Statements, but are
+run, shown and listed in a pipeline the same way.
 _Avoid_: report, case, output script
 
 ### Writing a Statement
