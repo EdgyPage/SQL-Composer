@@ -31,6 +31,14 @@ from .refusals import (
 )
 from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
+from .unchecked import (
+    SessionSettings,
+    UncheckedStatement,
+    logged_run,
+    settings_text,
+    unchecked_call,
+    unchecked_text,
+)
 
 TOOLBOX_VERSION = "4.1"
 
@@ -246,6 +254,10 @@ def to_hive(s):
     WHERE
       job_runs.dt = '2026-09-24'
     """
+    if isinstance(s, SessionSettings):
+        return "\n".join(s._lines)
+    if isinstance(s, UncheckedStatement):
+        return s._text
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
                     why="to_hive writes the Hive of one Statement made by statement(...).")
     if s._ddl is None:
@@ -364,9 +376,15 @@ def show_hive(*statements):
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        _need_statement(s, "show_hive", frame,
-                        why="show_hive prints the Hive of Statements made by statement(...).")
-        hive = to_hive(s) + ";"
+        if isinstance(s, SessionSettings):
+            hive = settings_text(s)
+        elif isinstance(s, UncheckedStatement):
+            hive = unchecked_text(s)
+        else:
+            _need_statement(s, "show_hive", frame,
+                            why="show_hive prints the Hive of Statements made by "
+                            "statement(...).")
+            hive = to_hive(s) + ";"
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
             hive = f"{heading}\n{hive}"
@@ -400,10 +418,18 @@ def run(s, send):
             "returns a DataFrame.",
             fix="Pass your function itself, without calling it: run(s, send=run_query).",
         )
+    if isinstance(s, SessionSettings):
+        for line in s._lines:  # Hive takes one SET per call
+            send(line)
+        return None
+    if isinstance(s, UncheckedStatement):
+        return logged_run("Unchecked statement", unchecked_call(s), s._text, send)
     _need_statement(s, "run", inspect.currentframe().f_back,
                     why="run writes the Hive of one Statement made by statement(...) and "
                     "sends it.", more=", send=...")
     text = to_hive(s)
+    if s._admin_call is not None:
+        return logged_run("Admin statement", s._admin_call, text, send)
     result = send(text)
     # A write has already been carried out when its send returns, so only a read's rows matter.
     if s._ddl is None and s._write is None:

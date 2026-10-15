@@ -4,7 +4,8 @@ export_lineage(s) writes two files. The HTML page draws every step as its own gr
 from the table columns through each Derived table to the Statement's outputs, with controls
 to expand, collapse or hide each table. The Markdown twin needs no script: a Mermaid chart,
 then a report on each calculated column, and the Hive as submitted. Pass several Statements
-and the drawing continues through each Saved table one writes and another reads.
+and the drawing continues through each Saved table one writes and another reads. An Unchecked statement is drawn as one step its
+columns can't be followed through, linked to the tables its text names.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from .refusals import (
 from .running import bottom_read, by_day, name_in, steps, to_hive
 from .tables import readable
 from .trees import Node
+from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
 from .edition import hive_text
 
 TOOLBOX_VERSION = "4.1"
@@ -238,6 +240,47 @@ def _sets_equal(on, one: tuple[str, str], other: tuple[str, str]) -> bool:
     return False
 
 
+# The badge an Unchecked statement's step and section are marked with.
+UNCHECKED = "\u26a0"
+
+
+def _whole_table_box(graph: Graph, name: str) -> str:
+    """The key of a box standing for a whole table, which an Unchecked statement's text names:
+    the Toolbox can't tell which of its columns the text reads or writes."""
+    return graph.add(_box_key("whole", name), kind="table", group=name, name=name, full=name,
+                     type="(the whole table)", formula="", calculated=False)
+
+
+def _add_unchecked(graph: Graph, s: UncheckedStatement, index: int, name: str) -> list[str]:
+    """An Unchecked statement's one step, with an arrow in from each table its text reads and
+    out to each it writes or changes. It returns the boxes that end there."""
+    first = s._text.splitlines()[0]
+    key = graph.add(_box_key("unchecked", index), kind="unchecked", group=name,
+                    name=f"{UNCHECKED} Unchecked statement", full=f"{name}: Unchecked statement",
+                    type=None, sql=s._text, formula=first, calculated=False, statement=index,
+                    reads=set())
+    for table in sorted(_tables_read(s)):
+        graph.arrow(_whole_table_box(graph, table), key, "value")
+    written = [_whole_table_box(graph, table) for table in _tables_written(s)]
+    for target in written:
+        graph.arrow(key, target, "value")
+    return [key, *written]
+
+
+def _link_whole_tables(graph: Graph) -> None:
+    """Join each whole-table box to the boxes of that table's own columns that Statements read
+    or write, so a path runs through it: from the whole table to its columns when an
+    Unchecked statement writes it, else from its columns to the whole table."""
+    for whole, box in list(graph.boxes.items()):
+        if not whole.startswith("whole:"):
+            continue
+        written = any(graph.boxes[source]["kind"] == "unchecked"
+                      for source in graph.parents(whole))
+        for key, column in list(graph.boxes.items()):
+            if key.startswith("table:") and column["group"] == box["group"]:
+                graph.arrow(*((whole, key) if written else (key, whole)), "value")
+
+
 def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list[str]:
     """Arrows from a write's outputs into its Saved table, and the "day written" arrow."""
     table, written = s._write, []
@@ -260,6 +303,9 @@ def build_graph(ordered: list[tuple[Statement, str]]) -> Graph:
     graph, ends = Graph(), []
     groups = _derived_group_names(ordered)
     for index, (s, name) in enumerate(ordered):
+        if isinstance(s, UncheckedStatement):
+            ends += _add_unchecked(graph, s, index, name)
+            continue
         conditions = {}  # each condition's box key, filled in by _add_step
         for table in derived_tables(s):
             _add_step(graph, table._statement, index=index, kind="derived",
@@ -269,6 +315,7 @@ def build_graph(ordered: list[tuple[Statement, str]]) -> Graph:
         ends += [_box_key("output", index, output) for _, output in s._outputs]
         if s._write is not None:
             ends += _add_write(graph, s, index, conditions)
+    _link_whole_tables(graph)
     keep = set(ends)
     for key in ends:
         keep.update(graph.upstream(key))
@@ -283,7 +330,7 @@ def _derived_group_names(ordered) -> dict:
     names, taken = {}, {name for _, name in ordered}
     for index, (s, _) in enumerate(ordered):
         taken |= _tables_read(s)
-        for table in derived_tables(s):
+        for table in _derived_tables_of(s):
             names.setdefault(table._name, []).append(index)
     return {(index, name): name if len(indexes) == 1 and name not in taken
             else f"{name} in {ordered[index][1]}"
@@ -293,18 +340,38 @@ def _derived_group_names(ordered) -> dict:
 # --- Putting the Statements in order ----------------------------------------------------------
 
 
-def _tables_read(s: Statement) -> set[str]:
-    """The names of the real tables a Statement reads, itself or through its Derived tables."""
+def _tables_read(s) -> set[str]:
+    """The names of the real tables a Statement reads, itself or through its Derived tables,
+    or that an Unchecked statement's text reads."""
+    if isinstance(s, UncheckedStatement):
+        return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
     steps = [s] + [table._statement for table in derived_tables(s)]
     return {read.table._name for step in steps for read in step._reads
             if read.table._statement is None}
 
 
+def _tables_written(s) -> list[str]:
+    """The Saved table a Statement writes, or each table an Unchecked statement's text writes
+    or changes."""
+    if isinstance(s, UncheckedStatement):
+        return list(dict.fromkeys(name for name, how in tables_read_and_written(s._text)
+                                  if how == "writes"))
+    return [s._write._name] if s._write is not None else []
+
+
+def _derived_tables_of(s) -> list:
+    """The Derived tables a Statement reads; an Unchecked statement has none the Toolbox
+    knows of."""
+    return [] if isinstance(s, UncheckedStatement) else derived_tables(s)
+
+
 def in_order(named: list[tuple[Statement, str]]) -> list[tuple[Statement, str]]:
-    """The Statements with every writer before the Statements that read what it writes."""
+    """The Statements with every writer before the Statements that read what it writes. An
+    Unchecked statement that reads a table it changes, as many do, waits only on others."""
     reads = [_tables_read(s) for s, _ in named]
-    needs = [{j for j, (w, _) in enumerate(named) if w._write is not None
-              and w._write._name in reads[i]} for i in range(len(named))]
+    needs = [{j for j, (w, _) in enumerate(named) if set(_tables_written(w)) & reads[i]
+              and not (j == i and isinstance(w, UncheckedStatement))}
+             for i in range(len(named))]
     placed = []
     while len(placed) < len(named):
         ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)]
@@ -330,9 +397,10 @@ def _refuse_loop(named, reads, stuck: list[int]) -> None:
     links = []
     for i in stuck:
         s, name = named[i]
-        readers = [named[j][1] for j in stuck if s._write._name in reads[j]]
+        written = " and ".join(_tables_written(s))
+        readers = [named[j][1] for j in stuck if set(_tables_written(s)) & reads[j]]
         verb = "reads" if len(readers) == 1 else "read"
-        links.append(f"{name} writes {s._write._name}, which {' and '.join(readers)} {verb}")
+        links.append(f"{name} writes {written}, which {' and '.join(readers)} {verb}")
     refuse(
         what="export_lineage can't draw these Statements, because they go round in a "
         "loop: " + "; ".join(links) + ".",
@@ -483,6 +551,10 @@ def report(graph: Graph, ordered) -> list[dict]:
     """One section per Statement, writers first: its calculated and copied columns, its Hive."""
     sections = []
     for index, (s, name) in enumerate(ordered):
+        if isinstance(s, UncheckedStatement):
+            sections.append({"name": name, "about": _about_unchecked(s), "calculated": [],
+                             "copied": [], "sql": s._text, "note": "", "unchecked": True})
+            continue
         mine = [k for k, box in graph.boxes.items() if box.get("statement") == index
                 and box["kind"] in ("derived", "output")]
         calculated = [
@@ -502,8 +574,7 @@ def _about(s: Statement, index: int, ordered) -> str:
     """One sentence on how a Statement joins the others through Saved tables."""
     parts = []
     for table in sorted(_tables_read(s)):
-        writers = [name for other, name in ordered[:index]
-                   if other._write is not None and other._write._name == table]
+        writers = [name for other, name in ordered[:index] if table in _tables_written(other)]
         if writers:
             parts.append(f"It reads the Saved table {table}, written by "
                          f"{' and '.join(writers)} above.")
@@ -511,6 +582,21 @@ def _about(s: Statement, index: int, ordered) -> str:
         verb = "writes" if s._replaces_day else "adds to"
         parts.append(f"It {verb} the Saved table {s._write._name}, one day at a time.")
     return " ".join(parts)
+
+
+def _about_unchecked(s: UncheckedStatement) -> str:
+    """What an Unchecked statement's section says of it: that nothing inside it was checked,
+    and the tables its text reads and writes."""
+    text = (f"{UNCHECKED} An Unchecked statement: Hive written by hand, which no Guard, Warning "
+            "or Load limit looked inside, so its columns can't be followed through it.")
+    reads = sorted(_tables_read(s))
+    written = _tables_written(s)
+    if reads:
+        text += f" It reads {' and '.join(reads)}"
+        text += f", and writes or changes {' and '.join(written)}." if written else "."
+    elif written:
+        text += f" It writes or changes {' and '.join(written)}."
+    return text
 
 
 def _submitted(s: Statement, name: str) -> tuple[str, str]:
@@ -584,6 +670,8 @@ def _section_markdown(section: dict) -> list[str]:
     lines = [f"## {section['name']}", ""]
     if section["about"]:
         lines += [section["about"], ""]
+    if section.get("unchecked"):
+        return lines + ["### Hive as submitted", "", "```sql", section["sql"], "```", ""]
     lines += ["### Calculated columns", "",
               "Every column that is calculated rather than copied, in the order it is "
               "calculated.", ""]
@@ -666,6 +754,9 @@ def report_html(sections: list[dict]) -> str:
         parts.append(f"<h2>{e(section['name'])}</h2>")
         if section["about"]:
             parts.append(f"<p>{e(section['about'])}</p>")
+        if section.get("unchecked"):
+            parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
+            continue
         parts.append("<h3>Calculated columns</h3>")
         parts += [_entry_html(entry) for entry in section["calculated"]]
         if not section["calculated"]:
@@ -685,17 +776,23 @@ def report_html(sections: list[dict]) -> str:
 def graph_data(graph: Graph) -> dict:
     """What the page's script draws from: the boxes with their lines, the arrows, the groups."""
     ids = {key: f"n{number}" for number, key in enumerate(graph.boxes)}
-    boxes = [{"id": ids[key], "kind": box["kind"], "group": box["group"],
+    boxes = [{"id": ids[key], "kind": _drawn_kind(box), "group": box["group"],
               "lines": box_lines(box),
               "title": "\n".join(x for x in (box["full"], box.get("sql") or box["type"]) if x)}
              for key, box in graph.boxes.items()]
     groups = {}
     for box in graph.boxes.values():
         if box["kind"] != "condition":
-            groups.setdefault(box["group"], box["kind"])
+            groups.setdefault(box["group"], _drawn_kind(box).split(" ")[0])
     return {"boxes": boxes,
             "arrows": [[ids[a], ids[b], kind] for a, b, kind in graph.arrows],
             "groups": [{"name": name, "kind": kind} for name, kind in groups.items()]}
+
+
+def _drawn_kind(box: dict) -> str:
+    """The kind the page's script draws a box as: an Unchecked statement's step is drawn as an
+    output, marked unchecked."""
+    return "output unchecked" if box["kind"] == "unchecked" else box["kind"]
 
 
 def _script_safe(data: dict) -> str:
@@ -789,18 +886,22 @@ def caller_folder(caller: Path | None) -> Path:
     return caller.parent if caller is not None and caller.is_absolute() else Path.cwd()
 
 
-def _check_statements(statements) -> list:
-    """The Statements passed, each once; anything that isn't a Statement reading a table is
-    refused."""
+def _check_statements(statements) -> tuple[list, list]:
+    """The Statements passed, each once, and the names of the Session settings passed with
+    them; anything else is refused."""
     if not statements:
         refuse(
             what="export_lineage() was given no Statement.",
             why="It draws where each column of a Statement comes from.",
             fix="Pass one or more Statements, such as export_lineage(weekly).",
         )
-    found = []
+    found, settings = [], []
     for s in statements:
-        if not isinstance(s, Statement) or s._ddl is not None:
+        if isinstance(s, SessionSettings):
+            settings += [name for name in s._names if name not in settings]
+            continue
+        if not isinstance(s, (Statement, UncheckedStatement)) or (
+                isinstance(s, Statement) and s._ddl is not None):
             refuse(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
                 "table.",
@@ -811,7 +912,14 @@ def _check_statements(statements) -> list:
             )
         if not any(s is seen for seen in found):
             found.append(s)
-    return found
+    if not found:
+        refuse(
+            what="export_lineage was given only Session settings, and no Statement.",
+            why="It draws where each column of a Statement comes from, and Session settings "
+            "move no data; it names them in its footer, beside the Statements sent after them.",
+            fix="Pass them with those Statements, as in export_lineage(settings, weekly).",
+        )
+    return found, settings
 
 
 def _html_path(to) -> Path:
@@ -855,7 +963,7 @@ def export_lineage(*statements, to=None):
     >>> markdown_file.name
     '..._lineage_notebook_runs_per_team.md'
     """
-    statements = _check_statements(statements)
+    statements, settings = _check_statements(statements)
     frame = inspect.currentframe().f_back
     when = _now()
     names = statement_names(statements, frame)
@@ -865,7 +973,7 @@ def export_lineage(*statements, to=None):
     markdown_path = html_path.with_suffix(".md")
     ordered = in_order(list(zip(statements, names)))
     graph = build_graph(ordered)
-    footer = _footer(when, commit)
+    footer = _footer(when, commit, settings)
     title = ", ".join(name for _, name in ordered)
     sections = report(graph, ordered)
     markdown = to_markdown(graph, sections, title, footer)
@@ -886,9 +994,14 @@ def _version() -> str:
     return edition.VERSION
 
 
-def _footer(when: datetime.datetime, commit: str) -> str:
-    return (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
+def _footer(when: datetime.datetime, commit: str, settings: list[str]) -> str:
+    """The line both files end with: when, from which commit, with which Toolbox, and the
+    Session settings passed with the Statements, if any."""
+    text = (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
             f"{commit}, with {_version()}.")
+    if settings:
+        text += f" Session settings sent first: {', '.join(settings)}."
+    return text
 
 
 # The HTML page. to_html fills in each __NAME__ marker; the script at the end draws the lineage.
@@ -907,6 +1020,7 @@ main{padding:8px 16px 40px} .wrap{overflow-x:auto;border:1px solid #eee}
 svg{width:100%;height:auto;cursor:grab;display:block}
 .n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6} .output rect{fill:#effaf0}
 .condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
+.unchecked rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2}
 .grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff} .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
@@ -922,6 +1036,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
+<span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
 <span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">

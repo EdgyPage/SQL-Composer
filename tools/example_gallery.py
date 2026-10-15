@@ -137,12 +137,15 @@ def example_setting():
         warnings.simplefilter("ignore")
         conditions.today = lambda: TODAY
         os.chdir(folder)
+        # An example that runs an Unchecked statement logs it there too, not beside this file.
+        sqlglot_composer.set_admin_log(Path(folder) / "admin_log.md")
         try:
             yield
         finally:
             os.chdir(here)
             conditions.today = real_today
             sqlglot_composer.set_load_limits()
+            sqlglot_composer.set_admin_log()
 
 
 def what_happened(error: Exception) -> str:
@@ -159,8 +162,10 @@ def result_html(s, pandas_result=None, which: str = "") -> str:
     several, such as " of Statement 1 of 2".
     """
     try:
-        return (label(f"Result{which} on the Example database")
-                + table_html(sqlglot_composer.run(s, send=example_database.send)))
+        result = sqlglot_composer.run(s, send=example_database.send)
+        if result is None:  # Session settings: each SET line is sent, and nothing comes back
+            return '<p class="note">Sent to the Example database, which gives nothing back.</p>'
+        return label(f"Result{which} on the Example database") + table_html(result)
     except (RuntimeError, ValueError) as error:
         if pandas_result is not None:
             return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
