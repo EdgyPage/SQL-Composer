@@ -163,8 +163,9 @@ def result_html(s, pandas_result=None, which: str = "") -> str:
     """
     try:
         result = sqlglot_composer.run(s, send=example_database.send)
-        if result is None:  # Session settings: each SET line is sent, and nothing comes back
-            return '<p class="note">Sent to the Example database, which gives nothing back.</p>'
+        if result is None:  # Session settings: each SET line is sent, and run gives back None
+            return ('<p class="note">Sent to the Example database one SET line at a time; '
+                    "run gives back None.</p>")
         return label(f"Result{which} on the Example database") + table_html(result)
     except (RuntimeError, ValueError) as error:
         if pandas_result is not None:
