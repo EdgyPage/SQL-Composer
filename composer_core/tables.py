@@ -568,7 +568,8 @@ class Table:
     - `key` lists the columns that pick out one row, the table's Key. JOIN warns when a join
       doesn't use all of them; a write into a Saved table with a Key is refused unless the
       Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says
-      how); and create_table writes it into the table. Hive never checks it.
+      how); and create_table writes it into the table where the warehouse takes one
+      (help(create_table) says which Edition leaves it out). Hive never checks it.
     - `does_not_add_up` lists columns that are averages, ratios or distinct counts, which
       sum_of(...) and average_of(...) refuse to add up.
     - `date_format` is needed only when the Date partition's days aren't written like

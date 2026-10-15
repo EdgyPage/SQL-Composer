@@ -3297,6 +3297,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p>team_runs, the Statement&#x27;s own section, starts with Calculated columns: each column that is worked out rather than copied, here <code>&quot;runs&quot;</code> and <code>&quot;failed_runs&quot;</code>. For each, it says the Toolbox call and the Hive it becomes, then three things:</p>
 <ul><li>A small tree from the column down to the table columns it reads: <code>&quot;failed_runs&quot;</code> reads <code>ops.job_runs.status</code>, and <code>&quot;runs&quot;</code> reads no column, since it counts rows.</li><li>Rows that count: every condition that decides which rows are counted, here the two days in WHERE and the match between the two tables in JOIN&#x27;s <code>ON=</code>. When a number looks wrong, look here first.</li><li>One value for each different <code>jobs.team</code>: what one row of the result stands for, from <code>GROUP_BY</code>.</li></ul>
 <p>Copied columns is a table of the columns copied as they are: <code>&quot;team&quot;</code> comes from <code>ops.jobs.team</code>.</p>
+<p>Keys says which columns tell the rows apart: here <code>&quot;team&quot;</code>, since GROUP_BY makes one row for each team. In the chart, each column that is part of a Key, there and in the tables read, shows &quot;in the Key&quot; under its name. A step with no Key the Toolbox can see says where it lost one, such as a join that can match several rows to one.</p>
 <p>Hive as submitted is the Hive <code>run</code> sends, exactly as <code>to_hive</code> gives it.</p>
 <p>The last line says when the file was made, from which commit, and with which Toolbox version.</p>
 <h5>Open the HTML page</h5>
@@ -3635,7 +3636,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p>The Markdown file is shown in full above. Read it one heading at a time.</p>
 <p>The title names both writes, in the order they run.</p>
 <p>Graph is the whole pipeline as one Mermaid chart, shown here as text. Drawn in JupyterLab or GitHub, it runs from the columns of <code>ops.job_runs</code> the job write uses, through the Saved table mart.daily_job_runs, which the job write&#x27;s outputs flow into and the team write reads from, with <code>ops.jobs</code> joined, to mart.team_day. In the text, each table is a subgraph of its own, and an arrow labelled <code>|day written|</code> runs from each write&#x27;s WHERE to the Date partition of the table it writes: the day in WHERE is the day written.</p>
-<p>write_daily_job_runs is the first write&#x27;s section. It says which Saved table it writes, then its Calculated columns, <code>&quot;runs&quot;</code> and <code>&quot;failed_runs&quot;</code>, each with its tree, its Rows that count and what one row stands for, then its Copied columns and its Hive.</p>
+<p>write_daily_job_runs is the first write&#x27;s section. It says which Saved table it writes, then its Calculated columns, <code>&quot;runs&quot;</code> and <code>&quot;failed_runs&quot;</code>, each with its tree, its Rows that count and what one row stands for, then its Copied columns, its Keys, and its Hive. Keys says which columns tell its rows apart, <code>&quot;job_id&quot;</code> here, since its GROUP_BY makes one row for each job on the day it writes, and that the Saved table&#x27;s Key holds: each row it writes has a Key of its own. Each column in a Key shows &quot;in the Key&quot; in the chart.</p>
 <p>write_team_day is the second write&#x27;s section. Its first line says it reads the Saved table mart.daily_job_runs, written by write_daily_job_runs above. Each tree now goes on through the Saved table: the team&#x27;s <code>&quot;failed_runs&quot;</code> is a sum of the Saved table&#x27;s column <code>daily_job_runs.failed_runs</code>, which write_daily_job_runs counted from <code>ops.job_runs.status</code>. So the file answers &quot;what counts as a failed run here?&quot; in one place: a run whose status is FAILED.</p>
 <p>Rows that count, under each of the team write&#x27;s columns, lists the conditions that decide which rows of the Saved table count: the team write&#x27;s day, and its match on job_id with <code>ops.jobs</code>. The job write&#x27;s day isn&#x27;t listed again: it is the day it writes, which the chart shows as day written. Had the job write kept only some runs, say with a condition on their status, that condition would be listed here too, since it decides which runs the team counts add up.</p>
 <p>Hive as submitted, in each section, is the Hive <code>run</code> sends for that write.</p>
@@ -7351,7 +7352,7 @@ LIMIT 2
 Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
 </details>
 <p class="note">It writes <code>before.html</code> too, a page to open in your browser.</p>
-<p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Hive, as <a href="#lineage_of_one_statement">Lineage of one Statement</a> and <a href="#lineage_of_a_pipeline_across_saved_tables">Lineage of a pipeline across Saved tables</a> show. Open the HTML page in your browser to see the same drawn.</p>
+<p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Keys, the columns that tell each step&#x27;s rows apart, then the Hive, as <a href="#lineage_of_one_statement">Lineage of one Statement</a> and <a href="#lineage_of_a_pipeline_across_saved_tables">Lineage of a pipeline across Saved tables</a> show. Open the HTML page in your browser to see the same drawn.</p>
 <h5>Change the Building block</h5>
 <p>A run that fails uses the cluster too, so count its minutes as well: the condition becomes <code>is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])</code>. Keep the function as it was under another name, for the last mistake below, then write it again with the change, and build the Statements again, since each holds the Building block as it was when it was built:</p>
 <pre class="python">finished_only = finished_runs
@@ -8021,7 +8022,7 @@ Problems:
 <section class="entry" id="keys">
 <h3>32. Keys, checked before each write <span class="badge intermediate">Intermediate</span></h3>
 <h4>Goal</h4>
-<p>Give each Saved table a Key, the columns that tell one row from another, and let the Toolbox check it: a write whose rows the Toolbox can&#x27;t see are one per Key is refused before anything is sent, the Key is written into the table, and Lineage shows which columns are in each step&#x27;s Key and where one was lost.</p>
+<p>Give each Saved table a Key, the columns that tell one row from another, and let the Toolbox check it: a write whose rows the Toolbox can&#x27;t see are one per Key is refused before anything is sent, and Lineage shows which columns are in each step&#x27;s Key and where one was lost.</p>
 <h4>When you&#x27;d use it</h4>
 <p>Every time you make a Saved table. Hive never checks a Key, nor does Spark: a table declared with one takes two rows with the same Key without a word. Then every join on that Key repeats rows, and every sum over the join comes out too big, far from the write that caused it. The Toolbox checks the Key while the write is built, where the mistake is.</p>
 <h4>Steps</h4>
@@ -8116,8 +8117,8 @@ newest = write_newest(&quot;2026-09-24&quot;)</pre>
     WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(job_runs.status, &quot;FAILED&quot;)),
 )</pre>
 <p>Use it only when you are sure, and check the day with <code>check_key</code> after it is written: here one failed run a day per job is a habit of the Example database, not a rule.</p>
-<h5>The Key goes into the table</h5>
-<p><code>create_table</code> writes the Key into the table, for whoever reads it:</p>
+<h5>The Key in CREATE TABLE</h5>
+<p><code>create_table</code> makes the table; what it writes of the Key depends on the Edition:</p>
 <pre class="python">text = show_hive(create_table(job_day))</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
