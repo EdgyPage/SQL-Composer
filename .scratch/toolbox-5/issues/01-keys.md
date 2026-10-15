@@ -10,7 +10,9 @@ Size: M
 Map family 1 and ADR 0005. A write into a Saved table with a Key is refused unless the
 Toolbox proves each output row unique on it (GROUP_BY over the Key, SELECT_DISTINCT, row_number
 kept at 1 per Key, a join keeping the reading table's Key), opt-out `unproven_key=True`; a
-Derived table's Key is worked out from what it does and feeds the repeated-rows Warning; Lineage
+Derived table's Key, which 4.1 already works out from its GROUP_BY, SELECT_DISTINCT, a SELECT of
+only totals or the one table it reads, is carried through key-keeping joins and a row_number kept
+at 1 too; Lineage
 marks Key columns and where an output loses its Key; create_table writes
 `PRIMARY KEY (...) DISABLE NOVALIDATE`.
 

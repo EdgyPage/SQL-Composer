@@ -49,8 +49,10 @@ below; this map is the design document, built out ticket by ticket.
      Toolbox can prove each output row unique on the key (a GROUP_BY over the key's columns,
      SELECT_DISTINCT, a row_number kept at 1 per key, a join that keeps the reading table's key),
      unless the write carries an opt-out such as `unproven_key=True`.
-   - **Carried through Derived tables:** a Derived table's key is worked out from what it does,
-     so the repeated-rows Warning works on Derived tables without guessing.
+   - **Carried further through Derived tables:** 4.1 already works out a Derived table's key from
+     its GROUP_BY, SELECT_DISTINCT, a SELECT of only totals, or the one table it reads; 5.0
+     carries it through key-keeping joins and a row_number kept at 1, so the repeated-rows Warning
+     guesses less.
    - **Shown in Lineage:** each output column marked if it is part of a key, and where an output
      loses one (which join, which step).
    - **Written into the table:** `create_table` writes `PRIMARY KEY (...) DISABLE NOVALIDATE`.

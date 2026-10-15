@@ -71,7 +71,8 @@ _Avoid_: fragment, component, snippet, helper
 
 **Statement**:
 A Level 2 query, assembled from Table references and Building blocks, that becomes one Hive SQL
-string.
+string. An Admin statement, a Session setting's `SET` lines and an Unchecked statement are run,
+shown and listed in a pipeline the same way, though an Unchecked statement is written by hand.
 _Avoid_: report, case, output script
 
 ### Writing a Statement
@@ -106,9 +107,10 @@ the user's own Statements are the only ones that write it.
 _Avoid_: materialized view, cache, temp table, output table
 
 **Unchecked statement**:
-Hive text the user writes by hand and runs through the Toolbox when no Clause function covers it
-yet. No Guard, Warning or Load limit looks inside it, and Lineage shows it as one opaque step: each
-one marks something the Toolbox should learn to write.
+Hive text the user writes by hand and runs through the Toolbox, as a Statement is run, when no
+Clause function covers it yet. No Guard or Load limit looks inside it, and its one Warning points
+text that drops, alters or truncates a table to the admin module; Lineage shows it as one opaque
+step. Each one marks something the Toolbox should learn to write.
 _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
