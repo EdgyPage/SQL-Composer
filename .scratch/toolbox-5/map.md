@@ -171,6 +171,11 @@ below; this map is the design document, built out ticket by ticket.
   which `run` logs; Lineage draws an Unchecked statement as one output step marked unchecked,
   linked to whole-table boxes.
 - 02 (storage): every Saved table external at `<location>/<database>/<table>`; create_table refuses no `location=`; the options are Table's; check_table_reference reads DESCRIBE FORMATTED; show_hive prints the dynamic_partitions SET lines (`running.settings_needed`); the base folder is written in each Table reference, not settings.py (Level rule; open for the user); how-to 31.
+- The user (2026-10-15), on wave 1's open questions: Spark Composer leaves `PRIMARY KEY` out of
+  create_table, a declared difference, since Spark refuses it (its Key is still checked before
+  each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
+  built, passed in from the user's settings.py; each Saved table's Table reference writes its
+  own `location=`, keeping the Level rule, rather than a `BASE_LOCATION` in settings.py.
 
 ## Not yet specified
 
