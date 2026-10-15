@@ -34,7 +34,7 @@ def create():
 def create_if_missing():
     """Step 1, in a notebook you run from the top every day: create the table only if missing.
 
-    may_exist=True writes CREATE TABLE IF NOT EXISTS, so the second day's run skips it
+    may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so the second day's run skips it
     instead of failing. It never changes a table that is already there.
     """
     return create_table(runs_to_review, may_exist=True)
@@ -96,7 +96,8 @@ def rebuild():
     """Step 5, rarely: after changing the table's columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.
-    drop_table deletes every day of the table, so write them all again with backfill().
+    drop_table deletes every day of the table, since its Table reference has purge=True, so
+    write them all again with backfill().
     IF EXISTS means the drop does nothing, rather than failing, if the table isn't there.
     """
     return [drop_table(runs_to_review), create_table(runs_to_review)]
