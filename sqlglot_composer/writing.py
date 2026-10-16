@@ -23,9 +23,20 @@ TOOLBOX_VERSION = "4.1"
 _DIALECT = "hive"
 
 
+def _hive_with_hints():
+    """sqlglot's Hive, but writing a query's hint, such as /*+ MAPJOIN(jobs) */, which Hive
+    reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed."""
+    hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
+    hive.generator_class = type("HiveWithHints", (hive.generator_class,), {"QUERY_HINTS": True})
+    return hive
+
+
+_HIVE = _hive_with_hints()
+
+
 def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     """Write a sqlglot tree as Hive. Nothing else in the Toolbox calls `.sql()`."""
-    return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
+    return tree.sql(dialect=_HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
 def hive_text(node: Node) -> str:
@@ -248,19 +259,28 @@ def _table(node: Node) -> exp.Expression:
     return table if alias is None else exp.alias_(table, _identifier(alias), table=True)
 
 
+# How sqlglot holds each join the Toolbox writes: its side and its kind.
+_JOINS = {
+    "JOIN": {},
+    "LEFT JOIN": {"side": "LEFT"},
+    "CROSS JOIN": {"kind": "CROSS"},
+    "LEFT SEMI JOIN": {"side": "LEFT", "kind": "SEMI"},
+    "FULL JOIN": {"side": "FULL"},
+}
+
+
 def _join(node: Node) -> exp.Join:
-    parts = {"this": _built(node, "this")}
+    parts = {"this": _built(node, "this"), **_JOINS[node.parts["how"]]}
     if node.parts.get("on") is not None:
         parts["on"] = _built(node, "on")
-    if node.parts["how"] == "LEFT JOIN":
-        parts["side"] = "LEFT"
-    if node.parts["how"] == "CROSS JOIN":
-        parts["kind"] = "CROSS"
     return exp.Join(**parts)
 
 
 def _select(node: Node) -> exp.Select:
     tree = exp.Select(expressions=_all_built(node, "outputs"))
+    if node.parts.get("broadcast"):
+        tree.set("hint", exp.Hint(expressions=[exp.Anonymous(
+            this="MAPJOIN", expressions=[_identifier(name) for name in node.parts["broadcast"]])]))
     if node.parts.get("distinct"):
         tree.set("distinct", exp.Distinct())
     _set_part(tree, "from", exp.From(this=_built(node, "source")))

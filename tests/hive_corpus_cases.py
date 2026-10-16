@@ -16,9 +16,11 @@ from __future__ import annotations
 import random
 
 from sqlglot_composer import (
+    ANTI_JOIN,
     AS,
     CROSS_JOIN,
     FROM,
+    FULL_JOIN,
     GROUP_BY,
     HAVING,
     INSERT_INTO,
@@ -27,8 +29,10 @@ from sqlglot_composer import (
     LEFT_JOIN,
     LIMIT,
     ORDER_BY,
+    RIGHT_JOIN,
     SELECT,
     SELECT_DISTINCT,
+    SEMI_JOIN,
     WHERE,
     Table,
     all_of,
@@ -76,7 +80,7 @@ from sqlglot_composer import (
     week_start,
     window,
 )
-from composer_core.example_database import job_runs, jobs, run_alerts
+from composer_core.example_database import job_runs, jobs, run_alerts, scheduler_runs
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
@@ -366,6 +370,113 @@ def _read_cases() -> dict:
     }
 
 
+def _alerts_of_the_day():
+    return all_of(equals(run_alerts.run_id, job_runs.run_id), one_day(run_alerts))
+
+
+def _two_records():
+    """The runs job_runs holds and the runs the scheduler started, on one day each."""
+    recorded = derived("recorded", statement(
+        SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs), WHERE(one_day())))
+    started = derived("started", statement(
+        SELECT(scheduler_runs.run_id, AS(scheduler_runs.job_id, "started_job_id")),
+        FROM(scheduler_runs), WHERE(one_day(scheduler_runs))))
+    return recorded, started
+
+
+def _full_join(*where, **options):
+    recorded, started = _two_records()
+    return statement(
+        SELECT(AS(fill_null(recorded.run_id, started.run_id), "run_id"),
+               AS(fill_null(recorded.job_id, started.started_job_id), "job_id"),
+               AS(if_else(is_null(started.run_id), "only in job_runs",
+                          if_else(is_null(recorded.run_id), "only started", "in both")),
+                  "found")),
+        FROM(recorded), FULL_JOIN(started, ON=equals(started.run_id, recorded.run_id),
+                                  **options),
+        *([WHERE(*where)] if where else []))
+
+
+def _join_cases() -> dict:
+    """SEMI_JOIN, ANTI_JOIN, FULL_JOIN and broadcast=, and what each refuses."""
+    recorded, started = _two_records()
+    other = AS(jobs, "other")
+    return {
+        "joins:semi": lambda: [statement(
+            SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
+            SEMI_JOIN(run_alerts, ON=all_of(_alerts_of_the_day(),
+                                            equals(run_alerts.severity, "high"))),
+            WHERE(one_day()))],
+        "joins:anti": lambda: [statement(
+            SELECT(job_runs.run_id), FROM(job_runs),
+            ANTI_JOIN(run_alerts, ON=_alerts_of_the_day()),
+            WHERE(one_day(), any_of(equals(job_runs.status, "FAILED"),
+                                    is_null(job_runs.status))))],
+        "joins:anti_with_no_where": lambda: [statement(
+            SELECT(jobs.job_id, jobs.job_name), FROM(jobs),
+            ANTI_JOIN(job_runs, ON=all_of(one_day(), equals(job_runs.job_id, jobs.job_id))))],
+        "joins:anti_then_group_by": lambda: [statement(
+            SELECT(jobs.team, AS(count_rows(), "never_ran")), FROM(jobs),
+            ANTI_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id), one_day())),
+            GROUP_BY(jobs.team))],
+        "joins:semi_and_anti_in_a_write": lambda: [statement(
+            INSERT_OVERWRITE(runs_to_check),
+            SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
+            SEMI_JOIN(run_alerts, ON=_alerts_of_the_day()),
+            ANTI_JOIN(jobs, ON=all_of(equals(jobs.job_id, job_runs.job_id),
+                                      equals(jobs.team, "web"))),
+            WHERE(one_day()))],
+        "joins:full": lambda: [_full_join()],
+        "joins:full_only_one_side": lambda: [_full_join(
+            any_of(is_null(recorded.run_id), is_null(started.run_id)))],
+        "joins:full_where_refused": lambda: [_full_join(equals(recorded.job_id, 1))],
+        "joins:full_keeps_only_matches": lambda: [_full_join(
+            equals(recorded.job_id, 1), keeps_only_matches=True)],
+        "joins:full_of_a_table_with_days": lambda: [statement(
+            SELECT(recorded.run_id), FROM(recorded),
+            FULL_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.run_id, recorded.run_id),
+                                                one_day(scheduler_runs))))],
+        "joins:semi_column_read": lambda: [statement(
+            SELECT(job_runs.run_id, run_alerts.severity), FROM(job_runs),
+            SEMI_JOIN(run_alerts, ON=_alerts_of_the_day()), WHERE(one_day()))],
+        "joins:right_join": lambda: [RIGHT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id))],
+        "joins:broadcast": lambda: [statement(
+            SELECT(job_runs.run_id, jobs.team), FROM(job_runs),
+            JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
+            WHERE(one_day()))],
+        "joins:broadcast_two_and_distinct": lambda: [statement(
+            SELECT_DISTINCT(job_runs.job_id, jobs.team), FROM(job_runs),
+            LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
+            SEMI_JOIN(run_alerts, ON=_alerts_of_the_day(), broadcast=True),
+            WHERE(one_day()))],
+        "joins:broadcast_in_a_derived_table": lambda: [_broadcast_in_steps(other)],
+        "joins:broadcast_a_name_in_backticks": lambda: [statement(
+            SELECT(job_runs.run_id), FROM(job_runs),
+            ANTI_JOIN(odd, ON=all_of(equals(getattr(odd, "1st"), job_runs.run_id), one_day(odd)),
+                      broadcast=True),
+            WHERE(one_day()))],
+    }
+
+
+def _broadcast_in_steps(other):
+    teams = derived("teams", statement(
+        SELECT(job_runs.run_id, jobs.team), FROM(job_runs),
+        JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True), WHERE(one_day())))
+    return statement(SELECT(teams.run_id, AS(other.job_name, "name")), FROM(teams),
+                     JOIN(other, ON=equals(other.team, teams.team), many_matches=True,
+                          broadcast=True))
+
+
+runs_to_check = Table(
+    "mart.runs_to_check",
+    columns={"run_id": "bigint", "status": "string", "dt": "string"},
+    date_partition="dt",
+    key=["run_id"],
+    location=BASE,
+)
+"""A Saved table written through a SEMI_JOIN and an ANTI_JOIN, which keep its Key."""
+
+
 def _reading_top_n():
     """A Statement with no ORDER_BY of its own, reading a Derived table that has one."""
     longest = derived("longest", statement(
@@ -634,7 +745,7 @@ def _window_cases() -> dict:
 def edge_cases() -> list:
     """Every edge case, as (id, function returning its Statements), in a fixed order."""
     named = {**_calculation_cases(), **_hive_function_cases(), **_read_cases(),
-             **_structure_cases(), **_window_cases()}
+             **_join_cases(), **_structure_cases(), **_window_cases()}
     return _width_cases() + [(f"edge:{name}", build) for name, build in named.items()]
 
 

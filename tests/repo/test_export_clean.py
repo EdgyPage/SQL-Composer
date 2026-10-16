@@ -126,7 +126,7 @@ def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> Non
 
 def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) -> None:
     section = readme(clean).split("### `example_database.py`\n", 1)[1]
-    assert section.count("The Example database: six made-up tables") == 1
+    assert section.count("The Example database: seven made-up tables") == 1
 
 
 # The folders main holds a copy of for each Edition, to copy and edit: on dev they hold
@@ -360,11 +360,11 @@ def test_every_path_the_readme_names_is_on_main(clean: Path) -> None:
 def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) -> None:
     section = section_of(readme(clean), "How-tos")
     numbered = re.findall(r"^(\d+)\. (.+)$", section, re.MULTILINE)
-    assert [int(number) for number, _ in numbered] == list(range(1, 33))
+    assert [int(number) for number, _ in numbered] == list(range(1, 34))
     assert numbered[0] == ("1", "Start a notebook")
     assert numbered[18] == ("19", "A day written another way, and a second partition")
     assert section.index("Getting started, how-tos 1 to 18:\n\n1. Start a notebook\n") < (
-        section.index("Intermediate, how-tos 19 to 32:\n\n19. A day written another way"))
+        section.index("Intermediate, how-tos 19 to 33:\n\n19. A day written another way"))
     assert "<!--" not in section
 
 
