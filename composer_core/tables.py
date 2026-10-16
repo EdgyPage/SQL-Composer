@@ -747,6 +747,12 @@ SHARING = ("two tables in one folder read each other's files, and an INSERT OVER
            "day in one can delete the other's files for that day.")
 # The fix for a table that isn't at its own folder: ticket 04's admin module moves it.
 MOVE_IT = "move it with admin.move_to_own_folder(t, send=...)"
+# The fix for a table at its own folder whose layout the Toolbox doesn't write: the move's copy
+# would go to that same folder, so the table is written again there.
+WRITE_IT_AGAIN = ("it is at its own folder already, so write it again there: give its Table "
+                  "reference purge=True and send admin.set_properties(t), drop it with "
+                  "admin.drop_table(t), create it with create_table(t), and write its days "
+                  "again from their source")
 # The table properties Spark keeps for itself, and refuses in a CREATE TABLE.
 SPARK_RESERVES = ("comment", "owner", "provider", "location", "is_managed_location")
 # An absolute location: one starting with /, or with a scheme such as hdfs:// or s3a://.
@@ -1621,7 +1627,12 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
         return ["DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check "
                 "that send returns everything DESCRIBE FORMATTED prints."], []
     problems = []
-    if "MANAGED" in (details.get("table type") or details.get("type") or "").upper():
+    managed = "MANAGED" in (details.get("table type") or details.get("type") or "").upper()
+    # A table the move can take to its own folder, writing it again as its Table reference
+    # says; one at its own folder already is written again there instead.
+    fix = MOVE_IT if managed or not _same_folder(details["location"], t._location) else (
+        WRITE_IT_AGAIN)
+    if managed:
         # Its folder is the warehouse's choice, so this says all the folder check would.
         problems.append("it is a managed table, whose files the warehouse keeps where it "
                         "chooses, where your Saved tables are external, each in a folder of its "
@@ -1634,10 +1645,11 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
         problems.append(f"the table is stored as {stored_as}: change the line to "
                         f'stored_as="{stored_as}",' if stored_as in FILE_FORMATS else
                         "the table's files are in a format the Toolbox doesn't write, not ORC "
-                        f"or Parquet (its InputFormat is {stored_as}): {MOVE_IT}, which writes "
-                        "it again as its Table reference says.")
+                        f"or Parquet (its InputFormat is {stored_as}): {fix}"
+                        + (", which writes it again as its Table reference says." if
+                           fix is MOVE_IT else "."))
     problems += _property_problems(t, properties)
-    problems += _partitions_and_buckets_problems(t, described)
+    problems += _partitions_and_buckets_problems(t, described, fix)
     return problems, []
 
 
@@ -1718,8 +1730,10 @@ def _listed_names(text: str) -> list[str]:
     return [name.strip().strip("`").lower() for name in inner.split(",") if name.strip()]
 
 
-def _partitions_and_buckets_problems(t: Table, described: Described) -> list[str]:
-    """The problems from comparing the Partitions after the day, and the Buckets."""
+def _partitions_and_buckets_problems(t: Table, described: Described, fix: str) -> list[str]:
+    """The problems from comparing the Partitions after the day, and the Buckets. `fix` is
+    what makes a table whose Partitions are in another order right: MOVE_IT or
+    WRITE_IT_AGAIN."""
     problems = []
     partitions = described.partitions
     if t._date_partition in partitions and partitions != partition_columns(t):
@@ -1730,7 +1744,7 @@ def _partitions_and_buckets_problems(t: Table, described: Described) -> list[str
         else:
             problems.append(f"the table is partitioned by {', '.join(partitions)}, with "
                             f"{t._date_partition} not first, where a Saved table's other "
-                            f"Partitions come after its Date partition: {MOVE_IT}.")
+                            f"Partitions come after its Date partition: {fix}.")
     try:
         number = int(described.details.get("num buckets", "-1"))
     except ValueError:

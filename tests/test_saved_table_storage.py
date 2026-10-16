@@ -339,6 +339,27 @@ def test_a_folder_that_isnt_its_own_is_a_problem_pointing_to_move_to_own_folder(
         "with admin.move_to_own_folder(t, send=...).")
 
 
+SHARED = "hdfs://namenode:8020/data/your_team/shared"
+TEXT_INPUT = "org.apache.hadoop.mapred.TextInputFormat"
+
+
+@pytest.mark.parametrize("answer", [{"input_format": TEXT_INPUT},
+                                    {"partitions": ("region", "dt")}],
+                         ids=["a file format it doesn't write", "the day not first"])
+def test_a_layout_the_move_cant_fix_at_its_own_folder_is_written_again_there(answer) -> None:
+    """admin.move_to_own_folder refuses a table at its own folder, whose copy would go to the
+    same folder: there the fix is to write the table again, not to move it."""
+    at_its_own = checked(formatted(**answer))
+    assert "admin.move_to_own_folder" not in at_its_own
+    assert ("it is at its own folder already, so write it again there: give its Table "
+            "reference purge=True and send admin.set_properties(t), drop it with "
+            "admin.drop_table(t), create it with create_table(t), and write its days again "
+            "from their source.") in at_its_own
+    shared = checked(formatted(location=SHARED, **answer))
+    assert shared.count("admin.move_to_own_folder(t, send=...)") == 2
+    assert "write it again there" not in shared
+
+
 def test_its_own_folder_under_another_base_says_which_location_to_write() -> None:
     verdict = checked(formatted(location="hdfs://namenode:8020/warehouse/mart/daily_runs"))
     assert ("  - it is at hdfs://namenode:8020/warehouse/mart/daily_runs, its own folder, but "
