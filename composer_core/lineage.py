@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import edition
 from .clauses import Statement, derived_tables
-from .keys import possessive, statement_keys, unproven, wanted_key
+from .keys import possessive, statement_keys, unproven, wanted_key, writes_one_day
 from .refusals import (
     GuardRefused,
     LoadRefused,
@@ -296,7 +296,7 @@ def _window_rows(tree: Node) -> list[dict]:
 def _step_keys(step: Statement):
     """A step's Keys. A write's are worked out as its write check does, one day at a time,
     the ones that show its Saved table's Key first."""
-    keys = statement_keys(step, one_day=step._write is not None)
+    keys = statement_keys(step, one_day=writes_one_day(step))
     table = step._write
     if table is None or not table._key:
         return keys
@@ -442,6 +442,8 @@ def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list
         target = _table_box(graph, table, name)
         graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
+    if table._date_partition is None:
+        return written  # written whole: no day written
     day = _table_box(graph, table, table._date_partition)
     written.append(day)
     _, span = bottom_read(s)
@@ -742,7 +744,11 @@ def _about(s: Statement, index: int, ordered) -> str:
                          f"{' and '.join(writers)} above.")
     if s._write is not None:
         verb = "writes" if s._replaces_day else "adds to"
-        parts.append(f"It {verb} the Saved table {s._write._name}, one day at a time.")
+        if s._write._date_partition is None:
+            parts.append(f"It {verb} the whole Saved table {s._write._name}, which has no "
+                         "days.")
+        else:
+            parts.append(f"It {verb} the Saved table {s._write._name}, one day at a time.")
     return " ".join(parts)
 
 
@@ -768,7 +774,8 @@ def _submitted(s: Statement, name: str) -> tuple[str, str]:
         return to_hive(s), ""
     except (GuardRefused, LoadRefused):
         _, span = bottom_read(s)
-        if s._write is None or span is None or not span.is_bounded() or len(span.dates()) < 2:
+        if (not writes_one_day(s) or span is None or not span.is_bounded()
+                or len(span.dates()) < 2):
             raise
     days = by_day(s)
     return to_hive(days[0]), (

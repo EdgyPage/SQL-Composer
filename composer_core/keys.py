@@ -435,6 +435,12 @@ def wanted_key(table) -> list[str]:
     return [column for column in table._key or [] if column != table._date_partition]
 
 
+def writes_one_day(s) -> bool:
+    """Whether a Statement writes one day of a Saved table: a write into a table with no Date
+    partition writes the whole table, from every day it reads."""
+    return s._write is not None and s._write._date_partition is not None
+
+
 def unproven(s) -> str | None:
     """Why the Toolbox can't see that a write's rows each have a Key of their own, or None
     when it can, or when its Saved table declares no Key."""
@@ -442,7 +448,7 @@ def unproven(s) -> str | None:
     if not table._key:
         return None
     wanted = wanted_key(table)
-    keys = statement_keys(s, one_day=True)
+    keys = statement_keys(s, one_day=writes_one_day(s))
     if any(set(found.names) <= set(wanted) for found in keys.found):
         return None
     if not keys.found:

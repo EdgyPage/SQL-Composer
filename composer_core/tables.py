@@ -576,7 +576,9 @@ class Table:
       table's columns, prints it ("bigint",
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
     - `date_partition` is required: the one date column the table is partitioned by, which
-      every Statement must bound at both ends, or None for a table that has none.
+      every Statement must bound at both ends, or None for a table that has none. It has no
+      default, so a table with days is never read whole by mistake. A Saved table with
+      date_partition=None has no days: a write fills it whole (help(INSERT_OVERWRITE)).
     - `key` lists the columns that pick out one row, the table's Key. JOIN warns when a join
       doesn't use all of them; a write into a Saved table with a Key is refused unless the
       Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says

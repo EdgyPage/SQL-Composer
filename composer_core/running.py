@@ -366,11 +366,14 @@ def day_partition(table: Table, day: str) -> Node:
 
 
 def _write_tree(s: Statement) -> Node:
-    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT.
+    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT; or
+    the whole table, for a Saved table with no Date partition.
 
     The day is named; each Partition after it is filled from the rows, by its column."""
     table = s._write
-    partition = day_partition(table, day_text(_written_day(s), table._date_format))
+    partition = None
+    if table._date_partition is not None:
+        partition = day_partition(table, day_text(_written_day(s), table._date_format))
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
 
@@ -807,6 +810,16 @@ def by_day(s):
             why="It splits a Statement's days.",
             fix="Pass statement(SELECT(...), FROM(...), WHERE(...)).",
             given=s, call="by_day",
+        )
+    if s._write is not None and s._write._date_partition is None:
+        refuse(
+            what=f"by_day can't split this Statement: it writes {s._write._name}, which has no "
+            "Date partition.",
+            why="A write into a table with no days fills the whole table from every day it "
+            "reads, so it is sent whole: split by day, each day's INSERT_OVERWRITE would "
+            "replace the rows the day before wrote.",
+            fix="Send it whole, with run(s, send=...).",
+            error=ValueError,
         )
     table, span = _bottom_days(
         s, "by_day can't split this Statement",
