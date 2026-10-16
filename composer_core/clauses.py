@@ -44,7 +44,7 @@ from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -456,13 +456,12 @@ def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False, broadca
     rows where they are, without first sorting them and sending them across the cluster.
     JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn't, since it keeps the
     small table's unmatched rows too. It is written as a hint after SELECT, as below: a
-    comment, /*+ ... */, that Hive reads as a request. You rarely need it: Hive makes map
-    joins by itself, from the tables' sizes and statistics, with the Session setting "map_joins",
-    which run(hive_settings("map_joins"), send=...) sends. And Hive heeds the hint only once
-    its setting hive.ignore.mapjoin.hint is false, which you send as a set of your own:
-    hive_settings("heed_hints", sets={"heed_hints": {"hive.ignore.mapjoin.hint": False}}).
-    Where your Hive runs on Spark, Spark heeds it always. Ask for it only for a table you know
-    is small: copied to every worker, a big one can run them out of memory.
+    comment, /*+ ... */, that Hive reads as a request. Send the Session setting "map_joins"
+    first, with run(hive_settings("map_joins"), send=...): Hive ignores the hint without it.
+    You rarely need the hint, though: with "map_joins" sent, Hive makes map joins by itself,
+    from the tables' sizes and statistics. Where your send runs the Hive on Spark, as
+    spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small:
+    copied to every worker, a big one can run them out of memory.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, jobs.team),
@@ -866,13 +865,15 @@ def _write_clause(call: str, table, unproven_key) -> Clause:
 def INSERT_OVERWRITE(table, unproven_key=False):
     """Write the Statement's rows into one day of a Saved table, replacing that day.
 
-    It goes first, before SELECT. The day written is the one day the Statement reads, so loop
-    over by_day(s) to write several. Columns are matched to the Saved table by name, and the
-    Toolbox puts them in the table's order, leaving out its Date partition. Re-running a day
-    replaces it rather than adding to it, so a day can safely be sent again; to add rows to a
-    day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever
-    looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
-    reference, check it with check_table_reference(t, send=...).
+    It goes first, before SELECT. It writes one day: the day its FROM table is bounded to, so
+    loop over by_day(s) to write several. Only a write whose Window looks back on earlier days
+    may read more days than that, keeping the one it writes in a step above, as help(window)
+    shows. Columns are matched to the Saved table by name, and the Toolbox puts them in the
+    table's order, leaving out its Date partition. Re-running a day replaces it rather than
+    adding to it, so a day can safely be sent again; to add rows to a day instead, use
+    INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after
+    it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a
+    Saved table's Table reference, check it with check_table_reference(t, send=...).
 
     When the Saved table's Table reference declares a Key, the write is refused unless the
     Toolbox can see that each row it writes has a Key of its own, since Hive never checks one:
@@ -893,7 +894,8 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     no harm.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/tables")
     >>> print(to_hive(statement(
     ...     INSERT_OVERWRITE(daily_runs),
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),

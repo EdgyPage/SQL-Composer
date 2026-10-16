@@ -228,6 +228,13 @@ below; this map is the design document, built out ticket by ticket.
   INTERSECT/EXCEPT Lineage feeds values from the first Statement; `explain` refuses Statements
   that change a table; `export_lineage` refuses upkeep Statements; `compute_statistics` takes
   `columns=`. The Spark CI failures are set aside for now, by the user.
+- [09 Ship 5.0](issues/09-ship-5-0.md): the user's two decisions applied (`running.kept_day`
+  gives a day only to a Statement with a Window; a write with none that keeps one day above
+  gets a refusal of its own, `guard_one_day_per_write(kept_by=...)`; "map_joins" sends
+  `hive.ignore.mapjoin.hint=false`); TOOLBOX_VERSION 5.0; CHANGES 5.0 one section (To update
+  lists the Key check, `location=`, `admin.drop_table` and the 26 new star-import names); the
+  README template's Update from 4.x and four new sections. Not exported, CI not green: both
+  left to the user.
 
 ## Not yet specified
 

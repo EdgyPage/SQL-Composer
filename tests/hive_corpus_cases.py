@@ -957,6 +957,16 @@ def _window_cases() -> dict:
                          SELECT(AS(with_before.run_id, "event_id"), with_before.minutes_before),
                          FROM(with_before), WHERE(equals(with_before.dt, DAY)))
 
+    def write_keeping_a_day_with_no_window():
+        # Only a write with a Window may read several days and keep one: this one has none.
+        several = derived("several", statement(
+            SELECT(job_runs.run_id, job_runs.dt, job_runs.duration_mins), FROM(job_runs),
+            WHERE(between(job_runs.dt, FIRST_DAY, DAY))))
+        return statement(INSERT_OVERWRITE(events_before),
+                         SELECT(AS(several.run_id, "event_id"),
+                                AS(several.duration_mins, "minutes_before")),
+                         FROM(several), WHERE(equals(several.dt, DAY)))
+
     def by_day_looking_back():
         with_before = looking_back(FIRST_DAY)
         return by_day(statement(SELECT(with_before.run_id, with_before.minutes_before),
@@ -987,6 +997,8 @@ def _window_cases() -> dict:
             WHERE(more_than(looking_back(DAY).minutes_before, 10)))],
         "windows:write_looking_back": lambda: [write_looking_back()],
         "windows:refused:by_day_across_days": by_day_looking_back,
+        "windows:refused:write_keeping_a_day_with_no_window": lambda: [
+            write_keeping_a_day_with_no_window()],
         "windows:refused:in_where": lambda: [_rows(job_runs.run_id, where=[
             more_than(lag(minutes, over=by_job), 10)])],
     }

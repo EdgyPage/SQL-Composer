@@ -18682,6 +18682,121 @@ GuardRefused:
   Usual fix:      Add job_runs.dt to PARTITION_BY= of lag(...) if it should look within each day. To look back across days, write one day at a time: read the day and the days before it in a derived(...) table, and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in the Statement that writes; help(window) shows how. Or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.
 
+== edge:windows:refused:write_keeping_a_day_with_no_window
+-- Statement 1: to_hive
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(events_before) reads 2 days, and keeps one of them with equals(several.dt, ...) in a step above.
+  Why it matters: Only a write whose Window looks back on earlier days needs more days than the one it writes, so only such a write may read them. Any other write needs only that day: the others would be read and thrown away.
+  Usual fix:      Bound job_runs.dt to the day written where it is read: WHERE(equals(job_runs.dt, day)), and drop the bound above. To write several days, send one Statement per day: for day in by_day(s): run(day, send=...).
+  Opt-out:        none - this one can't be switched off.
+-- Statement 1: the Statement
+output event_id: several.run_id
+output minutes_before: several.duration_mins
+WHERE: several.dt = '2026-09-24'
+-- Statement 1: Derived table several
+output run_id: job_runs.run_id
+output dt: job_runs.dt
+output duration_mins: job_runs.duration_mins
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.dt<br/><small>string</small>"]
+    n4["ops.job_runs.duration_mins<br/><small>int</small>"]
+  end
+  subgraph g1["several"]
+    n1["several.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["several.dt<br/><small>job_runs.dt</small>"]
+    n5["several.duration_mins<br/><small>job_runs.duration_mins</small>"]
+  end
+  subgraph g2["filters on several"]
+    n6{{"WHERE in several<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+  end
+  subgraph g3["statement"]
+    n7["event_id<br/><small>several.run_id</small><br/><small>in the Key</small>"]
+    n8["minutes_before<br/><small>several.duration_mins</small>"]
+  end
+  subgraph g4["filters on statement"]
+    n9{{"WHERE in statement<br/><small>equals(several.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g5["mart.events_before"]
+    n10["mart.events_before.event_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n11["mart.events_before.minutes_before<br/><small>int</small>"]
+    n12["mart.events_before.dt<br/><small>string</small><br/><small>in the Key</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n4 --> n5
+  n2 -.-> n6
+  n1 --> n7
+  n5 --> n8
+  n3 -.-> n9
+  n7 --> n10
+  n8 --> n11
+  n6 -.->|day written| n12
+  n6 -.->|filters| g1
+  n9 -.->|filters| g3
+```
+
+## statement
+
+It writes the Saved table mart.events_before, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `event_id` | several.run_id ← ops.job_runs.run_id |
+| `minutes_before` | several.duration_mins ← ops.job_runs.duration_mins |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('several', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement: Key (event_id), since several's rows are told apart by run_id.
+- mart.events_before's Key (event_id, dt) holds: each row written has its own.
+
+### Hive as submitted
+
+This write covers 2 days, and a write fills one day at a time: send it with `for day in by_day(statement): run(day, send=...)`. This is the first day's Hive.
+
+```sql
+WITH several AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    job_runs.duration_mins
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-23'
+)
+INSERT OVERWRITE TABLE mart.events_before PARTITION(dt = '2026-09-23')
+SELECT
+  several.run_id AS event_id,
+  several.duration_mins AS minutes_before
+FROM several
+WHERE
+  several.dt = '2026-09-24'
+```
+
+---
+
+
 == edge:windows:refused:in_where
 -- refused
 ValueError:
@@ -46695,10 +46810,12 @@ SET hive.exec.dynamic.partition.mode=nonstrict;
 -- Statement 1: to_hive
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
+SET hive.ignore.mapjoin.hint=false
 -- Statement 1: show_hive
 -- Session settings: map_joins, sent one line at a time
 SET hive.auto.convert.join=true;
 SET hive.auto.convert.join.noconditionaltask=true;
+SET hive.ignore.mapjoin.hint=false;
 
 == by_hand:hive_settings:statistics_on_write
 -- Statement 1: to_hive
@@ -46724,12 +46841,14 @@ SET hive.merge.tezfiles=true;
 -- Statement 1: to_hive
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
+SET hive.ignore.mapjoin.hint=false
 SET hive.exec.parallel=true
 SET mapreduce.job.reduces=8
 -- Statement 1: show_hive
 -- Session settings: map_joins, nightly, sent one line at a time
 SET hive.auto.convert.join=true;
 SET hive.auto.convert.join.noconditionaltask=true;
+SET hive.ignore.mapjoin.hint=false;
 SET hive.exec.parallel=true;
 SET mapreduce.job.reduces=8;
 
@@ -46737,10 +46856,12 @@ SET mapreduce.job.reduces=8;
 -- Statement 1: to_hive
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
+SET hive.ignore.mapjoin.hint=false
 -- Statement 1: show_hive
 -- Session settings: map_joins, sent one line at a time
 SET hive.auto.convert.join=true;
 SET hive.auto.convert.join.noconditionaltask=true;
+SET hive.ignore.mapjoin.hint=false;
 -- Statement 2: to_hive
 SELECT
   job_runs.run_id
@@ -46806,7 +46927,7 @@ WHERE
 
 ---
 
-Session settings sent before these Statements, one line at a time (map_joins): SET hive.auto.convert.join=true | SET hive.auto.convert.join.noconditionaltask=true.
+Session settings sent before these Statements, one line at a time (map_joins): SET hive.auto.convert.join=true | SET hive.auto.convert.join.noconditionaltask=true | SET hive.ignore.mapjoin.hint=false.
 
 == by_hand:unchecked:select
 -- Statement 1: to_hive

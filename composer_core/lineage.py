@@ -42,7 +42,7 @@ from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_writ
 from .windows import call_of
 from .edition import hive_text
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 
 # --- What a box shows --------------------------------------------------------------------------

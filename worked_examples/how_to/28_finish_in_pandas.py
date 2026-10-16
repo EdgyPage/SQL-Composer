@@ -199,7 +199,8 @@ To keep each run's change in a Saved table, day by day, each day's write needs t
 it, which may be on earlier days. A write fills one day, so read the earlier days too in a
 Derived table that keeps the day column, and keep only the day written in the Statement that
 writes, with `WHERE(equals(week.dt, day))`: the Toolbox writes the day that Statement keeps.
-Here a job's run before may be up to 6 days back, so read the day and the 6 before it:
+Only a write with a Window may read several days like this; any other write must read only the
+day it writes. Here a job's run before may be up to 6 days back, so read the day and the 6 before it:
 
 >>> import datetime
 >>> run_changes = Table("mart.run_changes", date_partition="dt", key=["event_id", "dt"],

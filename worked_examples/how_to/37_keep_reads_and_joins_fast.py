@@ -98,14 +98,16 @@ your Statements, as the settings above:
 >>> print(to_hive(hive_settings("map_joins")))
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
+SET hive.ignore.mapjoin.hint=false
 >>> run(hive_settings("map_joins"), send=example_database.send)
 
 Nothing in the Statement changes: Hive decides when it plans it. The next step shows how to see
 what it decided.
 
 Where Hive still sorts both sides, `JOIN(jobs, ON=..., broadcast=True)` asks it by name to
-copy jobs to every worker; [Semi-, anti- and full joins](#semi_anti_and_full_joins) shows how,
-and the Session setting Hive needs before it heeds the request.
+copy jobs to every worker; [Semi-, anti- and full joins](#semi_anti_and_full_joins) shows how.
+Hive heeds that request only after "map_joins", whose last line,
+hive.ignore.mapjoin.hint=false, tells it to.
 
 ### Use Buckets only for big joins
 

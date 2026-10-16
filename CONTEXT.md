@@ -25,7 +25,7 @@ adds what is its own, how it writes its Hive and runs its Example database.
 _Avoid_: base, common, shared library, framework
 
 **Toolbox version**:
-The feature number of the Toolbox (`4.1`), raised only when a big feature lands, and shared by both
+The feature number of the Toolbox (`5.0`), raised only when a big feature lands, and shared by both
 Editions. Two copies of the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
@@ -109,6 +109,7 @@ Window gives each row a value of its own and keeps every row, as a running total
 value of the row before does. Its groups are SQL's PARTITION BY, which has nothing to do with a
 Partition.
 _Avoid_: frame, OVER clause (OVER is how it lands in the string), analytic function
+
 **Stack**:
 A Statement made of other whole Statements, whose rows it puts together one Statement after
 another, their columns matched by name: every row of each (`UNION_ALL`), each different row
