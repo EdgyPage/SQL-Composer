@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-15 late, wave 2 running (05, 06 merged; 04 merging dev; 07, 08 finishing).
+Last updated: 2026-10-16, wave 2 merging (04, 05, 06 merged; 07 merging dev; 08 next).
 
 ## The plan (the user's brief)
 
@@ -31,11 +31,11 @@ everything after it is unpushed (push it with the Spark CI fix, once local runs 
 | 01 Keys | `worktree-agent-a6d7b135a93d73477` | merged (2b944b7); drift fixes merged (5b24a4c, 34f0f77) |
 | 02 The Saved table's storage | `worktree-agent-a6f3bd488edfd2022` | merged (3a83175); drift fixes 84c32fd |
 | 03 Session settings, Unchecked statement, Admin log | `worktree-agent-af9eba55aa5919751` | merged (641a749); drift fix c5e251c |
-| 04 The admin module | `worktree-agent-a488bd9fe0f586e60` | done (20c1764; admin.py, need_saved_table in tables.py, drop_table moved to admin); its agent is merging `dev` into its branch and renumbering its how-to to 34; then merge it |
-| 05 Joins | `worktree-agent-aa687d203297246a7` | merged (cdcd71e; how-to 33, `ops.scheduler_runs` added to the Example database); drift review of cdcd71e running |
-| 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617); its agent is fixing drift D166-D168 on its branch (merge `dev` in, fix, re-run full suites, commit); merge that, then mark the items closed |
-| 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | agent running; 1 commit (a1ee296) plus work in progress; not reported yet |
-| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | agent running; 2 commits (tip 6fe73e1), reviews done, running checks; it also took how-to 33 ("Keep reads and joins fast"): renumber at merge |
+| 04 The admin module | `worktree-agent-a488bd9fe0f586e60` | merged (958408f; admin.py, `tables.need_saved_table(t, what)`, how-to 34, 78 public names); drift review of 958408f running |
+| 05 Joins | `worktree-agent-aa687d203297246a7` | merged (cdcd71e; how-to 33, `ops.scheduler_runs`); its agent is fixing drift D169-D172 on its branch: merge that, then close them |
+| 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617), drift fixes D166-D168 merged (f7f2e04, closed) |
+| 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | done (6d64d09; stacking.py, 8 names, how-tos 'Reconcile two tables' and 'Subtotals and grand totals'); its agent is merging `dev` into its branch, renumbering its how-tos to 35 and 36 (86 names); then merge it |
+| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | done (685d197; upkeep.py, repair_partitions, compute_statistics, explain; its own `need_saved_table` in tables.py; how-to 'Keep reads and joins fast'); after 07 lands, have it merge `dev`: keep ticket 04's need_saved_table, renumber its how-to to 37, 89 names, and keep its broadcast=True sentence (05 landed) |
 | 09 Ship 5.0 | - | blocked on 01-08 |
 
 A fresh session can't message these agents (their ids live only in the session that started
@@ -45,7 +45,7 @@ that worktree (commit or stash what's there first), or merge it if it's resolved
 checks pass.
 
 Drift open: D156 (`version`, closed by ticket 09 raising TOOLBOX_VERSION to "5.0"; the stop
-hook nags about it each turn, which is expected) and D166-D168 (ticket 06, being fixed).
+hook nags about it each turn, which is expected) and D169-D172 (ticket 05, being fixed).
 
 ## Open questions for the user (asked, not yet answered)
 
@@ -64,6 +64,13 @@ hook nags about it each turn, which is expected) and D166-D168 (ticket 06, being
    (create the copy, one INSERT OVERWRITE per day, a count comparison that stops the move if a
    day differs, purge off, drop the old, rename); `drop_days` and `ADD COLUMNS ... CASCADE` are
    Hive 3 Hive that Spark refuses, written the same by both Editions.
+
+6. Ticket 07: INTERSECT/EXCEPT Lineage feeds values from the first Statement only, the others
+   as a condition box (the map said "from every branch"); GROUPING SETS over a named
+   calculation and GROUPING() in HAVING are untested on real Hive.
+7. Ticket 08: explain refuses DDL/admin/upkeep Statements; export_lineage refuses the upkeep
+   Statements (map family 9 says "left out": refuse, or skip silently?); compute_statistics
+   takes columns=, beyond the ticket's signature.
 
 Noted, no question: ticket 05's semi join can't run on sqlglot Composer's Example database
 (sqlglot's executor would treat it as a LEFT JOIN), so how-to 33 shows a pandas result there.
