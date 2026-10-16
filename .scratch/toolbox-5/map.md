@@ -179,6 +179,12 @@ below; this map is the design document, built out ticket by ticket.
   only, since Spark refuses it (the `primary_key` row of DECLARED_DIFFERENCES), as the user
   chose (below). INSERT_INTO is checked on the rows it adds. Ticket 05's joins
   and 06's windows extend `keys.py` (`_keeps`, `_row_number_keys`).
+- 08 (upkeep and speed): `repair_partitions`, `compute_statistics(t, day, columns=)` and
+  `explain` in a new core file, `upkeep.py`, each a Statement with `_ddl` set (kinds `Repair`,
+  `Analyze`, `Explain`); `need_saved_table(t, what)` in tables.py is the shared Saved-table
+  refusal; `run(explain(s))` gives the plan as text; FOR COLUMNS always lists its columns
+  (Spark needs them); Spark Composer's Example database answers EXPLAIN, sqlglot's can't;
+  how-to 37 "Keep reads and joins fast".
 - The user (2026-10-15), on wave 1's open questions: Spark Composer leaves `PRIMARY KEY` out of
   create_table, a declared difference, since Spark refuses it (its Key is still checked before
   each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as

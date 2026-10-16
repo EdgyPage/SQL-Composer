@@ -56,6 +56,8 @@ PUBLIC_NAMES = [
     "window", "rank", "dense_rank", "ntile", "lag", "lead", "first_value", "last_value",
     # Toolbox 5.0, ticket 07: Stacks and subtotals.
     "UNION_ALL", "UNION", "INTERSECT", "EXCEPT", "rollup", "cube", "grouping_sets", "is_total",
+    # Toolbox 5.0, ticket 08: upkeep and speed.
+    "repair_partitions", "compute_statistics", "explain",
     "example_database",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
@@ -74,8 +76,8 @@ def toolbox_files() -> list[Path]:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 86
-    assert len(set(PUBLIC_NAMES)) == 86
+    assert len(PUBLIC_NAMES) == 89
+    assert len(set(PUBLIC_NAMES)) == 89
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

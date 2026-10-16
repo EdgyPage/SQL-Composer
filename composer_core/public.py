@@ -83,6 +83,7 @@ from .tables import (
     write_table_reference,
 )
 from .unchecked import hive_settings, set_admin_log, unchecked_hive
+from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
     dense_rank,
     first_value,
@@ -192,6 +193,10 @@ __all__ = [
     "hive_settings",
     "unchecked_hive",
     "set_admin_log",
+    # upkeep.py
+    "repair_partitions",
+    "compute_statistics",
+    "explain",
     # example_database.py
     "example_database",
 ]

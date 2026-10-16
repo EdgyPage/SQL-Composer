@@ -172,6 +172,12 @@ def result_html(s, pandas_result=None, which: str = "") -> str:
         if result is None:  # Session settings: each SET line is sent, and run gives back None
             return ('<p class="note">Sent to the Example database one SET line at a time; '
                     "run gives back None.</p>")
+        if isinstance(result, str):
+            # explain's plan, as text: only its heading, since Spark numbers the columns in
+            # the steps under it afresh each run.
+            heading = result.splitlines()[0] if result else ""
+            return (label(f"Result{which} on the Example database, its first line")
+                    + table_html(pd.DataFrame({"plan": [heading]})))
         return label(f"Result{which} on the Example database") + table_html(result)
     except (RuntimeError, ValueError) as error:
         if pandas_result is not None:

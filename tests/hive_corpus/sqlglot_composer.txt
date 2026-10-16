@@ -3608,6 +3608,26 @@ SET hive.exec.dynamic.partition.mode=nonstrict
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
 
+== doc:repair_partitions
+-- Statement 1: to_hive
+MSCK REPAIR TABLE mart.daily_runs
+
+== doc:compute_statistics
+-- Statement 1: to_hive
+ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
+-- Statement 2: to_hive
+ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, runs
+-- Statement 3: to_hive
+ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id
+
+== doc:explain
+-- Statement 1: to_hive
+EXPLAIN SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+
 == doc:example_database
 -- Statement 1: to_hive
 SELECT
@@ -16876,7 +16896,7 @@ DROP TABLE IF EXISTS mart.admin_runs;
 -- refused
 ValueError:
   What happened:  admin.drop_table(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
-  Why it matters: It changes a table, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Why it matters: It changes a table, or what the warehouse keeps about it, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
   Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
   Opt-out:        none - this one can't be switched off.
 
@@ -16988,7 +17008,7 @@ ValueError:
 -- refused
 ValueError:
   What happened:  admin.drop_days(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
-  Why it matters: It changes a table, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Why it matters: It changes a table, or what the warehouse keeps about it, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
   Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
   Opt-out:        none - this one can't be switched off.
 
@@ -20888,6 +20908,163 @@ ValueError:
   What happened:  INSERT_OVERWRITE(daily_runs) writes rows made by GROUP_BY(rollup(job_runs.job_id)).
   Why it matters: Each subtotal row totals over rows written with it, with NULL in the columns it totals over: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
   Usual fix:      Write the plain GROUP_BY into the Saved table, and add the subtotals in the Statement that reads it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:upkeep:repair_partitions:odd
+-- Statement 1: to_hive
+MSCK REPAIR TABLE ops.`order`
+
+== edge:upkeep:repair_partitions:spark_words
+-- Statement 1: to_hive
+MSCK REPAIR TABLE ops.`semi`
+
+== edge:upkeep:repair_partitions:compact
+-- Statement 1: to_hive
+MSCK REPAIR TABLE ops.compact_runs
+
+== edge:upkeep:repair_partitions:events
+-- Statement 1: to_hive
+MSCK REPAIR TABLE ops.events
+
+== edge:upkeep:repair_partitions:daily_runs
+-- Statement 1: to_hive
+MSCK REPAIR TABLE mart.daily_runs
+
+== edge:upkeep:repair_partitions:region_runs
+-- Statement 1: to_hive
+MSCK REPAIR TABLE mart.region_runs
+
+== edge:upkeep:repair_partitions:not_a_saved_table
+-- refused
+ValueError:
+  What happened:  repair_partitions(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, or what the warehouse keeps about it, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:upkeep:compute_statistics:a_day
+-- Statement 1: to_hive
+ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
+
+== edge:upkeep:compute_statistics:every_region_of_a_day
+-- Statement 1: to_hive
+ANALYZE TABLE mart.region_runs PARTITION(dt = '2026-09-24', region) COMPUTE STATISTICS FOR COLUMNS job_id, runs
+
+== edge:upkeep:compute_statistics:some_columns
+-- Statement 1: to_hive
+ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS runs
+
+== edge:upkeep:compute_statistics:compact_day
+-- Statement 1: to_hive
+ANALYZE TABLE ops.compact_runs PARTITION(day = '20260924') COMPUTE STATISTICS FOR COLUMNS run_id, status
+
+== edge:upkeep:compute_statistics:odd_names
+-- Statement 1: to_hive
+ANALYZE TABLE ops.`order` PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS `select`, `1st`, `two words`
+
+== edge:upkeep:compute_statistics:spark_words
+-- Statement 1: to_hive
+ANALYZE TABLE ops.`semi` PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS `any`, `minus`, `current_user`
+
+== edge:upkeep:compute_statistics:no_date_partition
+-- Statement 1: to_hive
+ANALYZE TABLE mart.job_names COMPUTE STATISTICS FOR COLUMNS job_id, job_name
+
+== edge:upkeep:compute_statistics:no_day
+-- refused
+TypeError:
+  What happened:  compute_statistics(daily_runs) needs the day to count.
+  Why it matters: Statistics are counted a day at a time, as each write fills one day: counting every day would read the whole table.
+  Usual fix:      Pass the day, such as compute_statistics(daily_runs, "2026-09-24").
+  Opt-out:        none - this one can't be switched off.
+
+== edge:upkeep:compute_statistics:not_a_saved_table
+-- refused
+ValueError:
+  What happened:  compute_statistics(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, or what the warehouse keeps about it, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:upkeep:explain:a_read
+-- Statement 1: to_hive
+EXPLAIN SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+
+== edge:upkeep:explain:a_write
+-- Statement 1: to_hive
+EXPLAIN WITH step_1 AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+)
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')
+SELECT
+  step_1.job_id,
+  step_1.runs
+FROM step_1
+
+== edge:upkeep:explain:derived_tables
+-- Statement 1: to_hive
+EXPLAIN WITH step_1 AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+), step_2 AS (
+  SELECT
+    step_1.job_id,
+    step_1.runs
+  FROM step_1
+  WHERE
+    step_1.runs > 0
+)
+SELECT
+  step_2.job_id,
+  step_2.runs
+FROM step_2
+
+== edge:upkeep:explain:a_create_table
+-- refused
+ValueError:
+  What happened:  explain was given the Statement create_table(...) makes, which isn't a query or a write.
+  Why it matters: Hive plans how a Statement reads and writes rows; a Statement that creates, changes, drops, repairs or counts a table, or explains another, has no such plan.
+  Usual fix:      Pass a Statement made by statement(...).
+  Opt-out:        none - this one can't be switched off.
+
+== edge:upkeep:explain:a_stack
+-- Statement 1: to_hive
+EXPLAIN SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+UNION ALL
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23'
+
+== edge:upkeep:explain:an_admin_statement
+-- refused
+ValueError:
+  What happened:  explain was given an Admin statement, which isn't a query or a write.
+  Why it matters: Hive plans how a Statement reads and writes rows; a Statement that creates, changes, drops, repairs or counts a table, or explains another, has no such plan.
+  Usual fix:      Pass a Statement made by statement(...).
   Opt-out:        none - this one can't be switched off.
 
 == gen:000

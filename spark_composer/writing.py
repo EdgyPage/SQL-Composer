@@ -511,6 +511,23 @@ def _drop(node: Node, pretty: bool) -> str:
     return f"DROP TABLE IF EXISTS {_part(node, 'target', pretty)}"
 
 
+# MSCK REPAIR TABLE, ANALYZE TABLE and EXPLAIN, after sqlglot's Generator.command_sql: its
+# word, a space, then the rest as written. The ANALYZE TABLE's columns are named as any column is, on one line.
+def _repair(node: Node, pretty: bool) -> str:
+    return f"MSCK REPAIR TABLE {_part(node, 'target', pretty)}"
+
+
+def _analyze(node: Node, pretty: bool) -> str:
+    sql = f"ANALYZE TABLE {_part(node, 'target', pretty)} COMPUTE STATISTICS"
+    if node.parts["columns"]:
+        sql += " FOR COLUMNS " + ", ".join(_identifier(name) for name in node.parts["columns"])
+    return sql
+
+
+def _explain(node: Node, pretty: bool) -> str:
+    return f"EXPLAIN {_part(node, 'this', pretty).strip()}"
+
+
 # --- Column types, as CREATE TABLE writes them ----------------------------------------------
 
 def _unchecked(text: str) -> NoReturn:
@@ -618,6 +635,9 @@ _WRITE = {
     "Create": _create,
     "ColumnDef": _column_def,
     "Drop": _drop,
+    "Repair": _repair,
+    "Analyze": _analyze,
+    "Explain": _explain,
 }
 
 
