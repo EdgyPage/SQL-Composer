@@ -1262,9 +1262,11 @@ def derived(name, statement):
     in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH
     runs_per_job AS (...). The warehouse usually works it out again each time the Statement
     reads it, so if it gets slow, write it to a Saved table instead. Its Key, which a JOIN on it
-    checks ON= against, is worked out from how it makes its rows: its GROUP_BY columns, every
-    column of a SELECT_DISTINCT, none for a SELECT of only totals (one row), or the Key of the
-    table in its FROM, carried through each join that matches its table's whole Key, and
+    checks ON= against, is worked out from how it makes its rows: its GROUP_BY columns (it has
+    none when GROUP_BY holds rollup, cube or grouping_sets, whose subtotal rows repeat them),
+    every column of a SELECT_DISTINCT, none for a SELECT of only totals (one row), every column
+    of a UNION, INTERSECT or EXCEPT, which give distinct rows (none for a UNION_ALL), or the Key
+    of the table in its FROM, carried through each join that matches its table's whole Key, and
     through a row_number(...) kept at 1.
 
     >>> runs_per_job = derived("runs_per_job", statement(
