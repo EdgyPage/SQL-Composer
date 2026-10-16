@@ -217,15 +217,15 @@ def _window(node: Node) -> exp.Window:
     rows = node.parts.get("rows")
     spec = None
     if rows is not None:
-        (start, start_side), (end, end_side) = (_frame_end(rows[0], "PRECEDING"),
-                                                _frame_end(rows[1], "FOLLOWING"))
+        (start, start_side), (end, end_side) = (_rows_end(rows[0], "PRECEDING"),
+                                                _rows_end(rows[1], "FOLLOWING"))
         spec = exp.WindowSpec(kind="ROWS", start=start, start_side=start_side, end=end,
                               end_side=end_side)
     return exp.Window(this=_built(node, "this"), partition_by=_all_built(node, "partition_by"),
                       order=None if order is None else to_sqlglot(order), spec=spec)
 
 
-def _frame_end(count: int | None, unbounded_side: str) -> tuple[str, str | None]:
+def _rows_end(count: int | None, unbounded_side: str) -> tuple[str, str | None]:
     """One end of a window's ROWS, as sqlglot's WindowSpec holds it: the number of rows from
     the row itself and which way, CURRENT ROW, or UNBOUNDED for every row that way."""
     if count is None:

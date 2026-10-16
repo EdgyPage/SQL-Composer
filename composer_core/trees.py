@@ -471,3 +471,25 @@ def has_aggregate(node: Node) -> bool:
 def has_window(node: Node) -> bool:
     """True when the tree looks across rows through a window, as ROW_NUMBER() OVER (...)."""
     return node.kind == "Window" or any(has_window(child) for child in node.children())
+
+
+def rows_text(rows: tuple) -> str:
+    """A Window's rows=(start, end) as Hive writes it: ROWS BETWEEN 6 PRECEDING AND CURRENT ROW.
+
+    Each end is a count of rows from the row itself, negative before it and positive after
+    it, 0 the row itself, or None for no limit that way.
+    """
+    ends = []
+    for count, unbounded in zip(rows, ("UNBOUNDED PRECEDING", "UNBOUNDED FOLLOWING")):
+        if count is None:
+            ends.append(unbounded)
+        elif count == 0:
+            ends.append("CURRENT ROW")
+        else:
+            ends.append(f"{abs(count)} {'PRECEDING' if count < 0 else 'FOLLOWING'}")
+    return f"ROWS BETWEEN {ends[0]} AND {ends[1]}"
+
+
+def numbers_rows(node: Node) -> bool:
+    """True when the tree numbers rows: the ROW_NUMBER() OVER (...) of row_number(...)."""
+    return any(window.parts["this"].kind == "RowNumber" for window in node.find_all("Window"))

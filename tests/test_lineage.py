@@ -421,15 +421,17 @@ def test_a_windows_partition_by_and_order_by_are_rows_that_count(tmp_path) -> No
     )
     markdown, page = read(export_lineage(so_far, to=tmp_path / "lineage.html"))
     entry = section(markdown, "#### `minutes_so_far`")
-    assert ("Rows that count:\n- PARTITION BY of sum_of(...): `PARTITION_BY=job_runs.job_id`, "
-            "which is `PARTITION BY job_runs.job_id`\n- ORDER BY of sum_of(...): "
+    assert ("Rows that count:\n- Window of sum_of(...), its groups: "
+            "`PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`\n"
+            "- Window of sum_of(...), its order and rows: "
             "`ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY "
             "job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`\n- WHERE "
             "in so_far:") in entry
     before = section(markdown, "#### `before`")
-    assert "- ORDER BY of lag(...): `ORDER_BY=job_runs.run_id`" in before
-    assert "PARTITION BY of lag" not in before
-    assert "<li>PARTITION BY of sum_of(...): <code>PARTITION_BY=job_runs.job_id</code>" in page
+    assert "- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`" in before
+    assert "its groups" not in before
+    assert ("<li>Window of sum_of(...), its groups: <code>PARTITION_BY=job_runs.job_id</code>"
+            in page)
 
 
 def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(tmp_path) -> None:
