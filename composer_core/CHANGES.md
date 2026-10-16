@@ -62,6 +62,21 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
   holds.
+- **Stacks: `UNION_ALL`, `UNION`, `INTERSECT` and `EXCEPT` put whole Statements' rows
+  together**, one Statement after another, their columns matched by name, so a column is never
+  stacked under one of another name, and refused naming the column when a Statement lacks one
+  or returns it as another kind of value. A Stack is a Statement: run, show_hive and
+  derived(...) take it, and by_day splits each Statement it stacks. `UNION`, `INTERSECT` and
+  `EXCEPT` keep each different row once, so their rows have a Key; `UNION_ALL` keeps every row
+  and loses it. Lineage feeds each column from every Statement that makes it. The how-to
+  "Reconcile two tables" runs `EXCEPT` both ways.
+- **Subtotals: `GROUP_BY(rollup(...))`, `cube(...)` and `grouping_sets(...)`** add subtotal
+  rows beside the groups, written as Hive's `GROUPING SETS`, and `is_total(column)` tells a
+  subtotal row from a row whose column is really NULL. A Saved table is never written from
+  subtotals, whose rows repeat the rows they add up: write the plain GROUP_BY, and add the
+  subtotals when you read it. sqlglot Composer's Example database
+  can't make subtotals and says so; Spark Composer's can. The how-to "Subtotals and grand
+  totals" walks through them.
 
 ### Refused now
 

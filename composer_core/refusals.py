@@ -385,6 +385,25 @@ def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
     )
 
 
+def guard_by_day_stack(step: str, call: str) -> None:
+    """by_day can't split a UNION, INTERSECT or EXCEPT that compares rows across days.
+
+    No opt-out.
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"by_day can't split this Statement: {step} is made by {call}(...), whose "
+            "Statements don't each return the Date partition, under one name.",
+            why=f"{call} compares rows over every day it reads. Split by day, a row found on "
+            "two days would be compared within each day alone, so it could come back once "
+            "for each day, or be kept where another day has it.",
+            fix=f"Return the day from each Statement of {call}(...) under one name, such as "
+            'job_runs.dt and AS(run_alerts.dt, "dt"), or run the Statement whole with run(...).',
+            opt_out=None,
+        )
+    )
+
+
 # --- Warnings: each lets the Statement through ---------------------------------------------
 
 

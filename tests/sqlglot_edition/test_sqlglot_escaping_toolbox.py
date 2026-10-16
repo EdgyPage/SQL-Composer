@@ -28,10 +28,11 @@ def test_sql_text_is_written_in_exactly_one_function() -> None:
                 continue
             for call in ast.walk(function):
                 if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
-                        and call.func.attr == "sql"):
+                        and call.func.attr in ("sql", "generator", "generate")):
                     callers.append((name, function.name, call))
-    assert [(name, fn) for name, fn, _ in callers] == [("writing.py", "sql_text")]
-    raising = callers[0][2]
+    # sql_text makes sqlglot's generator for Hive, and has it write the tree.
+    assert [(name, fn) for name, fn, _ in callers] == [("writing.py", "sql_text")] * 2
+    raising = next(call for _, _, call in callers if call.func.attr == "generator")
     keywords = {k.arg: ast.unparse(k.value) for k in raising.keywords}
     assert keywords["unsupported_level"] == "ErrorLevel.RAISE"
 

@@ -23,12 +23,14 @@ from .conditions import equals
 from .refusals import (
     guard_by_day_grouping,
     guard_by_day_limit,
+    guard_by_day_stack,
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
     refuse,
     refuse_what_isnt_a_dataframe,
 )
+from .stacking import HOW, nth, stack_steps, stacked
 from .tables import Table, aliased, day_text, source, table_node
 from .trees import Node, combined
 from .unchecked import (
@@ -96,14 +98,16 @@ def _all_of(conditions: list) -> Node | None:
     return combined("And", [c._tree.copy() for c in conditions]) if conditions else None
 
 
-def _select_tree(s: Statement) -> Node:
-    """A Statement's SELECT, from FROM to LIMIT, without WITH."""
+def _select_tree(s: Statement, order: list[str] | None = None) -> Node:
+    """A Statement's SELECT, from FROM to LIMIT, without WITH. `order` puts its outputs in the
+    order of those names, as a Stack puts each Statement's in its first one's order."""
     outputs = s._outputs
     if s._write is not None:
         # The table's columns in its order, then the Partitions its rows fill, which Hive
         # fills from the last columns.
         later = s._write._partitioned_by
         order = [column for column in s._write._columns if column not in later] + later
+    if order is not None:
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
     return Node(
         "Select",
@@ -113,15 +117,28 @@ def _select_tree(s: Statement) -> Node:
         joins=[_join_tree(read) for read in s._reads[1:]],
         where=_all_of(s._where),
         group_by=[c._tree.copy() for c in s._group_by],
+        grouping_sets=None if s._grouping_sets is None else [
+            Node("Tuple", expressions=[c._tree.copy() for c in each])
+            for each in s._grouping_sets],
         having=_all_of(s._having),
         order_by=[o.copy() for o in s._order_by],
         limit=s._limit,
     )
 
 
+def _query_tree(s: Statement) -> Node:
+    """A Statement that reads, without WITH: its SELECT, or a Stack of its Statements' SELECTs,
+    each with its columns in the first one's order."""
+    if s._stack is None:
+        return _select_tree(s)
+    call, branches = s._stack
+    names = [name for _, name in s._outputs]
+    return Node("Stack", how=HOW[call], branches=[_select_tree(b, names) for b in branches])
+
+
 def _with(tree: Node, s: Statement) -> Node:
     """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
-    tree.set("derived_tables", [Node("CTE", this=_select_tree(table._statement),
+    tree.set("derived_tables", [Node("CTE", this=_query_tree(table._statement),
                                      alias=table._name) for table in derived_tables(s)])
     return tree
 
@@ -133,30 +150,35 @@ def automatic_limit(s: Statement) -> int | None:
     return _limits["rows"]
 
 
+def statements_within(s: Statement) -> list[Statement]:
+    """Every step of `s` that reads tables: itself and each Derived table it reads, or, for a
+    Stack, each Statement it stacks."""
+    return [part for step in [s] + [table._statement for table in derived_tables(s)]
+            for part in stack_steps(step)]
+
+
 def _days_read(s: Statement) -> list:
     """Each read of a partitioned table, at every step, with the days it reads."""
-    found = read_spans(s)
-    for table in derived_tables(s):
-        found += read_spans(table._statement)
-    return found
+    return [found for step in statements_within(s) for found in read_spans(step)]
 
 
 def _check_dates_cap(s: Statement) -> None:
     cap = _limits["dates"]
     if cap is None:
         return
-    from_read, _ = bottom_read(s)
+    from_reads = [read for read, _ in bottom_reads(s)]
     for read, span in _days_read(s):
         if span is not None and span.is_bounded():
             load_limit_dates(read._call(), read.table._name, len(span.dates()), cap,
-                             read.reads_all_partitions, read is from_read)
+                             read.reads_all_partitions, any(read is r for r in from_reads))
 
 
 def steps(s: Statement) -> list[tuple[Statement, str]]:
     """The Statement and each Derived table below it through FROM, top first, each with the
-    words a refusal names it by. The last reads a real table in FROM: the one with the days."""
+    words a refusal names it by. The last reads a real table in FROM: the one with the days;
+    or it is a Stack, whose Statements each read one."""
     found = [(s, "the outer Statement")]
-    while found[-1][0]._reads[0].table._statement is not None:
+    while found[-1][0]._stack is None and found[-1][0]._reads[0].table._statement is not None:
         table = found[-1][0]._reads[0].table
         found.append((table._statement, f"derived({table._name!r}, ...)"))
     if len(found) == 1:
@@ -164,30 +186,68 @@ def steps(s: Statement) -> list[tuple[Statement, str]]:
     return found
 
 
-def bottom_read(s: Statement):
-    """The FROM read at the bottom of `s`, following Derived tables down, and the days its
-    bound reads: a Span, or None."""
+def bottom_steps(s: Statement) -> list[Statement]:
+    """The step at the bottom of `s` through FROM, which reads a real table there; below a
+    Stack, the bottom step of each Statement it stacks."""
     step = steps(s)[-1][0]
-    read = step._reads[0]
-    return read, next((found for r, found in read_spans(step) if r is read), None)
+    if step._stack is not None:
+        return [found for branch in step._stack[1] for found in bottom_steps(branch)]
+    return [step]
+
+
+def bottom_reads(s: Statement) -> list:
+    """Each FROM read at the bottom of `s`, following Derived tables down, with the days its
+    bound reads: a Span, or None. There is one, or one for each Statement a Stack stacks."""
+    found = []
+    for step in bottom_steps(s):
+        read = step._reads[0]
+        found.append((read, next((span for r, span in read_spans(step) if r is read), None)))
+    return found
+
+
+def bottom_read(s: Statement):
+    """The first of bottom_reads(s): the FROM read the days come from."""
+    return bottom_reads(s)[0]
 
 
 def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
-    """The real table at the bottom of FROM and the days its bound reads, or a refusal."""
-    read, span = bottom_read(s)
-    table = read.table
-    if table._date_partition is None:
-        what, fix = f"its FROM table {table._name} has no Date partition", no_days_fix
-    elif span is None or not span.is_bounded():
-        column = f"{table._alias}.{table._date_partition}"
-        what = f"nothing bounds the days of its FROM table {table._name}"
-        if read.reads_all_partitions:
-            what = (f"FROM({table._alias}, reads_all_partitions=True) reads every day of "
-                    f"{table._name}, with no bound on its days")
-        fix = f"Bound {column} in WHERE, such as between({column}, ...)."
-    else:
-        return table, span
-    refuse(what=f"{who}: {what}.", why=why, fix=fix, error=ValueError)
+    """The real table at the bottom of FROM and the days its bound reads, or a refusal. Below
+    a Stack, each of its Statements must read the same days."""
+    found = []
+    for read, span in bottom_reads(s):
+        table = read.table
+        if table._date_partition is None:
+            what, fix = f"its FROM table {table._name} has no Date partition", no_days_fix
+        elif span is None or not span.is_bounded():
+            column = f"{table._alias}.{table._date_partition}"
+            what = f"nothing bounds the days of its FROM table {table._name}"
+            if read.reads_all_partitions:
+                what = (f"FROM({table._alias}, reads_all_partitions=True) reads every day of "
+                        f"{table._name}, with no bound on its days")
+            fix = f"Bound {column} in WHERE, such as between({column}, ...)."
+        else:
+            found.append((table, span))
+            continue
+        refuse(what=f"{who}: {what}.", why=why, fix=fix, error=ValueError)
+    if len({tuple(span.dates()) for _, span in found}) > 1:
+        listed = "; ".join(f"{table._name} reads {_days_text(table, span)}"
+                           for table, span in found)
+        refuse(
+            what=f"{who}: the Statements of its Stack read different days: {listed}.",
+            why=f"{why} The Statements of a Stack make each day's rows together, so each must "
+            "read the same days.",
+            fix="Bound each Statement's FROM table to the same days in its WHERE.",
+            error=ValueError,
+        )
+    return found[0]
+
+
+def _days_text(table: Table, span) -> str:
+    """The days a span lets through, for a message: each, or the first to the last."""
+    days = [day_text(day, table._date_format) for day in span.dates()]
+    if len(days) <= 3:
+        return ", ".join(days) or "no day"
+    return f"{days[0]} to {days[-1]}"
 
 
 def _written_day(s: Statement):
@@ -223,7 +283,7 @@ def _statement_tree(s: Statement) -> Node:
         return s._ddl.copy()
     if s._write is not None:
         return _with(_write_tree(s), s)
-    tree = _select_tree(s)
+    tree = _query_tree(s)
     limit = automatic_limit(s)
     if limit is not None:
         tree.set("limit", limit)
@@ -482,7 +542,10 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
     if s._distinct:
         grouping, clause = [column._tree for column, _ in s._outputs], "SELECT_DISTINCT(...)"
     elif s._group_by or any(column._aggregate for column, _ in s._outputs):
-        grouping, clause = [column._tree for column in s._group_by], "GROUP_BY(...)"
+        # With subtotals, only a column in every set of them is in every row's group.
+        grouping = [column._tree for column in s._group_by if s._grouping_sets is None or all(
+            any(column._tree == other._tree for other in each) for each in s._grouping_sets)]
+        clause = "GROUP_BY(...)"
     else:
         grouping, clause = None, ""
     if grouping is not None and not any(date in grouping for date in dates):
@@ -595,24 +658,11 @@ def by_day(s):
             fix="Pass statement(SELECT(...), FROM(...), WHERE(...)).",
             given=s, call="by_day",
         )
-    found = steps(s)
     table, span = _bottom_days(
         s, "by_day can't split this Statement",
         "by_day makes one Statement for each day its FROM table reads.",
         "Run it whole with run(...): by_day splits only a table with days.")
-    # Follow the Date partition up from the bottom step, under each name a step gives it.
-    partition = f"{table._alias}.{table._date_partition}"
-    dates = [Node("Column", name=table._date_partition, table=table._alias)]
-    below, below_described = None, ""
-    lost_in = []  # the step that dropped the Date partition, then each step above that one
-    for step, described in reversed(found):
-        if below is not None:
-            had_it = bool(dates)
-            dates = _dates_above(below, step._reads[0].table, dates)
-            if not dates:
-                lost_in = [below_described] if had_it else [*lost_in, below_described]
-        _check_splittable(step, described, dates, partition, lost_in)
-        below, below_described = step, described
+    _day_names(s)
     days = span.dates()
     if not days:
         refuse(
@@ -625,13 +675,63 @@ def by_day(s):
             "out the only day.",
             error=ValueError,
         )
-    return [_split(found, day) for day in days]
+    return [_split(s, day) for day in days]
 
 
-def _split(steps, day) -> Statement:
-    """The Statement for one day: the bottom step bounded to it, each step above reading it."""
-    bottom = _one_day(steps[-1][0], day)
-    for step, _ in reversed(steps[:-1]):
+def _day_names(s: Statement, top: str | None = None) -> list[str]:
+    """Check that each step of `s` can be split by day, bottom first, following the Date
+    partition up under each name a step gives it, and give the names of the outputs of `s`
+    that hold it. `top` names `s` in a refusal, for a Statement a Stack stacks."""
+    found = steps(s)
+    if top is not None:
+        found[0] = (s, top)
+    read, _ = bottom_read(s)
+    partition = f"{read.table._alias}.{read.table._date_partition}"
+    lost_in = []  # the step that dropped the Date partition, then each step above that one
+    last, last_described = found[-1]
+    if last._stack is not None:
+        # A Stack has no FROM: the day is each column every Statement it stacks has it in.
+        dates = [Node("Column", name=name) for name in _stack_day_names(last, last_described)]
+        lost_in = [] if dates else [last_described]
+        above, below, below_described = found[:-1], last, last_described
+    else:
+        dates = [Node("Column", name=read.table._date_partition, table=read.table._alias)]
+        above, below, below_described = found, None, ""
+    for step, described in reversed(above):
+        if below is not None:
+            had_it = bool(dates)
+            dates = _dates_above(below, step._reads[0].table, dates)
+            if not dates:
+                lost_in = [below_described] if had_it else [*lost_in, below_described]
+        _check_splittable(step, described, dates, partition, lost_in)
+        below, below_described = step, described
+    return [name for column, name in s._outputs if column._tree in dates]
+
+
+def _stack_day_names(stack: Statement, described: str) -> list[str]:
+    """The names a Stack's Statements each give the day, once each is checked. UNION, INTERSECT
+    and EXCEPT need one: they compare rows over every day they read."""
+    call, branches = stack._stack
+    each = [set(_day_names(branch, f"the {nth(number)} Statement of {call}(...)"))
+            for number, branch in enumerate(branches, start=1)]
+    names = [name for _, name in stack._outputs if all(name in found for found in each)]
+    if not names and call != "UNION_ALL":
+        guard_by_day_stack(described, call)
+    return names
+
+
+def _split(s: Statement, day) -> Statement:
+    """The Statement for one day: the bottom step bounded to it, or each Statement of a Stack
+    at the bottom, and each step above reading it."""
+    found = steps(s)
+    last = found[-1][0]
+    if last._stack is not None:
+        call, branches = last._stack
+        bottom = stacked(call, [_split(branch, day) for branch in branches],
+                         last._returns_all_rows)
+    else:
+        bottom = _one_day(last, day)
+    for step, _ in reversed(found[:-1]):
         old = step._reads[0].table
         new = derived(old._name, bottom)
         if old._alias != old._name:

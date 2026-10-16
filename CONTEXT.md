@@ -102,6 +102,19 @@ A Statement given a name so another Statement can read from it, with its output 
 like a Table reference's. It lives only inside the Statement that reads it, and is never stored.
 _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what it is)
 
+**Stack**:
+A Statement made of other whole Statements, whose rows it puts together one Statement after
+another, their columns matched by name: every row of each, each different row once, only the
+rows found in all of them, or the first one's rows found in none of the others.
+_Avoid_: union (the Hive word for one kind), set operation, combined query, append
+
+**Subtotal row**:
+A row a Statement's grouping adds beside its groups, adding up the rows of several groups, such
+as one per team over all its jobs, or the grand total, one over every row. The columns it adds
+up are empty in it, as a real row's may be too, so the Toolbox can say which rows are subtotal
+rows.
+_Avoid_: total row, rollup row, summary row
+
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
 its own Table reference, like any other table. It is what Hive calls an external table: its

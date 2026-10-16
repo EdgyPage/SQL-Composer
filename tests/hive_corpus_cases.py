@@ -18,17 +18,21 @@ import random
 from sqlglot_composer import (
     AS,
     CROSS_JOIN,
+    EXCEPT,
     FROM,
     GROUP_BY,
     HAVING,
     INSERT_INTO,
     INSERT_OVERWRITE,
+    INTERSECT,
     JOIN,
     LEFT_JOIN,
     LIMIT,
     ORDER_BY,
     SELECT,
     SELECT_DISTINCT,
+    UNION,
+    UNION_ALL,
     WHERE,
     Table,
     all_of,
@@ -42,11 +46,13 @@ from sqlglot_composer import (
     count_distinct,
     count_rows,
     create_table,
+    cube,
     derived,
     descending,
     drop_table,
     equals,
     fill_null,
+    grouping_sets,
     hive_function,
     hive_settings,
     if_else,
@@ -54,6 +60,7 @@ from sqlglot_composer import (
     is_not_in,
     is_not_null,
     is_null,
+    is_total,
     last_n_days,
     less_than,
     max_of,
@@ -62,6 +69,7 @@ from sqlglot_composer import (
     more_than,
     not_equals,
     row_number,
+    rollup,
     starts_with,
     statement,
     sum_of,
@@ -555,10 +563,103 @@ def _by_hand_cases() -> dict:
     return found
 
 
+def _failed(day=DAY):
+    return statement(SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs),
+                     WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")))
+
+
+def _alerted(day=DAY):
+    """run_alerts' runs, its columns in the other order from _failed's."""
+    return statement(SELECT(AS(run_alerts.alert_id, "job_id"), run_alerts.run_id),
+                     FROM(run_alerts), WHERE(equals(run_alerts.dt, day)))
+
+
+def _runs_per_job():
+    return derived("per_job", statement(SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+                                        FROM(job_runs), WHERE(one_day()),
+                                        GROUP_BY(job_runs.job_id)))
+
+
+def _stack_cases() -> dict:
+    """Stacks of whole Statements, read, written and refused."""
+    found = {f"stack:{stack.__name__}": (lambda stack=stack: [stack(
+        _failed(), _alerted(), _failed(FIRST_DAY))]) for stack in (UNION_ALL, UNION, INTERSECT,
+                                                                   EXCEPT)}
+    per_job = _runs_per_job()
+    found["stack:derived_tables_of_each"] = lambda: [UNION_ALL(
+        statement(SELECT(per_job.job_id, per_job.runs), FROM(per_job)),
+        statement(SELECT(AS(per_job.job_id, "runs"), AS(per_job.runs, "job_id")),
+                  FROM(per_job)))]
+    found["stack:read_as_a_derived_table"] = lambda: [_per_job_of(UNION, written=False)]
+    found["stack:written"] = lambda: [_per_job_of(UNION_ALL, written=True)]
+    found["stack:by_day"] = _stack_by_day
+    found["stack:refused:missing_column"] = lambda: [UNION_ALL(_failed(), statement(
+        SELECT(run_alerts.run_id), FROM(run_alerts), WHERE(one_day(run_alerts))))]
+    found["stack:refused:another_type"] = lambda: [EXCEPT(_failed(), statement(
+        SELECT(run_alerts.run_id, AS(run_alerts.severity, "job_id")), FROM(run_alerts),
+        WHERE(one_day(run_alerts))))]
+    found["stack:refused:limit"] = lambda: [UNION(_failed(), statement(
+        SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs), WHERE(one_day()),
+        LIMIT(3)))]
+    return found
+
+
+def _per_job_of(stack, written: bool):
+    """The runs of each job in a Stack of _failed and _alerted, read, or written into
+    daily_runs."""
+    flags = derived("flags", stack(_failed(), _alerted()))
+    write = [INSERT_OVERWRITE(daily_runs)] if written else []
+    return statement(*write, SELECT(flags.job_id, AS(count_rows(), "runs")), FROM(flags),
+                     GROUP_BY(flags.job_id))
+
+
+def _stack_by_day():
+    """A UNION_ALL over two days, split by day: each Statement it stacks is split."""
+    flags = derived("flags", UNION_ALL(
+        statement(SELECT(job_runs.run_id), FROM(job_runs),
+                  WHERE(between(job_runs.dt, FIRST_DAY, DAY))),
+        statement(SELECT(run_alerts.run_id), FROM(run_alerts),
+                  WHERE(between(run_alerts.dt, FIRST_DAY, DAY)))))
+    return by_day(statement(SELECT(flags.run_id), FROM(flags)))
+
+
+def _subtotal_cases() -> dict:
+    """Subtotals in GROUP_BY, is_total, and a set of columns too wide for one line."""
+    def per_team(*groups, select=(jobs.team, jobs.job_name), more=()):
+        return statement(SELECT(*select, AS(count_rows(), "runs")), FROM(job_runs),
+                         JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                         WHERE(one_day()), GROUP_BY(*groups), *more)
+
+    labelled = AS(if_else(is_total(jobs.team), "every team", jobs.team), "team")
+    week = AS(week_start(job_runs.dt), "a_rather_long_name_for_the_week")
+    return {
+        "subtotals:rollup": lambda: [per_team(rollup(jobs.team, jobs.job_name))],
+        "subtotals:cube": lambda: [per_team(cube(jobs.team, jobs.job_name))],
+        "subtotals:grouping_sets": lambda: [per_team(grouping_sets(
+            [jobs.team, jobs.job_name], jobs.job_name, []))],
+        "subtotals:beside_a_plain_column": lambda: [per_team(
+            jobs.region, rollup(jobs.team), select=(jobs.region, jobs.team))],
+        "subtotals:is_total": lambda: [per_team(
+            rollup(jobs.team, jobs.job_name), select=(labelled, jobs.job_name),
+            more=[HAVING(any_of(is_total(jobs.job_name), at_least(count_rows(), 2)))])],
+        "subtotals:a_wide_set": lambda: [statement(
+            SELECT(week, job_runs.status, job_runs.job_id, AS(count_rows(), "runs")),
+            FROM(job_runs), WHERE(one_day()),
+            GROUP_BY(cube("a_rather_long_name_for_the_week", job_runs.status,
+                          job_runs.job_id)))],
+        "subtotals:refused:is_total_in_where": lambda: [statement(
+            SELECT(jobs.team, AS(count_rows(), "jobs")), FROM(jobs),
+            WHERE(is_total(jobs.team)), GROUP_BY(rollup(jobs.team)))],
+        "subtotals:refused:written": lambda: [statement(
+            INSERT_OVERWRITE(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+            FROM(job_runs), WHERE(one_day()), GROUP_BY(rollup(job_runs.job_id)))],
+    }
+
+
 def edge_cases() -> list:
     """Every edge case, as (id, function returning its Statements), in a fixed order."""
     named = {**_calculation_cases(), **_hive_function_cases(), **_read_cases(),
-             **_structure_cases()}
+             **_structure_cases(), **_stack_cases(), **_subtotal_cases()}
     return _width_cases() + [(f"edge:{name}", build) for name, build in named.items()]
 
 
