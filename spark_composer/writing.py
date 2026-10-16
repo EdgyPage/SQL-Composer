@@ -28,7 +28,7 @@ import contextvars
 import re
 from typing import NoReturn
 
-from composer_core.trees import HIVE_TYPES, Node, plain_name
+from composer_core.trees import HIVE_TYPES, Node, plain_name, rows_text
 
 TOOLBOX_VERSION = "4.1"
 
@@ -317,6 +317,9 @@ def _window(node: Node, pretty: bool) -> str:
     order = node.parts.get("order")
     if order is not None:
         pieces.append(_order(order, pretty, flat=True))
+    rows = node.parts.get("rows")
+    if rows is not None:  # after sqlglot's Generator.windowspec_sql
+        pieces.append(rows_text(rows))
     return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
 
 
@@ -561,6 +564,8 @@ _WRITE = {
     "Distinct": _distinct,
     **{kind: _aggregate for kind in _AGGREGATES},
     "Window": _window,
+    # After sqlglot's Generator.anonymous_sql: a function that works only over a window.
+    "WindowCall": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Order": _order,
     "Ordered": _ordered,
     "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "

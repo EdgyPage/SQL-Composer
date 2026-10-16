@@ -191,6 +191,13 @@ below; this map is the design document, built out ticket by ticket.
   Derived table; a new Example table `ops.scheduler_runs`; sqlglot's Example database refuses
   LEFT SEMI JOIN (pandas stand-in); new glossary word Map join; how-to 33. Open: whether a
   shipped set should switch hive.ignore.mapjoin.hint off.
+- [06 Windows](issues/06-windows.md): a new core file, `windows.py` (`window`, `row_number`
+  moved from calculations.py, `rank`, `dense_rank`, `ntile(parts)`, `lag(back=)`,
+  `lead(ahead=)`, `first_value`, `last_value`); a total with ORDER_BY needs `rows=`, rank-like
+  functions take none, first/last_value default to the whole group; a total over a Window
+  doesn't add up again; a write may read several days when a step above keeps one with
+  `equals(...)` of the day passed up (`running.kept_day`), the by_day refusal's fix; how-to 28
+  is now "Look across rows, then finish in pandas" (its link id unchanged).
 
 ## Not yet specified
 
