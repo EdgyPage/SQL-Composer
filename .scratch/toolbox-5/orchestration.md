@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16. DONE on dev: all nine tickets merged, no drift item open, the three full runs green (on ccc74de; later commits are docs), dev pushed. Left to the user: Spark CI failures (set aside), the export (python tools/export_clean.py) and pushing main.
+Last updated: 2026-10-16. SHIPPED: Toolbox 5.0 exported from dev f8cbaef (main 48cb4ac) and main pushed at the user's request. Open: the Spark CI failures, set aside by the user.
 
 ## The plan (the user's brief)
 
