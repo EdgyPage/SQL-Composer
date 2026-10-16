@@ -56,8 +56,9 @@ another's.
 
 `purge=True` makes dropping the table delete its files too. Left out, or `purge=False`, the
 warehouse only forgets the table: its files stay in its folder, and a table created there
-again reads the old rows back. Keep `purge=True` for a table you rebuild from its sources;
-leave it out for one whose files you would want back.
+again gets the old rows back once `repair_partitions` lists their days. Keep `purge=True`
+for a table you rebuild from its sources; leave it out for one whose files you would want
+back.
 
 ### Choose its file format
 

@@ -506,8 +506,9 @@ def send(hive):
         return pd.DataFrame(rows, columns=columns)
     if not _is_query(text):
         refuse(
-            what="The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; "
-            "it can't be written to.",
+            what="The Example database only reads, and can't be written to: it answers "
+            "SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a "
+            "SELECT.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
             fix="to_hive(...) shows the Hive of any Statement without sending it, as in "

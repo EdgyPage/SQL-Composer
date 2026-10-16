@@ -16796,9 +16796,10 @@ DROP TABLE IF EXISTS ops.`order`
 -- admin.drop_table(ops.order) drops the table ops.order: the warehouse forgets it, and every
 -- Statement that reads it fails until it is created again.
 -- The table's files stay in the table's folder, /data/your_team/tables/ops/order, unless the
--- table itself has external.table.purge true: purge=True isn't in its Table reference. A
--- table or day made there again reads them back, and only someone with access to the folder
--- can delete them.
+-- table itself has external.table.purge true: purge=True isn't in its Table reference. The
+-- warehouse reads them again once repair_partitions(t) lists their days, even in a table
+-- made there again, and an INSERT_INTO of one of those days adds to its old rows; only
+-- someone with access to the folder can delete them.
 -- Check first: DESCRIBE FORMATTED ops.`order` shows, under Table Parameters, whether
 -- external.table.purge is true in the table itself: that, not the Table reference, decides
 -- whether the files go.
@@ -16811,9 +16812,10 @@ DROP TABLE IF EXISTS ops.`semi`
 -- admin.drop_table(ops.semi) drops the table ops.semi: the warehouse forgets it, and every
 -- Statement that reads it fails until it is created again.
 -- The table's files stay in the table's folder, /data/your_team/tables/ops/semi, unless the
--- table itself has external.table.purge true: purge=True isn't in its Table reference. A
--- table or day made there again reads them back, and only someone with access to the folder
--- can delete them.
+-- table itself has external.table.purge true: purge=True isn't in its Table reference. The
+-- warehouse reads them again once repair_partitions(t) lists their days, even in a table
+-- made there again, and an INSERT_INTO of one of those days adds to its old rows; only
+-- someone with access to the folder can delete them.
 -- Check first: DESCRIBE FORMATTED ops.`semi` shows, under Table Parameters, whether
 -- external.table.purge is true in the table itself: that, not the Table reference, decides
 -- whether the files go.
@@ -16827,8 +16829,9 @@ DROP TABLE IF EXISTS ops.compact_runs
 -- it, and every Statement that reads it fails until it is created again.
 -- The table's files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: DESCRIBE FORMATTED ops.compact_runs shows, under Table Parameters, whether
 -- external.table.purge is true in the table itself: that, not the Table reference, decides
 -- whether the files go.
@@ -16841,9 +16844,10 @@ DROP TABLE IF EXISTS ops.events
 -- admin.drop_table(ops.events) drops the table ops.events: the warehouse forgets it, and
 -- every Statement that reads it fails until it is created again.
 -- The table's files stay in the table's folder, /data/your_team/tables/ops/events, unless
--- the table itself has external.table.purge true: purge=True isn't in its Table reference. A
--- table or day made there again reads them back, and only someone with access to the folder
--- can delete them.
+-- the table itself has external.table.purge true: purge=True isn't in its Table reference.
+-- The warehouse reads them again once repair_partitions(t) lists their days, even in a table
+-- made there again, and an INSERT_INTO of one of those days adds to its old rows; only
+-- someone with access to the folder can delete them.
 -- Check first: DESCRIBE FORMATTED ops.events shows, under Table Parameters, whether
 -- external.table.purge is true in the table itself: that, not the Table reference, decides
 -- whether the files go.
@@ -16857,8 +16861,9 @@ DROP TABLE IF EXISTS mart.daily_runs
 -- it, and every Statement that reads it fails until it is created again.
 -- The table's files stay in the table's folder, /data/your_team/tables/mart/daily_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: DESCRIBE FORMATTED mart.daily_runs shows, under Table Parameters, whether
 -- external.table.purge is true in the table itself: that, not the Table reference, decides
 -- whether the files go.
@@ -16872,8 +16877,9 @@ DROP TABLE IF EXISTS mart.region_runs
 -- it, and every Statement that reads it fails until it is created again.
 -- The table's files stay in the table's folder, /data/your_team/tables/mart/region_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: DESCRIBE FORMATTED mart.region_runs shows, under Table Parameters, whether
 -- external.table.purge is true in the table itself: that, not the Table reference, decides
 -- whether the files go.
@@ -16920,8 +16926,9 @@ ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
 -- before 2025-01-01, every row of it, so no Statement reads it again.
 -- Those days' files stay in the table's folder, /data/your_team/tables/mart/admin_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
 -- go.
 ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
@@ -16934,8 +16941,9 @@ ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
 -- before 2025-01-01, every row of it, so no Statement reads it again.
 -- Those days' files stay in the table's folder, /data/your_team/tables/mart/admin_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
 -- go.
 ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
@@ -16948,8 +16956,9 @@ ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101')
 -- before 20250101, every row of it, so no Statement reads it again.
 -- Those days' files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: SHOW PARTITIONS ops.compact_runs lists its days: the ones before 20250101 go.
 ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101');
 
@@ -16961,8 +16970,9 @@ ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101')
 -- before 20250101, every row of it, so no Statement reads it again.
 -- Those days' files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: SHOW PARTITIONS ops.compact_runs lists its days: the ones before 20250101 go.
 ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101');
 
@@ -16982,8 +16992,9 @@ ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23')
 -- before 2026-09-23, every row of it, so no Statement reads it again.
 -- Those days' files stay in the table's folder, /data/your_team/tables/mart/region_runs,
 -- unless the table itself has external.table.purge true: purge=True isn't in its Table
--- reference. A table or day made there again reads them back, and only someone with access
--- to the folder can delete them.
+-- reference. The warehouse reads them again once repair_partitions(t) lists their days, even
+-- in a table made there again, and an INSERT_INTO of one of those days adds to its old rows;
+-- only someone with access to the folder can delete them.
 -- Check first: SHOW PARTITIONS mart.region_runs lists its days: the ones before 2026-09-23
 -- go.
 ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23');

@@ -207,8 +207,10 @@ def explain(s):
     - each step's line headed "Statistics:" says how many rows Hive expects, or
       "Basic stats: NONE" where it has nothing to go by and compute_statistics would help.
 
-    Where your Example database runs on Spark, it gives Spark's own plan, headed
-    == Physical Plan ==; where it runs on its own small executor, it says it has none to give.
+    On the Example database, explain gives the plan of a query only, never of a write, which
+    it refuses as it refuses the write itself. Where it runs on Spark, it gives Spark's own
+    plan, headed == Physical Plan ==; where it runs on its own small executor, it says it has
+    none to give.
 
     >>> print(to_hive(explain(statement(
     ...     SELECT(job_runs.run_id),

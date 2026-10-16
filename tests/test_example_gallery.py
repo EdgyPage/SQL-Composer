@@ -178,7 +178,7 @@ def test_a_docstring_statement_shows_its_result_on_the_example_database() -> Non
 
 def test_a_statement_the_example_database_cannot_run_says_why() -> None:
     _, text = gallery_entries()["INSERT_OVERWRITE"]
-    assert "No result here. The Example database only answers SELECT" in text
+    assert "No result here. The Example database only reads, and can't be written to" in text
 
 
 def test_a_statement_given_to_run_shows_its_hive() -> None:
