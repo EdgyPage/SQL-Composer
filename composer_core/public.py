@@ -63,6 +63,16 @@ from .conditions import (
 from .lineage import export_lineage
 from .refusals import GuardRefused, LoadRefused
 from .running import by_day, run, set_load_limits, show_hive, to_hive
+from .stacking import (
+    EXCEPT,
+    INTERSECT,
+    UNION,
+    UNION_ALL,
+    cube,
+    grouping_sets,
+    is_total,
+    rollup,
+)
 from .tables import (
     Table,
     all_columns,
@@ -118,6 +128,15 @@ __all__ = [
     "INSERT_INTO",
     "statement",
     "derived",
+    # stacking.py
+    "UNION_ALL",
+    "UNION",
+    "INTERSECT",
+    "EXCEPT",
+    "rollup",
+    "cube",
+    "grouping_sets",
+    "is_total",
     # conditions.py
     "equals",
     "not_equals",

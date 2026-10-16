@@ -364,12 +364,46 @@ def _select(node: Node, pretty: bool) -> str:
     if node.parts.get("group_by"):
         sql += _op_list("GROUP BY", [_sql(item, pretty) for item in node.parts["group_by"]],
                         pretty)
+        if node.parts.get("grouping_sets"):
+            sql += _seg(_list([_grouping_sets(node.parts["grouping_sets"], pretty)], pretty),
+                        pretty)
     if node.parts.get("having") is not None:
         having = _indent(_part(node, "having", pretty), pretty)
         sql += f"{_seg('HAVING', pretty)}{_sep(pretty)}{having}"
     if node.parts.get("order_by"):
         sql += _op_list("ORDER BY", [_sql(item, pretty) for item in node.parts["order_by"]],
                         pretty)
+    if node.parts.get("limit") is not None:
+        sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
+    return _with_tables(node, sql, pretty)
+
+
+# After sqlglot's Generator.groupingsets_sql, and its group_sql with no comma before GROUPING
+# SETS, which Hive refuses.
+def _grouping_sets(sets: list[Node], pretty: bool) -> str:
+    listed = _list([_sql(item, pretty) for item in sets], pretty, indent=False)
+    return f"GROUPING SETS {_wrap(listed, pretty)}"
+
+
+# After sqlglot's Generator.tuple_sql: a lone column is written as it is, as sqlglot Composer
+# writes it.
+def _grouping_set(node: Node, pretty: bool) -> str:
+    columns = [_sql(item, pretty) for item in node.parts["expressions"]]
+    if len(columns) == 1:
+        return columns[0]
+    return "(" + _list(columns, pretty, dynamic=True, new_line=True, skip_first=True,
+                       skip_last=True) + ")"
+
+
+# After sqlglot's Generator.set_operations and set_operation: each Statement, then the next,
+# with the Stack's kind, such as UNION ALL, between them, then a LIMIT for them all.
+def _stack(node: Node, pretty: bool) -> str:
+    pieces = []
+    for branch in node.parts["branches"]:
+        if pieces:
+            pieces.append(node.parts["how"])
+        pieces.append(_sql(branch, pretty))
+    sql = _sep(pretty).join(pieces)
     if node.parts.get("limit") is not None:
         sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
     return _with_tables(node, sql, pretty)
@@ -563,6 +597,7 @@ _WRITE = {
                                            pretty),
     "Distinct": _distinct,
     **{kind: _aggregate for kind in _AGGREGATES},
+    "Grouping": lambda node, pretty: _func("GROUPING", [node.parts["this"]], pretty),
     "Window": _window,
     # After sqlglot's Generator.anonymous_sql: a function that works only over a window.
     "WindowCall": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
@@ -575,6 +610,8 @@ _WRITE = {
     "Call": _call,
     "HiveFunction": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Select": _select,
+    "Stack": _stack,
+    "Tuple": _grouping_set,
     "Table": _table,
     "Join": _join,
     "Insert": _insert,

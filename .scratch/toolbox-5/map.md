@@ -205,6 +205,12 @@ below; this map is the design document, built out ticket by ticket.
   `_admin_check` (the move's comparison refuses in `run`); `set_properties(t)` sets what the
   Table reference says; the move is a list of Statements; Lineage leaves Admin statements out;
   78 public names; how-to 34. Open for the user: rows with no day aren't moved.
+- [07 Stacking and subtotals](issues/07-stacking-and-subtotals.md): a new core file,
+  `stacking.py`; a Stack is a Statement whose `_stack` is (call, Statements), usable wherever
+  a Statement is (derived, writes of one day, by_day per Statement, Lineage); subtotals are
+  written as `GROUP BY ... GROUPING SETS (...)` in both Editions, with `is_total` as
+  `GROUPING(col) = 1`; the Example database to reconcile against is the existing jobs and
+  job_owners (no new table); how-tos 35 and 36 (Intermediate now 19-36).
 
 ## Not yet specified
 

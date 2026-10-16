@@ -128,7 +128,7 @@ class _Facts:
         first = self.s._reads[0].table
         if first._statement is None:
             return {(first._alias, first._date_partition)} if first._date_partition else set()
-        return {(first._alias, name) for name in _Facts(first._statement, True).day_outputs()}
+        return {(first._alias, name) for name in day_outputs(first._statement)}
 
     def day_outputs(self) -> list[str]:
         """The output names that hold the day a write writes, as they are."""
@@ -240,6 +240,11 @@ def _reduced(entries: list[tuple[str, object]], facts: _Facts) -> list[str]:
 
 def statement_keys(s, one_day: bool = False) -> Keys:
     """Every Key the Toolbox can see for a Statement's rows, as output names."""
+    if s._stack is not None:
+        return _stack_keys(s, one_day)
+    if s._grouping_sets is not None:
+        return Keys([], f"GROUP_BY({s._subtotals_call}) adds subtotal rows, with NULL in each "
+                    "column they total over, as a real row may have")
     facts = _Facts(s, one_day)
     if s._distinct:
         names = _reduced([(name, column._tree) for column, name in s._outputs], facts)
@@ -254,6 +259,34 @@ def statement_keys(s, one_day: bool = False) -> Keys:
 
 def _listed(names: list[str]) -> str:
     return ", ".join(names) or "nothing"
+
+
+def _stack_keys(s, one_day: bool) -> Keys:
+    """A Stack's Keys. UNION, INTERSECT and EXCEPT keep each different row once, so every
+    column is a Key; EXCEPT keeps some of its first Statement's rows, and INTERSECT some of
+    each one's, so their Keys hold too. UNION_ALL keeps every row of each, and two may share a
+    Key, so it has none."""
+    call, branches = s._stack
+    if call == "UNION_ALL":
+        return Keys([], f"UNION_ALL(...) keeps every row of each of its {len(branches)} "
+                    "Statements, and rows of two of them may share a Key")
+    held = day_outputs(s) if one_day else []
+    names = [name for _, name in s._outputs if name not in held]
+    found = []
+    for branch in {"EXCEPT": branches[:1], "INTERSECT": branches}.get(call, []):
+        found += statement_keys(branch, one_day).found
+    why = f"{call}(...) makes one row for each different {_listed(names + held)}{_held(held)}"
+    found.append(Found(names, why, "not one for each"))
+    return Keys(_once(found), None)
+
+
+def day_outputs(s) -> list[str]:
+    """The output names of a write's Statement, or of the Derived table it reads, that hold the
+    day it writes; for a Stack, those that hold it in every Statement it stacks."""
+    if s._stack is None:
+        return _Facts(s, True).day_outputs()
+    each = [set(day_outputs(branch)) for branch in s._stack[1]]
+    return [name for _, name in s._outputs if all(name in found for found in each)]
 
 
 def _grouped_keys(s, facts: _Facts) -> Keys:
