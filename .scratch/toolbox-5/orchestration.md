@@ -36,7 +36,7 @@ Last checked: 2026-10-15, evening; `dev` local tip 289a8bb. `origin/dev` is at f
 | 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617), drift fixes D166-D168 merged (f7f2e04, closed) |
 | 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | merged (5a329a1; how-tos 35, 36; 86 names); drift D179-D180 fixed by 8406f79 |
 | 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | merged (6396219); drift fixes D181-D182 merged (fdafa76), D183 fixed (a655ac2) |
-| 09 Ship 5.0 | - | blocked on 01-08 |
+| 09 Ship 5.0 | `worktree-agent-a4c3d9aa4d966c508` | agent running: Part A applies the user's two decisions (kept_day narrowed to Windows; map_joins sends hive.ignore.mapjoin.hint=false), Part B raises TOOLBOX_VERSION to 5.0, CHANGES and README; no export. Then merge, close D156 with its version commit, drift review, three runs, push |
 
 A fresh session can't message these agents (their ids live only in the session that started
 them). For a branch whose agent never reported: check `git -C <worktree> status`, `git log
