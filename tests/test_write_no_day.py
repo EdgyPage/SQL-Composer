@@ -27,6 +27,7 @@ from sqlglot_composer import (
     by_day,
     count_rows,
     derived,
+    lag,
     create_table,
     equals,
     export_lineage,
@@ -35,6 +36,7 @@ from sqlglot_composer import (
     show_hive,
     statement,
     to_hive,
+    window,
 )
 from composer_core.example_database import job_runs, jobs
 
@@ -142,6 +144,30 @@ def test_its_columns_must_still_line_up() -> None:
 
 
 # --- What works one day at a time refuses it ------------------------------------------------
+
+
+def test_a_table_with_no_days_that_isnt_one_of_your_saved_tables_is_refused() -> None:
+    # Written whole, a table someone else owns would lose every row it holds.
+    theirs = Table("ops.job_teams", columns={"team": "string", "job_id": "bigint"},
+                   date_partition=None, key=["job_id"])
+    with pytest.raises(ValueError, match="isn't one of your Saved tables"):
+        INSERT_OVERWRITE(theirs)
+
+
+def test_a_write_with_no_days_that_keeps_one_day_above_is_refused() -> None:
+    # Keeping one day in a step above would replace the whole table with that day's rows.
+    with_before = derived("with_before", statement(
+        SELECT(job_runs.job_id, job_runs.dt,
+               AS(lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
+                                                          ORDER_BY=job_runs.run_id)), "before")),
+        FROM(job_runs), WHERE(DAYS)))
+    s = statement(INSERT_OVERWRITE(job_teams, unproven_key=True),
+                  SELECT(AS(with_before.job_id, "job_id"), AS(with_before.dt, "team")),
+                  FROM(with_before), WHERE(equals(with_before.dt, "2026-09-24")))
+    with pytest.raises(GuardRefused, match=r"keeps one day with "
+                                           r"equals\(with_before\.dt, \.\.\.\)") as refused:
+        to_hive(s)
+    assert "mart.job_teams, which has no days" in str(refused.value)
 
 
 def test_by_day_refuses_a_write_with_no_days() -> None:

@@ -356,8 +356,9 @@ def test_a_table_with_no_days_is_written_whole(spark, send, tmp_path) -> None:
         run(statement(INSERT_OVERWRITE(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team),
                       FROM(jobs)), send=send)
         assert _rows(spark, "SELECT job_id, team FROM mart.job_teams") == teams
-    run(statement(INSERT_INTO(job_teams, unproven_key=True),
-                  SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs)), send=send)
+    # INSERT_INTO's Key is checked on the rows it adds, so adding the same rows passes it.
+    run(statement(INSERT_INTO(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs)),
+        send=send)
     assert _rows(spark, "SELECT job_id, team FROM mart.job_teams") == sorted(teams * 2)
     assert str(check_table_reference(job_teams, send=send)) == (
         "mart.job_teams matches its Table reference.")

@@ -78,10 +78,11 @@ files. Each is listed again, with more, under New or Refused now below.
   `date_partition=None`, and `INSERT_OVERWRITE(t)` writes the whole table, replacing every row
   it holds, as `INSERT OVERWRITE TABLE t SELECT ...` with no PARTITION; `INSERT_INTO(t)` adds
   rows to it. Before 5.0, both refused such a table. The Statement may read several days of a
-  table with days, each bounded as any read is, and every other check of a write still
-  applies, its Key too. by_day refuses such a write, since each day would replace the day
-  before, and so do `admin.drop_days` and `repair_partitions`, which work on days. The how-to
-  "Save a table" has a section on it.
+  table with days, its days bounded in WHERE as in any read, and every other check of a write
+  still applies, its Key too. The table must be one of your Saved tables, with `location=`,
+  since the write replaces all of it. by_day refuses such a write, which is sent whole, and so
+  does a write that keeps one day in a step above. (`admin.drop_days` and `repair_partitions`
+  refuse a table with no days, as before.) The how-to "Save a table" has a section on it.
 - **show_hive prints the Session setting a write needs first**: a write into a table with
   `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
   partitioning, so its SET lines are printed ahead of it. run sends the write alone: send

@@ -2636,27 +2636,35 @@ WHERE
   job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;;</pre>
 <p>Then write every day again, oldest first, as <a href="#backfill_a_range_of_days">Backfill a range of days</a> shows: the drop deleted them all.</p>
 <h5>A table with no days, written whole</h5>
-<p>Some results have no days: each job&#x27;s team today, say, which the next write replaces. Give such a Saved table <code>date_partition=None</code>. Its Hive has no PARTITIONED BY, and a write fills the whole table: <code>INSERT_OVERWRITE</code> replaces every row it holds, with no PARTITION in its Hive.</p>
+<p>Some results have no days: each team&#x27;s runs over the last two days, say, which the next write replaces. Give such a Saved table <code>date_partition=None</code>. <code>create_table</code> then makes it with no PARTITIONED BY, and a write fills the whole table: <code>INSERT_OVERWRITE</code> replaces every row it holds, and its Hive names no PARTITION. Its Key here is the team, which GROUP_BY makes one row for:</p>
 <pre class="python">jobs = example_database.jobs
-job_teams = Table(
-    &quot;mart.job_teams&quot;,
-    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;team&quot;: &quot;string&quot;},
+team_runs = Table(
+    &quot;mart.team_runs&quot;,
+    columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;},
     date_partition=None,
-    key=[&quot;job_id&quot;],
+    key=[&quot;team&quot;],
     location=&quot;/data/your_team/tables&quot;,
-    purge=True,
 )
 text = show_hive(statement(
-    INSERT_OVERWRITE(job_teams),
-    SELECT_DISTINCT(jobs.job_id, jobs.team),
-    FROM(jobs),
+    INSERT_OVERWRITE(team_runs),
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(jobs.team),
 ))</pre>
-<p class="label">Hive, ready to paste</p><pre class="hive">INSERT OVERWRITE TABLE mart.job_teams
-SELECT DISTINCT
-  jobs.job_id,
-  jobs.team
-FROM ops.jobs AS jobs;</pre>
-<p><code>create_table(job_teams)</code> makes it as any Saved table. Everything else is checked as for a write of one day: its Key here, and, when it reads a table with days, that those days are bounded. Such a write may read several days, since it writes them all at once, and <code>by_day</code> refuses it, since each day&#x27;s write would replace the day before. <code>date_partition=None</code> has to be written out: a Table reference without <code>date_partition=...</code> is refused, so a table with days is never read whole by mistake.</p>
+<p class="label">Hive, ready to paste</p><pre class="hive">INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  jobs.team;</pre>
+<p>It reads two days of job_runs and writes their rows into the one table at once, so it is sent whole: <code>by_day</code> refuses it. Everything else is checked as for a write of one day: its Key, and that the days of job_runs are bounded in WHERE. It must be one of your Saved tables, with <code>location=</code>, since the write replaces all of it. <code>date_partition=None</code> has to be written out: a Table reference without <code>date_partition=...</code> is refused, so a table with days is never read whole by mistake.</p>
 <h4>Check it worked</h4>
 <p>Every write above was built without a refusal, so its SELECT matches the Table reference and reads one day. At work, after sending the day&#x27;s writes, read the day back from the Saved table and count its rows: here, 2 for 2026-09-24, run 102 and run 101.</p>
 <pre class="python">saved = statement(
@@ -2691,7 +2699,7 @@ GROUP BY
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Leave <code>job_runs.dt</code> out of SELECT, and bound it to one day in WHERE.</p>
 <h5>A write that reads more than one day</h5>
-<p>A write fills one day, so a write whose WHERE reads two days is refused when its Hive is written, by <code>show_hive</code>, <code>to_hive</code> or <code>run</code>:</p>
+<p>A write into a table with days fills one day, so a write whose WHERE reads two days is refused when its Hive is written, by <code>show_hive</code>, <code>to_hive</code> or <code>run</code>:</p>
 <pre class="python">two_days = statement(
     INSERT_OVERWRITE(runs_to_review),
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
