@@ -550,7 +550,7 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
             if not any(date in window.parts["partition_by"] for date in dates):
                 call = call_of(window)
                 _refuse_grouping(step, dates, partition, lost_in,
-                                 f"PARTITION_BY= in the window(...) of {call}", window=call)
+                                 f"PARTITION_BY= of {call}", window=call)
 
 
 def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clause: str,

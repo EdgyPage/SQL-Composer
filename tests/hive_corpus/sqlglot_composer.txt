@@ -14780,7 +14780,7 @@ WHERE
 GuardRefused:
   What happened:  by_day can't split this Statement: derived('with_before', ...) works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_runs.dt, so it looks across days.
   Why it matters: Split by day, each day's Statement would see only that day's rows, so the Window would stop at the edge of each day: a lag would find no row before the day's first, and a running total would start again each day.
-  Usual fix:      Add job_runs.dt to PARTITION_BY= in the window(...) of lag(...) if it should look within each day. To look back across days, write one day at a time: read the day and the days before it in a derived(...) table, and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in the Statement that writes; help(window) shows how. Or run the Statement whole with run(...).
+  Usual fix:      Add job_runs.dt to PARTITION_BY= of lag(...) if it should look within each day. To look back across days, write one day at a time: read the day and the days before it in a derived(...) table, and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in the Statement that writes; help(window) shows how. Or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.
 
 == edge:windows:refused:in_where

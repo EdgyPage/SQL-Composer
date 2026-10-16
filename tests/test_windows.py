@@ -287,6 +287,21 @@ def all_of_with_before(t) -> list:
     return [t.event_id, t.dt, t.minutes, t.minutes_before]
 
 
+@pytest.mark.parametrize("numbering", [
+    pytest.param(lambda: row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id),
+                 id="its_4x_keywords"),
+    pytest.param(lambda: row_number(over=by_job), id="over_a_window"),
+])
+def test_by_day_says_where_the_day_goes_in_either_form_of_row_number(numbering) -> None:
+    s = statement(SELECT(job_runs.run_id, AS(numbering(), "rn")), FROM(job_runs),
+                  WHERE(between(job_runs.dt, "2026-09-23", DAY)))
+    with pytest.raises(GuardRefused) as refused:
+        by_day(s)
+    fix = str(refused.value).split("Usual fix:", 1)[1]
+    assert "Add job_runs.dt to PARTITION_BY= of row_number(...)" in fix
+    assert "window(...) of" not in fix
+
+
 def test_by_day_splits_a_window_within_each_day() -> None:
     per_day = statement(
         SELECT(job_events.event_id, AS(sum_of(job_events.minutes, over=window(

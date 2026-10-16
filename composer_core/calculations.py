@@ -371,8 +371,10 @@ def hive_function(name, *args):
     - a function that turns many rows into one, such as collect_set or percentile, is treated
       as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;
     - it refuses a function that works only over a window of rows, written OVER (...) after
-      it, such as lag or rank, since it can't write OVER: the refusal names the Toolbox's
-      own function for it, such as lag(...), which takes a window(...).
+      it, such as lag or rank, since it can't write OVER. For lag, lead, rank, dense_rank,
+      ntile and row_number, the refusal names the Toolbox's own function, such as lag(...),
+      which takes a window(...); for the others, such as percent_rank, it says to work it out
+      in pandas.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')
