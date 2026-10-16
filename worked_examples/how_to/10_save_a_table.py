@@ -5,7 +5,8 @@ For: Getting started
 ## Goal
 
 Keep a Statement's result in a Saved table: a real table in the warehouse that your Statements
-write into, one day at a time, and that other Statements then read like any other table. You
+write into, one day at a time, or whole for a table with no days, and that other Statements
+then read like any other table. You
 describe the table in a Table reference, create it, fill a day, add more rows to a day, and
 rebuild it when its columns change.
 
