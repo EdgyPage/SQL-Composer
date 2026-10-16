@@ -111,10 +111,11 @@ def test_region_costs_lists_each_region_then_its_days() -> None:
         + [f"region=us/dt={day}" for day in us_days])
 
 
-def test_an_unknown_table_is_refused_naming_all_six() -> None:
+def test_an_unknown_table_is_refused_naming_all_seven() -> None:
     with pytest.raises(ValueError) as refused:
         example_database.send("DESCRIBE ops.nope")
-    assert ("ops.jobs, ops.job_runs, ops.run_alerts, ops.job_events, ops.job_owners or "
+    assert ("ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, "
+            "ops.job_owners or "
             "ops.region_costs") in str(refused.value)
 
 

@@ -184,6 +184,13 @@ below; this map is the design document, built out ticket by ticket.
   each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
   built, passed in from the user's settings.py; each Saved table's Table reference writes its
   own `location=`, keeping the Level rule, rather than a `BASE_LOCATION` in settings.py.
+- [05 Joins](issues/05-joins.md): SEMI_JOIN, ANTI_JOIN (LEFT JOIN + IS NULL), FULL_JOIN
+  and a refusing RIGHT_JOIN in clauses.py, their logic in a new core file `joins.py`;
+  broadcast= on JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN (not FULL_JOIN); a WHERE on a
+  FULL_JOIN side is a Guard (opt-out keeps_only_matches=True), so each side's days go in a
+  Derived table; a new Example table `ops.scheduler_runs`; sqlglot's Example database refuses
+  LEFT SEMI JOIN (pandas stand-in); new glossary word Map join; how-to 33. Open: whether a
+  shipped set should switch hive.ignore.mapjoin.hint off.
 
 ## Not yet specified
 
