@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16, wave 2 fully merged (6396219). Running the three full test runs on dev; then push, CI, wave 3 (ticket 09).
+Last updated: 2026-10-16, wave 2 merged; three full runs green on dev; dev pushed at f1c8aaa (CI run 38865605762). Open: D181-D182 (ticket 08's agent fixing), then wave 3.
 
 ## The plan (the user's brief)
 
@@ -23,8 +23,8 @@ Last updated: 2026-10-16, wave 2 fully merged (6396219). Running the three full 
 
 ## Where it stands
 
-Last checked: 2026-10-15, evening; `dev` local tip 289a8bb. `origin/dev` is at 849b3c1:
-everything after it is unpushed (push it with the Spark CI fix, once local runs are green).
+Last checked: 2026-10-15, evening; `dev` local tip 289a8bb. `origin/dev` is at f1c8aaa
+(all of waves 1 and 2), CI run 38865605762.
 
 | Ticket | Branch (worktree `.claude/worktrees/agent-<id>/`) | State |
 |---|---|---|
