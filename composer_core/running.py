@@ -20,6 +20,7 @@ from .clauses import (
     statement,
 )
 from .conditions import equals
+from .joins import HOW, anti_join_tests, broadcast
 from .refusals import (
     guard_by_day_grouping,
     guard_by_day_limit,
@@ -86,14 +87,16 @@ def _output(column, name: str) -> Node:
 
 
 def _join_tree(read) -> Node:
-    """One JOIN, LEFT_JOIN or CROSS_JOIN clause."""
-    return Node("Join", how=read._name.replace("_", " "), this=source(read.table),
+    """One join clause, as Hive writes it: an ANTI_JOIN as a LEFT JOIN."""
+    return Node("Join", how=HOW[read._name], this=source(read.table),
                 on=None if read.on is None else read.on._tree.copy())
 
 
-def _all_of(conditions: list) -> Node | None:
-    """The conditions of WHERE or HAVING, joined with AND, or None when there are none."""
-    return combined("And", [c._tree.copy() for c in conditions]) if conditions else None
+def _all_of(conditions: list, more: list | None = None) -> Node | None:
+    """The conditions of WHERE or HAVING, then any `more` trees, joined with AND, or None when
+    there are none."""
+    trees = [c._tree.copy() for c in conditions] + (more or [])
+    return combined("And", trees) if trees else None
 
 
 def _select_tree(s: Statement) -> Node:
@@ -109,9 +112,11 @@ def _select_tree(s: Statement) -> Node:
         "Select",
         outputs=[_output(column, name) for column, name in outputs],
         distinct=s._distinct,
+        broadcast=broadcast(s),
         source=source(s._reads[0].table),
         joins=[_join_tree(read) for read in s._reads[1:]],
-        where=_all_of(s._where),
+        # Each ANTI_JOIN keeps the rows whose matched column is NULL.
+        where=_all_of(s._where, anti_join_tests(s)),
         group_by=[c._tree.copy() for c in s._group_by],
         having=_all_of(s._having),
         order_by=[o.copy() for o in s._order_by],

@@ -151,6 +151,12 @@ The one date column a table is partitioned by, which every Statement reading the
 at both ends.
 _Avoid_: dt, partition key, date column
 
+**Map join**:
+A join in which the warehouse copies a small table whole to every worker, so the big table's
+rows are matched where they are, without first being sorted and sent across the cluster. Hive
+chooses one by itself from the tables' sizes and statistics; `broadcast=True` asks for one.
+_Avoid_: replicated join, small-table join
+
 **Session setting**:
 A Hive `SET` the user sends before a Statement, which holds for the rest of the session. A named
 set of them can be kept and sent again in one step.

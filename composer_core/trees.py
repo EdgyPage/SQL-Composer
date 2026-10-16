@@ -262,11 +262,12 @@ KINDS = {
     "HiveFunction": ("name", "args", "aggregate"),
     # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
     # A Select's parts are its clauses; group_by and order_by are lists, and limit a number.
-    "Select": ("derived_tables", "outputs", "distinct", "source", "joins", "where", "group_by",
-               "having", "order_by", "limit"),
+    # broadcast: the names of the joined tables its MAPJOIN hint names, written after SELECT.
+    "Select": ("derived_tables", "outputs", "distinct", "broadcast", "source", "joins", "where",
+               "group_by", "having", "order_by", "limit"),
     # A table by its database and its name, as in ops.job_runs, and the name FROM gives it.
     "Table": ("db", "name", "partition", "alias"),
-    # how: "JOIN", "LEFT JOIN" or "CROSS JOIN".
+    # how: "JOIN", "LEFT JOIN", "CROSS JOIN", "LEFT SEMI JOIN" or "FULL JOIN".
     "Join": ("how", "this", "on"),
     "CTE": ("this", "alias"),
     "Partition": ("expressions",),

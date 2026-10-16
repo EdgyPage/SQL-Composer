@@ -128,6 +128,14 @@ def _resolver(graph: Graph, step: Statement, index: int):
     return resolve
 
 
+# What a join's ON= does, said after its name, where JOIN's own words don't say it.
+_JOIN_DOES = {
+    "SEMI_JOIN": " (keeps each row with a match, once)",
+    "ANTI_JOIN": " (keeps the rows with no match)",
+    "FULL_JOIN": " (keeps the rows of both sides, matched or not)",
+}
+
+
 def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | None]]:
     """Each condition that decides which rows `step` keeps:
     (clause, condition, tree, then, kept).
@@ -138,7 +146,8 @@ def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | 
     many_matches=True, where each row can match, and so count, several times.
     """
     found = [("WHERE", c, c._tree, "", None) for c in step._where]
-    found += [(f"{read._name.replace('_', ' ')} ON", read.on, read.on._tree, "",
+    found += [(f"{read._name.replace('_', ' ')} ON{_JOIN_DOES.get(read._name, '')}", read.on,
+               read.on._tree, "",
                read.table._alias if read._name == "LEFT_JOIN" and not read.many_matches
                else None)
               for read in step._reads if read.on is not None]

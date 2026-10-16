@@ -8,7 +8,9 @@ out from how it makes its rows:
 - a SELECT of only totals makes one row, so its Key has no columns at all;
 - otherwise its rows are those of the table in FROM, so its Key is that table's Key, once SELECT
   returns the Key's columns. A join that matches its table's whole Key adds at most one row to
-  each row and keeps it; any other join adds the joined table's Key to it;
+  each row and keeps it, and so does a SEMI_JOIN or ANTI_JOIN, which never repeats a row; any
+  other join adds the joined table's Key to it. A FULL_JOIN loses it, since either side's
+  columns may be NULL;
 - a row_number(...) gives a second Key: its PARTITION_BY columns and the number.
 
 A column WHERE holds to one value, such as the day a write writes or a row number kept at 1,
@@ -25,6 +27,7 @@ from typing import NamedTuple
 
 from .conditions import combined_spans
 from .edition import hive_text
+from .joins import ONLY_TESTS
 from .trees import has_aggregate, has_window
 
 TOOLBOX_VERSION = "4.1"
@@ -276,6 +279,8 @@ def _held(columns: list[str]) -> str:
 
 def _keeps(read, facts: _Facts) -> str | None:
     """None when a join adds at most one of its table's rows to each row; otherwise why not."""
+    if read._name in ONLY_TESTS:
+        return None  # each row once at most, with none of its table's columns
     table = read.table
     alias = table._alias
     matched = {column for a, column in facts.fixed if a == alias}
@@ -294,6 +299,12 @@ def _row_keys(s, facts: _Facts) -> Keys:
     """The Keys of a Statement that neither groups nor adds up: its FROM table's, widened by
     each join that can repeat rows, and any row_number's."""
     first = s._reads[0].table
+    full = next((read for read in s._reads if read._name == "FULL_JOIN"), None)
+    if full is not None:
+        found = _row_number_keys(s, facts)
+        return Keys(found, None if found else (
+            f"{full._call()} keeps the rows of each side that have no match, with NULL in the "
+            "other side's columns"))
     if not facts.keys(first):
         return Keys([], why_no_key(first))
     added, joins = [], []

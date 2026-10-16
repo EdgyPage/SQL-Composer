@@ -443,8 +443,22 @@ output run_id: job_runs.run_id
 output team: jobs.team
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 2: to_hive
+SELECT /*+ MAPJOIN(jobs) */
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 2: the Statement
+output run_id: job_runs.run_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
-# Lineage: statement
+# Lineage: statement_1, statement_2
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
 
@@ -457,7 +471,7 @@ flowchart LR
     n5["ops.job_runs.dt<br/><small>string</small>"]
     n8["ops.job_runs.job_id<br/><small>bigint</small>"]
   end
-  subgraph g1["statement"]
+  subgraph g1["statement_1"]
     n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
     n3["team<br/><small>jobs.team</small>"]
   end
@@ -465,20 +479,35 @@ flowchart LR
     n2["ops.jobs.team<br/><small>string</small>"]
     n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
-  subgraph g3["filters on statement"]
-    n4{{"WHERE in statement<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
-    n6{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  subgraph g3["filters on statement_1"]
+    n4{{"WHERE in statement_1<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+    n6{{"JOIN ON in statement_1<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["statement_2"]
+    n9["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n10["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g5["filters on statement_2"]
+    n11{{"WHERE in statement_2<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+    n12{{"JOIN ON in statement_2<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
   end
   n0 --> n1
   n2 --> n3
   n5 -.-> n4
   n7 -.-> n6
   n8 -.-> n6
+  n0 --> n9
+  n2 --> n10
+  n5 -.-> n11
+  n7 -.-> n12
+  n8 -.-> n12
   n4 -.->|filters| g1
   n6 -.->|filters| g1
+  n11 -.->|filters| g4
+  n12 -.->|filters| g4
 ```
 
-## statement
+## statement_1
 
 ### Calculated columns
 
@@ -497,12 +526,46 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+- statement_1: Key (run_id), since job_runs' rows are told apart by run_id.
 
 ### Hive as submitted
 
 ```sql
 SELECT
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+```
+
+## statement_2
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_2: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(jobs) */
   job_runs.run_id,
   jobs.team
 FROM ops.job_runs AS job_runs
@@ -671,6 +734,324 @@ SELECT
   other.job_name AS other_job
 FROM ops.jobs AS jobs
 CROSS JOIN ops.jobs AS other
+```
+
+---
+
+
+== doc:SEMI_JOIN
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id
+  AND run_alerts.severity = 'high'
+  AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+read 2 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.severity = 'high' AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+    n6{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.dt<br/><small>string</small>"]
+    n8["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.severity<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n0 -.-> n6
+  n9 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id
+  AND run_alerts.severity = 'high'
+  AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+```
+
+---
+
+
+== doc:ANTI_JOIN
+-- Statement 1: to_hive
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id
+  AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+-- Statement 1: the Statement
+output job_id: jobs.job_id
+output job_name: jobs.job_name
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(job_runs.job_id, jobs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n5["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n0 -.-> n4
+  n6 -.-> n4
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since jobs' rows are told apart by job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id
+  AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+```
+
+---
+
+
+== doc:FULL_JOIN
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+SELECT
+  recorded.run_id AS in_job_runs,
+  started.run_id AS in_scheduler_runs
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: the Statement
+output in_job_runs: recorded.run_id
+output in_scheduler_runs: started.run_id
+read 2 ON: started.run_id = recorded.run_id
+WHERE: recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+WHERE: scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n2{{"WHERE in recorded<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n4["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n7["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n5["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g5["filters on started"]
+    n6{{"WHERE in started<br/><small>last_n_days(scheduler_runs.dt, 2)</small>"}}
+  end
+  subgraph g6["statement"]
+    n8["in_job_runs<br/><small>recorded.run_id</small>"]
+    n9["in_scheduler_runs<br/><small>started.run_id</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n10{{"WHERE in statement<br/><small>any_of(is_null(recorded.run_id), is_null(st…</small>"}}
+    n11{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n4 --> n5
+  n7 -.-> n6
+  n1 --> n8
+  n5 --> n9
+  n1 -.-> n10
+  n5 -.-> n10
+  n5 -.-> n11
+  n1 -.-> n11
+  n2 -.->|filters| g1
+  n6 -.->|filters| g4
+  n10 -.->|filters| g6
+  n11 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `in_job_runs` | recorded.run_id ← ops.job_runs.run_id |
+| `in_scheduler_runs` | started.run_id ← ops.scheduler_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+SELECT
+  recorded.run_id AS in_job_runs,
+  started.run_id AS in_scheduler_runs
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
 ```
 
 ---
@@ -11092,6 +11473,1537 @@ WHERE
 GROUP BY
   job_runs.job_id,
   job_runs.dt
+```
+
+---
+
+
+== edge:joins:semi
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON (
+    run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+  )
+  AND run_alerts.severity = 'high'
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+read 2 ON: (run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24') AND run_alerts.severity = 'high'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(all_of(equals(run_alerts.run_id, job…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.severity<br/><small>string</small>"]
+    n8["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n0 -.-> n6
+  n9 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON (
+    run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+  )
+  AND run_alerts.severity = 'high'
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:joins:anti
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+  AND (
+    job_runs.status = 'FAILED' OR job_runs.status IS NULL
+  )
+  AND run_alerts.run_id IS NULL
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+read 2 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE: job_runs.dt = '2026-09-24'
+WHERE: job_runs.status = 'FAILED' OR job_runs.status IS NULL
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement<br/><small>any_of(equals(job_runs.status, #quot;FAILED#quot;), i…</small>"}}
+    n6{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n8["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n7 -.-> n6
+  n0 -.-> n6
+  n8 -.-> n6
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+  AND (
+    job_runs.status = 'FAILED' OR job_runs.status IS NULL
+  )
+  AND run_alerts.run_id IS NULL
+```
+
+---
+
+
+== edge:joins:anti_with_no_where
+-- Statement 1: to_hive
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.dt = '2026-09-24' AND job_runs.job_id = jobs.job_id
+WHERE
+  job_runs.job_id IS NULL
+-- Statement 1: the Statement
+output job_id: jobs.job_id
+output job_name: jobs.job_name
+read 2 ON: job_runs.dt = '2026-09-24' AND job_runs.job_id = jobs.job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(job_runs.dt, #quot;2026-09-24#quot;), e…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n6["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 -.-> n4
+  n0 -.-> n4
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since jobs' rows are told apart by job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.dt = '2026-09-24' AND job_runs.job_id = jobs.job_id
+WHERE
+  job_runs.job_id IS NULL
+```
+
+---
+
+
+== edge:joins:anti_then_group_by
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  COUNT(*) AS never_ran
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+GROUP BY
+  jobs.team
+-- Statement 1: the Statement
+output team: jobs.team
+output never_ran: COUNT(*)
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n5["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
+    n2["never_ran<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n3{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(job_runs.job_id, jobs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n4["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n5 -.-> n3
+  n6 -.-> n3
+  n3 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `never_ran`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.never_ran = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- ANTI JOIN ON (keeps the rows with no match) in statement: `all_of(equals(job_runs.job_id, jobs.job_id), equals(job_runs.dt, "2026-09-24"))`, which is `job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt, ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (team), since GROUP_BY makes one row for each team.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  COUNT(*) AS never_ran
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+GROUP BY
+  jobs.team
+```
+
+---
+
+
+== edge:joins:semi_and_anti_in_a_write
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.runs_to_check PARTITION(dt = '2026-09-24')
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id AND jobs.team = 'web'
+WHERE
+  job_runs.dt = '2026-09-24' AND jobs.job_id IS NULL
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+read 2 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+read 3 ON: jobs.job_id = job_runs.job_id AND jobs.team = 'web'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n11["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+    n9{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(jobs.job_id, job_runs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n8["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["ops.jobs"]
+    n10["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n12["ops.jobs.team<br/><small>string</small>"]
+  end
+  subgraph g5["mart.runs_to_check"]
+    n13["mart.runs_to_check.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n14["mart.runs_to_check.status<br/><small>string</small>"]
+    n15["mart.runs_to_check.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n0 -.-> n6
+  n8 -.-> n6
+  n10 -.-> n9
+  n11 -.-> n9
+  n12 -.-> n9
+  n1 --> n13
+  n3 --> n14
+  n4 -.->|day written| n15
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n9 -.->|filters| g1
+```
+
+## statement
+
+It writes the Saved table mart.runs_to_check, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+- mart.runs_to_check's Key (run_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.runs_to_check PARTITION(dt = '2026-09-24')
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id AND jobs.team = 'web'
+WHERE
+  job_runs.dt = '2026-09-24' AND jobs.job_id IS NULL
+```
+
+---
+
+
+== edge:joins:full
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+-- Statement 1: the Statement
+output run_id: COALESCE(recorded.run_id, started.run_id)
+output job_id: COALESCE(recorded.job_id, started.started_job_id)
+output found: CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END
+read 2 ON: started.run_id = recorded.run_id
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+output job_id: job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+output started_job_id: scheduler_runs.job_id
+WHERE: scheduler_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["recorded.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n4{{"WHERE in recorded<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n6["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n8["ops.scheduler_runs.job_id<br/><small>bigint</small>"]
+    n11["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n7["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+    n9["started.started_job_id<br/><small>scheduler_runs.job_id</small>"]
+  end
+  subgraph g5["filters on started"]
+    n10{{"WHERE in started<br/><small>equals(scheduler_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>fill_null(recorded.run_id, started.run_id)</small>"]
+    n13["job_id<br/><small>fill_null(recorded.job_id, started.started_…</small>"]
+    n14["found<br/><small>if_else(is_null(started.run_id), #quot;only in j…</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n15{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 --> n7
+  n8 --> n9
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n3 --> n13
+  n9 --> n13
+  n7 --> n14
+  n1 --> n14
+  n7 -.-> n15
+  n1 -.-> n15
+  n4 -.->|filters| g1
+  n10 -.->|filters| g4
+  n15 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `fill_null(recorded.run_id, started.run_id)`, which is `COALESCE(recorded.run_id, started.run_id)`.
+
+```text
+statement.run_id = fill_null(recorded.run_id, started.run_id)
+├─ recorded.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ started.run_id
+   └─ ops.scheduler_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `fill_null(recorded.job_id, started.started_job_id)`, which is `COALESCE(recorded.job_id, started.started_job_id)`.
+
+```text
+statement.job_id = fill_null(recorded.job_id, started.started_job_id)
+├─ recorded.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ started.started_job_id
+   └─ ops.scheduler_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `found`
+
+Calculated in **statement** as `if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))`, which is `CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END`.
+
+```text
+statement.found = if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))
+├─ started.run_id
+│  └─ ops.scheduler_runs.run_id  (bigint)
+└─ recorded.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+```
+
+---
+
+
+== edge:joins:full_only_one_side
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: the Statement
+output run_id: COALESCE(recorded.run_id, started.run_id)
+output job_id: COALESCE(recorded.job_id, started.started_job_id)
+output found: CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END
+read 2 ON: started.run_id = recorded.run_id
+WHERE: recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+output job_id: job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+output started_job_id: scheduler_runs.job_id
+WHERE: scheduler_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["recorded.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n4{{"WHERE in recorded<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n6["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n8["ops.scheduler_runs.job_id<br/><small>bigint</small>"]
+    n11["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n7["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+    n9["started.started_job_id<br/><small>scheduler_runs.job_id</small>"]
+  end
+  subgraph g5["filters on started"]
+    n10{{"WHERE in started<br/><small>equals(scheduler_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>fill_null(recorded.run_id, started.run_id)</small>"]
+    n13["job_id<br/><small>fill_null(recorded.job_id, started.started_…</small>"]
+    n14["found<br/><small>if_else(is_null(started.run_id), #quot;only in j…</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n15{{"WHERE in statement<br/><small>any_of(is_null(recorded.run_id), is_null(st…</small>"}}
+    n16{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 --> n7
+  n8 --> n9
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n3 --> n13
+  n9 --> n13
+  n7 --> n14
+  n1 --> n14
+  n1 -.-> n15
+  n7 -.-> n15
+  n7 -.-> n16
+  n1 -.-> n16
+  n4 -.->|filters| g1
+  n10 -.->|filters| g4
+  n15 -.->|filters| g6
+  n16 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `fill_null(recorded.run_id, started.run_id)`, which is `COALESCE(recorded.run_id, started.run_id)`.
+
+```text
+statement.run_id = fill_null(recorded.run_id, started.run_id)
+├─ recorded.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ started.run_id
+   └─ ops.scheduler_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `any_of(is_null(recorded.run_id), is_null(started.run_id))`, which is `recorded.run_id IS NULL OR started.run_id IS NULL` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `fill_null(recorded.job_id, started.started_job_id)`, which is `COALESCE(recorded.job_id, started.started_job_id)`.
+
+```text
+statement.job_id = fill_null(recorded.job_id, started.started_job_id)
+├─ recorded.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ started.started_job_id
+   └─ ops.scheduler_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `any_of(is_null(recorded.run_id), is_null(started.run_id))`, which is `recorded.run_id IS NULL OR started.run_id IS NULL` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `found`
+
+Calculated in **statement** as `if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))`, which is `CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END`.
+
+```text
+statement.found = if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))
+├─ started.run_id
+│  └─ ops.scheduler_runs.run_id  (bigint)
+└─ recorded.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `any_of(is_null(recorded.run_id), is_null(started.run_id))`, which is `recorded.run_id IS NULL OR started.run_id IS NULL` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
+```
+
+---
+
+
+== edge:joins:full_where_refused
+-- refused
+GuardRefused:
+  What happened:  WHERE has recorded.job_id = 1, a condition on recorded, and FULL_JOIN(started) keeps the rows of both sides that have no match.
+  Why it matters: A row with no match in recorded has NULL in every recorded column, so this WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.
+  Usual fix:      Pick each side's rows, and bound its days, in a derived(...) table of its own, then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps the rows with no match on that side.
+  Opt-out:        FULL_JOIN(started, ON=..., keeps_only_matches=True)
+
+== edge:joins:full_keeps_only_matches
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.job_id = 1
+-- Statement 1: the Statement
+output run_id: COALESCE(recorded.run_id, started.run_id)
+output job_id: COALESCE(recorded.job_id, started.started_job_id)
+output found: CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END
+read 2 ON: started.run_id = recorded.run_id
+WHERE: recorded.job_id = 1
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+output job_id: job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+output started_job_id: scheduler_runs.job_id
+WHERE: scheduler_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["recorded.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n4{{"WHERE in recorded<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n6["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n8["ops.scheduler_runs.job_id<br/><small>bigint</small>"]
+    n11["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n7["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+    n9["started.started_job_id<br/><small>scheduler_runs.job_id</small>"]
+  end
+  subgraph g5["filters on started"]
+    n10{{"WHERE in started<br/><small>equals(scheduler_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>fill_null(recorded.run_id, started.run_id)</small>"]
+    n13["job_id<br/><small>fill_null(recorded.job_id, started.started_…</small>"]
+    n14["found<br/><small>if_else(is_null(started.run_id), #quot;only in j…</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n15{{"WHERE in statement<br/><small>equals(recorded.job_id, 1)</small>"}}
+    n16{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 --> n7
+  n8 --> n9
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n3 --> n13
+  n9 --> n13
+  n7 --> n14
+  n1 --> n14
+  n3 -.-> n15
+  n7 -.-> n16
+  n1 -.-> n16
+  n4 -.->|filters| g1
+  n10 -.->|filters| g4
+  n15 -.->|filters| g6
+  n16 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `fill_null(recorded.run_id, started.run_id)`, which is `COALESCE(recorded.run_id, started.run_id)`.
+
+```text
+statement.run_id = fill_null(recorded.run_id, started.run_id)
+├─ recorded.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ started.run_id
+   └─ ops.scheduler_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `equals(recorded.job_id, 1)`, which is `recorded.job_id = 1` (reads ops.job_runs.job_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `fill_null(recorded.job_id, started.started_job_id)`, which is `COALESCE(recorded.job_id, started.started_job_id)`.
+
+```text
+statement.job_id = fill_null(recorded.job_id, started.started_job_id)
+├─ recorded.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ started.started_job_id
+   └─ ops.scheduler_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `equals(recorded.job_id, 1)`, which is `recorded.job_id = 1` (reads ops.job_runs.job_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `found`
+
+Calculated in **statement** as `if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))`, which is `CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END`.
+
+```text
+statement.found = if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))
+├─ started.run_id
+│  └─ ops.scheduler_runs.run_id  (bigint)
+└─ recorded.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `equals(recorded.job_id, 1)`, which is `recorded.job_id = 1` (reads ops.job_runs.job_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.job_id = 1
+```
+
+---
+
+
+== edge:joins:full_of_a_table_with_days
+-- refused
+LoadRefused:
+  What happened:  FULL_JOIN(scheduler_runs, ON=...) reads ops.scheduler_runs, but nothing bounds its Date partition dt at both ends.
+  Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
+  Usual fix:      Read scheduler_runs through a derived(...) table that bounds its days in its own WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of its table, so a bound in ON= reads every day all the same, and one in WHERE throws away the rows it keeps.
+  Opt-out:        FULL_JOIN(scheduler_runs, ON=..., reads_all_partitions=True)
+
+== edge:joins:semi_column_read
+-- refused
+ValueError:
+  What happened:  SELECT reads run_alerts.severity, a column of run_alerts, which SEMI_JOIN only tests.
+  Why it matters: SEMI_JOIN(run_alerts, ...) keeps each row that has a match in run_alerts, once, and adds none of its columns: Hive lets only its ON= read them.
+  Usual fix:      To test the rows of run_alerts, put the test in SEMI_JOIN(run_alerts, ON=...). To show its columns, use JOIN(run_alerts, ON=...), which gives a row for each match.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:joins:right_join
+-- refused
+ValueError:
+  What happened:  RIGHT_JOIN(jobs, ...): the Toolbox doesn't write a RIGHT JOIN.
+  Why it matters: A RIGHT JOIN keeps every row of jobs and only the matching rows of the tables before it. LEFT_JOIN gives the same rows with the tables swapped, and reads in order: the table whose every row is kept comes first, in FROM.
+  Usual fix:      Put jobs in FROM(jobs), and the table now in FROM in LEFT_JOIN(..., ON=...), with the same ON=.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:joins:broadcast
+-- Statement 1: to_hive
+SELECT /*+ MAPJOIN(jobs) */
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n8["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["ops.jobs"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(jobs) */
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:joins:broadcast_two_and_distinct
+-- Statement 1: to_hive
+SELECT /*+ MAPJOIN(jobs, run_alerts) */ DISTINCT
+  job_runs.job_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output job_id: job_runs.job_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+read 3 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n10["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["ops.jobs"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"LEFT JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+    n8{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+  end
+  subgraph g4["ops.run_alerts"]
+    n9["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n11["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n0 -.-> n6
+  n9 -.-> n8
+  n10 -.-> n8
+  n11 -.-> n8
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n8 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.job_runs.job_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(jobs, run_alerts) */ DISTINCT
+  job_runs.job_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:joins:broadcast_in_a_derived_table
+-- Statement 1: to_hive
+WITH teams AS (
+  SELECT /*+ MAPJOIN(jobs) */
+    job_runs.run_id,
+    jobs.team
+  FROM ops.job_runs AS job_runs
+  JOIN ops.jobs AS jobs
+    ON jobs.job_id = job_runs.job_id
+  WHERE
+    job_runs.dt = '2026-09-24'
+)
+SELECT /*+ MAPJOIN(other) */
+  teams.run_id,
+  other.job_name AS name
+FROM teams
+JOIN ops.jobs AS other
+  ON other.team = teams.team
+-- Statement 1: the Statement
+output run_id: teams.run_id
+output name: other.job_name
+read 2 ON: other.team = teams.team
+-- Statement 1: Derived table teams
+output run_id: job_runs.run_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n8["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["teams"]
+    n1["teams.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["teams.team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["ops.jobs"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g3["filters on teams"]
+    n4{{"WHERE in teams<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"JOIN ON in teams<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["statement"]
+    n9["run_id<br/><small>teams.run_id</small>"]
+    n11["name<br/><small>other.job_name</small>"]
+  end
+  subgraph g5["filters on statement"]
+    n12{{"JOIN ON in statement<br/><small>equals(other.team, teams.team)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n1 --> n9
+  n10 --> n11
+  n2 -.-> n12
+  n3 -.-> n12
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n12 -.->|filters| g4
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | teams.run_id ← ops.job_runs.run_id |
+| `name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('teams', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since JOIN(other, ON=...) can match several other rows to one row.
+
+### Hive as submitted
+
+```sql
+WITH teams AS (
+  SELECT /*+ MAPJOIN(jobs) */
+    job_runs.run_id,
+    jobs.team
+  FROM ops.job_runs AS job_runs
+  JOIN ops.jobs AS jobs
+    ON jobs.job_id = job_runs.job_id
+  WHERE
+    job_runs.dt = '2026-09-24'
+)
+SELECT /*+ MAPJOIN(other) */
+  teams.run_id,
+  other.job_name AS name
+FROM teams
+JOIN ops.jobs AS other
+  ON other.team = teams.team
+```
+
+---
+
+
+== edge:joins:broadcast_a_name_in_backticks
+-- Statement 1: to_hive
+SELECT /*+ MAPJOIN(`order`) */
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.`order` AS `order`
+  ON `order`.`1st` = job_runs.run_id AND `order`.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24' AND `order`.`1st` IS NULL
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+read 2 ON: `order`.`1st` = job_runs.run_id AND `order`.dt = '2026-09-24'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(#96;order#96;.#96;1st#96;, job_runs.run_i…</small>"}}
+  end
+  subgraph g3["ops.order"]
+    n5["ops.order.1st<br/><small>bigint</small>"]
+    n6["ops.order.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n0 -.-> n4
+  n6 -.-> n4
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(`order`) */
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.`order` AS `order`
+  ON `order`.`1st` = job_runs.run_id AND `order`.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24' AND `order`.`1st` IS NULL
 ```
 
 ---
