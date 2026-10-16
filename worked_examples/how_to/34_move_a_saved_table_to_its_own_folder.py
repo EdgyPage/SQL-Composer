@@ -12,9 +12,9 @@ changes to your own Saved tables that the Toolbox writes and checks for you.
 ## When you'd use it
 
 When `check_table_reference` says a Saved table isn't at its own folder. That is a table made
-by hand in a folder it shares, or one `create_table` made before 5.0. Those are managed tables,
-whose files the warehouse keeps where it chooses; a Saved table now keeps its files in a folder
-you give. Two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in
+by hand in a folder it shares with other tables, or one `create_table` made before 5.0, a
+managed table, whose files the warehouse keeps where it chooses; a Saved table now keeps its
+files in a folder of its own, under the folder you give. Two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in
 one can delete the other's files for that day, so move each one out before writing it again.
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) explains the
 folder of its own.
@@ -170,9 +170,8 @@ DROP TABLE IF EXISTS mart.job_day;
 -- /data/your_team/tables/mart/job_day. If this step fails, send it alone again.
 ALTER TABLE mart.job_day_moving RENAME TO mart.job_day;
 
-The `...` after the last column stands for the line one Edition writes there, the table's Key
-(`help(create_table)` says which). The new table is made at the folder the Table reference
-names, under a name of its own while the old table still has the table's name. Each day is one INSERT OVERWRITE, so a day sent twice
+The new table is made at the folder the Table reference names, under a name of its own while
+the old table still has the table's name. Each day is one INSERT OVERWRITE, so a day sent twice
 is written once. The fourth step counts each day's rows in both tables. The fifth keeps the old
 files when the old table is dropped, since the folder it shared holds other tables' files too.
 Only then is the old table dropped, and the new one renamed: a renamed table keeps its folder.
