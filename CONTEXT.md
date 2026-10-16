@@ -176,6 +176,16 @@ The one date column a table is partitioned by, which every Statement reading the
 at both ends.
 _Avoid_: dt, partition key, date column
 
+**Statistics**:
+What the warehouse has counted about a table's days and their columns - how many rows and
+bytes, how many different values - from which it picks how to join the table. Counting them
+changes no row, and they can be counted again at any time.
+_Avoid_: stats, metadata, metrics
+
+**Plan**:
+How Hive, or Spark, will run a Statement - which tables it reads, with which filters, and how
+it joins them - shown without running it.
+_Avoid_: query plan, execution plan, explain output
 **Map join**:
 A join in which the warehouse copies a small table whole to every worker, so the big table's
 rows are matched where they are, without first being sorted and sent across the cluster. Hive

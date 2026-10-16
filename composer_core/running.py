@@ -331,16 +331,22 @@ def _day_of(tree: Node, dates: list, partition):
     return None
 
 
-def _write_tree(s: Statement) -> Node:
-    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT."""
-    table = s._write
-    day = day_text(_written_day(s), table._date_format)
-    # The day is named; each Partition after it is filled from the rows, by its column.
-    partition = Node("Partition", expressions=[
+def day_partition(table: Table, day: str) -> Node:
+    """PARTITION(dt = '<day>', region): the day named, written as the table writes its days,
+    then each Partition after it by its column alone, for every value it holds."""
+    return Node("Partition", expressions=[
         Node("EQ", this=Node("Column", name=table._date_partition),
              expression=Node("Literal", this=day, is_string=True)),
         *[Node("Column", name=column) for column in table._partitioned_by],
     ])
+
+
+def _write_tree(s: Statement) -> Node:
+    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT.
+
+    The day is named; each Partition after it is filled from the rows, by its column."""
+    table = s._write
+    partition = day_partition(table, day_text(_written_day(s), table._date_format))
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
 
@@ -475,6 +481,22 @@ class HiveText(str):
         pass  # show_hive has printed it already
 
 
+class HivePlan(str):
+    """The plan run(explain(s), send=...) gives back, as text. In a notebook it is printed,
+    line by line, rather than shown as one string."""
+
+    def _ipython_display_(self) -> None:
+        print(self)
+
+
+def _plan(result) -> HivePlan:
+    """The plan an EXPLAIN's send gave back, as one text: Hive gives each line of it as a row,
+    and Spark the whole plan in one row, in the DataFrame's only column."""
+    refuse_what_isnt_a_dataframe(result)
+    lines = [str(line) for line in result.iloc[:, 0]] if len(result.columns) else []
+    return HivePlan("\n".join(lines).rstrip())
+
+
 def show_hive(*statements):
     """Print the Hive that runs, ready to paste into another program, and return it.
 
@@ -574,7 +596,8 @@ def run(s, send):
     lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
     instead. A write into a table with partitioned_by= needs the Session setting
     "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"), send=...),
-    as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone.
+    as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For
+    explain(s), run gives back Hive's plan as text, rather than a DataFrame.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -607,6 +630,8 @@ def run(s, send):
         sent = send if check is None else (lambda hive: check(send(hive)))
         return logged_run("Admin statement", s._admin_call, text, sent)
     result = send(text)
+    if s._ddl is not None and s._ddl.kind == "Explain":
+        return _plan(result)
     # A write has already been carried out when its send returns, so only a read's rows matter.
     if s._ddl is None and s._write is None:
         refuse_what_isnt_a_dataframe(result)

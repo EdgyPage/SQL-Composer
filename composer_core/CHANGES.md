@@ -81,6 +81,23 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
   holds.
+- **Three Statements that keep reads and joins fast**, each safe to send again:
+  - `repair_partitions(t)` writes `MSCK REPAIR TABLE`, which adds to the warehouse's list of
+    a Saved table's days each day folder it finds that the list lacks, as after creating a
+    table again where its old files stayed.
+  - `compute_statistics(t, day)` writes `ANALYZE TABLE ... PARTITION(...) COMPUTE
+    STATISTICS`, which counts a day's rows for Hive to plan joins from; `columns=True`, or a
+    list of columns, counts columns too (`FOR COLUMNS ...`).
+  - `explain(s)` writes `EXPLAIN` before a Statement's Hive, and `run` gives back Hive's plan
+    for it as text.
+
+  The first two take only your own Saved tables, Table references with `location=`. The
+  how-to "Keep reads and joins fast" puts them beside Partitions, file sizes, Buckets and the
+  Session settings `"map_joins"`, `"statistics_on_write"` and `"merge_small_files"`.
+  help(create_table) now says that `create_table(t, may_exist=True)` is safe to send again
+  too.
+- Spark Composer's Example database answers an `EXPLAIN` of a query with Spark's plan;
+  sqlglot Composer's says its small executor has none to give.
 - **Three more joins.** `SEMI_JOIN(t, ON=...)` keeps each row that has a match in t, once,
   written `LEFT SEMI JOIN`; `ANTI_JOIN(t, ON=...)` keeps each row that has none, written as a
   `LEFT JOIN` with a `WHERE` that keeps the rows whose matched column is NULL, since Hive 3 has

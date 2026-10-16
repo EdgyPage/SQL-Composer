@@ -361,8 +361,11 @@ def day_text(day: datetime.date, pattern: str) -> str:
     return day.strftime(pattern.replace("%Y", f"{day.year:04d}"))
 
 
-def as_date(value, column: Column, call: str) -> datetime.date:
-    """A value compared with a Date partition, as a Python date. Refuses what isn't a day."""
+def as_date(value, column: Column, call: str, compared: bool = True) -> datetime.date:
+    """A value compared with a Date partition, as a Python date. Refuses what isn't a day.
+
+    compared=False is for a day given on its own, such as compute_statistics's, which the
+    refusal says was given rather than compared."""
     if isinstance(value, datetime.datetime):
         return value.date()
     if isinstance(value, datetime.date):
@@ -381,19 +384,28 @@ def as_date(value, column: Column, call: str) -> datetime.date:
         if day is None:
             with contextlib.suppress(ValueError):
                 day = datetime.datetime.strptime(str(value), each).date()
+    _refuse_day(value, column, call, day, other, compared)
+
+
+def _refuse_day(value, column: Column, call: str, day, other, compared: bool) -> None:
+    """Refuse a day not written as the Date partition's days are: `day` is the day it seems
+    to mean, or None, and `other` the date_format it is written in, or None."""
+    pattern = column._table._date_format
     if day is not None:  # your own day, written as the table writes days
         written = f"like {day_text(day, pattern)!r}"
         fix = f"Write the day as {day_text(day, pattern)!r}, or pass a datetime.date."
     else:  # no day to show, so an example of one
         written = f"like {day_text(EXAMPLE_DAY, pattern)!r} (an example day)"
-        fix = (f"Write the day like {day_text(EXAMPLE_DAY, pattern)!r}, or pass a "
-               f"datetime.date. For the days before today, use last_n_days({column!r}, n).")
+        fix = f"Write the day like {day_text(EXAMPLE_DAY, pattern)!r}, or pass a datetime.date."
+        if compared:
+            fix += f" For the days before today, use last_n_days({column!r}, n)."
     if other is not None and other != pattern:
         fix += (f" If the table's days really are written like {value!r}, add "
                 f'date_format="{other}" to its Table reference instead.')
+    given = (f"compares the Date partition {column!r} with {value!r}" if compared
+             else f"was given the day {value!r}")
     refuse(
-        what=f"{call} compares the Date partition {column!r} with {value!r}, but its Table "
-        f"reference writes days {written}.",
+        what=f"{call} {given}, but its Table reference writes days {written}.",
         why="Hive compares Date partition values as text, so a differently written day "
         "would match no days, or the wrong ones.",
         fix=fix,
@@ -1389,7 +1401,8 @@ def _real_table(t, call: str) -> Table:
 
 def need_saved_table(t, what: str) -> Table:
     """The Table reference of one of the user's own Saved tables, which a call that changes a
-    table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)".
+    table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)" or
+    "repair_partitions(...)".
 
     A Saved table is a Table reference with location=: one with none is a table someone else
     owns, which the Toolbox only reads.
@@ -1399,7 +1412,8 @@ def need_saved_table(t, what: str) -> Table:
         refuse(
             what=f"{what} was given {t._name}, which isn't one of your Saved tables: its Table "
             "reference has no location=.",
-            why="It changes a table, so it takes only your own Saved tables, each in a folder "
+            why="It changes a table, or what the warehouse keeps about it, so it takes only your "
+            "own Saved tables, each in a folder "
             "of its own under location=. A Table reference with no location= is a table "
             "someone else owns, and changing it could break their work.",
             fix=f'If {t._name} is yours, add location=... to its Table(...) call, such as '
@@ -1786,7 +1800,10 @@ def create_table(t, may_exist=False):
     or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
     import admin).
     may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table
-    alone.
+    alone, so it is safe to send again, as at the top of a pipeline that runs every day. It
+    doesn't check that the table there matches its Table reference: check_table_reference
+    does. Where a table is made again at a folder whose files stayed, repair_partitions(t)
+    finds their days.
 
     A Table reference with a Key, such as key=["job_id", "dt"], gets
     PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever

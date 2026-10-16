@@ -9,6 +9,8 @@ writes Hive its own way behind these same function names.
 
 from __future__ import annotations
 
+import re
+
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
@@ -69,11 +71,55 @@ def read_back(text: str) -> str:
 
     sqlglot reads Hive's PRIMARY KEY (...) DISABLE NOVALIDATE, a Key Hive never checks, only
     once its parser is told that DISABLE NOVALIDATE may end a Key, as it is here, for this read.
+    EXPLAIN, MSCK REPAIR TABLE and ANALYZE TABLE are read back through the parts sqlglot reads
+    (_upkeep_read_back).
     """
+    if text.startswith(_UPKEEP):
+        return _upkeep_read_back(text)
     dialect = sqlglot.Dialect.get_or_raise(_DIALECT)
     parser = dialect.parser()
     parser.KEY_CONSTRAINT_OPTIONS = {**parser.KEY_CONSTRAINT_OPTIONS, "DISABLE": ("NOVALIDATE",)}
     return sql_text(parser.parse(dialect.tokenize(text), text)[0], pretty=True)
+
+
+# MSCK REPAIR TABLE, ANALYZE TABLE and EXPLAIN, which some or all of the sqlglot versions
+# sqlglot Composer supports read only as a Command, text sqlglot doesn't look inside, and say
+# so in a log message.
+_UPKEEP = ("EXPLAIN ", "MSCK REPAIR TABLE ", "ANALYZE TABLE ")
+_ANALYZE = re.compile(r"ANALYZE TABLE (.+?) COMPUTE STATISTICS(?: FOR COLUMNS (.+))?", re.S)
+
+
+def _upkeep_read_back(text: str) -> str:
+    """MSCK REPAIR TABLE, ANALYZE TABLE or EXPLAIN read back: the Statement after EXPLAIN,
+    or the table, its PARTITION(...) and the columns after MSCK REPAIR TABLE or ANALYZE TABLE,
+    each read by sqlglot and written again around the command's own words. Text that doesn't
+    read back comes back marked, so to_hive sends nothing."""
+    if text.startswith("EXPLAIN "):
+        return "EXPLAIN " + read_back(text.removeprefix("EXPLAIN "))
+    try:
+        if text.startswith("MSCK REPAIR TABLE "):
+            table = text.removeprefix("MSCK REPAIR TABLE ")
+            return "MSCK REPAIR TABLE " + _table_read_back(table)
+        found = _ANALYZE.fullmatch(text)
+        if found is not None:
+            table, columns = found.groups()
+            read = f"ANALYZE TABLE {_table_read_back(table)} COMPUTE STATISTICS"
+            if columns is None:
+                return read
+            # The Toolbox's own Hive, read back: no value of the user's is pasted in here.
+            listed = sqlglot.parse_one("SELECT " + columns, read=_DIALECT).expressions
+            return f"{read} FOR COLUMNS {', '.join(sql_text(column) for column in listed)}"
+    except sqlglot.errors.SqlglotError as error:
+        return f"(the Hive doesn't read back: {error})"
+    return f"(the Hive doesn't read back: {text})"
+
+
+def _table_read_back(text: str) -> str:
+    """A table's name, and the PARTITION(...) after it if any, read back as a write's target."""
+    write = sqlglot.parse_one("INSERT OVERWRITE TABLE " + text + " SELECT 1", read=_DIALECT)
+    if not isinstance(write, exp.Insert):
+        raise sqlglot.errors.ParseError(text + " isn't a table")
+    return sql_text(write.this)
 
 
 def check_writable_call(name: str, args: list[Node], call: str) -> None:
@@ -384,6 +430,27 @@ def _drop(node: Node) -> exp.Drop:
     return exp.Drop(kind="TABLE", this=table, exists=True)
 
 
+def _repair(node: Node) -> exp.Command:
+    """MSCK REPAIR TABLE, which sqlglot holds as a Command, text it writes as given. The
+    table's name in it, as in ANALYZE TABLE's, is written by sqlglot, never pasted in."""
+    return exp.Command(this="MSCK", expression="REPAIR TABLE " + sql_text(_built(node, "target")))
+
+
+def _analyze(node: Node) -> exp.Command:
+    """ANALYZE TABLE ... COMPUTE STATISTICS, held as a Command: sqlglot before version 26 has
+    no tree of its own for it, and the Hive is the same either way."""
+    sql = f"TABLE {sql_text(_built(node, 'target'))} COMPUTE STATISTICS"
+    if node.parts["columns"]:
+        sql += " FOR COLUMNS " + ", ".join(sql_text(_identifier(name))
+                                           for name in node.parts["columns"])
+    return exp.Command(this="ANALYZE", expression=sql)
+
+
+def _explain(node: Node) -> exp.Command:
+    """EXPLAIN, then the Statement laid out as to_hive lays it out, held as a Command."""
+    return exp.Command(this="EXPLAIN", expression=hive_statement(node.parts["this"]))
+
+
 def _two_sided(kind):
     return lambda node: kind(this=_built(node, "this"), expression=_built(node, "expression"))
 
@@ -457,4 +524,7 @@ _REPLAY = {
     "ColumnDef": lambda node: exp.ColumnDef(this=_identifier(node.name),
                                             kind=_hive_type(node.parts["type"])),
     "Drop": _drop,
+    "Repair": _repair,
+    "Analyze": _analyze,
+    "Explain": _explain,
 }

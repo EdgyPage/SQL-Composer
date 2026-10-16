@@ -269,7 +269,8 @@ KINDS = {
     # hive_function's call: the function's name in lower case, its arguments as written, and
     # whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
-    # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
+    # A whole Statement: a query, a write, CREATE TABLE, DROP TABLE, MSCK REPAIR TABLE,
+    # ANALYZE TABLE or EXPLAIN, and their pieces.
     # A Select's parts are its clauses; group_by and order_by are lists, and limit a number.
     # broadcast: the names of the joined tables its MAPJOIN hint names, written after SELECT.
     # grouping_sets: the subtotals' sets of columns, as Tuples, or None for a plain GROUP BY.
@@ -294,6 +295,13 @@ KINDS = {
                "buckets", "stored_as", "location", "properties", "key"),
     "ColumnDef": ("name", "type"),
     "Drop": ("target",),
+    # MSCK REPAIR TABLE: the warehouse lists the days in the table's
+    # folder. ANALYZE TABLE ... COMPUTE STATISTICS: target is the table with the PARTITION(...)
+    # it counts, and columns the column names of FOR COLUMNS, or none. EXPLAIN: `this` is the
+    # whole Statement's tree.
+    "Repair": ("target",),
+    "Analyze": ("target", "columns"),
+    "Explain": ("this",),
 }
 
 # The functions a WindowCall may name: the ones windows.py writes.
