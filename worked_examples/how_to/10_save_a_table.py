@@ -65,7 +65,8 @@ shows argument by argument:
   folder read each other's files.
 - `purge=True` makes dropping the table delete its files too, as the last step below needs.
   Without it, the warehouse forgets a dropped table but keeps its files, and a table created
-  in the same folder again reads its old rows back.
+  in the same folder again gets its old rows back once their days are listed again, as
+  `repair_partitions` does.
 
 At work, keep this in its own file, as the gallery's
 [Saved table example](examples.html#saved_table) does, so every Statement that writes or reads
@@ -187,7 +188,7 @@ stops, and says so:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can't be written to.
+  What happened:  The Example database only reads, and can't be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.
 ...
 
 At work, the same `run`, with your own send in place of `example_database.send`, writes the

@@ -526,7 +526,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><h4><code>create_if_missing()</code></h4><pre class="python">def create_if_missing():
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>create_if_missing()</code></h4><pre class="python">def create_if_missing():
     &quot;&quot;&quot;Step 1, in a notebook you run from the top every day: create the table only if missing.
 
     may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so the second day&#x27;s run skips it
@@ -543,7 +543,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><h4><code>failed_runs()</code></h4><pre class="python">def failed_runs(day=LAST_DAY):
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>failed_runs()</code></h4><pre class="python">def failed_runs(day=LAST_DAY):
     &quot;&quot;&quot;Step 2: fill one day with that day&#x27;s failed runs, replacing whatever the day held.
 
     Because INSERT_OVERWRITE replaces the day, sending it twice leaves the same rows, not
@@ -561,7 +561,7 @@ SELECT
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day=LAST_DAY):
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day=LAST_DAY):
     &quot;&quot;&quot;Step 3: add that day&#x27;s runs that succeeded but raised a high alert.
 
     INSERT_INTO keeps the failed runs step 2 wrote, and adds these beside them. They come
@@ -592,7 +592,7 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days=(FIRST_DAY, LAST_DAY)):
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days=(FIRST_DAY, LAST_DAY)):
     &quot;&quot;&quot;Step 4: write past days, oldest first, each the way steps 2 and 3 write one.
 
     To backfill is to write days that have already happened: a new table&#x27;s past days, every
@@ -609,7 +609,7 @@ SELECT
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-23&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><p class="label">Hive of Statement 2 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
+  job_runs.dt = &#x27;2026-09-23&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 2 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
 SELECT DISTINCT
   job_runs.run_id,
   job_runs.job_id
@@ -620,13 +620,13 @@ WHERE
   run_alerts.dt = &#x27;2026-09-23&#x27;
   AND job_runs.dt = &#x27;2026-09-23&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><p class="label">Hive of Statement 3 of 4</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 3 of 4</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
 SELECT
   job_runs.run_id,
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><p class="label">Hive of Statement 4 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 4 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
 SELECT DISTINCT
   job_runs.run_id,
   job_runs.job_id
@@ -637,7 +637,7 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
     &quot;&quot;&quot;Step 5, rarely: after changing the table&#x27;s columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.
@@ -648,7 +648,7 @@ WHERE
     Spark rather than Hive runs your tables, ask whoever looks after them first.
     IF EXISTS means the drop does nothing, rather than failing, if the table isn&#x27;t there.
     &quot;&quot;&quot;
-    return [admin.drop_table(runs_to_review), create_table(runs_to_review)]</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">DROP TABLE IF EXISTS mart.runs_to_review</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
+    return [admin.drop_table(runs_to_review), create_table(runs_to_review)]</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">DROP TABLE IF EXISTS mart.runs_to_review</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT
 )
@@ -659,7 +659,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>example_database</code>, <code>admin.drop_table</code></p>
 </section>
 <section class="entry" id="step_by_step">
@@ -1350,7 +1350,7 @@ WHERE
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
 <ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row, the table&#x27;s Key. JOIN warns when a join doesn&#x27;t use all of them; a write into a Saved table with a Key is refused unless the Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says how); and one Edition&#x27;s create_table writes it into the table (help(create_table) says why the other leaves it out). Hive never checks it.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
 <p>A Saved table, one your Statements write into, also says how it is stored, which create_table writes and check_table_reference compares with the table. Of these, a Saved table needs only <code>location</code>; a table someone else owns has none of them:</p>
-<ul><li><code>location</code> is the folder your Saved tables go in, such as &quot;/data/your_team/tables&quot;. The Toolbox adds the table&#x27;s own folder, its database and its name, so mart.daily_runs is at /data/your_team/tables/mart/daily_runs. Every Saved table is an external table: its files are yours, in that folder, and the warehouse only keeps a record of where. Two tables in one folder would read each other&#x27;s files, so a Saved table whose folder would be another&#x27;s, or inside another&#x27;s, is refused.</li><li><code>purge=True</code> makes dropping the table delete its files too. purge=False keeps them in its folder, where a table created again reads them back; left out, the warehouse&#x27;s own choice, which keeps them, is neither written nor checked.</li><li><code>properties</code> holds any other table properties, the notes on a table the warehouse keeps by name, such as {&quot;made_by&quot;: &quot;daily_pipeline&quot;}.</li><li><code>stored_as</code> is the file format, &quot;ORC&quot; (the usual one) or &quot;PARQUET&quot;, and <code>compression</code> how its files are packed: &quot;SNAPPY&quot;, or ORC&#x27;s &quot;ZLIB&quot; or Parquet&#x27;s &quot;GZIP&quot;, among others.</li><li><code>partitioned_by</code> lists Partitions after the Date partition, such as [&quot;region&quot;], each a column in <code>columns</code> too: each day&#x27;s folder then holds a folder per region. A write still fills one day, and the regions inside it from its rows&#x27; values.</li><li><code>bucketed_by</code> with <code>buckets</code> spreads each day&#x27;s rows into that many files by the values of those columns, and <code>sorted_by</code> sorts the rows in each, so a join on them can pair file with file. Leave them out unless the table is big and joined on those columns: changing them means writing the table again.</li></ul>
+<ul><li><code>location</code> is the folder your Saved tables go in, such as &quot;/data/your_team/tables&quot;. The Toolbox adds the table&#x27;s own folder, its database and its name, so mart.daily_runs is at /data/your_team/tables/mart/daily_runs. Every Saved table is an external table: its files are yours, in that folder, and the warehouse only keeps a record of where. Two tables in one folder would read each other&#x27;s files, so a Saved table whose folder would be another&#x27;s, or inside another&#x27;s, is refused.</li><li><code>purge=True</code> makes dropping the table delete its files too. purge=False keeps them in its folder, where a table created again gets its old days back once repair_partitions(t) lists them; left out, the warehouse&#x27;s own choice, which keeps them, is neither written nor checked.</li><li><code>properties</code> holds any other table properties, the notes on a table the warehouse keeps by name, such as {&quot;made_by&quot;: &quot;daily_pipeline&quot;}.</li><li><code>stored_as</code> is the file format, &quot;ORC&quot; (the usual one) or &quot;PARQUET&quot;, and <code>compression</code> how its files are packed: &quot;SNAPPY&quot;, or ORC&#x27;s &quot;ZLIB&quot; or Parquet&#x27;s &quot;GZIP&quot;, among others.</li><li><code>partitioned_by</code> lists Partitions after the Date partition, such as [&quot;region&quot;], each a column in <code>columns</code> too: each day&#x27;s folder then holds a folder per region. A write still fills one day, and the regions inside it from its rows&#x27; values.</li><li><code>bucketed_by</code> with <code>buckets</code> spreads each day&#x27;s rows into that many files by the values of those columns, and <code>sorted_by</code> sorts the rows in each, so a join on them can pair file with file. Leave them out unless the table is big and joined on those columns: changing them means writing the table again.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
@@ -1494,8 +1494,8 @@ TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;,
   &#x27;parquet.compression&#x27;=&#x27;SNAPPY&#x27;
 )</pre>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>create_table</code>, <code>Table</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
@@ -2013,7 +2013,7 @@ WHERE
 GROUP BY
   job_runs.dt,
   job_runs.job_id</pre>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
@@ -2037,7 +2037,7 @@ SELECT DISTINCT
 FROM ops.run_alerts AS run_alerts
 WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27; AND run_alerts.severity = &#x27;high&#x27;</pre>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>INSERT_INTO</code>, <code>Table</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code>, <code>example_database</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
@@ -2794,7 +2794,7 @@ WHERE
 <tr><td>103</td><td>30</td><td>30</td><td>60</td></tr>
 <tr><td>104</td><td>40</td><td>50</td><td>100</td></tr>
 </table></div>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>window</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>lag</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="row_number">
@@ -3193,7 +3193,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <pre class="python">print(to_hive(repair_partitions(daily_runs)))</pre>
 <p class="label">Hive</p>
 <pre class="output">MSCK REPAIR TABLE mart.daily_runs</pre>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>repair_partitions</code>, <code>Table</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="compute_statistics">
@@ -3216,9 +3216,9 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
     columns=[daily_runs.job_id])))</pre>
 <p class="label">Hive</p>
 <pre class="output">ANALYZE TABLE mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;) COMPUTE STATISTICS FOR COLUMNS job_id</pre>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>compute_statistics</code>, <code>Table</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="explain">
@@ -3227,7 +3227,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <p>run(explain(s), send=...) gives back Hive&#x27;s plan as text, which prints line by line. It is the plan of exactly the Hive run(s, send=...) would send, with the LIMIT run adds when set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows the write without making it; and it is safe to send again.</p>
 <p>Read the plan to see why a Statement is slow, before and after you change it. It is a tree of steps, each reading what the steps under it give:</p>
 <ul><li>TableScan reads a table, with the filters it reads it with, so you can see a condition keep the read to the days it names;</li><li>a Map Join copies a small table to every worker, as the Session setting &quot;map_joins&quot; lets Hive choose, where a Merge Join sorts both sides first;</li><li>each step&#x27;s line headed &quot;Statistics:&quot; says how many rows Hive expects, or &quot;Basic stats: NONE&quot; where it has nothing to go by and compute_statistics would help.</li></ul>
-<p>Where your Example database runs on Spark, it gives Spark&#x27;s own plan, headed == Physical Plan ==; where it runs on its own small executor, it says it has none to give.</p>
+<p>On the Example database, explain gives the plan of a query only, never of a write, which it refuses as it refuses the write itself. Where it runs on Spark, it gives Spark&#x27;s own plan, headed == Physical Plan ==; where it runs on its own small executor, it says it has none to give.</p>
 <pre class="python">print(to_hive(explain(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
@@ -3338,7 +3338,7 @@ ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt &lt; &#x27;2025-01-01&#
 <section class="entry" id="admin.drop_table">
 <h3><code>admin.drop_table</code></h3>
 <p class="why">Drop one of your Saved tables: the DROP TABLE IF EXISTS Statement.</p>
-<p>The warehouse forgets the table, and every Statement that reads it fails until it is created again. Whether its files go too is up to the table itself: they go, every day of it, when the table has external.table.purge true, which purge=True in its Table reference asks for. create_table writes it into the table it makes; for a table made before you gave its Table reference purge=True, send admin.set_properties(t) first. Otherwise the warehouse only forgets the table: its files stay in its folder, and a table created there again reads them back. It refuses a table that isn&#x27;t one of your Saved tables, a Table reference with no location=, such as job_runs, which others fill.</p>
+<p>The warehouse forgets the table, and every Statement that reads it fails until it is created again. Whether its files go too is up to the table itself: they go, every day of it, when the table has external.table.purge true, which purge=True in its Table reference asks for. create_table writes it into the table it makes; for a table made before you gave its Table reference purge=True, send admin.set_properties(t) first. Otherwise the warehouse only forgets the table: its files stay in its folder, and a table created there again gets their days back once repair_partitions(t) lists them, or adds to a day&#x27;s old rows with INSERT_INTO; one with no Date partition reads them back at once. It refuses a table that isn&#x27;t one of your Saved tables, a Table reference with no location=, such as job_runs, which others fill.</p>
 <p>The usual reason is a change to a Saved table&#x27;s columns that admin.add_columns can&#x27;t make, such as removing or renaming one: drop the table, create it again, and write its days again, with purge=True set in the table first, or the old days come back. IF EXISTS means that sending it for a table that isn&#x27;t there does nothing, rather than failing.</p>
 <pre class="python">from spark_composer import admin</pre>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
@@ -3394,7 +3394,7 @@ WHERE
 <p>show_hive(moves) prints every step, and at work each is sent in turn:</p>
 <pre class="python">for step in moves:
     run(step, send=send)</pre>
-<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
 <p class="names">Toolbox names used: <code>Table</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="admin.set_properties">
