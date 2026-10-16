@@ -20,7 +20,7 @@ import urllib.parse
 
 from .clauses import Statement
 from .edition import hive_text
-from .refusals import four_part_message, refuse, refuse_what_isnt_a_dataframe
+from .refusals import refuse, refuse_what_isnt_a_dataframe
 from .tables import (
     FILE_FORMATS,
     PURGE,
@@ -72,6 +72,12 @@ def _value(text: str) -> str:
 def _listed(lines: list[str]) -> str:
     """Pieces in brackets, one to a line, as create_table writes its columns."""
     return "(\n" + ",\n".join(f"  {line}" for line in lines) + "\n)"
+
+
+def _set_tblproperties(t: Table, pairs: list[tuple[str, str]]) -> str:
+    """ALTER TABLE ... SET TBLPROPERTIES, each property a name and a value."""
+    return (f"ALTER TABLE {_name(t)} SET TBLPROPERTIES "
+            + _listed([f"{_value(name)}={_value(value)}" for name, value in pairs]))
 
 
 def _purge_note(t: Table, whose: str) -> str:
@@ -355,8 +361,7 @@ def set_properties(t):
             "purge=True, then call it again.",
             error=ValueError,
         )
-    hive = (f"ALTER TABLE {_name(t)} SET TBLPROPERTIES "
-            + _listed([f"{_value(name)}={_value(value)}" for name, value in pairs]))
+    hive = _set_tblproperties(t, pairs)
     count = f"{len(pairs)} table propert{'y' if len(pairs) == 1 else 'ies'}"
     about = [f"{call} sets {count} of {t._name}, as its Table reference says. Its other "
              "properties, and its rows, stay as they are."]
@@ -378,7 +383,7 @@ def set_properties(t):
 # --- Moving a table to its own folder ---------------------------------------------------------
 
 # What the copy is called while the move runs: the table's name with this added.
-MOVING = "_moving"
+_MOVING = "_moving"
 
 
 def move_to_own_folder(t, send):
@@ -450,13 +455,13 @@ def move_to_own_folder(t, send):
     managed = _check_movable(t, described, call)
     days, no_day = _days(t, send) if t._date_partition is not None else ([None], False)
     copy_of = copy.copy(t)
-    copy_of._name, copy_of._alias = t._name + MOVING, t._alias + MOVING
+    copy_of._name, copy_of._alias = t._name + _MOVING, t._alias + _MOVING
     steps = [_create_step(t, copy_of, call, len(days), managed, no_day)]
     steps += [_copy_step(t, copy_of, day) for day in days]
     steps.append(_count_step(t, copy_of))
     if not managed:
         steps.append(_keep_files_step(t))
-    steps += [_drop_step(t, managed), _rename_step(t, copy_of)]
+    steps += [_drop_step(t, managed, no_day), _rename_step(t, copy_of)]
     for number, step in enumerate(steps):
         step._admin_call = f"{call}[{number}]"
     return steps
@@ -474,6 +479,16 @@ def _check_movable(t: Table, described, call: str) -> bool:
         )
     kind = (described.details.get("table type") or described.details.get("type") or "")
     managed = "MANAGED" in kind.upper()
+    if not managed and t._date_partition is None and _inside(t._location, location):
+        refuse(
+            what=f"{call}: {t._name}'s own folder, {t._location}, is inside the folder it is "
+            f"in now, {location}.",
+            why="A table with no Date partition reads every file under its folder, the folders "
+            "inside it too where the warehouse is set to, so the old table could read the "
+            "copy's files as its own while the move runs.",
+            fix="Give its Table reference a location= outside that folder, and move it there.",
+            error=ValueError,
+        )
     if not managed and _same_folder(location, t._location):
         refuse(
             what=f"{call}: {t._name} is at its own folder already, {location}.",
@@ -494,6 +509,12 @@ def _check_movable(t: Table, described, call: str) -> bool:
             error=ValueError,
         )
     return managed
+
+
+def _inside(folder: str, other: str) -> bool:
+    """Whether `folder` is inside `other`, compared without their storage's name."""
+    path = urllib.parse.urlsplit(folder).path.rstrip("/")
+    return path.startswith(urllib.parse.urlsplit(other).path.rstrip("/") + "/")
 
 
 def _days(t: Table, send) -> tuple[list[str], bool]:
@@ -608,7 +629,7 @@ def _counts_match(t: Table, copy_of: Table):
         refuse_what_isnt_a_dataframe(result)
         if len(result) == 0:
             return result
-        raise ValueError(four_part_message(
+        refuse(
             what=f"The move of {t._name} stopped: its copy, {copy_of._name}, doesn't hold the "
             "same number of rows" + ("" if t._date_partition is None else
                                      f" on {len(result)} day{'' if len(result) == 1 else 's'}")
@@ -620,22 +641,23 @@ def _counts_match(t: Table, copy_of: Table):
             "admin.move_to_own_folder(t, send=...), and send them from the first. A day that "
             "differs: send that day's copy step again (show_hive(moves) names each step's "
             "day), then this one and the rest.",
-            opt_out=None,
-        ))
+            error=ValueError,
+        )
     return check
 
 
 def _keep_files_step(t: Table) -> Statement:
-    hive = (f"ALTER TABLE {_name(t)} SET TBLPROPERTIES "
-            + _listed([f"{_value(PURGE)}={_value('false')}"]))
+    hive = _set_tblproperties(t, [(PURGE, "false")])
     about = [f"Sets {PURGE} to false on {t._name}, so that dropping it next leaves the "
              "files in its folder, which other tables may read."]
     return _admin_statement("", about, table_node(t._name), hive)
 
 
-def _drop_step(t: Table, managed: bool) -> Statement:
+def _drop_step(t: Table, managed: bool, no_day: bool) -> Statement:
     gone = ("its files go too, since it is managed" if managed else
             "its files stay in the folder it shared")
+    if no_day:
+        gone += ", and its rows with no day, which weren't copied, go with it"
     about = [f"Drops the old {t._name}: {gone}. Can't be undone, so send it only after the "
              "step before it, the comparison, gave back no rows."]
     return _admin_statement("", about, Node("Drop", target=table_node(t._name)))

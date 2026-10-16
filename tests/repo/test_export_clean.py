@@ -115,8 +115,8 @@ def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path
             "feature lands.\n") in constants
     assert text.index("### `tables.py`") < text.index("### `clauses.py`")
     admin = text.split("### `admin.py`\n", 1)[1].split("###", 1)[0]
-    assert ("- `admin.drop_table` - The DROP TABLE IF EXISTS Statement for one of your Saved "
-            "tables.\n") in admin
+    assert ("- `admin.drop_table` - Drop one of your Saved tables: the DROP TABLE IF EXISTS "
+            "Statement.\n") in admin
     assert [line.split("`")[1] for line in admin.splitlines() if line.startswith("- `")] == [
         f"admin.{name}" for name in sqlglot_composer.admin.__all__]
 

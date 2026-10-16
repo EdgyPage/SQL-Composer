@@ -184,6 +184,13 @@ below; this map is the design document, built out ticket by ticket.
   each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
   built, passed in from the user's settings.py; each Saved table's Table reference writes its
   own `location=`, keeping the Level rule, rather than a `BASE_LOCATION` in settings.py.
+- [04 The admin module](issues/04-the-admin-module.md): `composer_core/admin.py`, imported by
+  each Edition's `__init__.py` as `admin` (not in `__all__`); `tables.need_saved_table(t, what)`
+  is the shared Saved-table check; an Admin statement keeps `_admin_about` (show_hive's `--`
+  notes), `_admin_hive` (an ALTER the core lays out itself, no sqlglot read-back) and
+  `_admin_check` (the move's comparison refuses in `run`); `set_properties(t)` sets what the
+  Table reference says; the move is a list of Statements; Lineage leaves Admin statements out;
+  66 public names; how-to 33. Open for the user: rows with no day aren't moved.
 
 ## Not yet specified
 

@@ -11,10 +11,10 @@ changes to your own Saved tables that the Toolbox writes and checks for you.
 
 ## When you'd use it
 
-When `check_table_reference` says a Saved table isn't at its own folder: a table made by hand
-in a folder it shares, or one `create_table` made before 5.0: a managed table, whose files the
-warehouse keeps where it chooses, where every Saved table is now an external table, whose files
-are in a folder you give. Two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in
+When `check_table_reference` says a Saved table isn't at its own folder. That is a table made
+by hand in a folder it shares, or one `create_table` made before 5.0. Those are managed tables,
+whose files the warehouse keeps where it chooses; a Saved table now keeps its files in a folder
+you give. Two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in
 one can delete the other's files for that day, so move each one out before writing it again.
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) explains the
 folder of its own.

@@ -107,7 +107,9 @@ A real table in the warehouse that a Statement writes into, which other Statemen
 its own Table reference, like any other table. It is what Hive calls an external table: its
 files are in a folder of its own under the folder the user's Saved tables go in, which its
 Table reference names along with how it is stored; the user's own Statements are the only ones
-that write it.
+that write it. Hive's other kind, a managed table, keeps its files where the warehouse chooses:
+create_table made those before 5.0, and admin.move_to_own_folder moves one to a folder of its
+own.
 _Avoid_: materialized view, cache, temp table, output table
 
 **Unchecked statement**:

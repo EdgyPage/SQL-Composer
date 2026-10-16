@@ -618,6 +618,10 @@ def _move_cases() -> dict:
         "admin:move:no_date_partition": lambda: admin.move_to_own_folder(
             _saved(columns={"job_id": "bigint"}, date_partition=None),
             send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None))),
+        "admin:move:no_date_partition_elsewhere": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, date_partition=None),
+            send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None),
+                           location="hdfs://namenode:8020/data/old_tables")),
         "admin:move:at_its_own_folder": lambda: admin.move_to_own_folder(
             daily_runs, send=warehouse(daily_runs, location=f"{BASE}/mart/daily_runs")),
         "admin:move:lacking_a_column": lambda: admin.move_to_own_folder(
