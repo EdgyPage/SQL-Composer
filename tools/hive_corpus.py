@@ -16,7 +16,7 @@ The file pins, for each case under a stable id, what the Toolbox shows through i
 names:
 
 - each Statement's Hive, from `to_hive(...)`, or the refusal it stops with, and for Session
-  settings and an Unchecked statement, what `show_hive(...)` prints too;
+  settings, an Unchecked statement and an Admin statement, what `show_hive(...)` prints too;
 - the repr of each output and condition, of the Statement and of each Derived table it reads;
 - the commands `write_table_reference`, `check_table_reference` and `check_key` send;
 - `export_lineage`'s Markdown report of the case's Statements, without its dated last line,
@@ -196,14 +196,16 @@ def statement_lines(number: int, s) -> list[str]:
     """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's.
 
     Session settings and an Unchecked statement aren't Statements: their Hive, and what
-    show_hive prints for them, with the comment that names or marks them.
+    show_hive prints for them, with the comment that names or marks them. An Admin statement
+    shows what show_hive prints too: what it changes, ahead of its Hive.
     """
     lines = [PART_MARK + f"Statement {number}: to_hive"]
     try:
         lines.append(sqlglot_composer.to_hive(s))
     except Exception as error:  # noqa: BLE001 - what to_hive stops with is part of the output
         lines.append(refused_text(error))
-    if isinstance(s, (SessionSettings, UncheckedStatement)):
+    if isinstance(s, (SessionSettings, UncheckedStatement)) or (
+            isinstance(s, Statement) and s._admin_call is not None):
         with contextlib.redirect_stdout(io.StringIO()) as printed:
             sqlglot_composer.show_hive(s)
         return lines + [PART_MARK + f"Statement {number}: show_hive",

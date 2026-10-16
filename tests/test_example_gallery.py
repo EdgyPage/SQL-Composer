@@ -49,7 +49,7 @@ def toolbox_docstrings() -> list[doctest.DocTest]:
     return [test for module in modules for test in finder.find(module) if test.examples]
 
 
-@pytest.mark.parametrize("name", sqlglot_composer.__all__)
+@pytest.mark.parametrize("name", sqlglot_composer.__all__ + example_gallery.ADMIN)
 def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
     titled = [title for title, _ in gallery_entries().values()
               if re.search(rf"(?<![\w.]){name}(?![\w.])", title)]

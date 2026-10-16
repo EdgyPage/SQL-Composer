@@ -144,7 +144,9 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
         defined |= names_of(tree)[0]
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module in editions.EDITIONS:
-                assert {alias.name for alias in node.names} - {"*"} <= PUBLIC, ast.unparse(node)
+                # The admin module is imported by name: the star import leaves it out.
+                assert {alias.name for alias in node.names} - {"*"} <= PUBLIC | {"admin"}, (
+                    ast.unparse(node))
             if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
                     and node.value.id == "example_database"):
                 assert hasattr(sqlglot_composer.example_database, node.attr), ast.unparse(node)
@@ -597,7 +599,7 @@ def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> No
 
 @pytest.mark.parametrize(("name", "group", "says"), [
     ("19_try_it.py", "Getting started", "the Getting started how-tos are 1 to 18"),
-    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 32"),
+    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 33"),
     ("02_try_it.py", "Advanced", "says `For: Advanced`"),
 ])
 def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path, name: str,

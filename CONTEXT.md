@@ -120,8 +120,10 @@ _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
 A Statement from the Toolbox's admin module that changes a Saved table's definition or deletes its
-data, such as dropping a table or its old days, adding columns or setting its properties. It runs
-like any Statement, and shows what it will change and what can't be undone before its Hive.
+data, such as dropping a table or its old days, adding columns, setting its properties or moving
+it to a folder of its own. It runs like any Statement, shows what it will change and what can't
+be undone before its Hive, and is refused for any table that isn't one of the user's Saved
+tables. The admin module is imported by name, apart from the everyday names.
 _Avoid_: one-time action, migration, maintenance
 
 **Admin log**:

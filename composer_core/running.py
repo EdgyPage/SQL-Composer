@@ -8,6 +8,7 @@ CSVs stay in it. The Toolbox never imports it.
 from __future__ import annotations
 
 import inspect
+import textwrap
 
 from . import edition
 from .clauses import (
@@ -266,6 +267,10 @@ def to_hive(s):
         return s._text
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
                     why="to_hive writes the Hive of one Statement made by statement(...).")
+    if s._admin_hive is not None:
+        # An ALTER TABLE, which the admin module writes from pieces the Edition wrote and
+        # checked: not a tree the Edition reads back.
+        return s._admin_hive
     if s._ddl is None:
         _check_dates_cap(s)
     text = edition.hive_statement(_statement_tree(s))
@@ -320,6 +325,19 @@ def settings_needed(s: Statement) -> list[str]:
             "rows."] + [f"SET {name}={value};" for name, value in SHIPPED["dynamic_partitions"].items()]
 
 
+def admin_notes(s: Statement) -> list[str]:
+    """The comment lines show_hive prints ahead of an Admin statement: what it changes, what
+    can't be undone, and what to check first, each item wrapped on lines starting --."""
+    lines = []
+    for item in s._admin_about:
+        lines += ["-- " + line for line in textwrap.wrap(item, width=_NOTE_WIDTH)]
+    return lines
+
+
+# How wide an Admin statement's notes are, after the -- that starts each line.
+_NOTE_WIDTH = 90
+
+
 class HiveText(str):
     """The Hive show_hive printed, kept as text. In a notebook it isn't shown a second time."""
 
@@ -338,7 +356,8 @@ def show_hive(*statements):
     A write that fills Partitions from its rows, into a table with partitioned_by=, is printed
     after the Session setting it needs: a line saying so, then its SET lines, which run
     doesn't send with it: send them first with run(hive_settings("dynamic_partitions"),
-    send=...).
+    send=...). An Admin statement, from the admin module, is printed after comment lines
+    saying what it changes, what can't be undone, and what to check first.
 
     It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
     notebook, show_hive(...) on its own shows the Hive once.
@@ -407,7 +426,7 @@ def show_hive(*statements):
             _need_statement(s, "show_hive", frame,
                             why="show_hive prints the Hive of Statements made by "
                             "statement(...).")
-            hive = "\n".join([*settings_needed(s), to_hive(s) + ";"])
+            hive = "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
             hive = f"{heading}\n{hive}"
@@ -454,7 +473,9 @@ def run(s, send):
                     "sends it.", more=", send=...")
     text = to_hive(s)
     if s._admin_call is not None:
-        return logged_run("Admin statement", s._admin_call, text, send)
+        check = s._admin_check
+        sent = send if check is None else (lambda hive: check(send(hive)))
+        return logged_run("Admin statement", s._admin_call, text, sent)
     result = send(text)
     # A write has already been carried out when its send returns, so only a read's rows matter.
     if s._ddl is None and s._write is None:

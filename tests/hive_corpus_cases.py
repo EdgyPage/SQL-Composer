@@ -13,7 +13,10 @@ Every case builds only through the Toolbox's public names, as a user would.
 
 from __future__ import annotations
 
+import datetime
 import random
+
+import pandas as pd
 
 from sqlglot_composer import (
     AS,
@@ -44,7 +47,6 @@ from sqlglot_composer import (
     create_table,
     derived,
     descending,
-    drop_table,
     equals,
     fill_null,
     hive_function,
@@ -69,6 +71,7 @@ from sqlglot_composer import (
     week_start,
 )
 from composer_core.example_database import job_runs, jobs, run_alerts
+from sqlglot_composer import admin
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
@@ -410,8 +413,6 @@ def _structure_cases() -> dict:
         INSERT_OVERWRITE(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs), WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
         GROUP_BY(job_runs.job_id))]
-    for name, t in EDGE_TABLES.items():
-        found[f"drop_table:{name}"] = lambda t=t: [drop_table(t)]
     for kind in TYPES:
         found[f"create_table:{kind}"] = lambda kind=kind: [create_table(Table(
             "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt",
@@ -426,7 +427,7 @@ def _structure_cases() -> dict:
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
     found["create_table:key_with_the_day"] = lambda: [create_table(runs_per_job_day)]
     found.update(_storage_cases())
-    return {**found, **_key_cases()}
+    return {**found, **_key_cases(), **_admin_cases()}
 
 
 runs_per_job_day = Table(
@@ -517,6 +518,111 @@ def _storage_cases() -> dict:
         INSERT_OVERWRITE(region_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs), WHERE(one_day()), GROUP_BY(job_runs.job_id))]
     return found
+
+
+def warehouse(t, location=None, kind="EXTERNAL_TABLE", lacking=(), days=(DAY,)):
+    """A stand-in for send at work: the warehouse's DESCRIBE, DESCRIBE FORMATTED and SHOW
+    PARTITIONS for a Saved table, without the columns `lacking`, at `location` (by default a
+    folder it shares with others, BASE itself), holding `days`."""
+    partitions = [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
+
+    def send(hive: str) -> pd.DataFrame:
+        if hive.startswith("SHOW PARTITIONS"):
+            listed = [f"{t._date_partition}={day}" for day in days]
+            return pd.DataFrame({"partition": listed})
+        rows = [(name, kind_, "") for name, kind_ in t._columns.items()
+                if name not in lacking and name not in partitions]
+        if partitions:
+            rows += [("", None, None), ("# Partition Information", None, None),
+                     ("# col_name", "data_type", "comment"),
+                     *[(name, t._columns[name], "") for name in partitions if name not in lacking]]
+        if hive.startswith("DESCRIBE FORMATTED"):
+            rows += [("", None, None), ("# Detailed Table Information", None, None),
+                     ("Location:", location or f"hdfs://namenode:8020{BASE}", None),
+                     ("Table Type:", kind, None)]
+        return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
+    return send
+
+
+def _saved(name="mart.admin_runs", columns=None, date_partition="dt", **storage):
+    """A Saved table of the user's for the admin module's cases."""
+    columns = columns or {"job_id": "bigint", "runs": "bigint", "dt": "string"}
+    return Table(name, columns=columns, date_partition=date_partition, location=BASE, **storage)
+
+
+def _admin_cases() -> dict:
+    """The admin module's Statements: each function, its options, and its refusals."""
+    found = {f"admin:drop_table:{name}": (lambda t=t: [admin.drop_table(t)])
+             for name, t in EDGE_TABLES.items()}
+    found["admin:drop_table:purge"] = lambda: [admin.drop_table(_saved(purge=True))]
+    found["admin:drop_table:not_saved"] = lambda: [admin.drop_table(job_runs)]
+    for purge in (True, False, None):
+        found[f"admin:drop_days:purge_{purge}"] = lambda purge=purge: [
+            admin.drop_days(_saved(purge=purge), before="2025-01-01")]
+    found["admin:drop_days:compact"] = lambda: [admin.drop_days(compact, before="20250101")]
+    found["admin:drop_days:a_date"] = lambda: [admin.drop_days(
+        compact, before=datetime.date(2025, 1, 1))]
+    found["admin:drop_days:written_another_way"] = lambda: [admin.drop_days(
+        compact, before="2025-01-01")]
+    found["admin:drop_days:region_runs"] = lambda: [admin.drop_days(region_runs,
+                                                                    before=FIRST_DAY)]
+    found["admin:drop_days:no_date_partition"] = lambda: [admin.drop_days(
+        _saved(columns={"job_id": "bigint"}, date_partition=None), before="2025-01-01")]
+    found["admin:drop_days:not_a_day"] = lambda: [admin.drop_days(_saved(), before="2025/01/01")]
+    found["admin:drop_days:not_saved"] = lambda: [admin.drop_days(job_runs, before=DAY)]
+    found.update(_add_columns_cases())
+    found["admin:set_properties:all"] = lambda: [admin.set_properties(_saved(
+        purge=False, compression="SNAPPY", properties={"made_by": "it's daily"}))]
+    found["admin:set_properties:purge"] = lambda: [admin.set_properties(_saved(purge=True))]
+    found["admin:set_properties:none"] = lambda: [admin.set_properties(_saved())]
+    found.update(_move_cases())
+    return found
+
+
+def _add_columns_cases() -> dict:
+    wider = {"job_id": "bigint", "runs": "bigint", "fails": "bigint", "note": "string",
+             "dt": "string"}
+    return {
+        "admin:add_columns:one": lambda: [admin.add_columns(
+            _saved(columns=wider), send=warehouse(_saved(columns=wider), lacking=("note",)))],
+        "admin:add_columns:two": lambda: [admin.add_columns(
+            _saved(columns=wider), send=warehouse(_saved(columns=wider),
+                                                  lacking=("fails", "note")))],
+        "admin:add_columns:no_date_partition": lambda: [admin.add_columns(
+            _saved(columns={"job_id": "bigint", "two words": "string"}, date_partition=None),
+            send=warehouse(_saved(columns={"job_id": "bigint", "two words": "string"},
+                                  date_partition=None), lacking=("two words",)))],
+        "admin:add_columns:none_new": lambda: [admin.add_columns(
+            _saved(), send=warehouse(_saved()))],
+        "admin:add_columns:before_the_tables_own": lambda: [admin.add_columns(
+            _saved(columns=wider), send=warehouse(_saved(columns=wider), lacking=("fails",)))],
+        "admin:add_columns:untyped": lambda: [admin.add_columns(
+            _saved(columns={"job_id": "bigint", "fails": None, "dt": "string"}),
+            send=warehouse(_saved(), lacking=("fails",)))],
+        "admin:add_columns:a_partition": lambda: [admin.add_columns(
+            region_runs, send=warehouse(region_runs, lacking=("region",)))],
+    }
+
+
+def _move_cases() -> dict:
+    return {
+        "admin:move:two_days": lambda: admin.move_to_own_folder(
+            daily_runs, send=warehouse(daily_runs, days=(FIRST_DAY, DAY))),
+        "admin:move:region_runs": lambda: admin.move_to_own_folder(
+            region_runs, send=warehouse(region_runs)),
+        "admin:move:compact": lambda: admin.move_to_own_folder(compact, send=warehouse(
+            compact, days=("20260924",))),
+        "admin:move:managed": lambda: admin.move_to_own_folder(daily_runs, send=warehouse(
+            daily_runs, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs",
+            kind="MANAGED_TABLE")),
+        "admin:move:no_date_partition": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, date_partition=None),
+            send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None))),
+        "admin:move:at_its_own_folder": lambda: admin.move_to_own_folder(
+            daily_runs, send=warehouse(daily_runs, location=f"{BASE}/mart/daily_runs")),
+        "admin:move:lacking_a_column": lambda: admin.move_to_own_folder(
+            daily_runs, send=warehouse(daily_runs, lacking=("runs",))),
+    }
 
 
 # Hive written by hand: a write into daily_runs, which a Statement then reads.

@@ -349,7 +349,7 @@ def _what_it_does(text: str) -> str:
 _ALTERED_BY = (
     (r"\bDROP\s+(IF\s+EXISTS\s+)?PARTITION\b", "admin.drop_days(t, before=...)"),
     (r"\bADD\s+COLUMNS\b", "admin.add_columns(t, send=...)"),
-    (r"\bSET\s+TBLPROPERTIES\b", "admin.set_properties(t, ...)"),
+    (r"\bSET\s+TBLPROPERTIES\b", "admin.set_properties(t)"),
     (r"\bSET\s+LOCATION\b", "admin.move_to_own_folder(t, send=...)"),
 )
 
