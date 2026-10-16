@@ -1013,7 +1013,8 @@ def _check_statements(statements) -> tuple[list, list]:
             settings.append(s)
             continue
         if isinstance(s, Statement) and s._admin_call is not None:
-            admin.append(s)  # an Admin statement moves no data between columns: left out
+            # An Admin statement changes a table, or copies its rows whole: left out.
+            admin.append(s)
             continue
         if not isinstance(s, (Statement, UncheckedStatement)) or (
                 isinstance(s, Statement) and s._ddl is not None):
@@ -1032,8 +1033,9 @@ def _check_statements(statements) -> tuple[list, list]:
             what="export_lineage was given only Admin statements, and no Statement that reads "
             "a table.",
             why="It draws where each column of a Statement comes from, and an Admin statement, "
-            "from the admin module, changes a table without moving data between columns, so "
-            "it is left out.",
+            "from the admin module, changes a table's definition or its days, or, in the "
+            "move, copies a table's rows whole into a copy of it, column for column, so it "
+            "is left out: it makes no column from another.",
             fix="Pass the Statements that read and write your tables, such as a pipeline's "
             "steps; the Admin log keeps each Admin statement run.",
             error=ValueError,

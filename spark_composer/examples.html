@@ -644,7 +644,8 @@ WHERE
     admin.drop_table deletes every day of the table, since its Table reference had purge=True
     when create_table made it, so write them all again with backfill(). A column only added
     after the others can instead be added in place with admin.add_columns, without dropping
-    anything.
+    anything; on a table with a Date partition it writes CASCADE, which Spark refuses, so if
+    Spark rather than Hive runs your tables, ask whoever looks after them first.
     IF EXISTS means the drop does nothing, rather than failing, if the table isn&#x27;t there.
     &quot;&quot;&quot;
     return [admin.drop_table(runs_to_review), create_table(runs_to_review)]</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">DROP TABLE IF EXISTS mart.runs_to_review</pre><p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
@@ -2597,7 +2598,7 @@ WHERE
 <section class="entry" id="to_hive">
 <h3><code>to_hive</code></h3>
 <p class="why">The Hive string for a Statement, ready to send.</p>
-<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. The Hive may write a function differently from how you would by hand, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.</p>
+<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. An Admin statement, from the admin module, is checked by the function that made it instead: no Load limit applies to it, so the move&#x27;s comparison reads every day, and an ALTER TABLE it writes isn&#x27;t read back. The Hive may write a function differently from how you would by hand, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
