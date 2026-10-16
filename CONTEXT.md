@@ -151,6 +151,17 @@ The one date column a table is partitioned by, which every Statement reading the
 at both ends.
 _Avoid_: dt, partition key, date column
 
+**Statistics**:
+What the warehouse has counted about a table's days and their columns - how many rows and
+bytes, how many different values - which it picks how to join the table from. They change no
+row, and can be counted again at any time.
+_Avoid_: stats, metadata, metrics
+
+**Plan**:
+How the warehouse will run a Statement - which tables it reads, with which filters, and how it
+joins them - shown without running it.
+_Avoid_: query plan, execution plan, explain output
+
 **Session setting**:
 A Hive `SET` the user sends before a Statement, which holds for the rest of the session. A named
 set of them can be kept and sent again in one step.

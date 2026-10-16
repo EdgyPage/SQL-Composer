@@ -185,8 +185,8 @@ def explain(s):
     you change it: whether the Session setting "map_joins" turned a join into a Map Join, or
     a condition kept the read to the days it names. It only reads, so it takes any Statement,
     a write too, whose plan shows the write without making it, and it is safe to send again.
-    Spark Composer's Example database gives Spark's own plan, headed == Physical Plan ==;
-    sqlglot Composer's can't give one.
+    The Example database gives a plan only where it runs on Spark: Spark's own, headed
+    == Physical Plan ==.
 
     >>> print(to_hive(explain(statement(
     ...     SELECT(job_runs.run_id),
@@ -202,6 +202,11 @@ def explain(s):
     _need_explainable(s, inspect.currentframe().f_back)
     _check_dates_cap(s)
     return _upkeep(Node("Explain", this=_statement_tree(s)))
+
+
+# The function that makes each Statement explain has no plan for, by its kind.
+_MADE_BY = {"Create": "create_table", "Drop": "drop_table", "Repair": "repair_partitions",
+            "Analyze": "compute_statistics", "Explain": "explain"}
 
 
 def _need_explainable(s, frame) -> None:
@@ -224,8 +229,10 @@ def _need_explainable(s, frame) -> None:
     _need_statement(s, "explain", frame,
                     why="explain shows Hive's plan for one Statement made by statement(...).")
     if s._ddl is not None:
+        made_by = _MADE_BY.get(s._ddl.kind)
+        given = f"the Statement {made_by}(...) makes" if made_by else "an Admin statement"
         refuse(
-            what=f"explain was given {s!r}, which isn't a query or a write.",
+            what=f"explain was given {given}, which isn't a query or a write.",
             why="Hive plans how a Statement reads and writes rows; a Statement that creates, "
             "drops, repairs or counts a table, or explains another, has no such plan.",
             fix="Pass a Statement made by statement(...).",

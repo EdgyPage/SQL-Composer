@@ -3,9 +3,9 @@
 `tools/hive_corpus.py` writes what the Toolbox shows for each of these, beside every docstring
 example and Worked example. They reach the corners the examples don't: where a pretty line
 wraps, brackets, Derived tables three deep, writes with and without them, every column type
-create_table may meet, awkward names, compact Date partitions, and about 200 Statements built
-at random from the public names; and, apart from those, Session settings and Unchecked
-statements beside Statements. Each case is a function returning the Statements it builds;
+create_table may meet, awkward names, compact Date partitions, the upkeep Statements, and
+about 200 Statements built at random from the public names; and, apart from those, Session
+settings and Unchecked statements beside Statements. Each case is a function returning the Statements it builds;
 a case that a Guard or Load limit refuses is written as its refusal.
 
 Every case builds only through the Toolbox's public names, as a user would.
@@ -40,12 +40,14 @@ from sqlglot_composer import (
     by_day,
     contains,
     count_distinct,
+    compute_statistics,
     count_rows,
     create_table,
     derived,
     descending,
     drop_table,
     equals,
+    explain,
     fill_null,
     hive_function,
     hive_settings,
@@ -61,6 +63,7 @@ from sqlglot_composer import (
     month_start,
     more_than,
     not_equals,
+    repair_partitions,
     row_number,
     starts_with,
     statement,
@@ -519,6 +522,38 @@ def _storage_cases() -> dict:
     return found
 
 
+def _upkeep_cases() -> dict:
+    """repair_partitions, compute_statistics and explain: each on the Saved tables above, a
+    day written another way, awkward names, and what each refuses."""
+    found = {f"upkeep:repair_partitions:{name}": (lambda t=t: [repair_partitions(t)])
+             for name, t in EDGE_TABLES.items()}
+    found.update({
+        "upkeep:repair_partitions:not_a_saved_table": lambda: [repair_partitions(job_runs)],
+        "upkeep:compute_statistics:a_day": lambda: [compute_statistics(daily_runs, DAY)],
+        "upkeep:compute_statistics:every_region_of_a_day": lambda: [
+            compute_statistics(region_runs, DAY, columns=True)],
+        "upkeep:compute_statistics:some_columns": lambda: [
+            compute_statistics(daily_runs, DAY, columns=["runs"])],
+        "upkeep:compute_statistics:compact_day": lambda: [
+            compute_statistics(compact, "20260924", columns=True)],
+        "upkeep:compute_statistics:odd_names": lambda: [
+            compute_statistics(odd, DAY, columns=True)],
+        "upkeep:compute_statistics:spark_words": lambda: [
+            compute_statistics(spark_words, DAY, columns=True)],
+        "upkeep:compute_statistics:no_date_partition": lambda: [compute_statistics(Table(
+            "mart.job_names", columns={"job_id": "bigint", "job_name": "string"},
+            date_partition=None, location=BASE), columns=True)],
+        "upkeep:compute_statistics:no_day": lambda: [compute_statistics(daily_runs)],
+        "upkeep:compute_statistics:not_a_saved_table": lambda: [
+            compute_statistics(job_runs, DAY)],
+        "upkeep:explain:a_read": lambda: [explain(_rows(job_runs.run_id, job_runs.status))],
+        "upkeep:explain:a_write": lambda: [explain(_write(INSERT_OVERWRITE, 1)[-1])],
+        "upkeep:explain:derived_tables": lambda: [explain(_reading_steps(2)[-1])],
+        "upkeep:explain:a_create_table": lambda: [explain(create_table(daily_runs))],
+    })
+    return found
+
+
 # Hive written by hand: a write into daily_runs, which a Statement then reads.
 BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')\n"
            "SELECT job_id, COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24' "
@@ -558,7 +593,7 @@ def _by_hand_cases() -> dict:
 def edge_cases() -> list:
     """Every edge case, as (id, function returning its Statements), in a fixed order."""
     named = {**_calculation_cases(), **_hive_function_cases(), **_read_cases(),
-             **_structure_cases()}
+             **_structure_cases(), **_upkeep_cases()}
     return _width_cases() + [(f"edge:{name}", build) for name, build in named.items()]
 
 

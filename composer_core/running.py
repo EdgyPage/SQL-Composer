@@ -447,7 +447,8 @@ def run(s, send):
     lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
     instead. A write into a table with partitioned_by= needs the Session setting
     "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"), send=...),
-    as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone.
+    as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For
+    explain(s), run gives back Hive's plan as text, rather than a DataFrame.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),

@@ -62,6 +62,19 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
   holds.
+- **Upkeep and speed, each safe to send again**: `repair_partitions(t)` writes
+  `MSCK REPAIR TABLE`, which finds the day folders a Saved table's folder holds but the
+  warehouse doesn't list, as after creating a table again where its old files stayed;
+  `compute_statistics(t, day)` writes `ANALYZE TABLE ... PARTITION(...) COMPUTE STATISTICS`,
+  which counts a day's rows for Hive's planner, and with `columns=True` its columns'
+  statistics too (`FOR COLUMNS ...`); `explain(s)` writes `EXPLAIN` before a Statement's Hive,
+  and `run` gives back Hive's plan for it as text. The first two take only your own Saved
+  tables, Table references with `location=`. The how-to "Keep reads and joins fast" puts them
+  beside Partitions, file sizes, Buckets and the Session settings `"map_joins"`,
+  `"statistics_on_write"` and `"merge_small_files"`. `create_table(t, may_exist=True)` is the
+  fourth: help(create_table) now says it is safe to send again.
+- Spark Composer's Example database answers an `EXPLAIN` of a query with Spark's plan;
+  sqlglot Composer's says its small executor has none to give.
 
 ### Refused now
 
