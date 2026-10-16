@@ -12866,7 +12866,7 @@ WHERE
 LoadRefused:
   What happened:  FULL_JOIN(scheduler_runs, ON=...) reads ops.scheduler_runs, but nothing bounds its Date partition dt at both ends.
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
-  Usual fix:      Read scheduler_runs through a derived(...) table that bounds its days in its own WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of its table, so a bound in ON= reads every day all the same, and one in WHERE throws away the rows it keeps.
+  Usual fix:      Read scheduler_runs through a derived(...) table that bounds its days in its own WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of both sides, so a bound in ON= reads every day all the same, and one in WHERE throws away the rows it keeps.
   Opt-out:        FULL_JOIN(scheduler_runs, ON=..., reads_all_partitions=True)
 
 == edge:joins:semi_column_read

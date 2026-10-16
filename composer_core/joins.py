@@ -76,6 +76,20 @@ def tested_column(table, on) -> str | None:
     return fallback
 
 
+def refuse_only_tests_with_no_on(call: str, alias: str) -> None:
+    """A SEMI_JOIN or ANTI_JOIN needs ON=: it never multiplies rows, so CROSS_JOIN isn't the
+    way out the other joins' refusal offers."""
+    kept = ("every row would be kept" if call == "SEMI_JOIN"
+            else "no row would be kept")
+    refuse(
+        what=f"{call}({alias}) has no ON=.",
+        why=f"ON= says which {alias} rows count as a match: without it, any {alias} row "
+        f"matches every row, so {kept} as long as {alias} has any rows at all.",
+        fix=f"Say how the rows match, as in {call}({alias}, ON=equals(...)).",
+        error=ValueError,
+    )
+
+
 def refuse_anti_join_with_nothing_matched(table) -> None:
     alias = table._alias
     refuse(
