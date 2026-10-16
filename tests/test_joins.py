@@ -273,6 +273,17 @@ def test_a_semi_or_anti_joined_table_s_columns_are_read_only_in_its_on(join, pla
     assert instead in message
 
 
+@pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
+def test_a_semi_or_anti_join_with_no_on_is_refused_in_its_own_words(join) -> None:
+    """Not the CROSS_JOIN refusal: a semi or anti join never multiplies rows."""
+    with pytest.raises(ValueError) as refused:
+        join(run_alerts)
+    message = str(refused.value)
+    assert f"{join.__name__}(run_alerts) has no ON=." in message
+    assert "which run_alerts rows count as a match" in message
+    assert "CROSS_JOIN" not in message and "multiplies" not in message
+
+
 def test_anti_join_needs_an_equals_on_the_joined_table() -> None:
     with pytest.raises(ValueError, match=r"ANTI_JOIN\(run_alerts, ON=\.\.\.\) has no equals"):
         ANTI_JOIN(run_alerts, ON=both_days(run_alerts))
@@ -341,7 +352,9 @@ def test_a_full_join_of_a_table_with_a_date_partition_says_to_bound_it_in_a_deri
         statement(SELECT(rec.run_id), FROM(rec),
                   FULL_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.run_id, rec.run_id),
                                                       both_days(scheduler_runs))))
-    assert "through a derived(...) table that bounds its days" in str(refused.value)
+    message = str(refused.value)
+    assert "through a derived(...) table that bounds its days" in message
+    assert "and FULL_JOIN that" in message
 
 
 def test_a_full_join_from_a_table_with_a_date_partition_and_no_bound_says_the_same() -> None:
@@ -350,7 +363,10 @@ def test_a_full_join_from_a_table_with_a_date_partition_and_no_bound_says_the_sa
     with pytest.raises(LoadRefused) as refused:
         statement(SELECT(job_runs.run_id), FROM(job_runs),
                   FULL_JOIN(sta, ON=equals(sta.run_id, job_runs.run_id)))
-    assert "Read job_runs through a derived(...) table" in str(refused.value)
+    message = str(refused.value)
+    assert "Read job_runs through a derived(...) table" in message
+    assert "and read that in FROM(...) in its place" in message
+    assert "FULL_JOIN that" not in message
 
 
 def test_anti_join_tests_a_column_matched_to_a_calculation_of_another_table() -> None:

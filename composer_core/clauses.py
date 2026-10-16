@@ -20,6 +20,7 @@ from .joins import (
     full_joined,
     need_broadcast_true_or_false,
     refuse_anti_join_with_nothing_matched,
+    refuse_only_tests_with_no_on,
     refuse_right_join,
     tested_column,
 )
@@ -309,6 +310,8 @@ def FROM(table, reads_all_partitions=False):
 
 
 def _need_on(on, call: str, table: Table):
+    if on is None and call in ONLY_TESTS:
+        refuse_only_tests_with_no_on(call, table._alias)
     if on is None:
         guard_cross_join(call, table._alias)
     if not isinstance(on, Condition):
