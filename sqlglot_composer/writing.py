@@ -20,7 +20,7 @@ from composer_core.trees import Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 _DIALECT = "hive"
 

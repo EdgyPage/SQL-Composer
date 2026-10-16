@@ -56,6 +56,15 @@ def test_each_shipped_set_is_documented_with_why(name: str) -> None:
         assert line.removeprefix("SET ").split("=")[0] in doc
 
 
+def test_map_joins_lets_hive_heed_broadcast_trues_hint() -> None:
+    # JOIN(..., broadcast=True) writes a MAPJOIN hint, which Hive ignores while
+    # hive.ignore.mapjoin.hint is true, its default: "map_joins" switches it off.
+    assert to_hive(hive_settings("map_joins")) == (
+        "SET hive.auto.convert.join=true\n"
+        "SET hive.auto.convert.join.noconditionaltask=true\n"
+        "SET hive.ignore.mapjoin.hint=false")
+
+
 def test_several_sets_give_their_lines_in_the_order_named() -> None:
     lines = to_hive(hive_settings("map_joins", "dynamic_partitions")).splitlines()
     assert lines[0].startswith("SET hive.auto.convert.join")
@@ -180,7 +189,8 @@ def test_lineage_footers_name_the_settings_passed_with_the_statements(tmp_path) 
         assert ("Session settings sent before these Statements, one line at a time (map_joins "
                 "and statistics_on_write): SET hive.auto.convert.join=true | "
                 "SET hive.auto.convert.join.noconditionaltask=true | "
-                "SET hive.stats.autogather=true | SET hive.stats.column.autogather=true.") in text
+                "SET hive.ignore.mapjoin.hint=false | SET hive.stats.autogather=true | "
+                "SET hive.stats.column.autogather=true.") in text
     # Drawn nowhere else: only the footer holds them.
     assert markdown_file.read_text(encoding="utf-8").count("SET hive.auto.convert.join=") == 1
 

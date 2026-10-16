@@ -399,6 +399,49 @@ WHERE
 Then write every day again, oldest first, as
 [Backfill a range of days](#backfill_a_range_of_days) shows: the drop deleted them all.
 
+### A table with no days, written whole
+
+Some results have no days: each team's runs over the last two days, say, which the next write
+replaces. Give such a Saved table `date_partition=None`. `create_table` then makes it with no
+PARTITIONED BY, and a write fills the whole table: `INSERT_OVERWRITE` replaces every row it
+holds, and its Hive names no PARTITION. Its Key here is the team, which GROUP_BY makes one row
+for:
+
+>>> jobs = example_database.jobs
+>>> team_runs = Table(
+...     "mart.team_runs",
+...     columns={"team": "string", "runs": "bigint"},
+...     date_partition=None,
+...     key=["team"],
+...     location="/data/your_team/tables",
+... )
+>>> text = show_hive(statement(
+...     INSERT_OVERWRITE(team_runs),
+...     SELECT(jobs.team, AS(count_rows(), "runs")),
+...     FROM(job_runs),
+...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+...     GROUP_BY(jobs.team),
+... ))
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  jobs.team;
+
+It reads two days of job_runs and writes their rows into the one table at once, so it is sent
+whole: `by_day` refuses it. Everything else is checked as for a write of one day: its Key, and
+that the days of job_runs are bounded in WHERE. It must be one of your Saved tables, with
+`location=`, since the write replaces all of it. `date_partition=None` has to be written out: a
+Table reference without `date_partition=...` is refused, so a table with days is never read
+whole by mistake.
+
 ## Check it worked
 
 Every write above was built without a refusal, so its SELECT matches the Table reference and
@@ -448,8 +491,8 @@ Leave `job_runs.dt` out of SELECT, and bound it to one day in WHERE.
 
 ### A write that reads more than one day
 
-A write fills one day, so a write whose WHERE reads two days is refused when its Hive is
-written, by `show_hive`, `to_hive` or `run`:
+A write into a table with days fills one day, so a write whose WHERE reads two days is
+refused when its Hive is written, by `show_hive`, `to_hive` or `run`:
 
 >>> two_days = statement(
 ...     INSERT_OVERWRITE(runs_to_review),
