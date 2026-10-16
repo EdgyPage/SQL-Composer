@@ -102,6 +102,14 @@ A Statement given a name so another Statement can read from it, with its output 
 like a Table reference's. It lives only inside the Statement that reads it, and is never stored.
 _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what it is)
 
+**Window**:
+The rows a calculation looks across for each row of a Statement: the rows of that row's group,
+in an order, and sometimes only those near it, such as the six before it. A calculation over a
+Window gives each row a value of its own and keeps every row, as a running total, a rank or the
+value of the row before does. Its groups are SQL's PARTITION BY, which has nothing to do with a
+Partition.
+_Avoid_: frame, OVER clause (OVER is how it lands in the string), analytic function
+
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
 its own Table reference, like any other table. It is what Hive calls an external table: its

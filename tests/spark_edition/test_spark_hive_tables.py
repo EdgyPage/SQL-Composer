@@ -51,18 +51,22 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     Table,
+    between,
     check_key,
     check_table_reference,
     count_rows,
     create_table,
+    derived,
     drop_table,
     engine,
     equals,
     example_database,
+    lag,
     run,
     statement,
     week_start,
     write_table_reference,
+    window,
 )
 from composer_core.example_database import _in_order, _sorts_itself
 from statements import saved_table
@@ -239,6 +243,33 @@ def test_a_week_start_is_written_into_a_column_of_type_string(spark, send, tmp_p
                   FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24"))), send=send)
     assert {week for _, week in _rows(spark, "SELECT run_id, week FROM mart.weeks")} == {
         "2026-09-21"}
+
+
+def test_a_write_that_looks_back_reads_earlier_days_and_fills_one(spark, send,
+                                                                  tmp_path) -> None:
+    changes = in_folder(Table("mart.run_changes", columns={
+        "event_id": "bigint", "minutes_before": "int", "dt": "string"}, date_partition="dt",
+        key=["event_id", "dt"], location="/data/your_team/tables"), tmp_path)
+    events = example_database.job_events
+    week = derived("week", statement(
+        SELECT(events.event_id, events.dt,
+               AS(lag(events.minutes, over=window(PARTITION_BY=events.job_id,
+                                                  ORDER_BY=events.dt)), "minutes_before")),
+        FROM(events),
+        WHERE(between(events.dt, "2026-09-18", "2026-09-24"),
+              equals(events.event_type, "finish"))))
+    run(drop_table(changes), send=send)
+    run(create_table(changes), send=send)
+    run(statement(INSERT_OVERWRITE(changes), SELECT(week.event_id, week.minutes_before),
+                  FROM(week), WHERE(equals(week.dt, "2026-09-24"))), send=send)
+    rows = example_rows("job_events")
+    rows = rows[(rows.event_type == "finish") & rows.dt.between("2026-09-18", "2026-09-24")]
+    rows = rows.sort_values(["job_id", "dt"])
+    rows["before"] = rows.groupby("job_id")["minutes"].shift(1)
+    last = rows[rows.dt == "2026-09-24"]
+    assert _rows(spark, "SELECT event_id, minutes_before, dt FROM mart.run_changes") == sorted(
+        (event_id, int(before), "2026-09-24")
+        for event_id, before in zip(last.event_id, last.before))
 
 
 # --- write_table_reference, check_table_reference and check_key on real tables -----------------

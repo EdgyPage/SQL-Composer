@@ -198,10 +198,17 @@ def test_hive_function_refuses_a_function_that_needs_a_window(name: str) -> None
         hive_function(name, jobs.team)
 
 
-def test_the_window_refusal_says_how_pandas_does_it() -> None:
-    with pytest.raises(ValueError, match=re.escape(
-            'df.sort_values("dt").groupby("job_id")["runs"].shift(1)')):
-        hive_function("lag", jobs.team)
+@pytest.mark.parametrize(("name", "instead"), [
+    ("lag", "lag(column, over=window(...))"), ("rank", "rank(over=window(...))"),
+    ("ntile", "ntile(parts, over=window(...))"), ("row_number", "row_number(over=window(...))")])
+def test_the_window_refusal_names_the_toolbox_function_that_writes_over(name, instead) -> None:
+    with pytest.raises(ValueError, match=re.escape(f"Use {instead}, which writes OVER")):
+        hive_function(name, jobs.team)
+
+
+def test_the_window_refusal_says_pandas_for_a_window_function_the_toolbox_lacks() -> None:
+    with pytest.raises(ValueError, match="work it out in pandas"):
+        hive_function("percent_rank")
 
 
 @pytest.mark.parametrize("name", ["first", "count_if", "any_value", "collect_set", "SUM"])

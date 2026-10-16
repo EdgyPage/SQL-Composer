@@ -265,8 +265,8 @@ Here the four are weekends, as expected. A missing weekday would be a load to lo
 - Keep the checks you run every morning in a file, as functions like `null_counts`, the way
   [Share Building blocks between Statements](#share_building_blocks_between_statements) keeps
   blocks.
-- [Finish in pandas](#finish_in_pandas): more of what pandas does once `run` gives back the
-  rows, such as merging the results of several Statements.
+- [Look across rows, then finish in pandas](#finish_in_pandas): more of what pandas does
+  once `run` gives back the rows, such as merging the results of several Statements.
 - The gallery's [`check_table_reference`](examples.html#check_table_reference) checks that a
   Table reference still matches its table, and [`check_key`](examples.html#check_key) checks
   its key on the newest day.

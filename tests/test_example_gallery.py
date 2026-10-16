@@ -190,7 +190,7 @@ def test_a_statement_given_to_run_shows_its_hive() -> None:
     ("entry_id", "names"),
     [
         ("row_number", ["SELECT", "AS", "FROM", "WHERE", "statement", "derived", "equals",
-                        "last_n_days", "row_number", "descending", "to_hive"]),
+                        "last_n_days", "row_number", "window", "descending", "to_hive"]),
         ("repeated_rows", ["SELECT", "AS", "FROM", "JOIN", "LEFT_JOIN", "WHERE", "GROUP_BY",
                            "statement", "derived", "equals", "between", "count_rows",
                            "sum_of", "example_database"]),

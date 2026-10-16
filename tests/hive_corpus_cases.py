@@ -46,11 +46,13 @@ from sqlglot_composer import (
     count_distinct,
     count_rows,
     create_table,
+    dense_rank,
     derived,
     descending,
     drop_table,
     equals,
     fill_null,
+    first_value,
     hive_function,
     hive_settings,
     if_else,
@@ -58,19 +60,25 @@ from sqlglot_composer import (
     is_not_in,
     is_not_null,
     is_null,
+    lag,
     last_n_days,
+    last_value,
+    lead,
     less_than,
     max_of,
     min_of,
     month_start,
     more_than,
     not_equals,
+    ntile,
+    rank,
     row_number,
     starts_with,
     statement,
     sum_of,
     unchecked_hive,
     week_start,
+    window,
 )
 from composer_core.example_database import job_runs, jobs, run_alerts, scheduler_runs
 
@@ -666,10 +674,78 @@ def _by_hand_cases() -> dict:
     return found
 
 
+events_before = Table(
+    "mart.events_before",
+    columns={"event_id": "bigint", "minutes_before": "int", "dt": "string"},
+    date_partition="dt",
+    key=["event_id", "dt"],
+    location=BASE,
+)
+"""A Saved table written from a window that looks back on earlier days."""
+
+
+def _window_cases() -> dict:
+    """Each function over a window, each way rows= is written, a window that wraps, a write
+    that reads earlier days and keeps one, and what by_day and a Statement refuse."""
+    minutes, by_job = job_runs.duration_mins, window(PARTITION_BY=job_runs.job_id,
+                                                     ORDER_BY=job_runs.run_id)
+
+    def over(rows):
+        return window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id),
+                      rows=rows)
+
+    def looking_back(first):
+        return derived("with_before", statement(
+            SELECT(job_runs.run_id, job_runs.dt,
+                   AS(lag(minutes, over=window(PARTITION_BY=job_runs.job_id,
+                                               ORDER_BY=job_runs.dt)), "minutes_before")),
+            FROM(job_runs), WHERE(between(job_runs.dt, first, DAY))))
+
+    def write_looking_back():
+        with_before = looking_back(FIRST_DAY)
+        return statement(INSERT_OVERWRITE(events_before),
+                         SELECT(AS(with_before.run_id, "event_id"), with_before.minutes_before),
+                         FROM(with_before), WHERE(equals(with_before.dt, DAY)))
+
+    def by_day_looking_back():
+        with_before = looking_back(FIRST_DAY)
+        return by_day(statement(SELECT(with_before.run_id, with_before.minutes_before),
+                                FROM(with_before)))
+
+    return {
+        "windows:totals": lambda: [_rows(
+            AS(sum_of(minutes, over=window(PARTITION_BY=job_runs.job_id)), "job_minutes"),
+            AS(count_rows(over=window()), "rows"),
+            AS(average_of(minutes, over=over((-6, 0))), "moving_average"),
+            AS(min_of(minutes, over=over((0, 2))), "least_ahead"),
+            AS(max_of(minutes, where=equals(job_runs.status, "FAILED"),
+                      over=over((None, None))), "most_failed"),
+            AS(sum_of(minutes, over=over((None, 0))), "so_far"),
+            AS(count_rows(over=over((1, None))), "after"))],
+        "windows:places": lambda: [_rows(
+            AS(row_number(over=by_job), "rn"), AS(rank(over=by_job), "rk"),
+            AS(dense_rank(over=by_job), "dr"), AS(ntile(4, over=by_job), "quarter"),
+            AS(lag(minutes, over=by_job), "before"),
+            AS(lag(minutes, over=by_job, back=3), "three_before"),
+            AS(lead(job_runs.status, over=by_job, ahead=2), "two_after"))],
+        "windows:values": lambda: [_rows(
+            AS(first_value(job_runs.status, over=by_job), "first_status"),
+            AS(last_value(job_runs.status, over=over((None, 0))), "status_so_far"),
+            AS(fill_null(lag(minutes, over=by_job), 0), "before_or_0"))],
+        "windows:filtered_in_the_statement_that_reads_it": lambda: [statement(
+            SELECT(looking_back(DAY).run_id), FROM(looking_back(DAY)),
+            WHERE(more_than(looking_back(DAY).minutes_before, 10)))],
+        "windows:write_looking_back": lambda: [write_looking_back()],
+        "windows:refused:by_day_across_days": by_day_looking_back,
+        "windows:refused:in_where": lambda: [_rows(job_runs.run_id, where=[
+            more_than(lag(minutes, over=by_job), 10)])],
+    }
+
+
 def edge_cases() -> list:
     """Every edge case, as (id, function returning its Statements), in a fixed order."""
     named = {**_calculation_cases(), **_hive_function_cases(), **_read_cases(),
-             **_join_cases(), **_structure_cases()}
+             **_join_cases(), **_structure_cases(), **_window_cases()}
     return _width_cases() + [(f"edge:{name}", build) for name, build in named.items()]
 
 
