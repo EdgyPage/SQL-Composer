@@ -1,4 +1,4 @@
-# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
 """As-of lookups: rows counted by what was true on their day, and newest snapshots.
 
 Why: a snapshot table holds what each key was on each day, such as each job's team, so a row

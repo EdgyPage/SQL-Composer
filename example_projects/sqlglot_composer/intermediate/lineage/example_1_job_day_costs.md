@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
+<!-- sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
 # Lineage: write_job_day_costs
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
@@ -8,25 +8,25 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 ```mermaid
 flowchart LR
   subgraph g0["ops.region_costs"]
-    n0["ops.region_costs.job_id<br/><small>bigint</small>"]
-    n2["ops.region_costs.dt<br/><small>string</small>"]
+    n0["ops.region_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.region_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
     n3["ops.region_costs.cost_cents<br/><small>bigint</small>"]
   end
   subgraph g1["costs_per_job_day"]
-    n1["costs_per_job_day.job_id<br/><small>region_costs.job_id</small>"]
+    n1["costs_per_job_day.job_id<br/><small>region_costs.job_id</small><br/><small>in the Key</small>"]
     n4["costs_per_job_day.cost_cents<br/><small>sum_of(region_costs.cost_cents)</small>"]
   end
   subgraph g2["filters on costs_per_job_day"]
     n5{{"WHERE in costs_per_job_day<br/><small>equals(region_costs.dt, datetime.date(2026,…</small>"}}
   end
   subgraph g3["write_job_day_costs"]
-    n6["job_id<br/><small>costs_per_job_day.job_id</small>"]
+    n6["job_id<br/><small>costs_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n7["cost_cents<br/><small>costs_per_job_day.cost_cents</small>"]
   end
   subgraph g4["mart.job_day_costs"]
-    n8["mart.job_day_costs.job_id<br/><small>bigint</small>"]
+    n8["mart.job_day_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n9["mart.job_day_costs.cost_cents<br/><small>bigint</small>"]
-    n10["mart.job_day_costs.dt<br/><small>string</small>"]
+    n10["mart.job_day_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n3 --> n4
@@ -68,6 +68,14 @@ One value for each different `region_costs.job_id` and `region_costs.dt`.
 | `job_id` | costs_per_job_day.job_id ← ops.region_costs.job_id |
 | `cost_cents` | costs_per_job_day.cost_cents (calculated) ← ops.region_costs.cost_cents |
 
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('costs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- write_job_day_costs: Key (job_id), since costs_per_job_day's rows are told apart by job_id.
+- mart.job_day_costs' Key (job_id, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -92,4 +100,4 @@ FROM costs_per_job_day
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 4.1.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 5.0.

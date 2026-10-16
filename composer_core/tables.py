@@ -1,4 +1,4 @@
-# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
@@ -49,7 +49,7 @@ from .trees import (
     string,
 )
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 # The day a message writes when it needs an example of one: the day after the Example
@@ -362,8 +362,11 @@ def day_text(day: datetime.date, pattern: str) -> str:
     return day.strftime(pattern.replace("%Y", f"{day.year:04d}"))
 
 
-def as_date(value, column: Column, call: str) -> datetime.date:
-    """A value compared with a Date partition, as a Python date. Refuses what isn't a day."""
+def as_date(value, column: Column, call: str, compared: bool = True) -> datetime.date:
+    """A value compared with a Date partition, as a Python date. Refuses what isn't a day.
+
+    compared=False is for a day given on its own, such as compute_statistics's, which the
+    refusal says was given rather than compared."""
     if isinstance(value, datetime.datetime):
         return value.date()
     if isinstance(value, datetime.date):
@@ -382,19 +385,28 @@ def as_date(value, column: Column, call: str) -> datetime.date:
         if day is None:
             with contextlib.suppress(ValueError):
                 day = datetime.datetime.strptime(str(value), each).date()
+    _refuse_day(value, column, call, day, other, compared)
+
+
+def _refuse_day(value, column: Column, call: str, day, other, compared: bool) -> None:
+    """Refuse a day not written as the Date partition's days are: `day` is the day it seems
+    to mean, or None, and `other` the date_format it is written in, or None."""
+    pattern = column._table._date_format
     if day is not None:  # your own day, written as the table writes days
         written = f"like {day_text(day, pattern)!r}"
         fix = f"Write the day as {day_text(day, pattern)!r}, or pass a datetime.date."
     else:  # no day to show, so an example of one
         written = f"like {day_text(EXAMPLE_DAY, pattern)!r} (an example day)"
-        fix = (f"Write the day like {day_text(EXAMPLE_DAY, pattern)!r}, or pass a "
-               f"datetime.date. For the days before today, use last_n_days({column!r}, n).")
+        fix = f"Write the day like {day_text(EXAMPLE_DAY, pattern)!r}, or pass a datetime.date."
+        if compared:
+            fix += f" For the days before today, use last_n_days({column!r}, n)."
     if other is not None and other != pattern:
         fix += (f" If the table's days really are written like {value!r}, add "
                 f'date_format="{other}" to its Table reference instead.')
+    given = (f"compares the Date partition {column!r} with {value!r}" if compared
+             else f"was given the day {value!r}")
     refuse(
-        what=f"{call} compares the Date partition {column!r} with {value!r}, but its Table "
-        f"reference writes days {written}.",
+        what=f"{call} {given}, but its Table reference writes days {written}.",
         why="Hive compares Date partition values as text, so a differently written day "
         "would match no days, or the wrong ones.",
         fix=fix,
@@ -565,15 +577,46 @@ class Table:
       table's columns, prints it ("bigint",
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
     - `date_partition` is required: the one date column the table is partitioned by, which
-      every Statement must bound at both ends, or None for a table that has none.
-    - `key` lists the columns that pick out one row. JOIN warns when a join doesn't use all
-      of them.
+      every Statement must bound at both ends, or None for a table that has none. It has no
+      default, so a table with days is never read whole by mistake. A Saved table with
+      date_partition=None has no days: a write fills it whole (help(INSERT_OVERWRITE)).
+    - `key` lists the columns that pick out one row, the table's Key. JOIN warns when a join
+      doesn't use all of them; a write into a Saved table with a Key is refused unless the
+      Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says
+      how); and one Edition's create_table writes it into the table (help(create_table)
+      says why the other leaves it out). Hive never checks it.
     - `does_not_add_up` lists columns that are averages, ratios or distinct counts, which
       sum_of(...) and average_of(...) refuse to add up.
     - `date_format` is needed only when the Date partition's days aren't written like
       "2026-09-25", for example date_format="%Y%m%d". It must put the year first, then the
       month, then the day: Hive compares the days as text, and only year-first text sorts in
       date order. The time zone is whatever the table uses; the Toolbox doesn't convert it.
+
+    A Saved table, one your Statements write into, also says how it is stored, which
+    create_table writes and check_table_reference compares with the table. Of these, a Saved
+    table needs only `location`; a table someone else owns has none of them:
+
+    - `location` is the folder your Saved tables go in, such as "/data/your_team/tables".
+      The Toolbox adds the table's own folder, its database and its name, so mart.daily_runs
+      is at /data/your_team/tables/mart/daily_runs. Every Saved table is an external table:
+      its files are yours, in that folder, and the warehouse only keeps a record of where.
+      Two tables in one folder would read each other's files, so a Saved table whose folder
+      would be another's, or inside another's, is refused.
+    - `purge=True` makes dropping the table delete its files too. purge=False keeps them in
+      its folder, where a table created again reads them back: at once, or, for a table
+      with a Date partition, its days once repair_partitions(t) lists them; left out, the
+      warehouse's own choice, which keeps them, is neither written nor checked.
+    - `properties` holds any other table properties, the notes on a table the warehouse
+      keeps by name, such as {"made_by": "daily_pipeline"}.
+    - `stored_as` is the file format, "ORC" (the usual one) or "PARQUET", and `compression`
+      how its files are packed: "SNAPPY", or ORC's "ZLIB" or Parquet's "GZIP", among others.
+    - `partitioned_by` lists Partitions after the Date partition, such as ["region"], each a
+      column in `columns` too: each day's folder then holds a folder per region. A write
+      still fills one day, and the regions inside it from its rows' values.
+    - `bucketed_by` with `buckets` spreads each day's rows into that many files by the
+      values of those columns, and `sorted_by` sorts the rows in each, so a join on them can
+      pair file with file. Leave them out unless the table is big and joined on those
+      columns: changing them means writing the table again.
 
     A column whose name is a Python word, such as `from`, is reached with getattr(t, "from").
     You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such
@@ -590,7 +633,9 @@ class Table:
     """
 
     def __init__(self, name, columns, date_partition, key=None, does_not_add_up=(),
-                 date_format=None):
+                 date_format=None, location=None, purge=None, properties=None, stored_as=None,
+                 compression=None, partitioned_by=None, bucketed_by=None, buckets=None,
+                 sorted_by=None):
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
             refuse(
                 what=f"Table({name!r}, ...) isn't a table name.",
@@ -636,13 +681,20 @@ class Table:
             column: "listed in does_not_add_up in its Table reference"
             for column in self._does_not_add_up
         }
+        self._partitioned_by = _names(partitioned_by, "partitioned_by")
+        self._bucketed_by = _names(bucketed_by, "bucketed_by")
+        self._sorted_by = _names(sorted_by, "sorted_by")
         self._check_own_columns(date_format)
+        _set_storage(self, location, purge, properties, stored_as, compression, buckets)
 
     def _check_own_columns(self, date_format) -> None:
         named = {"date_partition": [] if self._date_partition is None else [
             self._date_partition]}
         named["key"] = self._key or []
         named["does_not_add_up"] = self._does_not_add_up
+        named["partitioned_by"] = self._partitioned_by
+        named["bucketed_by"] = self._bucketed_by
+        named["sorted_by"] = self._sorted_by
         for argument, names in named.items():
             for column in names:
                 if column not in self._columns:
@@ -693,6 +745,273 @@ class Table:
     def __repr__(self) -> str:
         kind = "derived" if self._statement is not None else "Table"
         return f"{kind}({self._name!r}, columns: {', '.join(self._columns)})"
+
+
+# --- A Saved table's storage -----------------------------------------------------------------
+
+# The file formats create_table writes, each with the table property that names its
+# compression and the compressions it has.
+FILE_FORMATS = {
+    "ORC": ("orc.compress", ("NONE", "ZLIB", "SNAPPY", "LZO", "LZ4", "ZSTD")),
+    "PARQUET": ("parquet.compression",
+                ("UNCOMPRESSED", "SNAPPY", "GZIP", "LZO", "BROTLI", "LZ4", "ZSTD")),
+}
+# The table property that makes dropping an external table delete its files too.
+PURGE = "external.table.purge"
+# Why a Saved table needs a folder of its own, as the refusals and reports say it.
+SHARING = ("two tables in one folder read each other's files, and an INSERT OVERWRITE of a "
+           "day in one can delete the other's files for that day.")
+# The fix for a table that isn't at its own folder: ticket 04's admin module moves it.
+MOVE_IT = "move it with admin.move_to_own_folder(t, send=...)"
+# The fix for a table at its own folder whose layout the Toolbox doesn't write: the move's copy
+# would go to that same folder, so the table is written again there.
+WRITE_IT_AGAIN = ("it is at its own folder already, so write it again there: give its Table "
+                  "reference purge=True and send admin.set_properties(t), drop it with "
+                  "admin.drop_table(t), create it with create_table(t), and write its days "
+                  "again from their source")
+# The table properties Spark keeps for itself, and refuses in a CREATE TABLE.
+SPARK_RESERVES = ("comment", "owner", "provider", "location", "is_managed_location")
+# An absolute location: one starting with /, or with a scheme such as hdfs:// or s3a://.
+_ABSOLUTE = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*:)?/")
+# Each Saved table's own folder, by its name in lower case, so that two can't share one.
+_FOLDERS: dict[str, str] = {}
+# The storage options, which only one of the user's Saved tables has, in the order Table takes.
+STORAGE = ("purge", "properties", "stored_as", "compression", "partitioned_by", "bucketed_by",
+           "buckets", "sorted_by")
+
+
+def own_folder(name: str) -> str:
+    """The folder a Saved table gets under its location=: its database, then its name, as
+    mart/daily_runs, in lower case as Hive names them."""
+    return "/".join(part.lower() for part in name.split("."))
+
+
+def _set_storage(t: Table, location, purge, properties, stored_as, compression,
+                 buckets) -> None:
+    """Check a Table reference's storage, and keep it. Only a Saved table has any."""
+    t._purge = purge
+    t._properties = {}
+    t._stored_as = "ORC"
+    t._compression = None
+    t._buckets = buckets
+    t._location = None
+    values = {"purge": purge, "properties": properties, "stored_as": stored_as,
+              "compression": compression, "partitioned_by": t._partitioned_by,
+              "bucketed_by": t._bucketed_by, "buckets": buckets, "sorted_by": t._sorted_by}
+    given = [option for option in STORAGE if values[option] not in (None, [])]
+    if location is None:
+        if given:
+            refuse(
+                what=f"Table({t._name!r}) has {given[0]}= but no location=.",
+                why=f"{given[0]}= is part of how one of your own Saved tables is stored, and "
+                "each of those is in a folder of its own under location=, the folder your "
+                "Saved tables go in.",
+                fix=f'Add location=..., such as location="/data/your_team/tables", or remove '
+                f"{given[0]}=: a table someone else owns needs none of it.",
+                error=ValueError,
+            )
+        return
+    t._location = _checked_folder(t._name, location)
+    if purge is not None and not isinstance(purge, bool):
+        refuse(
+            what=f"Table({t._name!r}): purge={purge!r} isn't True or False.",
+            why="purge=True makes dropping the table delete its files too; purge=False keeps "
+            "them, so the table can be made again over them.",
+            fix="Write purge=True or purge=False, or leave it out for Hive's own choice, which "
+            "keeps the files.",
+            error=ValueError,
+        )
+    t._stored_as = _one_of(t._name, "stored_as", stored_as or "ORC", list(FILE_FORMATS))
+    property_name, compressions = FILE_FORMATS[t._stored_as]
+    if compression is not None:
+        t._compression = _one_of(t._name, "compression", compression, list(compressions),
+                                 f" for stored_as={t._stored_as!r}")
+    t._properties = _checked_properties(t._name, properties, property_name)
+    _check_partitions_and_buckets(t)
+
+
+def _one_of(name: str, option: str, value, allowed: list[str], which: str = "") -> str:
+    """A value that must be one of a few words, in capitals, whatever its case was."""
+    if isinstance(value, str) and value.upper() in allowed:
+        return value.upper()
+    refuse(
+        what=f"Table({name!r}): {option}={value!r} isn't one the Toolbox writes.",
+        why=f"{option}= takes one of a few names Hive and Spark both know{which}.",
+        fix="Use one of: " + ", ".join(f'"{word}"' for word in allowed) + ".",
+        error=ValueError,
+    )
+
+
+def _checked_folder(name: str, location) -> str:
+    """The Saved table's own folder: its location, then its database and name, refused where
+    it is not a folder or would share one with another Saved table."""
+    if not isinstance(location, str) or not location.strip() or any(
+            character in location for character in CONTROL_CHARACTERS):
+        refuse(
+            what=f"Table({name!r}): location={location!r} isn't a folder.",
+            why="location= is the folder your Saved tables go in, written as text, such as "
+            '"/data/your_team/tables" or "hdfs:///data/your_team/tables".',
+            fix="Write the folder as text, as your warehouse's DESCRIBE FORMATTED writes a "
+            "Location.",
+            error=ValueError,
+        )
+    if not _ABSOLUTE.match(location):
+        refuse(
+            what=f"Table({name!r}): location={location!r} isn't a whole path, from the top "
+            "of the storage.",
+            why="Hive reads a table's location from the top of its storage, so a folder "
+            "written from where you are can't be found.",
+            fix='Start it with / or with its storage\'s name, such as "/data/your_team/tables" '
+            'or "hdfs:///data/your_team/tables".',
+            error=ValueError,
+        )
+    base = location.rstrip("/")
+    own = own_folder(name)
+    if base.lower().endswith("/" + own):
+        refuse(
+            what=f"Table({name!r}): location={location!r} already ends with the table's own "
+            f"folder, {own}.",
+            why=f"location= is the folder all your Saved tables go in, and the Toolbox adds "
+            f"each table's own folder to it, here {own}, so this one would be at "
+            f"{base}/{own}.",
+            fix=f'Write the folder above it, such as location="{base[: -len(own) - 1] or "/"}".',
+            error=ValueError,
+        )
+    folder = f"{base}/{own}"
+    # Compared without the storage's name, as hdfs:///data/... and /data/... are one folder.
+    path = urllib.parse.urlsplit(folder).path
+    for other, theirs in _FOLDERS.items():
+        their_path = urllib.parse.urlsplit(theirs).path
+        if other == name.lower() or not (path == their_path or path.startswith(
+                their_path + "/") or their_path.startswith(path + "/")):
+            continue
+        where = "the same folder as" if path == their_path else "inside the folder of"
+        refuse(
+            what=f"Table({name!r}) would be at {folder}, {where} {other} ({theirs}).",
+            why=f"Every Saved table needs a folder of its own: {SHARING}",
+            fix="Give both the same location=, the folder your Saved tables go in: the "
+            "Toolbox adds each table's own folder to it.",
+            error=ValueError,
+        )
+    _FOLDERS[name.lower()] = folder
+    return folder
+
+
+def _checked_properties(name: str, properties, compression_property: str) -> dict:
+    """The table properties given, each a name and a value written as text."""
+    if properties is None:
+        return {}
+    if not isinstance(properties, dict):
+        refuse(
+            what=f"Table({name!r}): properties={properties!r} isn't a dict.",
+            why="properties= holds the table's other TBLPROPERTIES, each a name and a value.",
+            fix='Write it like properties={"made_by": "daily_pipeline"}.',
+            error=ValueError,
+        )
+    own_options = {PURGE: "purge=True or purge=False", "external": "nothing: create_table "
+                   "always makes a Saved table external",
+                   compression_property: 'compression=..., such as compression="SNAPPY"'}
+    for key, value in properties.items():
+        written = own_options.get(str(key).lower())
+        if written is not None:
+            refuse(
+                what=f"Table({name!r}): properties= sets {key!r}.",
+                why="The Toolbox writes that property itself, from its own argument of "
+                "Table(...), so it is checked like the rest of the table's storage.",
+                fix=f"Remove it from properties=, and write {written}.",
+                error=ValueError,
+            )
+        if str(key).lower() in SPARK_RESERVES:
+            refuse(
+                what=f"Table({name!r}): properties= sets {key!r}.",
+                why="Spark keeps that property for itself, and refuses a CREATE TABLE that "
+                "sets it, so the table couldn't be made where Spark runs it.",
+                fix=f"Remove it from properties=, or give it another name, such as "
+                f'"{key}_note".',
+                error=ValueError,
+            )
+        if not isinstance(key, str) or not isinstance(value, str) or any(
+                character in key + value for character in CONTROL_CHARACTERS):
+            refuse(
+                what=f"Table({name!r}): properties= has {key!r}: {value!r}.",
+                why="Hive keeps each table property's name and value as text.",
+                fix=f"Write both as printed text, such as {json.dumps(str(key))}: "
+                f"{json.dumps(str(value))}.",
+                error=ValueError,
+            )
+    return dict(properties)
+
+
+def _check_partitions_and_buckets(t: Table) -> None:
+    """Refuse Partitions after the day, and Buckets, that create_table couldn't write."""
+    if t._partitioned_by and t._date_partition is None:
+        refuse(
+            what=f"Table({t._name!r}) has partitioned_by= but no date_partition.",
+            why="partitioned_by= lists the Partitions after the Date partition: each write "
+            "fills one day, and the Partitions inside it from its rows.",
+            fix="Name the Date partition with date_partition=..., or remove partitioned_by=.",
+            error=ValueError,
+        )
+    for argument, names in (("partitioned_by", t._partitioned_by),
+                            ("bucketed_by", t._bucketed_by), ("sorted_by", t._sorted_by)):
+        twice = sorted({column for column in names if names.count(column) > 1})
+        if twice:
+            refuse(
+                what=f"Table({t._name!r}): {argument}= names {twice[0]!r} twice.",
+                why="Each column goes in it once.",
+                fix=f"Name {twice[0]!r} once in {argument}=.",
+                error=ValueError,
+            )
+        # A Bucket holds the columns inside the files; partitioned_by lists the other
+        # Partitions itself, so only the Date partition is already one there.
+        partitions = [t._date_partition] + (
+            [] if argument == "partitioned_by" else t._partitioned_by)
+        inside = [column for column in names if column in partitions]
+        if inside:
+            refuse(
+                what=f"Table({t._name!r}): {argument}= names {inside[0]!r}, which is already "
+                "a Partition.",
+                why="A Partition is a folder of its own, not a column inside the files.",
+                fix=f"Remove {inside[0]!r} from {argument}=.",
+                error=ValueError,
+            )
+    for column in t._partitioned_by:
+        if (t._columns[column] or "").strip().lower().startswith(("array", "map", "struct")):
+            refuse(
+                what=f"Table({t._name!r}): partitioned_by= names {column!r}, whose type is "
+                f"{t._columns[column]}.",
+                why="A Partition is a folder named by one plain value, such as region=eu.",
+                fix="Partition by a column holding one plain value, such as a string.",
+                error=ValueError,
+            )
+    has_buckets = t._buckets is not None
+    if bool(t._bucketed_by) != has_buckets or (t._sorted_by and not t._bucketed_by):
+        given = [argument for argument, value in (
+            ("bucketed_by=", t._bucketed_by), ("buckets=", has_buckets),
+            ("sorted_by=", t._sorted_by)) if value]
+        missing = "buckets=" if t._bucketed_by else "bucketed_by="
+        refuse(
+            what=f"Table({t._name!r}) has {' and '.join(given)} but no {missing}.",
+            why="Buckets spread each day's rows into a fixed number of files by some columns: "
+            "bucketed_by= names the columns and buckets= the number, and sorted_by= sorts "
+            "the rows inside each Bucket.",
+            fix=f"Give both bucketed_by= and buckets=, such as bucketed_by=[\"{column_example(t)}"
+            "\"], buckets=8, or remove the ones you gave.",
+            error=ValueError,
+        )
+    if has_buckets and (isinstance(t._buckets, bool) or not isinstance(t._buckets, int)
+                        or t._buckets < 1):
+        refuse(
+            what=f"Table({t._name!r}): buckets={t._buckets!r} isn't a whole number, 1 or more.",
+            why="buckets= is how many files each day's rows are spread into.",
+            fix="Write it like buckets=8.",
+            error=ValueError,
+        )
+
+
+def column_example(t: Table) -> str:
+    """A column of the table to show in a fix: its first that isn't a Partition."""
+    return next(c for c in t._columns if c not in (t._date_partition, *t._partitioned_by))
 
 
 def aliased(table: Table, name: str) -> Table:
@@ -824,31 +1143,80 @@ def _ask(send, hive: str, call: str) -> pd.DataFrame:
     return frame
 
 
-def _describe(name: str, send, call: str) -> tuple[dict, list[str], list[str]]:
-    """Send DESCRIBE: the columns with types, their comments, and the partition columns."""
-    frame = _ask(send, f"DESCRIBE {hive_text(table_node(name))}", call)
-    columns, comments, partitions = {}, {}, []
+class Described:
+    """What DESCRIBE, or DESCRIBE FORMATTED, says of a table.
+
+    `details` holds DESCRIBE FORMATTED's lines about the table, such as its Location, by their
+    labels in lower case without a colon, and `properties` its table properties, which Hive
+    lists a line each and Spark on one line.
+    """
+
+    def __init__(self):
+        self.columns, self.comments, self.partitions = {}, {}, []
+        self.details, self.properties = {}, {}
+
+
+def _cell(row, at: int) -> str:
+    """One cell of what the warehouse printed, as text, "" where it is empty."""
+    value = row[at] if len(row) > at else None
+    text = "" if value is None else str(value).strip()
+    return "" if text in ("None", "nan") else text
+
+
+def _describe(name: str, send, call: str, formatted: bool = False) -> Described:
+    """Send DESCRIBE, or DESCRIBE FORMATTED: the columns with types, their comments, the
+    partition columns, and, formatted, the table's details and properties."""
+    command = "DESCRIBE FORMATTED" if formatted else "DESCRIBE"
+    frame = _ask(send, f"{command} {hive_text(table_node(name))}", call)
+    found = Described()
     # The columns come first; each header after them, bar the partition list's own column
     # header, starts a section, and only the partition sections name partition columns.
-    section = "columns"
+    section, label = "columns", ""
     for row in frame.itertuples(index=False):
-        column = str(row[0] or "").strip()
-        kind = str(row[1] or "").strip()
-        comment = str(row[2] or "").strip() if len(row) > 2 else ""
+        column, kind, comment = _cell(row, 0), _cell(row, 1), _cell(row, 2)
         if column.startswith("#"):
             if column.lower() != COLUMN_HEADER:
                 section = column.lower()
             continue
+        if section in DETAILS:
+            if column:
+                label = column.rstrip(":").strip().lower()
+            _read_detail(found, label, column, kind, comment)
+            continue
         if not column:
             continue
-        if section == "columns" and column not in columns:
-            columns[column] = kind
-            comments[column] = "" if comment in ("None", "nan") else comment
+        if section == "columns" and column not in found.columns:
+            found.columns[column] = kind
+            found.comments[column] = comment
         elif section == PARTITION_INFORMATION:
-            partitions.append(column)
+            found.partitions.append(column)
+            # DESCRIBE FORMATTED in Hive lists a partition column only here.
+            found.columns.setdefault(column, kind)
+            found.comments.setdefault(column, comment)
         elif section == PARTITIONING and SIMPLE_NAME.fullmatch(kind):
-            partitions.append(kind)
-    return columns, comments, partitions
+            found.partitions.append(kind)
+    return found
+
+
+# DESCRIBE FORMATTED's sections about the table itself, in Hive's words and Spark's.
+DETAILS = ("# detailed table information", "# storage information")
+
+
+def _read_detail(found: Described, label: str, column: str, kind: str, comment: str) -> None:
+    """Keep one line of DESCRIBE FORMATTED's details: a labelled value, or, under Hive's
+    "Table Parameters:", a table property on a line of its own."""
+    if column:
+        found.details[label] = kind
+        if label == "table properties":  # Spark's: [name=value, name=value]
+            pieces = []
+            for piece in kind.strip().removeprefix("[").removesuffix("]").split(", "):
+                if "=" in piece or not pieces:
+                    pieces.append(piece)
+                else:
+                    pieces[-1] += ", " + piece
+            found.properties.update(piece.split("=", 1) for piece in pieces if "=" in piece)
+    elif label == "table parameters" and kind:
+        found.properties[kind] = comment
 
 
 def _newest_partition_value(name: str, column: str, send, call: str) -> str | None:
@@ -934,7 +1302,8 @@ def write_table_reference(name, send):
             error=FileExistsError,
         )
     call = f"write_table_reference({name!r}, ...)"
-    columns, comments, partitions = _describe(name, send, call)
+    described = _describe(name, send, call)
+    columns, comments, partitions = described.columns, described.comments, described.partitions
     if not columns:
         refuse(
             what=f"{call}: DESCRIBE {name} listed no columns.",
@@ -1034,11 +1403,36 @@ def _real_table(t, call: str) -> Table:
     return t
 
 
+def need_saved_table(t, what: str) -> Table:
+    """The Table reference of one of the user's own Saved tables, which a call that changes a
+    table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)" or
+    "repair_partitions(...)".
+
+    A Saved table is a Table reference with location=: one with none is a table someone else
+    owns, which the Toolbox only reads.
+    """
+    t = _real_table(t, what)
+    if t._location is None:
+        refuse(
+            what=f"{what} was given {t._name}, which isn't one of your Saved tables: its Table "
+            "reference has no location=.",
+            why="It changes a table, or what the warehouse keeps about it, so it takes only your "
+            "own Saved tables, each in a folder "
+            "of its own under location=. A Table reference with no location= is a table "
+            "someone else owns, and changing it could break their work.",
+            fix=f'If {t._name} is yours, add location=... to its Table(...) call, such as '
+            'location="/data/your_team/tables", the folder your Saved tables go in. If it '
+            "isn't yours, ask whoever owns it.",
+            error=ValueError,
+        )
+    return t
+
+
 def check_key(t, send):
     """Check on the newest day that no two rows share the Table reference's key.
 
-    JOIN relies on a declared key to warn about repeated rows, and the warehouse never
-    enforces one.
+    JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table
+    to check its rows, and the warehouse never enforces one.
     This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows
     with no day), and shows at most 20 keys that repeat.
 
@@ -1110,6 +1504,15 @@ def check_table_reference(t, send):
     edits the file and never refuses anything: a table the warehouse can't describe, or a send
     that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
 
+    For one of your Saved tables, one with location=, it sends DESCRIBE FORMATTED instead, and
+    compares its storage too: that it is external, its folder, its file format, its Partitions
+    after the day and its Buckets, and purge, compression and properties where the Table
+    reference gives them. A table that isn't in its own folder under location= is a problem,
+    as a table made by hand in a folder it shares with others is: two tables in one folder
+    read each other's files, and an overwrite of a day in one can delete the other's. admin.move_to_own_folder(t, send=...) moves it. DESCRIBE FORMATTED describes one
+    table at a time, so another table that put its files in this table's own folder is
+    reported when that other table is checked: check each of your Saved tables.
+
     >>> check_table_reference(job_runs, send=example_database.send)
     ops.job_runs matches its Table reference.
     >>> old_jobs = Table("ops.jobs", columns={"job_id": "int", "job_name": "string",
@@ -1123,23 +1526,33 @@ def check_table_reference(t, send):
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
     """
     t = _real_table(t, "check_table_reference(...)")
+    saved = t._location is not None
+    command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"
     try:
-        columns, _, partitions = _describe(t._name, send, "check_table_reference(...)")
+        described = _describe(t._name, send, "check_table_reference(...)", formatted=saved)
     except Exception as error:  # it reports, and never raises: see the docstring
-        return Verdict(False, [f"{t._name}: DESCRIBE failed, so nothing was compared. Check "
+        return Verdict(False, [f"{t._name}: {command} failed, so nothing was compared. Check "
                                "the table's name, and that send works. It said:",
                                *_said(error)])
+    columns, partitions = described.columns, described.partitions
     if not columns:
-        return Verdict(False, [f"{t._name}: DESCRIBE listed no columns, so nothing was "
+        return Verdict(False, [f"{t._name}: {command} listed no columns, so nothing was "
                                "compared. Check the table's name, and that send returns what "
-                               "DESCRIBE prints."])
+                               f"{command} prints."])
     problems, notes = _column_differences(t, columns)
     date_problems, date_notes = _date_partition_problems(t, partitions, send)
     problems += date_problems
     notes += date_notes
-    notes += _partition_notes(t, partitions)
+    if saved:
+        storage_problems, storage_notes = _storage_problems(t, described)
+        problems += storage_problems
+        notes += storage_notes
+    else:
+        notes += _partition_notes(t, partitions)
     shared = [column for column in columns if column in t._columns]
-    if shared != [column for column in t._columns if column in columns]:
+    # The table lists its columns, then its Date partition, then the Partitions after it.
+    in_order = [column for column in t._columns if column not in t._partitioned_by]
+    if shared != [column for column in in_order + t._partitioned_by if column in columns]:
         notes.append("The columns are in a different order from the table's, which matters "
                      "only if a Statement writes to this table. The table's order is: "
                      + ", ".join(shared) + ".")
@@ -1220,23 +1633,193 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
     return []
 
 
-def create_table(t, may_exist=False):
-    """The CREATE TABLE Statement for a Saved table, one your Statements write into.
+_SET_IT = "or set it with admin.set_properties(t)"
 
-    Send it once with run(create_table(t), send=...). Every column needs a type Hive and
+
+def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[str]]:
+    """The problems, and the notes, from comparing a Saved table's storage with what
+    DESCRIBE FORMATTED says of the table."""
+    details, properties = described.details, described.properties
+    if "location" not in details:
+        # Not a note: nothing below was compared, so the table can't be said to match.
+        return ["DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check "
+                "that send returns everything DESCRIBE FORMATTED prints."], []
+    problems = []
+    managed = "MANAGED" in (details.get("table type") or details.get("type") or "").upper()
+    # A table the move can take to its own folder, writing it again as its Table reference
+    # says; one at its own folder already is written again there instead.
+    fix = MOVE_IT if managed or not _same_folder(details["location"], t._location) else (
+        WRITE_IT_AGAIN)
+    if managed:
+        # Its folder is the warehouse's choice, so this says all the folder check would.
+        problems.append("it is a managed table, whose files the warehouse keeps where it "
+                        "chooses, where your Saved tables are external, each in a folder of its "
+                        f"own: {MOVE_IT}, which copies its days into a table create_table "
+                        "makes.")
+    else:
+        problems += _location_problems(t, details["location"])
+    stored_as = _stored_as(details.get("inputformat", ""))
+    if stored_as is not None and stored_as != t._stored_as:
+        problems.append(f"the table is stored as {stored_as}: change the line to "
+                        f'stored_as="{stored_as}",' if stored_as in FILE_FORMATS else
+                        "the table's files are in a format the Toolbox doesn't write, not ORC "
+                        f"or Parquet (its InputFormat is {stored_as}): {fix}"
+                        + (", which writes it again as its Table reference says." if
+                           fix is MOVE_IT else "."))
+    problems += _property_problems(t, properties)
+    problems += _partitions_and_buckets_problems(t, described, fix)
+    return problems, []
+
+
+def _property_problems(t: Table, properties: dict) -> list[str]:
+    """The problems from comparing purge, compression and the other table properties."""
+    problems = []
+    if t._purge is not None:
+        purged = properties.get(PURGE, "").strip().lower() == "true"
+        if purged != t._purge:
+            state = "is" if purged else "isn't"
+            problems.append(f"{PURGE} {state} true in the table: change the line to "
+                            f"purge={purged}, {_SET_IT}.")
+    wanted = dict(t._properties)
+    if t._compression is not None:
+        wanted = {FILE_FORMATS[t._stored_as][0]: t._compression, **wanted}
+    for name, value in wanted.items():
+        found = properties.get(name)
+        is_compression = name == FILE_FORMATS[t._stored_as][0]
+        if found is None and is_compression:
+            problems.append(f"the table sets no {name}: remove the line compression=..., "
+                            f"{_SET_IT}.")
+        elif found is None:
+            problems.append(f"the table has no property {name!r}: remove it from "
+                            f"properties=, {_SET_IT}.")
+        elif is_compression and found.upper() != value:
+            problems.append(f"{name} is {found} in the table: change the line to "
+                            f'compression="{found.upper()}",')
+        elif not is_compression and found != value:
+            problems.append(f"its property {name!r} is {found!r} in the table: change it in "
+                            f"properties= to {json.dumps(name)}: {json.dumps(found)},")
+    return problems
+
+
+def _location_problems(t: Table, location: str) -> list[str]:
+    """A problem when the table isn't at its own folder under the Table reference's
+    location=: none when it is."""
+    if _same_folder(location, t._location):
+        return []
+    own = own_folder(t._name)
+    folder = location.rstrip("/")
+    if folder.lower().endswith("/" + own):
+        return [f"it is at {location}, its own folder, but under another folder than "
+                f'location= names: change the line to location="{folder[: -len(own) - 1]}", '
+                "if that is the folder your Saved tables go in."]
+    return [f"it is at {location}, not at its own folder {t._location}. A folder that isn't a "
+            f"table's own may hold other tables' files: {SHARING} {MOVE_IT[0].upper()}"
+            f"{MOVE_IT[1:]}."]
+
+
+def _same_folder(found: str, wanted: str) -> bool:
+    """Whether two folders are one: the warehouse writes a Location in full, as
+    hdfs://namenode:8020/data/..., where a Table reference may write /data/... alone."""
+    found_parts, wanted_parts = urllib.parse.urlsplit(found), urllib.parse.urlsplit(wanted)
+    for part in ("scheme", "netloc"):
+        found_part, wanted_part = getattr(found_parts, part), getattr(wanted_parts, part)
+        if found_part and wanted_part and found_part.lower() != wanted_part.lower():
+            return False
+    return found_parts.path.rstrip("/") == wanted_parts.path.rstrip("/")
+
+
+def _stored_as(input_format: str) -> str | None:
+    """The file format DESCRIBE FORMATTED's InputFormat reads: ORC, PARQUET, the InputFormat
+    itself for another, or None when it lists none."""
+    if not input_format:
+        return None
+    for name in FILE_FORMATS:
+        if name.lower() in input_format.lower():
+            return name
+    return input_format
+
+
+def _listed_names(text: str) -> list[str]:
+    """The columns of DESCRIBE FORMATTED's Bucket Columns or Sort Columns: Hive's [a, b] or
+    [Order(col:a, order:1)], or Spark's [`a`, `b`]."""
+    if "col:" in text:
+        return [name.lower() for name in re.findall(r"col:\s*([^,)\s]+)", text)]
+    inner = text.strip().removeprefix("[").removesuffix("]")
+    return [name.strip().strip("`").lower() for name in inner.split(",") if name.strip()]
+
+
+def _partitions_and_buckets_problems(t: Table, described: Described, fix: str) -> list[str]:
+    """The problems from comparing the Partitions after the day, and the Buckets. `fix` is
+    what makes a table whose Partitions are in another order right: MOVE_IT or
+    WRITE_IT_AGAIN."""
+    problems = []
+    partitions = described.partitions
+    if t._date_partition in partitions and partitions != partition_columns(t):
+        after = [column for column in partitions if column != t._date_partition]
+        if partitions[0] == t._date_partition:
+            problems.append(f"the table is partitioned by {', '.join(partitions)}: change the "
+                            f"line to partitioned_by={json.dumps(after)},")
+        else:
+            problems.append(f"the table is partitioned by {', '.join(partitions)}, with "
+                            f"{t._date_partition} not first, where a Saved table's other "
+                            f"Partitions come after its Date partition: {fix}.")
+    try:
+        number = int(described.details.get("num buckets", "-1"))
+    except ValueError:
+        number = -1
+    # The warehouse lists column names in lower case, so they are compared so.
+    in_the_table = ((number, _listed_names(described.details.get("bucket columns", "")),
+                     _listed_names(described.details.get("sort columns", "")))
+                    if number > 0 else (None, [], []))
+    in_the_reference = (t._buckets, [c.lower() for c in t._bucketed_by],
+                        [c.lower() for c in t._sorted_by])
+    if in_the_table != in_the_reference:
+        if in_the_table[0] is None:
+            problems.append("the table has no Buckets: remove the lines bucketed_by=, buckets= "
+                            "and sorted_by=.")
+        else:
+            number, bucketed_by, sorted_by = in_the_table
+            sorted_text = f", sorted by {', '.join(sorted_by)}" if sorted_by else ""
+            sorted_line = f", sorted_by={json.dumps(sorted_by)}" if sorted_by else ""
+            problems.append(f"the table is bucketed by {', '.join(bucketed_by)} into {number} "
+                            f"Buckets{sorted_text}: change the lines to bucketed_by="
+                            f"{json.dumps(bucketed_by)}, buckets={number}{sorted_line},")
+    return problems
+
+
+def create_table(t, may_exist=False):
+    """The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.
+
+    A Saved table is one your Statements write into. Send it once with
+    run(create_table(t), send=...). The table is external: its files are yours, in its own
+    folder under the Table reference's location=, and the warehouse only keeps a record of
+    where. It is stored as the Table reference says (help(Table) lists how), and a Table
+    reference with no location= is refused. Every column needs a type Hive and
     Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
     decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and
     says what to write. If the table already exists, the warehouse refuses to create it
     again. Without that refusal, you could edit the Table reference, send this again, and
     think the table had changed when it hadn't. Compare the two with
-    check_table_reference(t, send=...), or, to start the table again, drop it with
-    drop_table(t), which deletes every day it holds.
-    may_exist=True sends CREATE TABLE IF NOT EXISTS, which leaves an existing table alone.
+    check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
+    or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
+    import admin).
+    may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table
+    alone, so it is safe to send again, as at the top of a pipeline that runs every day. It
+    doesn't check that the table there matches its Table reference: check_table_reference
+    does. Where a table is made again at a folder whose files stayed, repair_partitions(t)
+    finds their days.
+
+    A Table reference with a Key, such as key=["job_id", "dt"], gets
+    PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
+    reads the table and never checks. Spark refuses a PRIMARY KEY, so one Edition leaves it
+    out: the README's list of where the two Editions' Hive differs says which. Either way the
+    Toolbox checks the Key itself, before each write.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/tables")
     >>> print(to_hive(create_table(daily_runs)))
-    CREATE TABLE mart.daily_runs (
+    CREATE EXTERNAL TABLE mart.daily_runs (
       job_id BIGINT,
       runs BIGINT
     )
@@ -1244,6 +1827,30 @@ def create_table(t, may_exist=False):
       dt STRING
     )
     STORED AS ORC
+    LOCATION '/data/your_team/tables/mart/daily_runs'
+
+    A table partitioned by region inside each day, in Parquet files, whose files go when it
+    is dropped:
+
+    >>> region_runs = Table("mart.region_runs", date_partition="dt",
+    ...     columns={"job_id": "bigint", "region": "string", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/tables", purge=True, stored_as="PARQUET",
+    ...     compression="SNAPPY", partitioned_by=["region"])
+    >>> print(to_hive(create_table(region_runs)))
+    CREATE EXTERNAL TABLE mart.region_runs (
+      job_id BIGINT,
+      runs BIGINT
+    )
+    PARTITIONED BY (
+      dt STRING,
+      region STRING
+    )
+    STORED AS PARQUET
+    LOCATION '/data/your_team/tables/mart/region_runs'
+    TBLPROPERTIES (
+      'external.table.purge'='true',
+      'parquet.compression'='SNAPPY'
+    )
     """
     from .clauses import Statement  # here, not at the top: clauses.py imports this file
 
@@ -1256,37 +1863,36 @@ def create_table(t, may_exist=False):
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
             error=ValueError,
         )
-    columns = [_column_definition(t, c) for c in t._columns if c != t._date_partition]
-    partitioned_by = ([] if t._date_partition is None
-                      else [_column_definition(t, t._date_partition)])
+    partitions = partition_columns(t)
+    columns = [_column_definition(t, c) for c in t._columns if c not in partitions]
+    partitioned_by = [_column_definition(t, c) for c in partitions]
+    if t._location is None:
+        refuse(
+            what=f"create_table({t._alias}): its Table reference has no location=.",
+            why="Each of your Saved tables is an external table, in a folder of its own under "
+            "the folder your Saved tables go in. The Toolbox adds the table's own folder to "
+            "location=, so no two Saved tables share one.",
+            fix='Add location=... to its Table(...) call, such as '
+            f'location="/data/your_team/tables", which puts it at '
+            f"/data/your_team/tables/{own_folder(t._name)}.",
+            error=ValueError,
+        )
+    properties = [] if t._purge is None else [(PURGE, "true" if t._purge else "false")]
+    if t._compression is not None:
+        properties.append((FILE_FORMATS[t._stored_as][0], t._compression))
+    properties += list(t._properties.items())
     s = Statement()
     s._ddl = Node("Create", target=table_node(t._name), columns=columns,
-                  partitioned_by=partitioned_by, exists=may_exist)
+                  partitioned_by=partitioned_by, exists=may_exist,
+                  bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),
+                  buckets=t._buckets, stored_as=t._stored_as, location=t._location,
+                  properties=properties, key=t._key)
     return s
 
 
-def drop_table(t):
-    """The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
-
-    It deletes the whole table, every day of it, and the Toolbox can't bring it back. Use it
-    only for a Saved table you made: it takes any Table reference, so given the reference of
-    a table others fill, such as job_runs, it would drop that table too, if your account is
-    allowed to. The usual
-    reason is changing a Saved table's columns: create_table refuses while the old table
-    exists, so drop it, create it again, and write its days again. IF EXISTS means that
-    sending it for a table that isn't there does nothing, rather than failing.
-
-    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
-    >>> print(to_hive(drop_table(daily_runs)))
-    DROP TABLE IF EXISTS mart.daily_runs
-    """
-    from .clauses import Statement  # here, not at the top: clauses.py imports this file
-
-    t = _real_table(t, "drop_table(...)")
-    s = Statement()
-    s._ddl = Node("Drop", target=table_node(t._name))
-    return s
+def partition_columns(t: Table) -> list[str]:
+    """A table's Partitions, in order: its Date partition, then its partitioned_by=."""
+    return [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
 
 
 # Types people often write for one create_table takes, and the one to write instead.
@@ -1300,16 +1906,17 @@ _NEAREST_TYPE = {
 _NEEDS_LENGTH = ("varchar", "char")
 
 
-def _column_definition(t: Table, column: str) -> Node:
-    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
+def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
+    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table, or
+    `call`, such as admin.add_columns(...), which adds it."""
+    call = call or f"create_table({t._alias})"
     kind = t._columns[column]
     if not is_hive_type(kind):
         written = " ".join(kind.lower().split())
         nearest = _NEAREST_TYPE.get(written)
         length = "its length, such as " if written in _NEEDS_LENGTH else ""
         refuse(
-            what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
-            "can use.",
+            what=f"{call}: {column}'s type {kind!r} isn't one create_table can use.",
             why="create_table takes only the types Hive and Spark both have, spelled as "
             "DESCRIBE prints them, such as int rather than integer, and with their sizes "
             "written out, such as decimal(10,2), so the table it makes matches its Table "
@@ -1324,5 +1931,5 @@ def _column_definition(t: Table, column: str) -> Node:
             "reserve, such as date or user.",
             error=ValueError,
         )
-    check_writable_type(kind, f"create_table({t._alias}): {column}'s type {kind!r}")
+    check_writable_type(kind, f"{call}: {column}'s type {kind!r}")
     return Node("ColumnDef", name=column, type=kind)

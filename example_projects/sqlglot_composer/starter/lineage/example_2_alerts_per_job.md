@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
+<!-- sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
 # Lineage: write_alerts_per_job
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
@@ -10,10 +10,10 @@ flowchart LR
   subgraph g0["ops.job_runs"]
     n0["ops.job_runs.job_id<br/><small>bigint</small>"]
     n8["ops.job_runs.dt<br/><small>string</small>"]
-    n10["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n10["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g1["write_alerts_per_job"]
-    n1["job_id<br/><small>job_runs.job_id</small>"]
+    n1["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
     n2["alerts<br/><small>count_rows()</small>"]
     n4["high_alerts<br/><small>count_rows(where=equals(run_alerts.severity…</small>"]
   end
@@ -28,10 +28,10 @@ flowchart LR
     n9{{"JOIN ON in write_alerts_per_job<br/><small>equals(job_runs.run_id, run_alerts.run_id)</small>"}}
   end
   subgraph g4["mart.alerts_per_job"]
-    n12["mart.alerts_per_job.job_id<br/><small>bigint</small>"]
+    n12["mart.alerts_per_job.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n13["mart.alerts_per_job.alerts<br/><small>bigint</small>"]
     n14["mart.alerts_per_job.high_alerts<br/><small>bigint</small>"]
-    n15["mart.alerts_per_job.dt<br/><small>string</small>"]
+    n15["mart.alerts_per_job.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n3 --> n4
@@ -94,6 +94,13 @@ One value for each different `job_runs.job_id`.
 | --- | --- |
 | `job_id` | ops.job_runs.job_id |
 
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_alerts_per_job: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.alerts_per_job's Key (job_id, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -114,4 +121,4 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 4.1.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 5.0.

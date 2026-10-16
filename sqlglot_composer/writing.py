@@ -1,4 +1,4 @@
-# sqlglot Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# sqlglot Composer 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """How sqlglot Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
@@ -10,6 +10,8 @@ writes Hive its own way behind these same function names.
 
 from __future__ import annotations
 
+import re
+
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
@@ -19,14 +21,31 @@ from composer_core.trees import Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 _DIALECT = "hive"
 
 
+def _hive_with_hints():
+    """sqlglot's Hive, but writing a query's hint, such as /*+ MAPJOIN(jobs) */, which Hive
+    reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed.
+
+    It also writes GROUPING SETS straight after GROUP BY's columns, as in GROUP BY a, b
+    GROUPING SETS ((a, b), a, ()): Hive refuses a comma before it, which an older sqlglot,
+    such as 25.24.2, writes.
+    """
+    hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
+    hive.generator_class = type("HiveWithHints", (hive.generator_class,),
+                                {"QUERY_HINTS": True, "GROUPINGS_SEP": ""})
+    return hive
+
+
+_HIVE = _hive_with_hints()
+
+
 def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     """Write a sqlglot tree as Hive. Nothing else in the Toolbox calls `.sql()`."""
-    return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
+    return tree.sql(dialect=_HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
 def hive_text(node: Node) -> str:
@@ -49,8 +68,59 @@ def hive_statement(node: Node) -> str:
 
 
 def read_back(text: str) -> str:
-    """The Hive read back and written again. to_hive compares the two, to check its own Hive."""
-    return sql_text(sqlglot.parse_one(text, read=_DIALECT), pretty=True)
+    """The Hive read back and written again. to_hive compares the two, to check its own Hive.
+
+    sqlglot reads Hive's PRIMARY KEY (...) DISABLE NOVALIDATE, a Key Hive never checks, only
+    once its parser is told that DISABLE NOVALIDATE may end a Key, as it is here, for this read.
+    EXPLAIN, MSCK REPAIR TABLE and ANALYZE TABLE are read back through the parts sqlglot reads
+    (_upkeep_read_back).
+    """
+    if text.startswith(_UPKEEP):
+        return _upkeep_read_back(text)
+    dialect = sqlglot.Dialect.get_or_raise(_DIALECT)
+    parser = dialect.parser()
+    parser.KEY_CONSTRAINT_OPTIONS = {**parser.KEY_CONSTRAINT_OPTIONS, "DISABLE": ("NOVALIDATE",)}
+    return sql_text(parser.parse(dialect.tokenize(text), text)[0], pretty=True)
+
+
+# MSCK REPAIR TABLE, ANALYZE TABLE and EXPLAIN, which some or all of the sqlglot versions
+# sqlglot Composer supports read only as a Command, text sqlglot doesn't look inside, and say
+# so in a log message.
+_UPKEEP = ("EXPLAIN ", "MSCK REPAIR TABLE ", "ANALYZE TABLE ")
+_ANALYZE = re.compile(r"ANALYZE TABLE (.+?) COMPUTE STATISTICS(?: FOR COLUMNS (.+))?", re.S)
+
+
+def _upkeep_read_back(text: str) -> str:
+    """MSCK REPAIR TABLE, ANALYZE TABLE or EXPLAIN read back: the Statement after EXPLAIN,
+    or the table, its PARTITION(...) and the columns after MSCK REPAIR TABLE or ANALYZE TABLE,
+    each read by sqlglot and written again around the command's own words. Text that doesn't
+    read back comes back marked, so to_hive sends nothing."""
+    if text.startswith("EXPLAIN "):
+        return "EXPLAIN " + read_back(text.removeprefix("EXPLAIN "))
+    try:
+        if text.startswith("MSCK REPAIR TABLE "):
+            table = text.removeprefix("MSCK REPAIR TABLE ")
+            return "MSCK REPAIR TABLE " + _table_read_back(table)
+        found = _ANALYZE.fullmatch(text)
+        if found is not None:
+            table, columns = found.groups()
+            read = f"ANALYZE TABLE {_table_read_back(table)} COMPUTE STATISTICS"
+            if columns is None:
+                return read
+            # The Toolbox's own Hive, read back: no value of the user's is pasted in here.
+            listed = sqlglot.parse_one("SELECT " + columns, read=_DIALECT).expressions
+            return f"{read} FOR COLUMNS {', '.join(sql_text(column) for column in listed)}"
+    except sqlglot.errors.SqlglotError as error:
+        return f"(the Hive doesn't read back: {error})"
+    return f"(the Hive doesn't read back: {text})"
+
+
+def _table_read_back(text: str) -> str:
+    """A table's name, and the PARTITION(...) after it if any, read back as a write's target."""
+    write = sqlglot.parse_one("INSERT OVERWRITE TABLE " + text + " SELECT 1", read=_DIALECT)
+    if not isinstance(write, exp.Insert):
+        raise sqlglot.errors.ParseError(text + " isn't a table")
+    return sql_text(write.this)
 
 
 def check_writable_call(name: str, args: list[Node], call: str) -> None:
@@ -205,8 +275,33 @@ def _case(node: Node) -> exp.Case:
 
 
 def _window(node: Node) -> exp.Window:
+    """A calculation OVER (PARTITION BY ... ORDER BY ... ROWS BETWEEN ... AND ...), each part
+    only when the window has it."""
+    order = node.parts.get("order")
+    rows = node.parts.get("rows")
+    spec = None
+    if rows is not None:
+        (start, start_side), (end, end_side) = (_rows_end(rows[0], "PRECEDING"),
+                                                _rows_end(rows[1], "FOLLOWING"))
+        spec = exp.WindowSpec(kind="ROWS", start=start, start_side=start_side, end=end,
+                              end_side=end_side)
     return exp.Window(this=_built(node, "this"), partition_by=_all_built(node, "partition_by"),
-                      order=_built(node, "order"))
+                      order=None if order is None else to_sqlglot(order), spec=spec)
+
+
+def _rows_end(count: int | None, unbounded_side: str) -> tuple[str, str | None]:
+    """One end of a window's ROWS, as sqlglot's WindowSpec holds it: the number of rows from
+    the row itself and which way, CURRENT ROW, or UNBOUNDED for every row that way."""
+    if count is None:
+        return "UNBOUNDED", unbounded_side
+    if count == 0:
+        return "CURRENT ROW", None
+    return str(abs(count)), "PRECEDING" if count < 0 else "FOLLOWING"
+
+
+def _window_call(node: Node) -> exp.Expression:
+    """A function that works only over a window, such as LAG(column, 1), written as named."""
+    return exp.Anonymous(this=node.name.upper(), expressions=_all_built(node, "args"))
 
 
 def _table(node: Node) -> exp.Expression:
@@ -217,19 +312,28 @@ def _table(node: Node) -> exp.Expression:
     return table if alias is None else exp.alias_(table, _identifier(alias), table=True)
 
 
+# How sqlglot holds each join the Toolbox writes: its side and its kind.
+_JOINS = {
+    "JOIN": {},
+    "LEFT JOIN": {"side": "LEFT"},
+    "CROSS JOIN": {"kind": "CROSS"},
+    "LEFT SEMI JOIN": {"side": "LEFT", "kind": "SEMI"},
+    "FULL JOIN": {"side": "FULL"},
+}
+
+
 def _join(node: Node) -> exp.Join:
-    parts = {"this": _built(node, "this")}
+    parts = {"this": _built(node, "this"), **_JOINS[node.parts["how"]]}
     if node.parts.get("on") is not None:
         parts["on"] = _built(node, "on")
-    if node.parts["how"] == "LEFT JOIN":
-        parts["side"] = "LEFT"
-    if node.parts["how"] == "CROSS JOIN":
-        parts["kind"] = "CROSS"
     return exp.Join(**parts)
 
 
 def _select(node: Node) -> exp.Select:
     tree = exp.Select(expressions=_all_built(node, "outputs"))
+    if node.parts.get("broadcast"):
+        tree.set("hint", exp.Hint(expressions=[exp.Anonymous(
+            this="MAPJOIN", expressions=[_identifier(name) for name in node.parts["broadcast"]])]))
     if node.parts.get("distinct"):
         tree.set("distinct", exp.Distinct())
     _set_part(tree, "from", exp.From(this=_built(node, "source")))
@@ -238,11 +342,41 @@ def _select(node: Node) -> exp.Select:
     if node.parts.get("where") is not None:
         tree.set("where", exp.Where(this=_built(node, "where")))
     if node.parts.get("group_by"):
-        tree.set("group", exp.Group(expressions=_all_built(node, "group_by")))
+        group = exp.Group(expressions=_all_built(node, "group_by"))
+        if node.parts.get("grouping_sets"):
+            sets = _all_built(node, "grouping_sets")
+            group.set("grouping_sets", [exp.GroupingSets(expressions=sets)])
+        tree.set("group", group)
     if node.parts.get("having") is not None:
         tree.set("having", exp.Having(this=_built(node, "having")))
     if node.parts.get("order_by"):
         tree.set("order", exp.Order(expressions=_all_built(node, "order_by")))
+    if node.parts.get("limit") is not None:
+        tree.set("limit", exp.Limit(expression=exp.Literal.number(node.parts["limit"])))
+    return _with_tables(tree, node)
+
+
+def _grouping_set(node: Node) -> exp.Expression:
+    """One set of GROUPING SETS: a lone column as it is, since sqlglot reads (a) back as a
+    bracketed a and lays it out differently, else its columns in brackets."""
+    columns = _all_built(node, "expressions")
+    return columns[0] if len(columns) == 1 else exp.Tuple(expressions=columns)
+
+
+# How each kind of Stack is built: the sqlglot class, and whether it keeps each different row
+# once.
+_STACKS = {"UNION ALL": (exp.Union, False), "UNION": (exp.Union, True),
+           "INTERSECT": (exp.Intersect, True), "EXCEPT": (exp.Except, True)}
+
+
+def _stack(node: Node) -> exp.Expression:
+    """Statements stacked one after another, each joined to those before it, as sqlglot holds
+    A UNION ALL B UNION ALL C: (A UNION ALL B) UNION ALL C."""
+    kind, distinct = _STACKS[node.parts["how"]]
+    branches = _all_built(node, "branches")
+    tree = branches[0]
+    for branch in branches[1:]:
+        tree = kind(this=tree, expression=branch, distinct=distinct)
     if node.parts.get("limit") is not None:
         tree.set("limit", exp.Limit(expression=exp.Literal.number(node.parts["limit"])))
     return _with_tables(tree, node)
@@ -263,11 +397,27 @@ def _insert(node: Node) -> exp.Insert:
 
 
 def _create(node: Node) -> exp.Create:
-    properties = [exp.FileFormatProperty(this=exp.Var(this="ORC"))]
+    """CREATE EXTERNAL TABLE, its parts in the order Hive writes them: Partitions, Buckets,
+    the file format, the folder, then the table properties."""
+    properties = [exp.ExternalProperty()]
     if node.parts["partitioned_by"]:
         partition = exp.Schema(expressions=_all_built(node, "partitioned_by"))
-        properties.insert(0, exp.PartitionedByProperty(this=partition))
-    schema = exp.Schema(this=_built(node, "target"), expressions=_all_built(node, "columns"))
+        properties.append(exp.PartitionedByProperty(this=partition))
+    if node.parts["bucketed_by"]:
+        sorted_by = [exp.column(_identifier(name)) for name in node.parts["sorted_by"]]
+        properties.append(exp.ClusteredByProperty(
+            expressions=[exp.column(_identifier(name)) for name in node.parts["bucketed_by"]],
+            sorted_by=sorted_by or None, buckets=exp.Literal.number(node.parts["buckets"])))
+    properties.append(exp.FileFormatProperty(this=exp.Var(this=node.parts["stored_as"])))
+    properties.append(exp.LocationProperty(this=exp.Literal.string(node.parts["location"])))
+    properties += [exp.Property(this=exp.Literal.string(name), value=exp.Literal.string(value))
+                   for name, value in node.parts["properties"]]
+    columns = _all_built(node, "columns")
+    if node.parts["key"]:
+        # The Key, which DISABLE NOVALIDATE has Hive keep without ever checking it.
+        key = [_identifier(name) for name in node.parts["key"]]
+        columns.append(exp.PrimaryKey(expressions=key, options=["DISABLE NOVALIDATE"]))
+    schema = exp.Schema(this=_built(node, "target"), expressions=columns)
     return exp.Create(kind="TABLE", this=schema, properties=exp.Properties(expressions=properties),
                       exists=node.parts["exists"])
 
@@ -279,6 +429,27 @@ def _drop(node: Node) -> exp.Drop:
     if "tables" in exp.Drop.arg_types:
         return exp.Drop(kind="TABLE", tables=[table], exists=True)
     return exp.Drop(kind="TABLE", this=table, exists=True)
+
+
+def _repair(node: Node) -> exp.Command:
+    """MSCK REPAIR TABLE, which sqlglot holds as a Command, text it writes as given. The
+    table's name in it, as in ANALYZE TABLE's, is written by sqlglot, never pasted in."""
+    return exp.Command(this="MSCK", expression="REPAIR TABLE " + sql_text(_built(node, "target")))
+
+
+def _analyze(node: Node) -> exp.Command:
+    """ANALYZE TABLE ... COMPUTE STATISTICS, held as a Command: sqlglot before version 26 has
+    no tree of its own for it, and the Hive is the same either way."""
+    sql = f"TABLE {sql_text(_built(node, 'target'))} COMPUTE STATISTICS"
+    if node.parts["columns"]:
+        sql += " FOR COLUMNS " + ", ".join(sql_text(_identifier(name))
+                                           for name in node.parts["columns"])
+    return exp.Command(this="ANALYZE", expression=sql)
+
+
+def _explain(node: Node) -> exp.Command:
+    """EXPLAIN, then the Statement laid out as to_hive lays it out, held as a Command."""
+    return exp.Command(this="EXPLAIN", expression=hive_statement(node.parts["this"]))
 
 
 def _two_sided(kind):
@@ -318,6 +489,8 @@ _REPLAY = {
     "Avg": _one_sided(exp.Avg),
     "Min": _one_sided(exp.Min),
     "Max": _one_sided(exp.Max),
+    # sqlglot builds GROUPING with a class of its own where it has one, as version 30 does.
+    "Grouping": lambda node: exp.func("grouping", _built(node, "this"), dialect=_DIALECT),
     "Between": lambda node: exp.Between(this=_built(node, "this"), low=_built(node, "low"),
                                         high=_built(node, "high")),
     "In": lambda node: exp.In(this=_built(node, "this"),
@@ -328,6 +501,7 @@ _REPLAY = {
                                           expressions=_all_built(node, "expressions")),
     "Distinct": lambda node: exp.Distinct(expressions=_all_built(node, "expressions")),
     "Window": _window,
+    "WindowCall": _window_call,
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
     # Hive and Spark put NULL first when sorting up and last when sorting down; telling
     # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
@@ -339,6 +513,8 @@ _REPLAY = {
     "Call": lambda node: _hive_call(node.parts["name"], _all_built(node, "args")),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
     "Select": _select,
+    "Stack": _stack,
+    "Tuple": _grouping_set,
     "Table": _table,
     "Join": _join,
     "CTE": lambda node: exp.CTE(this=_built(node, "this"),
@@ -349,4 +525,7 @@ _REPLAY = {
     "ColumnDef": lambda node: exp.ColumnDef(this=_identifier(node.name),
                                             kind=_hive_type(node.parts["type"])),
     "Drop": _drop,
+    "Repair": _repair,
+    "Analyze": _analyze,
+    "Explain": _explain,
 }

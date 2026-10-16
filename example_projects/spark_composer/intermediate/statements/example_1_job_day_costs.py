@@ -1,4 +1,4 @@
-# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
 """Example 1: each job's cost per day, the last 3 days saved again on every run.
 
 Why: a day's bill can come in after the day was saved, so each run saves the last few days
@@ -33,8 +33,8 @@ LAST_DAY = "2026-09-24"  # the Example database's last day, which preview reads 
 def create():
     """Step 1: create mart.job_day_costs from its Table reference, if it isn't there yet.
 
-    may_exist=True writes CREATE TABLE IF NOT EXISTS, so running every step from the top each
-    day skips this one once the table is there. It never changes a table that is.
+    may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so running every step from the
+    top each day skips this one once the table is there. It never changes a table that is.
     """
     return create_table(job_day_costs, may_exist=True)
 

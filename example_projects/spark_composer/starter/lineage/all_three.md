@@ -1,4 +1,4 @@
-<!-- Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
+<!-- Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
 # Lineage: write_daily_job_runs, write_alerts_per_job, write_team_day
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
@@ -12,10 +12,10 @@ flowchart LR
     n2["ops.job_runs.dt<br/><small>string</small>"]
     n4["ops.job_runs.status<br/><small>string</small>"]
     n6["ops.job_runs.duration_mins<br/><small>int</small>"]
-    n26["ops.job_runs.run_id<br/><small>bigint</small>"]
+    n26["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g1["runs_per_job_day"]
-    n1["runs_per_job_day.job_id<br/><small>job_runs.job_id</small>"]
+    n1["runs_per_job_day.job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
     n3["runs_per_job_day.runs<br/><small>count_rows()</small>"]
     n5["runs_per_job_day.failed_runs<br/><small>count_rows(where=equals(job_runs.status, #quot;F…</small>"]
     n7["runs_per_job_day.minutes<br/><small>sum_of(job_runs.duration_mins)</small>"]
@@ -24,20 +24,20 @@ flowchart LR
     n8{{"WHERE in runs_per_job_day<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
   end
   subgraph g3["write_daily_job_runs"]
-    n9["job_id<br/><small>runs_per_job_day.job_id</small>"]
+    n9["job_id<br/><small>runs_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n10["runs<br/><small>runs_per_job_day.runs</small>"]
     n11["failed_runs<br/><small>runs_per_job_day.failed_runs</small>"]
     n12["minutes<br/><small>runs_per_job_day.minutes</small>"]
   end
   subgraph g4["mart.daily_job_runs"]
-    n13["mart.daily_job_runs.job_id<br/><small>bigint</small>"]
+    n13["mart.daily_job_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n14["mart.daily_job_runs.runs<br/><small>bigint</small>"]
     n15["mart.daily_job_runs.failed_runs<br/><small>bigint</small>"]
     n16["mart.daily_job_runs.minutes<br/><small>bigint</small>"]
-    n17["mart.daily_job_runs.dt<br/><small>string</small>"]
+    n17["mart.daily_job_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g5["write_alerts_per_job"]
-    n18["job_id<br/><small>job_runs.job_id</small>"]
+    n18["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
     n19["alerts<br/><small>count_rows()</small>"]
     n21["high_alerts<br/><small>count_rows(where=equals(run_alerts.severity…</small>"]
   end
@@ -52,17 +52,17 @@ flowchart LR
     n25{{"JOIN ON in write_alerts_per_job<br/><small>equals(job_runs.run_id, run_alerts.run_id)</small>"}}
   end
   subgraph g8["mart.alerts_per_job"]
-    n28["mart.alerts_per_job.job_id<br/><small>bigint</small>"]
+    n28["mart.alerts_per_job.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n29["mart.alerts_per_job.alerts<br/><small>bigint</small>"]
     n30["mart.alerts_per_job.high_alerts<br/><small>bigint</small>"]
-    n31["mart.alerts_per_job.dt<br/><small>string</small>"]
+    n31["mart.alerts_per_job.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g9["ops.jobs"]
     n32["ops.jobs.team<br/><small>string</small>"]
-    n41["ops.jobs.job_id<br/><small>bigint</small>"]
+    n41["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g10["write_team_day"]
-    n33["team<br/><small>jobs.team</small>"]
+    n33["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
     n34["runs<br/><small>sum_of(daily_job_runs.runs)</small>"]
     n35["failed_runs<br/><small>sum_of(daily_job_runs.failed_runs)</small>"]
     n36["minutes<br/><small>sum_of(daily_job_runs.minutes)</small>"]
@@ -75,13 +75,13 @@ flowchart LR
     n42{{"LEFT JOIN ON in write_team_day<br/><small>all_of(equals(alerts_per_job.job_id, daily_…</small>"}}
   end
   subgraph g12["mart.team_day"]
-    n43["mart.team_day.team<br/><small>string</small>"]
+    n43["mart.team_day.team<br/><small>string</small><br/><small>in the Key</small>"]
     n44["mart.team_day.runs<br/><small>bigint</small>"]
     n45["mart.team_day.failed_runs<br/><small>bigint</small>"]
     n46["mart.team_day.minutes<br/><small>bigint</small>"]
     n47["mart.team_day.alerts<br/><small>bigint</small>"]
     n48["mart.team_day.high_alerts<br/><small>bigint</small>"]
-    n49["mart.team_day.dt<br/><small>string</small>"]
+    n49["mart.team_day.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n4 --> n5
@@ -193,6 +193,14 @@ One value for each different `job_runs.job_id` and `job_runs.dt`.
 | `failed_runs` | runs_per_job_day.failed_runs (calculated) ← ops.job_runs.status |
 | `minutes` | runs_per_job_day.minutes (calculated) ← ops.job_runs.duration_mins |
 
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('runs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- write_daily_job_runs: Key (job_id), since runs_per_job_day's rows are told apart by job_id.
+- mart.daily_job_runs' Key (job_id, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -264,6 +272,13 @@ One value for each different `job_runs.job_id`.
 | Output | Comes from |
 | --- | --- |
 | `job_id` | ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_alerts_per_job: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.alerts_per_job's Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
@@ -389,6 +404,13 @@ One value for each different `jobs.team`.
 | --- | --- |
 | `team` | ops.jobs.team |
 
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_team_day: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_day's Key (team, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -414,4 +436,4 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with Spark Composer 4.1.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with Spark Composer 5.0.

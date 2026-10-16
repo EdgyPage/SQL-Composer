@@ -1,4 +1,4 @@
-# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
 """mart.team_day - one row per team and day: runs, failed runs, minutes, alerts.
 
 Why: example 3 saves each team's day here, made from what examples 1 and 2 saved, so a
@@ -23,4 +23,5 @@ team_day = Table(
     },
     date_partition="dt",
     key=["team", "dt"],
+    location="/data/your_team/tables",  # the folder your Saved tables go in
 )

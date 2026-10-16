@@ -1,4 +1,4 @@
-# sqlglot Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# sqlglot Composer 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """What sqlglot Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
@@ -15,7 +15,7 @@ import re
 from composer_core import _four_part_message as four_part_message
 from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 
 def _stop(what, why, fix):
@@ -387,6 +387,9 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     import sqlglot
     from sqlglot import exp
 
+    if text.split(None, 1)[:1] and text.split(None, 1)[0].upper() == "EXPLAIN":
+        # The executor runs a query step by step, with no plan of Hive's to show.
+        _refuse_missing_part("EXPLAIN")
     try:
         tree = sqlglot.parse_one(text, read="hive")
     except sqlglot.errors.SqlglotError as error:
@@ -400,6 +403,12 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
                     for name, (table, table_rows) in tables.items()}}
     if tree.find(exp.Window):
         _refuse_missing_part("window functions such as row_number")
+    if tree.find(exp.GroupingSets):
+        # Its executor would group by every column, leaving out the subtotal rows unsaid.
+        _refuse_missing_part("GROUPING SETS, which rollup, cube and grouping_sets write")
+    # The executor would run a LEFT SEMI JOIN as a LEFT JOIN, repeating and keeping rows.
+    if any(join.kind == "SEMI" for join in tree.find_all(exp.Join)):
+        _refuse_missing_part("LEFT SEMI JOIN")
     try:
         with _mix_ups_stopped(tree):
             result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,

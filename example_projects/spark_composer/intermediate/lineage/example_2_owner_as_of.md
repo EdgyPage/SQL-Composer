@@ -1,4 +1,4 @@
-<!-- Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
+<!-- Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
 # Lineage: write_job_day_facts
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
@@ -14,7 +14,7 @@ flowchart LR
     n7["ops.job_events.minutes<br/><small>int</small>"]
   end
   subgraph g1["events_per_job_day"]
-    n1["events_per_job_day.job_id<br/><small>job_events.job_id</small>"]
+    n1["events_per_job_day.job_id<br/><small>job_events.job_id</small><br/><small>in the Key</small>"]
     n3["events_per_job_day.dt<br/><small>job_events.dt</small>"]
     n4["events_per_job_day.events<br/><small>count_rows()</small>"]
     n6["events_per_job_day.runs<br/><small>count_rows(where=equals(job_events.event_ty…</small>"]
@@ -24,7 +24,7 @@ flowchart LR
     n9{{"WHERE in events_per_job_day<br/><small>equals(job_events.dt, datetime.date(2026, 9…</small>"}}
   end
   subgraph g3["write_job_day_facts"]
-    n10["job_id<br/><small>events_per_job_day.job_id</small>"]
+    n10["job_id<br/><small>events_per_job_day.job_id</small><br/><small>in the Key</small>"]
     n12["team<br/><small>job_owners.team</small>"]
     n13["events<br/><small>events_per_job_day.events</small>"]
     n14["runs<br/><small>events_per_job_day.runs</small>"]
@@ -32,19 +32,19 @@ flowchart LR
   end
   subgraph g4["ops.job_owners"]
     n11["ops.job_owners.team<br/><small>string</small>"]
-    n17["ops.job_owners.dt<br/><small>string</small>"]
-    n18["ops.job_owners.job_id<br/><small>bigint</small>"]
+    n17["ops.job_owners.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n18["ops.job_owners.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g5["filters on write_job_day_facts"]
     n16{{"LEFT JOIN ON in write_job_day_facts<br/><small>all_of(equals(job_owners.job_id, events_per…</small>"}}
   end
   subgraph g6["mart.job_day_facts"]
-    n19["mart.job_day_facts.job_id<br/><small>bigint</small>"]
+    n19["mart.job_day_facts.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n20["mart.job_day_facts.team<br/><small>string</small>"]
     n21["mart.job_day_facts.events<br/><small>bigint</small>"]
     n22["mart.job_day_facts.runs<br/><small>bigint</small>"]
     n23["mart.job_day_facts.minutes<br/><small>bigint</small>"]
-    n24["mart.job_day_facts.dt<br/><small>string</small>"]
+    n24["mart.job_day_facts.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n2 --> n3
@@ -132,6 +132,14 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 | `runs` | events_per_job_day.runs (calculated) ← ops.job_events.event_type |
 | `minutes` | events_per_job_day.minutes (calculated) ← ops.job_events.minutes |
 
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('events_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- write_job_day_facts: Key (job_id), since events_per_job_day's rows are told apart by job_id.
+- mart.job_day_facts' Key (job_id, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -170,4 +178,4 @@ LEFT JOIN ops.job_owners AS job_owners
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with Spark Composer 4.1.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with Spark Composer 5.0.

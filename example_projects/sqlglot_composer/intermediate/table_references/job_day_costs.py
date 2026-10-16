@@ -1,4 +1,4 @@
-# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
 """mart.job_day_costs - one row per job and day it was billed: its cost in cents.
 
 Why: example 1 saves each job's cost per day here with its days written like 2026-09-24, as
@@ -20,4 +20,5 @@ job_day_costs = Table(
     },
     date_partition="dt",
     key=["job_id", "dt"],
+    location="/data/your_team/tables",  # the folder your Saved tables go in
 )

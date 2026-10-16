@@ -1,4 +1,4 @@
-# Spark Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Spark Composer 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """What Spark Composer runs on: the pyspark it needs, and the Spark its Example database uses.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it
@@ -43,7 +43,7 @@ if __package__:
     from composer_core import _four_part_message as four_part_message
     from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 
 def _stop(what, why, fix):
