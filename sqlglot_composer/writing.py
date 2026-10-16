@@ -274,7 +274,8 @@ def _grouping_set(node: Node) -> exp.Expression:
     return columns[0] if len(columns) == 1 else exp.Tuple(expressions=columns)
 
 
-# How each stacking is built: the sqlglot class, and whether it keeps each different row once.
+# How each kind of Stack is built: the sqlglot class, and whether it keeps each different row
+# once.
 _STACKS = {"UNION ALL": (exp.Union, False), "UNION": (exp.Union, True),
            "INTERSECT": (exp.Intersect, True), "EXCEPT": (exp.Except, True)}
 

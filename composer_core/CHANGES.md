@@ -64,19 +64,21 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   holds.
 - **Stacks: `UNION_ALL`, `UNION`, `INTERSECT` and `EXCEPT` put whole Statements' rows
   together**, one Statement after another, their columns matched by name, so a column is never
-  stacked under one of another name, and refused naming the column when a Statement lacks one
-  or returns it as another kind of value. A Stack is a Statement: run, show_hive and
-  derived(...) take it, and by_day splits each Statement it stacks. `UNION`, `INTERSECT` and
-  `EXCEPT` keep each different row once, so their rows have a Key; `UNION_ALL` keeps every row
-  and loses it. Lineage feeds each column from every Statement that makes it. The how-to
-  "Reconcile two tables" runs `EXCEPT` both ways.
+  stacked under one of another name. A Statement that lacks a column, or returns it as
+  another kind of value, is refused, with the column named. A Stack is a Statement: run,
+  show_hive and derived(...) take it, and by_day splits each Statement it stacks (a `UNION`,
+  `INTERSECT` or `EXCEPT` only when each Statement returns the day). `UNION`, `INTERSECT` and
+  `EXCEPT` keep each different row once, so their rows have a Key; `UNION_ALL` keeps every
+  row, so its rows have none. Lineage feeds each column of a `UNION_ALL` or `UNION` from every
+  Statement, and each of an `INTERSECT` or `EXCEPT` from its first, the others deciding which
+  of its rows are kept. The how-to "Reconcile two tables" runs `EXCEPT` both ways.
 - **Subtotals: `GROUP_BY(rollup(...))`, `cube(...)` and `grouping_sets(...)`** add subtotal
-  rows beside the groups, written as Hive's `GROUPING SETS`, and `is_total(column)` tells a
-  subtotal row from a row whose column is really NULL. A Saved table is never written from
-  subtotals, whose rows repeat the rows they add up: write the plain GROUP_BY, and add the
-  subtotals when you read it. sqlglot Composer's Example database
-  can't make subtotals and says so; Spark Composer's can. The how-to "Subtotals and grand
-  totals" walks through them.
+  rows to the groups' rows, written as Hive's `GROUPING SETS`, and `is_total(column)` tells a
+  subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals
+  into a Saved table, as their rows repeat the rows they total: write the plain GROUP_BY, and
+  add the subtotals when you read it. sqlglot Composer's Example database can't make subtotals
+  and says so; Spark Composer's can. The how-to "Subtotals and grand totals" walks through
+  them.
 
 ### Refused now
 

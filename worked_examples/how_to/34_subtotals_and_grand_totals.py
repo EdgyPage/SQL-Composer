@@ -72,10 +72,10 @@ in pandas from the same rows, to show what the Hive gives. Your warehouse runs t
 is, and Check it worked below runs on the Example database too.
 [end]
 
-The Hive spells out each level as one set of `GROUPING SETS`: each team and job, each team,
-and `()`, nothing, for one row over all of them. In a subtotal row the columns it adds up are
-empty, NULL, which pandas shows as `None`: `"job_name"` in a team's subtotal, and `"team"` too
-in the grand total.
+The Hive spells out each set of rows in `GROUPING SETS`: each team and job, each team,
+and `()`, nothing, for one row over all of them. In a subtotal row the columns it totals over
+are empty, NULL, which pandas shows as `None` and the tables on this page as NULL:
+`"job_name"` in a team's subtotal, and `"team"` too in the grand total.
 
 ### Tell a subtotal row from a real NULL
 
@@ -97,8 +97,8 @@ A column can be empty in a real row too. On 2026-09-23 one run was still going, 
 3  SUCCESS         0     2
 4     TEST         0     1
 
-`is_total(job_runs.status)` holds on a subtotal row that adds `job_runs.status` up, and
-nowhere else, so the first row is the running run, and the second the grand total of all five.
+`is_total(job_runs.status)` holds on a subtotal row that totals over every status, and nowhere
+else, so the first row is the running run, and the second the grand total of all five.
 
 ### Label the subtotal rows
 
@@ -122,11 +122,16 @@ nowhere else, so the first row is the running run, and the second the grand tota
 4     finance  invoice_sync     1
 5     finance  report_build     1
 
+The rows come sorted by their first column, as the Example database sorts them, which puts
+"every team" between "data" and "finance". At work rows come in no fixed order: sort them with
+`ORDER_BY`, or in pandas.
+
 ### Keep only the subtotals
 
 `is_total` in `HAVING` keeps or leaves out subtotal rows, since `HAVING` tests the rows
 `GROUP_BY` made, subtotals included. Here only each team's total and the grand total. The
-column it tests, `jobs.job_name`, must be one `SELECT` returns, since Spark looks for it there:
+column it tests, `jobs.job_name`, must be in `SELECT` too: some warehouses, Spark among them,
+refuse it otherwise, so the Toolbox does in both Editions.
 
 >>> team_totals = statement(
 ...     SELECT(jobs.team, jobs.job_name, AS(count_rows(), "runs")),
@@ -144,8 +149,8 @@ column it tests, `jobs.job_name`, must be one `SELECT` returns, since Spark look
 
 ### Other sets of subtotals
 
-`rollup` adds up from the last column back to the first: each team over its jobs, never each
-job over its teams. For every mix, use `cube(jobs.team, jobs.region)`: each team over every
+`rollup` drops its columns from the right, first `"job_name"`, then `"team"`: each team over
+its jobs, never each job over its teams. For every mix, use `cube(jobs.team, jobs.region)`: each team over every
 region, each region over every team, and the grand total. To pick the sets yourself, list
 them with `grouping_sets([jobs.team], [jobs.region], [])`. A plain column beside a rollup is in
 every set, so `GROUP_BY(job_runs.dt, rollup(jobs.team))` totals each day's teams, and never
@@ -184,7 +189,7 @@ Add up only the rows that aren't subtotals, or read the grand total's own row.
 
 ### Writing subtotals into a Saved table
 
-A Saved table holds one row for each Key, and subtotal rows repeat the rows they add up: a sum
+A Saved table holds one row for each Key, and subtotal rows repeat the rows they total: a sum
 over the table would count each run twice. A write from subtotals is refused:
 
 >>> team_runs = Table(
@@ -233,7 +238,8 @@ Test it in `HAVING`, as Keep only the subtotals does.
 ## Next
 
 - [Count and add up per group](#count_and_add_up_per_group): GROUP_BY without subtotals.
-- [Week and month rollups](#week_and_month_rollups): groups of days into weeks and months.
+- [Week and month rollups](#week_and_month_rollups): days grouped into weeks and months, with
+  no `rollup(...)` needed.
 - The gallery's [`rollup`](examples.html#rollup), [`cube`](examples.html#cube),
   [`grouping_sets`](examples.html#grouping_sets) and [`is_total`](examples.html#is_total).
 """
@@ -257,8 +263,8 @@ def runs_on(day):
 
 
 def _rollup(rows, columns, totals):
-    """The rows of a rollup over `columns`: each level, from all of them down to none, with the
-    columns a level adds up as None and a 1 in `level` where they are."""
+    """The rows of a rollup over `columns`: each set, from all of them down to none, with the
+    columns a set totals over as None, and a 1 in "subtotal" where there are any."""
     found = []
     for size in range(len(columns), -1, -1):
         # One more column, the same on every row, so the grand total is a group too.
@@ -266,7 +272,7 @@ def _rollup(rows, columns, totals):
                                                as_index=False).agg(**totals)
         for column in columns[size:]:
             grouped[column] = None
-        grouped["level"] = 1 if size < len(columns) else 0
+        grouped["subtotal"] = 1 if size < len(columns) else 0
         found.append(grouped.drop(columns="every"))
     found = pd.concat(found, ignore_index=True)
     for column in columns:
@@ -295,7 +301,6 @@ def runs_per_status_in_pandas():
     rows = runs_on("2026-09-23")
     rows["status"] = rows["status"].astype(object).where(rows["status"].notna(), None)
     found = _rollup(rows, ["status"], {"runs": ("run_id", "count")})
-    found["subtotal"] = found["level"]
     return _sorted(found, ["status", "subtotal", "runs"])
 
 

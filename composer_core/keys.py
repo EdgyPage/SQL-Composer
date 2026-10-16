@@ -235,8 +235,8 @@ def statement_keys(s, one_day: bool = False) -> Keys:
     if s._stack is not None:
         return _stack_keys(s, one_day)
     if s._grouping_sets is not None:
-        return Keys([], f"GROUP_BY({s._subtotals_call}) adds subtotal rows, whose added-up "
-                    "columns are NULL, as a real row's may be")
+        return Keys([], f"GROUP_BY({s._subtotals_call}) adds subtotal rows, with NULL in each "
+                    "column they total over, as a real row may have")
     facts = _Facts(s, one_day)
     if s._distinct:
         names = _reduced([(name, column._tree) for column, name in s._outputs], facts)

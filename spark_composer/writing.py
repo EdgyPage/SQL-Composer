@@ -393,7 +393,7 @@ def _grouping_set(node: Node, pretty: bool) -> str:
 
 
 # After sqlglot's Generator.set_operations and set_operation: each Statement, then the next,
-# with the stacking's name between them, then a LIMIT for them all.
+# with the Stack's kind, such as UNION ALL, between them, then a LIMIT for them all.
 def _stack(node: Node, pretty: bool) -> str:
     pieces = []
     for branch in node.parts["branches"]:

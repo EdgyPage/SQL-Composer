@@ -1,4 +1,4 @@
-"""Stacks and subtotals: UNION_ALL, UNION, INTERSECT and EXCEPT, rollup, cube and is_total.
+"""Stacks and subtotals: UNION_ALL and the rest, rollup, cube, grouping_sets and is_total.
 
 A Stack puts the rows of whole Statements together, one Statement after another:
 
@@ -10,8 +10,9 @@ Statement to read, filter, group or write. Subtotals go in GROUP_BY:
 
     GROUP_BY(rollup(jobs.team, jobs.job_name))
 
-adds a subtotal row for each team, and one for all the rows, beside each team's and job's
-row; is_total(column) tells a subtotal row from a row whose column is really NULL.
+gives the usual row for each team and job, and as well, a subtotal row for each team and one
+for all the rows; is_total(column) tells a subtotal row from a row whose column is really
+NULL.
 """
 
 from __future__ import annotations
@@ -44,14 +45,15 @@ def nth(position: int) -> str:
 def UNION_ALL(*statements, returns_all_rows=False):
     """Stack the rows of Statements one after another, keeping every row.
 
-    Each Statement must return the same columns, matched by name: the Toolbox writes them in
-    the first Statement's order, so a column is never stacked under one of another name, as
-    Hive, which stacks by position, would do. A column of another type in each, such as a
-    number in one and text in another, is refused, and so is a Statement with ORDER_BY or
-    LIMIT: to sort or cut the stacked rows, name them with derived(...) and read them like
-    any table. A row two Statements both return comes back twice: UNION gives each different
-    row once. The stacked rows have no Key, since two Statements may return the same one.
-    returns_all_rows=True drops the automatic LIMIT, as in statement(...).
+    Each Statement must return the same columns. Hive lines columns up by their place in
+    SELECT, so it would quietly put one column under another of a different name; the Toolbox
+    lines them up by name, and writes each Statement's columns in the first one's order. A
+    column that is a number in one Statement and text in another is refused, and so is a
+    Statement with ORDER_BY or LIMIT: to sort or cut the stacked rows, name them with
+    derived(...) and read them like any table. A row two Statements both return comes back
+    twice: UNION gives each different row once. So the stacked rows have no Key: the same row
+    can come back twice. returns_all_rows=True drops the LIMIT that set_load_limits(rows=...)
+    adds, as in statement(...).
 
     >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
@@ -88,9 +90,9 @@ def UNION_ALL(*statements, returns_all_rows=False):
 def UNION(*statements, returns_all_rows=False):
     """Stack the rows of Statements, each different row once.
 
-    It stacks as UNION_ALL does, with the same checks, then keeps one of each set of rows
-    alike in every column, whichever Statement they came from, and one of a Statement's own
-    repeated rows too. Its Key is every column it returns, since no two of its rows are alike.
+    It stacks as UNION_ALL does, with the same checks, then drops repeated rows, so each
+    different row comes back once, whether its copies came from different Statements or the
+    same one. So all its columns together are a Key, which a write into a Saved table checks.
 
     >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
@@ -116,8 +118,11 @@ def INTERSECT(*statements, returns_all_rows=False):
 
     A row counts as in every Statement when each returns a row alike in every column, the
     columns matched by name as UNION_ALL matches them; two NULLs count as alike here, unlike
-    in equals(...). Each row once: its Key is every column it returns, or the Key of any of
-    its Statements. Hive has INTERSECT from version 2.2, so Hive 3 does.
+    in equals(...). Hive has INTERSECT from version 2.2, so Hive 3 does.
+
+    Each row comes back once, so all its columns together are a Key, which a write into a
+    Saved table checks; each Statement's own Key is one too, since its rows are some of that
+    Statement's rows.
 
     >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
@@ -143,8 +148,11 @@ def EXCEPT(*statements, returns_all_rows=False):
     A row is left out when another Statement returns a row alike in every column, the
     columns matched by name as UNION_ALL matches them; two NULLs count as alike here. Pass
     the same two Statements both ways round to find every difference between two tables.
-    Each row once: its Key is every column it returns, or the first Statement's Key. Hive has
-    EXCEPT from version 2.2, so Hive 3 does.
+    Hive has EXCEPT from version 2.2, so Hive 3 does.
+
+    Each row comes back once, so all its columns together are a Key, which a write into a
+    Saved table checks; the first Statement's own Key is one too, since its rows are some of
+    that Statement's rows. Below, the runs with a high alert that didn't fail.
 
     >>> run_alerts = example_database.run_alerts
     >>> failed = statement(
@@ -242,8 +250,8 @@ def _check_branch(call: str, position: int, s) -> None:
     if s._order_by or s._limit is not None:
         refuse(
             what=f"{which} has {'ORDER_BY' if s._order_by else 'LIMIT'}.",
-            why="Hive reads an ORDER BY or LIMIT after the last Statement of a Stack as one "
-            "for all the stacked rows, and takes none inside it.",
+            why="In Hive, an ORDER BY or LIMIT at the end of a Stack is for all the stacked "
+            "rows, and one inside a Statement of the Stack isn't allowed.",
             fix="To keep a Statement's top rows, make them in a derived(...) table and stack a "
             "Statement that reads it. To sort or cut the stacked rows, name the Stack with "
             "derived(...) and read it with ORDER_BY and LIMIT, or sort in pandas.",
@@ -282,15 +290,17 @@ def _check_names(call: str, branches: list[Statement]) -> None:
 def _check_types(call: str, branches: list[Statement]) -> None:
     """Refuse a column whose type is a number in one Statement and text in another, and the
     like: the types of each name must be of one kind wherever they are known."""
-    first = {name: column for column, name in branches[0]._outputs}
-    for position, s in enumerate(branches[1:], start=2):
+    known = {}  # each name's first known type, and the place of the Statement it is from
+    for position, s in enumerate(branches, start=1):
         for column, name in s._outputs:
-            mine, theirs = first[name]._type, column._type
-            if type_family(mine) and type_family(theirs) and (
-                    type_family(mine) != type_family(theirs)):
+            theirs = column._type
+            if not type_family(theirs):
+                continue
+            mine, where = known.setdefault(name, (theirs, position))
+            if type_family(mine) != type_family(theirs):
                 refuse(
-                    what=f"{call}(...): {name} is {mine} in its 1st Statement and {theirs} in "
-                    f"its {nth(position)}.",
+                    what=f"{call}(...): {name} is {mine} in its {nth(where)} Statement and "
+                    f"{theirs} in its {nth(position)}.",
                     why="Stacked, they are one column, so Hive would turn one into the other "
                     "type, or refuse the Statement.",
                     fix=f"Return {name} as the same kind of value from each Statement: a "
@@ -309,8 +319,8 @@ def _check_derived_names(call: str, branches: list[Statement]) -> None:
                 refuse(
                     what=f"{call}(...) reads two different Derived tables called "
                     f"{table._name!r}.",
-                    why="Each becomes a named part of the same Hive string, so the names must "
-                    "differ.",
+                    why="The Stack's Hive names each Derived table once, at its top, so two "
+                    "different ones can't share a name.",
                     fix="Give one of them another name in derived(...).",
                     error=ValueError,
                 )
@@ -377,14 +387,17 @@ def _same(one, other) -> bool:
 
 
 def rollup(*columns):
-    """Subtotals for GROUP_BY: each column's total within those before it, and all.
+    """Subtotals for GROUP_BY: dropping its columns from the right, to a grand total.
 
-    GROUP_BY(rollup(jobs.team, jobs.job_name)) gives a row for each team and job, as
-    GROUP_BY(jobs.team, jobs.job_name) does, then a subtotal row for each team, with
-    job_name NULL, and one for all the rows, with team NULL too. Columns in GROUP_BY beside
-    it are in every row's group: GROUP_BY(job_runs.dt, rollup(jobs.team)) totals each day.
-    is_total(column) tells a subtotal row from a row whose column is really NULL. A Saved
-    table is never written from subtotals: their rows repeat the rows they add up.
+    GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as
+    GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which
+    totals over every job_name, so job_name is NULL in it, and the grand total, one row over
+    all the rows, with team NULL too. A plain column next to it, as in
+    GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day,
+    never one across days. is_total(column) tells a subtotal row from a row whose column is
+    really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the
+    rows they total. sqlglot Composer's Example database can't make subtotals; the how-to
+    "Subtotals and grand totals" shows their rows.
 
     >>> print(to_hive(statement(
     ...     SELECT(jobs.team, jobs.job_name, AS(count_rows(), "runs")),
@@ -411,8 +424,9 @@ def rollup(*columns):
         ()
       )
 
-    The Hive lists each set of columns it groups by, so every level shows: GROUPING SETS is
-    the form Hive and Spark both take.
+    Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each
+    job, jobs.team each team's subtotal, and (), no column, the grand total. Hive and Spark
+    both take this form, so the Toolbox writes it rather than ROLLUP.
     """
     call = f"rollup({', '.join(python_text(column) for column in columns)})"
     items = _once(_subtotal_columns(call, _flatten(columns)))
@@ -430,14 +444,14 @@ def cube(*columns):
     works as rollup(...) does in every other way.
 
     >>> print(to_hive(statement(
-    ...     SELECT(jobs.team, jobs.region, AS(count_rows(), "jobs")),
+    ...     SELECT(jobs.team, jobs.region, AS(count_rows(), "job_count")),
     ...     FROM(jobs),
     ...     GROUP_BY(cube(jobs.team, jobs.region)),
     ... )))
     SELECT
       jobs.team,
       jobs.region,
-      COUNT(*) AS jobs
+      COUNT(*) AS job_count
     FROM ops.jobs AS jobs
     GROUP BY
       jobs.team,
@@ -458,21 +472,22 @@ def cube(*columns):
 
 
 def grouping_sets(*sets):
-    """Subtotals for GROUP_BY: the rows of each set of columns, stacked.
+    """Subtotals for GROUP_BY: the groups of each listed set of columns, in one result.
 
-    Each set is a list of columns, or one column, and [] is one row for all the rows. Its
-    rows are those of a GROUP_BY over each set in turn, with the columns a set leaves out
-    NULL, as rollup(...) and cube(...) give; it works as they do in every other way.
+    Each set is a list of columns, or one column, and [] is the grand total, one row over all
+    the rows. Its rows are those of a GROUP_BY over each set in turn, one set after another,
+    with the columns a set leaves out NULL, as rollup(...) and cube(...) give; it works as
+    they do in every other way.
 
     >>> print(to_hive(statement(
-    ...     SELECT(jobs.team, jobs.region, AS(count_rows(), "jobs")),
+    ...     SELECT(jobs.team, jobs.region, AS(count_rows(), "job_count")),
     ...     FROM(jobs),
     ...     GROUP_BY(grouping_sets([jobs.team], [jobs.region], [])),
     ... )))
     SELECT
       jobs.team,
       jobs.region,
-      COUNT(*) AS jobs
+      COUNT(*) AS job_count
     FROM ops.jobs AS jobs
     GROUP BY
       jobs.team,
@@ -510,13 +525,14 @@ def _need_some(call: str, items: list, example: str) -> None:
 
 
 def is_total(column):
-    """A condition that holds on a subtotal row, where the column was added up.
+    """A condition true on a subtotal row that totals over every value of the column.
 
-    On a subtotal row of GROUP_BY(rollup(...)), cube(...) or grouping_sets(...), a column it
-    adds up is NULL, as it may be in a real row too; is_total tells them apart. Use it in
-    SELECT, through if_else, to label the row, or in HAVING, to keep or leave out subtotal
-    rows, for a column SELECT returns. It is refused in WHERE and ON=, which pick rows before
-    any subtotal is made, and in a Statement with no subtotals.
+    A subtotal row of GROUP_BY(rollup(...)), cube(...) or grouping_sets(...) has NULL in each
+    column it totals over, as a real row may have NULL too; is_total tells them apart. Use it
+    in SELECT, through if_else, to label the row, or in HAVING, to keep or leave out subtotal
+    rows. In HAVING or ORDER_BY, the column you pass must also be in SELECT. It is refused in
+    WHERE and ON=, which pick rows before any subtotal is made, and in a Statement with no
+    subtotals.
 
     >>> is_total(jobs.team)
     GROUPING(jobs.team) = 1
@@ -537,12 +553,13 @@ def is_total(column):
     return Condition(made_by(tree, "is_total", column))
 
 
-def grouped(s: Statement, items: list) -> tuple[list[Column], list[list[Column]] | None]:
-    """GROUP_BY's columns, names looked up, and the sets of columns its subtotals group by,
-    each with GROUP_BY's other columns, or None when it has no subtotals."""
+def grouped(s: Statement, items: list) -> tuple:
+    """GROUP_BY's columns, names looked up; the sets of columns its subtotals group by, each
+    with GROUP_BY's other columns; and how the subtotals were written. The last two are None
+    when it has no subtotals."""
     found = [item for item in items if isinstance(item, Subtotals)]
     if not found:
-        return _resolve_group_by(s, items), None
+        return _resolve_group_by(s, items), None, None
     if len(found) > 1:
         refuse(
             what=f"GROUP_BY has {found[0]._call} and {found[1]._call}.",
@@ -556,8 +573,7 @@ def grouped(s: Statement, items: list) -> tuple[list[Column], list[list[Column]]
     columns = _resolve_group_by(s, subtotals._columns)
     every = _once(plain + columns)
     sets = [_once(plain + [columns[place] for place in places]) for places in subtotals._sets]
-    s._subtotals_call = subtotals._call
-    return every, sets
+    return every, sets, subtotals._call
 
 
 # --- What a Statement with subtotals may do --------------------------------------------------
@@ -570,6 +586,7 @@ def check_subtotals(s: Statement) -> None:
     places += [("GROUP_BY", column._tree) for column in s._group_by]
     places += [("SELECT", column._tree) for column, _ in s._outputs]
     places += [("HAVING", c._tree) for c in s._having]
+    places += [("ORDER_BY", key) for key in s._order_by]
     for place, tree in places:
         for grouping in tree.find_all("Grouping"):
             _check_is_total(s, place, grouping)
@@ -604,16 +621,18 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
     if not any(group._tree == column for group in s._group_by):
         refuse(
             what=f"{place} has {call}, but GROUP_BY doesn't group by {readable(column)}.",
-            why="is_total says whether a row adds up one of the columns GROUP_BY groups by.",
+            why="is_total says whether a row totals over one of the columns GROUP_BY groups by.",
             fix="Pass one of: " + ", ".join(readable(group._tree) for group in s._group_by)
             + ".",
             error=ValueError,
         )
-    if place == "HAVING" and not any(output._tree == column for output, _ in s._outputs):
+    if place in ("HAVING", "ORDER_BY") and not any(output._tree == column
+                                                   for output, _ in s._outputs):
         refuse(
-            what=f"HAVING has {call}, but SELECT doesn't return {readable(column)}.",
-            why="Spark looks for the column of an is_total in HAVING among the columns SELECT "
-            "returns, and refuses the Statement when it isn't one of them.",
+            what=f"{place} has {call}, but SELECT doesn't return {readable(column)}.",
+            why=f"Some warehouses, Spark among them, refuse an is_total in {place} of a column "
+            "SELECT doesn't return, so the Toolbox refuses it in both Editions, for your "
+            "Statement to run wherever it is sent.",
             fix=f"Add {readable(column)} to SELECT.",
             error=ValueError,
         )
@@ -629,8 +648,8 @@ def _refuse_writing_subtotals(s: Statement) -> None:
             refuse(
                 what=f"{s._write_call} writes rows made by GROUP_BY({part._subtotals_call})"
                 f"{where}.",
-                why="Each subtotal row adds up rows written beside it, with NULL in the columns "
-                "it adds up: it can repeat the Key of a real row, and a sum over the Saved "
+                why="Each subtotal row totals over rows written with it, with NULL in the columns "
+                "it totals over: it can repeat the Key of a real row, and a sum over the Saved "
                 "table would count each row more than once.",
                 fix="Write the plain GROUP_BY into the Saved table, and add the subtotals in "
                 "the Statement that reads it.",

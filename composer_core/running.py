@@ -106,6 +106,7 @@ def _select_tree(s: Statement, order: list[str] | None = None) -> Node:
         # The table's columns in its order, then the Partitions its rows fill, which Hive
         # fills from the last columns.
         later = s._write._partitioned_by
+        # A write's own order wins over `order`: a write is never stacked.
         order = [column for column in s._write._columns if column not in later] + later
     if order is not None:
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
@@ -234,8 +235,8 @@ def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
                            for table, span in found)
         refuse(
             what=f"{who}: the Statements of its Stack read different days: {listed}.",
-            why=f"{why} The Statements of a Stack make each day's rows together, so each must "
-            "read the same days.",
+            why=f"{why} Each day's rows come from every Statement of the Stack at once, so "
+            "each must read the same days.",
             fix="Bound each Statement's FROM table to the same days in its WHERE.",
             error=ValueError,
         )
@@ -546,6 +547,10 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
         grouping = [column._tree for column in s._group_by if s._grouping_sets is None or all(
             any(column._tree == other._tree for other in each) for each in s._grouping_sets)]
         clause = "GROUP_BY(...)"
+        if s._grouping_sets is not None:
+            clause = (f"GROUP_BY(...) as a plain column before {s._subtotals_call}, taking it "
+                      "out of the subtotals if it is in them, so that each subtotal stays "
+                      "within one day")
     else:
         grouping, clause = None, ""
     if grouping is not None and not any(date in grouping for date in dates):

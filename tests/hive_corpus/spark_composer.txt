@@ -2215,7 +2215,7 @@ One value for each different `jobs.team` and `jobs.job_name`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -2247,7 +2247,7 @@ GROUP BY
 SELECT
   jobs.team,
   jobs.region,
-  COUNT(*) AS jobs
+  COUNT(*) AS job_count
 FROM ops.jobs AS jobs
 GROUP BY
   jobs.team,
@@ -2261,7 +2261,7 @@ GROUP BY
 -- Statement 1: the Statement
 output team: jobs.team
 output region: jobs.region
-output jobs: COUNT(*)
+output job_count: COUNT(*)
 -- export_lineage
 # Lineage: statement
 
@@ -2278,7 +2278,7 @@ flowchart LR
   subgraph g1["statement"]
     n1["team<br/><small>jobs.team</small>"]
     n3["region<br/><small>jobs.region</small>"]
-    n4["jobs<br/><small>count_rows()</small>"]
+    n4["job_count<br/><small>count_rows()</small>"]
   end
   n0 --> n1
   n2 --> n3
@@ -2290,12 +2290,12 @@ flowchart LR
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `jobs`
+#### `job_count`
 
 Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-statement.jobs = count_rows()
+statement.job_count = count_rows()
 └─ (no columns: it counts rows)
 ```
 
@@ -2312,7 +2312,7 @@ One value for each different `jobs.team` and `jobs.region`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(cube(jobs.team, jobs.region)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(cube(jobs.team, jobs.region)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -2320,7 +2320,7 @@ The columns that tell each step's rows apart, as the Toolbox works them out. A c
 SELECT
   jobs.team,
   jobs.region,
-  COUNT(*) AS jobs
+  COUNT(*) AS job_count
 FROM ops.jobs AS jobs
 GROUP BY
   jobs.team,
@@ -2341,7 +2341,7 @@ GROUP BY
 SELECT
   jobs.team,
   jobs.region,
-  COUNT(*) AS jobs
+  COUNT(*) AS job_count
 FROM ops.jobs AS jobs
 GROUP BY
   jobs.team,
@@ -2354,7 +2354,7 @@ GROUP BY
 -- Statement 1: the Statement
 output team: jobs.team
 output region: jobs.region
-output jobs: COUNT(*)
+output job_count: COUNT(*)
 -- export_lineage
 # Lineage: statement
 
@@ -2371,7 +2371,7 @@ flowchart LR
   subgraph g1["statement"]
     n1["team<br/><small>jobs.team</small>"]
     n3["region<br/><small>jobs.region</small>"]
-    n4["jobs<br/><small>count_rows()</small>"]
+    n4["job_count<br/><small>count_rows()</small>"]
   end
   n0 --> n1
   n2 --> n3
@@ -2383,12 +2383,12 @@ flowchart LR
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `jobs`
+#### `job_count`
 
 Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-statement.jobs = count_rows()
+statement.job_count = count_rows()
 └─ (no columns: it counts rows)
 ```
 
@@ -2405,7 +2405,7 @@ One value for each different `jobs.team` and `jobs.region`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(grouping_sets([jobs.team], [jobs.region], [])) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(grouping_sets([jobs.team], [jobs.region], [])) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -2413,7 +2413,7 @@ The columns that tell each step's rows apart, as the Toolbox works them out. A c
 SELECT
   jobs.team,
   jobs.region,
-  COUNT(*) AS jobs
+  COUNT(*) AS job_count
 FROM ops.jobs AS jobs
 GROUP BY
   jobs.team,
@@ -16046,7 +16046,7 @@ ValueError:
 -- refused
 ValueError:
   What happened:  UNION(...)'s 2nd Statement has LIMIT.
-  Why it matters: Hive reads an ORDER BY or LIMIT after the last Statement of a Stack as one for all the stacked rows, and takes none inside it.
+  Why it matters: In Hive, an ORDER BY or LIMIT at the end of a Stack is for all the stacked rows, and one inside a Statement of the Stack isn't allowed.
   Usual fix:      To keep a Statement's top rows, make them in a derived(...) table and stack a Statement that reads it. To sort or cut the stacked rows, name the Stack with derived(...) and read it with ORDER_BY and LIMIT, or sort in pandas.
   Opt-out:        none - this one can't be switched off.
 
@@ -16143,7 +16143,7 @@ One value for each different `jobs.team` and `jobs.job_name`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -16264,7 +16264,7 @@ One value for each different `jobs.team` and `jobs.job_name`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(cube(jobs.team, jobs.job_name)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(cube(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -16385,7 +16385,7 @@ One value for each different `jobs.team` and `jobs.job_name`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(grouping_sets([jobs.team, jobs.job_name], jobs.job_name, [])) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(grouping_sets([jobs.team, jobs.job_name], jobs.job_name, [])) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -16504,7 +16504,7 @@ One value for each different `jobs.region` and `jobs.team`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -16645,7 +16645,7 @@ One value for each different `jobs.team` and `jobs.job_name`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -16781,7 +16781,7 @@ One value for each different `week_start(job_runs.dt)` and `job_runs.status` and
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: no Key the Toolbox can see, since GROUP_BY(cube("a_rather_long_name_for_the_week", job_runs.status, job_runs.job_id)) adds subtotal rows, whose added-up columns are NULL, as a real row's may be.
+- statement: no Key the Toolbox can see, since GROUP_BY(cube("a_rather_long_name_for_the_week", job_runs.status, job_runs.job_id)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
 
 ### Hive as submitted
 
@@ -16829,7 +16829,7 @@ ValueError:
 -- refused
 ValueError:
   What happened:  INSERT_OVERWRITE(daily_runs) writes rows made by GROUP_BY(rollup(job_runs.job_id)).
-  Why it matters: Each subtotal row adds up rows written beside it, with NULL in the columns it adds up: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
+  Why it matters: Each subtotal row totals over rows written with it, with NULL in the columns it totals over: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
   Usual fix:      Write the plain GROUP_BY into the Saved table, and add the subtotals in the Statement that reads it.
   Opt-out:        none - this one can't be switched off.
 
