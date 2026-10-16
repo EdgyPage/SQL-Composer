@@ -3,7 +3,11 @@
 A Table reference declares its table's Key. A Statement's, and so a Derived table's, is worked
 out from how it makes its rows:
 
-- GROUP_BY makes one row for each group, so its Key is the GROUP_BY columns it returns;
+- GROUP_BY makes one row for each group, so its Key is the GROUP_BY columns it returns; with
+  rollup, cube or grouping_sets it has none, since its subtotal rows repeat those columns;
+- a UNION, INTERSECT or EXCEPT gives distinct rows, so its Key is every column it returns (an
+  EXCEPT keeps its first Statement's Keys too, an INTERSECT every Statement's); a UNION_ALL
+  has none;
 - SELECT_DISTINCT makes one row for each different row, so its Key is every column it returns;
 - a SELECT of only totals makes one row, so its Key has no columns at all;
 - otherwise its rows are those of the table in FROM, so its Key is that table's Key, once SELECT
