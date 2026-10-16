@@ -1,4 +1,4 @@
-# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """Every public name of the Toolbox, which each Edition's __init__.py imports and re-exports.
 
 The two constants, TOOLBOX_VERSION and VERSION, are each Edition's own.
@@ -18,14 +18,15 @@ from .calculations import (
     max_of,
     min_of,
     month_start,
-    row_number,
     sum_of,
     week_start,
 )
 from .clauses import (
+    ANTI_JOIN,
     AS,
     CROSS_JOIN,
     FROM,
+    FULL_JOIN,
     GROUP_BY,
     HAVING,
     INSERT_INTO,
@@ -34,7 +35,9 @@ from .clauses import (
     LEFT_JOIN,
     LIMIT,
     ORDER_BY,
+    RIGHT_JOIN,
     SELECT,
+    SEMI_JOIN,
     SELECT_DISTINCT,
     WHERE,
     derived,
@@ -61,18 +64,40 @@ from .conditions import (
 from .lineage import export_lineage
 from .refusals import GuardRefused, LoadRefused
 from .running import by_day, run, set_load_limits, show_hive, to_hive
+from .stacking import (
+    EXCEPT,
+    INTERSECT,
+    UNION,
+    UNION_ALL,
+    cube,
+    grouping_sets,
+    is_total,
+    rollup,
+)
 from .tables import (
     Table,
     all_columns,
     check_key,
     check_table_reference,
     create_table,
-    drop_table,
     first_look,
     write_table_reference,
 )
+from .unchecked import hive_settings, set_admin_log, unchecked_hive
+from .upkeep import compute_statistics, explain, repair_partitions
+from .windows import (
+    dense_rank,
+    first_value,
+    lag,
+    last_value,
+    lead,
+    ntile,
+    rank,
+    row_number,
+    window,
+)
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # Every public name, grouped by the file it lives in.
 __all__ = [
@@ -83,7 +108,6 @@ __all__ = [
     "check_key",
     "check_table_reference",
     "create_table",
-    "drop_table",
     "all_columns",
     # clauses.py
     "SELECT",
@@ -93,6 +117,10 @@ __all__ = [
     "JOIN",
     "LEFT_JOIN",
     "CROSS_JOIN",
+    "SEMI_JOIN",
+    "ANTI_JOIN",
+    "FULL_JOIN",
+    "RIGHT_JOIN",
     "WHERE",
     "GROUP_BY",
     "HAVING",
@@ -102,6 +130,15 @@ __all__ = [
     "INSERT_INTO",
     "statement",
     "derived",
+    # stacking.py
+    "UNION_ALL",
+    "UNION",
+    "INTERSECT",
+    "EXCEPT",
+    "rollup",
+    "cube",
+    "grouping_sets",
+    "is_total",
     # conditions.py
     "equals",
     "not_equals",
@@ -130,9 +167,18 @@ __all__ = [
     "fill_null",
     "week_start",
     "month_start",
-    "row_number",
     "descending",
     "hive_function",
+    # windows.py
+    "window",
+    "row_number",
+    "rank",
+    "dense_rank",
+    "ntile",
+    "lag",
+    "lead",
+    "first_value",
+    "last_value",
     # running.py
     "to_hive",
     "show_hive",
@@ -144,6 +190,14 @@ __all__ = [
     "LoadRefused",
     # lineage.py
     "export_lineage",
+    # unchecked.py
+    "hive_settings",
+    "unchecked_hive",
+    "set_admin_log",
+    # upkeep.py
+    "repair_partitions",
+    "compute_statistics",
+    "explain",
     # example_database.py
     "example_database",
 ]

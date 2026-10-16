@@ -1,4 +1,4 @@
-# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """The import self-check: each Toolbox folder checks itself, then the two check each other.
 
 At work the Toolbox is two folders pasted side by side: composer_core and one Edition's. The
@@ -17,7 +17,7 @@ import sys
 
 from . import _stop
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 _PYTHON_NEEDED = (3, 11)
 

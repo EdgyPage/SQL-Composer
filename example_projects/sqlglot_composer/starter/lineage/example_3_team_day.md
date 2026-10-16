@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
+<!-- sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
 # Lineage: write_team_day
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
@@ -9,10 +9,10 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 flowchart LR
   subgraph g0["ops.jobs"]
     n0["ops.jobs.team<br/><small>string</small>"]
-    n15["ops.jobs.job_id<br/><small>bigint</small>"]
+    n15["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g1["write_team_day"]
-    n1["team<br/><small>jobs.team</small>"]
+    n1["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
     n3["runs<br/><small>sum_of(daily_job_runs.runs)</small>"]
     n5["failed_runs<br/><small>sum_of(daily_job_runs.failed_runs)</small>"]
     n7["minutes<br/><small>sum_of(daily_job_runs.minutes)</small>"]
@@ -23,14 +23,14 @@ flowchart LR
     n2["mart.daily_job_runs.runs<br/><small>bigint</small>"]
     n4["mart.daily_job_runs.failed_runs<br/><small>bigint</small>"]
     n6["mart.daily_job_runs.minutes<br/><small>bigint</small>"]
-    n13["mart.daily_job_runs.dt<br/><small>string</small>"]
-    n16["mart.daily_job_runs.job_id<br/><small>bigint</small>"]
+    n13["mart.daily_job_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n16["mart.daily_job_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g3["mart.alerts_per_job"]
     n8["mart.alerts_per_job.alerts<br/><small>bigint</small>"]
     n10["mart.alerts_per_job.high_alerts<br/><small>bigint</small>"]
-    n18["mart.alerts_per_job.job_id<br/><small>bigint</small>"]
-    n19["mart.alerts_per_job.dt<br/><small>string</small>"]
+    n18["mart.alerts_per_job.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n19["mart.alerts_per_job.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g4["filters on write_team_day"]
     n12{{"WHERE in write_team_day<br/><small>equals(daily_job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
@@ -38,13 +38,13 @@ flowchart LR
     n17{{"LEFT JOIN ON in write_team_day<br/><small>all_of(equals(alerts_per_job.job_id, daily_…</small>"}}
   end
   subgraph g5["mart.team_day"]
-    n20["mart.team_day.team<br/><small>string</small>"]
+    n20["mart.team_day.team<br/><small>string</small><br/><small>in the Key</small>"]
     n21["mart.team_day.runs<br/><small>bigint</small>"]
     n22["mart.team_day.failed_runs<br/><small>bigint</small>"]
     n23["mart.team_day.minutes<br/><small>bigint</small>"]
     n24["mart.team_day.alerts<br/><small>bigint</small>"]
     n25["mart.team_day.high_alerts<br/><small>bigint</small>"]
-    n26["mart.team_day.dt<br/><small>string</small>"]
+    n26["mart.team_day.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n2 --> n3
@@ -161,6 +161,13 @@ One value for each different `jobs.team`.
 | --- | --- |
 | `team` | ops.jobs.team |
 
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- write_team_day: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_day's Key (team, dt) holds: each row written has its own.
+
 ### Hive as submitted
 
 ```sql
@@ -186,4 +193,4 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 4.1.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 5.0.

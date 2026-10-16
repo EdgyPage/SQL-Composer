@@ -1,4 +1,4 @@
-# Spark Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Spark Composer 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """How Spark Composer writes a Statement as Hive text, using only Python's standard library.
 
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
@@ -29,9 +29,9 @@ import contextvars
 import re
 from typing import NoReturn
 
-from composer_core.trees import HIVE_TYPES, Node, plain_name
+from composer_core.trees import HIVE_TYPES, Node, plain_name, rows_text
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The width past which a list of pieces, or a call's arguments, go one to a line.
 WIDTH = 80
@@ -318,6 +318,9 @@ def _window(node: Node, pretty: bool) -> str:
     order = node.parts.get("order")
     if order is not None:
         pieces.append(_order(order, pretty, flat=True))
+    rows = node.parts.get("rows")
+    if rows is not None:  # after sqlglot's Generator.windowspec_sql
+        pieces.append(rows_text(rows))
     return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
 
 
@@ -352,7 +355,7 @@ def _call(node: Node, pretty: bool) -> str:
 # After sqlglot's Generator.select_sql and query_modifiers.
 def _select(node: Node, pretty: bool) -> str:
     outputs = _list([_sql(item, pretty) for item in node.parts["outputs"]], pretty)
-    sql = "SELECT" + (" DISTINCT" if node.parts.get("distinct") else "")
+    sql = "SELECT" + _hint(node) + (" DISTINCT" if node.parts.get("distinct") else "")
     sql += f"{_sep(pretty)}{outputs}" if outputs else ""
     sql += f"{_seg('FROM', pretty)} {_part(node, 'source', pretty)}"
     sql += "".join(_sql(join, pretty) for join in node.parts.get("joins") or [])
@@ -361,6 +364,9 @@ def _select(node: Node, pretty: bool) -> str:
         sql += f"{_seg('WHERE', pretty)}{_sep(pretty)}{where}"
     if node.parts.get("group_by"):
         sql += _op_list("GROUP BY", [_sql(item, pretty) for item in node.parts["group_by"]],
+                        pretty)
+        if node.parts.get("grouping_sets"):
+            sql += _seg(_list([_grouping_sets(node.parts["grouping_sets"], pretty)], pretty),
                         pretty)
     if node.parts.get("having") is not None:
         having = _indent(_part(node, "having", pretty), pretty)
@@ -371,6 +377,46 @@ def _select(node: Node, pretty: bool) -> str:
     if node.parts.get("limit") is not None:
         sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
     return _with_tables(node, sql, pretty)
+
+
+# After sqlglot's Generator.groupingsets_sql, and its group_sql with no comma before GROUPING
+# SETS, which Hive refuses.
+def _grouping_sets(sets: list[Node], pretty: bool) -> str:
+    listed = _list([_sql(item, pretty) for item in sets], pretty, indent=False)
+    return f"GROUPING SETS {_wrap(listed, pretty)}"
+
+
+# After sqlglot's Generator.tuple_sql: a lone column is written as it is, as sqlglot Composer
+# writes it.
+def _grouping_set(node: Node, pretty: bool) -> str:
+    columns = [_sql(item, pretty) for item in node.parts["expressions"]]
+    if len(columns) == 1:
+        return columns[0]
+    return "(" + _list(columns, pretty, dynamic=True, new_line=True, skip_first=True,
+                       skip_last=True) + ")"
+
+
+# After sqlglot's Generator.set_operations and set_operation: each Statement, then the next,
+# with the Stack's kind, such as UNION ALL, between them, then a LIMIT for them all.
+def _stack(node: Node, pretty: bool) -> str:
+    pieces = []
+    for branch in node.parts["branches"]:
+        if pieces:
+            pieces.append(node.parts["how"])
+        pieces.append(_sql(branch, pretty))
+    sql = _sep(pretty).join(pieces)
+    if node.parts.get("limit") is not None:
+        sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
+    return _with_tables(node, sql, pretty)
+
+
+# After sqlglot's Generator.hint_sql, which sqlglot Composer has write Hive's hints.
+def _hint(node: Node) -> str:
+    """The MAPJOIN hint naming the tables a join asks to be copied to every worker, or ''."""
+    names = node.parts.get("broadcast") or []
+    if not names:
+        return ""
+    return f" /*+ MAPJOIN({', '.join(_identifier(name) for name in names)}) */"
 
 
 # After sqlglot's Generator.with_sql and cte_sql.
@@ -423,26 +469,64 @@ def _column_def(node: Node, pretty: bool) -> str:
 
 # After sqlglot's Generator.schema_sql.
 def _columns(defs: list[Node], pretty: bool) -> str:
-    listed = _list([_sql(item, pretty) for item in defs], pretty)
-    return f"({_sep(pretty, '')}{listed}{_seg(')', pretty, sep='')}"
+    return _bracketed([_sql(item, pretty) for item in defs], pretty)
 
 
-# After sqlglot's Generator.create_sql and properties_sql.
+# After sqlglot's Generator.schema_sql and its Hive properties_sql: a list in brackets, one to
+# a line.
+def _bracketed(sqls: list[str], pretty: bool) -> str:
+    return f"({_sep(pretty, '')}{_list(sqls, pretty)}{_seg(')', pretty, sep='')}"
+
+
+# After sqlglot's Generator.clusteredbyproperty_sql.
+def _buckets(node: Node) -> str:
+    sql = f"CLUSTERED BY ({', '.join(_identifier(name) for name in node.parts['bucketed_by'])})"
+    if node.parts["sorted_by"]:
+        sql += f" SORTED BY ({', '.join(_identifier(name) for name in node.parts['sorted_by'])})"
+    return f"{sql} INTO {node.parts['buckets']} BUCKETS"
+
+
+# After sqlglot's Generator.create_sql and properties_sql, and its Hive dialect's
+# EXTERNAL, LOCATION and TBLPROPERTIES. The Key, node.parts["key"], is left out: Spark refuses
+# a PRIMARY KEY, the primary_key row of DECLARED_DIFFERENCES.
 def _create(node: Node, pretty: bool) -> str:
     exists = " IF NOT EXISTS" if node.parts.get("exists") else ""
-    sql = f"CREATE TABLE{exists} {_part(node, 'target', pretty)}"
+    sql = f"CREATE EXTERNAL TABLE{exists} {_part(node, 'target', pretty)}"
     columns = node.parts["columns"]
     sql += f" {_columns(columns, pretty)}" if columns else ""
     properties = []
     if node.parts["partitioned_by"]:
         properties.append(f"PARTITIONED BY {_columns(node.parts['partitioned_by'], pretty)}")
-    properties.append("STORED AS ORC")
+    if node.parts["bucketed_by"]:
+        properties.append(_buckets(node))
+    properties.append(f"STORED AS {node.parts['stored_as']}")
+    properties.append(f"LOCATION {_quoted(node.parts['location'])}")
+    if node.parts["properties"]:
+        pairs = [f"{_quoted(name)}={_quoted(value)}" for name, value in node.parts["properties"]]
+        properties.append(f"TBLPROPERTIES {_bracketed(pairs, pretty)}")
     return sql + _sep(pretty) + _list(properties, pretty, indent=False, sep=" ")
 
 
 # After sqlglot's Generator.drop_sql.
 def _drop(node: Node, pretty: bool) -> str:
     return f"DROP TABLE IF EXISTS {_part(node, 'target', pretty)}"
+
+
+# MSCK REPAIR TABLE, ANALYZE TABLE and EXPLAIN, after sqlglot's Generator.command_sql: its
+# word, a space, then the rest as written. The ANALYZE TABLE's columns are named as any column is, on one line.
+def _repair(node: Node, pretty: bool) -> str:
+    return f"MSCK REPAIR TABLE {_part(node, 'target', pretty)}"
+
+
+def _analyze(node: Node, pretty: bool) -> str:
+    sql = f"ANALYZE TABLE {_part(node, 'target', pretty)} COMPUTE STATISTICS"
+    if node.parts["columns"]:
+        sql += " FOR COLUMNS " + ", ".join(_identifier(name) for name in node.parts["columns"])
+    return sql
+
+
+def _explain(node: Node, pretty: bool) -> str:
+    return f"EXPLAIN {_part(node, 'this', pretty).strip()}"
 
 
 # --- Column types, as CREATE TABLE writes them ----------------------------------------------
@@ -531,7 +615,10 @@ _WRITE = {
                                            pretty),
     "Distinct": _distinct,
     **{kind: _aggregate for kind in _AGGREGATES},
+    "Grouping": lambda node, pretty: _func("GROUPING", [node.parts["this"]], pretty),
     "Window": _window,
+    # After sqlglot's Generator.anonymous_sql: a function that works only over a window.
+    "WindowCall": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Order": _order,
     "Ordered": _ordered,
     "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "
@@ -541,12 +628,17 @@ _WRITE = {
     "Call": _call,
     "HiveFunction": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Select": _select,
+    "Stack": _stack,
+    "Tuple": _grouping_set,
     "Table": _table,
     "Join": _join,
     "Insert": _insert,
     "Create": _create,
     "ColumnDef": _column_def,
     "Drop": _drop,
+    "Repair": _repair,
+    "Analyze": _analyze,
+    "Explain": _explain,
 }
 
 
@@ -580,7 +672,10 @@ def _problem(text: str) -> str | None:
                 return "a name in backticks doesn't end"
             at = name[1]
         elif text.startswith("--", at) or text.startswith("/*", at):
-            return "a comment outside quotes"
+            hint = _hint_end(text, at)
+            if hint is None:
+                return "a comment outside quotes"
+            at = hint
         elif character == ";":
             return "a second statement after ;"
         elif character == '"':
@@ -588,6 +683,15 @@ def _problem(text: str) -> str | None:
         else:
             at += 1
     return None
+
+
+def _hint_end(text: str, start: int) -> int | None:
+    """Where the MAPJOIN hint that starts at `start` ends, as _hint writes it, or None when
+    no such hint starts there: any other comment is a mistake."""
+    if not text.startswith("/*+ MAPJOIN(", start):
+        return None
+    end = text.find(") */", start)
+    return None if end < 0 else end + len(") */")
 
 
 def _value_at(text: str, start: int) -> tuple[str, int] | None:

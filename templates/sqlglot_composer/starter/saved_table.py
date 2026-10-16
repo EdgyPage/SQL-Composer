@@ -1,4 +1,4 @@
-# sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
 """A Saved table's steps: create, preview a day, write a day, backfill past days.
 
 Why: numbers counted once a day and saved can be read by anyone, quickly, without counting
@@ -47,8 +47,8 @@ from table_references.<SAVED_TABLE> import <SAVED_TABLE>  # the Saved table's Ta
 def create():
     """Step 1: create the Saved table from its Table reference, if it isn't there yet.
 
-    may_exist=True writes CREATE TABLE IF NOT EXISTS, so this step can run every day, and does
-    nothing once the table is there.
+    may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so this step can run every day,
+    and does nothing once the table is there.
     """
     return create_table(<SAVED_TABLE>, may_exist=True)
 

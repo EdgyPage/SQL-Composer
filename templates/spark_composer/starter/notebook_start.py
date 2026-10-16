@@ -1,4 +1,4 @@
-# Spark Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
 """A notebook's first cells: your send, a Table reference and a first Statement.
 
 Why: a first Statement run on a table you know shows that the import, your send and your Table

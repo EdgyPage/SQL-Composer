@@ -1,4 +1,4 @@
-# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own
@@ -32,11 +32,12 @@ from .trees import (
     has_aggregate,
     has_window,
     number,
+    numbers_rows,
     string,
 )
 from .edition import check_writable_call
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 
@@ -68,14 +69,18 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
 
 
 def _not_inside(call: str, inner) -> None:
-    """Refuse a count, a sum or a row number inside a function that works over many rows."""
+    """Refuse a count, a sum or a calculation over a Window inside a function that works over
+    many rows."""
     window = has_window(inner._tree)
     if window or has_aggregate(inner._tree):
-        made = "is a row number" if window else "already works over many rows itself"
+        made = "already works over many rows itself"
+        if window:
+            made = ("is a row number" if numbers_rows(inner._tree)
+                    else "looks across rows through a Window")
         refuse(
             what=f"{call} has {inner!r} inside it, which {made}.",
-            why="In one SELECT, Hive can't put a count, a sum or a row number inside a "
-            "function that works over many rows, such as a count, a sum, a max or "
+            why="In one SELECT, Hive can't put a count, a sum or a calculation over a Window "
+            "inside a function that works over many rows, such as a count, a sum, a max or "
             "collect_set.",
             fix="Work it out as a named column in a derived(...) table, then use it in the "
             "Statement that reads that table; help(derived) shows how.",
@@ -84,29 +89,49 @@ def _not_inside(call: str, inner) -> None:
 
 
 def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
-               distinct=False) -> Column:
+               distinct=False, over=None) -> Column:
     call = f"{name}({python_text(column)})"
     column = _need_column(column, call)
     _not_inside(call, column)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
         inner = Node("Distinct", expressions=[inner])
-    tree = Node(kind, this=inner)
-    made_by(tree, name, column, where=where)
+    tree, adds_up, because = _over(Node(kind, this=inner), over, call, adds_up, because)
+    made_by(tree, name, column, where=where, over=over)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because)
 
 
-def count_rows(where=None):
+# Why a value worked out over a Window doesn't add up again: guard_unsafe_regrouping's reason.
+OVER_A_WINDOW = "worked out over a Window"
+
+
+def _over(tree: Node, over, call: str, adds_up: bool, because):
+    """A count's or a sum's tree worked out over the Window `over`, if one is given, with
+    whether it adds up: rows share the rows their Windows cover, so it doesn't."""
+    if over is None:
+        return tree, adds_up, because
+    from .windows import TOTAL, windowed  # here: windows.py imports this file
+
+    if adds_up:
+        adds_up, because = False, OVER_A_WINDOW
+    return windowed(tree, over, call, TOTAL), adds_up, because
+
+
+def count_rows(where=None, over=None):
     """The number of rows, or of the rows where a condition holds.
+
+    over=window(...) counts the rows of each row's Window, beside each row: see help(window).
 
     >>> count_rows()
     COUNT(*)
     >>> count_rows(where=equals(job_runs.status, "FAILED"))
     COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END)
     """
-    tree = _only_where(Node("Star"), where, "count_rows(...)",
-                       then=number("1"))
-    return Column(made_by(Node("Count", this=tree), "count_rows", where=where), type="bigint")
+    call = "count_rows(...)"
+    tree = _only_where(Node("Star"), where, call, then=number("1"))
+    tree, adds_up, because = _over(Node("Count", this=tree), over, call, True, None)
+    return Column(made_by(tree, "count_rows", where=where, over=over), type="bigint",
+                  adds_up=adds_up, not_adding_up_because=because)
 
 
 def count_distinct(column, where=None):
@@ -122,25 +147,33 @@ def count_distinct(column, where=None):
                       because="a distinct count", distinct=True)
 
 
-def sum_of(column, where=None, adds_up=False):
+def sum_of(column, where=None, adds_up=False, over=None):
     """The total of a column, or of its rows where a condition holds.
 
     It refuses a column made by an average, a division or a distinct count, or one its Table
     reference lists in does_not_add_up, since adding those up gives a wrong total. Pass
     adds_up=True if it really does add up.
 
+    over=window(...) gives each row a total of its own, over the rows of its Window, such as a
+    running total, or its group's total beside each row; see help(window). It keeps every row,
+    and needs no GROUP_BY. That total doesn't add up again: a group's total repeated on each of
+    its rows, or running totals that overlap, added up, count rows more than once.
+
     >>> sum_of(job_runs.duration_mins)
     SUM(job_runs.duration_mins)
     >>> sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))
     SUM(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END)
+    >>> sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
+    ...                                            ORDER_BY=job_runs.run_id, rows=(None, 0)))
+    SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     """
     call = f"sum_of({python_text(column)})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
-    return _aggregate("sum_of", "Sum", column, where)
+    return _aggregate("sum_of", "Sum", column, where, over=over)
 
 
-def average_of(column, where=None, adds_up=False):
+def average_of(column, where=None, adds_up=False, over=None):
     """The average of a column that isn't a division, an average or a distinct count.
 
     An average itself doesn't add up: the average of two daily averages isn't the average
@@ -148,32 +181,42 @@ def average_of(column, where=None, adds_up=False):
     since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a
     column that doesn't add up; pass adds_up=True if it really does.
 
+    over=window(...) gives each row the average of its Window's rows, such as a moving
+    average, and keeps every row; see help(window).
+
     >>> average_of(job_runs.duration_mins)
     AVG(job_runs.duration_mins)
+    >>> average_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
+    ...                                                ORDER_BY=job_runs.run_id, rows=(-2, 0)))
+    AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
     """
     call = f"average_of({python_text(column)})"
     column = _need_column(column, call)
     guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
     return _aggregate("average_of", "Avg", column, where, adds_up=False,
-                      because="an average")
+                      because="an average", over=over)
 
 
-def min_of(column, where=None):
+def min_of(column, where=None, over=None):
     """The smallest value in a column.
+
+    over=window(...) gives each row the smallest of its Window's rows; see help(window).
 
     >>> min_of(job_runs.duration_mins)
     MIN(job_runs.duration_mins)
     """
-    return _aggregate("min_of", "Min", column, where)
+    return _aggregate("min_of", "Min", column, where, over=over)
 
 
-def max_of(column, where=None):
+def max_of(column, where=None, over=None):
     """The largest value in a column.
+
+    over=window(...) gives each row the largest of its Window's rows; see help(window).
 
     >>> max_of(job_runs.duration_mins)
     MAX(job_runs.duration_mins)
     """
-    return _aggregate("max_of", "Max", column, where)
+    return _aggregate("max_of", "Max", column, where, over=over)
 
 
 def _as_column(value, call: str) -> Column:
@@ -288,9 +331,10 @@ class Ordering:
 
 
 def descending(column):
-    """Sort by a column from largest to smallest, in ORDER_BY or row_number.
+    """Sort by a column from largest to smallest, in ORDER_BY or a Window's ORDER_BY.
 
-    Pass a column; in ORDER_BY(...), the name of an output column as a string works too.
+    Pass a column; in ORDER_BY(...), the name of an output column as a string works too, but
+    not in window(...) or row_number(...), which can't see the names given in SELECT.
 
     >>> row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
     ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
@@ -311,70 +355,6 @@ def ordered(item, call: str) -> Node:
     return Node("Ordered", this=tree, desc=descending_order)
 
 
-def _listed(items) -> list:
-    return list(items) if isinstance(items, (list, tuple)) else [items]
-
-
-def row_number(*, PARTITION_BY, ORDER_BY):
-    """Number the rows of each PARTITION_BY group from 1, in ORDER_BY's order.
-
-    Keeping the rows numbered 1 gives the latest row per key; keeping those up to N gives
-    the top N per group. Hive can't filter on a row number in the SELECT that makes it, so
-    number the rows in a derived(...) table and keep the ones you want in the Statement that
-    reads it. Here is the latest run of each job:
-
-    >>> numbered = derived("numbered", statement(
-    ...     SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
-    ...            AS(row_number(PARTITION_BY=job_runs.job_id,
-    ...                          ORDER_BY=descending(job_runs.run_id)), "newest_first")),
-    ...     FROM(job_runs),
-    ...     WHERE(last_n_days(job_runs.dt, 2)),
-    ... ))
-    >>> print(to_hive(statement(
-    ...     SELECT(numbered.job_id, numbered.run_id, numbered.status),
-    ...     FROM(numbered),
-    ...     WHERE(equals(numbered.newest_first, 1)),
-    ... )))
-    WITH numbered AS (
-      SELECT
-        job_runs.job_id,
-        job_runs.run_id,
-        job_runs.status,
-        ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC) AS newest_first
-      FROM ops.job_runs AS job_runs
-      WHERE
-        job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
-    )
-    SELECT
-      numbered.job_id,
-      numbered.run_id,
-      numbered.status
-    FROM numbered
-    WHERE
-      numbered.newest_first = 1
-    """
-    call = "row_number(...)"
-    groups = [_need_column(column, call)._tree.copy() for column in _listed(PARTITION_BY)]
-    sorts = _listed(ORDER_BY)
-    by_name = [s for s in sorts
-               if isinstance(s, str) or (isinstance(s, Ordering) and isinstance(s._target, str))]
-    if not sorts or by_name:
-        why = "It numbers each group's rows in the order of one or more columns."
-        if by_name:
-            why = "Inside row_number, Hive can't see the names given in SELECT."
-        refuse(
-            what=f"row_number(...) was given ORDER_BY={ORDER_BY!r}.",
-            why=why,
-            fix="Pass the columns themselves, such as "
-            "ORDER_BY=descending(job_runs.run_id).",
-            error=ValueError,
-        )
-    order = Node("Order", expressions=[ordered(item, call) for item in sorts])
-    tree = Node("Window", this=Node("RowNumber"), partition_by=groups, order=order)
-    made_by(tree, "row_number", PARTITION_BY=PARTITION_BY, ORDER_BY=ORDER_BY)
-    return Column(tree, type="int")
-
-
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with your text quoted for you.
 
@@ -392,7 +372,10 @@ def hive_function(name, *args):
     - a function that turns many rows into one, such as collect_set or percentile, is treated
       as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;
     - it refuses a function that works only over a window of rows, written OVER (...) after
-      it, such as lag or rank, since it can't write OVER.
+      it, such as lag or rank, since it can't write OVER. For lag, lead, rank, dense_rank,
+      ntile and row_number, the refusal names the Toolbox's own function, such as lag(...),
+      which takes a window(...); for the others, such as percent_rank, it says to work it out
+      in pandas.
 
     >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
     REGEXP_REPLACE(jobs.job_name, '_', ' ')
@@ -448,18 +431,14 @@ def _check_function(name: str, count: int, call: str) -> None:
         )
 
 
-# What to do instead of a window function, where pandas has a plain way.
-_IN_PANDAS = "SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: "
+# What to do instead of a window function: the Toolbox's own name for it, which writes OVER.
 _WINDOW_FIXES = {
-    "row_number": "Use row_number(PARTITION_BY=..., ORDER_BY=...), which writes OVER itself.",
-    "lag": _IN_PANDAS + 'df.sort_values("dt").groupby("job_id")["runs"].shift(1) gives each '
-    "row the value of the row before it in its group.",
-    "lead": _IN_PANDAS + 'df.sort_values("dt").groupby("job_id")["runs"].shift(-1) gives each '
-    "row the value of the row after it in its group.",
-    "rank": _IN_PANDAS + 'df.groupby("job_id")["runs"].rank(method="min", ascending=False) '
-    "ranks each row in its group.",
-    "dense_rank": _IN_PANDAS + 'df.groupby("job_id")["runs"].rank(method="dense", '
-    'ascending=False) ranks each row in its group.',
+    name: f"Use {name}({written}), which writes OVER (...) itself; help(window) shows how."
+    for name, written in {
+        "row_number": "over=window(...)", "rank": "over=window(...)",
+        "dense_rank": "over=window(...)", "ntile": "parts, over=window(...)",
+        "lag": "column, over=window(...)", "lead": "column, over=window(...)",
+    }.items()
 }
 
 
@@ -474,7 +453,6 @@ __all__ = [
     "fill_null",
     "week_start",
     "month_start",
-    "row_number",
     "descending",
     "hive_function",
 ]

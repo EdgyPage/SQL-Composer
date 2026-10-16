@@ -1,4 +1,4 @@
-# Composer core 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """The code both Editions of the Toolbox share. Never import it yourself.
 
 Import your Edition's folder instead, sqlglot_composer or spark_composer, which loads this
@@ -14,25 +14,32 @@ from __future__ import annotations
 
 import os
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The export script writes this folder's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.
 _FILES = [
     "CHANGES.md",
     "__init__.py",
+    "admin.py",
     "calculations.py",
     "checks.py",
     "clauses.py",
     "conditions.py",
     "edition.py",
     "example_database.py",
+    "joins.py",
+    "keys.py",
     "lineage.py",
     "public.py",
     "refusals.py",
     "running.py",
+    "stacking.py",
     "tables.py",
     "trees.py",
+    "unchecked.py",
+    "upkeep.py",
+    "windows.py",
 ]
 
 _HERE = os.path.dirname(os.path.abspath(__file__))

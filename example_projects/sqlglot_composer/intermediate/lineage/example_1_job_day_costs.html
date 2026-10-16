@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 4.1, exported 2026-10-06 15:49 - copy it, then edit your copy -->
+<!-- sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Lineage: write_job_day_costs</title><style>
 body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
@@ -13,6 +13,7 @@ main{padding:8px 16px 40px} .wrap{overflow-x:auto;border:1px solid #eee}
 svg{width:100%;height:auto;cursor:grab;display:block}
 .n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6} .output rect{fill:#effaf0}
 .condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
+.unchecked rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2}
 .grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff} .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
@@ -28,6 +29,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
+<span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
 <span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
@@ -49,6 +51,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <details open><summary><code>costs_per_job_day.cost_cents</code> <span class="muted">in costs_per_job_day</span></summary><p>Calculated as <code>sum_of(region_costs.cost_cents)</code>, which is <code>SUM(region_costs.cost_cents)</code>.</p><pre>costs_per_job_day.cost_cents = sum_of(region_costs.cost_cents)
 └─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day: <code>equals(region_costs.dt, datetime.date(2026, 9, 24))</code>, which is <code>region_costs.dt = &#x27;20260924&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul><p>One value for each different <code>region_costs.job_id</code> and <code>region_costs.dt</code>.</p></details>
 <h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>costs_per_job_day.job_id ← ops.region_costs.job_id</td></tr><tr><td><code>cost_cents</code></td><td>costs_per_job_day.cost_cents (calculated) ← ops.region_costs.cost_cents</td></tr></table>
+<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;costs_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>write_job_day_costs: Key (job_id), since costs_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_costs&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
 <h3>Hive as submitted</h3>
 <pre>WITH costs_per_job_day AS (
   SELECT
@@ -68,14 +71,14 @@ SELECT
   costs_per_job_day.cost_cents
 FROM costs_per_job_day</pre></section>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 4.1.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit pinned, with sqlglot Composer 5.0.</footer>
 <script>
 // This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
 // It is plain JavaScript that any browser runs, with nothing to install or download.
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
-const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.job_id", "bigint"], "title": "ops.region_costs.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.job_id", "region_costs.job_id"], "title": "costs_per_job_day.job_id\nregion_costs.job_id"}, {"id": "n2", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.dt", "string"], "title": "ops.region_costs.dt\nstring"}, {"id": "n3", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.cost_cents", "bigint"], "title": "ops.region_costs.cost_cents\nbigint"}, {"id": "n4", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n5", "kind": "condition", "group": "costs_per_job_day", "lines": ["WHERE in costs_per_job_day", "equals(region_costs.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in costs_per_job_day\nregion_costs.dt = '20260924'"}, {"id": "n6", "kind": "output", "group": "write_job_day_costs", "lines": ["job_id", "costs_per_job_day.job_id"], "title": "write_job_day_costs.job_id\ncosts_per_job_day.job_id"}, {"id": "n7", "kind": "output", "group": "write_job_day_costs", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "write_job_day_costs.cost_cents\ncosts_per_job_day.cost_cents"}, {"id": "n8", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.job_id", "bigint"], "title": "mart.job_day_costs.job_id\nbigint"}, {"id": "n9", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.cost_cents", "bigint"], "title": "mart.job_day_costs.cost_cents\nbigint"}, {"id": "n10", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.dt", "string"], "title": "mart.job_day_costs.dt\nstring"}], "arrows": [["n0", "n1", "value"], ["n3", "n4", "value"], ["n2", "n5", "rows"], ["n5", "n1", "rows"], ["n5", "n4", "rows"], ["n1", "n6", "value"], ["n4", "n7", "value"], ["n6", "n8", "value"], ["n7", "n9", "value"], ["n5", "n10", "day"]], "groups": [{"name": "ops.region_costs", "kind": "table"}, {"name": "costs_per_job_day", "kind": "derived"}, {"name": "write_job_day_costs", "kind": "output"}, {"name": "mart.job_day_costs", "kind": "table"}]};
+const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.job_id", "bigint", "in the Key"], "title": "ops.region_costs.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.job_id", "region_costs.job_id", "in the Key"], "title": "costs_per_job_day.job_id\nregion_costs.job_id"}, {"id": "n2", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.dt", "string", "in the Key"], "title": "ops.region_costs.dt\nstring"}, {"id": "n3", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.cost_cents", "bigint"], "title": "ops.region_costs.cost_cents\nbigint"}, {"id": "n4", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n5", "kind": "condition", "group": "costs_per_job_day", "lines": ["WHERE in costs_per_job_day", "equals(region_costs.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in costs_per_job_day\nregion_costs.dt = '20260924'"}, {"id": "n6", "kind": "output", "group": "write_job_day_costs", "lines": ["job_id", "costs_per_job_day.job_id", "in the Key"], "title": "write_job_day_costs.job_id\ncosts_per_job_day.job_id"}, {"id": "n7", "kind": "output", "group": "write_job_day_costs", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "write_job_day_costs.cost_cents\ncosts_per_job_day.cost_cents"}, {"id": "n8", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.job_id", "bigint", "in the Key"], "title": "mart.job_day_costs.job_id\nbigint"}, {"id": "n9", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.cost_cents", "bigint"], "title": "mart.job_day_costs.cost_cents\nbigint"}, {"id": "n10", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.dt", "string", "in the Key"], "title": "mart.job_day_costs.dt\nstring"}], "arrows": [["n0", "n1", "value"], ["n3", "n4", "value"], ["n2", "n5", "rows"], ["n5", "n1", "rows"], ["n5", "n4", "rows"], ["n1", "n6", "value"], ["n4", "n7", "value"], ["n6", "n8", "value"], ["n7", "n9", "value"], ["n5", "n10", "day"]], "groups": [{"name": "ops.region_costs", "kind": "table"}, {"name": "costs_per_job_day", "kind": "derived"}, {"name": "write_job_day_costs", "kind": "output"}, {"name": "mart.job_day_costs", "kind": "table"}]};
 
 // Sizes in the drawing, in pixels.
 const BOX_WIDTH = 250;

@@ -1,4 +1,4 @@
-# sqlglot Composer 4.1, exported 2026-10-06 15:49 - generated from dev, do not edit
+# sqlglot Composer 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
 """Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
@@ -15,9 +15,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'4.1'
+'5.0'
 >>> VERSION
-'sqlglot Composer 4.1, ...'
+'sqlglot Composer 5.0, ...'
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from __future__ import annotations
 import importlib.util
 import os
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
@@ -119,3 +119,7 @@ from composer_core.public import *  # noqa: E402, F403
 from composer_core.public import __all__ as _SHARED_NAMES  # noqa: E402
 
 __all__ = ["TOOLBOX_VERSION", "VERSION", *_SHARED_NAMES]
+
+# The admin module, imported by name, as `from sqlglot_composer import admin`: the star import leaves it
+# out, since its functions change your own Saved tables.
+from composer_core import admin  # noqa: E402, F401
