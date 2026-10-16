@@ -249,6 +249,9 @@ KINDS = {
     "Avg": ("this",),
     "Min": ("this",),
     "Max": ("this",),
+    # GROUPING(column), which is_total writes: 1 on a subtotal row that totals over the column.
+    # Like a count, it is worked out once rows are grouped.
+    "Grouping": ("this",),
     # A calculation over a window. rows is (start, end), each a count of rows from the row
     # itself (negative before it, 0 the row, positive after it) or None for every row that
     # way, written ROWS BETWEEN ... AND ...; or None, when the Hive has no ROWS.
@@ -269,8 +272,14 @@ KINDS = {
     # A whole Statement: a query, a write, CREATE TABLE or DROP TABLE, and their pieces.
     # A Select's parts are its clauses; group_by and order_by are lists, and limit a number.
     # broadcast: the names of the joined tables its MAPJOIN hint names, written after SELECT.
+    # grouping_sets: the subtotals' sets of columns, as Tuples, or None for a plain GROUP BY.
     "Select": ("derived_tables", "outputs", "distinct", "broadcast", "source", "joins", "where",
-               "group_by", "having", "order_by", "limit"),
+               "group_by", "grouping_sets", "having", "order_by", "limit"),
+    # One set of GROUPING SETS: its columns, none for the grand total.
+    "Tuple": ("expressions",),
+    # Statements stacked by UNION_ALL, UNION, INTERSECT or EXCEPT: how ("UNION ALL", "UNION",
+    # "INTERSECT" or "EXCEPT"), each Statement's Select in order, and a LIMIT for them all.
+    "Stack": ("derived_tables", "how", "branches", "limit"),
     # A table by its database and its name, as in ops.job_runs, and the name FROM gives it.
     "Table": ("db", "name", "partition", "alias"),
     # how: "JOIN", "LEFT JOIN", "CROSS JOIN", "LEFT SEMI JOIN" or "FULL JOIN".
@@ -292,7 +301,8 @@ WINDOW_CALLS = frozenset({"rank", "dense_rank", "ntile", "lag", "lead", "first_v
                           "last_value"})
 # The date functions a Call may name: the ones week_start and month_start write.
 DATE_CALLS = frozenset({"date_sub", "next_day", "trunc", "unix_timestamp", "from_unixtime"})
-AGGREGATES = frozenset({"Count", "Sum", "Avg", "Min", "Max"})
+# GROUPING, which is_total writes, is among them: like a count, it is worked out per group.
+AGGREGATES = frozenset({"Count", "Sum", "Avg", "Min", "Max", "Grouping"})
 ARITHMETIC = frozenset({"Add", "Sub", "Mul", "Div"})
 CONNECTORS = frozenset({"And", "Or"})
 

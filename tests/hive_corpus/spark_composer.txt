@@ -1856,6 +1856,955 @@ JOIN ops.jobs AS jobs
 ---
 
 
+== doc:UNION_ALL
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION ALL
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+-- Statement 1: the Statement
+output run_id: run_id
+-- Statement 2: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION ALL
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+-- Statement 2: the Statement
+output run_id: run_id
+-- export_lineage
+# Lineage: statement_1, statement_2
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement_1, 1st Statement"]
+    n1["statement_1, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement_1, 1st Statement"]
+    n2{{"WHERE in statement_1, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement_1, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n6["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+    n11["ops.run_alerts.severity<br/><small>string</small>"]
+  end
+  subgraph g4["statement_1, 2nd Statement"]
+    n7["statement_1, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement_1, 2nd Statement"]
+    n8{{"WHERE in statement_1, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n10{{"WHERE in statement_1, 2nd Statement<br/><small>equals(run_alerts.severity, #quot;high#quot;)</small>"}}
+  end
+  subgraph g6["statement_1"]
+    n12["run_id<br/><small>UNION_ALL(...)</small>"]
+  end
+  subgraph g7["statement_2, 1st Statement"]
+    n13["statement_2, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g8["filters on statement_2, 1st Statement"]
+    n14{{"WHERE in statement_2, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n15{{"WHERE in statement_2, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g9["statement_2, 2nd Statement"]
+    n16["statement_2, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g10["filters on statement_2, 2nd Statement"]
+    n17{{"WHERE in statement_2, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n18{{"WHERE in statement_2, 2nd Statement<br/><small>equals(run_alerts.severity, #quot;high#quot;)</small>"}}
+  end
+  subgraph g11["statement_2"]
+    n19["run_id<br/><small>UNION_ALL(...)</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 --> n7
+  n9 -.-> n8
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n0 --> n13
+  n3 -.-> n14
+  n5 -.-> n15
+  n6 --> n16
+  n9 -.-> n17
+  n11 -.-> n18
+  n13 --> n19
+  n16 --> n19
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n8 -.->|filters| g4
+  n10 -.->|filters| g4
+  n14 -.->|filters| g7
+  n15 -.->|filters| g7
+  n17 -.->|filters| g9
+  n18 -.->|filters| g9
+```
+
+## statement_1
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement_1** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+statement_1.run_id = UNION_ALL(...)
+├─ statement_1, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ statement_1, 2nd Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement_1, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement_1, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement_1, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement_1, 2nd Statement: `equals(run_alerts.severity, "high")`, which is `run_alerts.severity = 'high'` (reads ops.run_alerts.severity)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_1: no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION ALL
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+```
+
+## statement_2
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement_2** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+statement_2.run_id = UNION_ALL(...)
+├─ statement_2, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ statement_2, 2nd Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement_2, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement_2, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement_2, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement_2, 2nd Statement: `equals(run_alerts.severity, "high")`, which is `run_alerts.severity = 'high'` (reads ops.run_alerts.severity)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_2: no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION ALL
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+```
+
+---
+
+
+== doc:UNION
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+-- Statement 1: the Statement
+output run_id: run_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement, 1st Statement"]
+    n1["statement, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement, 1st Statement"]
+    n2{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n6["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+    n11["ops.run_alerts.severity<br/><small>string</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n7["statement, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement, 2nd Statement"]
+    n8{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n10{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.severity, #quot;high#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>UNION(...)</small><br/><small>in the Key</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 --> n7
+  n9 -.-> n8
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n8 -.->|filters| g4
+  n10 -.->|filters| g4
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `UNION(...)`, which is `UNION`.
+
+```text
+statement.run_id = UNION(...)
+├─ statement, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ statement, 2nd Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.severity, "high")`, which is `run_alerts.severity = 'high'` (reads ops.run_alerts.severity)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since UNION(...) makes one row for each different run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+```
+
+---
+
+
+== doc:INTERSECT
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+INTERSECT
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+-- Statement 1: the Statement
+output run_id: run_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement, 1st Statement"]
+    n1["statement, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement, 1st Statement"]
+    n2{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n6["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+    n11["ops.run_alerts.severity<br/><small>string</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n7["statement, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement, 2nd Statement"]
+    n8{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n10{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.severity, #quot;high#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>INTERSECT(...)</small><br/><small>in the Key</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n13{{"INTERSECT in statement<br/><small>INTERSECT(...) keeps only the rows every ot…</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 --> n7
+  n9 -.-> n8
+  n11 -.-> n10
+  n1 --> n12
+  n7 -.-> n13
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n8 -.->|filters| g4
+  n10 -.->|filters| g4
+  n13 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `INTERSECT(...)`, which is `INTERSECT`.
+
+```text
+statement.run_id = INTERSECT(...)
+└─ statement, 1st Statement.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.severity, "high")`, which is `run_alerts.severity = 'high'` (reads ops.run_alerts.severity)
+- INTERSECT in statement: `INTERSECT(...) keeps only the rows every other Statement returns too`, which is `INTERSECT` (reads ops.run_alerts.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+INTERSECT
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+```
+
+---
+
+
+== doc:EXCEPT
+-- Statement 1: to_hive
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+EXCEPT
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+-- Statement 1: the Statement
+output run_id: run_id
+-- Statement 2: to_hive
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+EXCEPT
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+-- Statement 2: the Statement
+output run_id: run_id
+-- export_lineage
+# Lineage: statement_1, statement_2
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.run_alerts"]
+    n0["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n3["ops.run_alerts.dt<br/><small>string</small>"]
+    n5["ops.run_alerts.severity<br/><small>string</small>"]
+  end
+  subgraph g1["statement_1, 1st Statement"]
+    n1["statement_1, 1st Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g2["filters on statement_1, 1st Statement"]
+    n2{{"WHERE in statement_1, 1st Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement_1, 1st Statement<br/><small>equals(run_alerts.severity, #quot;high#quot;)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n9["ops.job_runs.dt<br/><small>string</small>"]
+    n11["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g4["statement_1, 2nd Statement"]
+    n7["statement_1, 2nd Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g5["filters on statement_1, 2nd Statement"]
+    n8{{"WHERE in statement_1, 2nd Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n10{{"WHERE in statement_1, 2nd Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g6["statement_1"]
+    n12["run_id<br/><small>EXCEPT(...)</small><br/><small>in the Key</small>"]
+  end
+  subgraph g7["filters on statement_1"]
+    n13{{"EXCEPT in statement_1<br/><small>EXCEPT(...) leaves out the rows another Sta…</small>"}}
+  end
+  subgraph g8["statement_2, 1st Statement"]
+    n14["statement_2, 1st Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g9["filters on statement_2, 1st Statement"]
+    n15{{"WHERE in statement_2, 1st Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n16{{"WHERE in statement_2, 1st Statement<br/><small>equals(run_alerts.severity, #quot;high#quot;)</small>"}}
+  end
+  subgraph g10["statement_2, 2nd Statement"]
+    n17["statement_2, 2nd Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g11["filters on statement_2, 2nd Statement"]
+    n18{{"WHERE in statement_2, 2nd Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n19{{"WHERE in statement_2, 2nd Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g12["statement_2"]
+    n20["run_id<br/><small>EXCEPT(...)</small><br/><small>in the Key</small>"]
+  end
+  subgraph g13["filters on statement_2"]
+    n21{{"EXCEPT in statement_2<br/><small>EXCEPT(...) leaves out the rows another Sta…</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 --> n7
+  n9 -.-> n8
+  n11 -.-> n10
+  n1 --> n12
+  n7 -.-> n13
+  n0 --> n14
+  n3 -.-> n15
+  n5 -.-> n16
+  n6 --> n17
+  n9 -.-> n18
+  n11 -.-> n19
+  n14 --> n20
+  n17 -.-> n21
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n8 -.->|filters| g4
+  n10 -.->|filters| g4
+  n13 -.->|filters| g6
+  n15 -.->|filters| g8
+  n16 -.->|filters| g8
+  n18 -.->|filters| g10
+  n19 -.->|filters| g10
+  n21 -.->|filters| g12
+```
+
+## statement_1
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement_1** as `EXCEPT(...)`, which is `EXCEPT`.
+
+```text
+statement_1.run_id = EXCEPT(...)
+└─ statement_1, 1st Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement_1, 1st Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement_1, 1st Statement: `equals(run_alerts.severity, "high")`, which is `run_alerts.severity = 'high'` (reads ops.run_alerts.severity)
+- WHERE in statement_1, 2nd Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement_1, 2nd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- EXCEPT in statement_1: `EXCEPT(...) leaves out the rows another Statement returns`, which is `EXCEPT` (reads ops.job_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_1: Key (run_id), since EXCEPT(...) makes one row for each different run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+EXCEPT
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+```
+
+## statement_2
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement_2** as `EXCEPT(...)`, which is `EXCEPT`.
+
+```text
+statement_2.run_id = EXCEPT(...)
+└─ statement_2, 1st Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement_2, 1st Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement_2, 1st Statement: `equals(run_alerts.severity, "high")`, which is `run_alerts.severity = 'high'` (reads ops.run_alerts.severity)
+- WHERE in statement_2, 2nd Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement_2, 2nd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- EXCEPT in statement_2: `EXCEPT(...) leaves out the rows another Statement returns`, which is `EXCEPT` (reads ops.job_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_2: Key (run_id), since EXCEPT(...) makes one row for each different run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  run_alerts.run_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+EXCEPT
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+```
+
+---
+
+
+== doc:rollup
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  )
+-- Statement 1: the Statement
+output team: jobs.team
+output job_name: jobs.job_name
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+    n9["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n9 -.-> n7
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `jobs.job_name`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  )
+```
+
+---
+
+
+== doc:cube
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  jobs.region,
+  COUNT(*) AS job_count
+FROM ops.jobs AS jobs
+GROUP BY
+  jobs.team,
+  jobs.region
+  GROUPING SETS (
+    (jobs.team, jobs.region),
+    jobs.team,
+    jobs.region,
+    ()
+  )
+-- Statement 1: the Statement
+output team: jobs.team
+output region: jobs.region
+output job_count: COUNT(*)
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.region<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small>"]
+    n3["region<br/><small>jobs.region</small>"]
+    n4["job_count<br/><small>count_rows()</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `job_count`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.job_count = count_rows()
+└─ (no columns: it counts rows)
+```
+
+One value for each different `jobs.team` and `jobs.region`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+| `region` | ops.jobs.region |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(cube(jobs.team, jobs.region)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  jobs.region,
+  COUNT(*) AS job_count
+FROM ops.jobs AS jobs
+GROUP BY
+  jobs.team,
+  jobs.region
+  GROUPING SETS (
+    (jobs.team, jobs.region),
+    jobs.team,
+    jobs.region,
+    ()
+  )
+```
+
+---
+
+
+== doc:grouping_sets
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  jobs.region,
+  COUNT(*) AS job_count
+FROM ops.jobs AS jobs
+GROUP BY
+  jobs.team,
+  jobs.region
+  GROUPING SETS (
+    jobs.team,
+    jobs.region,
+    ()
+  )
+-- Statement 1: the Statement
+output team: jobs.team
+output region: jobs.region
+output job_count: COUNT(*)
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.region<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small>"]
+    n3["region<br/><small>jobs.region</small>"]
+    n4["job_count<br/><small>count_rows()</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `job_count`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.job_count = count_rows()
+└─ (no columns: it counts rows)
+```
+
+One value for each different `jobs.team` and `jobs.region`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+| `region` | ops.jobs.region |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(grouping_sets([jobs.team], [jobs.region], [])) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  jobs.region,
+  COUNT(*) AS job_count
+FROM ops.jobs AS jobs
+GROUP BY
+  jobs.team,
+  jobs.region
+  GROUPING SETS (
+    jobs.team,
+    jobs.region,
+    ()
+  )
+```
+
+---
+
+
 == doc:window
 -- Statement 1: to_hive
 SELECT
@@ -17694,6 +18643,2237 @@ ValueError:
   What happened:  WHERE has LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) > 10, which looks across rows through a Window.
   Why it matters: Windows are worked out last, after the rows are picked and grouped, so Hive can't use it in WHERE of the SELECT that makes it.
   Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(row_number) shows how.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:stack:UNION_ALL
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION ALL
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+UNION ALL
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+-- Statement 1: the Statement
+output run_id: run_id
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n7["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement, 1st Statement"]
+    n1["statement, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["statement, 1st Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on statement, 1st Statement"]
+    n4{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n8["ops.run_alerts.alert_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n13["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n9["statement, 2nd Statement.job_id<br/><small>run_alerts.alert_id</small><br/><small>in the Key</small>"]
+    n11["statement, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement, 2nd Statement"]
+    n12{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement, 3rd Statement"]
+    n14["statement, 3rd Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n15["statement, 3rd Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g7["filters on statement, 3rd Statement"]
+    n16{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.dt, #quot;2026-09-23#quot;)</small>"}}
+    n17{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g8["statement"]
+    n18["run_id<br/><small>UNION_ALL(...)</small>"]
+    n19["job_id<br/><small>UNION_ALL(...)</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 --> n9
+  n10 --> n11
+  n13 -.-> n12
+  n0 --> n14
+  n2 --> n15
+  n5 -.-> n16
+  n7 -.-> n17
+  n1 --> n18
+  n11 --> n18
+  n14 --> n18
+  n3 --> n19
+  n9 --> n19
+  n15 --> n19
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n12 -.->|filters| g4
+  n16 -.->|filters| g6
+  n17 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+statement.run_id = UNION_ALL(...)
+├─ statement, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+├─ statement, 2nd Statement.run_id
+│  └─ ops.run_alerts.run_id  (bigint)
+└─ statement, 3rd Statement.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+
+#### `job_id`
+
+Calculated in **statement** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+statement.job_id = UNION_ALL(...)
+├─ statement, 1st Statement.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+├─ statement, 2nd Statement.job_id
+│  └─ ops.run_alerts.alert_id  (bigint)
+└─ statement, 3rd Statement.job_id
+   └─ ops.job_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 3 Statements, and rows of two of them may share a Key.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION ALL
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+UNION ALL
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+```
+
+---
+
+
+== edge:stack:UNION
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+UNION
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+-- Statement 1: the Statement
+output run_id: run_id
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n7["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement, 1st Statement"]
+    n1["statement, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["statement, 1st Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on statement, 1st Statement"]
+    n4{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n8["ops.run_alerts.alert_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n13["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n9["statement, 2nd Statement.job_id<br/><small>run_alerts.alert_id</small><br/><small>in the Key</small>"]
+    n11["statement, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement, 2nd Statement"]
+    n12{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement, 3rd Statement"]
+    n14["statement, 3rd Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n15["statement, 3rd Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g7["filters on statement, 3rd Statement"]
+    n16{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.dt, #quot;2026-09-23#quot;)</small>"}}
+    n17{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g8["statement"]
+    n18["run_id<br/><small>UNION(...)</small><br/><small>in the Key</small>"]
+    n19["job_id<br/><small>UNION(...)</small><br/><small>in the Key</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 --> n9
+  n10 --> n11
+  n13 -.-> n12
+  n0 --> n14
+  n2 --> n15
+  n5 -.-> n16
+  n7 -.-> n17
+  n1 --> n18
+  n11 --> n18
+  n14 --> n18
+  n3 --> n19
+  n9 --> n19
+  n15 --> n19
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n12 -.->|filters| g4
+  n16 -.->|filters| g6
+  n17 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `UNION(...)`, which is `UNION`.
+
+```text
+statement.run_id = UNION(...)
+├─ statement, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+├─ statement, 2nd Statement.run_id
+│  └─ ops.run_alerts.run_id  (bigint)
+└─ statement, 3rd Statement.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+
+#### `job_id`
+
+Calculated in **statement** as `UNION(...)`, which is `UNION`.
+
+```text
+statement.job_id = UNION(...)
+├─ statement, 1st Statement.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+├─ statement, 2nd Statement.job_id
+│  └─ ops.run_alerts.alert_id  (bigint)
+└─ statement, 3rd Statement.job_id
+   └─ ops.job_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id, job_id), since UNION(...) makes one row for each different run_id, job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+UNION
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+UNION
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+```
+
+---
+
+
+== edge:stack:INTERSECT
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+INTERSECT
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+INTERSECT
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+-- Statement 1: the Statement
+output run_id: run_id
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n7["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement, 1st Statement"]
+    n1["statement, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["statement, 1st Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on statement, 1st Statement"]
+    n4{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n8["ops.run_alerts.alert_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n13["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n9["statement, 2nd Statement.job_id<br/><small>run_alerts.alert_id</small><br/><small>in the Key</small>"]
+    n11["statement, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement, 2nd Statement"]
+    n12{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement, 3rd Statement"]
+    n14["statement, 3rd Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n15["statement, 3rd Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g7["filters on statement, 3rd Statement"]
+    n16{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.dt, #quot;2026-09-23#quot;)</small>"}}
+    n17{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g8["statement"]
+    n18["run_id<br/><small>INTERSECT(...)</small><br/><small>in the Key</small>"]
+    n19["job_id<br/><small>INTERSECT(...)</small>"]
+  end
+  subgraph g9["filters on statement"]
+    n20{{"INTERSECT in statement<br/><small>INTERSECT(...) keeps only the rows every ot…</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 --> n9
+  n10 --> n11
+  n13 -.-> n12
+  n0 --> n14
+  n2 --> n15
+  n5 -.-> n16
+  n7 -.-> n17
+  n1 --> n18
+  n3 --> n19
+  n11 -.-> n20
+  n9 -.-> n20
+  n14 -.-> n20
+  n15 -.-> n20
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n12 -.->|filters| g4
+  n16 -.->|filters| g6
+  n17 -.->|filters| g6
+  n20 -.->|filters| g8
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `INTERSECT(...)`, which is `INTERSECT`.
+
+```text
+statement.run_id = INTERSECT(...)
+└─ statement, 1st Statement.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- INTERSECT in statement: `INTERSECT(...) keeps only the rows every other Statement returns too`, which is `INTERSECT` (reads ops.job_runs.job_id, ops.job_runs.run_id, ops.run_alerts.alert_id, ops.run_alerts.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `INTERSECT(...)`, which is `INTERSECT`.
+
+```text
+statement.job_id = INTERSECT(...)
+└─ statement, 1st Statement.job_id
+   └─ ops.job_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- INTERSECT in statement: `INTERSECT(...) keeps only the rows every other Statement returns too`, which is `INTERSECT` (reads ops.job_runs.job_id, ops.job_runs.run_id, ops.run_alerts.alert_id, ops.run_alerts.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id; or Key (job_id), since run_alerts' rows are told apart by alert_id; or Key (run_id, job_id), since INTERSECT(...) makes one row for each different run_id, job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+INTERSECT
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+INTERSECT
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+```
+
+---
+
+
+== edge:stack:EXCEPT
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+EXCEPT
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+EXCEPT
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+-- Statement 1: the Statement
+output run_id: run_id
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n7["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement, 1st Statement"]
+    n1["statement, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["statement, 1st Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on statement, 1st Statement"]
+    n4{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"WHERE in statement, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n8["ops.run_alerts.alert_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n13["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n9["statement, 2nd Statement.job_id<br/><small>run_alerts.alert_id</small><br/><small>in the Key</small>"]
+    n11["statement, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on statement, 2nd Statement"]
+    n12{{"WHERE in statement, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement, 3rd Statement"]
+    n14["statement, 3rd Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n15["statement, 3rd Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g7["filters on statement, 3rd Statement"]
+    n16{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.dt, #quot;2026-09-23#quot;)</small>"}}
+    n17{{"WHERE in statement, 3rd Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g8["statement"]
+    n18["run_id<br/><small>EXCEPT(...)</small><br/><small>in the Key</small>"]
+    n19["job_id<br/><small>EXCEPT(...)</small>"]
+  end
+  subgraph g9["filters on statement"]
+    n20{{"EXCEPT in statement<br/><small>EXCEPT(...) leaves out the rows another Sta…</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 --> n9
+  n10 --> n11
+  n13 -.-> n12
+  n0 --> n14
+  n2 --> n15
+  n5 -.-> n16
+  n7 -.-> n17
+  n1 --> n18
+  n3 --> n19
+  n11 -.-> n20
+  n9 -.-> n20
+  n14 -.-> n20
+  n15 -.-> n20
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n12 -.->|filters| g4
+  n16 -.->|filters| g6
+  n17 -.->|filters| g6
+  n20 -.->|filters| g8
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `EXCEPT(...)`, which is `EXCEPT`.
+
+```text
+statement.run_id = EXCEPT(...)
+└─ statement, 1st Statement.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- EXCEPT in statement: `EXCEPT(...) leaves out the rows another Statement returns`, which is `EXCEPT` (reads ops.job_runs.job_id, ops.job_runs.run_id, ops.run_alerts.alert_id, ops.run_alerts.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `EXCEPT(...)`, which is `EXCEPT`.
+
+```text
+statement.job_id = EXCEPT(...)
+└─ statement, 1st Statement.job_id
+   └─ ops.job_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in statement, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in statement, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.dt, "2026-09-23")`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in statement, 3rd Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- EXCEPT in statement: `EXCEPT(...) leaves out the rows another Statement returns`, which is `EXCEPT` (reads ops.job_runs.job_id, ops.job_runs.run_id, ops.run_alerts.alert_id, ops.run_alerts.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id; or Key (run_id, job_id), since EXCEPT(...) makes one row for each different run_id, job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+EXCEPT
+SELECT
+  run_alerts.run_id,
+  run_alerts.alert_id AS job_id
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+EXCEPT
+SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-23' AND job_runs.status = 'FAILED'
+```
+
+---
+
+
+== edge:stack:derived_tables_of_each
+-- Statement 1: to_hive
+WITH per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  per_job.job_id,
+  per_job.runs
+FROM per_job
+UNION ALL
+SELECT
+  per_job.runs AS job_id,
+  per_job.job_id AS runs
+FROM per_job
+-- Statement 1: the Statement
+output job_id: job_id
+output runs: runs
+-- Statement 1: Derived table per_job
+output job_id: job_runs.job_id
+output runs: COUNT(*)
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n4["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["per_job"]
+    n1["per_job.job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
+    n2["per_job.runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on per_job"]
+    n3{{"WHERE in per_job<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["statement, 1st Statement"]
+    n5["statement, 1st Statement.job_id<br/><small>per_job.job_id</small><br/><small>in the Key</small>"]
+    n6["statement, 1st Statement.runs<br/><small>per_job.runs</small>"]
+  end
+  subgraph g4["statement, 2nd Statement"]
+    n7["statement, 2nd Statement.runs<br/><small>per_job.job_id</small><br/><small>in the Key</small>"]
+    n8["statement, 2nd Statement.job_id<br/><small>per_job.runs</small>"]
+  end
+  subgraph g5["statement"]
+    n9["job_id<br/><small>UNION_ALL(...)</small>"]
+    n10["runs<br/><small>UNION_ALL(...)</small>"]
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n1 --> n5
+  n2 --> n6
+  n1 --> n7
+  n2 --> n8
+  n5 --> n9
+  n8 --> n9
+  n6 --> n10
+  n7 --> n10
+  n3 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `per_job.runs`
+
+Calculated in **per_job** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+per_job.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+One value for each different `job_runs.job_id`.
+
+#### `job_id`
+
+Calculated in **statement** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+statement.job_id = UNION_ALL(...)
+├─ statement, 1st Statement.job_id
+│  └─ per_job.job_id
+│     └─ ops.job_runs.job_id  (bigint)
+└─ statement, 2nd Statement.job_id
+   └─ per_job.runs = count_rows()
+```
+
+Rows that count:
+- WHERE in per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `runs`
+
+Calculated in **statement** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+statement.runs = UNION_ALL(...)
+├─ statement, 1st Statement.runs
+│  └─ per_job.runs = count_rows()
+└─ statement, 2nd Statement.runs
+   └─ per_job.job_id
+      └─ ops.job_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in per_job: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('per_job', ...): Key (job_id), since GROUP_BY makes one row for each job_id.
+- statement: no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+
+### Hive as submitted
+
+```sql
+WITH per_job AS (
+  SELECT
+    job_runs.job_id,
+    COUNT(*) AS runs
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  GROUP BY
+    job_runs.job_id
+)
+SELECT
+  per_job.job_id,
+  per_job.runs
+FROM per_job
+UNION ALL
+SELECT
+  per_job.runs AS job_id,
+  per_job.job_id AS runs
+FROM per_job
+```
+
+---
+
+
+== edge:stack:read_as_a_derived_table
+-- Statement 1: to_hive
+WITH flags AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+  UNION
+  SELECT
+    run_alerts.run_id,
+    run_alerts.alert_id AS job_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+)
+SELECT
+  flags.job_id,
+  COUNT(*) AS runs
+FROM flags
+GROUP BY
+  flags.job_id
+-- Statement 1: the Statement
+output job_id: flags.job_id
+output runs: COUNT(*)
+-- Statement 1: Derived table flags
+output run_id: run_id
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["flags, 1st Statement"]
+    n1["flags, 1st Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on flags, 1st Statement"]
+    n2{{"WHERE in flags, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in flags, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n6["ops.run_alerts.alert_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["flags, 2nd Statement"]
+    n7["flags, 2nd Statement.job_id<br/><small>run_alerts.alert_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g5["filters on flags, 2nd Statement"]
+    n8{{"WHERE in flags, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["flags"]
+    n10["flags.job_id<br/><small>UNION(...)</small><br/><small>in the Key</small>"]
+  end
+  subgraph g7["statement"]
+    n11["job_id<br/><small>flags.job_id</small><br/><small>in the Key</small>"]
+    n12["runs<br/><small>count_rows()</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 --> n7
+  n9 -.-> n8
+  n1 --> n10
+  n7 --> n10
+  n10 --> n11
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n8 -.->|filters| g4
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `flags.job_id`
+
+Calculated in **flags** as `UNION(...)`, which is `UNION`.
+
+```text
+flags.job_id = UNION(...)
+├─ flags, 1st Statement.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ flags, 2nd Statement.job_id
+   └─ ops.run_alerts.alert_id  (bigint)
+```
+
+Rows that count:
+- WHERE in flags, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in flags, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in flags, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+One value for each different `flags.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | flags.job_id (calculated) ← flags, 1st Statement.job_id ← ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('flags', ...): Key (run_id, job_id), since UNION(...) makes one row for each different run_id, job_id.
+- statement: Key (job_id), since GROUP_BY makes one row for each job_id.
+
+### Hive as submitted
+
+```sql
+WITH flags AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+  UNION
+  SELECT
+    run_alerts.run_id,
+    run_alerts.alert_id AS job_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+)
+SELECT
+  flags.job_id,
+  COUNT(*) AS runs
+FROM flags
+GROUP BY
+  flags.job_id
+```
+
+---
+
+
+== edge:stack:written
+-- Statement 1: to_hive
+WITH flags AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+  UNION ALL
+  SELECT
+    run_alerts.run_id,
+    run_alerts.alert_id AS job_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')
+SELECT
+  flags.job_id,
+  COUNT(*) AS runs
+FROM flags
+GROUP BY
+  flags.job_id
+-- Statement 1: the Statement
+output job_id: flags.job_id
+output runs: COUNT(*)
+-- Statement 1: Derived table flags
+output run_id: run_id
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["flags, 1st Statement"]
+    n1["flags, 1st Statement.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on flags, 1st Statement"]
+    n2{{"WHERE in flags, 1st Statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in flags, 1st Statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n6["ops.run_alerts.alert_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["flags, 2nd Statement"]
+    n7["flags, 2nd Statement.job_id<br/><small>run_alerts.alert_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g5["filters on flags, 2nd Statement"]
+    n8{{"WHERE in flags, 2nd Statement<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["flags"]
+    n10["flags.job_id<br/><small>UNION_ALL(...)</small>"]
+  end
+  subgraph g7["statement"]
+    n11["job_id<br/><small>flags.job_id</small><br/><small>in the Key</small>"]
+    n12["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g8["mart.daily_runs"]
+    n13["mart.daily_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n14["mart.daily_runs.runs<br/><small>bigint</small>"]
+    n15["mart.daily_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n6 --> n7
+  n9 -.-> n8
+  n1 --> n10
+  n7 --> n10
+  n10 --> n11
+  n11 --> n13
+  n12 --> n14
+  n2 -.->|day written| n15
+  n8 -.->|day written| n15
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n8 -.->|filters| g4
+```
+
+## statement
+
+It writes the Saved table mart.daily_runs, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `flags.job_id`
+
+Calculated in **flags** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+flags.job_id = UNION_ALL(...)
+├─ flags, 1st Statement.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ flags, 2nd Statement.job_id
+   └─ ops.run_alerts.alert_id  (bigint)
+```
+
+Rows that count:
+- WHERE in flags, 1st Statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in flags, 1st Statement: `equals(job_runs.status, "FAILED")`, which is `job_runs.status = 'FAILED'` (reads ops.job_runs.status)
+- WHERE in flags, 2nd Statement: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+One value for each different `flags.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | flags.job_id (calculated) ← flags, 1st Statement.job_id ← ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('flags', ...): no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+- statement: Key (job_id), since GROUP_BY makes one row for each job_id.
+- mart.daily_runs' Key (job_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+WITH flags AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
+  UNION ALL
+  SELECT
+    run_alerts.run_id,
+    run_alerts.alert_id AS job_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')
+SELECT
+  flags.job_id,
+  COUNT(*) AS runs
+FROM flags
+GROUP BY
+  flags.job_id
+```
+
+---
+
+
+== edge:stack:by_day
+-- Statement 1: to_hive
+WITH flags AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-23'
+  UNION ALL
+  SELECT
+    run_alerts.run_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-23'
+)
+SELECT
+  flags.run_id
+FROM flags
+-- Statement 1: the Statement
+output run_id: flags.run_id
+-- Statement 1: Derived table flags
+output run_id: run_id
+-- Statement 2: to_hive
+WITH flags AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  UNION ALL
+  SELECT
+    run_alerts.run_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+)
+SELECT
+  flags.run_id
+FROM flags
+-- Statement 2: the Statement
+output run_id: flags.run_id
+-- Statement 2: Derived table flags
+output run_id: run_id
+-- export_lineage
+# Lineage: statement_1, statement_2
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["flags in statement_1, 1st Statement"]
+    n1["flags in statement_1, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on flags in statement_1, 1st Statement"]
+    n2{{"WHERE in flags in statement_1, 1st Statement<br/><small>equals(job_runs.dt, datetime.date(2026, 9, …</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n4["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n7["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["flags in statement_1, 2nd Statement"]
+    n5["flags in statement_1, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g5["filters on flags in statement_1, 2nd Statement"]
+    n6{{"WHERE in flags in statement_1, 2nd Statement<br/><small>equals(run_alerts.dt, datetime.date(2026, 9…</small>"}}
+  end
+  subgraph g6["flags in statement_1"]
+    n8["flags in statement_1.run_id<br/><small>UNION_ALL(...)</small>"]
+  end
+  subgraph g7["statement_1"]
+    n9["run_id<br/><small>flags.run_id</small>"]
+  end
+  subgraph g8["flags in statement_2, 1st Statement"]
+    n10["flags in statement_2, 1st Statement.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g9["filters on flags in statement_2, 1st Statement"]
+    n11{{"WHERE in flags in statement_2, 1st Statement<br/><small>equals(job_runs.dt, datetime.date(2026, 9, …</small>"}}
+  end
+  subgraph g10["flags in statement_2, 2nd Statement"]
+    n12["flags in statement_2, 2nd Statement.run_id<br/><small>run_alerts.run_id</small>"]
+  end
+  subgraph g11["filters on flags in statement_2, 2nd Statement"]
+    n13{{"WHERE in flags in statement_2, 2nd Statement<br/><small>equals(run_alerts.dt, datetime.date(2026, 9…</small>"}}
+  end
+  subgraph g12["flags in statement_2"]
+    n14["flags in statement_2.run_id<br/><small>UNION_ALL(...)</small>"]
+  end
+  subgraph g13["statement_2"]
+    n15["run_id<br/><small>flags.run_id</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n4 --> n5
+  n7 -.-> n6
+  n1 --> n8
+  n5 --> n8
+  n8 --> n9
+  n0 --> n10
+  n3 -.-> n11
+  n4 --> n12
+  n7 -.-> n13
+  n10 --> n14
+  n12 --> n14
+  n14 --> n15
+  n2 -.->|filters| g1
+  n6 -.->|filters| g4
+  n11 -.->|filters| g8
+  n13 -.->|filters| g10
+```
+
+## statement_1
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `flags in statement_1.run_id`
+
+Calculated in **flags in statement_1** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+flags in statement_1.run_id = UNION_ALL(...)
+├─ flags in statement_1, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ flags in statement_1, 2nd Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in flags in statement_1, 1st Statement: `equals(job_runs.dt, datetime.date(2026, 9, 23))`, which is `job_runs.dt = '2026-09-23'` (reads ops.job_runs.dt)
+- WHERE in flags in statement_1, 2nd Statement: `equals(run_alerts.dt, datetime.date(2026, 9, 23))`, which is `run_alerts.dt = '2026-09-23'` (reads ops.run_alerts.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | flags in statement_1.run_id (calculated) ← flags in statement_1, 1st Statement.run_id ← ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('flags', ...): no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+- statement_1: no Key the Toolbox can see, since the Derived table flags has no Key the Toolbox can see: UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+
+### Hive as submitted
+
+```sql
+WITH flags AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-23'
+  UNION ALL
+  SELECT
+    run_alerts.run_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-23'
+)
+SELECT
+  flags.run_id
+FROM flags
+```
+
+## statement_2
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `flags in statement_2.run_id`
+
+Calculated in **flags in statement_2** as `UNION_ALL(...)`, which is `UNION ALL`.
+
+```text
+flags in statement_2.run_id = UNION_ALL(...)
+├─ flags in statement_2, 1st Statement.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ flags in statement_2, 2nd Statement.run_id
+   └─ ops.run_alerts.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in flags in statement_2, 1st Statement: `equals(job_runs.dt, datetime.date(2026, 9, 24))`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in flags in statement_2, 2nd Statement: `equals(run_alerts.dt, datetime.date(2026, 9, 24))`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | flags in statement_2.run_id (calculated) ← flags in statement_2, 1st Statement.run_id ← ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('flags', ...): no Key the Toolbox can see, since UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+- statement_2: no Key the Toolbox can see, since the Derived table flags has no Key the Toolbox can see: UNION_ALL(...) keeps every row of each of its 2 Statements, and rows of two of them may share a Key.
+
+### Hive as submitted
+
+```sql
+WITH flags AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+  UNION ALL
+  SELECT
+    run_alerts.run_id
+  FROM ops.run_alerts AS run_alerts
+  WHERE
+    run_alerts.dt = '2026-09-24'
+)
+SELECT
+  flags.run_id
+FROM flags
+```
+
+---
+
+
+== edge:stack:refused:missing_column
+-- refused
+ValueError:
+  What happened:  UNION_ALL(...)'s 2nd Statement doesn't return job_id, which the 1st returns.
+  Why it matters: The Toolbox stacks the rows column by column, matching each column by its name, so every Statement must return the same names.
+  Usual fix:      Return the same columns from each Statement, leaving out a column only some of them have.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:stack:refused:another_type
+-- refused
+ValueError:
+  What happened:  EXCEPT(...): job_id is bigint in its 1st Statement and string in its 2nd.
+  Why it matters: Stacked, they are one column, so Hive would turn one into the other type, or refuse the Statement.
+  Usual fix:      Return job_id as the same kind of value from each Statement: a number with a number, text with text, a day with a day.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:stack:refused:limit
+-- refused
+ValueError:
+  What happened:  UNION(...)'s 2nd Statement has LIMIT.
+  Why it matters: In Hive, an ORDER BY or LIMIT at the end of a Stack is for all the stacked rows, and one inside a Statement of the Stack isn't allowed.
+  Usual fix:      To keep a Statement's top rows, make them in a derived(...) table and stack a Statement that reads it. To sort or cut the stacked rows, name the Stack with derived(...) and read it with ORDER_BY and LIMIT, or sort in pandas.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:subtotals:rollup
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  )
+-- Statement 1: the Statement
+output team: jobs.team
+output job_name: jobs.job_name
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+    n9["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n9 -.-> n7
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `jobs.job_name`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  )
+```
+
+---
+
+
+== edge:subtotals:cube
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    jobs.job_name,
+    ()
+  )
+-- Statement 1: the Statement
+output team: jobs.team
+output job_name: jobs.job_name
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+    n9["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n9 -.-> n7
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `jobs.job_name`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(cube(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    jobs.job_name,
+    ()
+  )
+```
+
+---
+
+
+== edge:subtotals:grouping_sets
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.job_name,
+    ()
+  )
+-- Statement 1: the Statement
+output team: jobs.team
+output job_name: jobs.job_name
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+    n9["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n9 -.-> n7
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team` and `jobs.job_name`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(grouping_sets([jobs.team, jobs.job_name], jobs.job_name, [])) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.job_name,
+    ()
+  )
+```
+
+---
+
+
+== edge:subtotals:beside_a_plain_column
+-- Statement 1: to_hive
+SELECT
+  jobs.region,
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.region,
+  jobs.team
+  GROUPING SETS (
+    (jobs.region, jobs.team),
+    jobs.region
+  )
+-- Statement 1: the Statement
+output region: jobs.region
+output team: jobs.team
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.region<br/><small>string</small>"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["region<br/><small>jobs.region</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+    n9["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n9 -.-> n7
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.region` and `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `region` | ops.jobs.region |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.region,
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.region,
+  jobs.team
+  GROUPING SETS (
+    (jobs.region, jobs.team),
+    jobs.region
+  )
+```
+
+---
+
+
+== edge:subtotals:is_total
+-- Statement 1: to_hive
+SELECT
+  CASE WHEN GROUPING(jobs.team) = 1 THEN 'every team' ELSE jobs.team END AS team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  )
+HAVING
+  GROUPING(jobs.job_name) = 1 OR COUNT(*) >= 2
+-- Statement 1: the Statement
+output team: CASE WHEN GROUPING(jobs.team) = 1 THEN 'every team' ELSE jobs.team END
+output job_name: jobs.job_name
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+HAVING: GROUPING(jobs.job_name) = 1 OR COUNT(*) >= 2
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>if_else(is_total(jobs.team), #quot;every team#quot;, …</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+    n4["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n5{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n7{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+    n10{{"HAVING in statement<br/><small>any_of(is_total(jobs.job_name), at_least(co…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+    n9["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n6 -.-> n5
+  n8 -.-> n7
+  n9 -.-> n7
+  n2 -.-> n10
+  n5 -.->|filters| g1
+  n7 -.->|filters| g1
+  n10 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `team`
+
+Calculated in **statement** as `if_else(is_total(jobs.team), "every team", jobs.team)`, which is `CASE WHEN GROUPING(jobs.team) = 1 THEN 'every team' ELSE jobs.team END`.
+
+```text
+statement.team = if_else(is_total(jobs.team), "every team", jobs.team)
+└─ ops.jobs.team  (string)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+- HAVING in statement: `any_of(is_total(jobs.job_name), at_least(count_rows(), 2))`, which is `GROUPING(jobs.job_name) = 1 OR COUNT(*) >= 2` (reads ops.jobs.job_name)
+
+One value for each different `jobs.team` and `jobs.job_name`.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+- HAVING in statement: `any_of(is_total(jobs.job_name), at_least(count_rows(), 2))`, which is `GROUPING(jobs.job_name) = 1 OR COUNT(*) >= 2` (reads ops.jobs.job_name)
+
+One value for each different `jobs.team` and `jobs.job_name`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(rollup(jobs.team, jobs.job_name)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  CASE WHEN GROUPING(jobs.team) = 1 THEN 'every team' ELSE jobs.team END AS team,
+  jobs.job_name,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  )
+HAVING
+  GROUPING(jobs.job_name) = 1 OR COUNT(*) >= 2
+```
+
+---
+
+
+== edge:subtotals:a_wide_set
+-- Statement 1: to_hive
+SELECT
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS a_rather_long_name_for_the_week,
+  job_runs.status,
+  job_runs.job_id,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
+  job_runs.status,
+  job_runs.job_id
+  GROUPING SETS (
+    (
+      CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
+      job_runs.status,
+      job_runs.job_id
+    ),
+    (CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING), job_runs.status),
+    (CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING), job_runs.job_id),
+    (job_runs.status, job_runs.job_id),
+    CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
+    job_runs.status,
+    job_runs.job_id,
+    ()
+  )
+-- Statement 1: the Statement
+output a_rather_long_name_for_the_week: CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
+output status: job_runs.status
+output job_id: job_runs.job_id
+output runs: COUNT(*)
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.dt<br/><small>string</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n4["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["a_rather_long_name_for_the_week<br/><small>week_start(job_runs.dt)</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+    n5["job_id<br/><small>job_runs.job_id</small>"]
+    n6["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n7{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n4 --> n5
+  n0 -.-> n7
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `a_rather_long_name_for_the_week`
+
+Calculated in **statement** as `week_start(job_runs.dt)`, which is `CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)`.
+
+```text
+statement.a_rather_long_name_for_the_week = week_start(job_runs.dt)
+└─ ops.job_runs.dt  (string)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+One value for each different `week_start(job_runs.dt)` and `job_runs.status` and `job_runs.job_id`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `status` | ops.job_runs.status |
+| `job_id` | ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since GROUP_BY(cube("a_rather_long_name_for_the_week", job_runs.status, job_runs.job_id)) adds subtotal rows, with NULL in each column they total over, as a real row may have.
+
+### Hive as submitted
+
+```sql
+SELECT
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING) AS a_rather_long_name_for_the_week,
+  job_runs.status,
+  job_runs.job_id,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+GROUP BY
+  CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
+  job_runs.status,
+  job_runs.job_id
+  GROUPING SETS (
+    (
+      CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
+      job_runs.status,
+      job_runs.job_id
+    ),
+    (CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING), job_runs.status),
+    (CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING), job_runs.job_id),
+    (job_runs.status, job_runs.job_id),
+    CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING),
+    job_runs.status,
+    job_runs.job_id,
+    ()
+  )
+```
+
+---
+
+
+== edge:subtotals:refused:is_total_in_where
+-- refused
+ValueError:
+  What happened:  WHERE has is_total(jobs.team).
+  Why it matters: GROUP_BY makes the subtotal rows after WHERE has picked the rows, so there is none to test in WHERE.
+  Usual fix:      Test it in HAVING, or show it in SELECT, such as AS(if_else(is_total(jobs.team), 1, 0), "is_subtotal").
+  Opt-out:        none - this one can't be switched off.
+
+== edge:subtotals:refused:written
+-- refused
+ValueError:
+  What happened:  INSERT_OVERWRITE(daily_runs) writes rows made by GROUP_BY(rollup(job_runs.job_id)).
+  Why it matters: Each subtotal row totals over rows written with it, with NULL in the columns it totals over: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
+  Usual fix:      Write the plain GROUP_BY into the Saved table, and add the subtotals in the Statement that reads it.
   Opt-out:        none - this one can't be switched off.
 
 == gen:000

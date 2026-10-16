@@ -96,6 +96,8 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <li data-for="keys"><a href="#keys">32. Keys, checked before each write</a></li>
 <li data-for="semi_anti_and_full_joins"><a href="#semi_anti_and_full_joins">33. Semi-, anti- and full joins</a></li>
 <li data-for="move_a_saved_table_to_its_own_folder"><a href="#move_a_saved_table_to_its_own_folder">34. Move a Saved table to its own folder</a></li>
+<li data-for="reconcile_two_tables"><a href="#reconcile_two_tables">35. Reconcile two tables</a></li>
+<li data-for="subtotals_and_grand_totals"><a href="#subtotals_and_grand_totals">36. Subtotals and grand totals</a></li>
 </ul>
 </div>
 </nav>
@@ -8884,6 +8886,278 @@ run(statement(
 <h4>Next</h4>
 <ul><li>How a Saved table is stored, and why it needs a folder of its own: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Check a Table reference against its table again after the table changes: <a href="#keep_a_table_reference_true_over_time">Keep a Table reference true over time</a>.</li><li>Write a table&#x27;s days again from their source: <a href="#backfill_a_range_of_days">Backfill a range of days</a>.</li><li>The admin module&#x27;s other changes, each with its own entry in the gallery: <a href="examples.html#admin.drop_table"><code>admin.drop_table</code></a>, <a href="examples.html#admin.drop_days"><code>admin.drop_days</code></a>, <a href="examples.html#admin.add_columns"><code>admin.add_columns</code></a>, <a href="examples.html#admin.set_properties"><code>admin.set_properties</code></a> and <a href="examples.html#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, <code>admin.move_to_own_folder</code></p>
+</section>
+<section class="entry" id="reconcile_two_tables">
+<h3>35. Reconcile two tables <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Find every row where two tables that should agree don&#x27;t: <code>EXCEPT</code> gives the rows of one Statement that another doesn&#x27;t return, so running it both ways round lists what only the first table has, then what only the second has. When both come back empty, the tables agree.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When two tables should hold the same rows: a Saved table and the table it was copied from, the same table before and after a change to its Statement, or your team&#x27;s table and another team&#x27;s record of the same thing.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox and name the tables</h5>
+<p><code>ops.jobs</code> holds each job&#x27;s team as it is today. <code>ops.job_owners</code> keeps each job&#x27;s team on each day. On a day when nothing has changed since, the two should agree.</p>
+<pre class="python">from spark_composer import *
+jobs = example_database.jobs
+job_owners = example_database.job_owners</pre>
+<h5>Say what should agree</h5>
+<p>Write one Statement for each table, returning the columns that should agree, under the same names. The Toolbox matches the two Statements&#x27; columns by name, not by their place in <code>SELECT</code>, so <code>&quot;job_id&quot;</code> is compared with <code>&quot;job_id&quot;</code> and <code>&quot;team&quot;</code> with <code>&quot;team&quot;</code>:</p>
+<pre class="python">teams_today = statement(
+    SELECT(jobs.job_id, jobs.team),
+    FROM(jobs),
+)
+def teams_on(day):
+    return statement(
+        SELECT(job_owners.job_id, job_owners.team),
+        FROM(job_owners),
+        WHERE(equals(job_owners.dt, day)),
+    )</pre>
+<h5>The rows only the first table has</h5>
+<p><code>EXCEPT</code> keeps the rows of the first Statement it is given that the second doesn&#x27;t return. Two rows count as the same when every column is alike:</p>
+<pre class="python">only_in_jobs = EXCEPT(teams_today, teams_on(&quot;2026-09-17&quot;))
+text = show_hive(only_in_jobs)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  jobs.job_id,
+  jobs.team
+FROM ops.jobs AS jobs
+EXCEPT
+SELECT
+  job_owners.job_id,
+  job_owners.team
+FROM ops.job_owners AS job_owners
+WHERE
+  job_owners.dt = &#x27;2026-09-17&#x27;;</pre>
+<pre class="python">run(only_in_jobs, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th></tr>
+<tr><td>3</td><td>finance</td></tr>
+</table></div>
+<h5>The rows only the second table has</h5>
+<p>The same two Statements the other way round give what <code>ops.job_owners</code> held that <code>ops.jobs</code> doesn&#x27;t:</p>
+<pre class="python">only_in_owners = EXCEPT(teams_on(&quot;2026-09-17&quot;), teams_today)
+run(only_in_owners, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>team</th></tr>
+<tr><td>3</td><td>data</td></tr>
+</table></div>
+<p>Together they say the two disagree on one job, job 3, report_build: <code>ops.jobs</code> says finance and <code>ops.job_owners</code> said data on 2026-09-17. report_build moved from data to finance on 2026-09-18, and <code>ops.jobs</code> knows only today&#x27;s team. Run only one direction, and you would see only half of that.</p>
+<h5>Count the rows of each</h5>
+<p><code>EXCEPT</code> ignores how many times a row appears: a row held twice in one table and once in the other counts as matching. So count each Statement&#x27;s rows too:</p>
+<pre class="python">def rows_of(s):
+    counted = derived(&quot;counted&quot;, s)
+    return run(statement(SELECT(AS(count_rows(), &quot;rows&quot;)), FROM(counted)),
+               send=example_database.send)
+rows_of(teams_today)</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>rows</th></tr>
+<tr><td>4</td></tr>
+</table></div>
+<pre class="python">rows_of(teams_on(&quot;2026-09-17&quot;))</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>rows</th></tr>
+<tr><td>4</td></tr>
+</table></div>
+<h4>Check it worked</h4>
+<p>On 2026-09-24, after report_build&#x27;s move, <code>ops.job_owners</code> agrees with <code>ops.jobs</code>: both ways come back empty.</p>
+<pre class="python">run(EXCEPT(teams_today, teams_on(&quot;2026-09-24&quot;)), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><p class="note">No rows.</p>
+<pre class="python">run(EXCEPT(teams_on(&quot;2026-09-24&quot;), teams_today), send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><p class="note">No rows.</p>
+<h4>Common mistakes</h4>
+<h5>A column named differently in each</h5>
+<p>Say the second Statement names its team <code>&quot;owner_team&quot;</code>. The Toolbox matches columns by name, so it refuses the pair as you build it, naming the column, where Hive, which matches them by their place, would compare them without a word:</p>
+<pre class="python">EXCEPT(teams_today, statement(
+    SELECT(job_owners.job_id, AS(job_owners.team, &quot;owner_team&quot;)),
+    FROM(job_owners),
+    WHERE(equals(job_owners.dt, &quot;2026-09-17&quot;)),
+))</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  EXCEPT(...)&#x27;s 2nd Statement doesn&#x27;t return team, which the 1st returns, and returns owner_team, which the 1st doesn&#x27;t.
+  Why it matters: The Toolbox stacks the rows column by column, matching each column by its name, so every Statement must return the same names.
+  Usual fix:      If owner_team is the same column as team, name it alike with AS, such as AS(..., &quot;team&quot;); else return the same columns from each Statement, leaving out a column only some of them have.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Name the column alike in both with <code>AS</code>, as its fix says. A column of a different kind in each, such as a number in one and text in the other, is refused the same way.</p>
+<h5>Comparing a column with no value</h5>
+<p><code>EXCEPT</code> counts two NULLs as alike, so a job with no owner in both tables agrees. <code>equals</code> doesn&#x27;t: in SQL nothing equals NULL. This is one place <code>EXCEPT</code> is the easier tool for comparing tables, row by row.</p>
+<h5>Reading every day of a big table</h5>
+<p>Each Statement passed to <code>EXCEPT</code> is checked like any other: its Date partition must be bounded at both ends, as <code>teams_on</code> bounds <code>ops.job_owners</code> to one day. Reconcile a day at a time, or a few days, and loop over the days in Python.</p>
+<h4>Next</h4>
+<ul><li><a href="#keys">Keys, checked before each write</a>: the columns that pick out exactly one row of a Saved table, which a reconciliation often checks too.</li><li><a href="#check_data_quality">Check data quality</a>: counts and checks on one table.</li><li>The gallery&#x27;s <a href="examples.html#EXCEPT"><code>EXCEPT</code></a>, <a href="examples.html#INTERSECT"><code>INTERSECT</code></a>, <a href="examples.html#UNION"><code>UNION</code></a> and <a href="examples.html#UNION_ALL"><code>UNION_ALL</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>EXCEPT</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="subtotals_and_grand_totals">
+<h3>36. Subtotals and grand totals <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Count runs for each team and job, and in the same result each team&#x27;s subtotal and the grand total over every team, with <code>GROUP_BY(rollup(...))</code>; then label the subtotal rows with <code>is_total</code>, so they can&#x27;t be mistaken for rows whose column is really empty.</p>
+<h4>When you&#x27;d use it</h4>
+<p>For a report that shows the parts and their totals together: runs per job with each team&#x27;s total, costs per region and day with each region&#x27;s total, any table a spreadsheet would end with a &quot;Total&quot; row.</p>
+<h4>Steps</h4>
+<h5>Import the Toolbox</h5>
+<pre class="python">from spark_composer import *
+job_runs = example_database.job_runs
+jobs = example_database.jobs</pre>
+<h5>Count per team and job, with subtotals</h5>
+<p><code>rollup(jobs.team, jobs.job_name)</code> in <code>GROUP_BY</code> groups by both, as <code>GROUP_BY(jobs.team, jobs.job_name)</code> does, then adds a subtotal row for each team, over all its jobs, and one for every row, the grand total:</p>
+<pre class="python">runs_per_job = statement(
+    SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;),
+           AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(rollup(jobs.team, jobs.job_name)),
+)
+text = show_hive(runs_per_job)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  jobs.team,
+  jobs.job_name,
+  COUNT(*) AS runs,
+  SUM(job_runs.duration_mins) AS minutes
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  jobs.team,
+  jobs.job_name
+  GROUPING SETS (
+    (jobs.team, jobs.job_name),
+    jobs.team,
+    ()
+  );</pre>
+<pre class="python">run(runs_per_job, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>job_name</th><th>runs</th><th>minutes</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td><td>100</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>2</td><td>50</td></tr>
+<tr><td>data</td><td>nightly_load</td><td>2</td><td>50</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td><td>50</td></tr>
+<tr><td>finance</td><td>invoice_sync</td><td>1</td><td>20</td></tr>
+<tr><td>finance</td><td>report_build</td><td>1</td><td>30</td></tr>
+</table></div>
+<p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas shows as <code>None</code> and the tables on this page as NULL: <code>&quot;job_name&quot;</code> in a team&#x27;s subtotal, and <code>&quot;team&quot;</code> too in the grand total.</p>
+<h5>Tell a subtotal row from a real NULL</h5>
+<p>A column can be empty in a real row too. On 2026-09-23 one run was still going, with no <code>job_runs.status</code> yet, so a rollup of <code>job_runs.status</code> has two rows with <code>None</code>:</p>
+<pre class="python">runs_per_status = statement(
+    SELECT(job_runs.status, AS(if_else(is_total(job_runs.status), 1, 0), &quot;subtotal&quot;),
+           AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-23&quot;)),
+    GROUP_BY(rollup(job_runs.status)),
+)
+run(runs_per_status, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>status</th><th>subtotal</th><th>runs</th></tr>
+<tr><td><i>NULL</i></td><td>0</td><td>1</td></tr>
+<tr><td><i>NULL</i></td><td>1</td><td>5</td></tr>
+<tr><td>FAILED</td><td>0</td><td>1</td></tr>
+<tr><td>SUCCESS</td><td>0</td><td>2</td></tr>
+<tr><td>TEST</td><td>0</td><td>1</td></tr>
+</table></div>
+<p><code>is_total(job_runs.status)</code> holds on a subtotal row that totals over every status, and nowhere else, so the first row is the running run, and the second the grand total of all five.</p>
+<h5>Label the subtotal rows</h5>
+<p><code>if_else(is_total(...), ...)</code> puts a word of your own in place of the empty column:</p>
+<pre class="python">labelled = statement(
+    SELECT(AS(if_else(is_total(jobs.team), &quot;every team&quot;, jobs.team), &quot;team&quot;),
+           AS(if_else(is_total(jobs.job_name), &quot;every job&quot;, jobs.job_name), &quot;job&quot;),
+           AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(rollup(jobs.team, jobs.job_name)),
+)
+run(labelled, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>job</th><th>runs</th></tr>
+<tr><td>data</td><td>every job</td><td>2</td></tr>
+<tr><td>data</td><td>nightly_load</td><td>2</td></tr>
+<tr><td>every team</td><td>every job</td><td>4</td></tr>
+<tr><td>finance</td><td>every job</td><td>2</td></tr>
+<tr><td>finance</td><td>invoice_sync</td><td>1</td></tr>
+<tr><td>finance</td><td>report_build</td><td>1</td></tr>
+</table></div>
+<p>The rows come sorted by their first column, as the Example database sorts them, which puts &quot;every team&quot; between &quot;data&quot; and &quot;finance&quot;. At work rows come in no fixed order: sort them with <code>ORDER_BY</code>, or in pandas.</p>
+<h5>Keep only the subtotals</h5>
+<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses, Spark among them, refuse it otherwise, so the Toolbox does in both Editions.</p>
+<pre class="python">team_totals = statement(
+    SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(rollup(jobs.team, jobs.job_name)),
+    HAVING(is_total(jobs.job_name)),
+)
+run(team_totals, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>job_name</th><th>runs</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+</table></div>
+<h5>Other sets of subtotals</h5>
+<p><code>rollup</code> drops its columns from the right, first <code>&quot;job_name&quot;</code>, then <code>&quot;team&quot;</code>: each team over its jobs, never each job over its teams. For every mix, use <code>cube(jobs.team, jobs.region)</code>: each team over every region, each region over every team, and the grand total. To pick the sets yourself, list them with <code>grouping_sets([jobs.team], [jobs.region], [])</code>. A plain column beside a rollup is in every set, so <code>GROUP_BY(job_runs.dt, rollup(jobs.team))</code> totals each day&#x27;s teams, and never adds days together.</p>
+<h4>Check it worked</h4>
+<p>Each team&#x27;s subtotal is its jobs&#x27; runs added up, and the grand total all of them. A plain <code>GROUP_BY</code>, which the Example database runs in either Edition, counts the same:</p>
+<pre class="python">runs_per_team = statement(
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(jobs.team),
+)
+run(runs_per_team, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>runs</th></tr>
+<tr><td>data</td><td>2</td></tr>
+<tr><td>finance</td><td>2</td></tr>
+</table></div>
+<p>2 and 2 are the team subtotals above, and they add up to the grand total, 4.</p>
+<h4>Common mistakes</h4>
+<h5>Adding up a column of subtotals</h5>
+<p>Each run is counted in its job&#x27;s row, its team&#x27;s subtotal and the grand total, so adding up the whole <code>&quot;runs&quot;</code> column in pandas counts every run three times:</p>
+<pre class="python">int(run(runs_per_job, send=example_database.send)[&quot;runs&quot;].sum())</pre>
+<p class="label">Python shows</p><pre class="output">12</pre>
+<p>Add up only the rows that aren&#x27;t subtotals, or read the grand total&#x27;s own row.</p>
+<h5>Writing subtotals into a Saved table</h5>
+<p>A Saved table holds one row for each Key, and subtotal rows repeat the rows they total: a sum over the table would count each run twice. A write from subtotals is refused:</p>
+<pre class="python">team_runs = Table(
+    &quot;mart.team_runs&quot;,
+    columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    date_partition=&quot;dt&quot;,
+    key=[&quot;team&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/tables&quot;,
+)
+statement(
+    INSERT_OVERWRITE(team_runs),
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(rollup(jobs.team)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  INSERT_OVERWRITE(team_runs) writes rows made by GROUP_BY(rollup(jobs.team)).
+  Why it matters: Each subtotal row totals over rows written with it, with NULL in the columns it totals over: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
+  Usual fix:      Write the plain GROUP_BY into the Saved table, and add the subtotals in the Statement that reads it.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Write the plain <code>GROUP_BY(jobs.team)</code>, and add the subtotals in the Statement that reads the Saved table.</p>
+<h5>is_total in WHERE</h5>
+<p><code>WHERE</code> picks the rows before <code>GROUP_BY</code> makes any subtotal, so there is none to test there:</p>
+<pre class="python">statement(
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), is_total(jobs.team)),
+    GROUP_BY(rollup(jobs.team)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  WHERE has is_total(jobs.team).
+  Why it matters: GROUP_BY makes the subtotal rows after WHERE has picked the rows, so there is none to test in WHERE.
+  Usual fix:      Test it in HAVING, or show it in SELECT, such as AS(if_else(is_total(jobs.team), 1, 0), &quot;is_subtotal&quot;).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Test it in <code>HAVING</code>, as Keep only the subtotals does.</p>
+<h4>Next</h4>
+<ul><li><a href="#count_and_add_up_per_group">Count and add up per group</a>: GROUP_BY without subtotals.</li><li><a href="#week_and_month_rollups">Week and month rollups</a>: days grouped into weeks and months, with no <code>rollup(...)</code> needed.</li><li>The gallery&#x27;s <a href="examples.html#rollup"><code>rollup</code></a>, <a href="examples.html#cube"><code>cube</code></a>, <a href="examples.html#grouping_sets"><code>grouping_sets</code></a> and <a href="examples.html#is_total"><code>is_total</code></a>.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>rollup</code>, <code>is_total</code>, <code>equals</code>, <code>count_rows</code>, <code>sum_of</code>, <code>if_else</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 </main>
 <script>

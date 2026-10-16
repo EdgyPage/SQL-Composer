@@ -39,7 +39,7 @@ from .refusals import (
     refuse_what_the_other_edition_made,
     warning_repeated_rows,
 )
-from .tables import Column, Table, aliased
+from .tables import Column, Table, aliased, python_text
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
@@ -128,6 +128,10 @@ class Statement:
         self._where = []  # WHERE's conditions
         self._having = []  # HAVING's conditions
         self._group_by = []  # GROUP_BY's columns, with output names looked up
+        # With subtotals in GROUP_BY: each set of columns it groups by, and how the subtotals
+        # were written, such as rollup(jobs.team); else None (stacking.py).
+        self._grouping_sets = None
+        self._subtotals_call = None
         self._order_by = []  # ORDER_BY's sort keys
         self._limit = None  # LIMIT's row count
         # Set instead by create_table and the admin module, whose Statement is a CREATE, DROP
@@ -144,10 +148,18 @@ class Statement:
         # The Hive of an ALTER TABLE, which the admin module writes itself from pieces the
         # Edition wrote: the table's name, values and column types.
         self._admin_hive = None
+        # Set instead by UNION_ALL, UNION, INTERSECT and EXCEPT (stacking.py) on a Stack:
+        # (the function's name, the Statements it stacks). Its _outputs are then its columns,
+        # and it has none of the clauses above.
+        self._stack = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:
             return "<Statement - print(to_hive(s)) shows it>"
+        if self._stack is not None:
+            call, branches = self._stack
+            return (f"<Statement stacking {len(branches)} Statements with {call} - "
+                    "print(to_hive(s)) shows its Hive>")
         reads = ", ".join(read.table._name for read in self._reads)
         return f"<Statement reading {reads} - print(to_hive(s)) shows its Hive>"
 
@@ -233,6 +245,9 @@ def _refuse_output(item, call: str) -> None:
     refuse_what_the_other_edition_made(item, call)
     if isinstance(item, Table):
         fix = f"Name its columns, or use all_columns({item._alias})."
+    elif isinstance(item, Condition) and any(item._tree.find_all("Grouping")):
+        fix = (f"To show it as a column, use AS(if_else({python_text(item)}, 1, 0), "
+               '"is_subtotal").')
     elif isinstance(item, Condition):
         fix = 'A condition goes in WHERE. To show it as a column, use if_else(condition, 1, 0).'
     else:
@@ -705,7 +720,9 @@ def GROUP_BY(*columns):
     """Group rows that share these values, one output row per group.
 
     A calculation may be named by its output name, such as GROUP_BY("week"), and the
-    Toolbox repeats it, since Hive can't group by a name given in SELECT.
+    Toolbox repeats it, since Hive can't group by a name given in SELECT. For subtotal rows
+    added to the groups' rows, pass rollup(...), cube(...) or grouping_sets(...), with any
+    plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).
 
     >>> print(to_hive(statement(
     ...     SELECT(AS(week_start(job_runs.dt), "week"), AS(count_rows(), "runs")),
@@ -722,12 +739,14 @@ def GROUP_BY(*columns):
     GROUP BY
       CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
+    from .stacking import Subtotals  # here: stacking.py imports this file
+
     items = _flatten(columns)
     if not items:
         refuse(what="GROUP_BY was given nothing to group by.", why="It needs a column.",
                fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").')
     for item in items:
-        if not isinstance(item, (Column, str)):
+        if not isinstance(item, (Column, str, Subtotals)):
             refuse(
                 what=f"GROUP_BY was given {item!r}.",
                 why="It groups by columns, or by the name of a calculation in SELECT.",
@@ -1011,10 +1030,13 @@ def statement(*clauses, returns_all_rows=False):
     s._where = by_place["WHERE"].conditions if "WHERE" in by_place else []
     s._having = by_place["HAVING"].conditions if "HAVING" in by_place else []
     groups = by_place["GROUP_BY"].group_columns if "GROUP_BY" in by_place else []
-    s._group_by = _resolve_group_by(s, groups)
+    from .stacking import check_subtotals, grouped  # here: stacking.py imports this file
+
+    s._group_by, s._grouping_sets, s._subtotals_call = grouped(s, groups)
     order = by_place.get("ORDER_BY")
     s._order_by = order.sort_keys if order else []
     s._limit = by_place["LIMIT"].n if "LIMIT" in by_place else None
+    check_subtotals(s)
     _check_tables(s)
     check_joins(s)
     _run_guards(s)
@@ -1038,9 +1060,10 @@ def _resolve_group_by(s: Statement, items: list) -> list[Column]:
 
 
 def derived_tables(s: Statement) -> list[Table]:
-    """Every Derived table a Statement reads, directly or not, each after those it reads."""
+    """Every Derived table a Statement reads, directly or not, each after those it reads; a
+    Stack's are those of each Statement it stacks."""
     found = []
-    for read in s._reads:
+    for read in [read for step in (s._stack[1] if s._stack else [s]) for read in step._reads]:
         table = read.table
         if table._statement is None:
             continue

@@ -20,6 +20,7 @@ import pytest
 from sqlglot_composer import (
     AS,
     CROSS_JOIN,
+    EXCEPT,
     FROM,
     FULL_JOIN,
     GROUP_BY,
@@ -382,6 +383,16 @@ def test_guard_by_day_grouping_refuses() -> None:
     )
     with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(weekly)
+
+
+def test_guard_by_day_stack_refuses() -> None:
+    alerted = statement(SELECT(run_alerts.run_id), FROM(run_alerts),
+                        WHERE(between(run_alerts.dt, "2026-09-23", "2026-09-24")))
+    failed = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS))
+    with pytest.raises(GuardRefused, match=r"this Statement: it is made by EXCEPT\(\.\.\.\), "
+                                           "and not every Statement it stacks returns the "
+                                           "day"):
+        by_day(EXCEPT(alerted, failed))
 
 
 def test_guard_by_day_window_refuses() -> None:

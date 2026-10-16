@@ -109,6 +109,19 @@ Window gives each row a value of its own and keeps every row, as a running total
 value of the row before does. Its groups are SQL's PARTITION BY, which has nothing to do with a
 Partition.
 _Avoid_: frame, OVER clause (OVER is how it lands in the string), analytic function
+**Stack**:
+A Statement made of other whole Statements, whose rows it puts together one Statement after
+another, their columns matched by name: every row of each (`UNION_ALL`), each different row
+once (`UNION`), only the rows found in all of them (`INTERSECT`), or the first one's rows found
+in none of the others (`EXCEPT`).
+_Avoid_: union (the Hive word for one kind), set operation, combined query, append
+
+**Subtotal row**:
+A row a Statement's grouping adds to its groups' rows, totalling the rows of several groups,
+such as one per team over all its jobs, or the grand total, one over every row. The columns it
+totals over are empty in it, as a real row's may be too, so the Toolbox can say which rows are
+subtotal rows.
+_Avoid_: total row, rollup row, summary row
 
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through

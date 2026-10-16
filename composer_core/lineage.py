@@ -26,7 +26,16 @@ from .refusals import (
     LoadRefused,
     refuse,
 )
-from .running import bottom_read, by_day, kept_day, name_in, steps, to_hive
+from .running import (
+    bottom_read,
+    bottom_steps,
+    by_day,
+    kept_day,
+    name_in,
+    statements_within,
+    to_hive,
+)
+from .stacking import STACK_HOW, nth
 from .tables import readable
 from .trees import Node, rows_text
 from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
@@ -175,6 +184,9 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     `group` is the group the output boxes are drawn in; a condition's box goes in "filters on"
     that group. `table` is the Derived table's own name, given only when kind is "derived".
     """
+    if step._stack is not None:
+        _add_stack(graph, step, index, kind, group, conditions, table)
+        return
     resolve = _resolver(graph, step, index)
     made = []
     in_key = _step_key(step)
@@ -210,6 +222,49 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
             graph.arrow(resolve(used), key, "rows")
             if kept is not None and used.table == kept:
                 joined.append(resolve(used))
+        for target in made:
+            graph.arrow(key, target, "rows")
+
+
+def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
+               conditions: dict, table: str | None) -> None:
+    """A Stack's boxes: each Statement it stacks as a step of its own, then its columns.
+
+    UNION_ALL and UNION feed each column from that column of every Statement. INTERSECT and
+    EXCEPT keep rows of the first Statement, so its columns feed theirs, and the others' columns
+    feed a condition box, such as "EXCEPT in <group>", that decides which of its rows are kept.
+    """
+    call, branches = s._stack
+    prefix = table or ""
+    for number, branch in enumerate(branches, start=1):
+        _add_step(graph, branch, index, "derived", f"{group}, {nth(number)} Statement",
+                  conditions, table=f"{prefix}[{number}]")
+    in_key = _step_key(s)
+    feeding = branches if call in ("UNION_ALL", "UNION") else branches[:1]
+    made = []
+    for column, name in s._outputs:
+        if kind == "output":
+            key, shown = _box_key("output", index, name), name
+        else:
+            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
+                  type=column._type, sql=STACK_HOW[call], formula=f"{call}(...)",
+                  calculated=True,
+                  group_by=[], statement=index, reads=set(), in_key=name in in_key)
+        for number in range(1, len(feeding) + 1):
+            graph.arrow(_box_key("derived", index, f"{prefix}[{number}].{name}"), key, "value")
+        made.append(key)
+    if call in ("INTERSECT", "EXCEPT"):
+        what = ("keeps only the rows every other Statement returns too" if call == "INTERSECT"
+                else "leaves out the rows another Statement returns")
+        key = graph.add(_box_key("condition", index, group, "stack"), kind="condition",
+                        group=group, name=f"{call} in {group}", full=f"{call} in {group}",
+                        type=None, sql=call, formula=f"{call}(...) {what}", calculated=False,
+                        statement=index, joined=[], kept=None, reads=set())
+        for number in range(2, len(branches) + 1):
+            for _, name in s._outputs:
+                graph.arrow(_box_key("derived", index, f"{prefix}[{number}].{name}"), key,
+                            "rows")
         for target in made:
             graph.arrow(key, target, "rows")
 
@@ -296,27 +351,19 @@ def _aliases_read(tree: Node) -> set[str]:
     return {used.table for used in tree.find_all("Column") if used.table}
 
 
-def _date_bounds(s: Statement) -> tuple[Statement, list]:
-    """The step that reads a write's real table through FROM, and its date-bound conditions;
-    or, for a write that reads earlier days and keeps the day it writes in a step above, as a
-    window that looks back does, that step and its condition."""
-    _, span = bottom_read(s)
-    if span is not None and span.is_bounded() and len(span.dates()) > 1:
-        kept = kept_day(s)
-        if kept is not None:
-            return kept.step, [kept.condition]
-    step = steps(s)[-1][0]
+def _date_bounds(step: Statement) -> list:
+    """The date-bound conditions of a step that reads a write's real table through FROM."""
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]
     key = (table._alias, table._date_partition)
-    return step, [c for c in step._where + inner if key in c._spans]
+    return [c for c in step._where + inner if key in c._spans]
 
 
-def _bounds_that_follow_the_day_written(s: Statement) -> list:
-    """The conditions in a write's WHERE that do nothing but bound a joined table's Date
-    partition, where that table's JOIN sets its Date partition equal to the FROM table's, the
-    day written: as how-to 23's team write reads each job's team from that day's snapshot."""
-    step = steps(s)[-1][0]
+def _bounds_that_follow_the_day_written(step: Statement) -> list:
+    """The conditions in the WHERE of a step that reads a write's real table through FROM that
+    do nothing but bound a joined table's Date partition, where that table's JOIN sets its Date
+    partition equal to the FROM table's, the day written: as how-to 23's team write reads each
+    job's team from that day's snapshot."""
     table = step._reads[0].table
     written = (table._alias, table._date_partition)
     tied = []
@@ -397,11 +444,18 @@ def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list
         written.append(target)
     day = _table_box(graph, table, table._date_partition)
     written.append(day)
-    step, bounds = _date_bounds(s)
-    for condition in bounds:
-        graph.arrow(conditions.get((id(step), id(condition))), day, "day")
-    for condition in _bounds_that_follow_the_day_written(s):
-        graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
+    _, span = bottom_read(s)
+    kept = (kept_day(s) if span is not None and span.is_bounded() and len(span.dates()) > 1
+            else None)
+    if kept is not None:
+        # A write that reads earlier days keeps the day it writes in a step above, as a
+        # window that looks back does: that step's condition is the day written.
+        graph.arrow(conditions.get((id(kept.step), id(kept.condition))), day, "day")
+    for step in bottom_steps(s):
+        for condition in [] if kept is not None else _date_bounds(step):
+            graph.arrow(conditions.get((id(step), id(condition))), day, "day")
+        for condition in _bounds_that_follow_the_day_written(step):
+            graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
     return written
 
 
@@ -452,8 +506,7 @@ def _tables_read(s) -> set[str]:
     or that an Unchecked statement's text reads."""
     if isinstance(s, UncheckedStatement):
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
-    steps = [s] + [table._statement for table in derived_tables(s)]
-    return {read.table._name for step in steps for read in step._reads
+    return {read.table._name for step in statements_within(s) for read in step._reads
             if read.table._statement is None}
 
 
