@@ -522,8 +522,8 @@ def GROUP_BY(*columns):
 
     A calculation may be named by its output name, such as GROUP_BY("week"), and the
     Toolbox repeats it, since Hive can't group by a name given in SELECT. For subtotal rows
-    beside the groups, pass rollup(...), cube(...) or grouping_sets(...), with any plain
-    columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).
+    added to the groups' rows, pass rollup(...), cube(...) or grouping_sets(...), with any
+    plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).
 
     >>> print(to_hive(statement(
     ...     SELECT(AS(week_start(job_runs.dt), "week"), AS(count_rows(), "runs")),
@@ -833,7 +833,7 @@ def statement(*clauses, returns_all_rows=False):
     groups = by_place["GROUP_BY"].group_columns if "GROUP_BY" in by_place else []
     from .stacking import check_subtotals, grouped  # here: stacking.py imports this file
 
-    s._group_by, s._grouping_sets = grouped(s, groups)
+    s._group_by, s._grouping_sets, s._subtotals_call = grouped(s, groups)
     order = by_place.get("ORDER_BY")
     s._order_by = order.sort_keys if order else []
     s._limit = by_place["LIMIT"].n if "LIMIT" in by_place else None

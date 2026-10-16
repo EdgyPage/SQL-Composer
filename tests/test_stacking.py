@@ -7,8 +7,6 @@ Each test runs on both Editions, which write the same Hive for every one of them
 
 from __future__ import annotations
 
-
-
 import pandas as pd
 import pytest
 
@@ -32,7 +30,6 @@ from sqlglot_composer import (
     GuardRefused,
     LoadRefused,
     Table,
-
     between,
     by_day,
     count_rows,
@@ -428,10 +425,32 @@ def test_is_total_of_a_column_not_grouped_by_is_refused() -> None:
                   GROUP_BY(rollup(jobs.team)), HAVING(is_total(jobs.region)))
 
 
-def test_is_total_in_having_of_a_column_select_leaves_out_is_refused() -> None:
-    with pytest.raises(ValueError, match="SELECT doesn't return jobs.job_name"):
+def test_is_total_in_having_or_order_by_of_a_column_select_leaves_out_is_refused() -> None:
+    with pytest.raises(ValueError, match="HAVING has .*SELECT doesn't return jobs.job_name"):
         runs_by(rollup(jobs.team, jobs.job_name), select=(jobs.team,),
                 having=[HAVING(is_total(jobs.job_name))])
+    with pytest.raises(ValueError, match="ORDER_BY has .*SELECT doesn't return jobs.job_name"):
+        runs_by(rollup(jobs.team, jobs.job_name), select=(jobs.team,),
+                having=[ORDER_BY(if_else(is_total(jobs.job_name), 1, 0)), LIMIT(5)])
+
+
+def test_is_total_in_order_by_is_checked_as_anywhere_else() -> None:
+    with pytest.raises(ValueError, match="GROUP_BY makes no subtotal rows"):
+        statement(SELECT(jobs.team, AS(count_rows(), "jobs")), FROM(jobs),
+                  GROUP_BY(jobs.team), ORDER_BY(if_else(is_total(jobs.team), 1, 0)), LIMIT(5))
+    with pytest.raises(ValueError, match="doesn't group by jobs.region"):
+        statement(SELECT(jobs.team, AS(count_rows(), "jobs")), FROM(jobs),
+                  GROUP_BY(rollup(jobs.team)), ORDER_BY(if_else(is_total(jobs.region), 1, 0)),
+                  LIMIT(5))
+
+
+def test_types_are_compared_with_the_first_statement_that_knows_them() -> None:
+    unknown = statement(SELECT(AS(count_rows() * 1, "run_id")), FROM(jobs))
+    text = statement(SELECT(AS(run_alerts.severity, "run_id")), FROM(run_alerts),
+                     WHERE(equals(run_alerts.dt, DAY)))
+    with pytest.raises(ValueError, match="run_id is bigint in its 2nd Statement and string in "
+                                         "its 3rd"):
+        UNION_ALL(unknown, failed_runs(), text)
 
 
 def test_two_subtotals_in_one_group_by_are_refused() -> None:
@@ -467,7 +486,9 @@ def test_subtotals_lose_the_key() -> None:
 def test_by_day_refuses_subtotals_over_the_days_and_splits_them_within_a_day() -> None:
     over_days = statement(SELECT(job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
                           both_days(job_runs), GROUP_BY(rollup(job_runs.dt)))
-    with pytest.raises(GuardRefused):
+    with pytest.raises(GuardRefused, match=r"Add job_runs.dt to GROUP_BY\(\.\.\.\) as a plain "
+                                           r"column before rollup\(job_runs.dt\), taking it out "
+                                           r"of the subtotals"):
         by_day(over_days)
     within = statement(SELECT(job_runs.dt, job_runs.status, AS(count_rows(), "runs")),
                        FROM(job_runs), both_days(job_runs),

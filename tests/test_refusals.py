@@ -370,8 +370,8 @@ def test_guard_by_day_stack_refuses() -> None:
                         WHERE(between(run_alerts.dt, "2026-09-23", "2026-09-24")))
     failed = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS))
     with pytest.raises(GuardRefused, match=r"this Statement: it is made by EXCEPT\(\.\.\.\), "
-                                           "whose Statements don't each return the Date "
-                                           "partition"):
+                                           "and not every Statement it stacks returns the "
+                                           "day"):
         by_day(EXCEPT(alerted, failed))
 
 

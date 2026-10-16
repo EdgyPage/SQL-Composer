@@ -8334,7 +8334,7 @@ run(only_in_owners, send=example_database.send)</pre>
 </table></div>
 <p>Together they say the two disagree on one job, job 3, report_build: <code>ops.jobs</code> says finance and <code>ops.job_owners</code> said data on 2026-09-17. report_build moved from data to finance on 2026-09-18, and <code>ops.jobs</code> knows only today&#x27;s team. Run only one direction, and you would see only half of that.</p>
 <h5>Count the rows of each</h5>
-<p><code>EXCEPT</code> gives each different row once, from either side, so a row one table holds twice and the other once looks the same to it. Count each Statement&#x27;s rows too:</p>
+<p><code>EXCEPT</code> ignores how many times a row appears: a row held twice in one table and once in the other counts as matching. So count each Statement&#x27;s rows too:</p>
 <pre class="python">def rows_of(s):
     counted = derived(&quot;counted&quot;, s)
     return run(statement(SELECT(AS(count_rows(), &quot;rows&quot;)), FROM(counted)),
@@ -8374,7 +8374,7 @@ rows_of(teams_today)</pre>
 <h5>Reading every day of a big table</h5>
 <p>Each Statement passed to <code>EXCEPT</code> is checked like any other: its Date partition must be bounded at both ends, as <code>teams_on</code> bounds <code>ops.job_owners</code> to one day. Reconcile a day at a time, or a few days, and loop over the days in Python.</p>
 <h4>Next</h4>
-<ul><li><a href="#keys">Keys, checked before each write</a>: what a Saved table&#x27;s rows should be one per, which a reconciliation often checks too.</li><li><a href="#check_data_quality">Check data quality</a>: counts and checks on one table.</li><li>The gallery&#x27;s <a href="examples.html#EXCEPT"><code>EXCEPT</code></a>, <a href="examples.html#INTERSECT"><code>INTERSECT</code></a>, <a href="examples.html#UNION"><code>UNION</code></a> and <a href="examples.html#UNION_ALL"><code>UNION_ALL</code></a>.</li></ul>
+<ul><li><a href="#keys">Keys, checked before each write</a>: the columns that pick out exactly one row of a Saved table, which a reconciliation often checks too.</li><li><a href="#check_data_quality">Check data quality</a>: counts and checks on one table.</li><li>The gallery&#x27;s <a href="examples.html#EXCEPT"><code>EXCEPT</code></a>, <a href="examples.html#INTERSECT"><code>INTERSECT</code></a>, <a href="examples.html#UNION"><code>UNION</code></a> and <a href="examples.html#UNION_ALL"><code>UNION_ALL</code></a>.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>EXCEPT</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="subtotals_and_grand_totals">
@@ -8427,7 +8427,7 @@ GROUP BY
 <tr><td>finance</td><td>invoice_sync</td><td>1</td><td>20</td></tr>
 <tr><td>finance</td><td>report_build</td><td>1</td><td>30</td></tr>
 </table></div>
-<p>The Hive spells out each level as one set of <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it adds up are empty, NULL, which pandas shows as <code>None</code>: <code>&quot;job_name&quot;</code> in a team&#x27;s subtotal, and <code>&quot;team&quot;</code> too in the grand total.</p>
+<p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas shows as <code>None</code> and the tables on this page as NULL: <code>&quot;job_name&quot;</code> in a team&#x27;s subtotal, and <code>&quot;team&quot;</code> too in the grand total.</p>
 <h5>Tell a subtotal row from a real NULL</h5>
 <p>A column can be empty in a real row too. On 2026-09-23 one run was still going, with no <code>job_runs.status</code> yet, so a rollup of <code>job_runs.status</code> has two rows with <code>None</code>:</p>
 <pre class="python">runs_per_status = statement(
@@ -8446,7 +8446,7 @@ run(runs_per_status, send=example_database.send)</pre>
 <tr><td>SUCCESS</td><td>0</td><td>2</td></tr>
 <tr><td>TEST</td><td>0</td><td>1</td></tr>
 </table></div>
-<p><code>is_total(job_runs.status)</code> holds on a subtotal row that adds <code>job_runs.status</code> up, and nowhere else, so the first row is the running run, and the second the grand total of all five.</p>
+<p><code>is_total(job_runs.status)</code> holds on a subtotal row that totals over every status, and nowhere else, so the first row is the running run, and the second the grand total of all five.</p>
 <h5>Label the subtotal rows</h5>
 <p><code>if_else(is_total(...), ...)</code> puts a word of your own in place of the empty column:</p>
 <pre class="python">labelled = statement(
@@ -8468,8 +8468,9 @@ run(labelled, send=example_database.send)</pre>
 <tr><td>finance</td><td>invoice_sync</td><td>1</td></tr>
 <tr><td>finance</td><td>report_build</td><td>1</td></tr>
 </table></div>
+<p>The rows come sorted by their first column, as the Example database sorts them, which puts &quot;every team&quot; between &quot;data&quot; and &quot;finance&quot;. At work rows come in no fixed order: sort them with <code>ORDER_BY</code>, or in pandas.</p>
 <h5>Keep only the subtotals</h5>
-<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be one <code>SELECT</code> returns, since Spark looks for it there:</p>
+<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses, Spark among them, refuse it otherwise, so the Toolbox does in both Editions.</p>
 <pre class="python">team_totals = statement(
     SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -8486,7 +8487,7 @@ run(team_totals, send=example_database.send)</pre>
 <tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
 </table></div>
 <h5>Other sets of subtotals</h5>
-<p><code>rollup</code> adds up from the last column back to the first: each team over its jobs, never each job over its teams. For every mix, use <code>cube(jobs.team, jobs.region)</code>: each team over every region, each region over every team, and the grand total. To pick the sets yourself, list them with <code>grouping_sets([jobs.team], [jobs.region], [])</code>. A plain column beside a rollup is in every set, so <code>GROUP_BY(job_runs.dt, rollup(jobs.team))</code> totals each day&#x27;s teams, and never adds days together.</p>
+<p><code>rollup</code> drops its columns from the right, first <code>&quot;job_name&quot;</code>, then <code>&quot;team&quot;</code>: each team over its jobs, never each job over its teams. For every mix, use <code>cube(jobs.team, jobs.region)</code>: each team over every region, each region over every team, and the grand total. To pick the sets yourself, list them with <code>grouping_sets([jobs.team], [jobs.region], [])</code>. A plain column beside a rollup is in every set, so <code>GROUP_BY(job_runs.dt, rollup(jobs.team))</code> totals each day&#x27;s teams, and never adds days together.</p>
 <h4>Check it worked</h4>
 <p>Each team&#x27;s subtotal is its jobs&#x27; runs added up, and the grand total all of them. A plain <code>GROUP_BY</code>, which the Example database runs in either Edition, counts the same:</p>
 <pre class="python">runs_per_team = statement(
@@ -8510,7 +8511,7 @@ run(runs_per_team, send=example_database.send)</pre>
 <p class="label">Python shows</p><pre class="output">12</pre>
 <p>Add up only the rows that aren&#x27;t subtotals, or read the grand total&#x27;s own row.</p>
 <h5>Writing subtotals into a Saved table</h5>
-<p>A Saved table holds one row for each Key, and subtotal rows repeat the rows they add up: a sum over the table would count each run twice. A write from subtotals is refused:</p>
+<p>A Saved table holds one row for each Key, and subtotal rows repeat the rows they total: a sum over the table would count each run twice. A write from subtotals is refused:</p>
 <pre class="python">team_runs = Table(
     &quot;mart.team_runs&quot;,
     columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
@@ -8528,7 +8529,7 @@ statement(
 )</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  INSERT_OVERWRITE(team_runs) writes rows made by GROUP_BY(rollup(jobs.team)).
-  Why it matters: Each subtotal row adds up rows written beside it, with NULL in the columns it adds up: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
+  Why it matters: Each subtotal row totals over rows written with it, with NULL in the columns it totals over: it can repeat the Key of a real row, and a sum over the Saved table would count each row more than once.
   Usual fix:      Write the plain GROUP_BY into the Saved table, and add the subtotals in the Statement that reads it.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Write the plain <code>GROUP_BY(jobs.team)</code>, and add the subtotals in the Statement that reads the Saved table.</p>
@@ -8548,7 +8549,7 @@ statement(
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Test it in <code>HAVING</code>, as Keep only the subtotals does.</p>
 <h4>Next</h4>
-<ul><li><a href="#count_and_add_up_per_group">Count and add up per group</a>: GROUP_BY without subtotals.</li><li><a href="#week_and_month_rollups">Week and month rollups</a>: groups of days into weeks and months.</li><li>The gallery&#x27;s <a href="examples.html#rollup"><code>rollup</code></a>, <a href="examples.html#cube"><code>cube</code></a>, <a href="examples.html#grouping_sets"><code>grouping_sets</code></a> and <a href="examples.html#is_total"><code>is_total</code></a>.</li></ul>
+<ul><li><a href="#count_and_add_up_per_group">Count and add up per group</a>: GROUP_BY without subtotals.</li><li><a href="#week_and_month_rollups">Week and month rollups</a>: days grouped into weeks and months, with no <code>rollup(...)</code> needed.</li><li>The gallery&#x27;s <a href="examples.html#rollup"><code>rollup</code></a>, <a href="examples.html#cube"><code>cube</code></a>, <a href="examples.html#grouping_sets"><code>grouping_sets</code></a> and <a href="examples.html#is_total"><code>is_total</code></a>.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>rollup</code>, <code>is_total</code>, <code>equals</code>, <code>count_rows</code>, <code>sum_of</code>, <code>if_else</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 </main>

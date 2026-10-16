@@ -1751,7 +1751,7 @@ WHERE
 <section class="entry" id="GROUP_BY">
 <h3><code>GROUP_BY</code></h3>
 <p class="why">Group rows that share these values, one output row per group.</p>
-<p>A calculation may be named by its output name, such as GROUP_BY(&quot;week&quot;), and the Toolbox repeats it, since Hive can&#x27;t group by a name given in SELECT. For subtotal rows beside the groups, pass rollup(...), cube(...) or grouping_sets(...), with any plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).</p>
+<p>A calculation may be named by its output name, such as GROUP_BY(&quot;week&quot;), and the Toolbox repeats it, since Hive can&#x27;t group by a name given in SELECT. For subtotal rows added to the groups&#x27; rows, pass rollup(...), cube(...) or grouping_sets(...), with any plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).</p>
 <pre class="python">print(to_hive(statement(
     SELECT(AS(week_start(job_runs.dt), &quot;week&quot;), AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -1981,7 +1981,7 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="UNION_ALL">
 <h3><code>UNION_ALL</code></h3>
 <p class="why">Stack the rows of Statements one after another, keeping every row.</p>
-<p>Each Statement must return the same columns, matched by name: the Toolbox writes them in the first Statement&#x27;s order, so a column is never stacked under one of another name, as Hive, which stacks by position, would do. A column of another type in each, such as a number in one and text in another, is refused, and so is a Statement with ORDER_BY or LIMIT: to sort or cut the stacked rows, name them with derived(...) and read them like any table. A row two Statements both return comes back twice: UNION gives each different row once. The stacked rows have no Key, since two Statements may return the same one. returns_all_rows=True drops the automatic LIMIT, as in statement(...).</p>
+<p>Each Statement must return the same columns. Hive lines columns up by their place in SELECT, so it would quietly put one column under another of a different name; the Toolbox lines them up by name, and writes each Statement&#x27;s columns in the first one&#x27;s order. A column that is a number in one Statement and text in another is refused, and so is a Statement with ORDER_BY or LIMIT: to sort or cut the stacked rows, name them with derived(...) and read them like any table. A row two Statements both return comes back twice: UNION gives each different row once. So the stacked rows have no Key: the same row can come back twice. returns_all_rows=True drops the LIMIT that set_load_limits(rows=...) adds, as in statement(...).</p>
 <pre class="python">run_alerts = example_database.run_alerts</pre>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id),
@@ -2041,7 +2041,7 @@ WHERE
 <section class="entry" id="UNION">
 <h3><code>UNION</code></h3>
 <p class="why">Stack the rows of Statements, each different row once.</p>
-<p>It stacks as UNION_ALL does, with the same checks, then keeps one of each set of rows alike in every column, whichever Statement they came from, and one of a Statement&#x27;s own repeated rows too. Its Key is every column it returns, since no two of its rows are alike.</p>
+<p>It stacks as UNION_ALL does, with the same checks, then drops repeated rows, so each different row comes back once, whether its copies came from different Statements or the same one. So all its columns together are a Key, which a write into a Saved table checks.</p>
 <pre class="python">run_alerts = example_database.run_alerts</pre>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id),
@@ -2080,7 +2080,8 @@ WHERE
 <section class="entry" id="INTERSECT">
 <h3><code>INTERSECT</code></h3>
 <p class="why">Keep the rows every Statement returns, each different row once.</p>
-<p>A row counts as in every Statement when each returns a row alike in every column, the columns matched by name as UNION_ALL matches them; two NULLs count as alike here, unlike in equals(...). Each row once: its Key is every column it returns, or the Key of any of its Statements. Hive has INTERSECT from version 2.2, so Hive 3 does.</p>
+<p>A row counts as in every Statement when each returns a row alike in every column, the columns matched by name as UNION_ALL matches them; two NULLs count as alike here, unlike in equals(...). Hive has INTERSECT from version 2.2, so Hive 3 does.</p>
+<p>Each row comes back once, so all its columns together are a Key, which a write into a Saved table checks; each Statement&#x27;s own Key is one too, since its rows are some of that Statement&#x27;s rows.</p>
 <pre class="python">run_alerts = example_database.run_alerts</pre>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id),
@@ -2117,7 +2118,8 @@ WHERE
 <section class="entry" id="EXCEPT">
 <h3><code>EXCEPT</code></h3>
 <p class="why">Keep the first Statement&#x27;s rows that no other Statement returns, each once.</p>
-<p>A row is left out when another Statement returns a row alike in every column, the columns matched by name as UNION_ALL matches them; two NULLs count as alike here. Pass the same two Statements both ways round to find every difference between two tables. Each row once: its Key is every column it returns, or the first Statement&#x27;s Key. Hive has EXCEPT from version 2.2, so Hive 3 does.</p>
+<p>A row is left out when another Statement returns a row alike in every column, the columns matched by name as UNION_ALL matches them; two NULLs count as alike here. Pass the same two Statements both ways round to find every difference between two tables. Hive has EXCEPT from version 2.2, so Hive 3 does.</p>
+<p>Each row comes back once, so all its columns together are a Key, which a write into a Saved table checks; the first Statement&#x27;s own Key is one too, since its rows are some of that Statement&#x27;s rows. Below, the runs with a high alert that didn&#x27;t fail.</p>
 <pre class="python">run_alerts = example_database.run_alerts</pre>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id),
@@ -2170,8 +2172,8 @@ WHERE
 </section>
 <section class="entry" id="rollup">
 <h3><code>rollup</code></h3>
-<p class="why">Subtotals for GROUP_BY: each column&#x27;s total within those before it, and all.</p>
-<p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives a row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, then a subtotal row for each team, with job_name NULL, and one for all the rows, with team NULL too. Columns in GROUP_BY beside it are in every row&#x27;s group: GROUP_BY(job_runs.dt, rollup(jobs.team)) totals each day. is_total(column) tells a subtotal row from a row whose column is really NULL. A Saved table is never written from subtotals: their rows repeat the rows they add up.</p>
+<p class="why">Subtotals for GROUP_BY: dropping its columns from the right, to a grand total.</p>
+<p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which totals over every job_name, so job_name is NULL in it, and the grand total, one row over all the rows, with team NULL too. A plain column next to it, as in GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day, never one across days. is_total(column) tells a subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the rows they total. Spark Composer&#x27;s Example database can&#x27;t make subtotals; the how-to &quot;Subtotals and grand totals&quot; shows their rows.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -2197,7 +2199,7 @@ GROUP BY
     jobs.team,
     ()
   )</pre>
-<p>The Hive lists each set of columns it groups by, so every level shows: GROUPING SETS is the form Hive and Spark both take.</p>
+<p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. Hive and Spark both take this form, so the Toolbox writes it rather than ROLLUP.</p>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>team</th><th>job_name</th><th>runs</th></tr>
 <tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
@@ -2214,7 +2216,7 @@ GROUP BY
 <p class="why">Subtotals for GROUP_BY over every mix of the columns, and a grand total.</p>
 <p>GROUP_BY(cube(jobs.team, jobs.region)) gives a row for each team and region, a subtotal row for each team over every region, one for each region over every team, and one for all the rows. Two columns give 4 sets of rows, three give 8: each column doubles them. It works as rollup(...) does in every other way.</p>
 <pre class="python">print(to_hive(statement(
-    SELECT(jobs.team, jobs.region, AS(count_rows(), &quot;jobs&quot;)),
+    SELECT(jobs.team, jobs.region, AS(count_rows(), &quot;job_count&quot;)),
     FROM(jobs),
     GROUP_BY(cube(jobs.team, jobs.region)),
 )))</pre>
@@ -2222,7 +2224,7 @@ GROUP BY
 <pre class="output">SELECT
   jobs.team,
   jobs.region,
-  COUNT(*) AS jobs
+  COUNT(*) AS job_count
 FROM ops.jobs AS jobs
 GROUP BY
   jobs.team,
@@ -2234,7 +2236,7 @@ GROUP BY
     ()
   )</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
-<tr><th>team</th><th>region</th><th>jobs</th></tr>
+<tr><th>team</th><th>region</th><th>job_count</th></tr>
 <tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
 <tr><td><i>NULL</i></td><td>LON</td><td>2</td></tr>
 <tr><td><i>NULL</i></td><td>NYC</td><td>1</td></tr>
@@ -2251,10 +2253,10 @@ GROUP BY
 </section>
 <section class="entry" id="grouping_sets">
 <h3><code>grouping_sets</code></h3>
-<p class="why">Subtotals for GROUP_BY: the rows of each set of columns, stacked.</p>
-<p>Each set is a list of columns, or one column, and [] is one row for all the rows. Its rows are those of a GROUP_BY over each set in turn, with the columns a set leaves out NULL, as rollup(...) and cube(...) give; it works as they do in every other way.</p>
+<p class="why">Subtotals for GROUP_BY: the groups of each listed set of columns, in one result.</p>
+<p>Each set is a list of columns, or one column, and [] is the grand total, one row over all the rows. Its rows are those of a GROUP_BY over each set in turn, one set after another, with the columns a set leaves out NULL, as rollup(...) and cube(...) give; it works as they do in every other way.</p>
 <pre class="python">print(to_hive(statement(
-    SELECT(jobs.team, jobs.region, AS(count_rows(), &quot;jobs&quot;)),
+    SELECT(jobs.team, jobs.region, AS(count_rows(), &quot;job_count&quot;)),
     FROM(jobs),
     GROUP_BY(grouping_sets([jobs.team], [jobs.region], [])),
 )))</pre>
@@ -2262,7 +2264,7 @@ GROUP BY
 <pre class="output">SELECT
   jobs.team,
   jobs.region,
-  COUNT(*) AS jobs
+  COUNT(*) AS job_count
 FROM ops.jobs AS jobs
 GROUP BY
   jobs.team,
@@ -2273,7 +2275,7 @@ GROUP BY
     ()
   )</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
-<tr><th>team</th><th>region</th><th>jobs</th></tr>
+<tr><th>team</th><th>region</th><th>job_count</th></tr>
 <tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
 <tr><td><i>NULL</i></td><td>LON</td><td>2</td></tr>
 <tr><td><i>NULL</i></td><td>NYC</td><td>1</td></tr>
@@ -2286,8 +2288,8 @@ GROUP BY
 </section>
 <section class="entry" id="is_total">
 <h3><code>is_total</code></h3>
-<p class="why">A condition that holds on a subtotal row, where the column was added up.</p>
-<p>On a subtotal row of GROUP_BY(rollup(...)), cube(...) or grouping_sets(...), a column it adds up is NULL, as it may be in a real row too; is_total tells them apart. Use it in SELECT, through if_else, to label the row, or in HAVING, to keep or leave out subtotal rows, for a column SELECT returns. It is refused in WHERE and ON=, which pick rows before any subtotal is made, and in a Statement with no subtotals.</p>
+<p class="why">A condition true on a subtotal row that totals over every value of the column.</p>
+<p>A subtotal row of GROUP_BY(rollup(...)), cube(...) or grouping_sets(...) has NULL in each column it totals over, as a real row may have NULL too; is_total tells them apart. Use it in SELECT, through if_else, to label the row, or in HAVING, to keep or leave out subtotal rows. In HAVING or ORDER_BY, the column you pass must also be in SELECT. It is refused in WHERE and ON=, which pick rows before any subtotal is made, and in a Statement with no subtotals.</p>
 <pre class="python">is_total(jobs.team)</pre>
 <p class="label">Hive</p>
 <pre class="output">GROUPING(jobs.team) = 1</pre>

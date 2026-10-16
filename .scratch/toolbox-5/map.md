@@ -184,6 +184,12 @@ below; this map is the design document, built out ticket by ticket.
   each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
   built, passed in from the user's settings.py; each Saved table's Table reference writes its
   own `location=`, keeping the Level rule, rather than a `BASE_LOCATION` in settings.py.
+- [07 Stacking and subtotals](issues/07-stacking-and-subtotals.md): a new core file,
+  `stacking.py`; a Stack is a Statement whose `_stack` is (call, Statements), usable wherever
+  a Statement is (derived, writes of one day, by_day per Statement, Lineage); subtotals are
+  written as `GROUP BY ... GROUPING SETS (...)` in both Editions, with `is_total` as
+  `GROUPING(col) = 1`; the Example database to reconcile against is the existing jobs and
+  job_owners (no new table); how-tos 33 and 34 (Intermediate now 19-34).
 
 ## Not yet specified
 

@@ -81,8 +81,8 @@ only half of that.
 
 ### Count the rows of each
 
-`EXCEPT` gives each different row once, from either side, so a row one table holds twice and
-the other once looks the same to it. Count each Statement's rows too:
+`EXCEPT` ignores how many times a row appears: a row held twice in one table and once in the
+other counts as matching. So count each Statement's rows too:
 
 >>> def rows_of(s):
 ...     counted = derived("counted", s)
@@ -145,8 +145,8 @@ or a few days, and loop over the days in Python.
 
 ## Next
 
-- [Keys, checked before each write](#keys): what a Saved table's rows should be one per,
-  which a reconciliation often checks too.
+- [Keys, checked before each write](#keys): the columns that pick out exactly one row of a
+  Saved table, which a reconciliation often checks too.
 - [Check data quality](#check_data_quality): counts and checks on one table.
 - The gallery's [`EXCEPT`](examples.html#EXCEPT), [`INTERSECT`](examples.html#INTERSECT),
   [`UNION`](examples.html#UNION) and [`UNION_ALL`](examples.html#UNION_ALL).

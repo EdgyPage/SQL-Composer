@@ -392,13 +392,15 @@ def guard_by_day_stack(step: str, call: str) -> None:
     """
     raise GuardRefused(
         four_part_message(
-            what=f"by_day can't split this Statement: {step} is made by {call}(...), whose "
-            "Statements don't each return the Date partition, under one name.",
-            why=f"{call} compares rows over every day it reads. Split by day, a row found on "
-            "two days would be compared within each day alone, so it could come back once "
-            "for each day, or be kept where another day has it.",
-            fix=f"Return the day from each Statement of {call}(...) under one name, such as "
-            'job_runs.dt and AS(run_alerts.dt, "dt"), or run the Statement whole with run(...).',
+            what=f"by_day can't split this Statement: {step} is made by {call}(...), and not "
+            "every Statement it stacks returns the day (the Date partition), under the same "
+            "name.",
+            why=f"{call} compares the rows of all the days it reads. Split into one Statement "
+            "per day, it would compare each day's rows alone, and could give other rows: a "
+            "row found on two days, say, would come back once for each day.",
+            fix=f"Add the day to the SELECT of each Statement of {call}(...), under one name, "
+            "such as job_runs.dt in one and run_alerts.dt in the other (use AS(..., \"dt\") "
+            "where a name differs), or run the Statement whole with run(...).",
             opt_out=None,
         )
     )

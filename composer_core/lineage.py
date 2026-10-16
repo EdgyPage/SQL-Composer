@@ -214,7 +214,7 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
 
     UNION_ALL and UNION feed each column from that column of every Statement. INTERSECT and
     EXCEPT keep rows of the first Statement, so its columns feed theirs, and the others' columns
-    feed a condition box, "EXCEPT in <group>", that decides which of its rows are kept.
+    feed a condition box, such as "EXCEPT in <group>", that decides which of its rows are kept.
     """
     call, branches = s._stack
     prefix = table or ""
