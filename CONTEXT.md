@@ -115,7 +115,9 @@ A real table in the warehouse that a Statement writes into, which other Statemen
 its own Table reference, like any other table. It is what Hive calls an external table: its
 files are in a folder of its own under the folder the user's Saved tables go in, which its
 Table reference names along with how it is stored; the user's own Statements are the only ones
-that write it.
+that write it. Hive's other kind, a managed table, keeps its files where the warehouse chooses:
+create_table made those before 5.0, and admin.move_to_own_folder moves one to a folder of its
+own.
 _Avoid_: materialized view, cache, temp table, output table
 
 **Unchecked statement**:
@@ -128,8 +130,10 @@ _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
 A Statement from the Toolbox's admin module that changes a Saved table's definition or deletes its
-data, such as dropping a table or its old days, adding columns or setting its properties. It runs
-like any Statement, and shows what it will change and what can't be undone before its Hive.
+data, such as dropping a table or its old days, adding columns, setting its properties or moving
+it to a folder of its own. It runs like any Statement, shows what it will change and what can't
+be undone before its Hive, and is refused for any table that isn't one of the user's Saved
+tables. The admin module is imported by name, apart from the everyday names.
 _Avoid_: one-time action, migration, maintenance
 
 **Admin log**:

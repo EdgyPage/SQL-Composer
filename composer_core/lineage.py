@@ -1007,10 +1007,13 @@ def _check_statements(statements) -> tuple[list, list]:
             why="It draws where each column of a Statement comes from.",
             fix="Pass one or more Statements, such as export_lineage(weekly).",
         )
-    found, settings = [], []
+    found, settings, admin = [], [], []
     for s in statements:
         if isinstance(s, SessionSettings):
             settings.append(s)
+            continue
+        if isinstance(s, Statement) and s._admin_call is not None:
+            admin.append(s)  # an Admin statement moves no data between columns: left out
             continue
         if not isinstance(s, (Statement, UncheckedStatement)) or (
                 isinstance(s, Statement) and s._ddl is not None):
@@ -1024,6 +1027,17 @@ def _check_statements(statements) -> tuple[list, list]:
             )
         if not any(s is seen for seen in found):
             found.append(s)
+    if not found and admin:
+        refuse(
+            what="export_lineage was given only Admin statements, and no Statement that reads "
+            "a table.",
+            why="It draws where each column of a Statement comes from, and an Admin statement, "
+            "from the admin module, changes a table without moving data between columns, so "
+            "it is left out.",
+            fix="Pass the Statements that read and write your tables, such as a pipeline's "
+            "steps; the Admin log keeps each Admin statement run.",
+            error=ValueError,
+        )
     if not found:
         refuse(
             what="export_lineage was given only Session settings, and no Statement.",

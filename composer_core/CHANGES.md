@@ -13,10 +13,29 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `location=`. A table you only read needs none. A table create_table made before 5.0 is a
   managed table, in a folder the warehouse chose, and a table made by hand may share a folder
   with another: check_table_reference(t, send=...) now reports both, and 5.0's
-  admin.move_to_own_folder(t, send=...) copies such a table's days into one create_table
-  makes at its own folder. Until it is moved, writing it works as in 4.x.
+  admin.move_to_own_folder(t, send=...) copies such a table's days into a new table, which
+  create_table makes at its own folder. Until it is moved, writing it works as in 4.x.
+- **`drop_table` moved into the admin module.** `from sqlglot_composer import *` no longer
+  brings it. Add `from sqlglot_composer import admin` below your star import, and write
+  `admin.drop_table(t)` where you wrote `drop_table(t)`; a line that imports `drop_table` by
+  name now stops with an ImportError. It now refuses a table that isn't one of your Saved
+  tables, a Table reference with no `location=`.
 
 ### New
+
+- **The admin module: `from sqlglot_composer import admin`**, the changes to your own Saved
+  tables, written and checked for you. The star import leaves it out, so a notebook that
+  changes a table says so. `admin.drop_table(t)`; `admin.drop_days(t, before=...)`, which
+  drops a Saved table's days before a given day, the job TRUNCATE can't do on an external table;
+  `admin.add_columns(t, send=...)`, which adds the columns its Table reference lists and the
+  table lacks; `admin.set_properties(t)`, which sets purge, compression and properties as its
+  Table reference gives them; and `admin.move_to_own_folder(t, send=...)`, the steps that move
+  a Saved table to its own folder: a copy made there, each day copied, the rows compared, the
+  old table dropped and the copy given its name. Each makes an ordinary Statement (the move a
+  list of them), which `run` sends and logs in the Admin log, and `show_hive` prints what it
+  changes, what can't be undone and what to check first before its Hive. Each refuses a table
+  that isn't one of your Saved tables. The how-to "Move a Saved table to its own folder" walks
+  a table out of a folder it shares.
 
 - **Session settings: `hive_settings("name")` gives the `SET` lines of a named set**, for
   `run` to send before your Statements, one line at a time, as Hive takes them. Four sets come
@@ -31,11 +50,11 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `show_hive` marks it, `export_lineage` draws it as one step it can't see inside, linked to
   the tables its text names, and text that starts `DROP`, `ALTER` or `TRUNCATE` gets a note
   naming the admin function that does the same job with its checks, where one does.
-- **The Admin log.** Each `run` of an Unchecked statement adds an entry to `admin_log.md`,
-  beside the script or notebook that runs it: when, the call, the Hive sent, the script and
-  its git commit, and whether it worked. The Toolbox only ever adds to it. To keep it
-  elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and call
-  `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
+- **The Admin log.** Each `run` of an Unchecked statement or an Admin statement adds an
+  entry to `admin_log.md`, beside the script or notebook that runs it: when, the call, the
+  Hive sent, the script and its git commit, and whether it worked. The Toolbox only ever adds
+  to it. To keep it elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and
+  call `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
 - The Example database answers a `SET` line, as Spark does, with the setting and its value.
 - **A Saved table's Table reference says how it is stored**, and create_table writes it:
   `purge=True` (dropping it deletes its files too), `properties={...}` (other table
@@ -123,6 +142,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
   a whole folder or already ends with the table's own folder, two Saved tables whose folders
   are one or sit one inside the other, and any option create_table couldn't write.
+- **Each admin function refuses a table that isn't one of your Saved tables**, a Table
+  reference with no `location=`, such as a table another team fills: `admin.drop_table`, which
+  as `drop_table` took any Table reference, included.
 
 ## 4.1
 

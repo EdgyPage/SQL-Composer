@@ -21,6 +21,8 @@ import sqlglot_composer
 from conftest import edition, skip_unless_the_example_database_runs
 
 PUBLIC = list(sqlglot_composer.__all__)
+# The admin module's names, as admin.drop_table: imported by name, not by the star import.
+ADMIN = [f"admin.{name}" for name in sqlglot_composer.admin.__all__]
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
 # Examples that run a query, and so need the Example database to run here.
 RUNS_A_QUERY = ("run(", "check_key(")
@@ -31,14 +33,17 @@ def docstring_of(name: str) -> str:
     once, naming sqlglot Composer."""
     if name in CONSTANTS:
         return sqlglot_composer.__doc__ or ""
-    return editions.named_for(edition(), inspect.getdoc(getattr(sqlglot_composer, name)) or "")
+    value = sqlglot_composer
+    for part in name.split("."):
+        value = getattr(value, part)
+    return editions.named_for(edition(), inspect.getdoc(value) or "")
 
 
 def first_line(name: str) -> str:
     return docstring_of(name).strip().splitlines()[0]
 
 
-@pytest.mark.parametrize("name", PUBLIC)
+@pytest.mark.parametrize("name", PUBLIC + ADMIN)
 def test_every_public_name_has_a_worked_example(name: str) -> None:
     doc = docstring_of(name)
     assert doc.strip(), f"{name} has no docstring"
@@ -47,7 +52,7 @@ def test_every_public_name_has_a_worked_example(name: str) -> None:
         assert f">>> {name}" in doc
 
 
-@pytest.mark.parametrize("name", PUBLIC)
+@pytest.mark.parametrize("name", PUBLIC + ADMIN)
 def test_a_first_line_is_one_short_sentence(name: str) -> None:
     line = first_line(name)
     assert len(line) <= 80, f"{name}: {len(line)} characters"
@@ -55,7 +60,7 @@ def test_a_first_line_is_one_short_sentence(name: str) -> None:
     assert ". " not in line.rstrip("."), f"{name}: the first line is more than one sentence"
 
 
-@pytest.mark.parametrize("name", sorted(set(PUBLIC) - CONSTANTS) + ["TOOLBOX_VERSION"])
+@pytest.mark.parametrize("name", sorted(set(PUBLIC) - CONSTANTS) + ["TOOLBOX_VERSION"] + ADMIN)
 def test_the_worked_example_runs(name: str, tmp_path, monkeypatch) -> None:
     doc = docstring_of(name)
     if any(call in doc for call in RUNS_A_QUERY):

@@ -61,8 +61,8 @@ EXPORTED = (SQLGLOT_COMPOSER, SPARK_COMPOSER)
 # The Composer core: the folder both Editions run, and its files.
 CORE = "composer_core"
 CORE_PRODUCT = "Composer core"
-CORE_FILES = ("__init__.py", "calculations.py", "checks.py", "clauses.py", "conditions.py",
-              "edition.py", "example_database.py", "joins.py", "keys.py", "lineage.py",
+CORE_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
+              "conditions.py", "edition.py", "example_database.py", "joins.py", "keys.py", "lineage.py",
               "public.py", "refusals.py", "running.py", "tables.py", "trees.py",
               "unchecked.py", "windows.py", "CHANGES.md")
 EDITION_FILES = ("__init__.py", "writing.py", "engine.py")
@@ -175,7 +175,9 @@ DECLARED_DIFFERENCES = {
         cases=("edge:create_table:daily_runs", "edge:create_table:may_exist",
                "edge:create_table:compact", "edge:create_table:events",
                "edge:create_table:key_with_the_day", "worked:saved_table:create",
-               "worked:saved_table:create_if_missing", "worked:saved_table:rebuild"),
+               "worked:saved_table:create_if_missing", "worked:saved_table:rebuild",
+               "edge:admin:move:two_days", "edge:admin:move:compact",
+               "edge:admin:move:managed"),
         sqlglot_composer_only=r",\n *PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE",
     ),
 }

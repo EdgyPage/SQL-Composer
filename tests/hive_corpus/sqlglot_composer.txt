@@ -131,10 +131,6 @@ TBLPROPERTIES (
   'parquet.compression'='SNAPPY'
 )
 
-== doc:drop_table
--- Statement 1: to_hive
-DROP TABLE IF EXISTS mart.daily_runs
-
 == doc:all_columns
 -- Statement 1: to_hive
 SELECT
@@ -2743,6 +2739,25 @@ WHERE
 
 ---
 
+
+== doc:admin.move_to_own_folder
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23'
+-- Statement 1: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-23 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23';
 
 == worked:groups_and_top_n:teams
 -- Statement 1: to_hive
@@ -6044,6 +6059,15 @@ WHERE
 == worked:saved_table:rebuild
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS mart.runs_to_review
+-- Statement 1: show_hive
+-- admin.drop_table(mart.runs_to_review) drops the table mart.runs_to_review: the warehouse
+-- forgets it, and every Statement that reads it fails until it is created again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then the table's files go too, and nothing brings them back.
+-- Check first: DESCRIBE FORMATTED mart.runs_to_review shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.runs_to_review;
 -- Statement 2: to_hive
 CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
@@ -14444,30 +14468,6 @@ GuardRefused:
   Usual fix:      Add job_runs.dt to GROUP_BY(...), or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.
 
-== edge:drop_table:odd
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.`order`
-
-== edge:drop_table:spark_words
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.`semi`
-
-== edge:drop_table:compact
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.compact_runs
-
-== edge:drop_table:events
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.events
-
-== edge:drop_table:daily_runs
--- Statement 1: to_hive
-DROP TABLE IF EXISTS mart.daily_runs
-
-== edge:drop_table:region_runs
--- Statement 1: to_hive
-DROP TABLE IF EXISTS mart.region_runs
-
 == edge:create_table:tinyint
 -- Statement 1: to_hive
 CREATE EXTERNAL TABLE mart.typed (
@@ -15819,6 +15819,1013 @@ WHERE
 
 ---
 
+
+== edge:admin:drop_table:odd
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.`order`
+-- Statement 1: show_hive
+-- admin.drop_table(ops.order) drops the table ops.order: the warehouse forgets it, and every
+-- Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/order, unless the
+-- table itself has external.table.purge true: purge=True isn't in its Table reference. A
+-- table or day made there again reads them back, and only someone with access to the folder
+-- can delete them.
+-- Check first: DESCRIBE FORMATTED ops.`order` shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.`order`;
+
+== edge:admin:drop_table:spark_words
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.`semi`
+-- Statement 1: show_hive
+-- admin.drop_table(ops.semi) drops the table ops.semi: the warehouse forgets it, and every
+-- Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/semi, unless the
+-- table itself has external.table.purge true: purge=True isn't in its Table reference. A
+-- table or day made there again reads them back, and only someone with access to the folder
+-- can delete them.
+-- Check first: DESCRIBE FORMATTED ops.`semi` shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.`semi`;
+
+== edge:admin:drop_table:compact
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.compact_runs
+-- Statement 1: show_hive
+-- admin.drop_table(ops.compact_runs) drops the table ops.compact_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: DESCRIBE FORMATTED ops.compact_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.compact_runs;
+
+== edge:admin:drop_table:events
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.events
+-- Statement 1: show_hive
+-- admin.drop_table(ops.events) drops the table ops.events: the warehouse forgets it, and
+-- every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/events, unless
+-- the table itself has external.table.purge true: purge=True isn't in its Table reference. A
+-- table or day made there again reads them back, and only someone with access to the folder
+-- can delete them.
+-- Check first: DESCRIBE FORMATTED ops.events shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.events;
+
+== edge:admin:drop_table:daily_runs
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 1: show_hive
+-- admin.drop_table(mart.daily_runs) drops the table mart.daily_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/mart/daily_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: DESCRIBE FORMATTED mart.daily_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.daily_runs;
+
+== edge:admin:drop_table:region_runs
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.region_runs
+-- Statement 1: show_hive
+-- admin.drop_table(mart.region_runs) drops the table mart.region_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/mart/region_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: DESCRIBE FORMATTED mart.region_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.region_runs;
+
+== edge:admin:drop_table:purge
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.admin_runs
+-- Statement 1: show_hive
+-- admin.drop_table(mart.admin_runs) drops the table mart.admin_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then the table's files go too, and nothing brings them back.
+-- Check first: DESCRIBE FORMATTED mart.admin_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.admin_runs;
+
+== edge:admin:drop_table:not_saved
+-- refused
+ValueError:
+  What happened:  admin.drop_table(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:purge_True
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.admin_runs, before="2025-01-01") drops each day of mart.admin_runs
+-- before 2025-01-01, every row of it, so no Statement reads it again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then those days' files go too, and nothing brings them back.
+-- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
+-- go.
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
+
+== edge:admin:drop_days:purge_False
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.admin_runs, before="2025-01-01") drops each day of mart.admin_runs
+-- before 2025-01-01, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/mart/admin_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
+-- go.
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
+
+== edge:admin:drop_days:purge_None
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.admin_runs, before="2025-01-01") drops each day of mart.admin_runs
+-- before 2025-01-01, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/mart/admin_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
+-- go.
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
+
+== edge:admin:drop_days:compact
+-- Statement 1: to_hive
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101')
+-- Statement 1: show_hive
+-- admin.drop_days(ops.compact_runs, before="20250101") drops each day of ops.compact_runs
+-- before 20250101, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS ops.compact_runs lists its days: the ones before 20250101 go.
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101');
+
+== edge:admin:drop_days:a_date
+-- Statement 1: to_hive
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101')
+-- Statement 1: show_hive
+-- admin.drop_days(ops.compact_runs, before="20250101") drops each day of ops.compact_runs
+-- before 20250101, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS ops.compact_runs lists its days: the ones before 20250101 go.
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101');
+
+== edge:admin:drop_days:written_another_way
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) compares the Date partition compact_runs.day with '2025-01-01', but its Table reference writes days like '20250101'.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as '20250101', or pass a datetime.date. If the table's days really are written like '2025-01-01', add date_format="%Y-%m-%d" to its Table reference instead.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:region_runs
+-- Statement 1: to_hive
+ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.region_runs, before="2026-09-23") drops each day of mart.region_runs
+-- before 2026-09-23, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/mart/region_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS mart.region_runs lists its days: the ones before 2026-09-23
+-- go.
+ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23');
+
+== edge:admin:drop_days:no_date_partition
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) was given mart.admin_runs, whose Table reference has no Date partition.
+  Why it matters: It drops whole days, and a table with no Date partition keeps none.
+  Usual fix:      To empty the table, give its Table reference purge=True, send admin.set_properties(t), then drop it with admin.drop_table(t) and create it again.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:not_a_day
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) compares the Date partition admin_runs.dt with '2025/01/01', but its Table reference writes days like '2025-01-01'.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as '2025-01-01', or pass a datetime.date. If the table's days really are written like '2025/01/01', add date_format="%Y/%m/%d" to its Table reference instead.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:not_saved
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:one
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  note STRING
+) CASCADE
+-- Statement 1: show_hive
+-- admin.add_columns(mart.admin_runs, send=...) adds the column note to mart.admin_runs,
+-- after its other columns. The rows already there read NULL in it until their day is written
+-- again.
+-- CASCADE adds it to each day already in the table too, so a day written again keeps its
+-- values.
+-- Hard to undo: Hive drops a column only when every other column is listed again by hand,
+-- with ALTER TABLE ... REPLACE COLUMNS.
+-- Check first: DESCRIBE mart.admin_runs lists the table's columns now.
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  note STRING
+) CASCADE;
+
+== edge:admin:add_columns:two
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  fails BIGINT,
+  note STRING
+) CASCADE
+-- Statement 1: show_hive
+-- admin.add_columns(mart.admin_runs, send=...) adds the columns fails and note to
+-- mart.admin_runs, after its other columns. The rows already there read NULL in them until
+-- their day is written again.
+-- CASCADE adds them to each day already in the table too, so a day written again keeps their
+-- values.
+-- Hard to undo: Hive drops a column only when every other column is listed again by hand,
+-- with ALTER TABLE ... REPLACE COLUMNS.
+-- Check first: DESCRIBE mart.admin_runs lists the table's columns now.
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  fails BIGINT,
+  note STRING
+) CASCADE;
+
+== edge:admin:add_columns:no_date_partition
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  `two words` STRING
+)
+-- Statement 1: show_hive
+-- admin.add_columns(mart.admin_runs, send=...) adds the column two words to mart.admin_runs,
+-- after its other columns. The rows already there read NULL in it until their day is written
+-- again.
+-- Hard to undo: Hive drops a column only when every other column is listed again by hand,
+-- with ALTER TABLE ... REPLACE COLUMNS.
+-- Check first: DESCRIBE mart.admin_runs lists the table's columns now.
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  `two words` STRING
+);
+
+== edge:admin:add_columns:none_new
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.admin_runs, send=...): mart.admin_runs has every column of its Table reference already.
+  Why it matters: It adds the columns the Table reference has and the table doesn't.
+  Usual fix:      Add the new column's line to the Table reference first, with its type, after the other columns.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:before_the_tables_own
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.admin_runs, send=...): the Table reference lists fails before note, which the table has already.
+  Why it matters: Hive adds new columns after the table's own, and a write fills a table's columns in their order, so the Table reference lists them in the table's order.
+  Usual fix:      Move the line of fails after the line of note.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:untyped
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.admin_runs, send=...): fails has no type: its line in the Table reference says None.
+  Why it matters: Hive needs each new column's type to add it.
+  Usual fix:      Give it its Hive type, such as "fails": "string".
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:a_partition
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.region_runs, send=...): region is a Partition in the Table reference, but not in the table.
+  Why it matters: A table can't gain a Partition: each Partition is a folder, and the table's files are already laid out without it.
+  Usual fix:      Create a new table with it, and write its days into it again; or, if the table's Partition has another name, correct the Table reference.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:set_properties:all
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false',
+  'orc.compress'='SNAPPY',
+  'made_by'='it\'s daily'
+)
+-- Statement 1: show_hive
+-- admin.set_properties(mart.admin_runs) sets 3 table properties of mart.admin_runs, as its
+-- Table reference says. Its other properties, and its rows, stay as they are.
+-- With external.table.purge false, dropping the table or its days leaves their files in its
+-- folder, from now on.
+-- orc.compress applies to the files written from now on; the files already there keep
+-- theirs.
+-- Can be undone: change purge=, compression= or properties= in the Table reference back to
+-- what the table had, and send this again.
+-- Check first: DESCRIBE FORMATTED mart.admin_runs lists the table's properties now, under
+-- Table Parameters.
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false',
+  'orc.compress'='SNAPPY',
+  'made_by'='it\'s daily'
+);
+
+== edge:admin:set_properties:purge
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='true'
+)
+-- Statement 1: show_hive
+-- admin.set_properties(mart.admin_runs) sets 1 table property of mart.admin_runs, as its
+-- Table reference says. Its other properties, and its rows, stay as they are.
+-- With external.table.purge true, dropping the table or its days deletes their files too,
+-- from now on.
+-- Can be undone: change purge=, compression= or properties= in the Table reference back to
+-- what the table had, and send this again.
+-- Check first: DESCRIBE FORMATTED mart.admin_runs lists the table's properties now, under
+-- Table Parameters.
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='true'
+);
+
+== edge:admin:set_properties:none
+-- refused
+ValueError:
+  What happened:  admin.set_properties(mart.admin_runs): its Table reference gives no purge=, compression= or properties=.
+  Why it matters: It sets the table's properties to what its Table reference gives.
+  Usual fix:      Add purge=, compression= or properties= to its Table(...) call, such as purge=True, then call it again.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:two_days
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.daily_runs, send=...) moves mart.daily_runs to its own
+-- folder, /data/your_team/tables/mart/daily_runs. This first step creates
+-- mart.daily_runs_moving there; the steps after it copy each of its 2 days into it, compare
+-- the two, then drop mart.daily_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23'
+-- Statement 2: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-23 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23';
+-- Statement 3: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+-- Statement 3: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-24 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24';
+-- Statement 4: to_hive
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 4: show_hive
+-- Compares each day's rows in mart.daily_runs and mart.daily_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 5: to_hive
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 5: show_hive
+-- Sets external.table.purge to false on mart.daily_runs, so that dropping it next leaves the
+-- files in its folder, which other tables may read.
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 6: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 6: show_hive
+-- Drops the old mart.daily_runs: its files stay in the folder it shared. Can't be undone, so
+-- send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.daily_runs;
+-- Statement 7: to_hive
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
+-- Statement 7: show_hive
+-- Gives mart.daily_runs_moving the name mart.daily_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/daily_runs. If this step fails, send it alone again.
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
+
+== edge:admin:move:region_runs
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.region_runs_moving (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/region_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.region_runs, send=...) moves mart.region_runs to its own
+-- folder, /data/your_team/tables/mart/region_runs. This first step creates
+-- mart.region_runs_moving there; the steps after it copy each of its 1 day into it, compare
+-- the two, then drop mart.region_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- Each copy fills region from its rows, which needs the Session setting
+-- "dynamic_partitions": send run(hive_settings("dynamic_partitions"), send=...) first.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.region_runs_moving (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/region_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.region_runs_moving PARTITION(dt = '2026-09-24', region)
+SELECT
+  region_runs.job_id,
+  region_runs.runs,
+  region_runs.region
+FROM mart.region_runs AS region_runs
+WHERE
+  region_runs.dt = '2026-09-24'
+-- Statement 2: show_hive
+-- Copies mart.region_runs's rows on 2026-09-24 into mart.region_runs_moving.
+INSERT OVERWRITE TABLE mart.region_runs_moving PARTITION(dt = '2026-09-24', region)
+SELECT
+  region_runs.job_id,
+  region_runs.runs,
+  region_runs.region
+FROM mart.region_runs AS region_runs
+WHERE
+  region_runs.dt = '2026-09-24';
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    region_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs AS region_runs
+  WHERE
+    NOT region_runs.dt IS NULL
+  GROUP BY
+    region_runs.dt
+), copied_days AS (
+  SELECT
+    region_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs_moving AS region_runs_moving
+  WHERE
+    NOT region_runs_moving.dt IS NULL
+  GROUP BY
+    region_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares each day's rows in mart.region_runs and mart.region_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    region_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs AS region_runs
+  WHERE
+    NOT region_runs.dt IS NULL
+  GROUP BY
+    region_runs.dt
+), copied_days AS (
+  SELECT
+    region_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs_moving AS region_runs_moving
+  WHERE
+    NOT region_runs_moving.dt IS NULL
+  GROUP BY
+    region_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+ALTER TABLE mart.region_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 4: show_hive
+-- Sets external.table.purge to false on mart.region_runs, so that dropping it next leaves
+-- the files in its folder, which other tables may read.
+ALTER TABLE mart.region_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 5: to_hive
+DROP TABLE IF EXISTS mart.region_runs
+-- Statement 5: show_hive
+-- Drops the old mart.region_runs: its files stay in the folder it shared. Can't be undone,
+-- so send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.region_runs;
+-- Statement 6: to_hive
+ALTER TABLE mart.region_runs_moving RENAME TO mart.region_runs
+-- Statement 6: show_hive
+-- Gives mart.region_runs_moving the name mart.region_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/region_runs. If this step fails, send it alone again.
+ALTER TABLE mart.region_runs_moving RENAME TO mart.region_runs;
+
+== edge:admin:move:compact
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS ops.compact_runs_moving (
+  run_id BIGINT,
+  status STRING,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  day STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/ops/compact_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(ops.compact_runs, send=...) moves ops.compact_runs to its own
+-- folder, /data/your_team/tables/ops/compact_runs. This first step creates
+-- ops.compact_runs_moving there; the steps after it copy each of its 1 day into it, compare
+-- the two, then drop ops.compact_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS ops.compact_runs_moving (
+  run_id BIGINT,
+  status STRING,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  day STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/ops/compact_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE ops.compact_runs_moving PARTITION(day = '20260924')
+SELECT
+  compact_runs.run_id,
+  compact_runs.status
+FROM ops.compact_runs AS compact_runs
+WHERE
+  compact_runs.day = '20260924'
+-- Statement 2: show_hive
+-- Copies ops.compact_runs's rows on 20260924 into ops.compact_runs_moving.
+INSERT OVERWRITE TABLE ops.compact_runs_moving PARTITION(day = '20260924')
+SELECT
+  compact_runs.run_id,
+  compact_runs.status
+FROM ops.compact_runs AS compact_runs
+WHERE
+  compact_runs.day = '20260924';
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    compact_runs.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs AS compact_runs
+  WHERE
+    NOT compact_runs.day IS NULL
+  GROUP BY
+    compact_runs.day
+), copied_days AS (
+  SELECT
+    compact_runs_moving.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs_moving AS compact_runs_moving
+  WHERE
+    NOT compact_runs_moving.day IS NULL
+  GROUP BY
+    compact_runs_moving.day
+)
+SELECT
+  old_days.day,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.day = old_days.day
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares each day's rows in ops.compact_runs and ops.compact_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    compact_runs.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs AS compact_runs
+  WHERE
+    NOT compact_runs.day IS NULL
+  GROUP BY
+    compact_runs.day
+), copied_days AS (
+  SELECT
+    compact_runs_moving.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs_moving AS compact_runs_moving
+  WHERE
+    NOT compact_runs_moving.day IS NULL
+  GROUP BY
+    compact_runs_moving.day
+)
+SELECT
+  old_days.day,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.day = old_days.day
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+ALTER TABLE ops.compact_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 4: show_hive
+-- Sets external.table.purge to false on ops.compact_runs, so that dropping it next leaves
+-- the files in its folder, which other tables may read.
+ALTER TABLE ops.compact_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 5: to_hive
+DROP TABLE IF EXISTS ops.compact_runs
+-- Statement 5: show_hive
+-- Drops the old ops.compact_runs: its files stay in the folder it shared. Can't be undone,
+-- so send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS ops.compact_runs;
+-- Statement 6: to_hive
+ALTER TABLE ops.compact_runs_moving RENAME TO ops.compact_runs
+-- Statement 6: show_hive
+-- Gives ops.compact_runs_moving the name ops.compact_runs. Its files stay at its own folder,
+-- /data/your_team/tables/ops/compact_runs. If this step fails, send it alone again.
+ALTER TABLE ops.compact_runs_moving RENAME TO ops.compact_runs;
+
+== edge:admin:move:managed
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.daily_runs, send=...) moves mart.daily_runs to its own
+-- folder, /data/your_team/tables/mart/daily_runs. This first step creates
+-- mart.daily_runs_moving there; the steps after it copy each of its 1 day into it, compare
+-- the two, then drop mart.daily_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files are dropped with it: it is managed, so its files are its own.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+-- Statement 2: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-24 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24';
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares each day's rows in mart.daily_runs and mart.daily_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 4: show_hive
+-- Drops the old mart.daily_runs: its files go too, since it is managed. Can't be undone, so
+-- send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.daily_runs;
+-- Statement 5: to_hive
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
+-- Statement 5: show_hive
+-- Gives mart.daily_runs_moving the name mart.daily_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/daily_runs. If this step fails, send it alone again.
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
+
+== edge:admin:move:no_date_partition
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.admin_runs, send=...): mart.admin_runs's own folder, /data/your_team/tables/mart/admin_runs, is inside the folder it is in now, hdfs://namenode:8020/data/your_team/tables.
+  Why it matters: A table with no Date partition reads every file under its folder, the folders inside it too where the warehouse is set to, so the old table could read the copy's files as its own while the move runs.
+  Usual fix:      Give its Table reference a location= outside that folder, and move it there.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:no_date_partition_elsewhere
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
+  job_id BIGINT
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/admin_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.admin_runs, send=...) moves mart.admin_runs to its own
+-- folder, /data/your_team/tables/mart/admin_runs. This first step creates
+-- mart.admin_runs_moving there; the steps after it copy the table's rows into it, compare
+-- the two, then drop mart.admin_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
+  job_id BIGINT
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/admin_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.admin_runs_moving
+SELECT
+  admin_runs.job_id
+FROM mart.admin_runs AS admin_runs
+-- Statement 2: show_hive
+-- Copies mart.admin_runs's rows into mart.admin_runs_moving.
+INSERT OVERWRITE TABLE mart.admin_runs_moving
+SELECT
+  admin_runs.job_id
+FROM mart.admin_runs AS admin_runs;
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs AS admin_runs
+), copied_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs_moving AS admin_runs_moving
+)
+SELECT
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+CROSS JOIN copied_days
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares the rows in mart.admin_runs and mart.admin_runs_moving, and stops the move,
+-- before anything is dropped, if they differ. It gives back no rows when they match.
+WITH old_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs AS admin_runs
+), copied_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs_moving AS admin_runs_moving
+)
+SELECT
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+CROSS JOIN copied_days
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 4: show_hive
+-- Sets external.table.purge to false on mart.admin_runs, so that dropping it next leaves the
+-- files in its folder, which other tables may read.
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 5: to_hive
+DROP TABLE IF EXISTS mart.admin_runs
+-- Statement 5: show_hive
+-- Drops the old mart.admin_runs: its files stay in the folder it shared. Can't be undone, so
+-- send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.admin_runs;
+-- Statement 6: to_hive
+ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs
+-- Statement 6: show_hive
+-- Gives mart.admin_runs_moving the name mart.admin_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/admin_runs. If this step fails, send it alone again.
+ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs;
+
+== edge:admin:move:at_its_own_folder
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.daily_runs, send=...): mart.daily_runs is at its own folder already, /data/your_team/tables/mart/daily_runs.
+  Why it matters: There is nothing to move.
+  Usual fix:      Leave it where it is; check_table_reference(t, send=...) says whether anything else differs.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:lacking_a_column
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.daily_runs, send=...): mart.daily_runs has no column runs, which its Table reference lists.
+  Why it matters: The move copies the Table reference's columns from the table, so each must be there.
+  Usual fix:      Make the Table reference match the table first: check_table_reference(t, send=...) lists what differs.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:windows:totals
 -- Statement 1: to_hive
