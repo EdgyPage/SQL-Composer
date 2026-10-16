@@ -280,7 +280,7 @@ def test_by_day_refuses_a_window_that_looks_across_days() -> None:
     with pytest.raises(GuardRefused, match=r"lag\(.*looks across days") as refused:
         by_day(s)
     message = str(refused.value)
-    assert "PARTITION_BY" in message and "reads the earlier days" in message
+    assert "PARTITION_BY" in message and "the days before it" in message
 
 
 def all_of_with_before(t) -> list:
@@ -311,8 +311,9 @@ def test_a_write_still_refuses_several_days_when_nothing_keeps_one() -> None:
     s = statement(INSERT_OVERWRITE(events_before),
                   SELECT(with_before.event_id, with_before.minutes, with_before.minutes_before),
                   FROM(with_before))
-    with pytest.raises(GuardRefused, match="covers 8 days"):
+    with pytest.raises(GuardRefused, match="covers 8 days") as refused:
         to_hive(s)
+    assert "WHERE(equals(the_derived_table.dt, day))" in str(refused.value)
 
 
 def test_a_write_refuses_a_kept_day_its_from_table_doesnt_read() -> None:

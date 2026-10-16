@@ -2161,7 +2161,7 @@ JOIN ops.jobs AS jobs
 <h3><code>sum_of</code></h3>
 <p class="why">The total of a column, or of its rows where a condition holds.</p>
 <p>It refuses a column made by an average, a division or a distinct count, or one its Table reference lists in does_not_add_up, since adding those up gives a wrong total. Pass adds_up=True if it really does add up.</p>
-<p>over=window(...) gives each row a total of its own, over the rows of its Window, such as a running total, or its group&#x27;s total beside each row; see help(window). That total doesn&#x27;t add up again: a group&#x27;s total repeated on each of its rows, added up, counts it once per row.</p>
+<p>over=window(...) gives each row a total of its own, over the rows of its Window, such as a running total, or its group&#x27;s total beside each row; see help(window). It keeps every row, and needs no GROUP_BY. That total doesn&#x27;t add up again: a group&#x27;s total repeated on each of its rows, or running totals that overlap, added up, count rows more than once.</p>
 <pre class="python">sum_of(job_runs.duration_mins)</pre>
 <p class="label">Hive</p>
 <pre class="output">SUM(job_runs.duration_mins)</pre>
@@ -2178,7 +2178,8 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="average_of">
 <h3><code>average_of</code></h3>
 <p class="why">The average of a column that isn&#x27;t a division, an average or a distinct count.</p>
-<p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column, since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does. over=window(...) gives each row the average of its Window&#x27;s rows, such as a moving average; see help(window).</p>
+<p>An average itself doesn&#x27;t add up: the average of two daily averages isn&#x27;t the average over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column, since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a column that doesn&#x27;t add up; pass adds_up=True if it really does.</p>
+<p>over=window(...) gives each row the average of its Window&#x27;s rows, such as a moving average, and keeps every row; see help(window).</p>
 <pre class="python">average_of(job_runs.duration_mins)</pre>
 <p class="label">Hive</p>
 <pre class="output">AVG(job_runs.duration_mins)</pre>
@@ -2273,17 +2274,15 @@ JOIN ops.jobs AS jobs
 <section class="entry" id="window">
 <h3><code>window</code></h3>
 <p class="why">The rows a calculation looks across for each row, passed to it as over=.</p>
-<ul><li>PARTITION_BY= makes the groups: each row looks only at the rows sharing its values. The word is SQL&#x27;s, and has nothing to do with a table&#x27;s Date partition. Left out, every row is in one group.</li><li>ORDER_BY= puts each group&#x27;s rows in order, with descending(...) for largest first.</li><li>rows=(start, end) keeps only the rows near each one, counted from the row itself: negative before it, 0 the row itself, positive after it, and None every row that way. rows=(-6, 0) is the row and the 6 before it; rows=(None, 0) every row up to it. It needs ORDER_BY. Left out, each row looks across its whole group.</li></ul>
-<p>PARTITION_BY and ORDER_BY take columns or a list of them, never a name given in SELECT. Each row keeps its own row, so a Window changes no row count. Hive can&#x27;t test a Window&#x27;s result in WHERE or HAVING of the Statement that works it out: work it out in a derived(...) table, and test it in the Statement that reads it.</p>
-<p>by_day refuses a Statement whose Window looks across days, such as a lag(...) ordered by the day: split by day, it would see one day at a time. To write one day of a Saved table from it, read the earlier days it needs in a derived(...) table, and keep the day written in the Statement that writes, with equals(...) of the day the Derived table passes on; run one such Statement for each day.</p>
-<p>Here, each run&#x27;s minutes beside its job&#x27;s total for the day, and the job&#x27;s runs so far:</p>
+<ul><li>PARTITION_BY= makes the groups: each row looks only at the rows sharing its values. The word is SQL&#x27;s, and has nothing to do with a table&#x27;s Date partition. Left out, every row is in one group.</li><li>ORDER_BY= puts each group&#x27;s rows in order, with descending(...) for largest first.</li><li>rows=(start, end) keeps only the rows near each one, counted from the row itself: negative before it, 0 the row itself, positive after it. None means no limit: every row before it as the start, every row after it as the end. rows=(-6, 0) is the row and the 6 before it; rows=(None, 0) every row up to it. It needs ORDER_BY. Left out, each row looks across its whole group.</li></ul>
+<p>PARTITION_BY and ORDER_BY take columns or a list of them, never a name given in SELECT. Each row keeps its own row, so a Window changes no row count, and needs no GROUP_BY. Hive can&#x27;t test a Window&#x27;s result in WHERE or HAVING of the Statement that works it out: work it out in a derived(...) table, and test it in the Statement that reads it. A Window over the totals of a GROUP_BY, such as each job&#x27;s share of the day, goes the same way: total in a derived(...) table, and the Window in the Statement that reads it.</p>
+<p>Here, each run&#x27;s minutes beside its job&#x27;s total for the day, and the day&#x27;s minutes so far, run by run:</p>
 <pre class="python">by_job = window(PARTITION_BY=job_runs.job_id)</pre>
-<pre class="python">so_far = window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id,
-                rows=(None, 0))</pre>
+<pre class="python">so_far = window(ORDER_BY=job_runs.run_id, rows=(None, 0))</pre>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id, job_runs.duration_mins,
            AS(sum_of(job_runs.duration_mins, over=by_job), &quot;job_minutes&quot;),
-           AS(count_rows(over=so_far), &quot;runs_so_far&quot;)),
+           AS(sum_of(job_runs.duration_mins, over=so_far), &quot;minutes_so_far&quot;)),
     FROM(job_runs),
     WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
 )))</pre>
@@ -2292,21 +2291,55 @@ JOIN ops.jobs AS jobs
   job_runs.run_id,
   job_runs.duration_mins,
   SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
-  COUNT(*) OVER (
-    PARTITION BY job_runs.job_id
-    ORDER BY job_runs.run_id ASC
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS runs_so_far
+  SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS minutes_so_far
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p>by_day refuses a Statement whose Window looks across days: one whose PARTITION_BY leaves out the day, such as each job&#x27;s run before, which may be on the day before. Split by day, each day&#x27;s Statement would see only that day. To write such a Window into a Saved table, one day at a time:</p>
+<ul><li>read the day written and the days before it that it needs, in a derived(...) table that keeps the day column;</li><li>in the Statement that writes, keep only the day written, with WHERE(equals(the_derived_table.dt, day)). The Toolbox writes that day.</li></ul>
+<p>Send one such Statement for each day. Here, each run of 2026-09-24 beside the minutes of its job&#x27;s run before, which may be on 2026-09-23:</p>
+<pre class="python">runs_before = Table(&quot;mart.runs_before&quot;, date_partition=&quot;dt&quot;, key=[&quot;run_id&quot;, &quot;dt&quot;],
+    columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;minutes_before&quot;: &quot;int&quot;, &quot;dt&quot;: &quot;string&quot;},
+    location=&quot;/data/your_team/tables&quot;)</pre>
+<pre class="python">two_days = derived(&quot;two_days&quot;, statement(
+    SELECT(job_runs.run_id, job_runs.dt,
+           AS(lag(job_runs.duration_mins, over=window(
+               PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)),
+              &quot;minutes_before&quot;)),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+))</pre>
+<pre class="python">print(to_hive(statement(
+    INSERT_OVERWRITE(runs_before),
+    SELECT(two_days.run_id, two_days.minutes_before),
+    FROM(two_days),
+    WHERE(equals(two_days.dt, &quot;2026-09-24&quot;)),
+)))</pre>
+<p class="label">Hive</p>
+<pre class="output">WITH two_days AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+)
+INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  two_days.run_id,
+  two_days.minutes_before
+FROM two_days
+WHERE
+  two_days.dt = &#x27;2026-09-24&#x27;</pre>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.</p>
-<p class="names">Toolbox names used: <code>window</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>sum_of</code>, <code>to_hive</code></p>
+<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
+<p class="names">Toolbox names used: <code>window</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>lag</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="row_number">
 <h3><code>row_number</code></h3>
 <p class="why">Number the rows of each group from 1, in ORDER_BY&#x27;s order.</p>
-<p>Pass over=window(PARTITION_BY=..., ORDER_BY=...), or, as up to 4.x, PARTITION_BY= and ORDER_BY= themselves. Keeping the rows numbered 1 gives the latest row per key; keeping those up to N gives the top N per group. Hive can&#x27;t filter on a row number in the SELECT that makes it, so number the rows in a derived(...) table and keep the ones you want in the Statement that reads it. Kept at 1, each row is one for each PARTITION_BY value, which a write&#x27;s Key check sees. Here is the latest run of each job:</p>
+<p>Give it PARTITION_BY= and ORDER_BY=, or over=window(...) as lag(...) and rank(...) take theirs: both write the same Hive. Keeping the rows numbered 1 gives the latest row per key; keeping those up to N gives the top N per group. Hive can&#x27;t filter on a row number in the SELECT that makes it, so number the rows in a derived(...) table and keep the ones you want in the Statement that reads it. Kept at 1, it leaves one row for each PARTITION_BY value, and a write&#x27;s Key check knows that. Here is the latest run of each job:</p>
 <pre class="python">numbered = derived(&quot;numbered&quot;, statement(
     SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
            AS(row_number(PARTITION_BY=job_runs.job_id,
@@ -2337,19 +2370,24 @@ SELECT
 FROM numbered
 WHERE
   numbered.newest_first = 1</pre>
+<p>The same numbering, over a window(...):</p>
+<pre class="python">row_number(over=window(PARTITION_BY=job_runs.job_id,
+                       ORDER_BY=descending(job_runs.run_id)))</pre>
+<p class="label">Hive</p>
+<pre class="output">ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)</pre>
 <p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
 <tr><td>3</td><td>103</td><td>SUCCESS</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>row_number</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>last_n_days</code>, <code>descending</code>, <code>to_hive</code></p>
+<p class="names">Toolbox names used: <code>row_number</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>last_n_days</code>, <code>descending</code>, <code>window</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a></p>
 </section>
 <section class="entry" id="rank">
 <h3><code>rank</code></h3>
 <p class="why">Rank each row in its group from 1; rows that tie share a rank.</p>
-<p>Two rows tied in ORDER_BY&#x27;s order get the same rank, and the next row the rank after both: 1, 2, 2, 4. dense_rank(...) gives 1, 2, 2, 3 instead, and row_number(...) a number of its own to each. Ties mean a rank kept at 1 can keep several rows of a group, so it doesn&#x27;t show a Key; keep row_number(...) at 1 for one row per group.</p>
+<p>Two rows tied in ORDER_BY&#x27;s order get the same rank, and the next row the rank after both: 1, 2, 2, 4. dense_rank(...) gives 1, 2, 2, 3 instead, and row_number(...) a number of its own to each. Since rows can tie, a rank kept at 1 can&#x27;t promise one row per group, as a Key needs; keep row_number(...) at 1 for that.</p>
 <pre class="python">longest_first = window(PARTITION_BY=job_runs.job_id,
                        ORDER_BY=descending(job_runs.duration_mins))</pre>
 <pre class="python">rank(over=longest_first)</pre>
@@ -2359,7 +2397,7 @@ WHERE
 </section>
 <section class="entry" id="dense_rank">
 <h3><code>dense_rank</code></h3>
-<p class="why">Rank each row in its group from 1, ties sharing a rank, with no rank left out.</p>
+<p class="why">Rank each row in its group from 1; ties share a rank, and the next follows on.</p>
 <p>Two rows tied in ORDER_BY&#x27;s order get the same rank, and the next row the rank straight after: 1, 2, 2, 3, where rank(...) gives 1, 2, 2, 4.</p>
 <pre class="python">dense_rank(over=window(PARTITION_BY=job_runs.job_id,
                        ORDER_BY=descending(job_runs.duration_mins)))</pre>
@@ -2369,7 +2407,7 @@ WHERE
 </section>
 <section class="entry" id="ntile">
 <h3><code>ntile</code></h3>
-<p class="why">Split each group&#x27;s rows, in order, into a number of nearly equal parts.</p>
+<p class="why">Which of N nearly equal parts of its group each row falls in, 1 to N, in order.</p>
 <p>ntile(4, over=...) gives each row 1, 2, 3 or 4: its quarter of its group, from the first rows in ORDER_BY&#x27;s order. When the rows don&#x27;t split evenly, the first parts get one more.</p>
 <pre class="python">ntile(4, over=window(ORDER_BY=job_runs.duration_mins))</pre>
 <p class="label">Hive</p>
@@ -2379,7 +2417,7 @@ WHERE
 <section class="entry" id="lag">
 <h3><code>lag</code></h3>
 <p class="why">The column&#x27;s value on the row before each row in its group, in ORDER_BY&#x27;s order.</p>
-<p>back=2 looks 2 rows back. The first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0) puts a value in its place. Here, each run&#x27;s minutes beside those of the job&#x27;s run before it:</p>
+<p>back=2 looks 2 rows back; the Hive writes it after the column, 1 when you give none. The first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0) puts a value in its place. Here, each run&#x27;s minutes beside those of the job&#x27;s run before it:</p>
 <pre class="python">lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
                                         ORDER_BY=job_runs.run_id))</pre>
 <p class="label">Hive</p>
@@ -2389,7 +2427,7 @@ WHERE
 <section class="entry" id="lead">
 <h3><code>lead</code></h3>
 <p class="why">The column&#x27;s value on the row after each row in its group, in ORDER_BY&#x27;s order.</p>
-<p>ahead=2 looks 2 rows ahead. The last row of each group has no row after it, so it gets NULL.</p>
+<p>ahead=2 looks 2 rows ahead; the Hive writes it after the column, 1 when you give none. The last row of each group has no row after it, so it gets NULL.</p>
 <pre class="python">lead(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
                                   ORDER_BY=job_runs.run_id))</pre>
 <p class="label">Hive</p>
@@ -2399,7 +2437,7 @@ WHERE
 <section class="entry" id="first_value">
 <h3><code>first_value</code></h3>
 <p class="why">The column&#x27;s value on the first row of each row&#x27;s group, in ORDER_BY&#x27;s order.</p>
-<p>With no rows= in the Window, it is the whole group&#x27;s first row, which the Hive spells out as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING.</p>
+<p>With no rows= in the Window, it is the whole group&#x27;s first row, which the Hive spells out as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. With rows=, it is the first of those rows.</p>
 <pre class="python">first_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
                                          ORDER_BY=job_runs.run_id))</pre>
 <p class="label">Hive</p>
@@ -2409,7 +2447,7 @@ WHERE
 <section class="entry" id="last_value">
 <h3><code>last_value</code></h3>
 <p class="why">The column&#x27;s value on the last row of each row&#x27;s group, in ORDER_BY&#x27;s order.</p>
-<p>With no rows= in the Window, it is the whole group&#x27;s last row, which the Hive spells out as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING: left to itself, Hive would stop at each row, and give each row its own value.</p>
+<p>With no rows= in the Window, it is the whole group&#x27;s last row, which the Hive spells out as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING: left to itself, Hive would stop at each row, and give each row its own value. With rows=, it is the last of those rows.</p>
 <pre class="python">last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
                                         ORDER_BY=job_runs.run_id))</pre>
 <p class="label">Hive</p>

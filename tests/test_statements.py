@@ -200,7 +200,7 @@ def test_hive_function_refuses_a_function_that_needs_a_window(name: str) -> None
 
 @pytest.mark.parametrize(("name", "instead"), [
     ("lag", "lag(column, over=window(...))"), ("rank", "rank(over=window(...))"),
-    ("ntile", "ntile(n, over=window(...))"), ("row_number", "row_number(over=window(...))")])
+    ("ntile", "ntile(parts, over=window(...))"), ("row_number", "row_number(over=window(...))")])
 def test_the_window_refusal_names_the_toolbox_function_that_writes_over(name, instead) -> None:
     with pytest.raises(ValueError, match=re.escape(f"Use {instead}, which writes OVER")):
         hive_function(name, jobs.team)

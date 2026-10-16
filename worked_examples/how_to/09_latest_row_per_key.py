@@ -69,7 +69,7 @@ from run 99, though run 104 succeeded. Each `max_of` picks its own row.
 
 The two may also go inside a `window`, passed as `over=`, the way every other calculation over
 the rows around each row takes them, such as `lag` and `rank`: `row_number(over=window(
-PARTITION_BY=..., ORDER_BY=...))` numbers the same.
+PARTITION_BY=..., ORDER_BY=...))` writes the same Hive.
 
 The number is a calculation, so it needs a name with `AS`, and it goes in a Derived table,
 for the next Statement to read:

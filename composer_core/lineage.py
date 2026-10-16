@@ -28,7 +28,7 @@ from .refusals import (
 )
 from .running import bottom_read, by_day, kept_day, name_in, steps, to_hive
 from .tables import readable
-from .trees import Node
+from .trees import Node, rows_text
 from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
 from .windows import call_of
 from .edition import hive_text
@@ -206,32 +206,27 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
 
 
 def _window_rows(tree: Node) -> list[dict]:
-    """The PARTITION BY and ORDER BY of each window a calculation is worked out over, for its
+    """The PARTITION BY and ORDER BY of each Window a calculation is worked out over, for its
     "Rows that count": they decide which rows each row's value is worked out from."""
     found = []
     for window in tree.find_all("Window"):
         call, groups = call_of(window), window.parts["partition_by"]
         order, rows = window.parts.get("order"), window.parts.get("rows")
         if groups:
-            found.append(_window_part(
-                f"PARTITION BY of {call}", Node("Window", this=Node("RowNumber"),
-                                                partition_by=[g.copy() for g in groups]),
-                "PARTITION_BY=" + ", ".join(readable(g) for g in groups)))
+            found.append({
+                "name": f"Window of {call}, its groups",
+                "formula": "PARTITION_BY=" + ", ".join(readable(g) for g in groups),
+                "sql": "PARTITION BY " + ", ".join(hive_text(g) for g in groups)})
         if order is not None:
-            written = [readable(o.parts["this"]) for o in order.parts["expressions"]]
-            written = [f"descending({text})" if o.parts["desc"] else text
-                       for o, text in zip(order.parts["expressions"], written)]
-            formula = "ORDER_BY=" + ", ".join(written) + (f", rows={rows!r}" if rows else "")
-            found.append(_window_part(
-                f"ORDER BY of {call}", Node("Window", this=Node("RowNumber"), partition_by=[],
-                                            order=order.copy(), rows=rows), formula))
+            sorts = order.parts["expressions"]
+            written = [f"descending({readable(o.parts['this'])})" if o.parts["desc"]
+                       else readable(o.parts["this"]) for o in sorts]
+            found.append({
+                "name": f"Window of {call}, its order" + (" and rows" if rows else ""),
+                "formula": "ORDER_BY=" + ", ".join(written) + (f", rows={rows!r}" if rows else ""),
+                "sql": "ORDER BY " + ", ".join(hive_text(o) for o in sorts)
+                + (f" {rows_text(rows)}" if rows else "")})
     return found
-
-
-def _window_part(name: str, window: Node, formula: str) -> dict:
-    """One line of "Rows that count" for a window: the Hive inside its OVER (...)."""
-    sql = hive_text(window).removeprefix("ROW_NUMBER() OVER (").removesuffix(")")
-    return {"name": name, "sql": sql, "formula": formula}
 
 
 def _step_keys(step: Statement):
@@ -300,7 +295,7 @@ def _date_bounds(s: Statement) -> tuple[Statement, list]:
     if span is not None and span.is_bounded() and len(span.dates()) > 1:
         kept = kept_day(s)
         if kept is not None:
-            return kept[0], [kept[1]]
+            return kept.step, [kept.condition]
     step = steps(s)[-1][0]
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]

@@ -2168,7 +2168,7 @@ GROUP BY
 <h5>Number each job&#x27;s runs, newest first</h5>
 <p><code>row_number</code> numbers the rows of each group from 1:</p>
 <ul><li><code>PARTITION_BY=</code> names the column whose values make the groups, here each job. The word is SQL&#x27;s; it has nothing to do with a table&#x27;s Date partition.</li><li><code>ORDER_BY=</code> says the order to number them in. <code>descending</code> makes the largest come first, so each job&#x27;s newest run gets 1.</li></ul>
-<p>The two may also go inside a <code>window</code>, passed as <code>over=</code>, the way every other calculation over the rows around each row takes them, such as <code>lag</code> and <code>rank</code>: <code>row_number(over=window( PARTITION_BY=..., ORDER_BY=...))</code> numbers the same.</p>
+<p>The two may also go inside a <code>window</code>, passed as <code>over=</code>, the way every other calculation over the rows around each row takes them, such as <code>lag</code> and <code>rank</code>: <code>row_number(over=window( PARTITION_BY=..., ORDER_BY=...))</code> writes the same Hive.</p>
 <p>The number is a calculation, so it needs a name with <code>AS</code>, and it goes in a Derived table, for the next Statement to read:</p>
 <pre class="python">numbered = derived(&quot;numbered&quot;, statement(
     SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
@@ -6900,7 +6900,7 @@ WHERE
 import pandas as pd
 job_events = example_database.job_events
 region_costs = example_database.region_costs</pre>
-<p>A Window names the rows each row looks across. <code>PARTITION_BY=</code> makes the groups, here each job: the word is SQL&#x27;s, and has nothing to do with a table&#x27;s Date partition. <code>ORDER_BY=</code> puts each group&#x27;s rows in order, here by day: each job finishes at most once a day in the Example database.</p>
+<p>A Window names the rows each row looks across. <code>PARTITION_BY=</code> makes the groups, here each job: the word is SQL&#x27;s, and has nothing to do with a table&#x27;s Date partition. <code>ORDER_BY=</code> puts each group&#x27;s rows in order, here by day. Each job finishes at most once a day in the Example database, so ordering by day gives each job&#x27;s runs one clear order.</p>
 <pre class="python">each_jobs_runs = window(PARTITION_BY=job_events.job_id, ORDER_BY=job_events.dt)</pre>
 <p>And the rows to read, the same in every step: the finished runs of the last week of the Example database.</p>
 <pre class="python">week_finished = [between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
@@ -6918,7 +6918,7 @@ region_costs = example_database.region_costs</pre>
 <p>So the results of the Statements below with a Window are what Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.</p>
 </div>
 <h5>The run before: lag</h5>
-<p>How much faster or slower was each run than the job&#x27;s run before it? <code>lag</code> gives each row the value of the row before it in its Window&#x27;s order, and NULL to the first row of each job:</p>
+<p>How much faster or slower was each run than the job&#x27;s run before it? <code>lag</code> gives each row the value of the row before it in its Window&#x27;s order, and NULL to the first row of each job. pandas holds a missing number as NaN, and so shows that column with decimals; the tables on this page show NaN as NULL:</p>
 <pre class="python">with_before = statement(
     SELECT(job_events.job_id, job_events.dt, job_events.minutes,
            AS(lag(job_events.minutes, over=each_jobs_runs), &quot;minutes_before&quot;),
@@ -6953,9 +6953,9 @@ WHERE
 <tr><td>2</td><td>2026-09-23</td><td>18</td><td>18.0</td><td>0.0</td></tr>
 <tr><td>3</td><td>2026-09-21</td><td>33</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
 </table></div>
-<p>The Window sees only the rows the Statement reads: job 1 ran on 2026-09-17 too, but WHERE starts on 2026-09-18, so its run that day has no run before it. NaN is pandas&#x27; empty value, which the tables on this page show as NULL.</p>
+<p>The Window sees only the rows the Statement reads: job 1 ran on 2026-09-17 too, but WHERE starts on 2026-09-18, so its run on 2026-09-18 has no run before it.</p>
 <h5>A rank within each group: rank</h5>
-<p>Which of each job&#x27;s runs took longest? <code>rank</code> numbers each job&#x27;s runs in its Window&#x27;s order, here the longest first, with <code>descending</code>. Two runs that tie get the same rank, and the next run the rank after both, as job 2&#x27;s two runs of 18 minutes do:</p>
+<p>Which of each job&#x27;s runs took longest? <code>rank</code> numbers each job&#x27;s runs in its Window&#x27;s order, here the longest first, with <code>descending</code>. Two runs that tie get the same rank, and the next run the rank after both, as job 1&#x27;s two runs of 12 minutes do: both 3, then 5 for its run of 11 minutes:</p>
 <pre class="python">longest_first = window(PARTITION_BY=job_events.job_id,
                        ORDER_BY=descending(job_events.minutes))
 ranked = statement(
@@ -6980,7 +6980,7 @@ run(ranked, send=example_database.send)</pre>
 <tr><td>2</td><td>2026-09-23</td><td>18</td><td>3</td></tr>
 <tr><td>3</td><td>2026-09-21</td><td>33</td><td>1</td></tr>
 </table></div>
-<p><code>dense_rank</code> gives a tie the same rank too, but leaves no rank out after it. To keep each job&#x27;s one newest run, or its top N, use <code>row_number</code>, which never ties: see <a href="#latest_row_per_key">The latest row per key, and the top N per group</a>.</p>
+<p><code>dense_rank</code> gives a tie the same rank too, but the next rank follows straight on: 3, 3, then 4. To keep each job&#x27;s one newest run, or its top N, use <code>row_number</code>, which never ties: see <a href="#latest_row_per_key">The latest row per key, and the top N per group</a>.</p>
 <h5>A rolling sum, and a group&#x27;s total beside each row</h5>
 <p>The minutes of each job&#x27;s last three runs, added up, beside the job&#x27;s minutes for the week. <code>sum_of(..., over=...)</code> adds up each row&#x27;s Window, and gives each row its own total. <code>rows=(-2, 0)</code> keeps only the two rows before each row and the row itself; with no <code>ORDER_BY</code> and no <code>rows=</code>, the Window is the whole job:</p>
 <pre class="python">last_three = statement(
@@ -7041,7 +7041,7 @@ run(slower, send=example_database.send)</pre>
 <tr><td>1</td><td>2026-09-23</td><td>2</td></tr>
 </table></div>
 <h5>Write a day that looks back on earlier days</h5>
-<p>To keep each run&#x27;s change in a Saved table, day by day, each day&#x27;s write needs the runs before it, which may be on earlier days. A write fills one day, so read the earlier days too in a Derived table, and keep only the day written in the Statement that writes: the Toolbox writes the day that Statement keeps. A job&#x27;s run before may be up to a week back, so read a week:</p>
+<p>To keep each run&#x27;s change in a Saved table, day by day, each day&#x27;s write needs the runs before it, which may be on earlier days. A write fills one day, so read the earlier days too in a Derived table that keeps the day column, and keep only the day written in the Statement that writes, with <code>WHERE(equals(week.dt, day))</code>: the Toolbox writes the day that Statement keeps. Here a job&#x27;s run before may be up to 6 days back, so read the day and the 6 before it:</p>
 <pre class="python">import datetime
 run_changes = Table(&quot;mart.run_changes&quot;, date_partition=&quot;dt&quot;, key=[&quot;event_id&quot;, &quot;dt&quot;],
                     columns={&quot;event_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;int&quot;,
@@ -7137,14 +7137,14 @@ int(runs[&quot;minutes_before&quot;].isna().sum())</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  WHERE has job_events.minutes - LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) &gt; 0, which looks across rows through a Window.
   Why it matters: Windows are worked out last, after the rows are picked and grouped, so Hive can&#x27;t use it in WHERE of the SELECT that makes it.
-  Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(window) shows how.
+  Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(row_number) shows how.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Test it in the Statement that reads it as a Derived table, as the step Keep only some rows does.</p>
 <h5>A running total with ORDER_BY and no rows=</h5>
 <pre class="python">sum_of(job_events.minutes, over=each_jobs_runs)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  sum_of(job_events.minutes) is given a Window with ORDER_BY and no rows=.
-  Why it matters: It would be unclear which rows it works over: Hive would take the rows up to each row and every row tied with it in ORDER_BY&#x27;s order, which is seldom what is meant.
+  Why it matters: Hive would work it out over the rows up to each row and every row tied with it in ORDER_BY&#x27;s order, which is seldom what is meant, so say which rows.
   Usual fix:      Give rows=(None, 0) for a running total of every row up to each one, or rows=(-6, 0) for each row and the 6 before it; leave ORDER_BY out for the whole group&#x27;s.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>With <code>ORDER_BY</code> and no <code>rows=</code>, Hive would add up the rows up to each row and every row tied with it, which is seldom what&#x27;s meant. Say which rows: <code>rows=(None, 0)</code> for every row up to each one, <code>rows=(-2, 0)</code> for the last three, or leave <code>ORDER_BY</code> out for the whole group.</p>
@@ -7154,7 +7154,7 @@ int(runs[&quot;minutes_before&quot;].isna().sum())</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  by_day can&#x27;t split this Statement: it works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_events.dt, so it looks across days.
   Why it matters: Split by day, each day&#x27;s Statement would see only that day&#x27;s rows, so the Window would stop at the edge of each day: a lag would find no row before the day&#x27;s first, and a running total would start again each day.
-  Usual fix:      Add job_events.dt to the PARTITION_BY of lag(...) if it should look within each day. To look back across days, write one day at a time with a Statement that reads the earlier days it needs and keeps only the day it writes; help(window) shows how. Or run the Statement whole with run(...).
+  Usual fix:      Add job_events.dt to PARTITION_BY= in the window(...) of lag(...) if it should look within each day. To look back across days, write one day at a time: read the day and the days before it in a derived(...) table, and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in the Statement that writes; help(window) shows how. Or run the Statement whole with run(...).
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Read the earlier days and keep the day written, as the step Write a day that looks back on earlier days does. A Window that looks only within each day, with the day among its <code>PARTITION_BY=</code> columns, splits by day.</p>
 <h5>Merging a result per day into one per job</h5>
@@ -8336,8 +8336,8 @@ numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descen
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
 
 ### Copied columns

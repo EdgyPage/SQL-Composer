@@ -30,8 +30,8 @@ notebook, pandas finishes the job.
 
 A Window names the rows each row looks across. `PARTITION_BY=` makes the groups, here each
 job: the word is SQL's, and has nothing to do with a table's Date partition. `ORDER_BY=` puts
-each group's rows in order, here by day: each job finishes at most once a day in the Example
-database.
+each group's rows in order, here by day. Each job finishes at most once a day in the Example
+database, so ordering by day gives each job's runs one clear order.
 
 >>> each_jobs_runs = window(PARTITION_BY=job_events.job_id, ORDER_BY=job_events.dt)
 
@@ -61,7 +61,9 @@ in pandas for this page, as their label says. The Hive is the Hive your warehous
 ### The run before: lag
 
 How much faster or slower was each run than the job's run before it? `lag` gives each row the
-value of the row before it in its Window's order, and NULL to the first row of each job:
+value of the row before it in its Window's order, and NULL to the first row of each job.
+pandas holds a missing number as NaN, and so shows that column with decimals; the tables on
+this page show NaN as NULL:
 
 >>> with_before = statement(
 ...     SELECT(job_events.job_id, job_events.dt, job_events.minutes,
@@ -97,14 +99,14 @@ WHERE
 11       3  2026-09-21       33             NaN     NaN
 
 The Window sees only the rows the Statement reads: job 1 ran on 2026-09-17 too, but WHERE
-starts on 2026-09-18, so its run that day has no run before it. NaN is pandas' empty value,
-which the tables on this page show as NULL.
+starts on 2026-09-18, so its run on 2026-09-18 has no run before it.
 
 ### A rank within each group: rank
 
 Which of each job's runs took longest? `rank` numbers each job's runs in its Window's order,
 here the longest first, with `descending`. Two runs that tie get the same rank, and the next
-run the rank after both, as job 2's two runs of 18 minutes do:
+run the rank after both, as job 1's two runs of 12 minutes do: both 3, then 5 for its run of
+11 minutes:
 
 >>> longest_first = window(PARTITION_BY=job_events.job_id,
 ...                        ORDER_BY=descending(job_events.minutes))
@@ -129,7 +131,8 @@ run the rank after both, as job 2's two runs of 18 minutes do:
 10       2  2026-09-23       18              3
 11       3  2026-09-21       33              1
 
-`dense_rank` gives a tie the same rank too, but leaves no rank out after it. To keep each
+`dense_rank` gives a tie the same rank too, but the next rank follows straight on: 3, 3,
+then 4. To keep each
 job's one newest run, or its top N, use `row_number`, which never ties: see [The latest row
 per key, and the top N per group](#latest_row_per_key).
 
@@ -194,8 +197,9 @@ it:
 
 To keep each run's change in a Saved table, day by day, each day's write needs the runs before
 it, which may be on earlier days. A write fills one day, so read the earlier days too in a
-Derived table, and keep only the day written in the Statement that writes: the Toolbox writes
-the day that Statement keeps. A job's run before may be up to a week back, so read a week:
+Derived table that keeps the day column, and keep only the day written in the Statement that
+writes, with `WHERE(equals(week.dt, day))`: the Toolbox writes the day that Statement keeps.
+Here a job's run before may be up to 6 days back, so read the day and the 6 before it:
 
 >>> import datetime
 >>> run_changes = Table("mart.run_changes", date_partition="dt", key=["event_id", "dt"],

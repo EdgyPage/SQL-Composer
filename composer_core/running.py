@@ -8,6 +8,7 @@ CSVs stay in it. The Toolbox never imports it.
 from __future__ import annotations
 
 import inspect
+from typing import NamedTuple
 
 from . import edition
 from .clauses import (
@@ -31,7 +32,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .tables import Table, aliased, as_date, day_text, source, table_node
-from .trees import Node, combined
+from .trees import Node, combined, has_window
 from .unchecked import (
     SHIPPED,
     SessionSettings,
@@ -202,26 +203,36 @@ def _written_day(s: Statement):
         "in WHERE.")
     days = span.dates()
     kept = kept_day(s) if len(days) > 1 else None
-    if kept is not None and kept[2] not in days:
-        read = f"{day_text(days[0], table._date_format)} to {day_text(days[-1], table._date_format)}"
+    if kept is None:
+        if len(days) != 1:
+            windowed = any(has_window(column._tree) for step, _ in steps(s)
+                           for column, _ in step._outputs)
+            guard_one_day_per_write(s._write_call, len(days), windowed)
+        return days[0]
+    if kept.day not in days:
+        written = [day_text(day, table._date_format) for day in (kept.day, days[0], days[-1])]
         refuse(
-            what=f"{s._write_call} keeps {day_text(kept[2], table._date_format)}, a day its "
-            f"FROM table {table._name} doesn't read: its WHERE reads {read}.",
+            what=f"{s._write_call} keeps {written[0]}, a day its FROM table {table._name} "
+            f"doesn't read: its WHERE reads {written[1]} to {written[2]}.",
             why="The write would fill that day with no rows.",
-            fix=f"Bound {table._alias}.{table._date_partition} to take in the day written, and "
-            "the earlier days it looks back on.",
+            fix=f"Widen the bound on {table._alias}.{table._date_partition} to take in the day "
+            "written and the earlier days it looks back on.",
             error=ValueError,
         )
-    if kept is not None:
-        return kept[2]
-    if len(days) != 1:
-        guard_one_day_per_write(s._write_call, len(days))
-    return days[0]
+    return kept.day
 
 
-def kept_day(s: Statement):
-    """(step, condition, day) for the one day a step above a write's FROM table keeps, with
-    equals(...) of the Date partition passed up to it; or None when no step keeps one.
+class KeptDay(NamedTuple):
+    """The one day a step above a write's FROM table keeps: the step, its condition, the day."""
+
+    step: Statement
+    condition: object
+    day: object  # a datetime.date
+
+
+def kept_day(s: Statement) -> KeptDay | None:
+    """The one day a step above a write's FROM table keeps, with equals(...) of the Date
+    partition passed up to it; or None when no step keeps one.
 
     A write whose Window looks back on earlier days reads them in a Derived table, and keeps
     the day it writes in a step above that table, as help(window) shows.
@@ -234,7 +245,7 @@ def kept_day(s: Statement):
         for condition in step._where:
             day = _day_of(condition._tree, dates, getattr(table, table._date_partition))
             if day is not None:
-                return step, condition, day
+                return KeptDay(step, condition, day)
     return None
 
 
@@ -538,27 +549,31 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
         for window in column._tree.find_all("Window"):
             if not any(date in window.parts["partition_by"] for date in dates):
                 call = call_of(window)
-                _refuse_grouping(step, dates, partition, lost_in, f"the PARTITION_BY of {call}",
-                                 lambda *said, call=call: guard_by_day_window(call, *said))
+                _refuse_grouping(step, dates, partition, lost_in,
+                                 f"PARTITION_BY= in the window(...) of {call}", window=call)
 
 
 def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clause: str,
-                     guard=guard_by_day_grouping):
+                     window: str | None = None):
     """Refuse a step for leaving the Date partition out of `clause`, naming it as the step
-    sees it, or saying where to keep it when a step below dropped it. `guard` raises the
-    refusal: by default, the one for grouping across days."""
+    sees it, or saying where to keep it when a step below dropped it. `window` is the call of
+    a Window that looks across days, such as lag(...), when that is what leaves it out."""
     if not dates:
         by, between = lost_in[0], lost_in[1:]
         also = ""
         if between:
             reads = "reads" if len(between) == 1 else "read"
             also = f", and in {' and '.join(between)}, which {reads} it"
-        guard(step, f"the Date partition {partition}",
-              f"Keep {partition} in the SELECT of {by}{also}, then add it to {clause} here")
-    name = f"{dates[0].table}.{dates[0].name}"
-    keeping = (f"the Date partition {partition}" if name == partition
-               else f"{name} ({partition}, the Date partition)")
-    guard(step, keeping, f"Add {name} to {clause}")
+        keeping = f"the Date partition {partition}"
+        add = f"Keep {partition} in the SELECT of {by}{also}, then add it to {clause} here"
+    else:
+        name = f"{dates[0].table}.{dates[0].name}"
+        keeping = (f"the Date partition {partition}" if name == partition
+                   else f"{name} ({partition}, the Date partition)")
+        add = f"Add {name} to {clause}"
+    if window is not None:
+        guard_by_day_window(window, step, keeping, add)
+    guard_by_day_grouping(step, keeping, add)
 
 
 def _dates_above(below: Statement, table, dates: list) -> list:

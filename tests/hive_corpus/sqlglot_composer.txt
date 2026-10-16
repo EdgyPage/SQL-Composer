@@ -1485,11 +1485,7 @@ SELECT
   job_runs.run_id,
   job_runs.duration_mins,
   SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
-  COUNT(*) OVER (
-    PARTITION BY job_runs.job_id
-    ORDER BY job_runs.run_id ASC
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS runs_so_far
+  SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS minutes_so_far
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
@@ -1497,10 +1493,36 @@ WHERE
 output run_id: job_runs.run_id
 output duration_mins: job_runs.duration_mins
 output job_minutes: SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)
-output runs_so_far: COUNT(*) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+output minutes_so_far: SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
 WHERE: job_runs.dt = '2026-09-24'
+-- Statement 2: to_hive
+WITH two_days AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = '2026-09-24')
+SELECT
+  two_days.run_id,
+  two_days.minutes_before
+FROM two_days
+WHERE
+  two_days.dt = '2026-09-24'
+-- Statement 2: the Statement
+output run_id: two_days.run_id
+output minutes_before: two_days.minutes_before
+WHERE: two_days.dt = '2026-09-24'
+-- Statement 2: Derived table two_days
+output run_id: job_runs.run_id
+output dt: job_runs.dt
+output minutes_before: LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
-# Lineage: statement
+# Lineage: statement_1, statement_2
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
 
@@ -1514,26 +1536,60 @@ flowchart LR
     n4["ops.job_runs.job_id<br/><small>bigint</small>"]
     n8["ops.job_runs.dt<br/><small>string</small>"]
   end
-  subgraph g1["statement"]
+  subgraph g1["statement_1"]
     n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
     n3["duration_mins<br/><small>job_runs.duration_mins</small>"]
     n5["job_minutes<br/><small>sum_of(job_runs.duration_mins, over=window(…</small>"]
-    n6["runs_so_far<br/><small>count_rows(over=window(PARTITION_BY=job_run…</small>"]
+    n6["minutes_so_far<br/><small>sum_of(job_runs.duration_mins, over=window(…</small>"]
   end
-  subgraph g2["filters on statement"]
-    n7{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  subgraph g2["filters on statement_1"]
+    n7{{"WHERE in statement_1<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["two_days"]
+    n9["two_days.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n10["two_days.dt<br/><small>job_runs.dt</small>"]
+    n11["two_days.minutes_before<br/><small>lag(job_runs.duration_mins, over=window(PAR…</small>"]
+  end
+  subgraph g4["filters on two_days"]
+    n12{{"WHERE in two_days<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+  end
+  subgraph g5["statement_2"]
+    n13["run_id<br/><small>two_days.run_id</small><br/><small>in the Key</small>"]
+    n14["minutes_before<br/><small>two_days.minutes_before</small>"]
+  end
+  subgraph g6["filters on statement_2"]
+    n15{{"WHERE in statement_2<br/><small>equals(two_days.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g7["mart.runs_before"]
+    n16["mart.runs_before.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n17["mart.runs_before.minutes_before<br/><small>int</small>"]
+    n18["mart.runs_before.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
   n2 --> n3
   n4 --> n5
   n2 --> n5
-  n4 --> n6
+  n2 --> n6
   n0 --> n6
   n8 -.-> n7
+  n0 --> n9
+  n8 --> n10
+  n4 --> n11
+  n2 --> n11
+  n0 --> n11
+  n8 -.-> n12
+  n9 --> n13
+  n11 --> n14
+  n10 -.-> n15
+  n13 --> n16
+  n14 --> n17
+  n15 -.->|day written| n18
   n7 -.->|filters| g1
+  n12 -.->|filters| g3
+  n15 -.->|filters| g5
 ```
 
-## statement
+## statement_1
 
 ### Calculated columns
 
@@ -1541,32 +1597,31 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `job_minutes`
 
-Calculated in **statement** as `sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))`, which is `SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)`.
+Calculated in **statement_1** as `sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))`, which is `SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)`.
 
 ```text
-statement.job_minutes = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))
+statement_1.job_minutes = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))
 ├─ ops.job_runs.job_id  (bigint)
 └─ ops.job_runs.duration_mins  (int)
 ```
 
 Rows that count:
-- PARTITION BY of sum_of(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- Window of sum_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- WHERE in statement_1: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
-#### `runs_so_far`
+#### `minutes_so_far`
 
-Calculated in **statement** as `count_rows(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id, rows=(None, 0)))`, which is `COUNT(*) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`.
+Calculated in **statement_1** as `sum_of(job_runs.duration_mins, over=window(ORDER_BY=job_runs.run_id, rows=(None, 0)))`, which is `SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`.
 
 ```text
-statement.runs_so_far = count_rows(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id, rows=(None, 0)))
-├─ ops.job_runs.job_id  (bigint)
+statement_1.minutes_so_far = sum_of(job_runs.duration_mins, over=window(ORDER_BY=job_runs.run_id, rows=(None, 0)))
+├─ ops.job_runs.duration_mins  (int)
 └─ ops.job_runs.run_id  (bigint)
 ```
 
 Rows that count:
-- PARTITION BY of count_rows(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of count_rows(...): `ORDER_BY=job_runs.run_id, rows=(None, 0)`, which is `ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
-- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- Window of sum_of(...), its order and rows: `ORDER_BY=job_runs.run_id, rows=(None, 0)`, which is `ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
+- WHERE in statement_1: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
 
@@ -1579,7 +1634,7 @@ Rows that count:
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+- statement_1: Key (run_id), since job_runs' rows are told apart by run_id.
 
 ### Hive as submitted
 
@@ -1588,14 +1643,70 @@ SELECT
   job_runs.run_id,
   job_runs.duration_mins,
   SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
-  COUNT(*) OVER (
-    PARTITION BY job_runs.job_id
-    ORDER BY job_runs.run_id ASC
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS runs_so_far
+  SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS minutes_so_far
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
+```
+
+## statement_2
+
+It writes the Saved table mart.runs_before, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `two_days.minutes_before`
+
+Calculated in **two_days** as `lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+two_days.minutes_before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in two_days: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | two_days.run_id ← ops.job_runs.run_id |
+| `minutes_before` | two_days.minutes_before (calculated) ← ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('two_days', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement_2: Key (run_id), since two_days' rows are told apart by run_id.
+- mart.runs_before's Key (run_id, dt) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+WITH two_days AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = '2026-09-24')
+SELECT
+  two_days.run_id,
+  two_days.minutes_before
+FROM two_days
+WHERE
+  two_days.dt = '2026-09-24'
 ```
 
 ---
@@ -1694,8 +1805,8 @@ numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descen
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `last_n_days(job_runs.dt, 2)`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -3325,8 +3436,8 @@ numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descen
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -3462,8 +3573,8 @@ numbered.longest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=desce
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.duration_mins)`, which is `ORDER BY job_runs.duration_mins DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.duration_mins)`, which is `ORDER BY job_runs.duration_mins DESC`
 - WHERE in numbered: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -7756,8 +7867,8 @@ statement.rn = row_number(PARTITION_BY=[wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`, which is `PARTITION BY wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`
-- ORDER BY of row_number(...): `ORDER_BY=descending(wide.v)`, which is `ORDER BY wide.v DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`, which is `PARTITION BY wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`
+- Window of row_number(...), its order: `ORDER_BY=descending(wide.v)`, which is `ORDER BY wide.v DESC`
 - WHERE in statement: `equals(wide.dt, "2026-09-24")`, which is `wide.dt = '2026-09-24'` (reads ops.wide.dt)
 
 ### Keys
@@ -7835,8 +7946,8 @@ statement.rn = row_number(PARTITION_BY=[wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`, which is `PARTITION BY wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`
-- ORDER BY of row_number(...): `ORDER_BY=descending(wide.v)`, which is `ORDER BY wide.v DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`, which is `PARTITION BY wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`
+- Window of row_number(...), its order: `ORDER_BY=descending(wide.v)`, which is `ORDER BY wide.v DESC`
 - WHERE in statement: `equals(wide.dt, "2026-09-24")`, which is `wide.dt = '2026-09-24'` (reads ops.wide.dt)
 
 ### Keys
@@ -9294,8 +9405,8 @@ statement.rn = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=[descending(job
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.duration_mins), job_runs.run_id`, which is `ORDER BY job_runs.duration_mins DESC, job_runs.run_id ASC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.duration_mins), job_runs.run_id`, which is `ORDER BY job_runs.duration_mins DESC, job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Keys
@@ -13401,8 +13512,8 @@ numbered.newest = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(j
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -13905,7 +14016,7 @@ statement.job_minutes = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=
 ```
 
 Rows that count:
-- PARTITION BY of sum_of(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of sum_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `rows`
@@ -13932,8 +14043,8 @@ statement.moving_average = average_of(job_runs.duration_mins, over=window(PARTIT
 ```
 
 Rows that count:
-- PARTITION BY of average_of(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of average_of(...): `ORDER_BY=descending(job_runs.run_id), rows=(-6, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`
+- Window of average_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of average_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(-6, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `least_ahead`
@@ -13948,8 +14059,8 @@ statement.least_ahead = min_of(job_runs.duration_mins, over=window(PARTITION_BY=
 ```
 
 Rows that count:
-- PARTITION BY of min_of(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of min_of(...): `ORDER_BY=descending(job_runs.run_id), rows=(0, 2)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING`
+- Window of min_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of min_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(0, 2)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `most_failed`
@@ -13965,8 +14076,8 @@ statement.most_failed = max_of(job_runs.duration_mins, where=equals(job_runs.sta
 ```
 
 Rows that count:
-- PARTITION BY of max_of(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of max_of(...): `ORDER_BY=descending(job_runs.run_id), rows=(None, None)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
+- Window of max_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of max_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(None, None)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `so_far`
@@ -13981,8 +14092,8 @@ statement.so_far = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_r
 ```
 
 Rows that count:
-- PARTITION BY of sum_of(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of sum_of(...): `ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
+- Window of sum_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of sum_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `after`
@@ -13996,8 +14107,8 @@ statement.after = count_rows(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=
 ```
 
 Rows that count:
-- PARTITION BY of count_rows(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of count_rows(...): `ORDER_BY=descending(job_runs.run_id), rows=(1, None)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING`
+- Window of count_rows(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of count_rows(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(1, None)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Keys
@@ -14133,8 +14244,8 @@ statement.rn = row_number(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job
 ```
 
 Rows that count:
-- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of row_number(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `rk`
@@ -14148,8 +14259,8 @@ statement.rk = rank(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.
 ```
 
 Rows that count:
-- PARTITION BY of rank(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of rank(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of rank(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of rank(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `dr`
@@ -14163,8 +14274,8 @@ statement.dr = dense_rank(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job
 ```
 
 Rows that count:
-- PARTITION BY of dense_rank(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of dense_rank(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of dense_rank(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of dense_rank(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `quarter`
@@ -14178,8 +14289,8 @@ statement.quarter = ntile(4, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=
 ```
 
 Rows that count:
-- PARTITION BY of ntile(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of ntile(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of ntile(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of ntile(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `before`
@@ -14194,8 +14305,8 @@ statement.before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs
 ```
 
 Rows that count:
-- PARTITION BY of lag(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of lag(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `three_before`
@@ -14210,8 +14321,8 @@ statement.three_before = lag(job_runs.duration_mins, over=window(PARTITION_BY=jo
 ```
 
 Rows that count:
-- PARTITION BY of lag(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of lag(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `two_after`
@@ -14226,8 +14337,8 @@ statement.two_after = lead(job_runs.status, over=window(PARTITION_BY=job_runs.jo
 ```
 
 Rows that count:
-- PARTITION BY of lead(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of lead(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of lead(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lead(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Keys
@@ -14335,8 +14446,8 @@ statement.first_status = first_value(job_runs.status, over=window(PARTITION_BY=j
 ```
 
 Rows that count:
-- PARTITION BY of first_value(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of first_value(...): `ORDER_BY=job_runs.run_id, rows=(None, None)`, which is `ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
+- Window of first_value(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of first_value(...), its order and rows: `ORDER_BY=job_runs.run_id, rows=(None, None)`, which is `ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `status_so_far`
@@ -14351,8 +14462,8 @@ statement.status_so_far = last_value(job_runs.status, over=window(PARTITION_BY=j
 ```
 
 Rows that count:
-- PARTITION BY of last_value(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of last_value(...): `ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
+- Window of last_value(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of last_value(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 #### `before_or_0`
@@ -14367,8 +14478,8 @@ statement.before_or_0 = fill_null(lag(job_runs.duration_mins, over=window(PARTIT
 ```
 
 Rows that count:
-- PARTITION BY of lag(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of lag(...): `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Keys
@@ -14484,8 +14595,8 @@ with_before.minutes_before = lag(job_runs.duration_mins, over=window(PARTITION_B
 ```
 
 Rows that count:
-- PARTITION BY of lag(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of lag(...): `ORDER_BY=job_runs.dt`, which is `ORDER BY job_runs.dt ASC`
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.dt`, which is `ORDER BY job_runs.dt ASC`
 - WHERE in with_before: `between(job_runs.dt, "2026-09-24", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -14621,8 +14732,8 @@ with_before.minutes_before = lag(job_runs.duration_mins, over=window(PARTITION_B
 ```
 
 Rows that count:
-- PARTITION BY of lag(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
-- ORDER BY of lag(...): `ORDER_BY=job_runs.dt`, which is `ORDER BY job_runs.dt ASC`
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.dt`, which is `ORDER BY job_runs.dt ASC`
 - WHERE in with_before: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -14669,7 +14780,7 @@ WHERE
 GuardRefused:
   What happened:  by_day can't split this Statement: derived('with_before', ...) works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_runs.dt, so it looks across days.
   Why it matters: Split by day, each day's Statement would see only that day's rows, so the Window would stop at the edge of each day: a lag would find no row before the day's first, and a running total would start again each day.
-  Usual fix:      Add job_runs.dt to the PARTITION_BY of lag(...) if it should look within each day. To look back across days, write one day at a time with a Statement that reads the earlier days it needs and keeps only the day it writes; help(window) shows how. Or run the Statement whole with run(...).
+  Usual fix:      Add job_runs.dt to PARTITION_BY= in the window(...) of lag(...) if it should look within each day. To look back across days, write one day at a time: read the day and the days before it in a derived(...) table, and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in the Statement that writes; help(window) shows how. Or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.
 
 == edge:windows:refused:in_where
@@ -14677,7 +14788,7 @@ GuardRefused:
 ValueError:
   What happened:  WHERE has LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) > 10, which looks across rows through a Window.
   Why it matters: Windows are worked out last, after the rows are picked and grouped, so Hive can't use it in WHERE of the SELECT that makes it.
-  Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(window) shows how.
+  Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(row_number) shows how.
   Opt-out:        none - this one can't be switched off.
 
 == gen:000

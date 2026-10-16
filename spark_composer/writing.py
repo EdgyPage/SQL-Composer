@@ -28,7 +28,7 @@ import contextvars
 import re
 from typing import NoReturn
 
-from composer_core.trees import HIVE_TYPES, Node, plain_name
+from composer_core.trees import HIVE_TYPES, Node, plain_name, rows_text
 
 TOOLBOX_VERSION = "4.1"
 
@@ -318,19 +318,9 @@ def _window(node: Node, pretty: bool) -> str:
     if order is not None:
         pieces.append(_order(order, pretty, flat=True))
     rows = node.parts.get("rows")
-    if rows is not None:
-        pieces.append(f"ROWS BETWEEN {_frame_end(rows[0], 'PRECEDING')} AND "
-                      f"{_frame_end(rows[1], 'FOLLOWING')}")
+    if rows is not None:  # after sqlglot's Generator.windowspec_sql
+        pieces.append(rows_text(rows))
     return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
-
-
-# After sqlglot's Generator.windowspec_sql: one end of a window's ROWS.
-def _frame_end(count: int | None, unbounded_side: str) -> str:
-    if count is None:
-        return f"UNBOUNDED {unbounded_side}"
-    if count == 0:
-        return "CURRENT ROW"
-    return f"{abs(count)} {'PRECEDING' if count < 0 else 'FOLLOWING'}"
 
 
 # After sqlglot's Generator.order_sql.

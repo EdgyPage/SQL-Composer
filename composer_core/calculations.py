@@ -31,6 +31,7 @@ from .trees import (
     has_aggregate,
     has_window,
     number,
+    numbers_rows,
     string,
 )
 from .edition import check_writable_call
@@ -67,18 +68,18 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
 
 
 def _not_inside(call: str, inner) -> None:
-    """Refuse a count, a sum or a window inside a function that works over many rows."""
+    """Refuse a count, a sum or a calculation over a Window inside a function that works over
+    many rows."""
     window = has_window(inner._tree)
     if window or has_aggregate(inner._tree):
         made = "already works over many rows itself"
         if window:
-            numbers = any(w.parts["this"].kind == "RowNumber"
-                          for w in inner._tree.find_all("Window"))
-            made = "is a row number" if numbers else "looks across rows through a Window"
+            made = ("is a row number" if numbers_rows(inner._tree)
+                    else "looks across rows through a Window")
         refuse(
             what=f"{call} has {inner!r} inside it, which {made}.",
-            why="In one SELECT, Hive can't put a count, a sum or a Window inside a "
-            "function that works over many rows, such as a count, a sum, a max or "
+            why="In one SELECT, Hive can't put a count, a sum or a calculation over a Window "
+            "inside a function that works over many rows, such as a count, a sum, a max or "
             "collect_set.",
             fix="Work it out as a named column in a derived(...) table, then use it in the "
             "Statement that reads that table; help(derived) shows how.",
@@ -99,13 +100,13 @@ def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
     return Column(tree, adds_up=adds_up, not_adding_up_because=because)
 
 
-# Why a total worked out over a Window doesn't add up again: guard_unsafe_regrouping's reason.
-OVER_A_WINDOW = "a total over a Window"
+# Why a value worked out over a Window doesn't add up again: guard_unsafe_regrouping's reason.
+OVER_A_WINDOW = "worked out over a Window"
 
 
 def _over(tree: Node, over, call: str, adds_up: bool, because):
-    """A count's or a sum's tree worked out over the window `over`, if one is given, with
-    whether it adds up: a window's total is repeated on each row it covers, so it doesn't."""
+    """A count's or a sum's tree worked out over the Window `over`, if one is given, with
+    whether it adds up: rows share the rows their Windows cover, so it doesn't."""
     if over is None:
         return tree, adds_up, because
     from .windows import TOTAL, windowed  # here: windows.py imports this file
@@ -153,9 +154,9 @@ def sum_of(column, where=None, adds_up=False, over=None):
     adds_up=True if it really does add up.
 
     over=window(...) gives each row a total of its own, over the rows of its Window, such as a
-    running total, or its group's total beside each row; see help(window). That total doesn't
-    add up again: a group's total repeated on each of its rows, added up, counts it once per
-    row.
+    running total, or its group's total beside each row; see help(window). It keeps every row,
+    and needs no GROUP_BY. That total doesn't add up again: a group's total repeated on each of
+    its rows, or running totals that overlap, added up, count rows more than once.
 
     >>> sum_of(job_runs.duration_mins)
     SUM(job_runs.duration_mins)
@@ -177,8 +178,10 @@ def average_of(column, where=None, adds_up=False, over=None):
     An average itself doesn't add up: the average of two daily averages isn't the average
     over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column,
     since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a
-    column that doesn't add up; pass adds_up=True if it really does. over=window(...) gives
-    each row the average of its Window's rows, such as a moving average; see help(window).
+    column that doesn't add up; pass adds_up=True if it really does.
+
+    over=window(...) gives each row the average of its Window's rows, such as a moving
+    average, and keeps every row; see help(window).
 
     >>> average_of(job_runs.duration_mins)
     AVG(job_runs.duration_mins)
@@ -430,7 +433,7 @@ _WINDOW_FIXES = {
     name: f"Use {name}({written}), which writes OVER (...) itself; help(window) shows how."
     for name, written in {
         "row_number": "over=window(...)", "rank": "over=window(...)",
-        "dense_rank": "over=window(...)", "ntile": "n, over=window(...)",
+        "dense_rank": "over=window(...)", "ntile": "parts, over=window(...)",
         "lag": "column, over=window(...)", "lead": "column, over=window(...)",
     }.items()
 }
