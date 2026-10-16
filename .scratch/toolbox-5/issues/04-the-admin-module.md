@@ -49,7 +49,7 @@ changed).
   `to_hive` returns without the read-back self-check: sqlglot 25.24 can't read
   `ADD COLUMNS ... CASCADE`, and sqlglot's own layout of ALTER differs between its versions
   ("DROP IF EXISTS   PARTITION(..."), so the Toolbox lays them out itself.
-  - `admin.drop_table(t)`: `DROP TABLE IF EXISTS`, moved out of the ordinary names (66 public
+  - `admin.drop_table(t)`: `DROP TABLE IF EXISTS`, moved out of the ordinary names (78 public
     names now).
   - `admin.drop_days(t, before=)`: `ALTER TABLE t DROP IF EXISTS PARTITION (dt < '<day>')`,
     the day written in the table's date_format (as_date checks it). Spark refuses a comparison
@@ -81,8 +81,8 @@ changed).
   module rather than drop_table.
 - Docs: each function's docstring with an example; the cheat sheet gains an `admin.py` group
   (`tools/export_clean.py`) and a README sentence on importing it; the gallery gives each
-  `admin.<name>` an entry and lists `admin.*` among an example's names; how-to 33 "Move a
-  Saved table to its own folder" (Intermediate, now 19-33); how-tos 10 and 23 and the Saved
+  `admin.<name>` an entry and lists `admin.*` among an example's names; how-to 34 "Move a
+  Saved table to its own folder" (Intermediate, now 19-34, after 05 took 33); how-tos 10 and 23 and the Saved
   table Worked example call `admin.drop_table` (23 shows `admin.add_columns` for its new
   column); CHANGES 5.0 (To update, New, Refused now); CONTEXT.md's Admin statement and Saved
   table (managed table defined there).
@@ -90,7 +90,7 @@ changed).
   a Key join the `primary_key` row of DECLARED_DIFFERENCES); the corpus shows an Admin
   statement's show_hive too.
 - Tests: `tests/test_admin_module.py` (both Editions); test_admin_log, test_mix_ups,
-  test_tables, the public-name tests (66, plus ADMIN_NAMES), test_docstrings and
+  test_tables, the public-name tests (78 after the merge with 05 and 06, plus ADMIN_NAMES), test_docstrings and
   test_example_gallery cover `admin.*`; conftest points the Admin log into pytest's folder for
   every test. On a real Spark (Linux CI only, not run here): admin.drop_table, and the whole
   move of a table made by hand in a shared folder, its rows, name and folder checked.
@@ -104,7 +104,7 @@ both Editions.
 
 **Code review** (code-review skill, since 5b82ba1).
 
-Standards: no hard violation. Fixed: how-to 33's four-clause sentence; "managed table" added to
+Standards: no hard violation. Fixed: how-to 34's four-clause sentence; "managed table" added to
 the glossary (Saved table's entry); `MOVING` made private (`_MOVING`); the TBLPROPERTIES writer
 written once. Answered, left: `_ddl` holding the changed table for an ALTER while its Hive is
 in `_admin_hive` (keeps every "isn't a query" check as it was); admin.py using tables.py's
@@ -130,7 +130,7 @@ and what CASCADE prevents; one shape for the stand-in DESCRIBE answers; set_prop
 and refusal wording; the move's steps as a list ("two days take seven Statements, moves[0] to
 moves[6]"), "the folder the Table reference gives it", rows with no day "go with the old
 table"; the comparison's refusal says NaN means missing and how to find a day's copy step;
-how-to 33's `...` explained, its `move()` gives back the steps for `run(moves[-1], ...)`, and
+how-to 34's `...` explained, its `move()` gives back the steps for `run(moves[-1], ...)`, and
 "Check it worked" says what the Example database query shows; how-to 10 says when a rebuild is
 the choice and when add_columns is; how-to 23 quotes the column and says why send goes in
 twice; CHANGES wording; the cheat-sheet lines now say what each function does in plain words.

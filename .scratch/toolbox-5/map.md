@@ -184,13 +184,27 @@ below; this map is the design document, built out ticket by ticket.
   each write); `hive_settings(..., sets=HIVE_SETTINGS)` and `set_admin_log(ADMIN_LOG)` stay as
   built, passed in from the user's settings.py; each Saved table's Table reference writes its
   own `location=`, keeping the Level rule, rather than a `BASE_LOCATION` in settings.py.
+- [05 Joins](issues/05-joins.md): SEMI_JOIN, ANTI_JOIN (LEFT JOIN + IS NULL), FULL_JOIN
+  and a refusing RIGHT_JOIN in clauses.py, their logic in a new core file `joins.py`;
+  broadcast= on JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN (not FULL_JOIN); a WHERE on a
+  FULL_JOIN side is a Guard (opt-out keeps_only_matches=True), so each side's days go in a
+  Derived table; a new Example table `ops.scheduler_runs`; sqlglot's Example database refuses
+  LEFT SEMI JOIN (pandas stand-in); new glossary word Map join; how-to 33. Open: whether a
+  shipped set should switch hive.ignore.mapjoin.hint off.
+- [06 Windows](issues/06-windows.md): a new core file, `windows.py` (`window`, `row_number`
+  moved from calculations.py, `rank`, `dense_rank`, `ntile(parts)`, `lag(back=)`,
+  `lead(ahead=)`, `first_value`, `last_value`); a total with ORDER_BY needs `rows=`, rank-like
+  functions take none, first/last_value default to the whole group; a total over a Window
+  doesn't add up again; a write may read several days when a step above keeps one with
+  `equals(...)` of the day passed up (`running.kept_day`), the by_day refusal's fix; how-to 28
+  is now "Look across rows, then finish in pandas" (its link id unchanged).
 - [04 The admin module](issues/04-the-admin-module.md): `composer_core/admin.py`, imported by
   each Edition's `__init__.py` as `admin` (not in `__all__`); `tables.need_saved_table(t, what)`
   is the shared Saved-table check; an Admin statement keeps `_admin_about` (show_hive's `--`
   notes), `_admin_hive` (an ALTER the core lays out itself, no sqlglot read-back) and
   `_admin_check` (the move's comparison refuses in `run`); `set_properties(t)` sets what the
   Table reference says; the move is a list of Statements; Lineage leaves Admin statements out;
-  66 public names; how-to 33. Open for the user: rows with no day aren't moved.
+  78 public names; how-to 34. Open for the user: rows with no day aren't moved.
 
 ## Not yet specified
 

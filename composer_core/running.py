@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import inspect
 import textwrap
+from typing import NamedTuple
 
 from . import edition
 from .clauses import (
@@ -21,17 +22,19 @@ from .clauses import (
     statement,
 )
 from .conditions import equals
+from .joins import HOW, anti_join_tests, broadcast
 from .refusals import (
     guard_by_day_grouping,
     guard_by_day_limit,
+    guard_by_day_window,
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
     refuse,
     refuse_what_isnt_a_dataframe,
 )
-from .tables import Table, aliased, day_text, source, table_node
-from .trees import Node, combined
+from .tables import Table, aliased, as_date, day_text, source, table_node
+from .trees import Node, combined, has_window
 from .unchecked import (
     SHIPPED,
     SessionSettings,
@@ -41,6 +44,7 @@ from .unchecked import (
     unchecked_call,
     unchecked_text,
 )
+from .windows import call_of
 
 TOOLBOX_VERSION = "4.1"
 
@@ -87,14 +91,16 @@ def _output(column, name: str) -> Node:
 
 
 def _join_tree(read) -> Node:
-    """One JOIN, LEFT_JOIN or CROSS_JOIN clause."""
-    return Node("Join", how=read._name.replace("_", " "), this=source(read.table),
+    """One join clause, as Hive writes it: an ANTI_JOIN as a LEFT JOIN."""
+    return Node("Join", how=HOW[read._name], this=source(read.table),
                 on=None if read.on is None else read.on._tree.copy())
 
 
-def _all_of(conditions: list) -> Node | None:
-    """The conditions of WHERE or HAVING, joined with AND, or None when there are none."""
-    return combined("And", [c._tree.copy() for c in conditions]) if conditions else None
+def _all_of(conditions: list, more: list | None = None) -> Node | None:
+    """The conditions of WHERE or HAVING, then any `more` trees, joined with AND, or None when
+    there are none."""
+    trees = [c._tree.copy() for c in conditions] + (more or [])
+    return combined("And", trees) if trees else None
 
 
 def _select_tree(s: Statement) -> Node:
@@ -110,9 +116,11 @@ def _select_tree(s: Statement) -> Node:
         "Select",
         outputs=[_output(column, name) for column, name in outputs],
         distinct=s._distinct,
+        broadcast=broadcast(s),
         source=source(s._reads[0].table),
         joins=[_join_tree(read) for read in s._reads[1:]],
-        where=_all_of(s._where),
+        # Each ANTI_JOIN keeps the rows whose matched column is NULL.
+        where=_all_of(s._where, anti_join_tests(s)),
         group_by=[c._tree.copy() for c in s._group_by],
         having=_all_of(s._having),
         order_by=[o.copy() for o in s._order_by],
@@ -192,16 +200,71 @@ def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
 
 
 def _written_day(s: Statement):
-    """The one day a write covers, from the date bound of the table it reads from."""
-    _, span = _bottom_days(
+    """The one day a write covers, from the date bound of the table it reads from, or, when
+    it reads several days, as a Window that looks back does, the one a step above keeps."""
+    table, span = _bottom_days(
         s, f"{s._write_call} can't tell which day to write",
         "A write fills the one day its FROM table reads.",
         "A Saved table is filled from a table with days: put one in FROM, bounded to one day "
         "in WHERE.")
     days = span.dates()
-    if len(days) != 1:
-        guard_one_day_per_write(s._write_call, len(days))
-    return days[0]
+    kept = kept_day(s) if len(days) > 1 else None
+    if kept is None:
+        if len(days) != 1:
+            windowed = any(has_window(column._tree) for step, _ in steps(s)
+                           for column, _ in step._outputs)
+            guard_one_day_per_write(s._write_call, len(days), windowed)
+        return days[0]
+    if kept.day not in days:
+        written = [day_text(day, table._date_format) for day in (kept.day, days[0], days[-1])]
+        refuse(
+            what=f"{s._write_call} keeps {written[0]}, a day its FROM table {table._name} "
+            f"doesn't read: its WHERE reads {written[1]} to {written[2]}.",
+            why="The write would fill that day with no rows.",
+            fix=f"Widen the bound on {table._alias}.{table._date_partition} to take in the day "
+            "written and the earlier days it looks back on.",
+            error=ValueError,
+        )
+    return kept.day
+
+
+class KeptDay(NamedTuple):
+    """The one day a step above a write's FROM table keeps: the step, its condition, the day."""
+
+    step: Statement
+    condition: object
+    day: object  # a datetime.date
+
+
+def kept_day(s: Statement) -> KeptDay | None:
+    """The one day a step above a write's FROM table keeps, with equals(...) of the Date
+    partition passed up to it; or None when no step keeps one.
+
+    A write whose Window looks back on earlier days reads them in a Derived table, and keeps
+    the day it writes in a step above that table, as help(window) shows.
+    """
+    found = steps(s)
+    table = found[-1][0]._reads[0].table
+    dates = [Node("Column", name=table._date_partition, table=table._alias)]
+    for (step, _), (below, _) in zip(reversed(found[:-1]), reversed(found[1:])):
+        dates = _dates_above(below, step._reads[0].table, dates)
+        for condition in step._where:
+            day = _day_of(condition._tree, dates, getattr(table, table._date_partition))
+            if day is not None:
+                return KeptDay(step, condition, day)
+    return None
+
+
+def _day_of(tree: Node, dates: list, partition):
+    """The day an equals(...) holds one of `dates` to, as a Python date, or None. `partition`
+    is the Date partition they carry up, whose Table reference says how its days are written."""
+    if tree.kind != "EQ":
+        return None
+    sides = (tree.parts["this"], tree.parts["expression"])
+    for column, value in (sides, sides[::-1]):
+        if column in dates and value.kind == "Literal" and value.parts.get("is_string"):
+            return as_date(value.parts["this"], partition, "equals(...)")
+    return None
 
 
 def _write_tree(s: Statement) -> Node:
@@ -511,26 +574,32 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
     for column, _ in s._outputs:
         for window in column._tree.find_all("Window"):
             if not any(date in window.parts["partition_by"] for date in dates):
+                call = call_of(window)
                 _refuse_grouping(step, dates, partition, lost_in,
-                                 "the PARTITION_BY of row_number(...)")
+                                 f"PARTITION_BY= in the window(...) of {call}", window=call)
 
 
-def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clause: str):
+def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clause: str,
+                     window: str | None = None):
     """Refuse a step for leaving the Date partition out of `clause`, naming it as the step
-    sees it, or saying where to keep it when a step below dropped it."""
+    sees it, or saying where to keep it when a step below dropped it. `window` is the call of
+    a Window that looks across days, such as lag(...), when that is what leaves it out."""
     if not dates:
         by, between = lost_in[0], lost_in[1:]
         also = ""
         if between:
             reads = "reads" if len(between) == 1 else "read"
             also = f", and in {' and '.join(between)}, which {reads} it"
-        guard_by_day_grouping(step, f"the Date partition {partition}",
-                              f"Keep {partition} in the SELECT of {by}{also}, then add it to "
-                              f"{clause} here")
-    name = f"{dates[0].table}.{dates[0].name}"
-    keeping = (f"the Date partition {partition}" if name == partition
-               else f"{name} ({partition}, the Date partition)")
-    guard_by_day_grouping(step, keeping, f"Add {name} to {clause}")
+        keeping = f"the Date partition {partition}"
+        add = f"Keep {partition} in the SELECT of {by}{also}, then add it to {clause} here"
+    else:
+        name = f"{dates[0].table}.{dates[0].name}"
+        keeping = (f"the Date partition {partition}" if name == partition
+                   else f"{name} ({partition}, the Date partition)")
+        add = f"Add {name} to {clause}"
+    if window is not None:
+        guard_by_day_window(window, step, keeping, add)
+    guard_by_day_grouping(step, keeping, add)
 
 
 def _dates_above(below: Statement, table, dates: list) -> list:
