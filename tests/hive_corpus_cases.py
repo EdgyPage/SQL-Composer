@@ -614,6 +614,16 @@ def _no_day_cases() -> dict:
             JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)), WHERE(one_day()))],
         "write:no_day:refused:unbounded_days": lambda: [runs_per_team(where=())],
         "write:no_day:refused:by_day": lambda: by_day(runs_per_team()),
+        "write:no_day:refused:not_a_saved_table": lambda: [statement(
+            INSERT_OVERWRITE(Table("ops.theirs", columns={"team": "string", "runs": "bigint"},
+                                   date_partition=None)),
+            SELECT(jobs.team, AS(count_rows(), "runs")), FROM(jobs), GROUP_BY(jobs.team))],
+        "write:no_day:refused:keeps_one_day_above": lambda: [statement(
+            INSERT_OVERWRITE(team_runs), SELECT(per_day.team, per_day.runs), FROM(per_day),
+            WHERE(equals(per_day.dt, DAY))) for per_day in [derived("per_day", statement(
+                SELECT(jobs.team, job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
+                JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                WHERE(between(job_runs.dt, FIRST_DAY, DAY)), GROUP_BY(jobs.team, job_runs.dt)))]],
     }
 
 

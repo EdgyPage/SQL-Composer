@@ -23,11 +23,13 @@ from .clauses import (
 )
 from .conditions import equals
 from .joins import HOW, anti_join_tests, broadcast
+from .keys import writes_one_day
 from .refusals import (
     guard_by_day_grouping,
     guard_by_day_limit,
     guard_by_day_stack,
     guard_by_day_window,
+    guard_kept_day_in_a_whole_table_write,
     guard_kept_day_without_window,
     guard_one_day_per_write,
     load_limit_dates,
@@ -325,6 +327,8 @@ def _day_kept_above(s: Statement) -> KeptDay | None:
     if found[-1][0]._stack is not None:
         return None  # a Stack's Statements each read their own days: none is kept above
     table = found[-1][0]._reads[0].table
+    if table._date_partition is None:
+        return None  # it reads no days, so none is kept
     dates = [Node("Column", name=table._date_partition, table=table._alias)]
     for (step, _), (below, _) in zip(reversed(found[:-1]), reversed(found[1:])):
         dates = _dates_above(below, step._reads[0].table, dates)
@@ -372,8 +376,13 @@ def _write_tree(s: Statement) -> Node:
     The day is named; each Partition after it is filled from the rows, by its column."""
     table = s._write
     partition = None
-    if table._date_partition is not None:
+    if writes_one_day(s):
         partition = day_partition(table, day_text(_written_day(s), table._date_format))
+    else:
+        kept = _day_kept_above(s)
+        if kept is not None:
+            guard_kept_day_in_a_whole_table_write(s._write_call, table._name,
+                                                  _column_text(kept.column))
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
 
@@ -811,13 +820,12 @@ def by_day(s):
             fix="Pass statement(SELECT(...), FROM(...), WHERE(...)).",
             given=s, call="by_day",
         )
-    if s._write is not None and s._write._date_partition is None:
+    if s._write is not None and not writes_one_day(s):
         refuse(
-            what=f"by_day can't split this Statement: it writes {s._write._name}, which has no "
-            "Date partition.",
-            why="A write into a table with no days fills the whole table from every day it "
-            "reads, so it is sent whole: split by day, each day's INSERT_OVERWRITE would "
-            "replace the rows the day before wrote.",
+            what=f"by_day can't split this Statement: {s._write_call} writes "
+            f"{s._write._name}, which has no Date partition.",
+            why="A write into a table with no days fills the whole table at once, from all the "
+            "rows its Statement reads, so it is sent whole, not a day at a time.",
             fix="Send it whole, with run(s, send=...).",
             error=ValueError,
         )

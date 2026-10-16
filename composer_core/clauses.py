@@ -39,7 +39,7 @@ from .refusals import (
     refuse_what_the_other_edition_made,
     warning_repeated_rows,
 )
-from .tables import Column, Table, aliased, python_text
+from .tables import Column, Table, aliased, need_saved_table, python_text
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
@@ -859,16 +859,20 @@ def _write_clause(call: str, table, unproven_key) -> Clause:
             fix="Pass the Saved table's own Table reference.",
             error=ValueError,
         )
+    if table._date_partition is None:
+        # Written whole, a table someone else owns would lose every row it holds.
+        need_saved_table(table, f"{call}({table._alias})")
     return Clause(call, table=table, unproven_key=unproven_key)
 
 
 def INSERT_OVERWRITE(table, unproven_key=False):
-    """Write the Statement's rows into a Saved table, replacing one day, or all of it.
+    """Write rows into a Saved table, replacing one day, or the whole table.
 
-    It goes first, before SELECT. It writes one day: the day its FROM table is bounded to, so
-    loop over by_day(s) to write several. Only a write whose Window looks back on earlier days
-    may read more days than that, keeping the one it writes in a step above, as help(window)
-    shows. Columns are matched to the Saved table by name, and the Toolbox puts them in the
+    It goes first, before SELECT. Into a Saved table with a Date partition, it writes one day:
+    the day its FROM table is bounded to, so loop over by_day(s) to write several. Only a write
+    whose Window looks back on earlier days may read more days than that, keeping the one it
+    writes in a step above, as help(window) shows. A Saved table with no days is written
+    whole, as the last example below shows. Columns are matched to the Saved table by name, and the Toolbox puts them in the
     table's order, leaving out its Date partition. Re-running a day replaces it rather than
     adding to it, so a day can safely be sent again; to add rows to a day instead, use
     INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after
@@ -894,10 +898,11 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     no harm.
 
     A Saved table with no days, date_partition=None, is written whole: INSERT_OVERWRITE
-    replaces every row it holds with the Statement's rows, and its Hive names no PARTITION. The
-    Statement may read several days of the tables it reads, each bounded as any read is, and
-    by_day refuses it, since each day would replace the day before. Everything else is checked
-    as for a write of one day, its Key too.
+    replaces every row it holds with the Statement's rows, and its Hive names no PARTITION.
+    The Statement may read several days of a table with days, its days bounded in WHERE as in
+    any read, and is sent whole: by_day refuses it. Everything else is checked as for a write
+    of one day, its Key too. Such a table must be one of your Saved tables, with location=,
+    since a write would replace all of it.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
@@ -920,27 +925,37 @@ def INSERT_OVERWRITE(table, unproven_key=False):
       job_runs.dt,
       job_runs.job_id
 
-    And each job's team, in a Saved table with no days, written whole:
+    And each team's runs over two days, in a Saved table with no days, written whole. Its Key
+    is the team, which GROUP_BY makes one row for:
 
-    >>> job_teams = Table("mart.job_teams", date_partition=None, key=["job_id"],
-    ...     columns={"job_id": "bigint", "team": "string"},
+    >>> team_runs = Table("mart.team_runs", date_partition=None, key=["team"],
+    ...     columns={"team": "string", "runs": "bigint"},
     ...     location="/data/your_team/tables")
     >>> print(to_hive(statement(
-    ...     INSERT_OVERWRITE(job_teams),
-    ...     SELECT_DISTINCT(jobs.job_id, jobs.team),
-    ...     FROM(jobs),
+    ...     INSERT_OVERWRITE(team_runs),
+    ...     SELECT(jobs.team, AS(count_rows(), "runs")),
+    ...     FROM(job_runs),
+    ...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+    ...     GROUP_BY(jobs.team),
     ... )))
-    INSERT OVERWRITE TABLE mart.job_teams
-    SELECT DISTINCT
-      jobs.job_id,
+    INSERT OVERWRITE TABLE mart.team_runs
+    SELECT
+      jobs.team,
+      COUNT(*) AS runs
+    FROM ops.job_runs AS job_runs
+    JOIN ops.jobs AS jobs
+      ON jobs.job_id = job_runs.job_id
+    WHERE
+      job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    GROUP BY
       jobs.team
-    FROM ops.jobs AS jobs
     """
     return _write_clause("INSERT_OVERWRITE", table, unproven_key)
 
 
 def INSERT_INTO(table, unproven_key=False):
-    """Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
+    """Add rows to a Saved table's day, or to the table; sent twice, it adds twice.
 
     It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
     Statement reads, or the whole table for one with no days (date_partition=None), and its

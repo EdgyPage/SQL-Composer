@@ -442,7 +442,7 @@ def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list
         target = _table_box(graph, table, name)
         graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
-    if table._date_partition is None:
+    if not writes_one_day(s):
         return written  # written whole: no day written
     day = _table_box(graph, table, table._date_partition)
     written.append(day)
@@ -744,7 +744,7 @@ def _about(s: Statement, index: int, ordered) -> str:
                          f"{' and '.join(writers)} above.")
     if s._write is not None:
         verb = "writes" if s._replaces_day else "adds to"
-        if s._write._date_partition is None:
+        if not writes_one_day(s):
             parts.append(f"It {verb} the whole Saved table {s._write._name}, which has no "
                          "days.")
         else:

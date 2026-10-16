@@ -383,6 +383,24 @@ def test_guard_kept_day_without_window_refuses() -> None:
         to_hive(write)
 
 
+def test_guard_kept_day_in_a_whole_table_write_refuses() -> None:
+    # A table with no days is written whole: keeping one day above would leave only its rows.
+    job_counts = Table("mart.job_counts", columns={"job_id": "bigint", "runs": "bigint"},
+                       date_partition=None, location="/data/your_team/tables")
+    two_days = derived("two_days", statement(
+        SELECT(job_runs.job_id, job_runs.dt), FROM(job_runs), WHERE(DAYS)))
+    write = statement(
+        INSERT_OVERWRITE(job_counts),
+        SELECT(two_days.job_id, AS(count_rows(), "runs")),
+        FROM(two_days),
+        WHERE(equals(two_days.dt, "2026-09-24")),
+        GROUP_BY(two_days.job_id),
+    )
+    with pytest.raises(GuardRefused, match=r"writes the whole of mart\.job_counts, which has "
+                                           r"no days, and keeps one day"):
+        to_hive(write)
+
+
 def test_guard_by_day_limit_refuses() -> None:
     top = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS),
                     ORDER_BY(descending(job_runs.duration_mins)), LIMIT(10))

@@ -466,7 +466,9 @@ def test_insert_into_keeps_every_rule_of_a_write() -> None:
         to_hive(two_days)
     assert [to_hive(day).splitlines()[0][-13:] for day in by_day(two_days)] == [
         "'2026-09-23')", "'2026-09-24')"]
-    with pytest.raises(ValueError, match="needs a Saved table with a Date partition"):
+    # ops.jobs has no days and no location=: written whole, someone else's table would lose
+    # every row, so it is refused.
+    with pytest.raises(ValueError, match="isn't one of your Saved tables"):
         INSERT_INTO(jobs)
     with pytest.raises(ValueError, match="write"):
         derived("added", adding_a_day())

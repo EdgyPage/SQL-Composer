@@ -1489,14 +1489,22 @@ output job_id: job_runs.job_id
 output runs: COUNT(*)
 WHERE: job_runs.dt = '2026-09-24'
 -- Statement 2: to_hive
-INSERT OVERWRITE TABLE mart.job_teams
-SELECT DISTINCT
-  jobs.job_id,
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
   jobs.team
-FROM ops.jobs AS jobs
 -- Statement 2: the Statement
-output job_id: jobs.job_id
 output team: jobs.team
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
 # Lineage: statement_1, statement_2
 
@@ -1523,16 +1531,20 @@ flowchart LR
     n7["mart.daily_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   subgraph g4["ops.jobs"]
-    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
-    n10["ops.jobs.team<br/><small>string</small>"]
+    n8["ops.jobs.team<br/><small>string</small>"]
+    n13["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
   subgraph g5["statement_2"]
-    n9["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
-    n11["team<br/><small>jobs.team</small>"]
+    n9["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
+    n10["runs<br/><small>count_rows()</small>"]
   end
-  subgraph g6["mart.job_teams"]
-    n12["mart.job_teams.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
-    n13["mart.job_teams.team<br/><small>string</small>"]
+  subgraph g6["filters on statement_2"]
+    n11{{"WHERE in statement_2<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+    n12{{"JOIN ON in statement_2<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g7["mart.team_runs"]
+    n14["mart.team_runs.team<br/><small>string</small><br/><small>in the Key</small>"]
+    n15["mart.team_runs.runs<br/><small>bigint</small>"]
   end
   n0 --> n1
   n4 -.-> n3
@@ -1540,10 +1552,14 @@ flowchart LR
   n2 --> n6
   n3 -.->|day written| n7
   n8 --> n9
-  n10 --> n11
-  n9 --> n12
-  n11 --> n13
+  n4 -.-> n11
+  n13 -.-> n12
+  n0 -.-> n12
+  n9 --> n14
+  n10 --> n15
   n3 -.->|filters| g1
+  n11 -.->|filters| g5
+  n12 -.->|filters| g5
 ```
 
 ## statement_1
@@ -1598,36 +1614,54 @@ GROUP BY
 
 ## statement_2
 
-It writes the whole Saved table mart.job_teams, which has no days.
+It writes the whole Saved table mart.team_runs, which has no days.
 
 ### Calculated columns
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-None: every column is copied.
+#### `runs`
+
+Calculated in **statement_2** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement_2.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement_2: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement_2: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
 
 ### Copied columns
 
 | Output | Comes from |
 | --- | --- |
-| `job_id` | ops.jobs.job_id |
 | `team` | ops.jobs.team |
 
 ### Keys
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_2: Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
-- mart.job_teams' Key (job_id) holds: each row written has its own.
+- statement_2: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_runs' Key (team) holds: each row written has its own.
 
 ### Hive as submitted
 
 ```sql
-INSERT OVERWRITE TABLE mart.job_teams
-SELECT DISTINCT
-  jobs.job_id,
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
   jobs.team
-FROM ops.jobs AS jobs
 ```
 
 ---
@@ -17513,9 +17547,41 @@ LoadRefused:
 == edge:write:no_day:refused:by_day
 -- refused
 ValueError:
-  What happened:  by_day can't split this Statement: it writes mart.team_runs, which has no Date partition.
-  Why it matters: A write into a table with no days fills the whole table from every day it reads, so it is sent whole: split by day, each day's INSERT_OVERWRITE would replace the rows the day before wrote.
+  What happened:  by_day can't split this Statement: INSERT_OVERWRITE(team_runs) writes mart.team_runs, which has no Date partition.
+  Why it matters: A write into a table with no days fills the whole table at once, from all the rows its Statement reads, so it is sent whole, not a day at a time.
   Usual fix:      Send it whole, with run(s, send=...).
+  Opt-out:        none - this one can't be switched off.
+
+== edge:write:no_day:refused:not_a_saved_table
+-- refused
+ValueError:
+  What happened:  INSERT_OVERWRITE(theirs) was given ops.theirs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, or what the warehouse keeps about it, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.theirs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:write:no_day:refused:keeps_one_day_above
+-- Statement 1: to_hive
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(team_runs) writes the whole of mart.team_runs, which has no days, and keeps one day with equals(per_day.dt, ...) in a step above.
+  Why it matters: The whole of mart.team_runs would be replaced by that one day's rows. Keeping one day above is how a write of one day reads the days before it, and a table with no days has no day to write.
+  Usual fix:      To keep each day's rows, give mart.team_runs a Date partition. To write it whole from several days, take out the equals(per_day.dt, ...) above.
+  Opt-out:        none - this one can't be switched off.
+-- Statement 1: the Statement
+output team: per_day.team
+output runs: per_day.runs
+WHERE: per_day.dt = '2026-09-24'
+-- Statement 1: Derived table per_day
+output team: jobs.team
+output dt: job_runs.dt
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(team_runs) writes the whole of mart.team_runs, which has no days, and keeps one day with equals(per_day.dt, ...) in a step above.
+  Why it matters: The whole of mart.team_runs would be replaced by that one day's rows. Keeping one day above is how a write of one day reads the days before it, and a table with no days has no day to write.
+  Usual fix:      To keep each day's rows, give mart.team_runs a Date partition. To write it whole from several days, take out the equals(per_day.dt, ...) above.
   Opt-out:        none - this one can't be switched off.
 
 == edge:admin:drop_table:odd
@@ -17733,7 +17799,7 @@ ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23');
 ValueError:
   What happened:  admin.drop_days(...) was given mart.admin_runs, whose Table reference has no Date partition.
   Why it matters: It drops whole days, and a table with no Date partition keeps none.
-  Usual fix:      To keep fewer rows, write the table again with INSERT_OVERWRITE(t), which replaces all its rows with the ones its Statement gives. To empty the table, give its Table reference purge=True, send admin.set_properties(t), then drop it with admin.drop_table(t) and create it again.
+  Usual fix:      To keep fewer rows, write the table again with INSERT_OVERWRITE(admin_runs), which replaces all its rows with the ones its Statement gives. To empty it, drop it with admin.drop_table(admin_runs) and create it again, after admin.set_properties(admin_runs) with purge=True in its Table reference, so its files go too.
   Opt-out:        none - this one can't be switched off.
 
 == edge:admin:drop_days:not_a_day

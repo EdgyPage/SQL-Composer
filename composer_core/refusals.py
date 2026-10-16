@@ -393,6 +393,25 @@ def guard_kept_day_without_window(call: str, days: int, kept_by: str, date_colum
     )
 
 
+def guard_kept_day_in_a_whole_table_write(call: str, table: str, kept_by: str) -> None:
+    """A write into a table with no days may not keep one day in a step above. No opt-out.
+
+    `kept_by` is the column that step holds to one day with equals(...).
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call} writes the whole of {table}, which has no days, and keeps one day "
+            f"with equals({kept_by}, ...) in a step above.",
+            why=f"The whole of {table} would be replaced by that one day's rows. Keeping one "
+            "day above is how a write of one day reads the days before it, and a table with "
+            "no days has no day to write.",
+            fix=f"To keep each day's rows, give {table} a Date partition. To write it whole "
+            f"from several days, take out the equals({kept_by}, ...) above.",
+            opt_out=None,
+        )
+    )
+
+
 def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> None:
     """A write fills one day. No opt-out.
 

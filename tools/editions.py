@@ -178,7 +178,7 @@ DECLARED_DIFFERENCES = {
                "edge:create_table:key_with_the_day", "worked:saved_table:create",
                "worked:saved_table:create_if_missing", "worked:saved_table:rebuild",
                "edge:admin:move:two_days", "edge:admin:move:compact",
-               "edge:admin:move:managed"),
+               "edge:admin:move:managed", "edge:write:no_day:create_table"),
         sqlglot_composer_only=r",\n *PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE",
     ),
 }
