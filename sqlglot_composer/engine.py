@@ -399,6 +399,9 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
                     for name, (table, table_rows) in tables.items()}}
     if tree.find(exp.Window):
         _refuse_missing_part("window functions such as row_number")
+    if tree.find(exp.GroupingSets):
+        # Its executor would group by every column, leaving out the subtotal rows unsaid.
+        _refuse_missing_part("GROUPING SETS, which rollup, cube and grouping_sets write")
     try:
         with _mix_ups_stopped(tree):
             result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,

@@ -10,7 +10,7 @@ temporary folder, and each Statement goes through the send a Spark user gives at
   Spark's DESCRIBE FORMATTED;
 - INSERT_OVERWRITE replaces only its day, sent twice as well as once, and INSERT_INTO adds to
   its day; a write fills the Partitions after its day from its rows; a week_start is written
-  into a column of type string;
+  into a column of type string; a UNION is written into its day, each row once;
 - drop_table sent twice does nothing the second time;
 - write_table_reference, check_table_reference and check_key read real DESCRIBE and SHOW
   PARTITIONS output, of a day written as yyyy/MM/dd and with a row that has no day;
@@ -49,12 +49,14 @@ from sqlglot_composer import (
     INSERT_OVERWRITE,
     JOIN,
     SELECT,
+    UNION,
     WHERE,
     Table,
     check_key,
     check_table_reference,
     count_rows,
     create_table,
+    derived,
     drop_table,
     engine,
     equals,
@@ -177,6 +179,24 @@ def test_a_write_fills_the_partitions_after_its_day_from_its_rows(spark, send) -
         ("dt=2026-09-24/region=PAR",)]
     assert _rows(spark, "SELECT job_id, region, runs, dt FROM mart.region_runs") == [
         (1, "LON", 2, "2026-09-24"), (2, "PAR", 1, "2026-09-24"), (3, "NYC", 1, "2026-09-24")]
+
+
+def test_a_union_is_written_into_its_day_each_run_once(spark, send) -> None:
+    job_runs, run_alerts = example_database.job_runs, example_database.run_alerts
+    day = "2026-09-24"
+    failed = statement(SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs),
+                       WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")))
+    alerted = statement(SELECT(run_alerts.run_id, job_runs.job_id), FROM(run_alerts),
+                        JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
+                        WHERE(equals(run_alerts.dt, day), equals(run_alerts.severity, "high"),
+                              equals(job_runs.dt, day)))
+    flagged = derived("flagged", UNION(failed, alerted))
+    run(statement(INSERT_OVERWRITE(EDGE_TABLES["daily_runs"]),
+                  SELECT(flagged.job_id, AS(count_rows(), "runs")), FROM(flagged),
+                  GROUP_BY(flagged.job_id)), send=send)
+    # Run 102 failed and had a high alert: UNION keeps it once, so job 2 has one run.
+    assert _rows(spark, f"SELECT job_id, runs, dt FROM mart.daily_runs WHERE dt = '{day}'") == [
+        (1, 1, day), (2, 1, day)]
 
 
 def test_drop_table_sent_twice_does_nothing_the_second_time(spark, send) -> None:
