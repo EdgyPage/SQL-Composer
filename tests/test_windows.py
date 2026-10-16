@@ -331,6 +331,27 @@ def test_a_write_still_refuses_several_days_when_nothing_keeps_one() -> None:
     assert "WHERE(equals(the_derived_table.dt, day))" in str(refused.value)
 
 
+def test_a_write_with_no_window_still_refuses_several_days_a_step_above_keeps_one_of() -> None:
+    # Keeping one day in a step above is the fix for a Window that looks back, and for
+    # nothing else: a write with no Window reads the one day it writes, as in 4.x.
+    finishes = derived("finishes", statement(
+        SELECT(job_events.event_id, job_events.dt, job_events.minutes),
+        FROM(job_events),
+        WHERE(between(job_events.dt, "2026-09-17", DAY), equals(job_events.event_type, "finish"))))
+    s = statement(INSERT_OVERWRITE(events_before),
+                  SELECT(finishes.event_id, finishes.minutes, AS(finishes.minutes, "minutes_before")),
+                  FROM(finishes), WHERE(equals(finishes.dt, DAY)))
+    with pytest.raises(GuardRefused, match="reads 8 days") as refused:
+        to_hive(s)
+    message = str(refused.value)
+    # Its reason is the Window rule, not "every day's rows would land in that one day", which
+    # isn't so here: the step above keeps one day.
+    assert "keeps one of them with equals(finishes.dt, ...)" in message
+    assert "Only a write whose Window looks back" in message
+    assert "every day's rows would land" not in message
+    assert "WHERE(equals(job_events.dt, day))" in message
+
+
 def test_a_write_refuses_a_kept_day_its_from_table_doesnt_read() -> None:
     with_before = finished_with_the_run_before("2026-09-17", "2026-09-20")
     s = statement(INSERT_OVERWRITE(events_before),

@@ -4,38 +4,82 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 5.0
 
+5.0 fills in the SQL the Toolbox left out: Keys checked before each write, how your Saved tables
+are stored, Session settings, Hive written by hand, an admin module for changing your own Saved
+tables, more joins, Windows, Stacks and subtotals, and the Statements that keep reads fast. It
+refuses some writes 4.x let through, so read To update first.
+
 ### To update from 4.x
 
+Copy both folders in as the README's Update says, then change these in your notebooks and
+files. Each is listed again, with more, under New or Refused now below.
+
+- **A write into a Saved table whose Table reference declares a Key is refused unless the
+  Toolbox can see that each row it writes has a Key of its own.** Hive never checks a Key, so
+  before 5.0 two rows with the same Key were saved without a word. A write 4.1 let through may
+  be refused now: its message says why its rows may repeat a Key, such as which join repeats
+  them.
+  Fix the write, or, when the rows are one per Key for a reason the Toolbox can't see, write
+  `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The how-to
+  "Keys, checked before each write" shows each.
 - **Give each of your Saved tables' Table references a `location=`**, the folder your Saved
   tables go in, such as `location="/data/your_team/tables"`. create_table now refuses a Table
   reference without one, and writes `CREATE EXTERNAL TABLE ... LOCATION '<folder>/<database>/<table>'`:
   every Saved table is an external table in a folder of its own, which the Toolbox adds to
   `location=`. A table you only read needs none. A table create_table made before 5.0 is a
   managed table, in a folder the warehouse chose, and a table made by hand may share a folder
-  with another: check_table_reference(t, send=...) now reports both, and 5.0's
+  with another: check_table_reference(t, send=...) now reports both, and
   admin.move_to_own_folder(t, send=...) copies such a table's days into a new table, which
-  create_table makes at its own folder. Until it is moved, writing it works as in 4.x.
+  create_table makes at its own folder. Writes don't need `location=`: until it is moved,
+  writing it works as in 4.x.
 - **`drop_table` moved into the admin module.** `from sqlglot_composer import *` no longer
   brings it. Add `from sqlglot_composer import admin` below your star import, and write
   `admin.drop_table(t)` where you wrote `drop_table(t)`; a line that imports `drop_table` by
   name now stops with an ImportError. It now refuses a table that isn't one of your Saved
-  tables, a Table reference with no `location=`.
+  tables, a Table reference with no `location=`, and each `run` of it adds an entry to the
+  Admin log, `admin_log.md` beside your notebook.
+- **The star import brings 26 new names**: `ANTI_JOIN`, `EXCEPT`, `FULL_JOIN`, `INTERSECT`,
+  `RIGHT_JOIN`, `SEMI_JOIN`, `UNION`, `UNION_ALL`, `compute_statistics`, `cube`, `dense_rank`,
+  `explain`, `first_value`, `grouping_sets`, `hive_settings`, `is_total`, `lag`, `last_value`,
+  `lead`, `ntile`, `rank`, `repair_partitions`, `rollup`, `set_admin_log`, `unchecked_hive`
+  and `window`. A variable of your own with one of these names, set before the star import,
+  is replaced by the Toolbox's: give it another name.
 
 ### New
 
-- **The admin module: `from sqlglot_composer import admin`**, the changes to your own Saved
-  tables, written and checked for you. The star import leaves it out, so a notebook that
-  changes a table says so. `admin.drop_table(t)`; `admin.drop_days(t, before=...)`, which
-  drops a Saved table's days before a given day, the job TRUNCATE can't do on an external table;
-  `admin.add_columns(t, send=...)`, which adds the columns its Table reference lists and the
-  table lacks; `admin.set_properties(t)`, which sets purge, compression and properties as its
-  Table reference gives them; and `admin.move_to_own_folder(t, send=...)`, the steps that move
-  a Saved table to its own folder: a copy made there, each day copied, the rows compared, the
-  old table dropped and the copy given its name. Each makes an ordinary Statement (the move a
-  list of them), which `run` sends and logs in the Admin log, and `show_hive` prints what it
-  changes, what can't be undone and what to check first before its Hive. Each refuses a table
-  that isn't one of your Saved tables. The how-to "Move a Saved table to its own folder" walks
-  a table out of a folder it shares.
+**Keys**
+
+- **create_table writes a Table reference's Key into the table** in sqlglot Composer, as
+  `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
+  never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out. Either way, the
+  Toolbox checks the Key before each write (To update, above).
+- **A Derived table's Key reaches further**: through a join that matches its joined table's
+  whole Key, through a row_number(...) kept at 1, and past a column whose value another
+  column already fixes, as a run's run_id fixes its job_id. JOIN's repeated-rows Warning asks
+  for `many_matches=` less often, and when a Derived table has no Key it says where its
+  Statement lost one.
+- **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
+  chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
+  holds.
+
+**How a Saved table is stored**
+
+- **A Saved table's Table reference says how it is stored**, and create_table writes it:
+  `location=` (above), `purge=True` (dropping it deletes its files too), `properties={...}`
+  (other table properties), `stored_as="ORC"` or `"PARQUET"`, `compression=`,
+  `partitioned_by=[...]` (Partitions inside each day, filled from each write's rows), and
+  `bucketed_by=[...]` with `buckets=` and `sorted_by=[...]` (Buckets, for big tables joined
+  on those columns). help(Table) lists them, and the how-to "Choose how a Saved table is
+  stored" walks through them, and why there are no indexes.
+- **check_table_reference compares a Saved table's storage** with what DESCRIBE FORMATTED
+  says: that it is external, its folder, purge, its file format and compression, its
+  properties, its Partitions and its Buckets, each difference with the line to change.
+- **show_hive prints the Session setting a write needs first**: a write into a table with
+  `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
+  partitioning, so its SET lines are printed ahead of it. run sends the write alone: send
+  the setting first with `run(hive_settings("dynamic_partitions"), send=...)`.
+
+**Session settings, Hive written by hand, and the Admin log**
 
 - **Session settings: `hive_settings("name")` gives the `SET` lines of a named set**, for
   `run` to send before your Statements, one line at a time, as Hive takes them. Four sets come
@@ -55,49 +99,26 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   Hive sent, the script and its git commit, and whether it worked. The Toolbox only ever adds
   to it. To keep it elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and
   call `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
-- The Example database answers a `SET` line, as Spark does, with the setting and its value.
-- **A Saved table's Table reference says how it is stored**, and create_table writes it:
-  `purge=True` (dropping it deletes its files too), `properties={...}` (other table
-  properties), `stored_as="ORC"` or `"PARQUET"`, `compression=`, `partitioned_by=[...]`
-  (Partitions inside each day, filled from each write's rows), and `bucketed_by=[...]` with
-  `buckets=` and `sorted_by=[...]` (Buckets, for big tables joined on those columns).
-  help(Table) lists them, and the how-to "Choose how a Saved table is stored" walks through
-  them, and why there are no indexes.
-- **check_table_reference compares a Saved table's storage** with what DESCRIBE FORMATTED
-  says: that it is external, its folder, purge, its file format and compression, its
-  properties, its Partitions and its Buckets, each difference with the line to change.
-- **show_hive prints the Session setting a write needs first**: a write into a table with
-  `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
-  partitioning, so its SET lines are printed ahead of it. run sends the write alone: send
-  the setting first with `run(hive_settings("dynamic_partitions"), send=...)`.
-- **create_table writes a Table reference's Key into the table** in sqlglot Composer, as
-  `PRIMARY KEY (...) DISABLE NOVALIDATE`, which Hive keeps for whoever reads the table and
-  never checks. Spark refuses a PRIMARY KEY, so Spark Composer leaves it out.
-- **A Derived table's Key reaches further**: through a join that matches its joined table's
-  whole Key, through a row_number(...) kept at 1, and past a column whose value another
-  column already fixes, as a run's run_id fixes its job_id. JOIN's repeated-rows Warning asks
-  for `many_matches=` less often, and when a Derived table has no Key it says where its
-  Statement lost one.
-- **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
-  chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
-  holds.
-- **Three Statements that keep reads and joins fast**, each safe to send again:
-  - `repair_partitions(t)` writes `MSCK REPAIR TABLE`, which adds to the warehouse's list of
-    a Saved table's days each day folder it finds that the list lacks, as after creating a
-    table again where its old files stayed.
-  - `compute_statistics(t, day)` writes `ANALYZE TABLE ... PARTITION(...) COMPUTE
-    STATISTICS`, which counts a day's rows for Hive to plan joins from; `columns=True`, or a
-    list of columns, counts columns too (`FOR COLUMNS ...`).
-  - `explain(s)` writes `EXPLAIN` before a Statement's Hive, and `run` gives back Hive's plan
-    for it as text.
 
-  The first two take only your own Saved tables, Table references with `location=`. The
-  how-to "Keep reads and joins fast" puts them beside Partitions, file sizes, Buckets and the
-  Session settings `"map_joins"`, `"statistics_on_write"` and `"merge_small_files"`.
-  help(create_table) now says that `create_table(t, may_exist=True)` is safe to send again
-  too.
-- Spark Composer's Example database answers an `EXPLAIN` of a query with Spark's plan;
-  sqlglot Composer's says its small executor has none to give.
+**The admin module**
+
+- **`from sqlglot_composer import admin`** gives the changes to your own Saved tables, written
+  and checked for you. The star import leaves it out, so a notebook that changes a table says
+  so. `admin.drop_table(t)`; `admin.drop_days(t, before=...)`, which drops a Saved table's
+  days before a given day, the job TRUNCATE can't do on an external table;
+  `admin.add_columns(t, send=...)`, which adds the columns its Table reference lists and the
+  table lacks; `admin.set_properties(t)`, which sets purge, compression and properties as its
+  Table reference gives them; and `admin.move_to_own_folder(t, send=...)`, the steps that move
+  a Saved table to its own folder: a copy made there, each day copied, the rows compared, the
+  old table dropped and the copy given its name. Each makes an ordinary Statement, which `run`
+  sends and logs in the Admin log (the move gives a list of them, to run one at a time, in
+  order), and `show_hive` prints what it
+  changes, what can't be undone and what to check first before its Hive. Each refuses a table
+  that isn't one of your Saved tables. The how-to "Move a Saved table to its own folder" walks
+  a table out of a folder it shares.
+
+**Joins**
+
 - **Three more joins.** `SEMI_JOIN(t, ON=...)` keeps each row that has a match in t, once,
   written `LEFT SEMI JOIN`; `ANTI_JOIN(t, ON=...)` keeps each row that has none, written as a
   `LEFT JOIN` with a `WHERE` that keeps the rows whose matched column is NULL, since Hive 3 has
@@ -105,34 +126,42 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   repeated-rows Warning, and only their `ON=` may read t's columns. `FULL_JOIN(t, ON=...)`
   pairs the rows that match and keeps the rows of each side that have none, to compare two
   records of the same things. A `WHERE` on either side, other than `is_null(...)`, is refused
-  (opt-out `keeps_only_matches=True`), since it would throw away the rows the join keeps; bound
+  (opt-out `FULL_JOIN(t, ON=..., keeps_only_matches=True)`), since it would throw away the rows the join keeps; bound
   each side's days in a Derived table of its own instead. Its rows have no Key until a
-  GROUP_BY gives them one. `RIGHT_JOIN` is refused,
-  saying to swap the tables and write `LEFT_JOIN`. Lineage names each join's `ON=` with what it
-  keeps. The how-to "Semi-, anti- and full joins" walks through them.
+  GROUP_BY gives them one. `RIGHT_JOIN` is refused, saying to swap the tables and write
+  `LEFT_JOIN`. Lineage names each join's `ON=` with what it keeps. The how-to "Semi-, anti-
+  and full joins" walks through them.
 - **`broadcast=True` on JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN** asks for a map join: the
   joined table is copied to every worker, written as Hive's `/*+ MAPJOIN(t) */` hint. Hive
-  makes map joins by itself with the Session setting "map_joins", and follows the hint only
-  once `hive.ignore.mapjoin.hint` is set to false; Spark always follows it.
+  heeds the hint once the Session setting "map_joins" is sent, which sets
+  `hive.ignore.mapjoin.hint=false`. That setting also lets Hive make map joins by itself.
+  Spark always heeds the hint.
 - The Example database has a seventh table, `ops.scheduler_runs`: the scheduler's own record
   of the runs it started on 2026-09-23 and 2026-09-24, which lacks run 99 and holds a run 100
   that job_runs lacks, for FULL_JOIN to find. sqlglot Composer's Example database can't run a
   `LEFT SEMI JOIN`, and says so.
-- **Windows: `window(PARTITION_BY=..., ORDER_BY=..., rows=(-6, 0))`** names the rows a
-  calculation looks across for each row. Pass it as `over=` to `sum_of`, `average_of`,
-  `count_rows`, `min_of` and `max_of` for a running total, a moving average or a group's total
-  beside each row; and to the new `rank`, `dense_rank`, `ntile`, `lag`, `lead`, `first_value`
-  and `last_value`, which always take one. `row_number(over=window(...))` numbers rows the same
-  as `row_number(PARTITION_BY=..., ORDER_BY=...)`, which still works. A Window keeps every row,
+
+**Windows**
+
+- **`window(PARTITION_BY=..., ORDER_BY=..., rows=(-6, 0))`** names the rows a calculation looks
+  across for each row. Pass it as `over=` to `sum_of`, `average_of`, `count_rows`, `min_of`
+  and `max_of` for a running total, a moving average or a group's total beside each row; and
+  to the new `rank`, `dense_rank`, `ntile`, `lag`, `lead`, `first_value` and `last_value`,
+  which always take one. `row_number(over=window(...))` numbers rows the same as
+  `row_number(PARTITION_BY=..., ORDER_BY=...)`, which still works. A Window keeps every row,
   so a Statement's Key stays what it was. A value worked out over a Window doesn't add up
   again: sum_of refuses it unless you pass `adds_up=True`. Lineage lists each Window's groups
   and order under "Rows that count". The how-to once called "Finish in pandas", now "Look
   across rows, then finish in pandas", works out lag, rank and a rolling sum this way. sqlglot
   Composer's Example database can't run a Window; Spark Composer's can.
-- **A write may read earlier days and write one**, as a Window that looks back needs: read the
-  day and the days before it in a Derived table that keeps the day column, and keep only the
-  day written in the Statement that writes, with `WHERE(equals(the_derived_table.dt, day))`.
-  The Toolbox writes the day that Statement keeps.
+- **A write whose Window looks back may read earlier days and write one day**: read the day and
+  the days before it in a Derived table that keeps the day column, and keep only the day
+  written in the Statement that writes, with `WHERE(equals(the_derived_table.dt, day))`. The
+  Toolbox writes the day that Statement keeps. Only a write with a Window may do this: any
+  other write that reads several days is refused, as in 4.x.
+
+**Stacks and subtotals**
+
 - **Stacks: `UNION_ALL`, `UNION`, `INTERSECT` and `EXCEPT` put whole Statements' rows
   together**, one Statement after another, their columns matched by name, so a column is never
   stacked under one of another name. A Statement that lacks a column, or returns it as
@@ -151,20 +180,43 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   and says so; Spark Composer's can. The how-to "Subtotals and grand totals" walks through
   them.
 
+**Keeping reads and joins fast**
+
+- **Three Statements that keep reads and joins fast**, each safe to send again:
+  - `repair_partitions(t)` writes `MSCK REPAIR TABLE`, which adds to the warehouse's list of
+    a Saved table's days each day folder it finds that the list lacks, as after creating a
+    table again where its old files stayed.
+  - `compute_statistics(t, day)` writes `ANALYZE TABLE ... PARTITION(...) COMPUTE
+    STATISTICS`, which counts a day's rows for Hive to plan joins from; `columns=True`, or a
+    list of columns, counts columns too (`FOR COLUMNS ...`).
+  - `explain(s)` writes `EXPLAIN` before a Statement's Hive, and `run` gives back Hive's plan
+    for it as text.
+
+  The first two take only your own Saved tables, Table references with `location=`. The
+  how-to "Keep reads and joins fast" puts them beside Partitions, file sizes, Buckets and the
+  Session settings `"map_joins"`, `"statistics_on_write"` and `"merge_small_files"`.
+  help(create_table) now says that `create_table(t, may_exist=True)` is safe to send again
+  too.
+- Spark Composer's Example database answers an `EXPLAIN` of a query with Spark's plan;
+  sqlglot Composer's says its small executor has none to give. Both answer a `SET` line, as
+  Spark does, with the setting and its value.
+
 ### Refused now
 
-- **A write into a Saved table whose Table reference declares a Key is refused unless the
-  Toolbox can see that each row it writes has a Key of its own.** Hive never checks a Key, so
-  before 5.0 two rows with the same Key were saved without a word. The Toolbox sees it from a
-  GROUP_BY over the Key's columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each Key
-  in a Derived table, or the rows of the table in FROM, read by its own Key, with each join
-  matching its joined table's whole Key. The day written counts as one value, so a Key such as
-  `key=["job_id", "dt"]` needs one row for each job_id. A write 4.1 let through may be refused
-  now: its message says how its rows lost the Key. Fix the write, or, when the rows are one
-  per Key for a reason the Toolbox can't see, write
-  `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The how-to
-  "Keys, checked before each write" shows each.
-- create_table refuses a Table reference with no `location=`.
+- **A write into a Saved table with a Key the Toolbox can't see each row keeps**: see To
+  update, above. The Toolbox sees it from a GROUP_BY over the Key's columns, a
+  SELECT_DISTINCT, a row_number(...) kept at 1 for each Key in a Derived table, or a FROM
+  table whose own Key gives one row per Key written, when each join matches its joined table's
+  whole Key. The day written counts as one value, so a Key such as `key=["job_id", "dt"]` needs one
+  row for each job_id.
+- **create_table refuses a Table reference with no `location=`**, and **each admin function
+  refuses a table that isn't one of your Saved tables**, a Table reference with no
+  `location=`, such as a table another team fills: `admin.drop_table`, which as `drop_table`
+  took any Table reference, included. See To update, above.
+- Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
+  a whole path from the top folder, such as `/data/your_team/tables`, or already ends with the
+  table's own folder, two Saved tables whose folders
+  are one or sit one inside the other, and any option create_table couldn't write.
 - **by_day refuses a Statement whose Window looks across days**: one whose `PARTITION_BY=`
   leaves out the day, such as each job's `lag(...)`: split by day, each day's Statement would
   stop at its own day's edge. In 4.x a `row_number(...)` there was refused as grouping across
@@ -173,12 +225,6 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - `hive_function("lag", ...)`, and `"lead"`, `"rank"`, `"dense_rank"`, `"ntile"` and
   `"row_number"`, are refused as before, and the message now names the Toolbox's own function,
   such as `lag(column, over=window(...))`, where it gave a pandas line.
-- Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
-  a whole folder or already ends with the table's own folder, two Saved tables whose folders
-  are one or sit one inside the other, and any option create_table couldn't write.
-- **Each admin function refuses a table that isn't one of your Saved tables**, a Table
-  reference with no `location=`, such as a table another team fills: `admin.drop_table`, which
-  as `drop_table` took any Table reference, included.
 
 ## 4.1
 

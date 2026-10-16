@@ -15,7 +15,7 @@ from .refusals import refuse
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # What a function needs of its window: ORDER_BY, and whether it takes rows=.
 TOTAL = "a total"  # sum_of, average_of, count_rows, min_of, max_of: rows= with ORDER_BY
@@ -151,8 +151,9 @@ def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
     - in the Statement that writes, keep only the day written, with
       WHERE(equals(the_derived_table.dt, day)). The Toolbox writes that day.
 
-    Send one such Statement for each day. Here, each run of 2026-09-24 beside the minutes of
-    its job's run before, which may be on 2026-09-23:
+    Only a write with a Window may read several days this way: any other write must read only
+    the day it writes. Send one such Statement for each day. Here, each run of 2026-09-24
+    beside the minutes of its job's run before, which may be on 2026-09-23:
 
     >>> runs_before = Table("mart.runs_before", date_partition="dt", key=["run_id", "dt"],
     ...     columns={"run_id": "bigint", "minutes_before": "int", "dt": "string"},

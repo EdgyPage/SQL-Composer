@@ -48,7 +48,7 @@ from .unchecked import (
 )
 from .windows import call_of
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}
@@ -273,9 +273,12 @@ def _written_day(s: Statement):
     kept = kept_day(s) if len(days) > 1 else None
     if kept is None:
         if len(days) != 1:
-            windowed = any(has_window(column._tree) for step, _ in steps(s)
-                           for column, _ in step._outputs)
-            guard_one_day_per_write(s._write_call, len(days), windowed)
+            windowed = _has_a_window(s)
+            above = None if windowed else _day_kept_above(s)
+            guard_one_day_per_write(
+                s._write_call, len(days), windowed,
+                kept_by=None if above is None else _column_text(above.column),
+                bound=f"{table._alias}.{table._date_partition}")
         return days[0]
     if kept.day not in days:
         written = [day_text(day, table._date_format) for day in (kept.day, days[0], days[-1])]
@@ -291,20 +294,33 @@ def _written_day(s: Statement):
 
 
 class KeptDay(NamedTuple):
-    """The one day a step above a write's FROM table keeps: the step, its condition, the day."""
+    """The one day a step above a write's FROM table keeps: the step, its condition, the day,
+    and the column of that step that equals(...) holds to it."""
 
     step: Statement
     condition: object
     day: object  # a datetime.date
+    column: Node
+
+
+def _has_a_window(s: Statement) -> bool:
+    """Whether any step of the Statement works out a Window."""
+    return any(has_window(column._tree) for step, _ in steps(s) for column, _ in step._outputs)
 
 
 def kept_day(s: Statement) -> KeptDay | None:
     """The one day a step above a write's FROM table keeps, with equals(...) of the Date
-    partition passed up to it; or None when no step keeps one.
+    partition passed up to it; or None when no step keeps one, or the Statement has no Window.
 
     A write whose Window looks back on earlier days reads them in a Derived table, and keeps
-    the day it writes in a step above that table, as help(window) shows.
+    the day it writes in a step above that table, as help(window) shows. Only a write with a
+    Window may read several days this way: any other write reads the one day it writes.
     """
+    return _day_kept_above(s) if _has_a_window(s) else None
+
+
+def _day_kept_above(s: Statement) -> KeptDay | None:
+    """The one day a step above a write's FROM table keeps, Window or not; None when none."""
     found = steps(s)
     if found[-1][0]._stack is not None:
         return None  # a Stack's Statements each read their own days: none is kept above
@@ -313,22 +329,29 @@ def kept_day(s: Statement) -> KeptDay | None:
     for (step, _), (below, _) in zip(reversed(found[:-1]), reversed(found[1:])):
         dates = _dates_above(below, step._reads[0].table, dates)
         for condition in step._where:
-            day = _day_of(condition._tree, dates, getattr(table, table._date_partition))
-            if day is not None:
-                return KeptDay(step, condition, day)
+            held = _day_of(condition._tree, dates, getattr(table, table._date_partition))
+            if held is not None:
+                return KeptDay(step, condition, held[1], held[0])
     return None
 
 
 def _day_of(tree: Node, dates: list, partition):
-    """The day an equals(...) holds one of `dates` to, as a Python date, or None. `partition`
-    is the Date partition they carry up, whose Table reference says how its days are written."""
+    """The column of `dates` an equals(...) holds to a day, and that day as a Python date, or
+    None. `partition` is the Date partition they carry up, whose Table reference says how its
+    days are written."""
     if tree.kind != "EQ":
         return None
     sides = (tree.parts["this"], tree.parts["expression"])
     for column, value in (sides, sides[::-1]):
         if column in dates and value.kind == "Literal" and value.parts.get("is_string"):
-            return as_date(value.parts["this"], partition, "equals(...)")
+            return column, as_date(value.parts["this"], partition, "equals(...)")
     return None
+
+
+def _column_text(column: Node) -> str:
+    """A column as the user writes it, such as finishes.dt."""
+    table = column.parts.get("table")
+    return f"{table}.{column.parts['name']}" if table else column.parts["name"]
 
 
 def day_partition(table: Table, day: str) -> Node:

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 
 # --- Session settings ------------------------------------------------------------------------
@@ -30,6 +30,7 @@ SHIPPED = {
     "map_joins": {
         "hive.auto.convert.join": "true",
         "hive.auto.convert.join.noconditionaltask": "true",
+        "hive.ignore.mapjoin.hint": "false",
     },
     "statistics_on_write": {
         "hive.stats.autogather": "true",
@@ -77,10 +78,12 @@ def hive_settings(*names, sets=None):
       hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its
       day, such as by region too: a write gives the day, and Hive fills the other Partitions
       from each row's own values only with these on.
-    - "map_joins": hive.auto.convert.join=true and
-      hive.auto.convert.join.noconditionaltask=true. Hive then joins a small table by copying
-      it to every worker, which skips sorting the big one, and chooses this by itself from the
-      tables' statistics. explain(s) shows whether it did: a Map Join in the plan.
+    - "map_joins": hive.auto.convert.join=true,
+      hive.auto.convert.join.noconditionaltask=true and hive.ignore.mapjoin.hint=false. Hive
+      then joins a small table by copying it to every worker, which skips sorting the big one,
+      and chooses this by itself from the tables' statistics; and it heeds the hint that
+      JOIN(..., broadcast=True) writes, which it ignores otherwise. explain(s) shows whether
+      it made one: a Map Join in the plan.
     - "statistics_on_write": hive.stats.autogather=true and hive.stats.column.autogather=true.
       Each write then gathers the statistics of the day it writes, which Hive picks its join
       plans from, so they are never out of date. compute_statistics(t, day) counts a day
@@ -89,10 +92,9 @@ def hive_settings(*names, sets=None):
       hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones,
       since many small files slow down every later read.
 
-    Keep your own sets in a settings.py of your own, beside your notebook, as
-    HIVE_SETTINGS = {"nightly":
-    {"hive.exec.parallel": True}}, each a name and its settings, and pass them as sets=. True
-    and False are written true and false.
+    Keep your own sets in a settings.py of your own, beside your notebook, each a name and its
+    settings, such as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass them
+    as sets=. True and False are written true and false.
 
     >>> print(to_hive(hive_settings("dynamic_partitions")))
     SET hive.exec.dynamic.partition=true
@@ -102,6 +104,7 @@ def hive_settings(*names, sets=None):
     -- Session settings: map_joins, nightly, sent one line at a time
     SET hive.auto.convert.join=true;
     SET hive.auto.convert.join.noconditionaltask=true;
+    SET hive.ignore.mapjoin.hint=false;
     SET hive.exec.parallel=true;
     SET mapreduce.job.reduces=8;
     """
