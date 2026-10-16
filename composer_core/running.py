@@ -28,6 +28,7 @@ from .refusals import (
     guard_by_day_limit,
     guard_by_day_stack,
     guard_by_day_window,
+    guard_kept_day_without_window,
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
@@ -270,16 +271,15 @@ def _written_day(s: Statement):
         "A Saved table is filled from a table with days: put one in FROM, bounded to one day "
         "in WHERE.")
     days = span.dates()
-    kept = kept_day(s) if len(days) > 1 else None
-    if kept is None:
-        if len(days) != 1:
-            windowed = _has_a_window(s)
-            above = None if windowed else _day_kept_above(s)
-            guard_one_day_per_write(
-                s._write_call, len(days), windowed,
-                kept_by=None if above is None else _column_text(above.column),
-                bound=f"{table._alias}.{table._date_partition}")
+    if len(days) == 1:
         return days[0]
+    windowed = _has_a_window(s)
+    kept = _day_kept_above(s) if len(days) > 1 else None
+    if kept is not None and not windowed:
+        guard_kept_day_without_window(s._write_call, len(days), _column_text(kept.column),
+                                      f"{table._alias}.{table._date_partition}")
+    if kept is None:
+        guard_one_day_per_write(s._write_call, len(days), windowed)
     if kept.day not in days:
         written = [day_text(day, table._date_format) for day in (kept.day, days[0], days[-1])]
         refuse(
@@ -329,9 +329,11 @@ def _day_kept_above(s: Statement) -> KeptDay | None:
     for (step, _), (below, _) in zip(reversed(found[:-1]), reversed(found[1:])):
         dates = _dates_above(below, step._reads[0].table, dates)
         for condition in step._where:
-            held = _day_of(condition._tree, dates, getattr(table, table._date_partition))
-            if held is not None:
-                return KeptDay(step, condition, held[1], held[0])
+            column_and_day = _day_of(condition._tree, dates,
+                                     getattr(table, table._date_partition))
+            if column_and_day is not None:
+                column, day = column_and_day
+                return KeptDay(step, condition, day, column)
     return None
 
 
@@ -350,8 +352,7 @@ def _day_of(tree: Node, dates: list, partition):
 
 def _column_text(column: Node) -> str:
     """A column as the user writes it, such as finishes.dt."""
-    table = column.parts.get("table")
-    return f"{table}.{column.parts['name']}" if table else column.parts["name"]
+    return f"{column.table}.{column.name}" if column.table else column.name
 
 
 def day_partition(table: Table, day: str) -> Node:

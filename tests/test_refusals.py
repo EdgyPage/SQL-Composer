@@ -367,6 +367,22 @@ def test_guard_one_day_per_write_refuses() -> None:
         to_hive(backfill)
 
 
+def test_guard_kept_day_without_window_refuses() -> None:
+    # Two days read in a Derived table, one kept above: only a write with a Window may.
+    two_days = derived("two_days", statement(
+        SELECT(job_runs.job_id, job_runs.dt), FROM(job_runs), WHERE(DAYS)))
+    write = statement(
+        INSERT_OVERWRITE(daily_runs),
+        SELECT(two_days.job_id, AS(count_rows(), "runs")),
+        FROM(two_days),
+        WHERE(equals(two_days.dt, "2026-09-24")),
+        GROUP_BY(two_days.job_id),
+    )
+    with pytest.raises(GuardRefused, match=r"reads 2 days, and keeps one of them with "
+                                           r"equals\(two_days\.dt, \.\.\.\)"):
+        to_hive(write)
+
+
 def test_guard_by_day_limit_refuses() -> None:
     top = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS),
                     ORDER_BY(descending(job_runs.duration_mins)), LIMIT(10))
