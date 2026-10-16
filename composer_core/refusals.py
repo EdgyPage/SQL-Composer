@@ -629,10 +629,13 @@ def load_limit_date_bound(call: str, table: str, full_name: str, date_partition:
         return
     column = f"{table}.{date_partition}"
     if full_join:
+        # The FULL_JOIN's own table, or one read before it, such as the table in FROM.
+        clause = call.split("(")[0]
+        then = ("FULL_JOIN that" if clause == "FULL_JOIN"
+                else f"read that in {clause}(...) in its place")
         fix = (f"Read {table} through a derived(...) table that bounds its days in its own "
-               "WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of its table, so a bound "
-               "in ON= reads every day all the same, and one in WHERE throws away the rows it "
-               "keeps.")
+               f"WHERE, and {then}: FULL_JOIN keeps every row of both sides, so a bound in ON= "
+               "reads every day all the same, and one in WHERE throws away the rows it keeps.")
     elif call.startswith(("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")):
         fix = f"Bound it inside ON=, as in ON=all_of(equals(...), last_n_days({column}, 7))."
     else:

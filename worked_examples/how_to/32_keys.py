@@ -108,7 +108,9 @@ The Toolbox looks at how a write makes its rows. Each of these shows a Key:
   [The latest row per key](#latest_row_per_key) does: one row for each `PARTITION_BY=` value.
 - **The rows of the table in FROM, by its own Key**, when SELECT returns that Key's columns,
   and each join matches its joined table's whole Key, so each row from FROM meets at most one
-  row of the joined table.
+  row of the joined table. A SEMI_JOIN or ANTI_JOIN keeps the Key whatever its ON= matches,
+  since it never repeats a row; a FULL_JOIN loses it, since either side's columns may be NULL.
+  [Semi-, anti- and full joins](#semi_anti_and_full_joins) shows each.
 
 Here the last two are used together: each job's newest run, numbered in a Derived table, then
 joined to `ops.jobs` on its whole Key, `jobs.job_id`, which keeps one row for each job:
