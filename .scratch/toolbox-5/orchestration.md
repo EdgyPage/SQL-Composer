@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16, wave 2 merging (04, 05, 06 merged; 07 merging dev; 08 next).
+Last updated: 2026-10-16, wave 2 nearly merged (04-07 in; 08 merging dev). Next: three full test runs on dev, push, CI.
 
 ## The plan (the user's brief)
 
@@ -31,11 +31,11 @@ everything after it is unpushed (push it with the Spark CI fix, once local runs 
 | 01 Keys | `worktree-agent-a6d7b135a93d73477` | merged (2b944b7); drift fixes merged (5b24a4c, 34f0f77) |
 | 02 The Saved table's storage | `worktree-agent-a6f3bd488edfd2022` | merged (3a83175); drift fixes 84c32fd |
 | 03 Session settings, Unchecked statement, Admin log | `worktree-agent-af9eba55aa5919751` | merged (641a749); drift fix c5e251c |
-| 04 The admin module | `worktree-agent-a488bd9fe0f586e60` | merged (958408f; admin.py, `tables.need_saved_table(t, what)`, how-to 34, 78 public names); drift review of 958408f running |
-| 05 Joins | `worktree-agent-aa687d203297246a7` | merged (cdcd71e; how-to 33, `ops.scheduler_runs`); its agent is fixing drift D169-D172 on its branch: merge that, then close them |
+| 04 The admin module | `worktree-agent-a488bd9fe0f586e60` | merged (958408f); drift fixes D173-D178 merged (2883021, closed) |
+| 05 Joins | `worktree-agent-aa687d203297246a7` | merged (cdcd71e); drift fixes D169-D172 merged (3ca3e7e, closed) |
 | 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617), drift fixes D166-D168 merged (f7f2e04, closed) |
-| 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | done (6d64d09; stacking.py, 8 names, how-tos 'Reconcile two tables' and 'Subtotals and grand totals'); its agent is merging `dev` into its branch, renumbering its how-tos to 35 and 36 (86 names); then merge it |
-| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | done (685d197; upkeep.py, repair_partitions, compute_statistics, explain; its own `need_saved_table` in tables.py; how-to 'Keep reads and joins fast'); after 07 lands, have it merge `dev`: keep ticket 04's need_saved_table, renumber its how-to to 37, 89 names, and keep its broadcast=True sentence (05 landed) |
+| 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | merged (5a329a1; how-tos 35, 36; 86 names); drift D179-D180 fixed by 8406f79 |
+| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | done; its agent is merging `dev` (2095ce8) into its branch: one `need_saved_table` (04's and 08's reconciled), how-to 37, 89 names; then merge it, and wave 2 is complete |
 | 09 Ship 5.0 | - | blocked on 01-08 |
 
 A fresh session can't message these agents (their ids live only in the session that started
@@ -44,8 +44,8 @@ dev..<branch>` and the ticket's Status line in the worktree; finish it with a ne
 that worktree (commit or stash what's there first), or merge it if it's resolved and its
 checks pass.
 
-Drift open: D156 (`version`, closed by ticket 09 raising TOOLBOX_VERSION to "5.0"; the stop
-hook nags about it each turn, which is expected) and D169-D172 (ticket 05, being fixed).
+Drift open: only D156 (`version`, closed by ticket 09 raising TOOLBOX_VERSION to "5.0"; the
+stop hook nags about it each turn, which is expected).
 
 ## Open questions for the user (asked, not yet answered)
 
