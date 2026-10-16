@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-15, wave 2 running.
+Last updated: 2026-10-15, wave 2 running (06 merged; 05 merging dev; 04, 07, 08 building).
 
 ## The plan (the user's brief)
 
@@ -23,26 +23,42 @@ Last updated: 2026-10-15, wave 2 running.
 
 ## Where it stands
 
-| Ticket | State |
-|---|---|
-| 01 Keys | merged (2b944b7), drift fixes merged (5b24a4c, 34f0f77) |
-| 02 The Saved table's storage | merged (3a83175), drift fixes 84c32fd |
-| 03 Session settings, Unchecked statement, Admin log | merged (641a749), drift fix c5e251c |
-| 04 The admin module | running, branch `worktree-agent-a488bd9fe0f586e60` |
-| 05 Joins | running, branch `worktree-agent-aa687d203297246a7` |
-| 06 Windows | merged (e523617); open for the user: `running.kept_day` lets any write read several days when a step above keeps one with `equals(...)`, not only a window's |
-| 07 Stacking and subtotals | running, branch `worktree-agent-af1a5baa3f9895606` |
-| 08 Upkeep and speed | running, branch `worktree-agent-a0f9ffdeaa6cbfa6a` |
-| 09 Ship 5.0 | blocked on 01-08 |
+Last checked: 2026-10-15, evening; `dev` local tip 289a8bb. `origin/dev` is at 849b3c1:
+everything after it is unpushed (push it with the Spark CI fix, once local runs are green).
 
-Each wave-2 worktree is at `.claude/worktrees/agent-<id>/`. A branch with commits but no
-report may still be mid-work: check `git -C <worktree> status` and the ticket's Status line
-before merging; an unfinished one can be finished by a new agent in that worktree.
+| Ticket | Branch (worktree `.claude/worktrees/agent-<id>/`) | State |
+|---|---|---|
+| 01 Keys | `worktree-agent-a6d7b135a93d73477` | merged (2b944b7); drift fixes merged (5b24a4c, 34f0f77) |
+| 02 The Saved table's storage | `worktree-agent-a6f3bd488edfd2022` | merged (3a83175); drift fixes 84c32fd |
+| 03 Session settings, Unchecked statement, Admin log | `worktree-agent-af9eba55aa5919751` | merged (641a749); drift fix c5e251c |
+| 04 The admin module | `worktree-agent-a488bd9fe0f586e60` | agent running; 2 commits (tip 45295d0, review fixes made); not reported yet |
+| 05 Joins | `worktree-agent-aa687d203297246a7` | done (9ad62f9, how-to 33); its agent is merging `dev` (with 06) into its branch, then reports; merge it into dev after |
+| 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617); its agent is fixing drift D166-D168 on its branch (merge `dev` in, fix, re-run full suites, commit); merge that, then mark the items closed |
+| 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | agent running; 1 commit (a1ee296) plus work in progress; not reported yet |
+| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | agent running; 2 commits (tip 6fe73e1), reviews done, running checks; it also took how-to 33 ("Keep reads and joins fast"): renumber at merge |
+| 09 Ship 5.0 | - | blocked on 01-08 |
 
-- `dev` local tip: see `git log -1 dev`. `origin/dev` is at 849b3c1; the D165 fix and drift
-  lines after it are not pushed yet (push them with the CI fix).
-- Drift: only D156 is open, the `version` item, which ticket 09 closes by raising
-  TOOLBOX_VERSION to "5.0". The stop hook nags about it each turn; that is expected.
+A fresh session can't message these agents (their ids live only in the session that started
+them). For a branch whose agent never reported: check `git -C <worktree> status`, `git log
+dev..<branch>` and the ticket's Status line in the worktree; finish it with a new agent in
+that worktree (commit or stash what's there first), or merge it if it's resolved and its
+checks pass.
+
+Drift open: D156 (`version`, closed by ticket 09 raising TOOLBOX_VERSION to "5.0"; the stop
+hook nags about it each turn, which is expected) and D166-D168 (ticket 06, being fixed).
+
+## Open questions for the user (asked, not yet answered)
+
+1. Ticket 06: `running.kept_day` lets any write read several days when a step above keeps one
+   with `equals(...)`; 4.x refused every multi-day write. Narrow it to Statements with a
+   window (recommended), or keep it broad?
+2. Ticket 05: Hive ignores `broadcast=True`'s MAPJOIN hint unless
+   `hive.ignore.mapjoin.hint=false`. Add that to the shipped "map_joins" set (recommended), ship
+   a separate set, or leave the docs showing a set of the user's own?
+3. The Spark CI failure log (below).
+
+Noted, no question: ticket 05's semi join can't run on sqlglot Composer's Example database
+(sqlglot's executor would treat it as a LEFT JOIN), so how-to 33 shows a pandas result there.
 
 ## Open problem: CI red for Spark Composer
 
