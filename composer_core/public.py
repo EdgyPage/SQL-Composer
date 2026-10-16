@@ -96,7 +96,7 @@ from .windows import (
     window,
 )
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # Every public name, grouped by the file it lives in.
 __all__ = [

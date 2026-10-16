@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 4.1: Example gallery</title>
+<title>sqlglot Composer 5.0: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,7 +23,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 4.1: Example gallery</h1>
+<h1>sqlglot Composer 5.0: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
 94 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
@@ -1340,17 +1340,17 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;4.1&#x27;</pre>
+<pre class="output">&#x27;5.0&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 4.1, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 5.0, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
 <h3><code>Table</code></h3>
 <p class="why">A Table reference: a table&#x27;s columns, the day column it&#x27;s split by, and its key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
-<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none.</li><li><code>key</code> lists the columns that pick out one row, the table&#x27;s Key. JOIN warns when a join doesn&#x27;t use all of them; a write into a Saved table with a Key is refused unless the Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says how); and one Edition&#x27;s create_table writes it into the table (help(create_table) says why the other leaves it out). Hive never checks it.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
+<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none. It has no default, so a table with days is never read whole by mistake. A Saved table with date_partition=None has no days: a write fills it whole (help(INSERT_OVERWRITE)).</li><li><code>key</code> lists the columns that pick out one row, the table&#x27;s Key. JOIN warns when a join doesn&#x27;t use all of them; a write into a Saved table with a Key is refused unless the Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says how); and one Edition&#x27;s create_table writes it into the table (help(create_table) says why the other leaves it out). Hive never checks it.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
 <p>A Saved table, one your Statements write into, also says how it is stored, which create_table writes and check_table_reference compares with the table. Of these, a Saved table needs only <code>location</code>; a table someone else owns has none of them:</p>
 <ul><li><code>location</code> is the folder your Saved tables go in, such as &quot;/data/your_team/tables&quot;. The Toolbox adds the table&#x27;s own folder, its database and its name, so mart.daily_runs is at /data/your_team/tables/mart/daily_runs. Every Saved table is an external table: its files are yours, in that folder, and the warehouse only keeps a record of where. Two tables in one folder would read each other&#x27;s files, so a Saved table whose folder would be another&#x27;s, or inside another&#x27;s, is refused.</li><li><code>purge=True</code> makes dropping the table delete its files too. purge=False keeps them in its folder, where a table created again reads them back: at once, or, for a table with a Date partition, its days once repair_partitions(t) lists them; left out, the warehouse&#x27;s own choice, which keeps them, is neither written nor checked.</li><li><code>properties</code> holds any other table properties, the notes on a table the warehouse keeps by name, such as {&quot;made_by&quot;: &quot;daily_pipeline&quot;}.</li><li><code>stored_as</code> is the file format, &quot;ORC&quot; (the usual one) or &quot;PARQUET&quot;, and <code>compression</code> how its files are packed: &quot;SNAPPY&quot;, or ORC&#x27;s &quot;ZLIB&quot; or Parquet&#x27;s &quot;GZIP&quot;, among others.</li><li><code>partitioned_by</code> lists Partitions after the Date partition, such as [&quot;region&quot;], each a column in <code>columns</code> too: each day&#x27;s folder then holds a folder per region. A write still fills one day, and the regions inside it from its rows&#x27; values.</li><li><code>bucketed_by</code> with <code>buckets</code> spreads each day&#x27;s rows into that many files by the values of those columns, and <code>sorted_by</code> sorts the rows in each, so a join on them can pair file with file. Leave them out unless the table is big and joined on those columns: changing them means writing the table again.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
@@ -1634,7 +1634,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;</pre>
-<p>broadcast=True asks for a map join: a small joined table, such as jobs, is copied whole to every worker (each of the machines that share the work), so each matches the big table&#x27;s rows where they are, without first sorting them and sending them across the cluster. JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn&#x27;t, since it keeps the small table&#x27;s unmatched rows too. It is written as a hint after SELECT, as below: a comment, /*+ ... */, that Hive reads as a request. You rarely need it: Hive makes map joins by itself, from the tables&#x27; sizes and statistics, with the Session setting &quot;map_joins&quot;, which run(hive_settings(&quot;map_joins&quot;), send=...) sends. And Hive heeds the hint only once its setting hive.ignore.mapjoin.hint is false, which you send as a set of your own: hive_settings(&quot;heed_hints&quot;, sets={&quot;heed_hints&quot;: {&quot;hive.ignore.mapjoin.hint&quot;: False}}). Where your Hive runs on Spark, Spark heeds it always. Ask for it only for a table you know is small: copied to every worker, a big one can run them out of memory.</p>
+<p>broadcast=True asks for a map join: a small joined table, such as jobs, is copied whole to every worker (each of the machines that share the work), so each matches the big table&#x27;s rows where they are, without first sorting them and sending them across the cluster. JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn&#x27;t, since it keeps the small table&#x27;s unmatched rows too. It is written as a hint after SELECT, as below: a comment, /*+ ... */, that Hive reads as a request. Send the Session setting &quot;map_joins&quot; first, with run(hive_settings(&quot;map_joins&quot;), send=...): Hive ignores the hint without it. You rarely need the hint, though: with &quot;map_joins&quot; sent, Hive makes map joins by itself, from the tables&#x27; sizes and statistics. Where your send runs the Hive on Spark, as spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small: copied to every worker, a big one can run them out of memory.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id, jobs.team),
     FROM(job_runs),
@@ -1983,12 +1983,14 @@ LIMIT 2</pre>
 </section>
 <section class="entry" id="INSERT_OVERWRITE">
 <h3><code>INSERT_OVERWRITE</code></h3>
-<p class="why">Write the Statement&#x27;s rows into one day of a Saved table, replacing that day.</p>
-<p>It goes first, before SELECT. The day written is the one day the Statement reads, so loop over by_day(s) to write several. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
+<p class="why">Write rows into a Saved table, replacing one day, or the whole table.</p>
+<p>It goes first, before SELECT. Into a Saved table with a Date partition, it writes one day: the day its FROM table is bounded to, so loop over by_day(s) to write several. Only a write whose Window looks back on earlier days may read more days than that, keeping the one it writes in a step above, as help(window) shows. A Saved table with no days is written whole, as the last example below shows. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, leaving out its Date partition. Re-running a day replaces it rather than adding to it, so a day can safely be sent again; to add rows to a day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, send=...).</p>
 <p>When the Saved table&#x27;s Table reference declares a Key, the write is refused unless the Toolbox can see that each row it writes has a Key of its own, since Hive never checks one: a GROUP_BY over the Key&#x27;s columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each Key in a Derived table, or reading a table by its own Key, each join matching its joined table&#x27;s whole Key. The day written is one value, so a Key that holds the Date partition needs only its other columns. unproven_key=True writes it anyway, for rows that are one per Key for a reason the Toolbox can&#x27;t see. Below, GROUP_BY makes one row for each job_id.</p>
 <p>A Saved table with partitioned_by=[&quot;region&quot;] has Partitions inside each day: the write still names its one day, and fills each region from its rows&#x27; values, so SELECT must list region too. Sent again, it replaces only the regions its rows hold: a region with no rows that day keeps what it held. Filling a Partition from the rows needs Hive&#x27;s dynamic partitioning switched on, the Session setting the Toolbox calls &quot;dynamic_partitions&quot;, whose two SET lines show_hive prints ahead of such a write. Send them with run(hive_settings(&quot;dynamic_partitions&quot;), send=send) before the first such write: the warehouse keeps them for as long as send&#x27;s connection lasts, and sending them again does no harm.</p>
+<p>A Saved table with no days, date_partition=None, is written whole: INSERT_OVERWRITE replaces every row it holds with the Statement&#x27;s rows, and its Hive names no PARTITION. The Statement may read several days of a table with days, its days bounded in WHERE as in any read, and is sent whole: by_day refuses it. Everything else is checked as for a write of one day, its Key too. Such a table must be one of your Saved tables, with location=, since a write would replace all of it.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;, key=[&quot;job_id&quot;, &quot;dt&quot;],
-    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
+    columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
+    location=&quot;/data/your_team/tables&quot;)</pre>
 <pre class="python">print(to_hive(statement(
     INSERT_OVERWRITE(daily_runs),
     SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
@@ -2007,14 +2009,39 @@ WHERE
 GROUP BY
   job_runs.dt,
   job_runs.job_id</pre>
+<p>And each team&#x27;s runs over two days, in a Saved table with no days, written whole. Its Key is the team, which GROUP_BY makes one row for:</p>
+<pre class="python">team_runs = Table(&quot;mart.team_runs&quot;, date_partition=None, key=[&quot;team&quot;],
+    columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;},
+    location=&quot;/data/your_team/tables&quot;)</pre>
+<pre class="python">print(to_hive(statement(
+    INSERT_OVERWRITE(team_runs),
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(jobs.team),
+)))</pre>
+<p class="label">Hive</p>
+<pre class="output">INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  jobs.team</pre>
 <p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
-<p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="INSERT_INTO">
 <h3><code>INSERT_INTO</code></h3>
-<p class="why">Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.</p>
-<p>It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the Statement reads, and its columns are matched by name. The difference is what happens to the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and adds more. Use it when a day&#x27;s rows come from more than one table: send INSERT_OVERWRITE for the day first, from the first table, then INSERT_INTO from each other table. Sending the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its INSERT_OVERWRITE. A Saved table&#x27;s Key is checked as INSERT_OVERWRITE checks it, on the rows this write adds: rows the day holds already may share a Key with them, which check_key(t, send=...) finds once the day is written. Below, a day of failed runs gets the runs with a high alert added, each run once, by its Key, run_id.</p>
+<p class="why">Add rows to a Saved table&#x27;s day, or to the table; sent twice, it adds twice.</p>
+<p>It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the Statement reads, or the whole table for one with no days (date_partition=None), and its columns are matched by name. The difference is what happens to the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and adds more. Use it when a day&#x27;s rows come from more than one table: send INSERT_OVERWRITE for the day first, from the first table, then INSERT_INTO from each other table. Sending the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its INSERT_OVERWRITE. A Saved table&#x27;s Key is checked as INSERT_OVERWRITE checks it, on the rows this write adds: rows the day holds already may share a Key with them, which check_key(t, send=...) finds once the day is written. Below, a day of failed runs gets the runs with a high alert added, each run once, by its Key, run_id.</p>
 <pre class="python">run_alerts = example_database.run_alerts</pre>
 <pre class="python">runs_to_review = Table(&quot;mart.runs_to_review&quot;, date_partition=&quot;dt&quot;, key=[&quot;run_id&quot;],
     columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;})</pre>
@@ -2716,7 +2743,7 @@ WHERE
   job_runs.dt = &#x27;2026-09-24&#x27;</pre>
 <p>by_day refuses a Statement whose Window looks across days: one whose PARTITION_BY leaves out the day, such as each job&#x27;s run before, which may be on the day before. Split by day, each day&#x27;s Statement would see only that day. To write such a Window into a Saved table, one day at a time:</p>
 <ul><li>read the day written and the days before it that it needs, in a derived(...) table that keeps the day column;</li><li>in the Statement that writes, keep only the day written, with WHERE(equals(the_derived_table.dt, day)). The Toolbox writes that day.</li></ul>
-<p>Send one such Statement for each day. Here, each run of 2026-09-24 beside the minutes of its job&#x27;s run before, which may be on 2026-09-23:</p>
+<p>Only a write with a Window may read several days this way: any other write must read only the day it writes. Send one such Statement for each day. Here, each run of 2026-09-24 beside the minutes of its job&#x27;s run before, which may be on 2026-09-23:</p>
 <pre class="python">runs_before = Table(&quot;mart.runs_before&quot;, date_partition=&quot;dt&quot;, key=[&quot;run_id&quot;, &quot;dt&quot;],
     columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;minutes_before&quot;: &quot;int&quot;, &quot;dt&quot;: &quot;string&quot;},
     location=&quot;/data/your_team/tables&quot;)</pre>
@@ -3098,8 +3125,8 @@ GROUP BY
 <p class="why">The SET lines of Session settings, by name, to send before your Statements.</p>
 <p>Hive keeps a Session setting for the rest of the session, so send them first, then your Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own, and gives back None. They hold only while your send keeps one session across its calls, as spark.sql does in one notebook: if each call of your send opens a new session, each SET is gone before your Statement runs. show_hive prints them, and export_lineage, passed them with the Statements, writes them at the foot of both its files.</p>
 <p>Name one or more sets. The Toolbox ships four:</p>
-<ul><li>&quot;dynamic_partitions&quot;: hive.exec.dynamic.partition=true and hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its day, such as by region too: a write gives the day, and Hive fills the other Partitions from each row&#x27;s own values only with these on.</li><li>&quot;map_joins&quot;: hive.auto.convert.join=true and hive.auto.convert.join.noconditionaltask=true. Hive then joins a small table by copying it to every worker, which skips sorting the big one, and chooses this by itself from the tables&#x27; statistics. explain(s) shows whether it did: a Map Join in the plan.</li><li>&quot;statistics_on_write&quot;: hive.stats.autogather=true and hive.stats.column.autogather=true. Each write then gathers the statistics of the day it writes, which Hive picks its join plans from, so they are never out of date. compute_statistics(t, day) counts a day written without them.</li><li>&quot;merge_small_files&quot;: hive.merge.mapfiles=true, hive.merge.mapredfiles=true and hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones, since many small files slow down every later read.</li></ul>
-<p>Keep your own sets in a settings.py of your own, beside your notebook, as HIVE_SETTINGS = {&quot;nightly&quot;: {&quot;hive.exec.parallel&quot;: True}}, each a name and its settings, and pass them as sets=. True and False are written true and false.</p>
+<ul><li>&quot;dynamic_partitions&quot;: hive.exec.dynamic.partition=true and hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its day, such as by region too: a write gives the day, and Hive fills the other Partitions from each row&#x27;s own values only with these on.</li><li>&quot;map_joins&quot;: hive.auto.convert.join=true, hive.auto.convert.join.noconditionaltask=true and hive.ignore.mapjoin.hint=false. Hive then joins a small table by copying it to every worker, which skips sorting the big one, and chooses this by itself from the tables&#x27; statistics; and it heeds the hint that JOIN(..., broadcast=True) writes, which it ignores otherwise. explain(s) shows whether it made one: a Map Join in the plan.</li><li>&quot;statistics_on_write&quot;: hive.stats.autogather=true and hive.stats.column.autogather=true. Each write then gathers the statistics of the day it writes, which Hive picks its join plans from, so they are never out of date. compute_statistics(t, day) counts a day written without them.</li><li>&quot;merge_small_files&quot;: hive.merge.mapfiles=true, hive.merge.mapredfiles=true and hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones, since many small files slow down every later read.</li></ul>
+<p>Keep your own sets in a settings.py of your own, beside your notebook, each a name and its settings, such as HIVE_SETTINGS = {&quot;nightly&quot;: {&quot;hive.exec.parallel&quot;: True}}, and pass them as sets=. True and False are written true and false.</p>
 <pre class="python">print(to_hive(hive_settings(&quot;dynamic_partitions&quot;)))</pre>
 <p class="label">Hive</p>
 <pre class="output">SET hive.exec.dynamic.partition=true
@@ -3110,6 +3137,7 @@ SET hive.exec.dynamic.partition.mode=nonstrict</pre>
 <pre class="output">-- Session settings: map_joins, nightly, sent one line at a time
 SET hive.auto.convert.join=true;
 SET hive.auto.convert.join.noconditionaltask=true;
+SET hive.ignore.mapjoin.hint=false;
 SET hive.exec.parallel=true;
 SET mapreduce.job.reduces=8;</pre>
 <p class="note">Sent to the Example database one SET line at a time; run gives back None.</p>

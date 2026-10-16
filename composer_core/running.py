@@ -23,11 +23,14 @@ from .clauses import (
 )
 from .conditions import equals
 from .joins import HOW, anti_join_tests, broadcast
+from .keys import writes_one_day
 from .refusals import (
     guard_by_day_grouping,
     guard_by_day_limit,
     guard_by_day_stack,
     guard_by_day_window,
+    guard_kept_day_in_a_whole_table_write,
+    guard_kept_day_without_window,
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
@@ -48,7 +51,7 @@ from .unchecked import (
 )
 from .windows import call_of
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}
@@ -270,13 +273,15 @@ def _written_day(s: Statement):
         "A Saved table is filled from a table with days: put one in FROM, bounded to one day "
         "in WHERE.")
     days = span.dates()
-    kept = kept_day(s) if len(days) > 1 else None
-    if kept is None:
-        if len(days) != 1:
-            windowed = any(has_window(column._tree) for step, _ in steps(s)
-                           for column, _ in step._outputs)
-            guard_one_day_per_write(s._write_call, len(days), windowed)
+    if len(days) == 1:
         return days[0]
+    windowed = _has_a_window(s)
+    kept = _day_kept_above(s) if len(days) > 1 else None
+    if kept is not None and not windowed:
+        guard_kept_day_without_window(s._write_call, len(days), _column_text(kept.column),
+                                      f"{table._alias}.{table._date_partition}")
+    if kept is None:
+        guard_one_day_per_write(s._write_call, len(days), windowed)
     if kept.day not in days:
         written = [day_text(day, table._date_format) for day in (kept.day, days[0], days[-1])]
         refuse(
@@ -291,44 +296,67 @@ def _written_day(s: Statement):
 
 
 class KeptDay(NamedTuple):
-    """The one day a step above a write's FROM table keeps: the step, its condition, the day."""
+    """The one day a step above a write's FROM table keeps: the step, its condition, the day,
+    and the column of that step that equals(...) holds to it."""
 
     step: Statement
     condition: object
     day: object  # a datetime.date
+    column: Node
+
+
+def _has_a_window(s: Statement) -> bool:
+    """Whether any step of the Statement works out a Window."""
+    return any(has_window(column._tree) for step, _ in steps(s) for column, _ in step._outputs)
 
 
 def kept_day(s: Statement) -> KeptDay | None:
     """The one day a step above a write's FROM table keeps, with equals(...) of the Date
-    partition passed up to it; or None when no step keeps one.
+    partition passed up to it; or None when no step keeps one, or the Statement has no Window.
 
     A write whose Window looks back on earlier days reads them in a Derived table, and keeps
-    the day it writes in a step above that table, as help(window) shows.
+    the day it writes in a step above that table, as help(window) shows. Only a write with a
+    Window may read several days this way: any other write reads the one day it writes.
     """
+    return _day_kept_above(s) if _has_a_window(s) else None
+
+
+def _day_kept_above(s: Statement) -> KeptDay | None:
+    """The one day a step above a write's FROM table keeps, Window or not; None when none."""
     found = steps(s)
     if found[-1][0]._stack is not None:
         return None  # a Stack's Statements each read their own days: none is kept above
     table = found[-1][0]._reads[0].table
+    if table._date_partition is None:
+        return None  # it reads no days, so none is kept
     dates = [Node("Column", name=table._date_partition, table=table._alias)]
     for (step, _), (below, _) in zip(reversed(found[:-1]), reversed(found[1:])):
         dates = _dates_above(below, step._reads[0].table, dates)
         for condition in step._where:
-            day = _day_of(condition._tree, dates, getattr(table, table._date_partition))
-            if day is not None:
-                return KeptDay(step, condition, day)
+            column_and_day = _day_of(condition._tree, dates,
+                                     getattr(table, table._date_partition))
+            if column_and_day is not None:
+                column, day = column_and_day
+                return KeptDay(step, condition, day, column)
     return None
 
 
 def _day_of(tree: Node, dates: list, partition):
-    """The day an equals(...) holds one of `dates` to, as a Python date, or None. `partition`
-    is the Date partition they carry up, whose Table reference says how its days are written."""
+    """The column of `dates` an equals(...) holds to a day, and that day as a Python date, or
+    None. `partition` is the Date partition they carry up, whose Table reference says how its
+    days are written."""
     if tree.kind != "EQ":
         return None
     sides = (tree.parts["this"], tree.parts["expression"])
     for column, value in (sides, sides[::-1]):
         if column in dates and value.kind == "Literal" and value.parts.get("is_string"):
-            return as_date(value.parts["this"], partition, "equals(...)")
+            return column, as_date(value.parts["this"], partition, "equals(...)")
     return None
+
+
+def _column_text(column: Node) -> str:
+    """A column as the user writes it, such as finishes.dt."""
+    return f"{column.table}.{column.name}" if column.table else column.name
 
 
 def day_partition(table: Table, day: str) -> Node:
@@ -342,11 +370,19 @@ def day_partition(table: Table, day: str) -> Node:
 
 
 def _write_tree(s: Statement) -> Node:
-    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT.
+    """INSERT OVERWRITE or INSERT INTO the one day the Statement reads, then its SELECT; or
+    the whole table, for a Saved table with no Date partition.
 
     The day is named; each Partition after it is filled from the rows, by its column."""
     table = s._write
-    partition = day_partition(table, day_text(_written_day(s), table._date_format))
+    partition = None
+    if writes_one_day(s):
+        partition = day_partition(table, day_text(_written_day(s), table._date_format))
+    else:
+        kept = _day_kept_above(s)
+        if kept is not None:
+            guard_kept_day_in_a_whole_table_write(s._write_call, table._name,
+                                                  _column_text(kept.column))
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_day)
 
@@ -783,6 +819,15 @@ def by_day(s):
             why="It splits a Statement's days.",
             fix="Pass statement(SELECT(...), FROM(...), WHERE(...)).",
             given=s, call="by_day",
+        )
+    if s._write is not None and not writes_one_day(s):
+        refuse(
+            what=f"by_day can't split this Statement: {s._write_call} writes "
+            f"{s._write._name}, which has no Date partition.",
+            why="A write into a table with no days fills the whole table at once, from all the "
+            "rows its Statement reads, so it is sent whole, not a day at a time.",
+            fix="Send it whole, with run(s, send=...).",
+            error=ValueError,
         )
     table, span = _bottom_days(
         s, "by_day can't split this Statement",

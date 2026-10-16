@@ -252,8 +252,11 @@ to write them into a Saved table, group them by the run_id that `fill_null` make
 small table, such as `ops.jobs`, is copied whole to every worker, so each worker matches the
 big table's rows where they are, without first sorting them and sending them across the
 cluster. The Toolbox writes it as a hint after `SELECT`: a comment, `/*+ ... */`, that Hive
-reads as a request.
+reads as a request. Hive ignores the hint unless the Session setting "map_joins" is sent
+first, since one of its lines sets hive.ignore.mapjoin.hint to false, so send it before the
+Statement:
 
+>>> run(hive_settings("map_joins"), send=example_database.send)
 >>> per_team = statement(
 ...     SELECT(jobs.team, AS(count_rows(), "runs")),
 ...     FROM(job_runs),
@@ -278,16 +281,10 @@ GROUP BY
 1  finance     5
 
 The rows are the same with it or without it: it only changes how the work is done. Usually
-you don't need it. Hive makes map joins by itself, from the tables' sizes and statistics, once
-the Session setting "map_joins" is sent with `run(hive_settings("map_joins"), send=...)`.
-And Hive heeds the hint only once its setting hive.ignore.mapjoin.hint is false, which you
-send as a set of your own:
-
->>> heed_hints = {"heed_hints": {"hive.ignore.mapjoin.hint": False}}
->>> run(hive_settings("heed_hints", sets=heed_hints), send=example_database.send)
-
-Where your Hive runs on Spark, Spark heeds the hint always. Ask for it only for a table you know is small: copied to
-every worker, a big table can run them out of memory.
+you don't need the hint, though: with "map_joins" sent, Hive makes map joins by itself, from
+the tables' sizes and statistics. Where your send runs the Hive on Spark, as spark.sql does,
+Spark heeds the hint always. Ask for it only for a table you know is small: copied to every
+worker, a big table can run them out of memory.
 
 ## Check it worked
 

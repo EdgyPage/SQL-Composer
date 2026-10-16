@@ -31,7 +31,7 @@ import pandas as pd
 from . import _four_part_message as four_part_message
 from . import edition
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 
 class GuardRefused(Exception):
@@ -367,6 +367,47 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> None:
             "each joined table's whole Key. The how-to on Keys shows each.",
             opt_out=f"{call[:-1]}, unproven_key=True), if each row has a Key of its own for a "
             "reason the Toolbox can't see.",
+        )
+    )
+
+
+def guard_kept_day_without_window(call: str, days: int, kept_by: str, date_column: str) -> None:
+    """A write with no Window may not read several days and keep one above. No opt-out.
+
+    `kept_by` is the column the step above holds to one day with equals(...), and
+    `date_column` the FROM table's Date partition, where the day belongs instead.
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call} reads {days} days, and keeps one of them with "
+            f"equals({kept_by}, ...) in a step above.",
+            why="Only a write whose Window looks back on earlier days needs more days than "
+            "the one it writes, so only such a write may read them. Any other write needs "
+            "only that day: the others would be read and thrown away.",
+            fix=f"Keep only the day written where {date_column} is read, with "
+            f"WHERE(equals({date_column}, day)), in place of the equals({kept_by}, ...) above. "
+            "To write several days, send one Statement per day: for day in by_day(s): "
+            "run(day, send=...).",
+            opt_out=None,
+        )
+    )
+
+
+def guard_kept_day_in_a_whole_table_write(call: str, table: str, kept_by: str) -> None:
+    """A write into a table with no days may not keep one day in a step above. No opt-out.
+
+    `kept_by` is the column that step holds to one day with equals(...).
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call} writes the whole of {table}, which has no days, and keeps one day "
+            f"with equals({kept_by}, ...) in a step above.",
+            why=f"The whole of {table} would be replaced by that one day's rows. Keeping one "
+            "day above is how a write of one day reads the days before it, and a table with "
+            "no days has no day to write.",
+            fix=f"To keep each day's rows, give {table} a Date partition. To write it whole "
+            f"from several days, take out the equals({kept_by}, ...) above.",
+            opt_out=None,
         )
     )
 

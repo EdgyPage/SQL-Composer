@@ -39,12 +39,12 @@ from .refusals import (
     refuse_what_the_other_edition_made,
     warning_repeated_rows,
 )
-from .tables import Column, Table, aliased, python_text
+from .tables import Column, Table, aliased, need_saved_table, python_text
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -456,13 +456,12 @@ def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False, broadca
     rows where they are, without first sorting them and sending them across the cluster.
     JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn't, since it keeps the
     small table's unmatched rows too. It is written as a hint after SELECT, as below: a
-    comment, /*+ ... */, that Hive reads as a request. You rarely need it: Hive makes map
-    joins by itself, from the tables' sizes and statistics, with the Session setting "map_joins",
-    which run(hive_settings("map_joins"), send=...) sends. And Hive heeds the hint only once
-    its setting hive.ignore.mapjoin.hint is false, which you send as a set of your own:
-    hive_settings("heed_hints", sets={"heed_hints": {"hive.ignore.mapjoin.hint": False}}).
-    Where your Hive runs on Spark, Spark heeds it always. Ask for it only for a table you know
-    is small: copied to every worker, a big one can run them out of memory.
+    comment, /*+ ... */, that Hive reads as a request. Send the Session setting "map_joins"
+    first, with run(hive_settings("map_joins"), send=...): Hive ignores the hint without it.
+    You rarely need the hint, though: with "map_joins" sent, Hive makes map joins by itself,
+    from the tables' sizes and statistics. Where your send runs the Hive on Spark, as
+    spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small:
+    copied to every worker, a big one can run them out of memory.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, jobs.team),
@@ -852,27 +851,33 @@ def _write_clause(call: str, table, unproven_key) -> Clause:
             fix=f"Write {call}({table._alias}, unproven_key=True), or leave it out.",
             error=ValueError,
         )
-    if table._statement is not None or table._date_partition is None:
+    if table._statement is not None:
         refuse(
-            what=f"{call}({table._alias}) needs a Saved table with a Date partition.",
-            why="A write fills one day of a real table, so the table needs a Date partition "
-            "to write the day into.",
-            fix="Pass the Saved table's own Table reference, with date_partition=... set.",
+            what=f"{call}({table._alias}) was given a Derived table, not a Saved table.",
+            why="A write fills a real table, and a Derived table is only a part of the "
+            "Statement that reads it.",
+            fix="Pass the Saved table's own Table reference.",
             error=ValueError,
         )
+    if table._date_partition is None:
+        # Written whole, a table someone else owns would lose every row it holds.
+        need_saved_table(table, f"{call}({table._alias})")
     return Clause(call, table=table, unproven_key=unproven_key)
 
 
 def INSERT_OVERWRITE(table, unproven_key=False):
-    """Write the Statement's rows into one day of a Saved table, replacing that day.
+    """Write rows into a Saved table, replacing one day, or the whole table.
 
-    It goes first, before SELECT. The day written is the one day the Statement reads, so loop
-    over by_day(s) to write several. Columns are matched to the Saved table by name, and the
-    Toolbox puts them in the table's order, leaving out its Date partition. Re-running a day
-    replaces it rather than adding to it, so a day can safely be sent again; to add rows to a
-    day instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever
-    looks after it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a Saved table's Table
-    reference, check it with check_table_reference(t, send=...).
+    It goes first, before SELECT. Into a Saved table with a Date partition, it writes one day:
+    the day its FROM table is bounded to, so loop over by_day(s) to write several. Only a write
+    whose Window looks back on earlier days may read more days than that, keeping the one it
+    writes in a step above, as help(window) shows. A Saved table with no days is written
+    whole, as the last example below shows. Columns are matched to the Saved table by name, and the Toolbox puts them in the
+    table's order, leaving out its Date partition. Re-running a day replaces it rather than
+    adding to it, so a day can safely be sent again; to add rows to a day instead, use
+    INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after
+    it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a
+    Saved table's Table reference, check it with check_table_reference(t, send=...).
 
     When the Saved table's Table reference declares a Key, the write is refused unless the
     Toolbox can see that each row it writes has a Key of its own, since Hive never checks one:
@@ -892,8 +897,16 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     warehouse keeps them for as long as send's connection lasts, and sending them again does
     no harm.
 
+    A Saved table with no days, date_partition=None, is written whole: INSERT_OVERWRITE
+    replaces every row it holds with the Statement's rows, and its Hive names no PARTITION.
+    The Statement may read several days of a table with days, its days bounded in WHERE as in
+    any read, and is sent whole: by_day refuses it. Everything else is checked as for a write
+    of one day, its Key too. Such a table must be one of your Saved tables, with location=,
+    since a write would replace all of it.
+
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/tables")
     >>> print(to_hive(statement(
     ...     INSERT_OVERWRITE(daily_runs),
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -911,15 +924,42 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     GROUP BY
       job_runs.dt,
       job_runs.job_id
+
+    And each team's runs over two days, in a Saved table with no days, written whole. Its Key
+    is the team, which GROUP_BY makes one row for:
+
+    >>> team_runs = Table("mart.team_runs", date_partition=None, key=["team"],
+    ...     columns={"team": "string", "runs": "bigint"},
+    ...     location="/data/your_team/tables")
+    >>> print(to_hive(statement(
+    ...     INSERT_OVERWRITE(team_runs),
+    ...     SELECT(jobs.team, AS(count_rows(), "runs")),
+    ...     FROM(job_runs),
+    ...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+    ...     GROUP_BY(jobs.team),
+    ... )))
+    INSERT OVERWRITE TABLE mart.team_runs
+    SELECT
+      jobs.team,
+      COUNT(*) AS runs
+    FROM ops.job_runs AS job_runs
+    JOIN ops.jobs AS jobs
+      ON jobs.job_id = job_runs.job_id
+    WHERE
+      job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    GROUP BY
+      jobs.team
     """
     return _write_clause("INSERT_OVERWRITE", table, unproven_key)
 
 
 def INSERT_INTO(table, unproven_key=False):
-    """Add rows to a day of a Saved table, keeping its rows; sent twice, it adds twice.
+    """Add rows to a Saved table's day, or to the table; sent twice, it adds twice.
 
     It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
-    Statement reads, and its columns are matched by name. The difference is what happens to
+    Statement reads, or the whole table for one with no days (date_partition=None), and its
+    columns are matched by name. The difference is what happens to
     the rows already in that day: INSERT_OVERWRITE replaces them, INSERT_INTO keeps them and
     adds more. Use it when a day's rows come from more than one table: send INSERT_OVERWRITE
     for the day first, from the first table, then INSERT_INTO from each other table. Sending

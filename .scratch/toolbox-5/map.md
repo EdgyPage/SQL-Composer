@@ -66,8 +66,9 @@ below; this map is the design document, built out ticket by ticket.
    - `purge=True/False`, written as `'external.table.purge'`, and `properties={...}` for any
      other TBLPROPERTIES.
    - `stored_as=` (ORC, Parquet) and `compression=`.
-   - `partitioned_by=[...]`: Partitions after the Date partition. A write still fills one day,
-     and fills the other Partitions from its rows (dynamic partitioning); `show_hive` and the dry
+   - `partitioned_by=[...]`: Partitions after the Date partition. A write still fills one day
+     (or the whole table, for one with no days: date_partition=None, the user's request of
+     2026-10-16), and fills the other Partitions from its rows (dynamic partitioning); `show_hive` and the dry
      run print the Session setting this needs (`"dynamic_partitions"`) ahead of the write.
    - `bucketed_by=[...]` with `buckets=n`, and `sorted_by=[...]`. Never by default: Buckets pay
      off on big tables only, and changing them means rewriting the table.
@@ -228,6 +229,15 @@ below; this map is the design document, built out ticket by ticket.
   INTERSECT/EXCEPT Lineage feeds values from the first Statement; `explain` refuses Statements
   that change a table; `export_lineage` refuses upkeep Statements; `compute_statistics` takes
   `columns=`. The Spark CI failures are set aside for now, by the user.
+- [09 Ship 5.0](issues/09-ship-5-0.md): the user's two decisions applied (`running.kept_day`
+  gives a day only to a Statement with a Window; a write with none that keeps one day above
+  gets a refusal of its own, `guard_one_day_per_write(kept_by=...)`; "map_joins" sends
+  `hive.ignore.mapjoin.hint=false`); TOOLBOX_VERSION 5.0; CHANGES 5.0 one section (To update
+  lists the Key check, `location=`, `admin.drop_table` and the 26 new star-import names); the
+  README template's Update from 4.x and four new sections. Part C, the user's request of
+  2026-10-16: a Saved table with no days (date_partition=None) is written whole (INSERT
+  OVERWRITE TABLE t / INSERT INTO t, no PARTITION); it must have location=; by_day and a day
+  kept above refuse it. Not exported, CI not green: both left to the user.
 
 ## Not yet specified
 

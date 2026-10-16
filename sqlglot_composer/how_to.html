@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 4.1: How-tos</title>
+<title>sqlglot Composer 5.0: How-tos</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -34,7 +34,7 @@ details summary{cursor:pointer;color:#555;margin:4px 0}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 4.1: How-tos</h1>
+<h1>sqlglot Composer 5.0: How-tos</h1>
 <p>Each how-to walks through one job from start to finish: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
@@ -2635,6 +2635,36 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;;</pre>
 <p>Then write every day again, oldest first, as <a href="#backfill_a_range_of_days">Backfill a range of days</a> shows: the drop deleted them all.</p>
+<h5>A table with no days, written whole</h5>
+<p>Some results have no days: each team&#x27;s runs over the last two days, say, which the next write replaces. Give such a Saved table <code>date_partition=None</code>. <code>create_table</code> then makes it with no PARTITIONED BY, and a write fills the whole table: <code>INSERT_OVERWRITE</code> replaces every row it holds, and its Hive names no PARTITION. Its Key here is the team, which GROUP_BY makes one row for:</p>
+<pre class="python">jobs = example_database.jobs
+team_runs = Table(
+    &quot;mart.team_runs&quot;,
+    columns={&quot;team&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;},
+    date_partition=None,
+    key=[&quot;team&quot;],
+    location=&quot;/data/your_team/tables&quot;,
+)
+text = show_hive(statement(
+    INSERT_OVERWRITE(team_runs),
+    SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
+    GROUP_BY(jobs.team),
+))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
+GROUP BY
+  jobs.team;</pre>
+<p>It reads two days of job_runs and writes their rows into the one table at once, so it is sent whole: <code>by_day</code> refuses it. Everything else is checked as for a write of one day: its Key, and that the days of job_runs are bounded in WHERE. It must be one of your Saved tables, with <code>location=</code>, since the write replaces all of it. <code>date_partition=None</code> has to be written out: a Table reference without <code>date_partition=...</code> is refused, so a table with days is never read whole by mistake.</p>
 <h4>Check it worked</h4>
 <p>Every write above was built without a refusal, so its SELECT matches the Table reference and reads one day. At work, after sending the day&#x27;s writes, read the day back from the Saved table and count its rows: here, 2 for 2026-09-24, run 102 and run 101.</p>
 <pre class="python">saved = statement(
@@ -2669,7 +2699,7 @@ GROUP BY
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Leave <code>job_runs.dt</code> out of SELECT, and bound it to one day in WHERE.</p>
 <h5>A write that reads more than one day</h5>
-<p>A write fills one day, so a write whose WHERE reads two days is refused when its Hive is written, by <code>show_hive</code>, <code>to_hive</code> or <code>run</code>:</p>
+<p>A write into a table with days fills one day, so a write whose WHERE reads two days is refused when its Hive is written, by <code>show_hive</code>, <code>to_hive</code> or <code>run</code>:</p>
 <pre class="python">two_days = statement(
     INSERT_OVERWRITE(runs_to_review),
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
@@ -3297,7 +3327,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 <p class="note">It writes <code>lineage/20260925-090000_1a2b3c4_lineage_notebook_team_runs.html</code> too, a page to open in your browser.</p>
 <p>Nothing is sent to the warehouse: the Lineage is worked out from the Statement alone, so it works the same on the Example database and at work.</p>
 <p>The files go in a folder named lineage, beside your notebook or script; here, in the folder this how-to runs in. Each file&#x27;s name says when it was written, from which commit of your scripts, by which notebook, and for which Statement:</p>
@@ -3643,7 +3673,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 </details>
 <p class="note">It writes <code>lineage/pipeline.html</code> too, a page to open in your browser.</p>
 <p>The order you pass them in doesn&#x27;t matter: <code>export_lineage</code> puts each write before the Statements that read the Saved table it fills, which is also the order to run them in.</p>
@@ -3790,7 +3820,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 <p class="note">It writes <code>lineage/team_only.html</code> too, a page to open in your browser.</p>
 <pre class="python">&quot;ops.job_runs&quot; in team_only_markdown.read_text(encoding=&quot;utf-8&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">False</pre>
@@ -5821,7 +5851,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 </details>
 <p class="note">It writes <code>lineage/pipeline.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.read_text(encoding=&quot;utf-8&quot;).splitlines()[0]</pre>
@@ -6658,7 +6688,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 </details>
 <p class="note">It writes <code>daily_totals.html</code> too, a page to open in your browser.</p>
 <h4>Check it worked</h4>
@@ -7057,7 +7087,7 @@ run(slower, send=example_database.send)</pre>
 <tr><td>1</td><td>2026-09-23</td><td>2</td></tr>
 </table></div>
 <h5>Write a day that looks back on earlier days</h5>
-<p>To keep each run&#x27;s change in a Saved table, day by day, each day&#x27;s write needs the runs before it, which may be on earlier days. A write fills one day, so read the earlier days too in a Derived table that keeps the day column, and keep only the day written in the Statement that writes, with <code>WHERE(equals(week.dt, day))</code>: the Toolbox writes the day that Statement keeps. Here a job&#x27;s run before may be up to 6 days back, so read the day and the 6 before it:</p>
+<p>To keep each run&#x27;s change in a Saved table, day by day, each day&#x27;s write needs the runs before it, which may be on earlier days. A write fills one day, so read the earlier days too in a Derived table that keeps the day column, and keep only the day written in the Statement that writes, with <code>WHERE(equals(week.dt, day))</code>: the Toolbox writes the day that Statement keeps. Only a write with a Window may read several days like this; any other write must read only the day it writes. Here a job&#x27;s run before may be up to 6 days back, so read the day and the 6 before it:</p>
 <pre class="python">import datetime
 run_changes = Table(&quot;mart.run_changes&quot;, date_partition=&quot;dt&quot;, key=[&quot;event_id&quot;, &quot;dt&quot;],
                     columns={&quot;event_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;int&quot;,
@@ -7483,7 +7513,7 @@ LIMIT 2
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 </details>
 <p class="note">It writes <code>before.html</code> too, a page to open in your browser.</p>
 <p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Keys, the columns that tell each step&#x27;s rows apart, then the Hive, as <a href="#lineage_of_one_statement">Lineage of one Statement</a> and <a href="#lineage_of_a_pipeline_across_saved_tables">Lineage of a pipeline across Saved tables</a> show. Open the HTML page in your browser to see the same drawn.</p>
@@ -7740,7 +7770,7 @@ LIMIT 2
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 </details>
 <p class="note">It writes <code>after.html</code> too, a page to open in your browser.</p>
 <h5>Compare the two Markdown files</h5>
@@ -8398,7 +8428,7 @@ WHERE
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 4.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.0.</pre>
 </details>
 <p class="note">It writes <code>lineage/newest.html</code> too, a page to open in your browser.</p>
 <pre class="python">keys = markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;### Keys&quot;)[1]
@@ -8659,8 +8689,9 @@ run(differences, send=example_database.send)</pre>
 <p>pandas shows a whole-number column with a missing value as decimals, with NaN for NULL.</p>
 <p>A <code>FULL_JOIN</code>&#x27;s rows have no Key the Toolbox can see, since either side&#x27;s run_id may be NULL: to write them into a Saved table, group them by the run_id that <code>fill_null</code> makes, with <code>GROUP_BY(fill_null(recorded.run_id, started.run_id))</code>, which gives them that Key.</p>
 <h5>Ask Hive to copy a small table to every worker</h5>
-<p><code>broadcast=True</code>, on <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>SEMI_JOIN</code> or <code>ANTI_JOIN</code>, asks for a map join: the small table, such as <code>ops.jobs</code>, is copied whole to every worker, so each worker matches the big table&#x27;s rows where they are, without first sorting them and sending them across the cluster. The Toolbox writes it as a hint after <code>SELECT</code>: a comment, <code>/*+ ... */</code>, that Hive reads as a request.</p>
-<pre class="python">per_team = statement(
+<p><code>broadcast=True</code>, on <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>SEMI_JOIN</code> or <code>ANTI_JOIN</code>, asks for a map join: the small table, such as <code>ops.jobs</code>, is copied whole to every worker, so each worker matches the big table&#x27;s rows where they are, without first sorting them and sending them across the cluster. The Toolbox writes it as a hint after <code>SELECT</code>: a comment, <code>/*+ ... */</code>, that Hive reads as a request. Hive ignores the hint unless the Session setting &quot;map_joins&quot; is sent first, since one of its lines sets hive.ignore.mapjoin.hint to false, so send it before the Statement:</p>
+<pre class="python">run(hive_settings(&quot;map_joins&quot;), send=example_database.send)
+per_team = statement(
     SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
@@ -8684,10 +8715,7 @@ GROUP BY
 <tr><td>data</td><td>4</td></tr>
 <tr><td>finance</td><td>5</td></tr>
 </table></div>
-<p>The rows are the same with it or without it: it only changes how the work is done. Usually you don&#x27;t need it. Hive makes map joins by itself, from the tables&#x27; sizes and statistics, once the Session setting &quot;map_joins&quot; is sent with <code>run(hive_settings(&quot;map_joins&quot;), send=...)</code>. And Hive heeds the hint only once its setting hive.ignore.mapjoin.hint is false, which you send as a set of your own:</p>
-<pre class="python">heed_hints = {&quot;heed_hints&quot;: {&quot;hive.ignore.mapjoin.hint&quot;: False}}
-run(hive_settings(&quot;heed_hints&quot;, sets=heed_hints), send=example_database.send)</pre>
-<p>Where your Hive runs on Spark, Spark heeds the hint always. Ask for it only for a table you know is small: copied to every worker, a big table can run them out of memory.</p>
+<p>The rows are the same with it or without it: it only changes how the work is done. Usually you don&#x27;t need the hint, though: with &quot;map_joins&quot; sent, Hive makes map joins by itself, from the tables&#x27; sizes and statistics. Where your send runs the Hive on Spark, as spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small: copied to every worker, a big table can run them out of memory.</p>
 <h4>Check it worked</h4>
 <p>Every run either has an alert or hasn&#x27;t, so the runs <code>SEMI_JOIN</code> keeps and the runs <code>ANTI_JOIN</code> keeps add up to all the runs of the two days:</p>
 <pre class="python">every_run = statement(
@@ -9272,10 +9300,11 @@ SET hive.stats.column.autogather=true</pre>
 <p>Joining a big table to a small one, such as job_runs to jobs, is fastest when Hive copies the small table to every worker, which then joins its share of the big one without sorting it: a map join, or broadcast join. The Session setting &quot;map_joins&quot; lets Hive choose one by itself, from the tables&#x27; statistics, so it works best once both tables have them. Send it before your Statements, as the settings above:</p>
 <pre class="python">print(to_hive(hive_settings(&quot;map_joins&quot;)))</pre>
 <p class="label">Hive</p><pre class="hive">SET hive.auto.convert.join=true
-SET hive.auto.convert.join.noconditionaltask=true</pre>
+SET hive.auto.convert.join.noconditionaltask=true
+SET hive.ignore.mapjoin.hint=false</pre>
 <pre class="python">run(hive_settings(&quot;map_joins&quot;), send=example_database.send)</pre>
 <p>Nothing in the Statement changes: Hive decides when it plans it. The next step shows how to see what it decided.</p>
-<p>Where Hive still sorts both sides, <code>JOIN(jobs, ON=..., broadcast=True)</code> asks it by name to copy jobs to every worker; <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a> shows how, and the Session setting Hive needs before it heeds the request.</p>
+<p>Where Hive still sorts both sides, <code>JOIN(jobs, ON=..., broadcast=True)</code> asks it by name to copy jobs to every worker; <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a> shows how. Hive heeds that request only after &quot;map_joins&quot;, whose last line, hive.ignore.mapjoin.hint=false, tells it to.</p>
 <h5>Use Buckets only for big joins</h5>
 <p>Where two big tables are joined on the same column every day, Buckets spread each day&#x27;s rows into a fixed number of files by that column, so the join pairs file with file. They pay off only on tables of tens of millions of rows a day, and changing them means writing the table again: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> shows how.</p>
 <h5>See Hive&#x27;s plan with explain</h5>

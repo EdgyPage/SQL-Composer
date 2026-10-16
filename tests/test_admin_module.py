@@ -134,9 +134,11 @@ def test_drop_days_writes_the_day_as_the_table_writes_days() -> None:
 
 
 def test_drop_days_refuses_a_table_with_no_date_partition() -> None:
-    with pytest.raises(ValueError, match="has no Date partition"):
+    with pytest.raises(ValueError, match="has no Date partition") as refused:
         admin.drop_days(saved(columns={"job_id": "bigint"}, date_partition=None),
                         before="2025-01-01")
+    # Its fix names the write that replaces such a table whole.
+    assert "INSERT_OVERWRITE(daily_runs)" in str(refused.value)
 
 
 # --- add_columns -------------------------------------------------------------------------------

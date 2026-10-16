@@ -30,7 +30,7 @@ from typing import NoReturn
 
 from composer_core.trees import HIVE_TYPES, Node, plain_name, rows_text
 
-TOOLBOX_VERSION = "4.1"
+TOOLBOX_VERSION = "5.0"
 
 # The width past which a list of pieces, or a call's arguments, go one to a line.
 WIDTH = 80
