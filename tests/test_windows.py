@@ -339,7 +339,8 @@ def test_a_write_with_no_window_still_refuses_several_days_a_step_above_keeps_on
         FROM(job_events),
         WHERE(between(job_events.dt, "2026-09-17", DAY), equals(job_events.event_type, "finish"))))
     s = statement(INSERT_OVERWRITE(events_before),
-                  SELECT(finishes.event_id, finishes.minutes, AS(finishes.minutes, "minutes_before")),
+                  SELECT(finishes.event_id, finishes.minutes,
+                         AS(finishes.minutes, "minutes_before")),
                   FROM(finishes), WHERE(equals(finishes.dt, DAY)))
     with pytest.raises(GuardRefused, match="reads 8 days") as refused:
         to_hive(s)

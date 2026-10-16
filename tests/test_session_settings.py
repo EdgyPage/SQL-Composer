@@ -189,7 +189,8 @@ def test_lineage_footers_name_the_settings_passed_with_the_statements(tmp_path) 
         assert ("Session settings sent before these Statements, one line at a time (map_joins "
                 "and statistics_on_write): SET hive.auto.convert.join=true | "
                 "SET hive.auto.convert.join.noconditionaltask=true | "
-                "SET hive.ignore.mapjoin.hint=false | SET hive.stats.autogather=true | SET hive.stats.column.autogather=true.") in text
+                "SET hive.ignore.mapjoin.hint=false | SET hive.stats.autogather=true | "
+                "SET hive.stats.column.autogather=true.") in text
     # Drawn nowhere else: only the footer holds them.
     assert markdown_file.read_text(encoding="utf-8").count("SET hive.auto.convert.join=") == 1
 

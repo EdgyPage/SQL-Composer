@@ -239,13 +239,13 @@ it joins. `unproven_key=True` on the write lets it through when you know better.
 "Keys, checked before each write" shows each.
 
 **Where it is stored**, `location=`: the folder your Saved tables go in. The Toolbox adds the
-table's own folder to it, so each Saved table is an external table in a folder of its own,
-which no other table reads or overwrites. `purge=True`, on the Table reference, has dropping
-the table delete its files too; without it, the files stay behind. The Table reference can also give the file format,
-Partitions inside each day and Buckets: the how-to "Choose how a Saved table is stored" walks
-through them, and through why there are no indexes. Hive 3 has none: what makes a read fast is
-reading only the days it needs, few large files, and statistics (see
-[Keep reads and joins fast](#keep-reads-and-joins-fast)).
+table's own folder to it, so each Saved table is an external table in a folder of its own, which
+no other table reads or overwrites. `purge=True`, on the Table reference, has dropping the table
+delete its files too; without it, the files stay behind. The Table reference can also give the
+file format, Partitions inside each day and Buckets: the how-to "Choose how a Saved table is
+stored" walks through them, and through why there are no indexes. Hive 3 has none: what makes a
+read fast is reading only the days it needs, few large files, and statistics (see [Keep reads
+and joins fast](#keep-reads-and-joins-fast)).
 
 Hive can't change single rows of an external table, so the Toolbox has no `UPDATE`,
 `DELETE`, `MERGE` or `TRUNCATE`: write a day again with `INSERT_OVERWRITE`, which replaces it,
@@ -284,29 +284,29 @@ it out, so a notebook that changes a table says so at its top:
 from sqlglot_composer import admin
 ```
 
-Each refuses a table that isn't one of your Saved tables, and `show_hive` prints what it
-changes and what can't be undone before its Hive. Each `run` of one, or of an
-`unchecked_hive(...)`, adds an entry to the Admin log, a file named admin_log.md in the folder
-of the notebook or script that runs it: when, the call, the Hive sent, and whether it worked. `set_admin_log(path)` keeps it
-elsewhere.
+Each refuses a table that isn't one of your Saved tables, and `show_hive` prints what it changes
+and what can't be undone before its Hive. Each `run` of one, or of an `unchecked_hive(...)`,
+adds an entry to the Admin log, a file named admin_log.md in the folder of the notebook or
+script that runs it: when, the call, the Hive sent, and whether it worked. `set_admin_log(path)`
+keeps it elsewhere.
 
 ## Joins, Windows, Stacks and subtotals
 
 Beside `JOIN`, `LEFT_JOIN` and `CROSS_JOIN`:
 
 - `SEMI_JOIN(t, ON=...)` keeps each row that has a match in t, once; `ANTI_JOIN(t, ON=...)`
-  keeps each row that has none; `FULL_JOIN(t, ON=...)` keeps the rows of both sides, matched
-  or not, to compare two records of the same things. `RIGHT_JOIN` is refused: swap the tables
-  and write `LEFT_JOIN`. `broadcast=True` asks Hive to copy a small joined table to every
-  worker, which Hive heeds once the Session setting `"map_joins"` is sent. The how-to "Semi-, anti- and full joins" walks through them.
-- A Window, `window(PARTITION_BY=..., ORDER_BY=..., rows=...)`, passed as `over=` to
-  `sum_of`, `average_of`, `count_rows`, `min_of`, `max_of`, `rank`, `lag`, `lead` and the
-  like, gives each row a value worked out across the rows near it: a running total, a moving
-  average, a rank, or the value of the row before. The how-to "Look across rows, then finish in pandas" shows them.
+  keeps each row that has none; `FULL_JOIN(t, ON=...)` keeps the rows of both sides, matched or
+  not, to compare two records of the same things. `RIGHT_JOIN` is refused: swap the tables and
+  write `LEFT_JOIN`. `broadcast=True` asks Hive to copy a small joined table to every worker,
+  which Hive heeds once the Session setting `"map_joins"` is sent. The how-to "Semi-, anti- and
+  full joins" walks through them.
+- A Window, `window(PARTITION_BY=..., ORDER_BY=..., rows=...)`, passed as `over=` to `sum_of`,
+  `average_of`, `count_rows`, `min_of`, `max_of`, `rank`, `lag`, `lead` and the like, gives each
+  row a value worked out across the rows near it: a running total, a moving average, a rank, or
+  the value of the row before. The how-to "Look across rows, then finish in pandas" shows them.
 - `UNION_ALL`, `UNION`, `INTERSECT` and `EXCEPT` stack whole Statements' rows, their columns
   matched by name (how-to "Reconcile two tables"), and `GROUP_BY(rollup(...))`, `cube(...)` and
-  `grouping_sets(...)` add subtotal and grand total rows (how-to "Subtotals and grand
-  totals").
+  `grouping_sets(...)` add subtotal and grand total rows (how-to "Subtotals and grand totals").
 
 sqlglot Composer's Example database can't run a semi join, a Window or subtotals, and says so;
 Spark Composer's runs them all. The how-tos show each result either way.
@@ -316,8 +316,8 @@ Spark Composer's runs them all. The how-tos show each result either way.
 What makes a Statement fast is reading only the days it needs, which every Load limit already
 insists on, few large files, and statistics, from which Hive picks how to join.
 `compute_statistics(t, day)` counts a day of a Saved table, `explain(s)` gives Hive's plan for a
-Statement, and `repair_partitions(t)` adds the day folders it finds that the warehouse doesn't list. The how-to
-"Keep reads and joins fast" puts them beside the Session settings that help.
+Statement, and `repair_partitions(t)` adds the day folders it finds that the warehouse doesn't
+list. The how-to "Keep reads and joins fast" puts them beside the Session settings that help.
 
 ## Example projects
 

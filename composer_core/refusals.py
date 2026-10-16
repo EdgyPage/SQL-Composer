@@ -371,30 +371,35 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> None:
     )
 
 
-def guard_one_day_per_write(call: str, days: int, windowed: bool = False,
-                            kept_by: str | None = None, bound: str = "") -> None:
+def guard_kept_day_without_window(call: str, days: int, kept_by: str, date_column: str) -> None:
+    """A write with no Window may not read several days and keep one above. No opt-out.
+
+    `kept_by` is the column the step above holds to one day with equals(...), and
+    `date_column` the FROM table's Date partition, where the day belongs instead.
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"{call} reads {days} days, and keeps one of them with "
+            f"equals({kept_by}, ...) in a step above.",
+            why="Only a write whose Window looks back on earlier days needs more days than "
+            "the one it writes, so only such a write may read them. Any other write needs "
+            "only that day: the others would be read and thrown away.",
+            fix=f"Keep only the day written where {date_column} is read, with "
+            f"WHERE(equals({date_column}, day)), in place of the equals({kept_by}, ...) above. "
+            "To write several days, send one Statement per day: for day in by_day(s): "
+            "run(day, send=...).",
+            opt_out=None,
+        )
+    )
+
+
+def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> None:
     """A write fills one day. No opt-out.
 
     `windowed` is True when the Statement works out a Window, which may read earlier days on
-    purpose: the fix then says how to keep the one day written. `kept_by` names the column a
-    step above holds to one day with equals(...) in a Statement with no Window, which only a
-    Window may do; `bound` is the FROM table's Date partition, to bound in its place.
+    purpose: the fix then says how to keep the one day written.
     """
     fix = "Send one Statement per day: for day in by_day(s): run(day, send=...)."
-    if kept_by is not None:
-        raise GuardRefused(
-            four_part_message(
-                what=f"{call} reads {days} days, and keeps one of them with "
-                f"equals({kept_by}, ...) in a step above.",
-                why="Only a write whose Window looks back on earlier days needs more days "
-                "than the one it writes, so only such a write may read them. Any other write "
-                "needs only that day: the others would be read and thrown away.",
-                fix=f"Bound {bound} to the day written where it is read: "
-                f"WHERE(equals({bound}, day)), and drop the bound above. To write several "
-                f"days, {fix[0].lower()}{fix[1:]}",
-                opt_out=None,
-            )
-        )
     if windowed:
         fix = (f"If its Window reads earlier days on purpose, keep only the day written in the "
                f"Statement that writes, with WHERE(equals(the_derived_table.dt, day)) on the "
