@@ -483,10 +483,10 @@ def send(hive):
             what="The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; "
             "it can't be written to.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
-            "numbers.",
-            fix="to_hive(...) shows a write's Hive without sending it, as in "
-            "to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) "
-            "builds, not text.",
+            "numbers, and nothing in them is yours to change or count again.",
+            fix="to_hive(...) shows the Hive of any Statement without sending it, as in "
+            "to_hive(drop_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a write. "
+            "It takes a Statement, not text.",
             error=ValueError,
         )
     columns, rows = edition.run_query(text, _TABLES)

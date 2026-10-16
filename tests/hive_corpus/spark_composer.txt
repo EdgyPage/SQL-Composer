@@ -2056,6 +2056,8 @@ MSCK REPAIR TABLE mart.daily_runs
 ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
 -- Statement 2: to_hive
 ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, runs
+-- Statement 3: to_hive
+ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id
 
 == doc:explain
 -- Statement 1: to_hive

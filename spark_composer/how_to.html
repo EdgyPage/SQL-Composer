@@ -2451,8 +2451,8 @@ WHERE
 <pre class="python">run(write_failed, send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.
-  Why it matters: Its tables are made up and fixed, so every Worked example gives the same numbers.
-  Usual fix:      to_hive(...) shows a write&#x27;s Hive without sending it, as in to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) builds, not text.
+  Why it matters: Its tables are made up and fixed, so every Worked example gives the same numbers, and nothing in them is yours to change or count again.
+  Usual fix:      to_hive(...) shows the Hive of any Statement without sending it, as in to_hive(drop_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a write. It takes a Statement, not text.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>At work, the same <code>run</code>, with your own send in place of <code>example_database.send</code>, writes the day, and gives back whatever your send returns for a write, usually an empty DataFrame. Send <code>create</code> first, once.</p>
 <h5>Add rows to a day with INSERT_INTO</h5>
@@ -8282,7 +8282,7 @@ statement(
 <section class="entry" id="keep_reads_and_joins_fast">
 <h3>33. Keep reads and joins fast <span class="badge intermediate">Intermediate</span></h3>
 <h4>Goal</h4>
-<p>Keep Statements on big tables fast: read only the days you need, keep a Saved table&#x27;s files few and large, give Hive the statistics it plans joins from, let it copy a small table to every worker, and see with <code>explain</code> what Hive will do before you run a Statement. Along the way, keep a Saved table&#x27;s list of days true with <code>repair_partitions</code>. Each of these is safe to send again.</p>
+<p>Keep Statements on big tables fast: read only the days you need, keep a Saved table&#x27;s files few and large, give Hive the statistics it plans joins from, let it copy a small table to every worker, and see with <code>explain</code> what Hive will do before you run a Statement. Along the way, let the warehouse find a Saved table&#x27;s days again with <code>repair_partitions</code>. Each of these is safe to send again.</p>
 <h4>When you&#x27;d use it</h4>
 <p>When a Statement or a pipeline gets slow, or a Saved table grows to millions of rows a day. Hive has no indexes to add: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> says why, under &quot;Why there are no indexes&quot;, and shows how to give a big table Partitions and Buckets. This how-to is what to do once the table exists.</p>
 <h4>Steps</h4>
@@ -8310,7 +8310,7 @@ SET hive.stats.column.autogather=true</pre>
 <pre class="python">run(hive_settings(&quot;merge_small_files&quot;, &quot;statistics_on_write&quot;), send=example_database.send)</pre>
 <p><code>run</code> sends each SET line as a call of its own and gives back nothing. They hold only while your send keeps one session across its calls.</p>
 <h5>Give Hive the statistics it plans joins from</h5>
-<p>Hive picks how to join two tables from their statistics: how many rows and bytes each day holds. Without them it guesses, and may sort two big tables to join them where copying a small one would do. A day written with &quot;statistics_on_write&quot; is counted as it is written; count a day written without it with <code>compute_statistics</code>, and add <code>columns=True</code> to count each column&#x27;s values too, which Hive reads to order several joins:</p>
+<p>Hive picks how to join two tables from their statistics: how many rows and bytes each day holds. Without them it guesses, and may sort two big tables to join them where copying a small one would do. A day written with &quot;statistics_on_write&quot; is counted as it is written; count a day written without that setting with <code>compute_statistics</code>, and add <code>columns=True</code> to count each column&#x27;s values too, which Hive reads to order several joins:</p>
 <pre class="python">print(to_hive(compute_statistics(daily_runs, &quot;2026-09-24&quot;)))</pre>
 <p class="label">Hive</p><pre class="hive">ANALYZE TABLE mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;) COMPUTE STATISTICS</pre>
 <pre class="python">print(to_hive(compute_statistics(daily_runs, &quot;2026-09-24&quot;, columns=True)))</pre>
@@ -8319,12 +8319,13 @@ SET hive.stats.column.autogather=true</pre>
 <pre class="python">def count_days(send):
     for day in [&quot;2026-09-22&quot;, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;]:
         run(compute_statistics(daily_runs, day), send=send)</pre>
-<p><code>columns=[&quot;job_id&quot;]</code> counts only the columns you join or filter on, which reads less. Where your send runs on Spark rather than Hive, Spark counts columns over the whole table, whatever the day, so name only those few.</p>
+<p><code>columns=[daily_runs.job_id]</code> counts only the columns you name, such as those you join or filter on, which reads less. Where your send runs on Spark rather than Hive, Spark counts columns over the whole table, whatever the day, so name only those few.</p>
 <h5>Let Hive copy a small table to every worker</h5>
-<p>Joining a big table to a small one, such as job_runs to jobs, is fastest when Hive copies the small table to every worker, which then joins its share of the big one without sorting it: a map join, or broadcast join. The Session setting &quot;map_joins&quot; lets Hive choose one by itself, from the tables&#x27; statistics, so it works best once both tables have them:</p>
+<p>Joining a big table to a small one, such as job_runs to jobs, is fastest when Hive copies the small table to every worker, which then joins its share of the big one without sorting it: a map join, or broadcast join. The Session setting &quot;map_joins&quot; lets Hive choose one by itself, from the tables&#x27; statistics, so it works best once both tables have them. Send it before your Statements, as the settings above:</p>
 <pre class="python">print(to_hive(hive_settings(&quot;map_joins&quot;)))</pre>
 <p class="label">Hive</p><pre class="hive">SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true</pre>
+<pre class="python">run(hive_settings(&quot;map_joins&quot;), send=example_database.send)</pre>
 <p>Nothing in the Statement changes: Hive decides when it plans it. The next step shows how to see what it decided.</p>
 <p>Where Hive still sorts both sides, <code>JOIN(jobs, ON=..., broadcast=True)</code> asks it by name to copy jobs to every worker.</p>
 <h5>Use Buckets only for big joins</h5>
@@ -8377,7 +8378,7 @@ print(plan.splitlines()[0])</pre>
 <tr><td>data</td><td>2</td></tr>
 <tr><td>finance</td><td>2</td></tr>
 </table></div>
-<p>At work, compare the plan before and after a change: send <code>compute_statistics</code> for a table, then explain the same Statement again, and its &quot;Statistics:&quot; lines should say COMPLETE; send &quot;map_joins&quot; first, and a join to a small table should be a &quot;Map Join Operator&quot;. Then time the Statement itself.</p>
+<p>At work, compare the plan before and after a change: send <code>compute_statistics</code> for a table, then explain the same Statement again, and the &quot;Statistics:&quot; lines of its TableScan should say &quot;Basic stats: COMPLETE&quot; where they said NONE; send &quot;map_joins&quot; first, and a join to a small table should be a &quot;Map Join Operator&quot;. Then time the Statement itself.</p>
 <h4>Common mistakes</h4>
 <h5>Counting a table you only read</h5>
 <p><code>compute_statistics</code> and <code>repair_partitions</code> change what the warehouse keeps about a table, so they take only your own Saved tables, Table references with <code>location=</code>. A table another team owns is refused:</p>
@@ -8389,7 +8390,7 @@ print(plan.splitlines()[0])</pre>
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Ask the team that owns it to keep its statistics.</p>
 <h5>Counting every day at once</h5>
-<p><code>compute_statistics</code> counts one day: leaving the day out would read the whole table, so it is refused:</p>
+<p><code>compute_statistics</code> counts one day of a table with a Date partition: leaving the day out would read the whole table, so it is refused:</p>
 <pre class="python">compute_statistics(daily_runs)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  compute_statistics(daily_runs) needs the day to count.
