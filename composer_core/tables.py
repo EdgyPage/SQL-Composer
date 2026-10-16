@@ -759,6 +759,12 @@ SHARING = ("two tables in one folder read each other's files, and an INSERT OVER
            "day in one can delete the other's files for that day.")
 # The fix for a table that isn't at its own folder: ticket 04's admin module moves it.
 MOVE_IT = "move it with admin.move_to_own_folder(t, send=...)"
+# The fix for a table at its own folder whose layout the Toolbox doesn't write: the move's copy
+# would go to that same folder, so the table is written again there.
+WRITE_IT_AGAIN = ("it is at its own folder already, so write it again there: give its Table "
+                  "reference purge=True and send admin.set_properties(t), drop it with "
+                  "admin.drop_table(t), create it with create_table(t), and write its days "
+                  "again from their source")
 # The table properties Spark keeps for itself, and refuses in a CREATE TABLE.
 SPARK_RESERVES = ("comment", "owner", "provider", "location", "is_managed_location")
 # An absolute location: one starting with /, or with a scheme such as hdfs:// or s3a://.
@@ -1394,24 +1400,25 @@ def _real_table(t, call: str) -> Table:
 
 
 def need_saved_table(t, what: str) -> Table:
-    """The Table reference of one of the user's Saved tables, one with location=, or a refusal.
+    """The Table reference of one of the user's own Saved tables, which a call that changes a
+    table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)" or
+    "repair_partitions(...)".
 
-    For a call that changes a table, or what the warehouse keeps about it: the Toolbox changes
-    only the user's own Saved tables, never a table someone else owns. `what` is the call's
-    name as the user writes it, such as "repair_partitions" or "admin.drop_days", which the
-    refusal names with the table, as in repair_partitions(job_runs).
+    A Saved table is a Table reference with location=: one with none is a table someone else
+    owns, which the Toolbox only reads.
     """
-    t = _real_table(t, f"{what}(...)")
+    t = _real_table(t, what)
     if t._location is None:
         refuse(
-            what=f"{what}({t._alias}): {t._name} isn't one of your Saved tables: its Table "
+            what=f"{what} was given {t._name}, which isn't one of your Saved tables: its Table "
             "reference has no location=.",
-            why=f"{what} changes the table, or what the warehouse keeps about it, and the "
-            "Toolbox changes only your own Saved tables, the ones your Statements write. A "
-            "table whose Table reference has no location= is one someone else owns.",
-            fix="Pass the Table reference of one of your Saved tables. If the table is yours, "
-            'add location=... to its Table(...) call, such as location="/data/your_team/'
-            'tables", and compare it with the table with check_table_reference(t, send=...).',
+            why="It changes a table, or what the warehouse keeps about it, so it takes only your "
+            "own Saved tables, each in a folder "
+            "of its own under location=. A Table reference with no location= is a table "
+            "someone else owns, and changing it could break their work.",
+            fix=f'If {t._name} is yours, add location=... to its Table(...) call, such as '
+            'location="/data/your_team/tables", the folder your Saved tables go in. If it '
+            "isn't yours, ask whoever owns it.",
             error=ValueError,
         )
     return t
@@ -1622,7 +1629,7 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
     return []
 
 
-_SET_IT = "or set it with admin.set_properties(...)"
+_SET_IT = "or set it with admin.set_properties(t)"
 
 
 def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[str]]:
@@ -1634,7 +1641,12 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
         return ["DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check "
                 "that send returns everything DESCRIBE FORMATTED prints."], []
     problems = []
-    if "MANAGED" in (details.get("table type") or details.get("type") or "").upper():
+    managed = "MANAGED" in (details.get("table type") or details.get("type") or "").upper()
+    # A table the move can take to its own folder, writing it again as its Table reference
+    # says; one at its own folder already is written again there instead.
+    fix = MOVE_IT if managed or not _same_folder(details["location"], t._location) else (
+        WRITE_IT_AGAIN)
+    if managed:
         # Its folder is the warehouse's choice, so this says all the folder check would.
         problems.append("it is a managed table, whose files the warehouse keeps where it "
                         "chooses, where your Saved tables are external, each in a folder of its "
@@ -1647,10 +1659,11 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
         problems.append(f"the table is stored as {stored_as}: change the line to "
                         f'stored_as="{stored_as}",' if stored_as in FILE_FORMATS else
                         "the table's files are in a format the Toolbox doesn't write, not ORC "
-                        f"or Parquet (its InputFormat is {stored_as}): {MOVE_IT}, which writes "
-                        "it again as its Table reference says.")
+                        f"or Parquet (its InputFormat is {stored_as}): {fix}"
+                        + (", which writes it again as its Table reference says." if
+                           fix is MOVE_IT else "."))
     problems += _property_problems(t, properties)
-    problems += _partitions_and_buckets_problems(t, described)
+    problems += _partitions_and_buckets_problems(t, described, fix)
     return problems, []
 
 
@@ -1731,8 +1744,10 @@ def _listed_names(text: str) -> list[str]:
     return [name.strip().strip("`").lower() for name in inner.split(",") if name.strip()]
 
 
-def _partitions_and_buckets_problems(t: Table, described: Described) -> list[str]:
-    """The problems from comparing the Partitions after the day, and the Buckets."""
+def _partitions_and_buckets_problems(t: Table, described: Described, fix: str) -> list[str]:
+    """The problems from comparing the Partitions after the day, and the Buckets. `fix` is
+    what makes a table whose Partitions are in another order right: MOVE_IT or
+    WRITE_IT_AGAIN."""
     problems = []
     partitions = described.partitions
     if t._date_partition in partitions and partitions != partition_columns(t):
@@ -1743,7 +1758,7 @@ def _partitions_and_buckets_problems(t: Table, described: Described) -> list[str
         else:
             problems.append(f"the table is partitioned by {', '.join(partitions)}, with "
                             f"{t._date_partition} not first, where a Saved table's other "
-                            f"Partitions come after its Date partition: {MOVE_IT}.")
+                            f"Partitions come after its Date partition: {fix}.")
     try:
         number = int(described.details.get("num buckets", "-1"))
     except ValueError:
@@ -1781,8 +1796,9 @@ def create_table(t, may_exist=False):
     says what to write. If the table already exists, the warehouse refuses to create it
     again. Without that refusal, you could edit the Table reference, send this again, and
     think the table had changed when it hadn't. Compare the two with
-    check_table_reference(t, send=...), or, to start the table again, drop it with
-    drop_table(t).
+    check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
+    or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
+    import admin).
     may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table
     alone, so it is safe to send again, as at the top of a pipeline that runs every day. It
     doesn't check that the table there matches its Table reference: check_table_reference
@@ -1875,35 +1891,6 @@ def partition_columns(t: Table) -> list[str]:
     return [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
 
 
-def drop_table(t):
-    """The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
-
-    For a Saved table whose Table reference has purge=True, it deletes the whole table,
-    every day of it, and the Toolbox can't bring it back. Without purge=True, the warehouse
-    only forgets the table: its files stay in its folder, and a table created there again
-    reads them back. Use it only for a Saved table you made: it takes any Table reference,
-    so given the reference of a table others fill, such as job_runs, it would drop that
-    table too, if your account is allowed to. The usual
-    reason is changing a Saved table's columns: create_table refuses while the old table
-    exists, so drop it, create it again, and write its days again. That needs purge=True in
-    the Table reference before the table is created, or the old days come back under the
-    new columns. IF EXISTS means that sending it for a table that isn't there does nothing,
-    rather than failing.
-
-    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/tables", purge=True)
-    >>> print(to_hive(drop_table(daily_runs)))
-    DROP TABLE IF EXISTS mart.daily_runs
-    """
-    from .clauses import Statement  # here, not at the top: clauses.py imports this file
-
-    t = _real_table(t, "drop_table(...)")
-    s = Statement()
-    s._ddl = Node("Drop", target=table_node(t._name))
-    return s
-
-
 # Types people often write for one create_table takes, and the one to write instead.
 _NEAREST_TYPE = {
     "integer": "int", "long": "bigint", "short": "smallint", "byte": "tinyint", "real": "float",
@@ -1915,16 +1902,17 @@ _NEAREST_TYPE = {
 _NEEDS_LENGTH = ("varchar", "char")
 
 
-def _column_definition(t: Table, column: str) -> Node:
-    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
+def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
+    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table, or
+    `call`, such as admin.add_columns(...), which adds it."""
+    call = call or f"create_table({t._alias})"
     kind = t._columns[column]
     if not is_hive_type(kind):
         written = " ".join(kind.lower().split())
         nearest = _NEAREST_TYPE.get(written)
         length = "its length, such as " if written in _NEEDS_LENGTH else ""
         refuse(
-            what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
-            "can use.",
+            what=f"{call}: {column}'s type {kind!r} isn't one create_table can use.",
             why="create_table takes only the types Hive and Spark both have, spelled as "
             "DESCRIBE prints them, such as int rather than integer, and with their sizes "
             "written out, such as decimal(10,2), so the table it makes matches its Table "
@@ -1939,5 +1927,5 @@ def _column_definition(t: Table, column: str) -> Node:
             "reserve, such as date or user.",
             error=ValueError,
         )
-    check_writable_type(kind, f"create_table({t._alias}): {column}'s type {kind!r}")
+    check_writable_type(kind, f"{call}: {column}'s type {kind!r}")
     return Node("ColumnDef", name=column, type=kind)

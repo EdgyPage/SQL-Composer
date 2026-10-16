@@ -53,7 +53,7 @@ def repair_partitions(t):
     >>> print(to_hive(repair_partitions(daily_runs)))
     MSCK REPAIR TABLE mart.daily_runs
     """
-    t = need_saved_table(t, "repair_partitions")
+    t = need_saved_table(t, "repair_partitions(...)")
     if t._date_partition is None:
         refuse(
             what=f"repair_partitions({t._alias}): {t._name} has no Date partition, so it has "
@@ -104,7 +104,7 @@ def compute_statistics(t, day=None, columns=False):
     ...     columns=[daily_runs.job_id])))
     ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id
     """
-    t = need_saved_table(t, "compute_statistics")
+    t = need_saved_table(t, "compute_statistics(...)")
     target = table_node(t._name)
     if t._date_partition is not None:
         target = table_node(t._name, partition=day_partition(t, _day_counted(t, day)))
@@ -227,7 +227,7 @@ def explain(s):
 
 
 # The function that makes each Statement explain has no plan for, by its kind.
-_MADE_BY = {"Create": "create_table", "Drop": "drop_table", "Repair": "repair_partitions",
+_MADE_BY = {"Create": "create_table", "Repair": "repair_partitions",
             "Analyze": "compute_statistics", "Explain": "explain"}
 
 
@@ -251,12 +251,12 @@ def _need_explainable(s, frame) -> None:
     _need_statement(s, "explain", frame,
                     why="explain shows Hive's plan for one Statement made by statement(...).")
     if s._ddl is not None:
-        made_by = _MADE_BY.get(s._ddl.kind)
+        made_by = None if s._admin_call is not None else _MADE_BY.get(s._ddl.kind)
         given = f"the Statement {made_by}(...) makes" if made_by else "an Admin statement"
         refuse(
             what=f"explain was given {given}, which isn't a query or a write.",
             why="Hive plans how a Statement reads and writes rows; a Statement that creates, "
-            "drops, repairs or counts a table, or explains another, has no such plan.",
+            "changes, drops, repairs or counts a table, or explains another, has no such plan.",
             fix="Pass a Statement made by statement(...).",
             error=ValueError,
         )

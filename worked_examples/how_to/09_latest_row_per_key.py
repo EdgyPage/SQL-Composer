@@ -67,6 +67,10 @@ from run 99, though run 104 succeeded. Each `max_of` picks its own row.
 - `ORDER_BY=` says the order to number them in. `descending` makes the largest come first, so
   each job's newest run gets 1.
 
+The two may also go inside a `window`, passed as `over=`, the way every other calculation over
+the rows around each row takes them, such as `lag` and `rank`: `row_number(over=window(
+PARTITION_BY=..., ORDER_BY=...))` writes the same Hive.
+
 The number is a calculation, so it needs a name with `AS`, and it goes in a Derived table,
 for the next Statement to read:
 
@@ -325,8 +329,8 @@ Name it with `AS`, so the Statement that reads it can test it by that name.
   [Reusable Derived tables](#reusable_derived_tables).
 - Each job's newest row from a table that keeps a full copy of itself every day:
   [Look things up as of a day](#look_things_up_as_of_a_day).
-- A rank, the row before, or a rolling sum, which the Toolbox doesn't write as Hive:
-  [Finish in pandas](#finish_in_pandas).
+- A rank, the row before, or a rolling sum, each over a Window:
+  [Look across rows, then finish in pandas](#finish_in_pandas).
 - The gallery's Worked examples of [`row_number`](examples.html#row_number) and
   [`descending`](examples.html#descending), and the careless and fixed Statements side by side:
   [latest and top N](examples.html#latest_and_top_n).

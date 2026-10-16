@@ -246,9 +246,23 @@ composer_core.refusals.GuardRefused:
 
 Add `AS(count_rows(where=equals(job_events.event_type, "fail")), "fails")` to its `SELECT`.
 The table itself must change too. `create_table(job_day, may_exist=True)` does nothing while
-the old table exists, and without `may_exist=True` the warehouse refuses to create it, so drop
-it with `drop_table(job_day)`, create it again and write its days again, as the gallery's
-[Saved table Worked example](examples.html#saved_table) shows in its rebuild step.
+the old table exists, and without `may_exist=True` the warehouse refuses to create it. The admin
+module, which the star import leaves out, adds the column in place:
+
+>>> from sqlglot_composer import admin
+
+`run(admin.add_columns(job_day, send=send), send=send)` adds each column the Table reference
+lists and the table lacks, here the column `"fails"`, and the days already written read NULL in
+it until they are written again. `send` goes in twice: `admin.add_columns` sends DESCRIBE as it
+is made, to find the new columns, and `run` sends the change. It writes CASCADE, since
+`job_day` has a Date partition, so the days already there get the column too; Spark refuses
+CASCADE, so if Spark rather than Hive runs your tables, ask whoever looks after them first. To
+start the table again
+instead, give `job_day`'s Table reference `purge=True`, set it in the table with
+`admin.set_properties(job_day)`, then drop it with `admin.drop_table(job_day)`, create it
+again and write its days again, as the gallery's
+[Saved table Worked example](examples.html#saved_table) shows in its rebuild step. Without
+purge, the old days' files stay, and the table created again reads them back.
 
 ### Saving the weekly rollup
 

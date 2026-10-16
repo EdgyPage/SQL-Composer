@@ -103,7 +103,7 @@ the change notes now are, lists these and everything else that changed.
 
 ## A first Statement
 
-The Example database ships inside the Toolbox: six made-up tables, and a `send` that runs
+The Example database ships inside the Toolbox: seven made-up tables, and a `send` that runs
 Statements on them, so you can practise without touching the warehouse.
 
 ```python
@@ -275,6 +275,8 @@ Everything the Toolbox offers, one line each, grouped by the file it lives in: t
 are in your Edition's folder, and every other name in a file of `composer_core`. Import every
 name from your Edition's folder itself, `sqlglot_composer` or `spark_composer`: never from
 `composer_core`, or from a file inside either folder. Arithmetic isn't in it: a calculation uses
-Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`.
+Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`. The admin module's
+functions, which change your own Saved tables, come last: the star import leaves them out, so
+import the module by name, `from sqlglot_composer import admin`, and call `admin.drop_table(t)`.
 
 <!-- CHEAT SHEET -->

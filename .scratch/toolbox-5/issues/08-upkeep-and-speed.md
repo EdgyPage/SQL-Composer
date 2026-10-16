@@ -78,7 +78,7 @@ Built in both Editions, the shared code in a new core file, `composer_core/upkee
   Hive chose a map join, and "statistics_on_write" that compute_statistics counts a day
   written without it; compute_statistics' and explain's docstrings name them, and the
   how-to sends "merge_small_files", "statistics_on_write" and "map_joins".
-- A how-to, Intermediate 33 "Keep reads and joins fast" (`#keep_reads_and_joins_fast`):
+- A how-to, Intermediate 37 "Keep reads and joins fast" (`#keep_reads_and_joins_fast`):
   reading only the days needed (Partitions), files few and large ("merge_small_files"),
   statistics ("statistics_on_write", compute_statistics), map joins ("map_joins"), Buckets,
   explain, and repair_partitions; it links `#choose_how_a_saved_table_is_stored` for "Why
@@ -95,7 +95,7 @@ Built in both Editions, the shared code in a new core file, `composer_core/upkee
   twice; compute_statistics counts a day and a column, sent twice, read back through
   DESCRIBE FORMATTED; explain of a write gives Spark's plan and writes nothing): not run
   here, Windows lacking winutils, so CI is their only check.
-- Docs: CHANGES.md 5.0 "New"; CONTEXT.md gains Statistics and Plan; how-to range 19 to 33
+- Docs: CHANGES.md 5.0 "New"; CONTEXT.md gains Statistics and Plan; how-to range 19 to 37
   (`tools/how_to_page.py`, `tests/test_how_tos.py`, `tests/repo/test_export_clean.py`); the
   galleries, how-to pages, both golden corpora and the Example projects regenerated.
 
@@ -150,3 +150,12 @@ strips.
   list; the map's family 9 may mean skipping.
 - compute_statistics takes `columns=` beyond the ticket's `compute_statistics(t, day)`: True,
   or a list of the table's columns.
+
+**Merged with dev at 2095ce8 (wave 2's tickets 04 to 07).** One `need_saved_table` kept:
+ticket 04's signature, `what` being the call as `"admin.drop_days(...)"` or
+`"repair_partitions(...)"`, and its wording (`compute_statistics(...) was given ops.job_runs,
+which isn't one of your Saved tables: its Table reference has no location=.`), its "why"
+widened to "It changes a table, or what the warehouse keeps about it, so it takes only your
+own Saved tables, ...". explain takes a Stack (a query) and refuses an Admin statement as it
+refuses create_table, naming it "an Admin statement". The how-to is now 37, its
+`broadcast=True` sentence kept (ticket 05 landed) and linked to `#semi_anti_and_full_joins`.

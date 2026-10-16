@@ -28,7 +28,7 @@ import contextvars
 import re
 from typing import NoReturn
 
-from composer_core.trees import HIVE_TYPES, Node, plain_name
+from composer_core.trees import HIVE_TYPES, Node, plain_name, rows_text
 
 TOOLBOX_VERSION = "4.1"
 
@@ -317,6 +317,9 @@ def _window(node: Node, pretty: bool) -> str:
     order = node.parts.get("order")
     if order is not None:
         pieces.append(_order(order, pretty, flat=True))
+    rows = node.parts.get("rows")
+    if rows is not None:  # after sqlglot's Generator.windowspec_sql
+        pieces.append(rows_text(rows))
     return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
 
 
@@ -351,7 +354,7 @@ def _call(node: Node, pretty: bool) -> str:
 # After sqlglot's Generator.select_sql and query_modifiers.
 def _select(node: Node, pretty: bool) -> str:
     outputs = _list([_sql(item, pretty) for item in node.parts["outputs"]], pretty)
-    sql = "SELECT" + (" DISTINCT" if node.parts.get("distinct") else "")
+    sql = "SELECT" + _hint(node) + (" DISTINCT" if node.parts.get("distinct") else "")
     sql += f"{_sep(pretty)}{outputs}" if outputs else ""
     sql += f"{_seg('FROM', pretty)} {_part(node, 'source', pretty)}"
     sql += "".join(_sql(join, pretty) for join in node.parts.get("joins") or [])
@@ -360,6 +363,9 @@ def _select(node: Node, pretty: bool) -> str:
         sql += f"{_seg('WHERE', pretty)}{_sep(pretty)}{where}"
     if node.parts.get("group_by"):
         sql += _op_list("GROUP BY", [_sql(item, pretty) for item in node.parts["group_by"]],
+                        pretty)
+        if node.parts.get("grouping_sets"):
+            sql += _seg(_list([_grouping_sets(node.parts["grouping_sets"], pretty)], pretty),
                         pretty)
     if node.parts.get("having") is not None:
         having = _indent(_part(node, "having", pretty), pretty)
@@ -370,6 +376,46 @@ def _select(node: Node, pretty: bool) -> str:
     if node.parts.get("limit") is not None:
         sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
     return _with_tables(node, sql, pretty)
+
+
+# After sqlglot's Generator.groupingsets_sql, and its group_sql with no comma before GROUPING
+# SETS, which Hive refuses.
+def _grouping_sets(sets: list[Node], pretty: bool) -> str:
+    listed = _list([_sql(item, pretty) for item in sets], pretty, indent=False)
+    return f"GROUPING SETS {_wrap(listed, pretty)}"
+
+
+# After sqlglot's Generator.tuple_sql: a lone column is written as it is, as sqlglot Composer
+# writes it.
+def _grouping_set(node: Node, pretty: bool) -> str:
+    columns = [_sql(item, pretty) for item in node.parts["expressions"]]
+    if len(columns) == 1:
+        return columns[0]
+    return "(" + _list(columns, pretty, dynamic=True, new_line=True, skip_first=True,
+                       skip_last=True) + ")"
+
+
+# After sqlglot's Generator.set_operations and set_operation: each Statement, then the next,
+# with the Stack's kind, such as UNION ALL, between them, then a LIMIT for them all.
+def _stack(node: Node, pretty: bool) -> str:
+    pieces = []
+    for branch in node.parts["branches"]:
+        if pieces:
+            pieces.append(node.parts["how"])
+        pieces.append(_sql(branch, pretty))
+    sql = _sep(pretty).join(pieces)
+    if node.parts.get("limit") is not None:
+        sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
+    return _with_tables(node, sql, pretty)
+
+
+# After sqlglot's Generator.hint_sql, which sqlglot Composer has write Hive's hints.
+def _hint(node: Node) -> str:
+    """The MAPJOIN hint naming the tables a join asks to be copied to every worker, or ''."""
+    names = node.parts.get("broadcast") or []
+    if not names:
+        return ""
+    return f" /*+ MAPJOIN({', '.join(_identifier(name) for name in names)}) */"
 
 
 # After sqlglot's Generator.with_sql and cte_sql.
@@ -568,7 +614,10 @@ _WRITE = {
                                            pretty),
     "Distinct": _distinct,
     **{kind: _aggregate for kind in _AGGREGATES},
+    "Grouping": lambda node, pretty: _func("GROUPING", [node.parts["this"]], pretty),
     "Window": _window,
+    # After sqlglot's Generator.anonymous_sql: a function that works only over a window.
+    "WindowCall": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Order": _order,
     "Ordered": _ordered,
     "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "
@@ -578,6 +627,8 @@ _WRITE = {
     "Call": _call,
     "HiveFunction": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Select": _select,
+    "Stack": _stack,
+    "Tuple": _grouping_set,
     "Table": _table,
     "Join": _join,
     "Insert": _insert,
@@ -620,7 +671,10 @@ def _problem(text: str) -> str | None:
                 return "a name in backticks doesn't end"
             at = name[1]
         elif text.startswith("--", at) or text.startswith("/*", at):
-            return "a comment outside quotes"
+            hint = _hint_end(text, at)
+            if hint is None:
+                return "a comment outside quotes"
+            at = hint
         elif character == ";":
             return "a second statement after ;"
         elif character == '"':
@@ -628,6 +682,15 @@ def _problem(text: str) -> str | None:
         else:
             at += 1
     return None
+
+
+def _hint_end(text: str, start: int) -> int | None:
+    """Where the MAPJOIN hint that starts at `start` ends, as _hint writes it, or None when
+    no such hint starts there: any other comment is a mistake."""
+    if not text.startswith("/*+ MAPJOIN(", start):
+        return None
+    end = text.find(") */", start)
+    return None if end < 0 else end + len(") */")
 
 
 def _value_at(text: str, start: int) -> tuple[str, int] | None:

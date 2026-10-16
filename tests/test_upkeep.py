@@ -25,14 +25,15 @@ from sqlglot_composer import (
     GROUP_BY,
     INSERT_OVERWRITE,
     SELECT,
+    UNION_ALL,
     WHERE,
     Table,
+    admin,
     between,
     compute_statistics,
     count_rows,
     create_table,
     derived,
-    drop_table,
     equals,
     example_database,
     explain,
@@ -187,7 +188,8 @@ def test_compute_statistics_refuses_columns_it_cant_count(columns, says) -> None
 @pytest.mark.parametrize("make", [repair_partitions,
                                   lambda t: compute_statistics(t, "2026-09-24")])
 def test_upkeep_refuses_a_table_that_isnt_one_of_your_saved_tables(make) -> None:
-    with pytest.raises(ValueError, match="job_runs isn't one of your Saved tables") as refused:
+    with pytest.raises(ValueError, match="was given ops.job_runs, which isn't one of your "
+                                         "Saved tables") as refused:
         make(job_runs)
     assert "location=" in str(refused.value)
 
@@ -203,9 +205,10 @@ def test_upkeep_refuses_what_isnt_a_table_reference(make) -> None:
 
 def test_need_saved_table_gives_back_a_saved_table() -> None:
     need_saved_table = toolbox_module("tables").need_saved_table
-    assert need_saved_table(DAILY_RUNS, "admin.drop_days") is DAILY_RUNS
-    with pytest.raises(ValueError, match=r"admin.drop_days\(job_runs\): ops.job_runs isn't"):
-        need_saved_table(job_runs, "admin.drop_days")
+    assert need_saved_table(DAILY_RUNS, "compute_statistics(...)") is DAILY_RUNS
+    with pytest.raises(ValueError, match=re.escape(
+            "compute_statistics(...) was given ops.job_runs, which isn't one of your Saved")):
+        need_saved_table(job_runs, "compute_statistics(...)")
 
 
 # --- explain --------------------------------------------------------------------------------
@@ -230,6 +233,13 @@ def test_explain_explains_a_write_and_a_derived_table() -> None:
     assert to_hive(explain(reading)).startswith("EXPLAIN WITH runs AS (")
 
 
+def test_explain_explains_a_stack() -> None:
+    earlier = statement(SELECT(job_runs.run_id), FROM(job_runs),
+                        WHERE(equals(job_runs.dt, "2026-09-23")))
+    stack = UNION_ALL(one_day(), earlier)
+    assert to_hive(explain(stack)) == "EXPLAIN " + to_hive(stack)
+
+
 def test_show_hive_prints_an_explain_with_its_semicolon(capsys) -> None:
     show_hive(explain(one_day()))
     assert capsys.readouterr().out.startswith("EXPLAIN SELECT\n")
@@ -250,7 +260,7 @@ def test_explain_refuses_what_to_hive_refuses() -> None:
     (lambda: unchecked_hive("SELECT 1"), 'unchecked_hive("EXPLAIN '),
     (lambda: hive_settings("map_joins"), "Session settings have no plan"),
     (lambda: create_table(DAILY_RUNS), "isn't a query or a write"),
-    (lambda: drop_table(DAILY_RUNS), "isn't a query or a write"),
+    (lambda: admin.drop_table(DAILY_RUNS), "an Admin statement, which isn't a query"),
     (lambda: repair_partitions(DAILY_RUNS), "isn't a query or a write"),
     (lambda: explain(one_day()), "isn't a query or a write"),
 ])
