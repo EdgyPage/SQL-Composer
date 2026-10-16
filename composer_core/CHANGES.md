@@ -74,6 +74,14 @@ files. Each is listed again, with more, under New or Refused now below.
 - **check_table_reference compares a Saved table's storage** with what DESCRIBE FORMATTED
   says: that it is external, its folder, purge, its file format and compression, its
   properties, its Partitions and its Buckets, each difference with the line to change.
+- **A Saved table with no days can be written.** Give its Table reference
+  `date_partition=None`, and `INSERT_OVERWRITE(t)` writes the whole table, replacing every row
+  it holds, as `INSERT OVERWRITE TABLE t SELECT ...` with no PARTITION; `INSERT_INTO(t)` adds
+  rows to it. Before 5.0, both refused such a table. The Statement may read several days of a
+  table with days, each bounded as any read is, and every other check of a write still
+  applies, its Key too. by_day refuses such a write, since each day would replace the day
+  before, and so do `admin.drop_days` and `repair_partitions`, which work on days. The how-to
+  "Save a table" has a section on it.
 - **show_hive prints the Session setting a write needs first**: a write into a table with
   `partitioned_by=` fills those Partitions from its rows, which needs Hive's dynamic
   partitioning, so its SET lines are printed ahead of it. run sends the write alone: send

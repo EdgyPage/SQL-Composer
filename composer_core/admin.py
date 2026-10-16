@@ -185,9 +185,10 @@ def drop_days(t, before):
             what=f"admin.drop_days(...) was given {t._name}, whose Table reference has no Date "
             "partition.",
             why="It drops whole days, and a table with no Date partition keeps none.",
-            fix="To empty the table, give its Table reference purge=True, send "
-            "admin.set_properties(t), then drop it with admin.drop_table(t) and create it "
-            "again.",
+            fix="To keep fewer rows, write the table again with INSERT_OVERWRITE(t), which "
+            "replaces all its rows with the ones its Statement gives. To empty the table, give "
+            "its Table reference purge=True, send admin.set_properties(t), then drop it with "
+            "admin.drop_table(t) and create it again.",
             error=ValueError,
         )
     day = as_date(before, t._column(day_column), "admin.drop_days(...)")

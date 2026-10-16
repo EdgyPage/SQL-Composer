@@ -1488,8 +1488,17 @@ GROUP BY
 output job_id: job_runs.job_id
 output runs: COUNT(*)
 WHERE: job_runs.dt = '2026-09-24'
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT DISTINCT
+  jobs.job_id,
+  jobs.team
+FROM ops.jobs AS jobs
+-- Statement 2: the Statement
+output job_id: jobs.job_id
+output team: jobs.team
 -- export_lineage
-# Lineage: statement
+# Lineage: statement_1, statement_2
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
 
@@ -1501,27 +1510,43 @@ flowchart LR
     n0["ops.job_runs.job_id<br/><small>bigint</small>"]
     n4["ops.job_runs.dt<br/><small>string</small>"]
   end
-  subgraph g1["statement"]
+  subgraph g1["statement_1"]
     n1["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
     n2["runs<br/><small>count_rows()</small>"]
   end
-  subgraph g2["filters on statement"]
-    n3{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  subgraph g2["filters on statement_1"]
+    n3{{"WHERE in statement_1<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
   end
   subgraph g3["mart.daily_runs"]
     n5["mart.daily_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n6["mart.daily_runs.runs<br/><small>bigint</small>"]
     n7["mart.daily_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
+  subgraph g4["ops.jobs"]
+    n8["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.jobs.team<br/><small>string</small>"]
+  end
+  subgraph g5["statement_2"]
+    n9["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n11["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g6["mart.job_teams"]
+    n12["mart.job_teams.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n13["mart.job_teams.team<br/><small>string</small>"]
+  end
   n0 --> n1
   n4 -.-> n3
   n1 --> n5
   n2 --> n6
   n3 -.->|day written| n7
+  n8 --> n9
+  n10 --> n11
+  n9 --> n12
+  n11 --> n13
   n3 -.->|filters| g1
 ```
 
-## statement
+## statement_1
 
 It writes the Saved table mart.daily_runs, one day at a time.
 
@@ -1531,15 +1556,15 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `runs`
 
-Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **statement_1** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-statement.runs = count_rows()
+statement_1.runs = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in statement_1: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 One value for each different `job_runs.dt` and `job_runs.job_id`.
 
@@ -1553,7 +1578,7 @@ One value for each different `job_runs.dt` and `job_runs.job_id`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
+- statement_1: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - mart.daily_runs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -1569,6 +1594,40 @@ WHERE
 GROUP BY
   job_runs.dt,
   job_runs.job_id
+```
+
+## statement_2
+
+It writes the whole Saved table mart.job_teams, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_2: Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
+- mart.job_teams' Key (job_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT DISTINCT
+  jobs.job_id,
+  jobs.team
+FROM ops.jobs AS jobs
 ```
 
 ---
@@ -16789,6 +16848,676 @@ WHERE
 ---
 
 
+== edge:write:no_day:insert_overwrite
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT DISTINCT
+  jobs.team,
+  jobs.job_id
+FROM ops.jobs AS jobs
+-- Statement 1: the Statement
+output job_id: jobs.job_id
+output team: jobs.team
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["mart.job_teams"]
+    n4["mart.job_teams.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["mart.job_teams.team<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n1 --> n4
+  n3 --> n5
+```
+
+## statement
+
+It writes the whole Saved table mart.job_teams, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
+- mart.job_teams' Key (job_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT DISTINCT
+  jobs.team,
+  jobs.job_id
+FROM ops.jobs AS jobs
+```
+
+---
+
+
+== edge:write:no_day:insert_into
+-- Statement 1: to_hive
+INSERT INTO mart.job_teams
+SELECT DISTINCT
+  jobs.team,
+  jobs.job_id
+FROM ops.jobs AS jobs
+-- Statement 1: the Statement
+output job_id: jobs.job_id
+output team: jobs.team
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["mart.job_teams"]
+    n4["mart.job_teams.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["mart.job_teams.team<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n1 --> n4
+  n3 --> n5
+```
+
+## statement
+
+It adds to the whole Saved table mart.job_teams, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
+- mart.job_teams' Key (job_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT INTO mart.job_teams
+SELECT DISTINCT
+  jobs.team,
+  jobs.job_id
+FROM ops.jobs AS jobs
+```
+
+---
+
+
+== edge:write:no_day:several_days
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  jobs.team
+-- Statement 1: the Statement
+output team: jobs.team
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n6["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
+    n2["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n3{{"WHERE in statement<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+    n5{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n4["ops.job_runs.dt<br/><small>string</small>"]
+    n7["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g4["mart.team_runs"]
+    n8["mart.team_runs.team<br/><small>string</small><br/><small>in the Key</small>"]
+    n9["mart.team_runs.runs<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n6 -.-> n5
+  n7 -.-> n5
+  n1 --> n8
+  n2 --> n9
+  n3 -.->|filters| g1
+  n5 -.->|filters| g1
+```
+
+## statement
+
+It writes the whole Saved table mart.team_runs, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_runs' Key (team) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  jobs.team
+```
+
+---
+
+
+== edge:write:no_day:insert_into_several_days
+-- Statement 1: to_hive
+INSERT INTO mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  jobs.team
+-- Statement 1: the Statement
+output team: jobs.team
+output runs: COUNT(*)
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n6["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
+    n2["runs<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n3{{"WHERE in statement<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+    n5{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n4["ops.job_runs.dt<br/><small>string</small>"]
+    n7["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g4["mart.team_runs"]
+    n8["mart.team_runs.team<br/><small>string</small><br/><small>in the Key</small>"]
+    n9["mart.team_runs.runs<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n6 -.-> n5
+  n7 -.-> n5
+  n1 --> n8
+  n2 --> n9
+  n3 -.->|filters| g1
+  n5 -.->|filters| g1
+```
+
+## statement
+
+It adds to the whole Saved table mart.team_runs, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `runs`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.runs = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- JOIN ON in statement: `equals(jobs.job_id, job_runs.job_id)`, which is `jobs.job_id = job_runs.job_id` (reads ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (team), since GROUP_BY makes one row for each team.
+- mart.team_runs' Key (team) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT INTO mart.team_runs
+SELECT
+  jobs.team,
+  COUNT(*) AS runs
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+GROUP BY
+  jobs.team
+```
+
+---
+
+
+== edge:write:no_day:derived_table
+-- Statement 1: to_hive
+WITH teams AS (
+  SELECT DISTINCT
+    jobs.job_id,
+    jobs.team
+  FROM ops.jobs AS jobs
+)
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT
+  teams.team,
+  teams.job_id
+FROM teams
+-- Statement 1: the Statement
+output team: teams.team
+output job_id: teams.job_id
+-- Statement 1: Derived table teams
+output job_id: jobs.job_id
+output team: jobs.team
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+  end
+  subgraph g1["teams"]
+    n1["teams.job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["teams.team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["statement"]
+    n4["team<br/><small>teams.team</small>"]
+    n5["job_id<br/><small>teams.job_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g3["mart.job_teams"]
+    n6["mart.job_teams.team<br/><small>string</small>"]
+    n7["mart.job_teams.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n3 --> n4
+  n1 --> n5
+  n4 --> n6
+  n5 --> n7
+```
+
+## statement
+
+It writes the whole Saved table mart.job_teams, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | teams.team ← ops.jobs.team |
+| `job_id` | teams.job_id ← ops.jobs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('teams', ...): Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
+- statement: Key (job_id), since teams' rows are told apart by job_id.
+- mart.job_teams' Key (job_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+WITH teams AS (
+  SELECT DISTINCT
+    jobs.job_id,
+    jobs.team
+  FROM ops.jobs AS jobs
+)
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT
+  teams.team,
+  teams.job_id
+FROM teams
+```
+
+---
+
+
+== edge:write:no_day:stack
+-- Statement 1: to_hive
+WITH `both` AS (
+  SELECT
+    jobs.team,
+    jobs.job_id
+  FROM ops.jobs AS jobs
+  WHERE
+    jobs.team = 'data'
+  UNION
+  SELECT
+    jobs.team,
+    jobs.job_id
+  FROM ops.jobs AS jobs
+  WHERE
+    jobs.team = 'finance'
+)
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT
+  `both`.team,
+  `both`.job_id
+FROM `both`
+-- Statement 1: the Statement
+output job_id: `both`.job_id
+output team: `both`.team
+-- Statement 1: Derived table both
+output team: team
+output job_id: job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n2["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["both, 1st Statement"]
+    n1["both, 1st Statement.team<br/><small>jobs.team</small>"]
+    n3["both, 1st Statement.job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on both, 1st Statement"]
+    n4{{"WHERE in both, 1st Statement<br/><small>equals(jobs.team, #quot;data#quot;)</small>"}}
+  end
+  subgraph g3["both, 2nd Statement"]
+    n5["both, 2nd Statement.team<br/><small>jobs.team</small>"]
+    n6["both, 2nd Statement.job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g4["filters on both, 2nd Statement"]
+    n7{{"WHERE in both, 2nd Statement<br/><small>equals(jobs.team, #quot;finance#quot;)</small>"}}
+  end
+  subgraph g5["both"]
+    n8["both.team<br/><small>UNION(...)</small><br/><small>in the Key</small>"]
+    n9["both.job_id<br/><small>UNION(...)</small><br/><small>in the Key</small>"]
+  end
+  subgraph g6["statement"]
+    n10["job_id<br/><small>#96;both#96;.job_id</small><br/><small>in the Key</small>"]
+    n11["team<br/><small>#96;both#96;.team</small><br/><small>in the Key</small>"]
+  end
+  subgraph g7["mart.job_teams"]
+    n12["mart.job_teams.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n13["mart.job_teams.team<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n0 -.-> n4
+  n0 --> n5
+  n2 --> n6
+  n0 -.-> n7
+  n1 --> n8
+  n5 --> n8
+  n3 --> n9
+  n6 --> n9
+  n9 --> n10
+  n8 --> n11
+  n10 --> n12
+  n11 --> n13
+  n4 -.->|filters| g1
+  n7 -.->|filters| g3
+```
+
+## statement
+
+It writes the whole Saved table mart.job_teams, which has no days.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `both.team`
+
+Calculated in **both** as `UNION(...)`, which is `UNION`.
+
+```text
+both.team = UNION(...)
+├─ both, 1st Statement.team
+│  └─ ops.jobs.team  (string)
+└─ both, 2nd Statement.team
+   └─ ops.jobs.team  (string)
+```
+
+Rows that count:
+- WHERE in both, 1st Statement: `equals(jobs.team, "data")`, which is `jobs.team = 'data'` (reads ops.jobs.team)
+- WHERE in both, 2nd Statement: `equals(jobs.team, "finance")`, which is `jobs.team = 'finance'` (reads ops.jobs.team)
+
+#### `both.job_id`
+
+Calculated in **both** as `UNION(...)`, which is `UNION`.
+
+```text
+both.job_id = UNION(...)
+├─ both, 1st Statement.job_id
+│  └─ ops.jobs.job_id  (bigint)
+└─ both, 2nd Statement.job_id
+   └─ ops.jobs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in both, 1st Statement: `equals(jobs.team, "data")`, which is `jobs.team = 'data'` (reads ops.jobs.team)
+- WHERE in both, 2nd Statement: `equals(jobs.team, "finance")`, which is `jobs.team = 'finance'` (reads ops.jobs.team)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | both.job_id (calculated) ← both, 1st Statement.job_id ← ops.jobs.job_id |
+| `team` | both.team (calculated) ← both, 1st Statement.team ← ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('both', ...): Key (team, job_id), since UNION(...) makes one row for each different team, job_id.
+- statement: Key (team, job_id), since both's rows are told apart by team, job_id.
+- mart.job_teams' Key (job_id) isn't shown to hold, since both's rows are told apart by team, job_id, not by job_id: the write says unproven_key=True.
+
+### Hive as submitted
+
+```sql
+WITH `both` AS (
+  SELECT
+    jobs.team,
+    jobs.job_id
+  FROM ops.jobs AS jobs
+  WHERE
+    jobs.team = 'data'
+  UNION
+  SELECT
+    jobs.team,
+    jobs.job_id
+  FROM ops.jobs AS jobs
+  WHERE
+    jobs.team = 'finance'
+)
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT
+  `both`.team,
+  `both`.job_id
+FROM `both`
+```
+
+---
+
+
+== edge:write:no_day:create_table
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE mart.job_teams (
+  team STRING,
+  job_id BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/job_teams'
+
+== edge:write:no_day:refused:unproven_key
+-- refused
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_teams) can't show that each row it writes has a Key (job_id) of its own: job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id, so nothing makes its rows one for each job_id.
+  Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. The how-to on Keys shows each.
+  Opt-out:        INSERT_OVERWRITE(job_teams, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can't see.
+
+== edge:write:no_day:refused:unbounded_days
+-- refused
+LoadRefused:
+  What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
+  Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
+  Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).
+  Opt-out:        FROM(job_runs, reads_all_partitions=True)
+
+== edge:write:no_day:refused:by_day
+-- refused
+ValueError:
+  What happened:  by_day can't split this Statement: it writes mart.team_runs, which has no Date partition.
+  Why it matters: A write into a table with no days fills the whole table from every day it reads, so it is sent whole: split by day, each day's INSERT_OVERWRITE would replace the rows the day before wrote.
+  Usual fix:      Send it whole, with run(s, send=...).
+  Opt-out:        none - this one can't be switched off.
+
 == edge:admin:drop_table:odd
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS ops.`order`
@@ -17004,7 +17733,7 @@ ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23');
 ValueError:
   What happened:  admin.drop_days(...) was given mart.admin_runs, whose Table reference has no Date partition.
   Why it matters: It drops whole days, and a table with no Date partition keeps none.
-  Usual fix:      To empty the table, give its Table reference purge=True, send admin.set_properties(t), then drop it with admin.drop_table(t) and create it again.
+  Usual fix:      To keep fewer rows, write the table again with INSERT_OVERWRITE(t), which replaces all its rows with the ones its Statement gives. To empty the table, give its Table reference purge=True, send admin.set_properties(t), then drop it with admin.drop_table(t) and create it again.
   Opt-out:        none - this one can't be switched off.
 
 == edge:admin:drop_days:not_a_day
@@ -18687,7 +19416,7 @@ GuardRefused:
 GuardRefused:
   What happened:  INSERT_OVERWRITE(events_before) reads 2 days, and keeps one of them with equals(several.dt, ...) in a step above.
   Why it matters: Only a write whose Window looks back on earlier days needs more days than the one it writes, so only such a write may read them. Any other write needs only that day: the others would be read and thrown away.
-  Usual fix:      Bound job_runs.dt to the day written where it is read: WHERE(equals(job_runs.dt, day)), and drop the bound above. To write several days, send one Statement per day: for day in by_day(s): run(day, send=...).
+  Usual fix:      Keep only the day written where job_runs.dt is read, with WHERE(equals(job_runs.dt, day)), in place of the equals(several.dt, ...) above. To write several days, send one Statement per day: for day in by_day(s): run(day, send=...).
   Opt-out:        none - this one can't be switched off.
 -- Statement 1: the Statement
 output event_id: several.run_id

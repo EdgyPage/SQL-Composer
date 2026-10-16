@@ -10,7 +10,8 @@ temporary folder, and each Statement goes through the send a Spark user gives at
   Spark's DESCRIBE FORMATTED;
 - INSERT_OVERWRITE replaces only its day, sent twice as well as once, and INSERT_INTO adds to
   its day; a write fills the Partitions after its day from its rows; a week_start is written
-  into a column of type string; a UNION is written into its day, each row once;
+  into a column of type string; a UNION is written into its day, each row once; a table with
+  no days is written whole, INSERT_OVERWRITE replacing all its rows and INSERT_INTO adding;
 - admin.drop_table sent twice does nothing the second time, and admin.move_to_own_folder's
   steps move a table made by hand in a shared folder to its own, its rows and name kept;
 - repair_partitions finds the days of a table made again where its files stayed,
@@ -50,9 +51,11 @@ from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,
+    INSERT_INTO,
     INSERT_OVERWRITE,
     JOIN,
     SELECT,
+    SELECT_DISTINCT,
     UNION,
     WHERE,
     Table,
@@ -337,6 +340,27 @@ def test_a_week_start_is_written_into_a_column_of_type_string(spark, send, tmp_p
                   FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24"))), send=send)
     assert {week for _, week in _rows(spark, "SELECT run_id, week FROM mart.weeks")} == {
         "2026-09-21"}
+
+
+def test_a_table_with_no_days_is_written_whole(spark, send, tmp_path) -> None:
+    job_teams = in_folder(Table("mart.job_teams", columns={"job_id": "bigint", "team": "string"},
+                                date_partition=None, key=["job_id"],
+                                location="/data/your_team/tables"), tmp_path)
+    jobs = example_database.jobs
+    run(admin.drop_table(job_teams), send=send)
+    run(create_table(job_teams), send=send)
+    teams = sorted((int(job_id), team) for job_id, team in zip(example_rows("jobs").job_id,
+                                                                  example_rows("jobs").team))
+    # Sent twice, INSERT_OVERWRITE replaces every row: the table holds each job once.
+    for _ in range(2):
+        run(statement(INSERT_OVERWRITE(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team),
+                      FROM(jobs)), send=send)
+        assert _rows(spark, "SELECT job_id, team FROM mart.job_teams") == teams
+    run(statement(INSERT_INTO(job_teams, unproven_key=True),
+                  SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs)), send=send)
+    assert _rows(spark, "SELECT job_id, team FROM mart.job_teams") == sorted(teams * 2)
+    assert str(check_table_reference(job_teams, send=send)) == (
+        "mart.job_teams matches its Table reference.")
 
 
 def test_a_write_that_looks_back_reads_earlier_days_and_fills_one(spark, send,

@@ -226,8 +226,8 @@ reconciling two tables, subtotals, and keeping reads fast.
 
 ## Your Saved tables: Keys and storage
 
-A Saved table is one your own Statements write, a day at a time. Its Table reference says two
-things 5.0 relies on.
+A Saved table is one your own Statements write, a day at a time, or whole for a table with no
+days (`date_partition=None`). Its Table reference says two things 5.0 relies on.
 
 **Its Key**, `key=[...]`: the columns that tell its rows apart, such as
 `key=["job_id", "dt"]` for one row per job per day. Hive never checks a Key, so the Toolbox

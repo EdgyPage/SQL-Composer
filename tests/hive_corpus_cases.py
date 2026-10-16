@@ -557,7 +557,64 @@ def _structure_cases() -> dict:
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
     found["create_table:key_with_the_day"] = lambda: [create_table(runs_per_job_day)]
     found.update(_storage_cases())
-    return {**found, **_key_cases(), **_admin_cases()}
+    return {**found, **_key_cases(), **_no_day_cases(), **_admin_cases()}
+
+
+job_teams = Table(
+    "mart.job_teams",
+    columns={"team": "string", "job_id": "bigint"},
+    date_partition=None,
+    key=["job_id"],
+    location=BASE,
+)
+"""A Saved table with no days, written whole."""
+
+team_runs = Table(
+    "mart.team_runs",
+    columns={"team": "string", "runs": "bigint"},
+    date_partition=None,
+    key=["team"],
+    location=BASE,
+)
+"""A Saved table with no days, written from several days of job_runs."""
+
+
+def _no_day_cases() -> dict:
+    """A write into a Saved table with no days: each clause, from several days, a Derived
+    table and a Stack, the Key's refusal, and what refuses it as working one day at a time."""
+    def runs_per_team(clause=INSERT_OVERWRITE, where=(between(job_runs.dt, FIRST_DAY, DAY),)):
+        return statement(clause(team_runs), SELECT(jobs.team, AS(count_rows(), "runs")),
+                         FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                         *([WHERE(*where)] if where else []), GROUP_BY(jobs.team))
+
+    def from_a_stack():
+        each = [statement(SELECT(jobs.team, jobs.job_id), FROM(jobs),
+                          WHERE(equals(jobs.team, team))) for team in ("data", "finance")]
+        both = derived("both", UNION(*each))
+        return statement(INSERT_OVERWRITE(job_teams, unproven_key=True),
+                         SELECT(both.job_id, both.team), FROM(both))
+
+    def from_a_derived_table():
+        teams = derived("teams", statement(SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs)))
+        return statement(INSERT_OVERWRITE(job_teams), SELECT(teams.team, teams.job_id),
+                         FROM(teams))
+
+    return {
+        "write:no_day:insert_overwrite": lambda: [statement(
+            INSERT_OVERWRITE(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs))],
+        "write:no_day:insert_into": lambda: [statement(
+            INSERT_INTO(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs))],
+        "write:no_day:several_days": lambda: [runs_per_team()],
+        "write:no_day:insert_into_several_days": lambda: [runs_per_team(INSERT_INTO)],
+        "write:no_day:derived_table": lambda: [from_a_derived_table()],
+        "write:no_day:stack": lambda: [from_a_stack()],
+        "write:no_day:create_table": lambda: [create_table(job_teams)],
+        "write:no_day:refused:unproven_key": lambda: [statement(
+            INSERT_OVERWRITE(job_teams), SELECT(jobs.team, job_runs.job_id), FROM(job_runs),
+            JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)), WHERE(one_day()))],
+        "write:no_day:refused:unbounded_days": lambda: [runs_per_team(where=())],
+        "write:no_day:refused:by_day": lambda: by_day(runs_per_team()),
+    }
 
 
 runs_per_job_day = Table(

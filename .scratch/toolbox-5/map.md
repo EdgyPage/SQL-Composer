@@ -66,8 +66,9 @@ below; this map is the design document, built out ticket by ticket.
    - `purge=True/False`, written as `'external.table.purge'`, and `properties={...}` for any
      other TBLPROPERTIES.
    - `stored_as=` (ORC, Parquet) and `compression=`.
-   - `partitioned_by=[...]`: Partitions after the Date partition. A write still fills one day,
-     and fills the other Partitions from its rows (dynamic partitioning); `show_hive` and the dry
+   - `partitioned_by=[...]`: Partitions after the Date partition. A write still fills one day
+     (or the whole table, for one with no days: date_partition=None, the user's request of
+     2026-10-16), and fills the other Partitions from its rows (dynamic partitioning); `show_hive` and the dry
      run print the Session setting this needs (`"dynamic_partitions"`) ahead of the write.
    - `bucketed_by=[...]` with `buckets=n`, and `sorted_by=[...]`. Never by default: Buckets pay
      off on big tables only, and changing them means rewriting the table.

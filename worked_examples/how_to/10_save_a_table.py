@@ -399,6 +399,39 @@ WHERE
 Then write every day again, oldest first, as
 [Backfill a range of days](#backfill_a_range_of_days) shows: the drop deleted them all.
 
+### A table with no days, written whole
+
+Some results have no days: each job's team today, say, which the next write replaces. Give
+such a Saved table `date_partition=None`. Its Hive has no PARTITIONED BY, and a write fills the
+whole table: `INSERT_OVERWRITE` replaces every row it holds, with no PARTITION in its Hive.
+
+>>> jobs = example_database.jobs
+>>> job_teams = Table(
+...     "mart.job_teams",
+...     columns={"job_id": "bigint", "team": "string"},
+...     date_partition=None,
+...     key=["job_id"],
+...     location="/data/your_team/tables",
+...     purge=True,
+... )
+>>> text = show_hive(statement(
+...     INSERT_OVERWRITE(job_teams),
+...     SELECT_DISTINCT(jobs.job_id, jobs.team),
+...     FROM(jobs),
+... ))
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT DISTINCT
+  jobs.job_id,
+  jobs.team
+FROM ops.jobs AS jobs;
+
+`create_table(job_teams)` makes it as any Saved table. Everything else is checked as for a
+write of one day: its Key here, and, when it reads a table with days, that those days are
+bounded. Such a write may read several days, since it writes them all at once, and `by_day`
+refuses it, since each day's write would replace the day before. `date_partition=None` has to
+be written out: a Table reference without `date_partition=...` is refused, so a table with days is never read
+whole by mistake.
+
 ## Check it worked
 
 Every write above was built without a refusal, so its SELECT matches the Table reference and
