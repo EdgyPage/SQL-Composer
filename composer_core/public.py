@@ -17,14 +17,15 @@ from .calculations import (
     max_of,
     min_of,
     month_start,
-    row_number,
     sum_of,
     week_start,
 )
 from .clauses import (
+    ANTI_JOIN,
     AS,
     CROSS_JOIN,
     FROM,
+    FULL_JOIN,
     GROUP_BY,
     HAVING,
     INSERT_INTO,
@@ -33,7 +34,9 @@ from .clauses import (
     LEFT_JOIN,
     LIMIT,
     ORDER_BY,
+    RIGHT_JOIN,
     SELECT,
+    SEMI_JOIN,
     SELECT_DISTINCT,
     WHERE,
     derived,
@@ -70,6 +73,17 @@ from .tables import (
     write_table_reference,
 )
 from .unchecked import hive_settings, set_admin_log, unchecked_hive
+from .windows import (
+    dense_rank,
+    first_value,
+    lag,
+    last_value,
+    lead,
+    ntile,
+    rank,
+    row_number,
+    window,
+)
 
 TOOLBOX_VERSION = "4.1"
 
@@ -91,6 +105,10 @@ __all__ = [
     "JOIN",
     "LEFT_JOIN",
     "CROSS_JOIN",
+    "SEMI_JOIN",
+    "ANTI_JOIN",
+    "FULL_JOIN",
+    "RIGHT_JOIN",
     "WHERE",
     "GROUP_BY",
     "HAVING",
@@ -128,9 +146,18 @@ __all__ = [
     "fill_null",
     "week_start",
     "month_start",
-    "row_number",
     "descending",
     "hive_function",
+    # windows.py
+    "window",
+    "row_number",
+    "rank",
+    "dense_rank",
+    "ntile",
+    "lag",
+    "lead",
+    "first_value",
+    "last_value",
     # running.py
     "to_hive",
     "show_hive",

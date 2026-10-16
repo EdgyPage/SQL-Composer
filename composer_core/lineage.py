@@ -26,10 +26,11 @@ from .refusals import (
     LoadRefused,
     refuse,
 )
-from .running import bottom_read, by_day, name_in, steps, to_hive
+from .running import bottom_read, by_day, kept_day, name_in, steps, to_hive
 from .tables import readable
-from .trees import Node
+from .trees import Node, rows_text
 from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
+from .windows import call_of
 from .edition import hive_text
 
 TOOLBOX_VERSION = "4.1"
@@ -128,6 +129,14 @@ def _resolver(graph: Graph, step: Statement, index: int):
     return resolve
 
 
+# What a join's ON= does, said after its name, where JOIN's own words don't say it.
+_JOIN_DOES = {
+    "SEMI_JOIN": " (keeps each row with a match, once)",
+    "ANTI_JOIN": " (keeps the rows with no match)",
+    "FULL_JOIN": " (keeps the rows of both sides, matched or not)",
+}
+
+
 def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | None]]:
     """Each condition that decides which rows `step` keeps:
     (clause, condition, tree, then, kept).
@@ -138,7 +147,8 @@ def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | 
     many_matches=True, where each row can match, and so count, several times.
     """
     found = [("WHERE", c, c._tree, "", None) for c in step._where]
-    found += [(f"{read._name.replace('_', ' ')} ON", read.on, read.on._tree, "",
+    found += [(f"{read._name.replace('_', ' ')} ON{_JOIN_DOES.get(read._name, '')}", read.on,
+               read.on._tree, "",
                read.table._alias if read._name == "LEFT_JOIN" and not read.many_matches
                else None)
               for read in step._reads if read.on is not None]
@@ -180,7 +190,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                   calculated=tree.kind != "Column",
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
                   else [], statement=index, reads=_aliases_read(tree),
-                  in_key=name in in_key)
+                  in_key=name in in_key, windows=_window_rows(tree))
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
@@ -202,6 +212,30 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                 joined.append(resolve(used))
         for target in made:
             graph.arrow(key, target, "rows")
+
+
+def _window_rows(tree: Node) -> list[dict]:
+    """The PARTITION BY and ORDER BY of each Window a calculation is worked out over, for its
+    "Rows that count": they decide which rows each row's value is worked out from."""
+    found = []
+    for window in tree.find_all("Window"):
+        call, groups = call_of(window), window.parts["partition_by"]
+        order, rows = window.parts.get("order"), window.parts.get("rows")
+        if groups:
+            found.append({
+                "name": f"Window of {call}, its groups",
+                "formula": "PARTITION_BY=" + ", ".join(readable(g) for g in groups),
+                "sql": "PARTITION BY " + ", ".join(hive_text(g) for g in groups)})
+        if order is not None:
+            sorts = order.parts["expressions"]
+            written = [f"descending({readable(o.parts['this'])})" if o.parts["desc"]
+                       else readable(o.parts["this"]) for o in sorts]
+            found.append({
+                "name": f"Window of {call}, its order" + (" and rows" if rows else ""),
+                "formula": "ORDER_BY=" + ", ".join(written) + (f", rows={rows!r}" if rows else ""),
+                "sql": "ORDER BY " + ", ".join(hive_text(o) for o in sorts)
+                + (f" {rows_text(rows)}" if rows else "")})
+    return found
 
 
 def _step_keys(step: Statement):
@@ -263,7 +297,14 @@ def _aliases_read(tree: Node) -> set[str]:
 
 
 def _date_bounds(s: Statement) -> tuple[Statement, list]:
-    """The step that reads a write's real table through FROM, and its date-bound conditions."""
+    """The step that reads a write's real table through FROM, and its date-bound conditions;
+    or, for a write that reads earlier days and keeps the day it writes in a step above, as a
+    window that looks back does, that step and its condition."""
+    _, span = bottom_read(s)
+    if span is not None and span.is_bounded() and len(span.dates()) > 1:
+        kept = kept_day(s)
+        if kept is not None:
+            return kept.step, [kept.condition]
     step = steps(s)[-1][0]
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]
@@ -625,7 +666,8 @@ def report(graph: Graph, ordered) -> list[dict]:
                 and box["kind"] in ("derived", "output")]
         calculated = [
             {"box": graph.boxes[k], "tree": "\n".join(tree_lines(graph, k)),
-             "conditions": _rows_that_count(graph, k)}
+             "conditions": [(rows, []) for rows in graph.boxes[k].get("windows", [])]
+             + _rows_that_count(graph, k)}
             for k in mine if graph.boxes[k]["calculated"]
         ]
         copied = [(graph.boxes[k]["name"], _copied_from(graph, k)) for k in mine

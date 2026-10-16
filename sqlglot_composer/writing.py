@@ -23,9 +23,20 @@ TOOLBOX_VERSION = "4.1"
 _DIALECT = "hive"
 
 
+def _hive_with_hints():
+    """sqlglot's Hive, but writing a query's hint, such as /*+ MAPJOIN(jobs) */, which Hive
+    reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed."""
+    hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
+    hive.generator_class = type("HiveWithHints", (hive.generator_class,), {"QUERY_HINTS": True})
+    return hive
+
+
+_HIVE = _hive_with_hints()
+
+
 def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     """Write a sqlglot tree as Hive. Nothing else in the Toolbox calls `.sql()`."""
-    return tree.sql(dialect=_DIALECT, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
+    return tree.sql(dialect=_HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
 def hive_text(node: Node) -> str:
@@ -211,8 +222,33 @@ def _case(node: Node) -> exp.Case:
 
 
 def _window(node: Node) -> exp.Window:
+    """A calculation OVER (PARTITION BY ... ORDER BY ... ROWS BETWEEN ... AND ...), each part
+    only when the window has it."""
+    order = node.parts.get("order")
+    rows = node.parts.get("rows")
+    spec = None
+    if rows is not None:
+        (start, start_side), (end, end_side) = (_rows_end(rows[0], "PRECEDING"),
+                                                _rows_end(rows[1], "FOLLOWING"))
+        spec = exp.WindowSpec(kind="ROWS", start=start, start_side=start_side, end=end,
+                              end_side=end_side)
     return exp.Window(this=_built(node, "this"), partition_by=_all_built(node, "partition_by"),
-                      order=_built(node, "order"))
+                      order=None if order is None else to_sqlglot(order), spec=spec)
+
+
+def _rows_end(count: int | None, unbounded_side: str) -> tuple[str, str | None]:
+    """One end of a window's ROWS, as sqlglot's WindowSpec holds it: the number of rows from
+    the row itself and which way, CURRENT ROW, or UNBOUNDED for every row that way."""
+    if count is None:
+        return "UNBOUNDED", unbounded_side
+    if count == 0:
+        return "CURRENT ROW", None
+    return str(abs(count)), "PRECEDING" if count < 0 else "FOLLOWING"
+
+
+def _window_call(node: Node) -> exp.Expression:
+    """A function that works only over a window, such as LAG(column, 1), written as named."""
+    return exp.Anonymous(this=node.name.upper(), expressions=_all_built(node, "args"))
 
 
 def _table(node: Node) -> exp.Expression:
@@ -223,19 +259,28 @@ def _table(node: Node) -> exp.Expression:
     return table if alias is None else exp.alias_(table, _identifier(alias), table=True)
 
 
+# How sqlglot holds each join the Toolbox writes: its side and its kind.
+_JOINS = {
+    "JOIN": {},
+    "LEFT JOIN": {"side": "LEFT"},
+    "CROSS JOIN": {"kind": "CROSS"},
+    "LEFT SEMI JOIN": {"side": "LEFT", "kind": "SEMI"},
+    "FULL JOIN": {"side": "FULL"},
+}
+
+
 def _join(node: Node) -> exp.Join:
-    parts = {"this": _built(node, "this")}
+    parts = {"this": _built(node, "this"), **_JOINS[node.parts["how"]]}
     if node.parts.get("on") is not None:
         parts["on"] = _built(node, "on")
-    if node.parts["how"] == "LEFT JOIN":
-        parts["side"] = "LEFT"
-    if node.parts["how"] == "CROSS JOIN":
-        parts["kind"] = "CROSS"
     return exp.Join(**parts)
 
 
 def _select(node: Node) -> exp.Select:
     tree = exp.Select(expressions=_all_built(node, "outputs"))
+    if node.parts.get("broadcast"):
+        tree.set("hint", exp.Hint(expressions=[exp.Anonymous(
+            this="MAPJOIN", expressions=[_identifier(name) for name in node.parts["broadcast"]])]))
     if node.parts.get("distinct"):
         tree.set("distinct", exp.Distinct())
     _set_part(tree, "from", exp.From(this=_built(node, "source")))
@@ -350,6 +395,7 @@ _REPLAY = {
                                           expressions=_all_built(node, "expressions")),
     "Distinct": lambda node: exp.Distinct(expressions=_all_built(node, "expressions")),
     "Window": _window,
+    "WindowCall": _window_call,
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
     # Hive and Spark put NULL first when sorting up and last when sorting down; telling
     # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
