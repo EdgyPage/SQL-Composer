@@ -600,9 +600,9 @@ class Table:
       Two tables in one folder would read each other's files, so a Saved table whose folder
       would be another's, or inside another's, is refused.
     - `purge=True` makes dropping the table delete its files too. purge=False keeps them in
-      its folder, where a table created again gets its old days back once
-      repair_partitions(t) lists them; left out, the warehouse's own choice, which keeps
-      them, is neither written nor checked.
+      its folder, where a table created again reads them back: at once, or, for a table
+      with a Date partition, its days once repair_partitions(t) lists them; left out, the
+      warehouse's own choice, which keeps them, is neither written nor checked.
     - `properties` holds any other table properties, the notes on a table the warehouse
       keeps by name, such as {"made_by": "daily_pipeline"}.
     - `stored_as` is the file format, "ORC" (the usual one) or "PARQUET", and `compression`
