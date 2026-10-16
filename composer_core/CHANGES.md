@@ -80,7 +80,7 @@ files. Each is listed again, with more, under New or Refused now below.
   rows to it. Before 5.0, both refused such a table. The Statement may read several days of a
   table with days, its days bounded in WHERE as in any read, and every other check of a write
   still applies, its Key too. The table must be one of your Saved tables, with `location=`,
-  since the write replaces all of it. by_day refuses such a write, which is sent whole, and so
+  since INSERT_OVERWRITE replaces all of it. by_day refuses such a write, which is sent whole, and so
   does a write that keeps one day in a step above. (`admin.drop_days` and `repair_partitions`
   refuse a table with no days, as before.) The how-to "Save a table" has a section on it.
 - **show_hive prints the Session setting a write needs first**: a write into a table with

@@ -294,8 +294,9 @@ def _window_rows(tree: Node) -> list[dict]:
 
 
 def _step_keys(step: Statement):
-    """A step's Keys. A write's are worked out as its write check does, one day at a time,
-    the ones that show its Saved table's Key first."""
+    """A step's Keys. A write's are worked out as its write check does (one day at a time
+    for a table with days, over every day it reads for one without), the ones that show its
+    Saved table's Key first."""
     keys = statement_keys(step, one_day=writes_one_day(step))
     table = step._write
     if table is None or not table._key:

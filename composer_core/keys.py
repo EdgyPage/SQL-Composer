@@ -106,9 +106,11 @@ def _columns(tree) -> list[tuple[str, str]]:
 class _Facts:
     """What a Statement's clauses say about its columns, read once.
 
-    `one_day` is True for a write, which writes one day of the table at the bottom of its FROM
-    at a time (by_day splits a longer one), so that table's Date partition, and each column
-    that carries it up through the Derived tables in FROM, holds one value.
+    `one_day` is True for a write into a table with a Date partition, which writes one day of
+    the table at the bottom of its FROM at a time (by_day splits a longer one), so that table's
+    Date partition, and each column that carries it up through the Derived tables in FROM,
+    holds one value. A write into a table with no days is written whole, from every day it
+    reads, so for it `one_day` is False.
     """
 
     def __init__(self, s, one_day: bool = False):

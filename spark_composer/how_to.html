@@ -2359,7 +2359,7 @@ run(first_runs, send=example_database.send)</pre>
 <section class="entry" id="save_a_table">
 <h3>10. Save a table <span class="badge getting-started">Getting started</span></h3>
 <h4>Goal</h4>
-<p>Keep a Statement&#x27;s result in a Saved table: a real table in the warehouse that your Statements write into, one day at a time, and that other Statements then read like any other table. You describe the table in a Table reference, create it, fill a day, add more rows to a day, and rebuild it when its columns change.</p>
+<p>Keep a Statement&#x27;s result in a Saved table: a real table in the warehouse that your Statements write into, one day at a time, or whole for a table with no days, and that other Statements then read like any other table. You describe the table in a Table reference, create it, fill a day, add more rows to a day, and rebuild it when its columns change.</p>
 <h4>When you&#x27;d use it</h4>
 <p>When a result is slow to work out, or many notebooks and dashboards read it, it is cheaper to work it out once a day and save it than to work it out again every time someone asks. A Saved table also keeps each day&#x27;s rows as they were on the day they were written.</p>
 <p>The Example database can be read but not written to, so on this page each write shows its Hive, ready to paste, and the one step that tries to send a write shows the message the Example database stops it with. At work, <code>run</code> sends the same Statements to your warehouse.</p>

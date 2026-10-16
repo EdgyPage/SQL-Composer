@@ -249,7 +249,8 @@ and joins fast](#keep-reads-and-joins-fast)).
 
 Hive can't change single rows of an external table, so the Toolbox has no `UPDATE`,
 `DELETE`, `MERGE` or `TRUNCATE`: write a day again with `INSERT_OVERWRITE`, which replaces it,
-or drop old days with `admin.drop_days`. A table with no days is written whole again with
+or drop old days with `admin.drop_days`, which is Hive's: Spark refuses it, so if Spark runs
+your tables, ask whoever looks after them how old days are dropped. A table with no days is written whole again with
 `INSERT_OVERWRITE`, which replaces all its rows.
 
 ## Session settings, Hive by hand, and the admin module
