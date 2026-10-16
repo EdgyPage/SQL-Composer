@@ -86,10 +86,16 @@ def _purge_note(t: Table, whose: str) -> str:
     if t._purge:
         return (f"Can't be undone when the table itself has {PURGE} true, as purge=True in its "
                 f"Table reference asks: then {whose} files go too, and nothing brings them back.")
+    if t._date_partition is None:
+        found_again = "A table made there again reads them back"
+    else:
+        found_again = ("The warehouse reads them again once repair_partitions(t) lists their "
+                       "days, even in a table made there again, and an INSERT_INTO of one of "
+                       "those days adds to its old rows")
     return (f"{whose[0].upper()}{whose[1:]} files stay in the table's folder, {t._location}, "
             f"unless the table itself has {PURGE} true: purge=True isn't in its Table "
-            "reference. A table or day made there again reads them back, and only someone with "
-            "access to the folder can delete them.")
+            f"reference. {found_again}; only someone with access to the folder can delete "
+            "them.")
 
 
 def _check_purge(t: Table) -> str:
@@ -110,8 +116,10 @@ def drop_table(t):
     asks for. create_table writes it into the table it makes; for a table made before you
     gave its Table reference purge=True, send admin.set_properties(t) first. Otherwise the
     warehouse only forgets the table: its files stay in its folder, and a table created there
-    again reads them back. It refuses a table that isn't one of your Saved tables, a Table
-    reference with no location=, such as job_runs, which others fill.
+    again gets their days back once repair_partitions(t) lists them, or adds to a day's old
+    rows with INSERT_INTO; one with no Date partition reads them back at once. It refuses
+    a table that isn't one of your Saved tables, a Table reference with no location=, such
+    as job_runs, which others fill.
 
     The usual reason is a change to a Saved table's columns that admin.add_columns can't
     make, such as removing or renaming one: drop the table, create it again, and write its

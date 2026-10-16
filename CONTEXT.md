@@ -186,6 +186,7 @@ _Avoid_: stats, metadata, metrics
 How Hive, or Spark, will run a Statement - which tables it reads, with which filters, and how
 it joins them - shown without running it.
 _Avoid_: query plan, execution plan, explain output
+
 **Map join**:
 A join in which the warehouse copies a small table whole to every worker, so the big table's
 rows are matched where they are, without first being sorted and sent across the cluster. Hive

@@ -262,7 +262,8 @@ instead, give `job_day`'s Table reference `purge=True`, set it in the table with
 `admin.set_properties(job_day)`, then drop it with `admin.drop_table(job_day)`, create it
 again and write its days again, as the gallery's
 [Saved table Worked example](examples.html#saved_table) shows in its rebuild step. Without
-purge, the old days' files stay, and the table created again reads them back.
+purge, the old days' files stay, and the table created again gets them back once
+`repair_partitions` lists their days.
 
 ### Saving the weekly rollup
 
