@@ -89,7 +89,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <li data-for="check_data_quality"><a href="#check_data_quality">25. Check data quality with Statements</a></li>
 <li data-for="generate_from_settings"><a href="#generate_from_settings">26. Generate Table references and Statements from settings</a></li>
 <li data-for="call_other_hive_functions"><a href="#call_other_hive_functions">27. Call other Hive functions, and see where the Editions differ</a></li>
-<li data-for="finish_in_pandas"><a href="#finish_in_pandas">28. Finish in pandas</a></li>
+<li data-for="finish_in_pandas"><a href="#finish_in_pandas">28. Look across rows, then finish in pandas</a></li>
 <li data-for="review_a_change_with_lineage"><a href="#review_a_change_with_lineage">29. Review a change with Lineage</a></li>
 <li data-for="test_your_own_statements"><a href="#test_your_own_statements">30. Test your own Statements</a></li>
 <li data-for="choose_how_a_saved_table_is_stored"><a href="#choose_how_a_saved_table_is_stored">31. Choose how a Saved table is stored</a></li>
@@ -2150,6 +2150,7 @@ GROUP BY
 <h5>Number each job&#x27;s runs, newest first</h5>
 <p><code>row_number</code> numbers the rows of each group from 1:</p>
 <ul><li><code>PARTITION_BY=</code> names the column whose values make the groups, here each job. The word is SQL&#x27;s; it has nothing to do with a table&#x27;s Date partition.</li><li><code>ORDER_BY=</code> says the order to number them in. <code>descending</code> makes the largest come first, so each job&#x27;s newest run gets 1.</li></ul>
+<p>The two may also go inside a <code>window</code>, passed as <code>over=</code>, the way every other calculation over the rows around each row takes them, such as <code>lag</code> and <code>rank</code>: <code>row_number(over=window( PARTITION_BY=..., ORDER_BY=...))</code> numbers the same.</p>
 <p>The number is a calculation, so it needs a name with <code>AS</code>, and it goes in a Derived table, for the next Statement to read:</p>
 <pre class="python">numbered = derived(&quot;numbered&quot;, statement(
     SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
@@ -2347,8 +2348,8 @@ run(first_runs, send=example_database.send)</pre>
   Opt-out:        none - a calculation always needs a name.</pre>
 <p>Name it with <code>AS</code>, so the Statement that reads it can test it by that name.</p>
 <h4>Next</h4>
-<ul><li>Keep the numbering step as a Building block every Statement can call: <a href="#reusable_derived_tables">Reusable Derived tables</a>.</li><li>Each job&#x27;s newest row from a table that keeps a full copy of itself every day: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>A rank, the row before, or a rolling sum, which the Toolbox doesn&#x27;t write as Hive: <a href="#finish_in_pandas">Finish in pandas</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#row_number"><code>row_number</code></a> and <a href="examples.html#descending"><code>descending</code></a>, and the careless and fixed Statements side by side: <a href="examples.html#latest_and_top_n">latest and top N</a>.</li></ul>
-<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>row_number</code>, <code>descending</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+<ul><li>Keep the numbering step as a Building block every Statement can call: <a href="#reusable_derived_tables">Reusable Derived tables</a>.</li><li>Each job&#x27;s newest row from a table that keeps a full copy of itself every day: <a href="#look_things_up_as_of_a_day">Look things up as of a day</a>.</li><li>A rank, the row before, or a rolling sum, each over a Window: <a href="#finish_in_pandas">Look across rows, then finish in pandas</a>.</li><li>The gallery&#x27;s Worked examples of <a href="examples.html#row_number"><code>row_number</code></a> and <a href="examples.html#descending"><code>descending</code></a>, and the careless and fixed Statements side by side: <a href="examples.html#latest_and_top_n">latest and top N</a>.</li></ul>
+<p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="save_a_table">
 <h3>10. Save a table <span class="badge getting-started">Getting started</span></h3>
@@ -4953,7 +4954,7 @@ run(runs_per_team_today, send=example_database.send)</pre>
 <p>Bound it with the same days as the table it is joined to, in <code>WHERE</code> as the steps do. A bound in <code>ON=</code>, such as <code>between(job_owners.dt, &quot;2026-09-11&quot;, &quot;2026-09-24&quot;)</code> inside the <code>all_of</code>, counts too.</p>
 <h4>Next</h4>
 <ul><li>Roll the days up into weeks and months: <a href="#week_and_month_rollups">Week and month rollups</a>.</li><li>Save each team&#x27;s day, as of its day, in a pipeline of Saved tables: <a href="#a_pipeline_of_saved_tables">A pipeline of Saved tables</a>.</li><li>The gallery&#x27;s <a href="examples.html#latest_and_top_n">latest run per job</a>, which shows why <code>max_of</code> on each column can mix values from different rows, and its Worked example of <a href="examples.html#row_number"><code>row_number</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>row_number</code>, <code>descending</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="week_and_month_rollups">
 <h3>21. Week and month rollups <span class="badge intermediate">Intermediate</span></h3>
@@ -6244,7 +6245,7 @@ len(per_day)</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;2026-09-12&#x27;, &#x27;2026-09-13&#x27;, &#x27;2026-09-19&#x27;, &#x27;2026-09-20&#x27;]</pre>
 <p>Here the four are weekends, as expected. A missing weekday would be a load to look into.</p>
 <h4>Next</h4>
-<ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, against pandas.</li><li>Keep the checks you run every morning in a file, as functions like <code>null_counts</code>, the way <a href="#share_building_blocks_between_statements">Share Building blocks between Statements</a> keeps blocks.</li><li><a href="#finish_in_pandas">Finish in pandas</a>: more of what pandas does once <code>run</code> gives back the rows, such as merging the results of several Statements.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> checks that a Table reference still matches its table, and <a href="examples.html#check_key"><code>check_key</code></a> checks its key on the newest day.</li></ul>
+<ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, against pandas.</li><li>Keep the checks you run every morning in a file, as functions like <code>null_counts</code>, the way <a href="#share_building_blocks_between_statements">Share Building blocks between Statements</a> keeps blocks.</li><li><a href="#finish_in_pandas">Look across rows, then finish in pandas</a>: more of what pandas does once <code>run</code> gives back the rows, such as merging the results of several Statements.</li><li>The gallery&#x27;s <a href="examples.html#check_table_reference"><code>check_table_reference</code></a> checks that a Table reference still matches its table, and <a href="examples.html#check_key"><code>check_key</code></a> checks its key on the newest day.</li></ul>
 <p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>is_not_null</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="generate_from_settings">
@@ -6837,47 +6838,50 @@ run(no_fill, send=example_database.send)</pre>
 <p>Write <code>&quot;yyyy-MM&quot;</code>, and it gives each day&#x27;s month, such as 2026-09.</p>
 </div>
 <h5>A function that works over a window of rows</h5>
-<p>lag, lead, rank and the other window functions need OVER (...) after them, which <code>hive_function</code> can&#x27;t write, so it refuses them, and its message gives the pandas line that does the same. <a href="#finish_in_pandas">Finish in pandas</a> shows them.</p>
+<p>lag, lead, rank and the other window functions need OVER (...) after them, which <code>hive_function</code> can&#x27;t write, so it refuses them, and its message names the Toolbox&#x27;s own function that writes it, such as <code>lag</code>, which takes a <code>window</code>. <a href="#finish_in_pandas">Look across rows, then finish in pandas</a> shows them.</p>
 <h4>Next</h4>
-<ul><li><a href="#finish_in_pandas">Finish in pandas</a>: lag, rank and a rolling sum, worked out on the rows <code>run</code> gives back.</li><li>The gallery&#x27;s <a href="examples.html#hive_function"><code>hive_function</code></a> entry, and <a href="examples.html#fill_null"><code>fill_null</code></a> for putting a value in where a column is NULL.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, whichever Edition writes it.</li></ul>
+<ul><li><a href="#finish_in_pandas">Look across rows, then finish in pandas</a>: lag, rank and a rolling sum, each over a Window.</li><li>The gallery&#x27;s <a href="examples.html#hive_function"><code>hive_function</code></a> entry, and <a href="examples.html#fill_null"><code>fill_null</code></a> for putting a value in where a column is NULL.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, whichever Edition writes it.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>average_of</code>, <code>fill_null</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="finish_in_pandas">
-<h3>28. Finish in pandas <span class="badge intermediate">Intermediate</span></h3>
+<h3>28. Look across rows, then finish in pandas <span class="badge intermediate">Intermediate</span></h3>
 <h4>Goal</h4>
-<p>Work out in pandas what the Toolbox doesn&#x27;t write as Hive: each row&#x27;s value from the row before it (lag), a rank within each group (rank), and a rolling sum. Then put the results of several Statements side by side with a merge.</p>
+<p>Work out on the warehouse what looks across the rows around each row: each row&#x27;s value from the row before it (lag), a rank within each group (rank), a rolling sum, and a group&#x27;s total beside each row, each over a <code>window</code>. Keep only some of those rows through a Derived table, and write a day of a Saved table that looks back on earlier days. Then finish in pandas: put the results of several Statements side by side with a merge.</p>
 <h4>When you&#x27;d use it</h4>
-<p>When a step needs a window of rows around each row, written OVER (...) in SQL, which only <code>row_number</code> writes for you. The Toolbox refuses the others, so let a Statement do the heavy part on the warehouse, reading every row of the days you give it and handing back a small result, and finish that result in pandas. And when the numbers you need come from Statements on different tables, small enough to combine in your notebook.</p>
+<p>When a step needs the rows around each row, written OVER (...) in SQL: how a run compares with the one before it, a running or moving total, a rank. A <code>window</code> says which rows: the rows of each group, in an order, and with <code>rows=</code> only those near each row. The warehouse does that work, reading every row of the days you give it, and hands back the result. And when the numbers you need come from Statements on different tables, small enough to combine in your notebook, pandas finishes the job.</p>
 <h4>Steps</h4>
-<h5>Import the Toolbox and fetch the rows</h5>
+<h5>Import the Toolbox and name the Window</h5>
 <pre class="python">from spark_composer import *
 import pandas as pd
 job_events = example_database.job_events
 region_costs = example_database.region_costs</pre>
-<p>Each finished run, with how many minutes it took, over the last week of the Example database:</p>
-<pre class="python">finished = statement(
-    SELECT(job_events.job_id, job_events.dt, job_events.minutes),
-    FROM(job_events),
-    WHERE(between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
-          equals(job_events.event_type, &quot;finish&quot;)),
-)
-runs = run(finished, send=example_database.send)</pre>
-<p><code>runs</code> is an ordinary pandas DataFrame, one row per finished run. Everything after this works on it in your notebook, and nothing more runs on the warehouse.</p>
+<p>A Window names the rows each row looks across. <code>PARTITION_BY=</code> makes the groups, here each job: the word is SQL&#x27;s, and has nothing to do with a table&#x27;s Date partition. <code>ORDER_BY=</code> puts each group&#x27;s rows in order, here by day: each job finishes at most once a day in the Example database.</p>
+<pre class="python">each_jobs_runs = window(PARTITION_BY=job_events.job_id, ORDER_BY=job_events.dt)</pre>
+<p>And the rows to read, the same in every step: the finished runs of the last week of the Example database.</p>
+<pre class="python">week_finished = [between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
+                 equals(job_events.event_type, &quot;finish&quot;)]</pre>
 <h5>The run before: lag</h5>
-<p>How much faster or slower was each run than the job&#x27;s run before it? SQL&#x27;s lag gives that, but it needs OVER (...), so <code>hive_function</code> refuses it, and its message gives the pandas line to use instead:</p>
-<pre class="python">hive_function(&quot;lag&quot;, job_events.minutes, 1)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
-  What happened:  hive_function(&#x27;lag&#x27;, ...) calls lag, which works only over a window of rows, written LAG(...) OVER (...).
-  Why it matters: hive_function can&#x27;t write OVER, and without it Hive and Spark stop the whole Statement with an error.
-  Usual fix:      SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: df.sort_values(&quot;dt&quot;).groupby(&quot;job_id&quot;)[&quot;runs&quot;].shift(1) gives each row the value of the row before it in its group.
-  Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>The message&#x27;s pandas line is written with example names: df stands for your DataFrame, here <code>runs</code>, and &quot;runs&quot; for the column to shift, here &quot;minutes&quot;.</p>
-<p>In pandas, sort each job&#x27;s runs by day, then <code>.shift(1)</code> within each job gives each row the value of the row before it, and NaN, pandas&#x27; empty value, for each job&#x27;s first run. The tables on this page show NaN, like None, as NULL:</p>
-<pre class="python">runs = runs.sort_values([&quot;job_id&quot;, &quot;dt&quot;])
-runs[&quot;minutes_before&quot;] = runs.groupby(&quot;job_id&quot;)[&quot;minutes&quot;].shift(1)
-runs[&quot;change&quot;] = runs[&quot;minutes&quot;] - runs[&quot;minutes_before&quot;]
-runs</pre>
-<p class="label">Python shows</p><div class="scroll"><table class="result">
+<p>How much faster or slower was each run than the job&#x27;s run before it? <code>lag</code> gives each row the value of the row before it in its Window&#x27;s order, and NULL to the first row of each job:</p>
+<pre class="python">with_before = statement(
+    SELECT(job_events.job_id, job_events.dt, job_events.minutes,
+           AS(lag(job_events.minutes, over=each_jobs_runs), &quot;minutes_before&quot;),
+           AS(job_events.minutes - lag(job_events.minutes, over=each_jobs_runs), &quot;change&quot;)),
+    FROM(job_events),
+    WHERE(*week_finished),
+)
+text = show_hive(with_before)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_events.job_id,
+  job_events.dt,
+  job_events.minutes,
+  LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) AS minutes_before,
+  job_events.minutes - LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) AS change
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+  AND job_events.event_type = &#x27;finish&#x27;;</pre>
+<pre class="python">run(with_before, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>dt</th><th>minutes</th><th>minutes_before</th><th>change</th></tr>
 <tr><td>1</td><td>2026-09-18</td><td>14</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
 <tr><td>1</td><td>2026-09-19</td><td>11</td><td>14.0</td><td>-3.0</td></tr>
@@ -6892,19 +6896,19 @@ runs</pre>
 <tr><td>2</td><td>2026-09-23</td><td>18</td><td>18.0</td><td>0.0</td></tr>
 <tr><td>3</td><td>2026-09-21</td><td>33</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
 </table></div>
+<p>The Window sees only the rows the Statement reads: job 1 ran on 2026-09-17 too, but WHERE starts on 2026-09-18, so its run that day has no run before it. NaN is pandas&#x27; empty value, which the tables on this page show as NULL.</p>
 <h5>A rank within each group: rank</h5>
-<p>Which of each job&#x27;s runs took longest? rank is refused for the same reason:</p>
-<pre class="python">hive_function(&quot;rank&quot;)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
-  What happened:  hive_function(&#x27;rank&#x27;, ...) calls rank, which works only over a window of rows, written RANK(...) OVER (...).
-  Why it matters: hive_function can&#x27;t write OVER, and without it Hive and Spark stop the whole Statement with an error.
-  Usual fix:      SELECT the columns it needs, then in pandas, on the DataFrame run(...) gives back: df.groupby(&quot;job_id&quot;)[&quot;runs&quot;].rank(method=&quot;min&quot;, ascending=False) ranks each row in its group.
-  Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>In pandas, <code>.rank</code> within each job, longest first. <code>method=&quot;min&quot;</code> gives two runs that tie the same rank, and the next one the rank after both, as SQL&#x27;s rank does; <code>.astype(int)</code> shows the ranks as whole numbers:</p>
-<pre class="python">runs[&quot;longest_first&quot;] = (runs.groupby(&quot;job_id&quot;)[&quot;minutes&quot;]
-                         .rank(method=&quot;min&quot;, ascending=False).astype(int))
-runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;, &quot;longest_first&quot;]]</pre>
-<p class="label">Python shows</p><div class="scroll"><table class="result">
+<p>Which of each job&#x27;s runs took longest? <code>rank</code> numbers each job&#x27;s runs in its Window&#x27;s order, here the longest first, with <code>descending</code>. Two runs that tie get the same rank, and the next run the rank after both, as job 2&#x27;s two runs of 18 minutes do:</p>
+<pre class="python">longest_first = window(PARTITION_BY=job_events.job_id,
+                       ORDER_BY=descending(job_events.minutes))
+ranked = statement(
+    SELECT(job_events.job_id, job_events.dt, job_events.minutes,
+           AS(rank(over=longest_first), &quot;longest_first&quot;)),
+    FROM(job_events),
+    WHERE(*week_finished),
+)
+run(ranked, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>dt</th><th>minutes</th><th>longest_first</th></tr>
 <tr><td>1</td><td>2026-09-18</td><td>14</td><td>1</td></tr>
 <tr><td>1</td><td>2026-09-19</td><td>11</td><td>5</td></tr>
@@ -6919,39 +6923,122 @@ runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;, &quot;longest_fir
 <tr><td>2</td><td>2026-09-23</td><td>18</td><td>3</td></tr>
 <tr><td>3</td><td>2026-09-21</td><td>33</td><td>1</td></tr>
 </table></div>
-<p>To keep the newest row per key, or the top rows per group, use <code>row_number</code> instead, which the Toolbox writes as Hive with its OVER (...): see <a href="#latest_row_per_key">The latest row per key, and the top N per group</a>.</p>
-<h5>A rolling sum</h5>
-<p>The minutes of each job&#x27;s last three runs, added up. <code>sum_of</code> adds up a whole group into one row, and so does sum through <code>hive_function</code>. Nothing refuses it, since sum is not only a window function, but it writes plain SUM, with no OVER (...):</p>
-<pre class="python">hive_function(&quot;sum&quot;, job_events.minutes)</pre>
-<p class="label">Python shows</p><pre class="output">SUM(job_events.minutes)</pre>
-<p>The Toolbox writes no OVER (...) for a rolling sum, so work it out in pandas: <code>.rolling(3, min_periods=1)</code> looks at each row and the two before it, or fewer at the start, and <code>.transform</code> does it within each job, keeping one value per row:</p>
-<pre class="python">runs[&quot;last_3_runs&quot;] = (runs.groupby(&quot;job_id&quot;)[&quot;minutes&quot;]
-                       .transform(lambda minutes: minutes.rolling(3, min_periods=1).sum()))
-runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;, &quot;last_3_runs&quot;]]</pre>
-<p class="label">Python shows</p><div class="scroll"><table class="result">
-<tr><th>job_id</th><th>dt</th><th>minutes</th><th>last_3_runs</th></tr>
-<tr><td>1</td><td>2026-09-18</td><td>14</td><td>14.0</td></tr>
-<tr><td>1</td><td>2026-09-19</td><td>11</td><td>25.0</td></tr>
-<tr><td>1</td><td>2026-09-20</td><td>12</td><td>37.0</td></tr>
-<tr><td>1</td><td>2026-09-21</td><td>13</td><td>36.0</td></tr>
-<tr><td>1</td><td>2026-09-22</td><td>10</td><td>35.0</td></tr>
-<tr><td>1</td><td>2026-09-23</td><td>12</td><td>35.0</td></tr>
-<tr><td>1</td><td>2026-09-24</td><td>10</td><td>32.0</td></tr>
-<tr><td>2</td><td>2026-09-18</td><td>22</td><td>22.0</td></tr>
-<tr><td>2</td><td>2026-09-21</td><td>21</td><td>43.0</td></tr>
-<tr><td>2</td><td>2026-09-22</td><td>18</td><td>61.0</td></tr>
-<tr><td>2</td><td>2026-09-23</td><td>18</td><td>57.0</td></tr>
-<tr><td>3</td><td>2026-09-21</td><td>33</td><td>33.0</td></tr>
+<p><code>dense_rank</code> gives a tie the same rank too, but leaves no rank out after it. To keep each job&#x27;s one newest run, or its top N, use <code>row_number</code>, which never ties: see <a href="#latest_row_per_key">The latest row per key, and the top N per group</a>.</p>
+<h5>A rolling sum, and a group&#x27;s total beside each row</h5>
+<p>The minutes of each job&#x27;s last three runs, added up, beside the job&#x27;s minutes for the week. <code>sum_of(..., over=...)</code> adds up each row&#x27;s Window, and gives each row its own total. <code>rows=(-2, 0)</code> keeps only the two rows before each row and the row itself; with no <code>ORDER_BY</code> and no <code>rows=</code>, the Window is the whole job:</p>
+<pre class="python">last_three = statement(
+    SELECT(job_events.job_id, job_events.dt, job_events.minutes,
+           AS(sum_of(job_events.minutes, over=window(
+               PARTITION_BY=job_events.job_id, ORDER_BY=job_events.dt, rows=(-2, 0))),
+              &quot;last_3_runs&quot;),
+           AS(sum_of(job_events.minutes, over=window(PARTITION_BY=job_events.job_id)),
+              &quot;week_minutes&quot;)),
+    FROM(job_events),
+    WHERE(*week_finished),
+)
+text = show_hive(last_three)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">SELECT
+  job_events.job_id,
+  job_events.dt,
+  job_events.minutes,
+  SUM(job_events.minutes) OVER (
+    PARTITION BY job_events.job_id
+    ORDER BY job_events.dt ASC
+    ROWS BETWEEN 2 PRECEDING AND CURRENT ROW
+  ) AS last_3_runs,
+  SUM(job_events.minutes) OVER (PARTITION BY job_events.job_id) AS week_minutes
+FROM ops.job_events AS job_events
+WHERE
+  job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+  AND job_events.event_type = &#x27;finish&#x27;;</pre>
+<pre class="python">run(last_three, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>minutes</th><th>last_3_runs</th><th>week_minutes</th></tr>
+<tr><td>1</td><td>2026-09-18</td><td>14</td><td>14</td><td>82</td></tr>
+<tr><td>1</td><td>2026-09-19</td><td>11</td><td>25</td><td>82</td></tr>
+<tr><td>1</td><td>2026-09-20</td><td>12</td><td>37</td><td>82</td></tr>
+<tr><td>1</td><td>2026-09-21</td><td>13</td><td>36</td><td>82</td></tr>
+<tr><td>1</td><td>2026-09-22</td><td>10</td><td>35</td><td>82</td></tr>
+<tr><td>1</td><td>2026-09-23</td><td>12</td><td>35</td><td>82</td></tr>
+<tr><td>1</td><td>2026-09-24</td><td>10</td><td>32</td><td>82</td></tr>
+<tr><td>2</td><td>2026-09-18</td><td>22</td><td>22</td><td>79</td></tr>
+<tr><td>2</td><td>2026-09-21</td><td>21</td><td>43</td><td>79</td></tr>
+<tr><td>2</td><td>2026-09-22</td><td>18</td><td>61</td><td>79</td></tr>
+<tr><td>2</td><td>2026-09-23</td><td>18</td><td>57</td><td>79</td></tr>
+<tr><td>3</td><td>2026-09-21</td><td>33</td><td>33</td><td>33</td></tr>
 </table></div>
 <p>It counts runs, not days: invoice_sync, job 2, doesn&#x27;t run at weekends, so its first three runs, up to 2026-09-22, span 2026-09-18 to 22, five days, and add up to 61 minutes.</p>
+<h5>Keep only some rows: through a Derived table</h5>
+<p>Which runs were slower than the job&#x27;s run before? Hive works a Window out after it picks the rows, so a test on <code>&quot;change&quot;</code> can&#x27;t go in the WHERE of the Statement that works it out (see Common mistakes). Name that Statement with <code>derived</code>, and test it in the Statement that reads it:</p>
+<pre class="python">changes = derived(&quot;changes&quot;, with_before)
+slower = statement(
+    SELECT(changes.job_id, changes.dt, changes.change),
+    FROM(changes),
+    WHERE(more_than(changes.change, 0)),
+)
+run(slower, send=example_database.send)</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>dt</th><th>change</th></tr>
+<tr><td>1</td><td>2026-09-20</td><td>1</td></tr>
+<tr><td>1</td><td>2026-09-21</td><td>1</td></tr>
+<tr><td>1</td><td>2026-09-23</td><td>2</td></tr>
+</table></div>
+<h5>Write a day that looks back on earlier days</h5>
+<p>To keep each run&#x27;s change in a Saved table, day by day, each day&#x27;s write needs the runs before it, which may be on earlier days. A write fills one day, so read the earlier days too in a Derived table, and keep only the day written in the Statement that writes: the Toolbox writes the day that Statement keeps. A job&#x27;s run before may be up to a week back, so read a week:</p>
+<pre class="python">import datetime
+run_changes = Table(&quot;mart.run_changes&quot;, date_partition=&quot;dt&quot;, key=[&quot;event_id&quot;, &quot;dt&quot;],
+                    columns={&quot;event_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;int&quot;,
+                             &quot;minutes_before&quot;: &quot;int&quot;, &quot;dt&quot;: &quot;string&quot;},
+                    location=&quot;/data/your_team/tables&quot;, purge=True)
+def changes_on(day):
+    week_before = (datetime.date.fromisoformat(day) - datetime.timedelta(days=6)).isoformat()
+    week = derived(&quot;week&quot;, statement(
+        SELECT(job_events.event_id, job_events.job_id, job_events.dt, job_events.minutes,
+               AS(lag(job_events.minutes, over=each_jobs_runs), &quot;minutes_before&quot;)),
+        FROM(job_events),
+        WHERE(between(job_events.dt, week_before, day),
+              equals(job_events.event_type, &quot;finish&quot;)),
+    ))
+    return statement(
+        INSERT_OVERWRITE(run_changes),
+        SELECT(week.event_id, week.job_id, week.minutes, week.minutes_before),
+        FROM(week),
+        WHERE(equals(week.dt, day)),
+    )
+text = show_hive(changes_on(&quot;2026-09-24&quot;))</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">WITH week AS (
+  SELECT
+    job_events.event_id,
+    job_events.job_id,
+    job_events.dt,
+    job_events.minutes,
+    LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) AS minutes_before
+  FROM ops.job_events AS job_events
+  WHERE
+    job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
+    AND job_events.event_type = &#x27;finish&#x27;
+)
+INSERT OVERWRITE TABLE mart.run_changes PARTITION(dt = &#x27;2026-09-24&#x27;)
+SELECT
+  week.event_id,
+  week.job_id,
+  week.minutes,
+  week.minutes_before
+FROM week
+WHERE
+  week.dt = &#x27;2026-09-24&#x27;;</pre>
+<p>The Example database can&#x27;t be written to, so the write stops here. At work, a function sends one such Statement for each day, oldest first, through your own send:</p>
+<pre class="python">def write_changes(days, send):
+    for day in days:
+        run(changes_on(day), send=send)</pre>
+<p><code>by_day</code> can&#x27;t split a Statement whose Window looks across days: see Common mistakes.</p>
 <h5>Merge the results of several Statements</h5>
 <p>The cost of each minute a job ran comes from two tables: its minutes from <code>ops.job_events</code>, and its cost from <code>ops.region_costs</code>. Add up each per job, with a Statement each:</p>
 <pre class="python">minutes_per_job = statement(
     SELECT(job_events.job_id, AS(count_rows(), &quot;runs&quot;),
            AS(sum_of(job_events.minutes), &quot;minutes&quot;)),
     FROM(job_events),
-    WHERE(between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
-          equals(job_events.event_type, &quot;finish&quot;)),
+    WHERE(*week_finished),
     GROUP_BY(job_events.job_id),
 )
 cost_per_job = statement(
@@ -6975,25 +7062,44 @@ per_job</pre>
 <p>report_build, job 3, costs most per minute: it finished once this week, but its run that failed on 2026-09-18 was billed too.</p>
 <p>The Toolbox could join the two as Derived tables in one Statement, and on big results that is the way: the warehouse does the work. For two small results you already have, a merge in pandas is quicker to write and to change.</p>
 <h4>Check it worked</h4>
-<p>Only each job&#x27;s first run has no run before it, so of three jobs, three rows have NaN. And the merge kept one row per job:</p>
-<pre class="python">int(runs[&quot;minutes_before&quot;].isna().sum())</pre>
+<p>Only each job&#x27;s first run of the week has no run before it, so of three jobs, three rows have NaN. And the merge kept one row per job:</p>
+<pre class="python">runs = run(with_before, send=example_database.send)
+int(runs[&quot;minutes_before&quot;].isna().sum())</pre>
 <p class="label">Python shows</p><pre class="output">3</pre>
 <pre class="python">per_job[&quot;job_id&quot;].is_unique</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
 <h4>Common mistakes</h4>
-<h5>Shifting rows that aren&#x27;t in order</h5>
-<p><code>.shift(1)</code> takes the row above, whatever order the rows are in. The Example database gives rows in a fixed order, but your warehouse gives them in no fixed order, as here, newest first:</p>
-<pre class="python">newest_first = runs[[&quot;job_id&quot;, &quot;dt&quot;, &quot;minutes&quot;]].iloc[::-1].copy()
-newest_first[&quot;minutes_before&quot;] = newest_first.groupby(&quot;job_id&quot;)[&quot;minutes&quot;].shift(1)
-newest_first[newest_first[&quot;job_id&quot;] == 2]</pre>
-<p class="label">Python shows</p><div class="scroll"><table class="result">
-<tr><th>job_id</th><th>dt</th><th>minutes</th><th>minutes_before</th></tr>
-<tr><td>2</td><td>2026-09-23</td><td>18</td><td><i>NULL</i></td></tr>
-<tr><td>2</td><td>2026-09-22</td><td>18</td><td>18.0</td></tr>
-<tr><td>2</td><td>2026-09-21</td><td>21</td><td>18.0</td></tr>
-<tr><td>2</td><td>2026-09-18</td><td>22</td><td>21.0</td></tr>
-</table></div>
-<p>Each &quot;minutes_before&quot; is the run after it, and nothing stops it. Sort by the key and the day first, with <code>.sort_values([&quot;job_id&quot;, &quot;dt&quot;])</code>, as the step The run before: lag does.</p>
+<h5>Testing a Window&#x27;s result in the same Statement</h5>
+<p>A Window is worked out after the rows are picked, so Hive can&#x27;t test it in the <code>WHERE</code> of the Statement that works it out:</p>
+<pre class="python">in_one_go = statement(
+    SELECT(job_events.job_id, job_events.dt),
+    FROM(job_events),
+    WHERE(*week_finished,
+          more_than(job_events.minutes - lag(job_events.minutes, over=each_jobs_runs), 0)),
+)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  WHERE has job_events.minutes - LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) &gt; 0, which looks across rows through a Window.
+  Why it matters: Windows are worked out last, after the rows are picked and grouped, so Hive can&#x27;t use it in WHERE of the SELECT that makes it.
+  Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(window) shows how.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Test it in the Statement that reads it as a Derived table, as the step Keep only some rows does.</p>
+<h5>A running total with ORDER_BY and no rows=</h5>
+<pre class="python">sum_of(job_events.minutes, over=each_jobs_runs)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  sum_of(job_events.minutes) is given a Window with ORDER_BY and no rows=.
+  Why it matters: It would be unclear which rows it works over: Hive would take the rows up to each row and every row tied with it in ORDER_BY&#x27;s order, which is seldom what is meant.
+  Usual fix:      Give rows=(None, 0) for a running total of every row up to each one, or rows=(-6, 0) for each row and the 6 before it; leave ORDER_BY out for the whole group&#x27;s.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>With <code>ORDER_BY</code> and no <code>rows=</code>, Hive would add up the rows up to each row and every row tied with it, which is seldom what&#x27;s meant. Say which rows: <code>rows=(None, 0)</code> for every row up to each one, <code>rows=(-2, 0)</code> for the last three, or leave <code>ORDER_BY</code> out for the whole group.</p>
+<h5>Splitting a Window that looks across days with by_day</h5>
+<p><code>by_day</code> sends one Statement per day, and each would see only its own day, so the run before the day&#x27;s first would be lost. It refuses:</p>
+<pre class="python">by_day(with_before)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
+  What happened:  by_day can&#x27;t split this Statement: it works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_events.dt, so it looks across days.
+  Why it matters: Split by day, each day&#x27;s Statement would see only that day&#x27;s rows, so the Window would stop at the edge of each day: a lag would find no row before the day&#x27;s first, and a running total would start again each day.
+  Usual fix:      Add job_events.dt to the PARTITION_BY of lag(...) if it should look within each day. To look back across days, write one day at a time with a Statement that reads the earlier days it needs and keeps only the day it writes; help(window) shows how. Or run the Statement whole with run(...).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Read the earlier days and keep the day written, as the step Write a day that looks back on earlier days does. A Window that looks only within each day, with the day among its <code>PARTITION_BY=</code> columns, splits by day.</p>
 <h5>Merging a result per day into one per job</h5>
 <p>Merge each job&#x27;s week of minutes with its cost on each day, and each job&#x27;s minutes repeat once per day, so adding them up gives far too much:</p>
 <pre class="python">daily_cost = statement(
@@ -7011,8 +7117,8 @@ int(repeated[&quot;minutes&quot;].sum()), int(minutes[&quot;minutes&quot;].sum()
 Merge keys are not unique in right dataset; not a one-to-one merge</pre>
 <p>Add up per job first, as <code>cost_per_job</code> does, then merge.</p>
 <h4>Next</h4>
-<ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement, and what you do in pandas after it, give the numbers you meant.</li><li><a href="#call_other_hive_functions">Call other Hive functions</a>: what <code>hive_function</code> writes, and the functions it refuses.</li><li>The gallery&#x27;s <a href="examples.html#row_number"><code>row_number</code></a> and <a href="examples.html#derived"><code>derived</code></a> entries, for what the warehouse can do before pandas.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>hive_function</code>, <code>run</code>, <code>example_database</code></p>
+<ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement, and what you do in pandas after it, give the numbers you meant.</li><li><a href="#keys">Keys, checked before each write</a>: a Window keeps every row, so a Statement&#x27;s Key is its FROM table&#x27;s; a <code>row_number</code> kept at 1 gives one row per group.</li><li>The gallery&#x27;s <a href="examples.html#window"><code>window</code></a>, <a href="examples.html#lag"><code>lag</code></a> and <a href="examples.html#row_number"><code>row_number</code></a> entries.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>window</code>, <code>rank</code>, <code>lag</code>, <code>show_hive</code>, <code>run</code>, <code>by_day</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="review_a_change_with_lineage">
 <h3>29. Review a change with Lineage <span class="badge intermediate">Intermediate</span></h3>
@@ -7789,7 +7895,7 @@ same_rows(careless, careless)</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
 <p>Work the oracle out from the rows themselves, as <code>oracle</code> does from <code>events</code>, and in another way than the Statement does.</p>
 <h4>Next</h4>
-<ul><li><a href="#check_data_quality">Check data quality with Statements</a>: checks on the data itself, so a Statement you&#x27;ve tested gets rows you can trust.</li><li><a href="#review_a_change_with_lineage">Review a change with Lineage</a>: see what a change does to every Statement it reaches, then run these tests again.</li><li><a href="#finish_in_pandas">Finish in pandas</a>: more of what pandas does with the rows <code>run</code> gives back.</li></ul>
+<ul><li><a href="#check_data_quality">Check data quality with Statements</a>: checks on the data itself, so a Statement you&#x27;ve tested gets rows you can trust.</li><li><a href="#review_a_change_with_lineage">Review a change with Lineage</a>: see what a change does to every Statement it reaches, then run these tests again.</li><li><a href="#finish_in_pandas">Look across rows, then finish in pandas</a>: more of what pandas does with the rows <code>run</code> gives back.</li></ul>
 <p class="names">Toolbox names used: <code>all_columns</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="choose_how_a_saved_table_is_stored">
@@ -8090,7 +8196,7 @@ LOCATION &#x27;/data/your_team/tables/mart/job_day&#x27;;</pre>
 <p><code>export_lineage</code> marks each column that is part of a Key &quot;in the Key&quot;, and its report lists each step&#x27;s Key, or where it lost one, and whether the write&#x27;s Key holds:</p>
 <pre class="python">html_file, markdown_file = export_lineage(newest, to=&quot;lineage/newest.html&quot;)</pre>
 <p class="label">It writes lineage/newest.md</p>
-<details><summary>Show its 124 lines</summary>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Lineage: newest
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;). A dotted arrow labelled &quot;day written&quot; runs from a write&#x27;s date bound to the day of the Saved table it writes.
@@ -8170,6 +8276,8 @@ numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descen
 ```
 
 Rows that count:
+- PARTITION BY of row_number(...): `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- ORDER BY of row_number(...): `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -8276,7 +8384,7 @@ statement(
 <p><code>unproven_key=True</code> doesn&#x27;t make the rows one per Key: it only stops the Toolbox saying they might not be. Reach for GROUP_BY, SELECT_DISTINCT or row_number first.</p>
 <h4>Next</h4>
 <ul><li><a href="#join_tables_safely">Join tables safely</a>: the repeated-rows Warning, which reads the Keys of the tables a Statement joins.</li><li><a href="#latest_row_per_key">The latest row per key</a>: row_number, kept at 1 for each Key.</li><li><a href="#save_a_table">Save a table</a> and <a href="#a_pipeline_of_saved_tables">A pipeline of Saved tables</a>: writes that each show their Key.</li><li>The gallery&#x27;s <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> and <a href="examples.html#check_key"><code>check_key</code></a>.</li></ul>
-<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>count_rows</code>, <code>sum_of</code>, <code>row_number</code>, <code>descending</code>, <code>show_hive</code>, <code>export_lineage</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>create_table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>count_rows</code>, <code>sum_of</code>, <code>descending</code>, <code>row_number</code>, <code>show_hive</code>, <code>export_lineage</code>, <code>example_database</code></p>
 </section>
 </main>
 <script>

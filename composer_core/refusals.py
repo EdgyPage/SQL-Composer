@@ -188,6 +188,14 @@ _REGROUPING_FIXES = {
     "after your own GROUP_BY.",
     "a division": "Keep both sides of the division as their own columns, add up each "
     "one, and divide after your own GROUP_BY.",
+    "a total over a Window": "Add up the column the Window's total was made from instead, "
+    "under your own GROUP_BY, or keep one row of each Window's group before adding up.",
+}
+# Why a reason doesn't add up, where the usual sentence doesn't say.
+_REGROUPING_WHY = {
+    "a total over a Window": "A Window's total is on every row its Window covers, so "
+    "adding it up again counts it once for each of those rows: a job's total beside each of "
+    "its 3 runs, added up, is 3 times the job's total.",
 }
 # A column listed in does_not_add_up could be any of the three.
 _REGROUPING_FIX_FOR_A_LISTED_COLUMN = (
@@ -208,9 +216,10 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     raise GuardRefused(
         four_part_message(
             what=f"{call} adds up {column}, which is {reason}.",
-            why="Averages, ratios and distinct counts don't add up: the average of daily "
-            "averages is not the weekly average, and a user seen on two days would be "
-            "counted twice.",
+            why=_REGROUPING_WHY.get(
+                reason, "Averages, ratios and distinct counts don't add up: the average of "
+                "daily averages is not the weekly average, and a user seen on two days would be "
+                "counted twice."),
             fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
             # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
             opt_out=f"{call[:-1]}, adds_up=True)",
@@ -385,6 +394,28 @@ def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
     )
 
 
+def guard_by_day_window(call: str, step: str, keeping: str, add: str) -> None:
+    """by_day can't split a Statement whose window looks across days. No opt-out.
+
+    `call` is the window's calculation, such as lag(...); `keeping` names the Date partition
+    as the step sees it, and `add` says where it goes.
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"by_day can't split this Statement: {step} works out {call} over a Window "
+            f"whose PARTITION_BY leaves out {keeping}, so it looks across days.",
+            why="Split by day, each day's Statement would see only that day's rows, so the "
+            "Window would stop at the edge of each day: a lag would find no row before the "
+            "day's first, and a running total would start again each day.",
+            fix=f"{add} if it should look within each day. To look back across days, write "
+            "one day at a time with a Statement that reads the earlier days it needs and "
+            "keeps only the day it writes; help(window) shows how. Or run the Statement whole "
+            "with run(...).",
+            opt_out=None,
+        )
+    )
+
+
 # --- Warnings: each lets the Statement through ---------------------------------------------
 
 
@@ -470,7 +501,7 @@ def callers_frame():
 # What each kind of object is called in a message, by its class's name.
 _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column named with AS",
            "Condition": "condition", "Clause": "clause", "Ordering": "descending(...)",
-           "Statement": "Statement"}
+           "Statement": "Statement", "Window": "window(...)"}
 
 
 def refuse_what_the_other_edition_made(value, call: str) -> None:
