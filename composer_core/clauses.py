@@ -117,12 +117,20 @@ class Statement:
         self._group_by = []  # GROUP_BY's columns, with output names looked up
         self._order_by = []  # ORDER_BY's sort keys
         self._limit = None  # LIMIT's row count
-        # Set instead by create_table and drop_table, whose Statement is a CREATE or DROP
-        # tree ready to write, with none of the parts above.
+        # Set instead by create_table and the admin module, whose Statement is a CREATE, DROP
+        # or other tree ready to write, with none of the parts above. An ALTER TABLE keeps the
+        # table it changes here, and its Hive in _admin_hive.
         self._ddl = None
         # Set by the admin module on each Admin statement: the call that made it, which the
-        # Admin log names when run sends it.
+        # Admin log names when run sends it; what it changes, which show_hive prints first, a
+        # sentence to each item; and, for a check, a function run hands the result to, which
+        # refuses it when the check fails.
         self._admin_call = None
+        self._admin_about = []
+        self._admin_check = None
+        # The Hive of an ALTER TABLE, which the admin module writes itself from pieces the
+        # Edition wrote: the table's name, values and column types.
+        self._admin_hive = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:

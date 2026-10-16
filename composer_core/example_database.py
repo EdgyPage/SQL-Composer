@@ -481,8 +481,8 @@ def send(hive):
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers.",
             fix="to_hive(...) shows a write's Hive without sending it, as in "
-            "to_hive(drop_table(t)). It takes what create_table, drop_table or statement(...) "
-            "builds, not text.",
+            "to_hive(create_table(t)). It takes what create_table, statement(...) or the admin "
+            "module builds, not text.",
             error=ValueError,
         )
     columns, rows = edition.run_query(text, _TABLES)

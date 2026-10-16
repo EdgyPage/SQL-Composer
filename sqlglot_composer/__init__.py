@@ -112,3 +112,7 @@ from composer_core.public import *  # noqa: E402, F403
 from composer_core.public import __all__ as _SHARED_NAMES  # noqa: E402
 
 __all__ = ["TOOLBOX_VERSION", "VERSION", *_SHARED_NAMES]
+
+# The admin module, imported by name, as `from sqlglot_composer import admin`: the star import leaves it
+# out, since its functions change your own Saved tables.
+from composer_core import admin  # noqa: E402, F401

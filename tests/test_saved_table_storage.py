@@ -353,15 +353,15 @@ def test_a_managed_table_is_a_problem() -> None:
 
 @pytest.mark.parametrize(("storage", "parameters", "problem"), [
     ({"purge": True}, [], "external.table.purge isn't true in the table: change the line to "
-     "purge=False, or set it with admin.set_properties(...)"),
+     "purge=False, or set it with admin.set_properties(t)"),
     ({"purge": False}, [("external.table.purge", "TRUE")], "external.table.purge is true in "
      "the table: change the line to purge=True,"),
     ({"compression": "ZLIB"}, [("orc.compress", "SNAPPY")], "orc.compress is SNAPPY in the "
      'table: change the line to compression="SNAPPY",'),
     ({"compression": "ZLIB"}, [], "the table sets no orc.compress: remove the line "
-     "compression=..., or set it with admin.set_properties(...)"),
+     "compression=..., or set it with admin.set_properties(t)"),
     ({"properties": {"made_by": "runs"}}, [], "the table has no property 'made_by': remove it "
-     "from properties=, or set it with admin.set_properties(...)"),
+     "from properties=, or set it with admin.set_properties(t)"),
     ({"properties": {"made_by": "runs"}}, [("made_by", "jobs")], "its property 'made_by' is "
      "'jobs' in the table: change it in properties= to \"made_by\": \"jobs\","),
 ])

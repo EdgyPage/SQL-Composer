@@ -302,13 +302,24 @@ Say the reviewers want each run's minutes too. Change the Table reference first:
 ... )
 
 The real table still has the old columns, and `create_table` alone would be refused by the
-warehouse, since the table exists. To rebuild it, drop it and create it again.
-`drop_table` deletes the whole table, every day of it, since `purge=True`, and the Toolbox
-can't bring it back, so use it only on a Saved table you made:
+warehouse, since the table exists. To rebuild it, drop it and create it again. Dropping a
+table is one of the changes the admin module writes, which the star import leaves out, so
+import it by name. `admin.drop_table` deletes the whole table, every day of it, since
+`purge=True` was in the Table reference when `create_table` made the table, and the Toolbox
+can't bring it back; it refuses a table that isn't one of your Saved tables, and `show_hive`
+says what it changes before its Hive:
 
->>> rebuild = [drop_table(runs_to_review), create_table(runs_to_review)]
+>>> from sqlglot_composer import admin
+>>> rebuild = [admin.drop_table(runs_to_review), create_table(runs_to_review)]
 >>> text = show_hive(rebuild)
 -- 1 of 2: rebuild[0]
+-- admin.drop_table(mart.runs_to_review) drops the table mart.runs_to_review: the warehouse
+-- forgets it, and every Statement that reads it fails until it is created again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then the table's files go too, and nothing brings them back.
+-- Check first: DESCRIBE FORMATTED mart.runs_to_review shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
 DROP TABLE IF EXISTS mart.runs_to_review;
 <BLANKLINE>
 -- 2 of 2: rebuild[1]
@@ -327,6 +338,15 @@ TBLPROPERTIES (
 );
 
 `IF EXISTS` means the drop does nothing, rather than failing, when the table isn't there.
+Each run of an admin Statement adds an entry to the Admin log, admin_log.md beside your
+notebook, so you can see later what was dropped, when and by which script.
+
+A rebuild suits any change to the columns: one removed, renamed or given another type, as well
+as one added. A column only added after the others can instead be added in place, keeping the
+days already written, which read NULL in it until they are written again:
+`admin.add_columns(runs_to_review, send=...)`, as
+[A pipeline of Saved tables](#a_pipeline_of_saved_tables) shows. Here the table is young and
+its days are written again from their sources anyway, so the rebuild is the simpler choice.
 
 The writes must change too. The old `failed_runs` still selects two columns where the table now
 has three, and the warehouse fills a table's columns by position, so values would land in the
@@ -508,5 +528,6 @@ need none: they are someone else's, in folders of their own.
   [Saved table example](examples.html#saved_table), and each name's own entry:
   [`create_table`](examples.html#create_table),
   [`INSERT_OVERWRITE`](examples.html#INSERT_OVERWRITE),
-  [`INSERT_INTO`](examples.html#INSERT_INTO) and [`drop_table`](examples.html#drop_table).
+  [`INSERT_INTO`](examples.html#INSERT_INTO) and
+  [`admin.drop_table`](examples.html#admin.drop_table).
 """

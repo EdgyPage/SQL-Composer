@@ -66,7 +66,6 @@ from .tables import (
     check_key,
     check_table_reference,
     create_table,
-    drop_table,
     first_look,
     write_table_reference,
 )
@@ -83,7 +82,6 @@ __all__ = [
     "check_key",
     "check_table_reference",
     "create_table",
-    "drop_table",
     "all_columns",
     # clauses.py
     "SELECT",
