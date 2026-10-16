@@ -317,7 +317,20 @@ def _window(node: Node, pretty: bool) -> str:
     order = node.parts.get("order")
     if order is not None:
         pieces.append(_order(order, pretty, flat=True))
+    rows = node.parts.get("rows")
+    if rows is not None:
+        pieces.append(f"ROWS BETWEEN {_frame_end(rows[0], 'PRECEDING')} AND "
+                      f"{_frame_end(rows[1], 'FOLLOWING')}")
     return f"{_part(node, 'this', pretty)} OVER ({_args(pieces, pretty, sep=' ')})"
+
+
+# After sqlglot's Generator.windowspec_sql: one end of a window's ROWS.
+def _frame_end(count: int | None, unbounded_side: str) -> str:
+    if count is None:
+        return f"UNBOUNDED {unbounded_side}"
+    if count == 0:
+        return "CURRENT ROW"
+    return f"{abs(count)} {'PRECEDING' if count < 0 else 'FOLLOWING'}"
 
 
 # After sqlglot's Generator.order_sql.
@@ -552,6 +565,8 @@ _WRITE = {
     "Distinct": _distinct,
     **{kind: _aggregate for kind in _AGGREGATES},
     "Window": _window,
+    # After sqlglot's Generator.anonymous_sql: a function that works only over a window.
+    "WindowCall": lambda node, pretty: _func(node.name.upper(), node.parts["args"], pretty),
     "Order": _order,
     "Ordered": _ordered,
     "Alias": lambda node, pretty: (f"{_part(node, 'this', pretty)} AS "

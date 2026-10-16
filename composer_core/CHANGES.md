@@ -62,6 +62,19 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
   holds.
+- **Windows: `window(PARTITION_BY=..., ORDER_BY=..., rows=(-6, 0))`** names the rows a
+  calculation looks across for each row. Pass it as `over=` to `sum_of`, `average_of`,
+  `count_rows`, `min_of` and `max_of` for a running total, a moving average or a group's total
+  beside each row; and to the new `rank`, `dense_rank`, `ntile`, `lag`, `lead`, `first_value`
+  and `last_value`, which always take one. `row_number(over=window(...))` numbers rows the same
+  as `row_number(PARTITION_BY=..., ORDER_BY=...)`, which still works. A Window keeps every row,
+  so a Statement's Key stays its FROM table's. Lineage lists each Window's PARTITION BY and
+  ORDER BY under "Rows that count". The how-to once called "Finish in pandas", now "Look across
+  rows, then finish in pandas", works out lag, rank and a rolling sum this way. sqlglot
+  Composer's Example database can't run a Window; Spark Composer's can.
+- **A write may read earlier days and write one**, as a Window that looks back needs: read the
+  days in a Derived table and keep the day written with `equals(...)` of the day it passes on,
+  in the Statement that writes. The Toolbox writes the day that Statement keeps.
 
 ### Refused now
 
@@ -77,6 +90,14 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The how-to
   "Keys, checked before each write" shows each.
 - create_table refuses a Table reference with no `location=`.
+- **by_day refuses a Statement whose Window looks across days**, such as a `lag(...)` ordered
+  by the day without the day in its `PARTITION_BY`: split by day, each day's Statement would
+  stop at its own day's edge. In 4.x a `row_number(...)` there was refused as grouping across
+  days; the message now says how the Window would be cut off, and how to write one day that
+  reads the earlier days it needs.
+- `hive_function("lag", ...)`, and the other window functions the Toolbox now writes, are
+  refused as before, and the message names the Toolbox's own function, such as
+  `lag(column, over=window(...))`, where it gave a pandas line.
 - Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
   a whole folder or already ends with the table's own folder, two Saved tables whose folders
   are one or sit one inside the other, and any option create_table couldn't write.
