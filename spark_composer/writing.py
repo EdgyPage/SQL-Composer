@@ -354,7 +354,7 @@ def _call(node: Node, pretty: bool) -> str:
 # After sqlglot's Generator.select_sql and query_modifiers.
 def _select(node: Node, pretty: bool) -> str:
     outputs = _list([_sql(item, pretty) for item in node.parts["outputs"]], pretty)
-    sql = "SELECT" + (" DISTINCT" if node.parts.get("distinct") else "")
+    sql = "SELECT" + _hint(node) + (" DISTINCT" if node.parts.get("distinct") else "")
     sql += f"{_sep(pretty)}{outputs}" if outputs else ""
     sql += f"{_seg('FROM', pretty)} {_part(node, 'source', pretty)}"
     sql += "".join(_sql(join, pretty) for join in node.parts.get("joins") or [])
@@ -373,6 +373,15 @@ def _select(node: Node, pretty: bool) -> str:
     if node.parts.get("limit") is not None:
         sql += f"{_seg('LIMIT', pretty)} {node.parts['limit']}"
     return _with_tables(node, sql, pretty)
+
+
+# After sqlglot's Generator.hint_sql, which sqlglot Composer has write Hive's hints.
+def _hint(node: Node) -> str:
+    """The MAPJOIN hint naming the tables a join asks to be copied to every worker, or ''."""
+    names = node.parts.get("broadcast") or []
+    if not names:
+        return ""
+    return f" /*+ MAPJOIN({', '.join(_identifier(name) for name in names)}) */"
 
 
 # After sqlglot's Generator.with_sql and cte_sql.
@@ -605,7 +614,10 @@ def _problem(text: str) -> str | None:
                 return "a name in backticks doesn't end"
             at = name[1]
         elif text.startswith("--", at) or text.startswith("/*", at):
-            return "a comment outside quotes"
+            hint = _hint_end(text, at)
+            if hint is None:
+                return "a comment outside quotes"
+            at = hint
         elif character == ";":
             return "a second statement after ;"
         elif character == '"':
@@ -613,6 +625,15 @@ def _problem(text: str) -> str | None:
         else:
             at += 1
     return None
+
+
+def _hint_end(text: str, start: int) -> int | None:
+    """Where the MAPJOIN hint that starts at `start` ends, as _hint writes it, or None when
+    no such hint starts there: any other comment is a mistake."""
+    if not text.startswith("/*+ MAPJOIN(", start):
+        return None
+    end = text.find(") */", start)
+    return None if end < 0 else end + len(") */")
 
 
 def _value_at(text: str, start: int) -> tuple[str, int] | None:

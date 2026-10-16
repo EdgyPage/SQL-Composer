@@ -21,6 +21,7 @@ from sqlglot_composer import (
     AS,
     CROSS_JOIN,
     FROM,
+    FULL_JOIN,
     GROUP_BY,
     INSERT_OVERWRITE,
     JOIN,
@@ -236,6 +237,25 @@ def test_guard_left_join_then_where_refuses() -> None:
             LEFT_JOIN(job_runs, ON=equals(job_runs.job_id, jobs.job_id), many_matches=True),
             WHERE(DAYS),
         )
+
+
+def _full_join_then_where(**opt_out):
+    """The runs each record holds, side by side, with a WHERE on one side's column."""
+    per_job = derived("per_job", statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs), WHERE(DAYS),
+        GROUP_BY(job_runs.job_id)))
+    return statement(SELECT(jobs.job_name, per_job.runs), FROM(jobs),
+                     FULL_JOIN(per_job, ON=equals(per_job.job_id, jobs.job_id), **opt_out),
+                     WHERE(equals(jobs.team, "data")))
+
+
+def test_guard_full_join_then_where_refuses() -> None:
+    with pytest.raises(GuardRefused, match=r"a condition on jobs, and FULL_JOIN\(per_job\)"):
+        _full_join_then_where()
+
+
+def test_guard_full_join_then_where_opt_out() -> None:
+    _full_join_then_where(keeps_only_matches=True)
 
 
 def test_guard_left_join_then_where_opt_out() -> None:

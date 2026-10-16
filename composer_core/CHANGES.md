@@ -62,6 +62,26 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
   holds.
+- **Three more joins.** `SEMI_JOIN(t, ON=...)` keeps each row that has a match in t, once,
+  written `LEFT SEMI JOIN`; `ANTI_JOIN(t, ON=...)` keeps each row that has none, written as a
+  `LEFT JOIN` with a `WHERE` that keeps the rows whose matched column is NULL, since Hive 3 has
+  no anti join. Neither repeats rows, so both keep the reading table's Key and give no
+  repeated-rows Warning, and only their `ON=` may read t's columns. `FULL_JOIN(t, ON=...)`
+  pairs the rows that match and keeps the rows of each side that have none, to compare two
+  records of the same things. A `WHERE` on either side, other than `is_null(...)`, is refused
+  (opt-out `keeps_only_matches=True`), since it would throw away the rows the join keeps; bound
+  each side's days in a Derived table of its own instead. Its rows have no Key until a
+  GROUP_BY gives them one. `RIGHT_JOIN` is refused,
+  saying to swap the tables and write `LEFT_JOIN`. Lineage names each join's `ON=` with what it
+  keeps. The how-to "Semi-, anti- and full joins" walks through them.
+- **`broadcast=True` on JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN** asks for a map join: the
+  joined table is copied to every worker, written as Hive's `/*+ MAPJOIN(t) */` hint. Hive
+  makes map joins by itself with the Session setting "map_joins", and follows the hint only
+  once `hive.ignore.mapjoin.hint` is set to false; Spark always follows it.
+- The Example database has a seventh table, `ops.scheduler_runs`: the scheduler's own record
+  of the runs it started on 2026-09-23 and 2026-09-24, which lacks run 99 and holds a run 100
+  that job_runs lacks, for FULL_JOIN to find. sqlglot Composer's Example database can't run a
+  `LEFT SEMI JOIN`, and says so.
 - **Windows: `window(PARTITION_BY=..., ORDER_BY=..., rows=(-6, 0))`** names the rows a
   calculation looks across for each row. Pass it as `over=` to `sum_of`, `average_of`,
   `count_rows`, `min_of` and `max_of` for a running total, a moving average or a group's total

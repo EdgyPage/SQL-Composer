@@ -9,7 +9,7 @@ calculation with no name or None in a comparison, stops at that call. One that n
 Statement, like a GROUP_BY that leaves a column out or a Date partition with no bound, stops
 at statement(...). The dates Load limit and a write that covers more than one day stop at
 to_hive, the row limit stops at run once the rows are back, and by_day(...) refuses any LIMIT
-and any grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every
+and any grouping it can't split. A Warning shows at your own join's line. Every
 opt-out is a keyword on one of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
@@ -284,6 +284,25 @@ def guard_left_join_then_where(table: str, condition: str, keeps_only_matches: b
             fix=f"Move the condition into LEFT_JOIN({table}, ON=...), next to the join "
             "condition, so it only decides which rows match.",
             opt_out=f"LEFT_JOIN({table}, ON=..., keeps_only_matches=True)",
+        )
+    )
+
+
+def guard_full_join_then_where(joined: str, table: str, condition: str,
+                               keeps_only_matches: bool) -> None:
+    """A WHERE on a FULL_JOIN's tables throws away the rows FULL_JOIN kept with no match."""
+    if keeps_only_matches:
+        return
+    raise GuardRefused(
+        four_part_message(
+            what=f"WHERE has {condition}, a condition on {table}, and FULL_JOIN({joined}) keeps "
+            "the rows of both sides that have no match.",
+            why=f"A row with no match in {table} has NULL in every {table} column, so this "
+            "WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.",
+            fix="Pick each side's rows, and bound its days, in a derived(...) table of its own, "
+            "then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps the rows with no "
+            "match on that side.",
+            opt_out=f"FULL_JOIN({joined}, ON=..., keeps_only_matches=True)",
         )
     )
 
@@ -601,12 +620,20 @@ def refuse_what_isnt_a_dataframe(result) -> None:
 
 
 def load_limit_date_bound(call: str, table: str, full_name: str, date_partition: str,
-                          reads_all_partitions: bool) -> None:
-    """Every read of a partitioned table bounds its Date partition at both ends."""
+                          reads_all_partitions: bool, full_join: bool = False) -> None:
+    """Every read of a partitioned table bounds its Date partition at both ends.
+
+    `full_join` is True for a side of a FULL_JOIN, whose days only a Derived table can bound.
+    """
     if reads_all_partitions:
         return
     column = f"{table}.{date_partition}"
-    if call.startswith("LEFT_JOIN"):
+    if full_join:
+        fix = (f"Read {table} through a derived(...) table that bounds its days in its own "
+               "WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of its table, so a bound "
+               "in ON= reads every day all the same, and one in WHERE throws away the rows it "
+               "keeps.")
+    elif call.startswith(("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")):
         fix = f"Bound it inside ON=, as in ON=all_of(equals(...), last_n_days({column}, 7))."
     else:
         fix = (f'Bound it in WHERE, as in WHERE(between({column}, "2026-09-01", "2026-09-24")) '
