@@ -14541,6 +14541,14 @@ ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
 ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
 
 == edge:admin:move:no_date_partition
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.admin_runs, send=...): mart.admin_runs's own folder, /data/your_team/tables/mart/admin_runs, is inside the folder it is in now, hdfs://namenode:8020/data/your_team/tables.
+  Why it matters: A table with no Date partition reads every file under its folder, the folders inside it too where the warehouse is set to, so the old table could read the copy's files as its own while the move runs.
+  Usual fix:      Give its Table reference a location= outside that folder, and move it there.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:no_date_partition_elsewhere
 -- Statement 1: to_hive
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
   job_id BIGINT

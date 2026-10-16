@@ -29,6 +29,7 @@ from sqlglot_composer import (
     create_table,
     derived,
     example_database,
+    export_lineage,
     run,
     set_admin_log,
     show_hive,
@@ -298,3 +299,19 @@ def test_the_notes_and_fixes_that_name_an_admin_function_call_it_as_it_is() -> N
             parameters = list(inspect.signature(getattr(admin, name)).parameters)
             written = [part.split("=")[0].strip() for part in arguments.split(",")]
             assert written == parameters, text
+
+
+def test_a_table_with_no_days_isnt_moved_into_a_folder_inside_its_own() -> None:
+    whole = saved(columns={"job_id": "bigint"}, date_partition=None)
+    with pytest.raises(ValueError, match="is inside the folder it is in now"):
+        admin.move_to_own_folder(whole, send=warehouse(whole))
+    moves = admin.move_to_own_folder(whole, send=warehouse(whole, location="/data/elsewhere"))
+    assert to_hive(moves[1]) == ("INSERT OVERWRITE TABLE mart.daily_runs_moving\nSELECT\n"
+                                 "  daily_runs.job_id\nFROM mart.daily_runs AS daily_runs")
+
+
+def test_lineage_leaves_admin_statements_out(tmp_path) -> None:
+    read = statement(SELECT(job_runs.run_id), FROM(job_runs, reads_all_partitions=True))
+    export_lineage(read, admin.drop_table(saved()), to=tmp_path / "pipeline.html")
+    with pytest.raises(ValueError, match="only Admin statements"):
+        export_lineage(admin.drop_table(saved()), to=tmp_path / "admin.html")
