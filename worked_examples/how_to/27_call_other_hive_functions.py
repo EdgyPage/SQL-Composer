@@ -317,9 +317,11 @@ Write `"yyyy-MM"`, and it gives each day's month, such as 2026-09.
 ### A function that works over a window of rows
 
 lag, lead, rank and the other window functions need OVER (...) after them, which
-`hive_function` can't write, so it refuses them, and its message names the Toolbox's own
-function that writes it, such as `lag`, which takes a `window`. [Look across rows, then
-finish in pandas](#finish_in_pandas) shows them.
+`hive_function` can't write, so it refuses them. For lag, lead, rank, dense_rank, ntile and
+row_number, its message names the Toolbox's own function that writes it, such as `lag`, which
+takes a `window`; for the others, such as percent_rank, it says to work it out in pandas.
+[Look across rows, then finish in pandas](#finish_in_pandas) shows the ones the Toolbox
+writes.
 
 ## Next
 
