@@ -104,7 +104,8 @@ Nothing in the Statement changes: Hive decides when it plans it. The next step s
 what it decided.
 
 Where Hive still sorts both sides, `JOIN(jobs, ON=..., broadcast=True)` asks it by name to
-copy jobs to every worker.
+copy jobs to every worker; [Semi-, anti- and full joins](#semi_anti_and_full_joins) shows how,
+and the Session setting Hive needs before it heeds the request.
 
 ### Use Buckets only for big joins
 
@@ -211,7 +212,7 @@ owns is refused:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  compute_statistics(job_runs): ops.job_runs isn't one of your Saved tables: its Table reference has no location=.
+  What happened:  compute_statistics(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
 ...
 
 Ask the team that owns it to keep its statistics.
@@ -241,6 +242,8 @@ one notebook.
 
 - Give a big table Partitions inside each day, or Buckets:
   [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored).
+- Ask for a map join on one join, with `broadcast=True`:
+  [Semi-, anti- and full joins](#semi_anti_and_full_joins).
 - Keep each Statement's reads bounded:
   [Keep queries small with load limits](#keep_queries_small_with_load_limits).
 - Every option in one place: the gallery's [`explain`](examples.html#explain),

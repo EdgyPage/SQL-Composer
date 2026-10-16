@@ -72,6 +72,8 @@ GALLERY = ROOT / EDITION.folder / "examples.html"
 TODAY = datetime.date(2026, 9, 25)
 PANDAS_LABEL = "computed in pandas, not by running this Hive"
 PUBLIC = list(sqlglot_composer.__all__)
+# The admin module's functions, imported by name rather than by the star import.
+ADMIN = [f"admin.{name}" for name in sqlglot_composer.admin.__all__]
 CONSTANTS = ["TOOLBOX_VERSION", "VERSION"]
 REFUSALS = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused)
 
@@ -121,9 +123,13 @@ def docstrings() -> list[tuple[list[str], str]]:
 
 
 def names_in(code: str) -> list[str]:
-    """The Toolbox's public names that `code` uses, in the cheat sheet's order."""
-    used = {node.id for node in ast.walk(ast.parse(code)) if isinstance(node, ast.Name)}
-    return [name for name in PUBLIC if name in used]
+    """The Toolbox's public names that `code` uses, in the cheat sheet's order, then the admin
+    module's, as admin.drop_table."""
+    tree = ast.parse(code)
+    used = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+    used |= {f"admin.{node.attr}" for node in ast.walk(tree) if isinstance(node, ast.Attribute)
+             and isinstance(node.value, ast.Name) and node.value.id == "admin"}
+    return [name for name in PUBLIC + ADMIN if name in used]
 
 
 # --- Running a Statement on the Example database ---------------------------------------------

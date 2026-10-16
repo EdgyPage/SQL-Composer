@@ -26,10 +26,20 @@ from .refusals import (
     LoadRefused,
     refuse,
 )
-from .running import bottom_read, by_day, name_in, steps, to_hive
+from .running import (
+    bottom_read,
+    bottom_steps,
+    by_day,
+    kept_day,
+    name_in,
+    statements_within,
+    to_hive,
+)
+from .stacking import STACK_HOW, nth
 from .tables import readable
-from .trees import Node
+from .trees import Node, rows_text
 from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
+from .windows import call_of
 from .edition import hive_text
 
 TOOLBOX_VERSION = "4.1"
@@ -128,6 +138,14 @@ def _resolver(graph: Graph, step: Statement, index: int):
     return resolve
 
 
+# What a join's ON= does, said after its name, where JOIN's own words don't say it.
+_JOIN_DOES = {
+    "SEMI_JOIN": " (keeps each row with a match, once)",
+    "ANTI_JOIN": " (keeps the rows with no match)",
+    "FULL_JOIN": " (keeps the rows of both sides, matched or not)",
+}
+
+
 def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | None]]:
     """Each condition that decides which rows `step` keeps:
     (clause, condition, tree, then, kept).
@@ -138,7 +156,8 @@ def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | 
     many_matches=True, where each row can match, and so count, several times.
     """
     found = [("WHERE", c, c._tree, "", None) for c in step._where]
-    found += [(f"{read._name.replace('_', ' ')} ON", read.on, read.on._tree, "",
+    found += [(f"{read._name.replace('_', ' ')} ON{_JOIN_DOES.get(read._name, '')}", read.on,
+               read.on._tree, "",
                read.table._alias if read._name == "LEFT_JOIN" and not read.many_matches
                else None)
               for read in step._reads if read.on is not None]
@@ -165,6 +184,9 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     `group` is the group the output boxes are drawn in; a condition's box goes in "filters on"
     that group. `table` is the Derived table's own name, given only when kind is "derived".
     """
+    if step._stack is not None:
+        _add_stack(graph, step, index, kind, group, conditions, table)
+        return
     resolve = _resolver(graph, step, index)
     made = []
     in_key = _step_key(step)
@@ -180,7 +202,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                   calculated=tree.kind != "Column",
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
                   else [], statement=index, reads=_aliases_read(tree),
-                  in_key=name in in_key)
+                  in_key=name in in_key, windows=_window_rows(tree))
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
@@ -202,6 +224,73 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                 joined.append(resolve(used))
         for target in made:
             graph.arrow(key, target, "rows")
+
+
+def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
+               conditions: dict, table: str | None) -> None:
+    """A Stack's boxes: each Statement it stacks as a step of its own, then its columns.
+
+    UNION_ALL and UNION feed each column from that column of every Statement. INTERSECT and
+    EXCEPT keep rows of the first Statement, so its columns feed theirs, and the others' columns
+    feed a condition box, such as "EXCEPT in <group>", that decides which of its rows are kept.
+    """
+    call, branches = s._stack
+    prefix = table or ""
+    for number, branch in enumerate(branches, start=1):
+        _add_step(graph, branch, index, "derived", f"{group}, {nth(number)} Statement",
+                  conditions, table=f"{prefix}[{number}]")
+    in_key = _step_key(s)
+    feeding = branches if call in ("UNION_ALL", "UNION") else branches[:1]
+    made = []
+    for column, name in s._outputs:
+        if kind == "output":
+            key, shown = _box_key("output", index, name), name
+        else:
+            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
+                  type=column._type, sql=STACK_HOW[call], formula=f"{call}(...)",
+                  calculated=True,
+                  group_by=[], statement=index, reads=set(), in_key=name in in_key)
+        for number in range(1, len(feeding) + 1):
+            graph.arrow(_box_key("derived", index, f"{prefix}[{number}].{name}"), key, "value")
+        made.append(key)
+    if call in ("INTERSECT", "EXCEPT"):
+        what = ("keeps only the rows every other Statement returns too" if call == "INTERSECT"
+                else "leaves out the rows another Statement returns")
+        key = graph.add(_box_key("condition", index, group, "stack"), kind="condition",
+                        group=group, name=f"{call} in {group}", full=f"{call} in {group}",
+                        type=None, sql=call, formula=f"{call}(...) {what}", calculated=False,
+                        statement=index, joined=[], kept=None, reads=set())
+        for number in range(2, len(branches) + 1):
+            for _, name in s._outputs:
+                graph.arrow(_box_key("derived", index, f"{prefix}[{number}].{name}"), key,
+                            "rows")
+        for target in made:
+            graph.arrow(key, target, "rows")
+
+
+def _window_rows(tree: Node) -> list[dict]:
+    """The PARTITION BY and ORDER BY of each Window a calculation is worked out over, for its
+    "Rows that count": they decide which rows each row's value is worked out from."""
+    found = []
+    for window in tree.find_all("Window"):
+        call, groups = call_of(window), window.parts["partition_by"]
+        order, rows = window.parts.get("order"), window.parts.get("rows")
+        if groups:
+            found.append({
+                "name": f"Window of {call}, its groups",
+                "formula": "PARTITION_BY=" + ", ".join(readable(g) for g in groups),
+                "sql": "PARTITION BY " + ", ".join(hive_text(g) for g in groups)})
+        if order is not None:
+            sorts = order.parts["expressions"]
+            written = [f"descending({readable(o.parts['this'])})" if o.parts["desc"]
+                       else readable(o.parts["this"]) for o in sorts]
+            found.append({
+                "name": f"Window of {call}, its order" + (" and rows" if rows else ""),
+                "formula": "ORDER_BY=" + ", ".join(written) + (f", rows={rows!r}" if rows else ""),
+                "sql": "ORDER BY " + ", ".join(hive_text(o) for o in sorts)
+                + (f" {rows_text(rows)}" if rows else "")})
+    return found
 
 
 def _step_keys(step: Statement):
@@ -262,20 +351,19 @@ def _aliases_read(tree: Node) -> set[str]:
     return {used.table for used in tree.find_all("Column") if used.table}
 
 
-def _date_bounds(s: Statement) -> tuple[Statement, list]:
-    """The step that reads a write's real table through FROM, and its date-bound conditions."""
-    step = steps(s)[-1][0]
+def _date_bounds(step: Statement) -> list:
+    """The date-bound conditions of a step that reads a write's real table through FROM."""
     table = step._reads[0].table
     inner = [read.on for read in step._reads if read._name == "JOIN"]
     key = (table._alias, table._date_partition)
-    return step, [c for c in step._where + inner if key in c._spans]
+    return [c for c in step._where + inner if key in c._spans]
 
 
-def _bounds_that_follow_the_day_written(s: Statement) -> list:
-    """The conditions in a write's WHERE that do nothing but bound a joined table's Date
-    partition, where that table's JOIN sets its Date partition equal to the FROM table's, the
-    day written: as how-to 23's team write reads each job's team from that day's snapshot."""
-    step = steps(s)[-1][0]
+def _bounds_that_follow_the_day_written(step: Statement) -> list:
+    """The conditions in the WHERE of a step that reads a write's real table through FROM that
+    do nothing but bound a joined table's Date partition, where that table's JOIN sets its Date
+    partition equal to the FROM table's, the day written: as how-to 23's team write reads each
+    job's team from that day's snapshot."""
     table = step._reads[0].table
     written = (table._alias, table._date_partition)
     tied = []
@@ -356,11 +444,18 @@ def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list
         written.append(target)
     day = _table_box(graph, table, table._date_partition)
     written.append(day)
-    step, bounds = _date_bounds(s)
-    for condition in bounds:
-        graph.arrow(conditions.get((id(step), id(condition))), day, "day")
-    for condition in _bounds_that_follow_the_day_written(s):
-        graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
+    _, span = bottom_read(s)
+    kept = (kept_day(s) if span is not None and span.is_bounded() and len(span.dates()) > 1
+            else None)
+    if kept is not None:
+        # A write that reads earlier days keeps the day it writes in a step above, as a
+        # window that looks back does: that step's condition is the day written.
+        graph.arrow(conditions.get((id(kept.step), id(kept.condition))), day, "day")
+    for step in bottom_steps(s):
+        for condition in [] if kept is not None else _date_bounds(step):
+            graph.arrow(conditions.get((id(step), id(condition))), day, "day")
+        for condition in _bounds_that_follow_the_day_written(step):
+            graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
     return written
 
 
@@ -411,8 +506,7 @@ def _tables_read(s) -> set[str]:
     or that an Unchecked statement's text reads."""
     if isinstance(s, UncheckedStatement):
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
-    steps = [s] + [table._statement for table in derived_tables(s)]
-    return {read.table._name for step in steps for read in step._reads
+    return {read.table._name for step in statements_within(s) for read in step._reads
             if read.table._statement is None}
 
 
@@ -625,7 +719,8 @@ def report(graph: Graph, ordered) -> list[dict]:
                 and box["kind"] in ("derived", "output")]
         calculated = [
             {"box": graph.boxes[k], "tree": "\n".join(tree_lines(graph, k)),
-             "conditions": _rows_that_count(graph, k)}
+             "conditions": [(rows, []) for rows in graph.boxes[k].get("windows", [])]
+             + _rows_that_count(graph, k)}
             for k in mine if graph.boxes[k]["calculated"]
         ]
         copied = [(graph.boxes[k]["name"], _copied_from(graph, k)) for k in mine
@@ -965,10 +1060,14 @@ def _check_statements(statements) -> tuple[list, list]:
             why="It draws where each column of a Statement comes from.",
             fix="Pass one or more Statements, such as export_lineage(weekly).",
         )
-    found, settings = [], []
+    found, settings, admin = [], [], []
     for s in statements:
         if isinstance(s, SessionSettings):
             settings.append(s)
+            continue
+        if isinstance(s, Statement) and s._admin_call is not None:
+            # An Admin statement changes a table, or copies its rows whole: left out.
+            admin.append(s)
             continue
         if not isinstance(s, (Statement, UncheckedStatement)) or (
                 isinstance(s, Statement) and s._ddl is not None):
@@ -982,6 +1081,18 @@ def _check_statements(statements) -> tuple[list, list]:
             )
         if not any(s is seen for seen in found):
             found.append(s)
+    if not found and admin:
+        refuse(
+            what="export_lineage was given only Admin statements, and no Statement that reads "
+            "a table.",
+            why="It draws where each column of a Statement comes from, and an Admin statement, "
+            "from the admin module, changes a table's definition or its days, or, in the "
+            "move, copies a table's rows whole into a copy of it, column for column, so it "
+            "is left out: it makes no column from another.",
+            fix="Pass the Statements that read and write your tables, such as a pipeline's "
+            "steps; the Admin log keeps each Admin statement run.",
+            error=ValueError,
+        )
     if not found:
         refuse(
             what="export_lineage was given only Session settings, and no Statement.",

@@ -20,7 +20,9 @@ import pytest
 from sqlglot_composer import (
     AS,
     CROSS_JOIN,
+    EXCEPT,
     FROM,
+    FULL_JOIN,
     GROUP_BY,
     INSERT_OVERWRITE,
     JOIN,
@@ -238,6 +240,25 @@ def test_guard_left_join_then_where_refuses() -> None:
         )
 
 
+def _full_join_then_where(**opt_out):
+    """The runs each record holds, side by side, with a WHERE on one side's column."""
+    per_job = derived("per_job", statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs), WHERE(DAYS),
+        GROUP_BY(job_runs.job_id)))
+    return statement(SELECT(jobs.job_name, per_job.runs), FROM(jobs),
+                     FULL_JOIN(per_job, ON=equals(per_job.job_id, jobs.job_id), **opt_out),
+                     WHERE(equals(jobs.team, "data")))
+
+
+def test_guard_full_join_then_where_refuses() -> None:
+    with pytest.raises(GuardRefused, match=r"a condition on jobs, and FULL_JOIN\(per_job\)"):
+        _full_join_then_where()
+
+
+def test_guard_full_join_then_where_opt_out() -> None:
+    _full_join_then_where(keeps_only_matches=True)
+
+
 def test_guard_left_join_then_where_opt_out() -> None:
     statement(
         SELECT(jobs.job_name),
@@ -362,6 +383,30 @@ def test_guard_by_day_grouping_refuses() -> None:
     )
     with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
         by_day(weekly)
+
+
+def test_guard_by_day_stack_refuses() -> None:
+    alerted = statement(SELECT(run_alerts.run_id), FROM(run_alerts),
+                        WHERE(between(run_alerts.dt, "2026-09-23", "2026-09-24")))
+    failed = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS))
+    with pytest.raises(GuardRefused, match=r"this Statement: it is made by EXCEPT\(\.\.\.\), "
+                                           "and not every Statement it stacks returns the "
+                                           "day"):
+        by_day(EXCEPT(alerted, failed))
+
+
+def test_guard_by_day_window_refuses() -> None:
+    from sqlglot_composer import lag, window
+
+    with_before = statement(
+        SELECT(job_runs.run_id, AS(lag(job_runs.duration_mins, over=window(
+            PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)), "before")),
+        FROM(job_runs),
+        WHERE(DAYS),
+    )
+    with pytest.raises(GuardRefused, match="it works out lag\\(...\\) over a Window whose "
+                       "PARTITION_BY leaves out the Date partition job_runs.dt"):
+        by_day(with_before)
 
 
 # --- The Warning --------------------------------------------------------------------------

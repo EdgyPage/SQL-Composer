@@ -8,8 +8,15 @@ out from how it makes its rows:
 - a SELECT of only totals makes one row, so its Key has no columns at all;
 - otherwise its rows are those of the table in FROM, so its Key is that table's Key, once SELECT
   returns the Key's columns. A join that matches its table's whole Key adds at most one row to
-  each row and keeps it; any other join adds the joined table's Key to it;
-- a row_number(...) gives a second Key: its PARTITION_BY columns and the number.
+  each row and keeps it, and so does a SEMI_JOIN or ANTI_JOIN, which never repeats a row; any
+  other join adds the joined table's Key to it. A FULL_JOIN loses it, since either side's
+  columns may be NULL;
+- a row_number(...) gives a second Key: its PARTITION_BY columns and the number, written
+  with its 4.x keywords or over=window(...) alike.
+
+Any other Window, such as a lag(...), a rank(...) or a running total, gives each row a value and
+keeps every row, so it changes no Key. A rank kept at 1 isn't a Key: rows tied in its
+ORDER_BY share rank 1.
 
 A column WHERE holds to one value, such as the day a write writes or a row number kept at 1,
 is left out of a Key. So is a column the rest of the Key decides: a run's run_id, job_runs'
@@ -25,6 +32,7 @@ from typing import NamedTuple
 
 from .conditions import combined_spans
 from .edition import hive_text
+from .joins import ONLY_TESTS
 from .trees import has_aggregate, has_window
 
 TOOLBOX_VERSION = "4.1"
@@ -120,7 +128,7 @@ class _Facts:
         first = self.s._reads[0].table
         if first._statement is None:
             return {(first._alias, first._date_partition)} if first._date_partition else set()
-        return {(first._alias, name) for name in _Facts(first._statement, True).day_outputs()}
+        return {(first._alias, name) for name in day_outputs(first._statement)}
 
     def day_outputs(self) -> list[str]:
         """The output names that hold the day a write writes, as they are."""
@@ -232,6 +240,11 @@ def _reduced(entries: list[tuple[str, object]], facts: _Facts) -> list[str]:
 
 def statement_keys(s, one_day: bool = False) -> Keys:
     """Every Key the Toolbox can see for a Statement's rows, as output names."""
+    if s._stack is not None:
+        return _stack_keys(s, one_day)
+    if s._grouping_sets is not None:
+        return Keys([], f"GROUP_BY({s._subtotals_call}) adds subtotal rows, with NULL in each "
+                    "column they total over, as a real row may have")
     facts = _Facts(s, one_day)
     if s._distinct:
         names = _reduced([(name, column._tree) for column, name in s._outputs], facts)
@@ -246,6 +259,34 @@ def statement_keys(s, one_day: bool = False) -> Keys:
 
 def _listed(names: list[str]) -> str:
     return ", ".join(names) or "nothing"
+
+
+def _stack_keys(s, one_day: bool) -> Keys:
+    """A Stack's Keys. UNION, INTERSECT and EXCEPT keep each different row once, so every
+    column is a Key; EXCEPT keeps some of its first Statement's rows, and INTERSECT some of
+    each one's, so their Keys hold too. UNION_ALL keeps every row of each, and two may share a
+    Key, so it has none."""
+    call, branches = s._stack
+    if call == "UNION_ALL":
+        return Keys([], f"UNION_ALL(...) keeps every row of each of its {len(branches)} "
+                    "Statements, and rows of two of them may share a Key")
+    held = day_outputs(s) if one_day else []
+    names = [name for _, name in s._outputs if name not in held]
+    found = []
+    for branch in {"EXCEPT": branches[:1], "INTERSECT": branches}.get(call, []):
+        found += statement_keys(branch, one_day).found
+    why = f"{call}(...) makes one row for each different {_listed(names + held)}{_held(held)}"
+    found.append(Found(names, why, "not one for each"))
+    return Keys(_once(found), None)
+
+
+def day_outputs(s) -> list[str]:
+    """The output names of a write's Statement, or of the Derived table it reads, that hold the
+    day it writes; for a Stack, those that hold it in every Statement it stacks."""
+    if s._stack is None:
+        return _Facts(s, True).day_outputs()
+    each = [set(day_outputs(branch)) for branch in s._stack[1]]
+    return [name for _, name in s._outputs if all(name in found for found in each)]
 
 
 def _grouped_keys(s, facts: _Facts) -> Keys:
@@ -276,6 +317,8 @@ def _held(columns: list[str]) -> str:
 
 def _keeps(read, facts: _Facts) -> str | None:
     """None when a join adds at most one of its table's rows to each row; otherwise why not."""
+    if read._name in ONLY_TESTS:
+        return None  # each row once at most, with none of its table's columns
     table = read.table
     alias = table._alias
     matched = {column for a, column in facts.fixed if a == alias}
@@ -294,6 +337,12 @@ def _row_keys(s, facts: _Facts) -> Keys:
     """The Keys of a Statement that neither groups nor adds up: its FROM table's, widened by
     each join that can repeat rows, and any row_number's."""
     first = s._reads[0].table
+    full = next((read for read in s._reads if read._name == "FULL_JOIN"), None)
+    if full is not None:
+        found = _row_number_keys(s, facts)
+        return Keys(found, None if found else (
+            f"{full._call()} keeps the rows of each side that have no match, with NULL in the "
+            "other side's columns"))
     if not facts.keys(first):
         return Keys([], why_no_key(first))
     added, joins = [], []

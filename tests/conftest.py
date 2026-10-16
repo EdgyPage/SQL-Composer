@@ -372,8 +372,11 @@ def no_load_limits():
 
 
 @pytest.fixture(autouse=True)
-def admin_log_where_it_starts():
+def admin_log_where_it_starts(tmp_path_factory):
     """set_admin_log changes where the Admin log goes for the whole session, so each test
-    starts with it beside the script or notebook that runs."""
+    starts with it in a folder of pytest's own, where an Admin statement a test runs logs
+    without writing beside the tests, and ends with it beside the script or notebook that
+    runs."""
+    toolbox_module().set_admin_log(tmp_path_factory.mktemp("admin_log") / "admin_log.md")
     yield
     toolbox_module().set_admin_log()

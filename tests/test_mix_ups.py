@@ -20,6 +20,7 @@ import pytest
 from conftest import edition
 from sqlglot_composer import (
     AS,
+    admin,
     FROM,
     GROUP_BY,
     INSERT_OVERWRITE,
@@ -33,7 +34,6 @@ from sqlglot_composer import (
     check_table_reference,
     count_rows,
     derived,
-    drop_table,
     equals,
     example_database,
     export_lineage,
@@ -144,8 +144,8 @@ def test_check_table_reference_reports_a_send_that_gives_back_sparks_dataframe()
 @pytest.mark.parametrize("write", [
     lambda: statement(INSERT_OVERWRITE(runs_to_review), SELECT(job_runs.run_id, job_runs.job_id),
                       FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24"))),
-    lambda: drop_table(runs_to_review),
-], ids=["INSERT_OVERWRITE", "drop_table"])
+    lambda: admin.drop_table(runs_to_review),
+], ids=["INSERT_OVERWRITE", "admin.drop_table"])
 def test_a_write_isnt_refused_once_spark_has_carried_it_out(write) -> None:
     # Refused, it would be sent again, and INSERT_INTO would add its rows twice.
     assert isinstance(run(write(), send=_spark_sql), _SparksDataFrame)

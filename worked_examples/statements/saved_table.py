@@ -10,8 +10,8 @@ and loop over the ones that return a list.
 """
 
 from sqlglot_composer import (
-    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, create_table,
-    drop_table, equals, example_database, statement,
+    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, admin,
+    create_table, equals, example_database, statement,
 )
 from table_references.runs_to_review import runs_to_review
 
@@ -96,8 +96,11 @@ def rebuild():
     """Step 5, rarely: after changing the table's columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.
-    drop_table deletes every day of the table, since its Table reference has purge=True, so
-    write them all again with backfill().
+    admin.drop_table deletes every day of the table, since its Table reference had purge=True
+    when create_table made it, so write them all again with backfill(). A column only added
+    after the others can instead be added in place with admin.add_columns, without dropping
+    anything; on a table with a Date partition it writes CASCADE, which Spark refuses, so if
+    Spark rather than Hive runs your tables, ask whoever looks after them first.
     IF EXISTS means the drop does nothing, rather than failing, if the table isn't there.
     """
-    return [drop_table(runs_to_review), create_table(runs_to_review)]
+    return [admin.drop_table(runs_to_review), create_table(runs_to_review)]

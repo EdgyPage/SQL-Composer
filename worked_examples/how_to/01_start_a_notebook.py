@@ -83,14 +83,15 @@ that Spark, and takes about 15 seconds; later queries take about a second.
 [end]
 
 There is no warehouse on this page, so the next steps use the Example database's own send,
-`example_database.send`, which runs Hive on the Example database's six made-up tables. At work
+`example_database.send`, which runs Hive on the Example database's seven made-up tables. At work
 you give `run` your own `send` in its place.
 
 ### Build a first Statement on the Example database
 
 The Example database's first three tables are `ops.jobs`, one row per job; `ops.job_runs`, one
 row per run of a job, on two days, 2026-09-23 and 2026-09-24; and `ops.run_alerts`, the alerts
-a run raised. Three more, which the Intermediate how-tos use, hold 14 days each. Each table's
+a run raised. A fourth, `ops.scheduler_runs`, is the scheduler's own record of the two days'
+runs, and three more, which the Intermediate how-tos use, hold 14 days each. Each table's
 Table reference, which says what columns it has, comes with the Toolbox. Give the one you need
 a short name:
 

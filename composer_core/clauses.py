@@ -13,6 +13,17 @@ from __future__ import annotations
 
 from .calculations import Ordering, ordered
 from .conditions import Condition, combined_spans
+from .joins import (
+    BOUNDED_IN_ON,
+    ONLY_TESTS,
+    check_joins,
+    full_joined,
+    need_broadcast_true_or_false,
+    refuse_anti_join_with_nothing_matched,
+    refuse_only_tests_with_no_on,
+    refuse_right_join,
+    tested_column,
+)
 from .keys import keys_of, statement_keys, unproven
 from .refusals import (
     guard_cross_join,
@@ -28,16 +39,17 @@ from .refusals import (
     refuse_what_the_other_edition_made,
     warning_repeated_rows,
 )
-from .tables import Column, Table, aliased
+from .tables import Column, Table, aliased, python_text
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
+from .windows import refuse_a_window_in, ungrouped_in_window
 
 TOOLBOX_VERSION = "4.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
 WRITES = ("INSERT_OVERWRITE", "INSERT_INTO")
-JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN")
+JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN", "SEMI_JOIN", "ANTI_JOIN", "FULL_JOIN")
 
 
 class Clause:
@@ -50,7 +62,7 @@ class Clause:
     def __init__(self, name: str, *, outputs=None, distinct=False, table=None, on=None,
                  reads_all_partitions=False, many_matches=False, keeps_only_matches=False,
                  conditions=None, group_columns=None, sort_keys=None, sorts_everything=False,
-                 n=None, unproven_key=False):
+                 n=None, unproven_key=False, broadcast=False):
         self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
         # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
         self.outputs = outputs
@@ -61,6 +73,7 @@ class Clause:
         self.reads_all_partitions = reads_all_partitions
         self.many_matches = many_matches
         self.keeps_only_matches = keeps_only_matches
+        self.broadcast = broadcast  # a join's ask that Hive copy its table to every worker
         self.unproven_key = unproven_key  # the writes' opt-out of the Key check
         # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
         self.conditions = conditions
@@ -115,18 +128,38 @@ class Statement:
         self._where = []  # WHERE's conditions
         self._having = []  # HAVING's conditions
         self._group_by = []  # GROUP_BY's columns, with output names looked up
+        # With subtotals in GROUP_BY: each set of columns it groups by, and how the subtotals
+        # were written, such as rollup(jobs.team); else None (stacking.py).
+        self._grouping_sets = None
+        self._subtotals_call = None
         self._order_by = []  # ORDER_BY's sort keys
         self._limit = None  # LIMIT's row count
-        # Set instead by create_table and drop_table, whose Statement is a CREATE or DROP
-        # tree ready to write, with none of the parts above.
+        # Set instead by create_table and the admin module, whose Statement is a CREATE, DROP
+        # or other tree ready to write, with none of the parts above. An ALTER TABLE keeps the
+        # table it changes here, and its Hive in _admin_hive.
         self._ddl = None
         # Set by the admin module on each Admin statement: the call that made it, which the
-        # Admin log names when run sends it.
+        # Admin log names when run sends it; what it changes, which show_hive prints first, a
+        # sentence to each item; and, for a check, a function run hands the result to, which
+        # refuses it when the check fails.
         self._admin_call = None
+        self._admin_about = []
+        self._admin_check = None
+        # The Hive of an ALTER TABLE, which the admin module writes itself from pieces the
+        # Edition wrote: the table's name, values and column types.
+        self._admin_hive = None
+        # Set instead by UNION_ALL, UNION, INTERSECT and EXCEPT (stacking.py) on a Stack:
+        # (the function's name, the Statements it stacks). Its _outputs are then its columns,
+        # and it has none of the clauses above.
+        self._stack = None
 
     def __repr__(self) -> str:
         if self._ddl is not None:
             return "<Statement - print(to_hive(s)) shows it>"
+        if self._stack is not None:
+            call, branches = self._stack
+            return (f"<Statement stacking {len(branches)} Statements with {call} - "
+                    "print(to_hive(s)) shows its Hive>")
         reads = ", ".join(read.table._name for read in self._reads)
         return f"<Statement reading {reads} - print(to_hive(s)) shows its Hive>"
 
@@ -212,6 +245,9 @@ def _refuse_output(item, call: str) -> None:
     refuse_what_the_other_edition_made(item, call)
     if isinstance(item, Table):
         fix = f"Name its columns, or use all_columns({item._alias})."
+    elif isinstance(item, Condition) and any(item._tree.find_all("Grouping")):
+        fix = (f"To show it as a column, use AS(if_else({python_text(item)}, 1, 0), "
+               '"is_subtotal").')
     elif isinstance(item, Condition):
         fix = 'A condition goes in WHERE. To show it as a column, use if_else(condition, 1, 0).'
     else:
@@ -289,6 +325,8 @@ def FROM(table, reads_all_partitions=False):
 
 
 def _need_on(on, call: str, table: Table):
+    if on is None and call in ONLY_TESTS:
+        refuse_only_tests_with_no_on(call, table._alias)
     if on is None:
         guard_cross_join(call, table._alias)
     if not isinstance(on, Condition):
@@ -373,27 +411,30 @@ def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition
             )
 
 
-def _join(call: str, table, on, many_matches, reads_all_partitions, **more) -> Clause:
+def _join(call: str, table, on, many_matches, reads_all_partitions, broadcast=False,
+          **more) -> Clause:
     table = _need_table(table, f"{call}(...)")
     on = _need_on(on, call, table)
+    need_broadcast_true_or_false(call, table, broadcast)
     _refuse_a_column_compared_with_itself(call, table, on)
     matched = _matched_columns(table, on)
-    if not any(set(key) <= set(matched) for key in keys_of(table)):
+    if call not in ONLY_TESTS and not any(set(key) <= set(matched) for key in keys_of(table)):
         warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
                               derived=table._statement is not None,
                               date_partition=table._date_partition,
                               matched_with=_matched_with(table, on),
                               lost=table._keys.lost if table._statement is not None else None)
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
-                  many_matches=many_matches, **more)
+                  many_matches=many_matches, broadcast=broadcast, **more)
 
 
-def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False):
+def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False, broadcast=False):
     """Add a second table's columns to the rows its ON= condition matches.
 
     When ON= doesn't pin down the joined table's whole Key, one row can match several, and
     sums over them come out too big. The Statement is still built, with a warning at your
-    JOIN line; many_matches=True says you mean it and silences it.
+    JOIN line; many_matches=True says you mean it and silences it. To keep only the rows that
+    have a match, each once, without the joined table's columns, use SEMI_JOIN.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, jobs.team),
@@ -409,19 +450,48 @@ def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False):
       ON jobs.job_id = job_runs.job_id
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+
+    broadcast=True asks for a map join: a small joined table, such as jobs, is copied whole to
+    every worker (each of the machines that share the work), so each matches the big table's
+    rows where they are, without first sorting them and sending them across the cluster.
+    JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn't, since it keeps the
+    small table's unmatched rows too. It is written as a hint after SELECT, as below: a
+    comment, /*+ ... */, that Hive reads as a request. You rarely need it: Hive makes map
+    joins by itself, from the tables' sizes and statistics, with the Session setting "map_joins",
+    which run(hive_settings("map_joins"), send=...) sends. And Hive heeds the hint only once
+    its setting hive.ignore.mapjoin.hint is false, which you send as a set of your own:
+    hive_settings("heed_hints", sets={"heed_hints": {"hive.ignore.mapjoin.hint": False}}).
+    Where your Hive runs on Spark, Spark heeds it always. Ask for it only for a table you know
+    is small: copied to every worker, a big one can run them out of memory.
+
+    >>> print(to_hive(statement(
+    ...     SELECT(job_runs.run_id, jobs.team),
+    ...     FROM(job_runs),
+    ...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
+    ...     WHERE(last_n_days(job_runs.dt, 2)),
+    ... )))
+    SELECT /*+ MAPJOIN(jobs) */
+      job_runs.run_id,
+      jobs.team
+    FROM ops.job_runs AS job_runs
+    JOIN ops.jobs AS jobs
+      ON jobs.job_id = job_runs.job_id
+    WHERE
+      job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     """
-    return _join("JOIN", table, ON, many_matches, reads_all_partitions)
+    return _join("JOIN", table, ON, many_matches, reads_all_partitions, broadcast)
 
 
 def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
-              reads_all_partitions=False):
+              reads_all_partitions=False, broadcast=False):
     """Like JOIN, but rows with no match are kept, with NULL in the joined columns.
 
     A condition on the joined table in WHERE would throw those rows away again, so it is
     refused: put it in ON= instead, bound the joined table's Date partition there too, or
     pass keeps_only_matches=True if you mean it. A WHERE that keeps the rows with no match is
     allowed: is_null(...) of a joined column, or any_of(...) that has such an is_null among
-    its conditions, as for the jobs that never ran or whose run failed.
+    its conditions, as for the jobs that never ran or whose run failed; ANTI_JOIN keeps just
+    the rows with no match. broadcast=True asks for a map join, as JOIN's does.
 
     >>> print(to_hive(statement(
     ...     SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), "runs")),
@@ -440,7 +510,7 @@ def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
     GROUP BY
       jobs.job_name
     """
-    return _join("LEFT_JOIN", table, ON, many_matches, reads_all_partitions,
+    return _join("LEFT_JOIN", table, ON, many_matches, reads_all_partitions, broadcast,
                  keeps_only_matches=keeps_only_matches)
 
 
@@ -467,6 +537,150 @@ def CROSS_JOIN(table, reads_all_partitions=False):
     """
     return Clause("CROSS_JOIN", table=_need_table(table, "CROSS_JOIN(...)"), on=None,
                   reads_all_partitions=reads_all_partitions)
+
+
+def SEMI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False):
+    """Keep each row another table matches, once, adding none of that table's columns.
+
+    Where JOIN gives a row for each match, so a run with three alerts comes out three times,
+    SEMI_JOIN keeps the run once however many match: it never repeats rows, so it needs no
+    many_matches=. Hive adds none of the joined table's columns to the rows, so only ON= may
+    read them: a SELECT, WHERE or any other clause that reads one is refused. Bound the joined
+    table's Date partition inside ON=. It is written LEFT SEMI JOIN: LEFT, as the rows kept are
+    those of the tables on its left, before it. broadcast=True asks for a map join, as JOIN's
+    does. Below, the runs that raised a high alert:
+
+    >>> run_alerts = example_database.run_alerts
+    >>> print(to_hive(statement(
+    ...     SELECT(job_runs.run_id, job_runs.status),
+    ...     FROM(job_runs),
+    ...     SEMI_JOIN(run_alerts, ON=all_of(equals(run_alerts.run_id, job_runs.run_id),
+    ...                                     equals(run_alerts.severity, "high"),
+    ...                                     last_n_days(run_alerts.dt, 2))),
+    ...     WHERE(last_n_days(job_runs.dt, 2)),
+    ... )))
+    SELECT
+      job_runs.run_id,
+      job_runs.status
+    FROM ops.job_runs AS job_runs
+    LEFT SEMI JOIN ops.run_alerts AS run_alerts
+      ON run_alerts.run_id = job_runs.run_id
+      AND run_alerts.severity = 'high'
+      AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    WHERE
+      job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    """
+    return _join("SEMI_JOIN", table, ON, False, reads_all_partitions, broadcast)
+
+
+def ANTI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False):
+    """Keep each row with no match in another table, such as the jobs that never ran.
+
+    Hive 3 has no anti join of its own, so it is written as a LEFT JOIN, which gives a row with
+    no match NULL in every joined column, then a WHERE that keeps the rows where the joined
+    table's column ON= matches with equals(...) is NULL: a row with a match has a value
+    there. So ON= needs an equals(...) on a column of the joined table, joined with all_of(...)
+    to any other condition. Every joined column is NULL in the rows it keeps, so only ON= may
+    read them, and a clause that reads one is refused. Bound the joined table's Date partition
+    inside ON=: only its rows on those days count as a match. It never repeats rows, since the
+    rows with a match, however many, are all left out. broadcast=True asks for a map join, as
+    JOIN's does.
+
+    >>> print(to_hive(statement(
+    ...     SELECT(jobs.job_id, jobs.job_name),
+    ...     FROM(jobs),
+    ...     ANTI_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id),
+    ...                                   last_n_days(job_runs.dt, 2))),
+    ... )))
+    SELECT
+      jobs.job_id,
+      jobs.job_name
+    FROM ops.jobs AS jobs
+    LEFT JOIN ops.job_runs AS job_runs
+      ON job_runs.job_id = jobs.job_id
+      AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    WHERE
+      job_runs.job_id IS NULL
+    """
+    clause = _join("ANTI_JOIN", table, ON, False, reads_all_partitions, broadcast)
+    if tested_column(clause.table, clause.on) is None:
+        refuse_anti_join_with_nothing_matched(clause.table)
+    return clause
+
+
+def FULL_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
+              reads_all_partitions=False):
+    """Pair two tables' matching rows, and keep each table's rows with no match.
+
+    Use it to compare two records of the same things, such as the runs job_runs holds and the
+    runs the scheduler started: each run comes out once, matched or not, with NULL in the
+    columns of the side that lacks it, and fill_null(...) takes a value from whichever side
+    has one. A WHERE on either side's columns would throw away the rows the other side lacks,
+    so it is refused, unless it keeps them: is_null(...) of a column, or any_of(...) with such
+    an is_null among its conditions. keeps_only_matches=True lets such a WHERE through, for
+    when losing those rows is what you mean. For the same reason, read a table with a Date
+    partition, on either side, through a derived(...) table that bounds its days in its own
+    WHERE, and FULL_JOIN that: ON= can't bound it, since FULL_JOIN keeps the rows ON= doesn't
+    match anyway. Either side's columns may be NULL, so its rows have no Key the Toolbox can
+    see: a write needs a GROUP_BY to give them one, such as
+    GROUP_BY(fill_null(recorded.run_id, started.run_id)) below. A repeated-rows Warning, and
+    its many_matches=True, work as JOIN's do. Below, the runs only one side holds:
+
+    >>> recorded = derived("recorded", statement(
+    ...     SELECT(job_runs.run_id), FROM(job_runs), WHERE(last_n_days(job_runs.dt, 2))))
+    >>> scheduler_runs = example_database.scheduler_runs
+    >>> started = derived("started", statement(
+    ...     SELECT(scheduler_runs.run_id), FROM(scheduler_runs),
+    ...     WHERE(last_n_days(scheduler_runs.dt, 2))))
+    >>> print(to_hive(statement(
+    ...     SELECT(AS(recorded.run_id, "in_job_runs"),
+    ...            AS(started.run_id, "in_scheduler_runs")),
+    ...     FROM(recorded),
+    ...     FULL_JOIN(started, ON=equals(started.run_id, recorded.run_id)),
+    ...     WHERE(any_of(is_null(recorded.run_id), is_null(started.run_id))),
+    ... )))
+    WITH recorded AS (
+      SELECT
+        job_runs.run_id
+      FROM ops.job_runs AS job_runs
+      WHERE
+        job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    ), started AS (
+      SELECT
+        scheduler_runs.run_id
+      FROM ops.scheduler_runs AS scheduler_runs
+      WHERE
+        scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+    )
+    SELECT
+      recorded.run_id AS in_job_runs,
+      started.run_id AS in_scheduler_runs
+    FROM recorded
+    FULL JOIN started
+      ON started.run_id = recorded.run_id
+    WHERE
+      recorded.run_id IS NULL OR started.run_id IS NULL
+    """
+    return _join("FULL_JOIN", table, ON, many_matches, reads_all_partitions,
+                 keeps_only_matches=keeps_only_matches)
+
+
+def RIGHT_JOIN(table, ON=None, **anything):
+    """Refused: write LEFT_JOIN with the two tables swapped, which keeps the same rows.
+
+    A RIGHT JOIN keeps every row of the table it joins, and only the matching rows of the
+    tables before it. The Toolbox writes it as LEFT_JOIN, which reads in the order the rows
+    are kept: the table whose every row you want goes in FROM, and the other in
+    LEFT_JOIN(..., ON=...), with the same ON=.
+
+    >>> RIGHT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id))
+    Traceback (most recent call last):
+    ...
+    ValueError:
+      What happened:  RIGHT_JOIN(jobs, ...): the Toolbox doesn't write a RIGHT JOIN.
+    ...
+    """
+    refuse_right_join(table)
 
 
 def WHERE(*conditions):
@@ -506,7 +720,9 @@ def GROUP_BY(*columns):
     """Group rows that share these values, one output row per group.
 
     A calculation may be named by its output name, such as GROUP_BY("week"), and the
-    Toolbox repeats it, since Hive can't group by a name given in SELECT.
+    Toolbox repeats it, since Hive can't group by a name given in SELECT. For subtotal rows
+    added to the groups' rows, pass rollup(...), cube(...) or grouping_sets(...), with any
+    plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).
 
     >>> print(to_hive(statement(
     ...     SELECT(AS(week_start(job_runs.dt), "week"), AS(count_rows(), "runs")),
@@ -523,12 +739,14 @@ def GROUP_BY(*columns):
     GROUP BY
       CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
+    from .stacking import Subtotals  # here: stacking.py imports this file
+
     items = _flatten(columns)
     if not items:
         refuse(what="GROUP_BY was given nothing to group by.", why="It needs a column.",
                fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").')
     for item in items:
-        if not isinstance(item, (Column, str)):
+        if not isinstance(item, (Column, str, Subtotals)):
             refuse(
                 what=f"GROUP_BY was given {item!r}.",
                 why="It groups by columns, or by the name of a calculation in SELECT.",
@@ -812,11 +1030,15 @@ def statement(*clauses, returns_all_rows=False):
     s._where = by_place["WHERE"].conditions if "WHERE" in by_place else []
     s._having = by_place["HAVING"].conditions if "HAVING" in by_place else []
     groups = by_place["GROUP_BY"].group_columns if "GROUP_BY" in by_place else []
-    s._group_by = _resolve_group_by(s, groups)
+    from .stacking import check_subtotals, grouped  # here: stacking.py imports this file
+
+    s._group_by, s._grouping_sets, s._subtotals_call = grouped(s, groups)
     order = by_place.get("ORDER_BY")
     s._order_by = order.sort_keys if order else []
     s._limit = by_place["LIMIT"].n if "LIMIT" in by_place else None
+    check_subtotals(s)
     _check_tables(s)
+    check_joins(s)
     _run_guards(s)
     _run_load_limits(s, order)
     return s
@@ -838,9 +1060,10 @@ def _resolve_group_by(s: Statement, items: list) -> list[Column]:
 
 
 def derived_tables(s: Statement) -> list[Table]:
-    """Every Derived table a Statement reads, directly or not, each after those it reads."""
+    """Every Derived table a Statement reads, directly or not, each after those it reads; a
+    Stack's are those of each Statement it stacks."""
     found = []
-    for read in s._reads:
+    for read in [read for step in (s._stack[1] if s._stack else [s]) for read in step._reads]:
         table = read.table
         if table._statement is None:
             continue
@@ -903,7 +1126,7 @@ def _check_order_names(s: Statement) -> None:
 
 
 def _check_placement(s: Statement) -> None:
-    """Refuse a count, a sum or a row number where Hive can't work it out yet."""
+    """Refuse a count, a sum or a window where Hive can't work it out yet."""
     places = [("WHERE", c) for c in s._where] + [("HAVING", c) for c in s._having]
     places += [("ON=", read.on) for read in s._reads if read.on is not None]
     places += [("GROUP_BY", column) for column in s._group_by]
@@ -922,14 +1145,7 @@ def _check_placement(s: Statement) -> None:
                 error=ValueError,
             )
         if has_window(part._tree):
-            refuse(
-                what=f"{place} has {part!r}, which numbers rows.",
-                why="Rows are numbered last, after the rows are picked and grouped, so Hive "
-                f"can't use the number in {place} of the SELECT that makes it.",
-                fix="Number the rows in a derived(...) table, then use the number in the "
-                "Statement that reads it; help(row_number) shows how.",
-                error=ValueError,
-            )
+            refuse_a_window_in(place, part)
 
 
 def _trees(s: Statement) -> list[Node]:
@@ -983,7 +1199,7 @@ def _guard_group_by(s: Statement) -> None:
             # A calculation in SELECT, such as week_start(dt) named "week", is grouped by its
             # name: grouped by the column inside it, it would give one row per day, not week.
             if (place == "SELECT" and ungrouped and tree.kind != "Column"
-                    and not has_aggregate(tree)):
+                    and not has_aggregate(tree) and not has_window(tree)):
                 inside = list(dict.fromkeys(hive_text(column) for column in ungrouped))
                 calculations.append((names[number], inside))
                 continue
@@ -1002,7 +1218,8 @@ def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:
         return []
     if tree.kind == "Column":
         return [tree]
-    return [column for child in tree.children() for column in _ungrouped(child, groups)]
+    children = ungrouped_in_window(tree) if tree.kind == "Window" else tree.children()
+    return [column for child in children for column in _ungrouped(child, groups)]
 
 
 def read_spans(s: Statement) -> list[tuple[Clause, object]]:
@@ -1015,9 +1232,11 @@ def read_spans(s: Statement) -> list[tuple[Clause, object]]:
         if table._statement is not None or table._date_partition is None:
             continue
         spans = everywhere
-        if read._name == "LEFT_JOIN":
+        if read._name in BOUNDED_IN_ON:
             spans = combined_spans([read.on] + (s._where + inner if read.keeps_only_matches
                                                 else []))
+        elif read._name == "FULL_JOIN":  # FULL_JOIN keeps every row, matched or not
+            spans = everywhere if read.keeps_only_matches else {}
         found.append((read, spans.get((table._alias, table._date_partition))))
     return found
 
@@ -1027,7 +1246,8 @@ def _run_load_limits(s: Statement, order: Clause | None) -> None:
         if span is None or not span.is_bounded():
             table = read.table
             load_limit_date_bound(read._call(), table._alias, table._name,
-                                  table._date_partition, read.reads_all_partitions)
+                                  table._date_partition, read.reads_all_partitions,
+                                  full_join=full_joined(s, read))
     if order is not None and s._limit is None:
         load_limit_order_by(order.sorts_everything)
 
@@ -1113,6 +1333,10 @@ __all__ = [
     "JOIN",
     "LEFT_JOIN",
     "CROSS_JOIN",
+    "SEMI_JOIN",
+    "ANTI_JOIN",
+    "FULL_JOIN",
+    "RIGHT_JOIN",
     "WHERE",
     "GROUP_BY",
     "HAVING",

@@ -12,7 +12,6 @@ from sqlglot_composer import (
     check_key,
     check_table_reference,
     create_table,
-    drop_table,
     example_database,
     to_hive,
     write_table_reference,
@@ -337,16 +336,3 @@ def test_create_table_may_exist() -> None:
         "CREATE EXTERNAL TABLE IF NOT EXISTS mart.t (\n  a DECIMAL(10, 2)\n)\nSTORED AS ORC\n"
         "LOCATION '/data/tables/mart/t'")
 
-
-# --- drop_table -------------------------------------------------------------------------------
-
-
-def test_drop_table_drops_only_if_it_exists() -> None:
-    t = Table("mart.daily_runs", columns={"runs": "bigint", "dt": "string"},
-              date_partition="dt")
-    assert to_hive(drop_table(t)) == "DROP TABLE IF EXISTS mart.daily_runs"
-
-
-def test_drop_table_needs_a_real_tables_reference() -> None:
-    with pytest.raises(TypeError, match="not on a table.s name as text"):
-        drop_table("mart.daily_runs")

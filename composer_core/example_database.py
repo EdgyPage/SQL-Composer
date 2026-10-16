@@ -1,7 +1,11 @@
-"""The Example database: six made-up tables, and a send to run Statements on.
+"""The Example database: seven made-up tables, and a send to run Statements on.
 
-It holds the Table references `jobs`, `job_runs` and `run_alerts`, with rows on two days,
-2026-09-23 and 2026-09-24, and three more with rows on 14 days, 2026-09-11 to 2026-09-24:
+Four of its Table references have rows on two days, 2026-09-23 and 2026-09-24: `jobs`,
+`job_runs`, `run_alerts`, and `scheduler_runs`, the scheduler's own record of the runs it
+started on those days, to compare with job_runs. It should match job_runs run for run, but
+lacks run 99, a TEST run started by hand, and holds run 100, which never reached job_runs.
+
+The other three have rows on 14 days, 2026-09-11 to 2026-09-24:
 
 - `job_events`: each run's events, start, finish, retry and fail;
 - `job_owners`: one row per job per day, with its team and owner, so you can see report_build
@@ -10,7 +14,7 @@ It holds the Table references `jobs`, `job_runs` and `run_alerts`, with rows on 
   the job is billed, not the jobs table's LON, PAR or NYC), then by day, with days written like
   20260911 rather than 2026-09-11.
 
-These three keep a record of their own: they have no run_id, and don't match job_runs run for
+These three 14-day tables keep a record of their own: they have no run_id, and don't match job_runs run for
 run.
 
 `send` runs a Statement's Hive on a small database of the Toolbox's own and returns a
@@ -81,6 +85,13 @@ run_alerts = Table(
     },
     date_partition="dt",
     key=["alert_id"],
+)
+
+scheduler_runs = Table(
+    "ops.scheduler_runs",
+    columns={"run_id": "bigint", "job_id": "bigint", "dt": "string"},
+    date_partition="dt",
+    key=["run_id"],
 )
 
 # Three more tables, with rows on 14 days, 2026-09-11 to 2026-09-24.
@@ -170,6 +181,19 @@ _RUN_ALERTS = [
     (7, 103, "low", "2026-09-24"),
     (8, 103, "low", "2026-09-24"),
     (9, 104, "low", "2026-09-24"),
+]
+
+_SCHEDULER_RUNS = [
+    # run_id, job_id, dt: no run 99, a TEST run started by hand
+    (95, 1, "2026-09-23"),
+    (96, 2, "2026-09-23"),
+    (97, 3, "2026-09-23"),
+    (98, 2, "2026-09-23"),
+    (100, 3, "2026-09-23"),  # started, but never reached job_runs
+    (101, 1, "2026-09-24"),
+    (102, 2, "2026-09-24"),
+    (103, 3, "2026-09-24"),
+    (104, 1, "2026-09-24"),
 ]
 
 _JOB_EVENTS = [
@@ -326,7 +350,9 @@ _REGION_COSTS = [
 ]
 
 _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
-          "run_alerts": (run_alerts, _RUN_ALERTS), "job_events": (job_events, _JOB_EVENTS),
+          "run_alerts": (run_alerts, _RUN_ALERTS),
+          "scheduler_runs": (scheduler_runs, _SCHEDULER_RUNS),
+          "job_events": (job_events, _JOB_EVENTS),
           "job_owners": (job_owners, _JOB_OWNERS),
           "region_costs": (region_costs, _REGION_COSTS)}
 
@@ -337,7 +363,7 @@ def _table(name: str) -> tuple[Table, list]:
         names = [f"ops.{table}" for table in _TABLES]
         refuse(
             what=f"The Example database has no table {name!r}.",
-            why="It holds six made-up tables, all in the database ops.",
+            why="It holds seven made-up tables, all in the database ops.",
             fix=f"Use {', '.join(names[:-1])} or {names[-1]}.",
             error=ValueError,
         )
@@ -485,8 +511,9 @@ def send(hive):
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
             fix="to_hive(...) shows the Hive of any Statement without sending it, as in "
-            "to_hive(drop_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a write. "
-            "It takes a Statement, not text.",
+            "to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a "
+            "write. It takes a Statement, such as one create_table, statement(...) or the "
+            "admin module builds, not text.",
             error=ValueError,
         )
     columns, rows = edition.run_query(text, _TABLES)
