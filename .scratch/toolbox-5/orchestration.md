@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16. Waves 1 and 2 merged and drift-clean (only D156 open, for ticket 09). dev pushed at f1c8aaa; later dev commits are docs/drift fixes, unpushed. BLOCKED: Spark CI jobs fail (run 38865605762, as 38815958379) and the log needs the user; and the user's open questions below. Then wave 3 (ticket 09, no export).
+Last updated: 2026-10-16. Waves 1-2 merged; the user answered wave 2's questions and set the Spark CI failures aside. Wave 3: one agent applies the two decisions, then ticket 09 (no export).
 
 ## The plan (the user's brief)
 
@@ -47,33 +47,12 @@ checks pass.
 Drift open: only D156 (`version`, closed by ticket 09 raising TOOLBOX_VERSION to "5.0"; the
 stop hook nags about it each turn, which is expected).
 
-## Open questions for the user (asked, not yet answered)
+## The user's answers to wave 2's questions (2026-10-16)
 
-1. Ticket 06: `running.kept_day` lets any write read several days when a step above keeps one
-   with `equals(...)`; 4.x refused every multi-day write. Narrow it to Statements with a
-   window (recommended), or keep it broad?
-2. Ticket 05: Hive ignores `broadcast=True`'s MAPJOIN hint unless
-   `hive.ignore.mapjoin.hint=false`. Add that to the shipped "map_joins" set (recommended), ship
-   a separate set, or leave the docs showing a set of the user's own?
-3. The Spark CI failure log (below).
-4. Ticket 04: a move (`admin.move_to_own_folder`) doesn't copy rows with no day
-   (`__HIVE_DEFAULT_PARTITION__`); they go with the old table, and show_hive says so. Refuse such
-   a table instead, or keep the notes?
-5. Ticket 04 (as built, for the user to confirm): `admin.set_properties(t)` sets what the Table
-   reference says, taking no other arguments; `move_to_own_folder` returns a list of Statements
-   (create the copy, one INSERT OVERWRITE per day, a count comparison that stops the move if a
-   day differs, purge off, drop the old, rename); `drop_days` and `ADD COLUMNS ... CASCADE` are
-   Hive 3 Hive that Spark refuses, written the same by both Editions.
-
-6. Ticket 07: INTERSECT/EXCEPT Lineage feeds values from the first Statement only, the others
-   as a condition box (the map said "from every branch"); GROUPING SETS over a named
-   calculation and GROUPING() in HAVING are untested on real Hive.
-7. Ticket 08: explain refuses DDL/admin/upkeep Statements; export_lineage refuses the upkeep
-   Statements (map family 9 says "left out": refuse, or skip silently?); compute_statistics
-   takes columns=, beyond the ticket's signature.
-
-Noted, no question: ticket 05's semi join can't run on sqlglot Composer's Example database
-(sqlglot's executor would treat it as a LEFT JOIN), so how-to 33 shows a pandas result there.
+The user took every recommendation (recorded in the map's Decisions): narrow `kept_day` to
+Statements with a Window; "map_joins" also sends `hive.ignore.mapjoin.hint=false`; everything
+else as built. The Spark CI failures are set aside for now, by the user: ticket 09 goes ahead
+without CI green, and still never exports or pushes `main`.
 
 ## Open problem: CI red for Spark Composer
 
