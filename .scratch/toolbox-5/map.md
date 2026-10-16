@@ -218,6 +218,17 @@ below; this map is the design document, built out ticket by ticket.
   `GROUPING(col) = 1`; the Example database to reconcile against is the existing jobs and
   job_owners (no new table); how-tos 35 and 36 (Intermediate now 19-36).
 
+- The user (2026-10-16), on wave 2's open questions, taking the recommendations: a write may
+  read several days through a step that keeps one with `equals(...)` only when it has a Window
+  (ticket 06's `kept_day` narrowed; other multi-day writes refused as in 4.x); the shipped
+  "map_joins" set also sends `hive.ignore.mapjoin.hint=false`, so `broadcast=True` takes effect.
+  As built and kept: a move warns that rows with no day stay with the old table's files (no
+  refusal); `admin.set_properties(t)` takes no other arguments; a move is a list of Statements;
+  `drop_days` and `ADD COLUMNS ... CASCADE` are Hive 3 Hive both Editions write alike;
+  INTERSECT/EXCEPT Lineage feeds values from the first Statement; `explain` refuses Statements
+  that change a table; `export_lineage` refuses upkeep Statements; `compute_statistics` takes
+  `columns=`. The Spark CI failures are set aside for now, by the user.
+
 ## Not yet specified
 
 - Which Edition the user runs at work, which only decides whose Example database limits the
