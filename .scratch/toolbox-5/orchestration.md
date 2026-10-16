@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16, wave 2 merged; three full runs green on dev; dev pushed at f1c8aaa (CI run 38865605762). Open: D181-D182 (ticket 08's agent fixing), then wave 3.
+Last updated: 2026-10-16. Waves 1 and 2 merged and drift-clean (only D156 open, for ticket 09). dev pushed at f1c8aaa; later dev commits are docs/drift fixes, unpushed. BLOCKED: Spark CI jobs fail (run 38865605762, as 38815958379) and the log needs the user; and the user's open questions below. Then wave 3 (ticket 09, no export).
 
 ## The plan (the user's brief)
 
@@ -35,7 +35,7 @@ Last checked: 2026-10-15, evening; `dev` local tip 289a8bb. `origin/dev` is at f
 | 05 Joins | `worktree-agent-aa687d203297246a7` | merged (cdcd71e); drift fixes D169-D172 merged (3ca3e7e, closed) |
 | 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617), drift fixes D166-D168 merged (f7f2e04, closed) |
 | 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | merged (5a329a1; how-tos 35, 36; 86 names); drift D179-D180 fixed by 8406f79 |
-| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | merged (6396219; upkeep.py, one `need_saved_table`, how-to 37, 89 public names); drift review of 6396219 running |
+| 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | merged (6396219); drift fixes D181-D182 merged (fdafa76), D183 fixed (a655ac2) |
 | 09 Ship 5.0 | - | blocked on 01-08 |
 
 A fresh session can't message these agents (their ids live only in the session that started
