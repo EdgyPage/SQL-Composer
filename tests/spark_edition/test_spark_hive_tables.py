@@ -12,6 +12,9 @@ temporary folder, and each Statement goes through the send a Spark user gives at
   its day; a write fills the Partitions after its day from its rows; a week_start is written
   into a column of type string;
 - drop_table sent twice does nothing the second time;
+- repair_partitions finds the days of a table made again where its files stayed,
+  compute_statistics counts a day and its columns, each sent twice, and explain gives Spark's
+  plan of a write without making it;
 - write_table_reference, check_table_reference and check_key read real DESCRIBE and SHOW
   PARTITIONS output, of a day written as yyyy/MM/dd and with a row that has no day;
 - every query in Spark Composer's golden runs on real tables, and one on the Example
@@ -53,12 +56,15 @@ from sqlglot_composer import (
     Table,
     check_key,
     check_table_reference,
+    compute_statistics,
     count_rows,
     create_table,
     drop_table,
     engine,
     equals,
     example_database,
+    explain,
+    repair_partitions,
     run,
     statement,
     week_start,
@@ -184,6 +190,53 @@ def test_drop_table_sent_twice_does_nothing_the_second_time(spark, send) -> None
     run(drop_table(runs_to_review), send=send)
     run(drop_table(runs_to_review), send=send)
     assert not spark.catalog.tableExists(runs_to_review._name)
+
+
+# --- Upkeep: repair_partitions, compute_statistics and explain -------------------------------
+
+
+def test_repair_partitions_finds_the_days_of_a_table_made_again(spark, send, tmp_path) -> None:
+    t = in_folder(Table("mart.repaired", columns={"job_id": "bigint", "runs": "bigint",
+                                                  "dt": "string"},
+                        date_partition="dt", key=["job_id"],
+                        location="/data/your_team/tables"), tmp_path)
+    run(create_table(t), send=send)
+    spark.sql("INSERT INTO mart.repaired PARTITION (dt = '2026-09-24') VALUES (1, 2)")
+    run(drop_table(t), send=send)  # no purge=True: its files stay in its folder
+    run(create_table(t), send=send)
+    assert _rows(spark, "SHOW PARTITIONS mart.repaired") == []
+    for _ in range(2):
+        run(repair_partitions(t), send=send)
+        assert _rows(spark, "SHOW PARTITIONS mart.repaired") == [("dt=2026-09-24",)]
+    assert _rows(spark, "SELECT job_id, runs, dt FROM mart.repaired") == [(1, 2, "2026-09-24")]
+
+
+def _write_region_runs(day: str):
+    job_runs, jobs = example_database.job_runs, example_database.jobs
+    return statement(INSERT_OVERWRITE(region_runs),
+                     SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+                     FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                     WHERE(equals(job_runs.dt, day)), GROUP_BY(job_runs.job_id, jobs.region))
+
+
+def test_compute_statistics_counts_a_day_and_its_columns(spark, send) -> None:
+    run(_write_region_runs("2026-09-24"), send=send)
+    for _ in range(2):
+        run(compute_statistics(region_runs, "2026-09-24"), send=send)
+        run(compute_statistics(region_runs, "2026-09-24", columns=True), send=send)
+    described = {row.col_name.strip(): (row.data_type or "").strip() for row in spark.sql(
+        "DESCRIBE FORMATTED mart.region_runs PARTITION (dt = '2026-09-24', region = 'LON')"
+    ).collect()}
+    assert "1 rows" in described["Partition Statistics"]
+    counted = {row.info_name: row.info_value for row in spark.sql(
+        "DESCRIBE FORMATTED mart.region_runs job_id").collect()}
+    assert counted["distinct_count"] not in (None, "NULL")
+
+
+def test_explain_gives_the_plan_of_a_write_without_making_it(spark, send) -> None:
+    plan = run(explain(_write_region_runs("2026-09-23")), send=send)
+    assert plan.splitlines()[0] == "== Physical Plan =="
+    assert ("dt=2026-09-23/region=LON",) not in _rows(spark, "SHOW PARTITIONS mart.region_runs")
 
 
 # --- Writing days -----------------------------------------------------------------------------

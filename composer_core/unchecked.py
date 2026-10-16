@@ -80,10 +80,11 @@ def hive_settings(*names, sets=None):
     - "map_joins": hive.auto.convert.join=true and
       hive.auto.convert.join.noconditionaltask=true. Hive then joins a small table by copying
       it to every worker, which skips sorting the big one, and chooses this by itself from the
-      tables' statistics.
+      tables' statistics. explain(s) shows whether it did: a Map Join in the plan.
     - "statistics_on_write": hive.stats.autogather=true and hive.stats.column.autogather=true.
       Each write then gathers the statistics of the day it writes, which Hive picks its join
-      plans from, so they are never out of date.
+      plans from, so they are never out of date. compute_statistics(t, day) counts a day
+      written without them.
     - "merge_small_files": hive.merge.mapfiles=true, hive.merge.mapredfiles=true and
       hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones,
       since many small files slow down every later read.

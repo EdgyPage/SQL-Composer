@@ -1772,7 +1772,10 @@ def create_table(t, may_exist=False):
     check_table_reference(t, send=...), or, to start the table again, drop it with
     drop_table(t).
     may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table
-    alone.
+    alone, so it is safe to send again, as at the top of a pipeline that runs every day. It
+    doesn't check that the table there matches its Table reference: check_table_reference
+    does. Where a table is made again at a folder whose files stayed, repair_partitions(t)
+    finds their days.
 
     A Table reference with a Key, such as key=["job_id", "dt"], gets
     PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
