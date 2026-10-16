@@ -11,7 +11,8 @@ temporary folder, and each Statement goes through the send a Spark user gives at
 - INSERT_OVERWRITE replaces only its day, sent twice as well as once, and INSERT_INTO adds to
   its day; a write fills the Partitions after its day from its rows; a week_start is written
   into a column of type string;
-- drop_table sent twice does nothing the second time;
+- admin.drop_table sent twice does nothing the second time, and admin.move_to_own_folder's
+  steps move a table made by hand in a shared folder to its own, its rows and name kept;
 - write_table_reference, check_table_reference and check_key read real DESCRIBE and SHOW
   PARTITIONS output, of a day written as yyyy/MM/dd and with a row that has no day;
 - every query in Spark Composer's golden runs on real tables, and one on the Example
@@ -51,13 +52,13 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     Table,
+    admin,
     between,
     check_key,
     check_table_reference,
     count_rows,
     create_table,
     derived,
-    drop_table,
     engine,
     equals,
     example_database,
@@ -137,7 +138,7 @@ def _rows(spark, sql: str) -> list[tuple]:
 
 def test_create_table_makes_an_external_orc_table_and_refuses_the_second_time(spark,
                                                                              send) -> None:
-    run(drop_table(runs_to_review), send=send)
+    run(admin.drop_table(runs_to_review), send=send)
     run(create_table(runs_to_review), send=send)
     described = {row.col_name.strip(): (row.data_type or "").strip() for row in
                  spark.sql(f"DESCRIBE FORMATTED {runs_to_review._name}").collect()}
@@ -185,9 +186,30 @@ def test_a_write_fills_the_partitions_after_its_day_from_its_rows(spark, send) -
 
 def test_drop_table_sent_twice_does_nothing_the_second_time(spark, send) -> None:
     run(create_table(runs_to_review, may_exist=True), send=send)
-    run(drop_table(runs_to_review), send=send)
-    run(drop_table(runs_to_review), send=send)
+    run(admin.drop_table(runs_to_review), send=send)
+    run(admin.drop_table(runs_to_review), send=send)
     assert not spark.catalog.tableExists(runs_to_review._name)
+
+
+def test_the_move_takes_a_table_from_a_shared_folder_to_its_own(spark, send, tmp_path) -> None:
+    moved = in_folder(Table("mart.moved", columns={"job_id": "bigint", "runs": "bigint",
+                                                    "dt": "string"},
+                            date_partition="dt", location="/data/your_team/tables"),
+                      tmp_path / "own")
+    spark.sql("CREATE EXTERNAL TABLE mart.moved (job_id BIGINT, runs BIGINT) PARTITIONED BY "
+              f"(dt STRING) STORED AS ORC LOCATION '{(tmp_path / 'shared').as_posix()}'")
+    spark.sql("INSERT INTO mart.moved PARTITION (dt = '2026-09-23') VALUES (1, 2), (2, 1)")
+    spark.sql("INSERT INTO mart.moved PARTITION (dt = '2026-09-24') VALUES (1, 3)")
+    assert "not at its own folder" in str(check_table_reference(moved, send=send))
+    for step in admin.move_to_own_folder(moved, send=send):
+        run(step, send=send)
+    assert _rows(spark, "SELECT job_id, runs, dt FROM mart.moved") == [
+        (1, 2, "2026-09-23"), (1, 3, "2026-09-24"), (2, 1, "2026-09-23")]
+    assert str(check_table_reference(moved, send=send)) == (
+        "mart.moved matches its Table reference.")
+    assert not spark.catalog.tableExists("mart.moved_moving")
+    # The shared folder keeps the old files, which other tables there may read.
+    assert any(path.is_file() for path in (tmp_path / "shared").rglob("*"))
 
 
 # --- Writing days -----------------------------------------------------------------------------
@@ -236,7 +258,7 @@ def test_a_week_start_is_written_into_a_column_of_type_string(spark, send, tmp_p
                                                    "dt": "string"},
                             date_partition="dt", location="/data/your_team/tables"), tmp_path)
     job_runs = example_database.job_runs
-    run(drop_table(weeks), send=send)
+    run(admin.drop_table(weeks), send=send)
     run(create_table(weeks), send=send)
     run(statement(INSERT_OVERWRITE(weeks), SELECT(job_runs.run_id,
                                                   AS(week_start(job_runs.dt), "week")),
@@ -258,7 +280,7 @@ def test_a_write_that_looks_back_reads_earlier_days_and_fills_one(spark, send,
         FROM(events),
         WHERE(between(events.dt, "2026-09-18", "2026-09-24"),
               equals(events.event_type, "finish"))))
-    run(drop_table(changes), send=send)
+    run(admin.drop_table(changes), send=send)
     run(create_table(changes), send=send)
     run(statement(INSERT_OVERWRITE(changes), SELECT(week.event_id, week.minutes_before),
                   FROM(week), WHERE(equals(week.dt, "2026-09-24"))), send=send)
@@ -284,7 +306,7 @@ def slashed(spark, send, tmp_path):
     """A table whose days are written as 2026/09/24, with a row that has no day, in a folder
     of its own each time: a dropped external table leaves its files behind."""
     t = in_folder(SLASHED, tmp_path)
-    run(drop_table(t), send=send)
+    run(admin.drop_table(t), send=send)
     run(create_table(t), send=send)
     spark.sql("INSERT INTO ops.slashed PARTITION (dt = '2026/09/23') VALUES (1, 'SUCCESS')")
     spark.sql("INSERT INTO ops.slashed PARTITION (dt = '2026/09/24') VALUES (2, 'FAILED'), "

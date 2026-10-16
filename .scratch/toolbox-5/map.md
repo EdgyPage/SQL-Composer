@@ -198,6 +198,13 @@ below; this map is the design document, built out ticket by ticket.
   doesn't add up again; a write may read several days when a step above keeps one with
   `equals(...)` of the day passed up (`running.kept_day`), the by_day refusal's fix; how-to 28
   is now "Look across rows, then finish in pandas" (its link id unchanged).
+- [04 The admin module](issues/04-the-admin-module.md): `composer_core/admin.py`, imported by
+  each Edition's `__init__.py` as `admin` (not in `__all__`); `tables.need_saved_table(t, what)`
+  is the shared Saved-table check; an Admin statement keeps `_admin_about` (show_hive's `--`
+  notes), `_admin_hive` (an ALTER the core lays out itself, no sqlglot read-back) and
+  `_admin_check` (the move's comparison refuses in `run`); `set_properties(t)` sets what the
+  Table reference says; the move is a list of Statements; Lineage leaves Admin statements out;
+  78 public names; how-to 34. Open for the user: rows with no day aren't moved.
 
 ## Not yet specified
 
