@@ -54,6 +54,14 @@ Statements with a Window; "map_joins" also sends `hive.ignore.mapjoin.hint=false
 else as built. The Spark CI failures are set aside for now, by the user: ticket 09 goes ahead
 without CI green, and still never exports or pushes `main`.
 
+## Added to ticket 09 (the user, 2026-10-16)
+
+Part C: a write into a Saved table with no Date partition (`date_partition=None`) is allowed,
+INSERT_OVERWRITE replacing the whole table and INSERT_INTO adding to it, with every other check
+kept; per-day features (by_day, drop_days, repair_partitions) still refuse it clearly. Reads of
+day-less tables already worked. The user asked to be able to make Statements without working
+hard when data has no days.
+
 ## Open problem: CI red for Spark Composer
 
 Run 38815958379 on 849b3c1: both sqlglot jobs passed; both Spark jobs (pyspark 3.5.0 and
