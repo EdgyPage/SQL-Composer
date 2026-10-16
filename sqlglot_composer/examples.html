@@ -2570,8 +2570,9 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 </section>
 <section class="entry" id="repair_partitions">
 <h3><code>repair_partitions</code></h3>
-<p class="why">The MSCK REPAIR TABLE Statement, which finds the days in a Saved table&#x27;s folder.</p>
-<p>The warehouse keeps a list of each table&#x27;s Partitions, the day folders it reads, and never reads a folder missing from it. A folder goes missing from it when files reach the table&#x27;s folder without a write: when create_table makes a table again where an old one&#x27;s files stayed, since it was dropped without purge=True, or when someone copies files in. run(repair_partitions(t), send=...) adds each day folder it finds to the list. It only adds: it deletes no file and no day, so it is safe to send again. It takes only one of your Saved tables, a Table reference with location= and a Date partition. The Example database can&#x27;t run it, as its tables are made up and fixed.</p>
+<p class="why">The MSCK REPAIR TABLE Statement, which lists the days in a Saved table&#x27;s folder.</p>
+<p>The warehouse keeps a list of each table&#x27;s Partitions, the day folders it reads, and never reads a folder missing from it. A folder goes missing from the list when files reach the table&#x27;s folder without a write: when create_table makes a table again where an old one&#x27;s files stayed, because it was dropped without purge=True, or when someone copies files in. run(repair_partitions(t), send=...) adds each day folder it finds to the list. It only adds: it deletes no file and no day, so it is safe to send again.</p>
+<p>It takes only one of your Saved tables, a Table reference with location= and a Date partition. The Example database can&#x27;t run it, as its tables are made up and fixed.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     location=&quot;/data/your_team/tables&quot;)</pre>
@@ -2583,9 +2584,11 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 </section>
 <section class="entry" id="compute_statistics">
 <h3><code>compute_statistics</code></h3>
-<p class="why">The ANALYZE TABLE Statement, counting a Saved table&#x27;s day for Hive&#x27;s planner.</p>
-<p>Hive picks how to join a table from its statistics: how many rows and bytes each day holds. Without them it guesses, and may sort two big tables to join them where copying a small one to every worker would do; the Session setting &quot;map_joins&quot; lets Hive make that choice. run(compute_statistics(t, day), send=...) reads the day&#x27;s files, counts them again and keeps what it counts in place of what was there, so it is safe to send again; it changes no row. The Session setting &quot;statistics_on_write&quot;, sent before your writes, has each write count its day as it writes it: this is for the days written without it.</p>
-<p><code>day</code> is the one day to count, written as the table writes its days or as a datetime.date; for a table partitioned by more than its day, such as by region too, it counts every region of the day. A Saved table with no Date partition takes no day. columns=True counts each column too, all but the Partitions: how many different values it has, its smallest and largest, and how many are NULL, which Hive&#x27;s planner reads to order its joins. It reads more, so columns=[&quot;job_id&quot;] counts only the columns you join or filter on. Where your send runs on Spark, not Hive, Spark counts columns over every day of the table, whatever the day. It takes only one of your Saved tables, a Table reference with location=, and the Example database can&#x27;t run it.</p>
+<p class="why">The ANALYZE TABLE Statement, which counts a Saved table&#x27;s rows for one day.</p>
+<p>Hive picks how to join a table from its statistics: how many rows and bytes each day holds. Without them it guesses, and may sort two big tables to join them even when copying a small one to every worker would do; the Session setting &quot;map_joins&quot; lets Hive choose to copy it. run(compute_statistics(t, day), send=...) reads the day&#x27;s files, counts them again and keeps the new count in place of the old, so it is safe to send again; it changes no row. The Session setting &quot;statistics_on_write&quot;, sent before your writes, has each write count its day as it writes it; compute_statistics is for the days written without that setting.</p>
+<p><code>day</code> is the one day to count, written as the table writes its days or as a datetime.date. For a table partitioned by more than its day, such as by region too, it counts every region of the day. A Saved table with no Date partition (date_partition=None) is counted whole, and takes no day.</p>
+<p>columns= counts columns too, other than the Partitions: how many different values each has, its smallest and largest, and how many are NULL, which Hive reads to order several joins. columns=True counts every column; as that reads more, columns=[daily_runs.job_id] counts only the columns you name, such as those you join or filter on. Where your send runs on Spark, not Hive, Spark counts columns over every day of the table, whatever the day, so name only those few.</p>
+<p>It takes only one of your Saved tables, a Table reference with location=. The Example database can&#x27;t run it, as its tables are made up and fixed.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     location=&quot;/data/your_team/tables&quot;)</pre>
@@ -2595,6 +2598,11 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <pre class="python">print(to_hive(compute_statistics(daily_runs, &quot;2026-09-24&quot;, columns=True)))</pre>
 <p class="label">Hive</p>
 <pre class="output">ANALYZE TABLE mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;) COMPUTE STATISTICS FOR COLUMNS job_id, runs</pre>
+<pre class="python">print(to_hive(compute_statistics(daily_runs, &quot;2026-09-24&quot;,
+    columns=[daily_runs.job_id])))</pre>
+<p class="label">Hive</p>
+<pre class="output">ANALYZE TABLE mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;) COMPUTE STATISTICS FOR COLUMNS job_id</pre>
+<p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
 <p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
 <p class="note">No result here. The Example database only answers SELECT, DESCRIBE, SHOW PARTITIONS and SET; it can&#x27;t be written to.</p>
 <p class="names">Toolbox names used: <code>compute_statistics</code>, <code>Table</code>, <code>to_hive</code></p>
@@ -2602,7 +2610,10 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <section class="entry" id="explain">
 <h3><code>explain</code></h3>
 <p class="why">The EXPLAIN Statement: Hive&#x27;s plan for running a Statement, without running it.</p>
-<p>run(explain(s), send=...) gives back Hive&#x27;s plan as text, which prints line by line. It explains exactly the Hive run(s, send=...) would send, the automatic LIMIT too, and refuses what to_hive(s) would. The plan is a tree of steps, each reading from the ones below it: TableScan reads a table, with the filters it reads it with; a Map Join copies a small table to every worker, where a Merge Join sorts both sides first; and each step&#x27;s Statistics line says how many rows Hive expects, or &quot;Basic stats: NONE&quot; where it has none to go by and compute_statistics would help. Read it to see why a Statement is slow, before and after you change it: whether the Session setting &quot;map_joins&quot; turned a join into a Map Join, or a condition kept the read to the days it names. It only reads, so it takes any Statement, a write too, whose plan shows the write without making it, and it is safe to send again. The Example database gives a plan only where it runs on Spark: Spark&#x27;s own, headed == Physical Plan ==.</p>
+<p>run(explain(s), send=...) gives back Hive&#x27;s plan as text, which prints line by line. It is the plan of exactly the Hive run(s, send=...) would send, with the LIMIT run adds when set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows the write without making it; and it is safe to send again.</p>
+<p>Read the plan to see why a Statement is slow, before and after you change it. It is a tree of steps, each reading what the steps under it give:</p>
+<ul><li>TableScan reads a table, with the filters it reads it with, so you can see a condition keep the read to the days it names;</li><li>a Map Join copies a small table to every worker, as the Session setting &quot;map_joins&quot; lets Hive choose, where a Merge Join sorts both sides first;</li><li>each step&#x27;s line headed &quot;Statistics:&quot; says how many rows Hive expects, or &quot;Basic stats: NONE&quot; where it has nothing to go by and compute_statistics would help.</li></ul>
+<p>Where your Example database runs on Spark, it gives Spark&#x27;s own plan, headed == Physical Plan ==; where it runs on its own small executor, it says it has none to give.</p>
 <pre class="python">print(to_hive(explain(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),

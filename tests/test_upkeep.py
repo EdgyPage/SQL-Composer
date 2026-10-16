@@ -114,6 +114,20 @@ def test_compute_statistics_counts_each_column_but_the_partitions_when_asked() -
         "COMPUTE STATISTICS FOR COLUMNS runs")
 
 
+def test_compute_statistics_takes_columns_as_the_table_s_attributes_or_names() -> None:
+    assert to_hive(compute_statistics(REGION_RUNS, "2026-09-24",
+                                      columns=[REGION_RUNS.runs, "job_id"])).endswith(
+        "FOR COLUMNS runs, job_id")
+
+
+def test_compute_statistics_says_a_day_written_another_way_was_given() -> None:
+    with pytest.raises(ValueError, match=re.escape(
+            "compute_statistics(daily_runs, ...) was given the day '24/09/2026', but its "
+            "Table reference writes days like '2026-09-25' (an example day)")) as refused:
+        compute_statistics(DAILY_RUNS, "24/09/2026")
+    assert "last_n_days" not in str(refused.value)
+
+
 def test_compute_statistics_writes_the_day_as_the_table_does() -> None:
     assert to_hive(compute_statistics(COMPACT, datetime.date(2026, 9, 24))) == (
         "ANALYZE TABLE mart.compact_runs PARTITION(day = '20260924') COMPUTE STATISTICS")
@@ -155,11 +169,12 @@ def test_compute_statistics_refuses_a_day_for_a_table_with_no_date_partition() -
 
 
 @pytest.mark.parametrize(("columns", "says"), [
-    (["job_idd"], "job_idd isn't one of its columns"),
+    (["job_idd"], "job_idd isn't one of daily_runs's columns"),
     (["dt"], "dt is a Partition"),
-    ("yes", "yes isn't one of its columns"),
+    ("yes", "yes isn't one of daily_runs's columns"),
+    ([job_runs.job_id], "job_runs.job_id isn't one of daily_runs's columns"),
     (1, "columns=1) isn't True or a list"),
-    ([], "columns=[]) names no column"),
+    ([], "columns=[]) isn't True or a list"),
 ])
 def test_compute_statistics_refuses_columns_it_cant_count(columns, says) -> None:
     with pytest.raises((TypeError, ValueError), match=re.escape(says)):

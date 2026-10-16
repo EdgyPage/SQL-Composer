@@ -1,4 +1,4 @@
-"""Upkeep and speed: repair_partitions, compute_statistics and explain.
+"""Keeping reads and joins fast: repair_partitions, compute_statistics and explain.
 
 Each gives a Statement, run like any other, and each is safe to send again. repair_partitions
 and compute_statistics change only what the warehouse keeps about one of your Saved tables,
@@ -14,6 +14,7 @@ from .clauses import Statement
 from .refusals import refuse
 from .running import _check_dates_cap, _need_statement, _statement_tree, day_partition
 from .tables import (
+    Column,
     Table,
     as_date,
     day_text,
@@ -34,16 +35,17 @@ def _upkeep(tree: Node) -> Statement:
 
 
 def repair_partitions(t):
-    """The MSCK REPAIR TABLE Statement, which finds the days in a Saved table's folder.
+    """The MSCK REPAIR TABLE Statement, which lists the days in a Saved table's folder.
 
     The warehouse keeps a list of each table's Partitions, the day folders it reads, and never
-    reads a folder missing from it. A folder goes missing from it when files reach the table's
-    folder without a write: when create_table makes a table again where an old one's files
-    stayed, since it was dropped without purge=True, or when someone copies files in.
-    run(repair_partitions(t), send=...) adds each day folder it finds to the list. It only adds:
-    it deletes no file and no day, so it is safe to send again. It takes only one of your Saved
-    tables, a Table reference with location= and a Date partition. The Example database can't
-    run it, as its tables are made up and fixed.
+    reads a folder missing from it. A folder goes missing from the list when files reach the
+    table's folder without a write: when create_table makes a table again where an old one's
+    files stayed, because it was dropped without purge=True, or when someone copies files in.
+    run(repair_partitions(t), send=...) adds each day folder it finds to the list. It only
+    adds: it deletes no file and no day, so it is safe to send again.
+
+    It takes only one of your Saved tables, a Table reference with location= and a Date
+    partition. The Example database can't run it, as its tables are made up and fixed.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
@@ -65,25 +67,31 @@ def repair_partitions(t):
 
 
 def compute_statistics(t, day=None, columns=False):
-    """The ANALYZE TABLE Statement, counting a Saved table's day for Hive's planner.
+    """The ANALYZE TABLE Statement, which counts a Saved table's rows for one day.
 
     Hive picks how to join a table from its statistics: how many rows and bytes each day
-    holds. Without them it guesses, and may sort two big tables to join them where copying a
-    small one to every worker would do; the Session setting "map_joins" lets Hive make that
-    choice. run(compute_statistics(t, day), send=...) reads the day's files, counts them again
-    and keeps what it counts in place of what was there, so it is safe to send again; it
-    changes no row. The Session setting "statistics_on_write", sent before your writes, has
-    each write count its day as it writes it: this is for the days written without it.
+    holds. Without them it guesses, and may sort two big tables to join them even when
+    copying a small one to every worker would do; the Session setting "map_joins" lets Hive
+    choose to copy it. run(compute_statistics(t, day), send=...) reads the day's files,
+    counts them again and keeps the new count in place of the old, so it is safe to send
+    again; it changes no row. The Session setting "statistics_on_write", sent before your
+    writes, has each write count its day as it writes it; compute_statistics is for the days
+    written without that setting.
 
     `day` is the one day to count, written as the table writes its days or as a
-    datetime.date; for a table partitioned by more than its day, such as by region too, it
-    counts every region of the day. A Saved table with no Date partition takes no day.
-    columns=True counts each column too, all but the Partitions: how many different values it
-    has, its smallest and largest, and how many are NULL, which Hive's planner reads to order
-    its joins. It reads more, so columns=["job_id"] counts only the columns you join or filter
-    on. Where your send runs on Spark, not Hive, Spark counts columns over every day of the
-    table, whatever the day. It takes only one of your Saved tables, a Table reference with
-    location=, and the Example database can't run it.
+    datetime.date. For a table partitioned by more than its day, such as by region too, it
+    counts every region of the day. A Saved table with no Date partition (date_partition=None)
+    is counted whole, and takes no day.
+
+    columns= counts columns too, other than the Partitions: how many different values each
+    has, its smallest and largest, and how many are NULL, which Hive reads to order several
+    joins. columns=True counts every column; as that reads more, columns=[daily_runs.job_id]
+    counts only the columns you name, such as those you join or filter on. Where your send
+    runs on Spark, not Hive, Spark counts columns over every day of the table, whatever the
+    day, so name only those few.
+
+    It takes only one of your Saved tables, a Table reference with location=. The Example
+    database can't run it, as its tables are made up and fixed.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
@@ -92,6 +100,9 @@ def compute_statistics(t, day=None, columns=False):
     ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
     >>> print(to_hive(compute_statistics(daily_runs, "2026-09-24", columns=True)))
     ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, runs
+    >>> print(to_hive(compute_statistics(daily_runs, "2026-09-24",
+    ...     columns=[daily_runs.job_id])))
+    ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id
     """
     t = need_saved_table(t, "compute_statistics")
     target = table_node(t._name)
@@ -124,7 +135,8 @@ def _day_counted(t: Table, day) -> str:
             fix=f"Count each day in a loop: for day in days: run(compute_statistics("
             f"{t._alias}, day), send=...).",
         )
-    found = as_date(day, t._column(t._date_partition), f"compute_statistics({t._alias}, ...)")
+    found = as_date(day, t._column(t._date_partition), f"compute_statistics({t._alias}, ...)",
+                    compared=False)
     return day_text(found, t._date_format)
 
 
@@ -135,58 +147,68 @@ def _columns_counted(t: Table, columns) -> list[str]:
         return []
     if columns is True:
         return counted
-    if isinstance(columns, str):
+    if isinstance(columns, (str, Column)):
         columns = [columns]
-    if not isinstance(columns, (list, tuple)):
+    if not isinstance(columns, (list, tuple)) or not columns:
         refuse(
             what=f"compute_statistics({t._alias}, ..., columns={columns!r}) isn't True or a "
             "list of columns.",
             why="columns= says which columns to count as well as the day's rows.",
-            fix='Write columns=True for every column, or a list, such as columns=["job_id"].',
+            fix=f"Write columns=True for every column, or a list, such as "
+            f"columns=[{t._alias}.{counted[0]}].",
         )
-    if not columns:
-        refuse(
-            what=f"compute_statistics({t._alias}, ..., columns=[]) names no column.",
-            why="An empty list would count no column, which isn't what columns= is for.",
-            fix="Leave columns= out to count only the day's rows, or name the columns.",
-            error=ValueError,
-        )
-    for column in columns:
-        if column not in t._columns:
+    names = [_column_name(t, column) for column in columns]
+    for name in names:
+        if name not in counted:
             refuse(
-                what=f"compute_statistics({t._alias}, ..., columns=...): {column} isn't one of "
-                "its columns.",
-                why="It counts the columns of the table it is given.",
-                fix=f"Use some of: {', '.join(counted)}.",
-                error=ValueError,
-            )
-        if column not in counted:
-            refuse(
-                what=f"compute_statistics({t._alias}, ..., columns=...): {column} is a "
+                what=f"compute_statistics({t._alias}, ..., columns=...): {name} is a "
                 "Partition.",
                 why="A Partition holds one value in each folder, which the warehouse knows "
                 "already, so it isn't counted.",
                 fix=f"Leave it out, and name some of: {', '.join(counted)}.",
                 error=ValueError,
             )
-    return list(columns)
+    return names
+
+
+def _column_name(t: Table, column) -> str:
+    """The name of a column given to columns=: one of t's, as t.job_id or as "job_id"."""
+    if isinstance(column, Column) and column._table is t and column._name in t._columns:
+        return column._name
+    if isinstance(column, str) and column in t._columns:
+        return column
+    shown = repr(column) if isinstance(column, Column) else str(column)
+    refuse(
+        what=f"compute_statistics({t._alias}, ..., columns=...): {shown} isn't one of "
+        f"{t._alias}'s columns.",
+        why="It counts the columns of the table it is given.",
+        fix=f"Name {t._alias}'s own columns, such as columns=[{t._alias}."
+        f"{next(iter(t._columns))}].",
+        error=ValueError,
+    )
 
 
 def explain(s):
     """The EXPLAIN Statement: Hive's plan for running a Statement, without running it.
 
-    run(explain(s), send=...) gives back Hive's plan as text, which prints line by line. It
-    explains exactly the Hive run(s, send=...) would send, the automatic LIMIT too, and refuses
-    what to_hive(s) would. The plan is a tree of steps, each reading from the ones below it:
-    TableScan reads a table, with the filters it reads it with; a Map Join copies a small table
-    to every worker, where a Merge Join sorts both sides first; and each step's Statistics line
-    says how many rows Hive expects, or "Basic stats: NONE" where it has none to go by and
-    compute_statistics would help. Read it to see why a Statement is slow, before and after
-    you change it: whether the Session setting "map_joins" turned a join into a Map Join, or
-    a condition kept the read to the days it names. It only reads, so it takes any Statement,
-    a write too, whose plan shows the write without making it, and it is safe to send again.
-    The Example database gives a plan only where it runs on Spark: Spark's own, headed
-    == Physical Plan ==.
+    run(explain(s), send=...) gives back Hive's plan as text, which prints line by line. It is
+    the plan of exactly the Hive run(s, send=...) would send, with the LIMIT run adds when
+    set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It
+    only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows
+    the write without making it; and it is safe to send again.
+
+    Read the plan to see why a Statement is slow, before and after you change it. It is a
+    tree of steps, each reading what the steps under it give:
+
+    - TableScan reads a table, with the filters it reads it with, so you can see a condition
+      keep the read to the days it names;
+    - a Map Join copies a small table to every worker, as the Session setting "map_joins"
+      lets Hive choose, where a Merge Join sorts both sides first;
+    - each step's line headed "Statistics:" says how many rows Hive expects, or
+      "Basic stats: NONE" where it has nothing to go by and compute_statistics would help.
+
+    Where your Example database runs on Spark, it gives Spark's own plan, headed
+    == Physical Plan ==; where it runs on its own small executor, it says it has none to give.
 
     >>> print(to_hive(explain(statement(
     ...     SELECT(job_runs.run_id),

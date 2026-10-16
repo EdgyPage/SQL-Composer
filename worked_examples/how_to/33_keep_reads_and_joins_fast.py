@@ -7,8 +7,8 @@ For: Intermediate
 Keep Statements on big tables fast: read only the days you need, keep a Saved table's files few
 and large, give Hive the statistics it plans joins from, let it copy a small table to every
 worker, and see with `explain` what Hive will do before you run a Statement. Along the way,
-keep a Saved table's list of days true with `repair_partitions`. Each of these is safe to send
-again.
+let the warehouse find a Saved table's days again with `repair_partitions`. Each of these is
+safe to send again.
 
 ## When you'd use it
 
@@ -66,8 +66,8 @@ your send keeps one session across its calls.
 Hive picks how to join two tables from their statistics: how many rows and bytes each day
 holds. Without them it guesses, and may sort two big tables to join them where copying a small
 one would do. A day written with "statistics_on_write" is counted as it is written; count a day
-written without it with `compute_statistics`, and add `columns=True` to count each column's
-values too, which Hive reads to order several joins:
+written without that setting with `compute_statistics`, and add `columns=True` to count each
+column's values too, which Hive reads to order several joins:
 
 >>> print(to_hive(compute_statistics(daily_runs, "2026-09-24")))
 ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
@@ -82,7 +82,8 @@ harm:
         for day in ["2026-09-22", "2026-09-23", "2026-09-24"]:
             run(compute_statistics(daily_runs, day), send=send)
 
-`columns=["job_id"]` counts only the columns you join or filter on, which reads less. Where
+`columns=[daily_runs.job_id]` counts only the columns you name, such as those you join or
+filter on, which reads less. Where
 your send runs on Spark rather than Hive, Spark counts columns over the whole table, whatever
 the day, so name only those few.
 
@@ -91,11 +92,13 @@ the day, so name only those few.
 Joining a big table to a small one, such as job_runs to jobs, is fastest when Hive copies the
 small table to every worker, which then joins its share of the big one without sorting it: a
 map join, or broadcast join. The Session setting "map_joins" lets Hive choose one by itself,
-from the tables' statistics, so it works best once both tables have them:
+from the tables' statistics, so it works best once both tables have them. Send it before
+your Statements, as the settings above:
 
 >>> print(to_hive(hive_settings("map_joins")))
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
+>>> run(hive_settings("map_joins"), send=example_database.send)
 
 Nothing in the Statement changes: Hive decides when it plans it. The next step shows how to see
 what it decided.
@@ -191,8 +194,9 @@ The Statement itself still gives its rows:
 1  finance     2
 
 At work, compare the plan before and after a change: send `compute_statistics` for a table,
-then explain the same Statement again, and its "Statistics:" lines should say COMPLETE; send
-"map_joins" first, and a join to a small table should be a "Map Join Operator". Then time the
+then explain the same Statement again, and the "Statistics:" lines of its TableScan should
+say "Basic stats: COMPLETE" where they said NONE; send "map_joins" first, and a join to a
+small table should be a "Map Join Operator". Then time the
 Statement itself.
 
 ## Common mistakes
@@ -214,8 +218,8 @@ Ask the team that owns it to keep its statistics.
 
 ### Counting every day at once
 
-`compute_statistics` counts one day: leaving the day out would read the whole table, so it is
-refused:
+`compute_statistics` counts one day of a table with a Date partition: leaving the day out
+would read the whole table, so it is refused:
 
 >>> compute_statistics(daily_runs)
 Traceback (most recent call last):

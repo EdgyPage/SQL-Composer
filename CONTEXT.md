@@ -153,13 +153,13 @@ _Avoid_: dt, partition key, date column
 
 **Statistics**:
 What the warehouse has counted about a table's days and their columns - how many rows and
-bytes, how many different values - which it picks how to join the table from. They change no
-row, and can be counted again at any time.
+bytes, how many different values - from which it picks how to join the table. Counting them
+changes no row, and they can be counted again at any time.
 _Avoid_: stats, metadata, metrics
 
 **Plan**:
-How the warehouse will run a Statement - which tables it reads, with which filters, and how it
-joins them - shown without running it.
+How Hive, or Spark, will run a Statement - which tables it reads, with which filters, and how
+it joins them - shown without running it.
 _Avoid_: query plan, execution plan, explain output
 
 **Session setting**:

@@ -465,8 +465,8 @@ def _drop(node: Node, pretty: bool) -> str:
     return f"DROP TABLE IF EXISTS {_part(node, 'target', pretty)}"
 
 
-# The upkeep commands, after sqlglot's Generator.command_sql: its word, a space, then the rest
-# as written. The ANALYZE TABLE's columns are named as any column is, on one line.
+# MSCK REPAIR TABLE, ANALYZE TABLE and EXPLAIN, after sqlglot's Generator.command_sql: its
+# word, a space, then the rest as written. The ANALYZE TABLE's columns are named as any column is, on one line.
 def _repair(node: Node, pretty: bool) -> str:
     return f"MSCK REPAIR TABLE {_part(node, 'target', pretty)}"
 
