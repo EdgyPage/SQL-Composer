@@ -23,7 +23,8 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     Table,
-    drop_table,
+    admin,
+    create_table,
     equals,
     example_database,
     hive_settings,
@@ -39,7 +40,8 @@ HERE = Path(__file__).resolve().parent
 TEXT = "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')"
 job_runs = example_database.job_runs
 daily_runs = Table("mart.daily_runs", date_partition="dt",
-                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                   location="/data/your_team/tables")
 
 
 @pytest.fixture
@@ -126,16 +128,14 @@ def test_session_settings_and_statements_are_not_logged(log) -> None:
     run(hive_settings("map_joins"), send=lambda hive: None)
     run(statement(SELECT(job_runs.run_id), FROM(job_runs),
                   WHERE(equals(job_runs.dt, "2026-09-24"))), send=lambda hive: pd.DataFrame())
-    run(drop_table(daily_runs), send=lambda hive: None)
+    run(create_table(daily_runs), send=lambda hive: None)
     assert not log.exists()
 
 
 def test_an_admin_statement_is_logged_with_its_call(log) -> None:
-    """The admin module (ticket 04) marks each Statement it makes with the call that made it,
-    which the entry names."""
-    drop = drop_table(daily_runs)
-    drop._admin_call = "admin.drop_table(mart.daily_runs)"
-    run(drop, send=lambda hive: None)
+    """The admin module marks each Statement it makes with the call that made it, which the
+    entry names."""
+    run(admin.drop_table(daily_runs), send=lambda hive: None)
     entry = log.read_text(encoding="utf-8").split("\n## ", 1)[1]
     assert entry.startswith("2026-10-15 14:30:05, Admin statement\n")
     assert "- Call: `admin.drop_table(mart.daily_runs)`\n" in entry

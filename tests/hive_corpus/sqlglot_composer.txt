@@ -131,10 +131,6 @@ TBLPROPERTIES (
   'parquet.compression'='SNAPPY'
 )
 
-== doc:drop_table
--- Statement 1: to_hive
-DROP TABLE IF EXISTS mart.daily_runs
-
 == doc:all_columns
 -- Statement 1: to_hive
 SELECT
@@ -443,8 +439,22 @@ output run_id: job_runs.run_id
 output team: jobs.team
 read 2 ON: jobs.job_id = job_runs.job_id
 WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 2: to_hive
+SELECT /*+ MAPJOIN(jobs) */
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 2: the Statement
+output run_id: job_runs.run_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 -- export_lineage
-# Lineage: statement
+# Lineage: statement_1, statement_2
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
 
@@ -457,7 +467,7 @@ flowchart LR
     n5["ops.job_runs.dt<br/><small>string</small>"]
     n8["ops.job_runs.job_id<br/><small>bigint</small>"]
   end
-  subgraph g1["statement"]
+  subgraph g1["statement_1"]
     n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
     n3["team<br/><small>jobs.team</small>"]
   end
@@ -465,20 +475,35 @@ flowchart LR
     n2["ops.jobs.team<br/><small>string</small>"]
     n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
-  subgraph g3["filters on statement"]
-    n4{{"WHERE in statement<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
-    n6{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  subgraph g3["filters on statement_1"]
+    n4{{"WHERE in statement_1<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+    n6{{"JOIN ON in statement_1<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["statement_2"]
+    n9["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n10["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g5["filters on statement_2"]
+    n11{{"WHERE in statement_2<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+    n12{{"JOIN ON in statement_2<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
   end
   n0 --> n1
   n2 --> n3
   n5 -.-> n4
   n7 -.-> n6
   n8 -.-> n6
+  n0 --> n9
+  n2 --> n10
+  n5 -.-> n11
+  n7 -.-> n12
+  n8 -.-> n12
   n4 -.->|filters| g1
   n6 -.->|filters| g1
+  n11 -.->|filters| g4
+  n12 -.->|filters| g4
 ```
 
-## statement
+## statement_1
 
 ### Calculated columns
 
@@ -497,12 +522,46 @@ None: every column is copied.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+- statement_1: Key (run_id), since job_runs' rows are told apart by run_id.
 
 ### Hive as submitted
 
 ```sql
 SELECT
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+```
+
+## statement_2
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_2: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(jobs) */
   job_runs.run_id,
   jobs.team
 FROM ops.job_runs AS job_runs
@@ -671,6 +730,324 @@ SELECT
   other.job_name AS other_job
 FROM ops.jobs AS jobs
 CROSS JOIN ops.jobs AS other
+```
+
+---
+
+
+== doc:SEMI_JOIN
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id
+  AND run_alerts.severity = 'high'
+  AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+read 2 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.severity = 'high' AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+    n6{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.dt<br/><small>string</small>"]
+    n8["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.severity<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n0 -.-> n6
+  n9 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id
+  AND run_alerts.severity = 'high'
+  AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+```
+
+---
+
+
+== doc:ANTI_JOIN
+-- Statement 1: to_hive
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id
+  AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+-- Statement 1: the Statement
+output job_id: jobs.job_id
+output job_name: jobs.job_name
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(job_runs.job_id, jobs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n5["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n0 -.-> n4
+  n6 -.-> n4
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since jobs' rows are told apart by job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id
+  AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+```
+
+---
+
+
+== doc:FULL_JOIN
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+SELECT
+  recorded.run_id AS in_job_runs,
+  started.run_id AS in_scheduler_runs
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: the Statement
+output in_job_runs: recorded.run_id
+output in_scheduler_runs: started.run_id
+read 2 ON: started.run_id = recorded.run_id
+WHERE: recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+WHERE: scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n2{{"WHERE in recorded<br/><small>last_n_days(job_runs.dt, 2)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n4["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n7["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n5["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g5["filters on started"]
+    n6{{"WHERE in started<br/><small>last_n_days(scheduler_runs.dt, 2)</small>"}}
+  end
+  subgraph g6["statement"]
+    n8["in_job_runs<br/><small>recorded.run_id</small>"]
+    n9["in_scheduler_runs<br/><small>started.run_id</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n10{{"WHERE in statement<br/><small>any_of(is_null(recorded.run_id), is_null(st…</small>"}}
+    n11{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n4 --> n5
+  n7 -.-> n6
+  n1 --> n8
+  n5 --> n9
+  n1 -.-> n10
+  n5 -.-> n10
+  n5 -.-> n11
+  n1 -.-> n11
+  n2 -.->|filters| g1
+  n6 -.->|filters| g4
+  n10 -.->|filters| g6
+  n11 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `in_job_runs` | recorded.run_id ← ops.job_runs.run_id |
+| `in_scheduler_runs` | started.run_id ← ops.scheduler_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+SELECT
+  recorded.run_id AS in_job_runs,
+  started.run_id AS in_scheduler_runs
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
 ```
 
 ---
@@ -2428,6 +2805,239 @@ GROUP BY
 ---
 
 
+== doc:window
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
+  SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS minutes_so_far
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output duration_mins: job_runs.duration_mins
+output job_minutes: SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)
+output minutes_so_far: SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 2: to_hive
+WITH two_days AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = '2026-09-24')
+SELECT
+  two_days.run_id,
+  two_days.minutes_before
+FROM two_days
+WHERE
+  two_days.dt = '2026-09-24'
+-- Statement 2: the Statement
+output run_id: two_days.run_id
+output minutes_before: two_days.minutes_before
+WHERE: two_days.dt = '2026-09-24'
+-- Statement 2: Derived table two_days
+output run_id: job_runs.run_id
+output dt: job_runs.dt
+output minutes_before: LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement_1, statement_2
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.duration_mins<br/><small>int</small>"]
+    n4["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n8["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement_1"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["duration_mins<br/><small>job_runs.duration_mins</small>"]
+    n5["job_minutes<br/><small>sum_of(job_runs.duration_mins, over=window(…</small>"]
+    n6["minutes_so_far<br/><small>sum_of(job_runs.duration_mins, over=window(…</small>"]
+  end
+  subgraph g2["filters on statement_1"]
+    n7{{"WHERE in statement_1<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["two_days"]
+    n9["two_days.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n10["two_days.dt<br/><small>job_runs.dt</small>"]
+    n11["two_days.minutes_before<br/><small>lag(job_runs.duration_mins, over=window(PAR…</small>"]
+  end
+  subgraph g4["filters on two_days"]
+    n12{{"WHERE in two_days<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+  end
+  subgraph g5["statement_2"]
+    n13["run_id<br/><small>two_days.run_id</small><br/><small>in the Key</small>"]
+    n14["minutes_before<br/><small>two_days.minutes_before</small>"]
+  end
+  subgraph g6["filters on statement_2"]
+    n15{{"WHERE in statement_2<br/><small>equals(two_days.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g7["mart.runs_before"]
+    n16["mart.runs_before.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n17["mart.runs_before.minutes_before<br/><small>int</small>"]
+    n18["mart.runs_before.dt<br/><small>string</small><br/><small>in the Key</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n4 --> n5
+  n2 --> n5
+  n2 --> n6
+  n0 --> n6
+  n8 -.-> n7
+  n0 --> n9
+  n8 --> n10
+  n4 --> n11
+  n2 --> n11
+  n0 --> n11
+  n8 -.-> n12
+  n9 --> n13
+  n11 --> n14
+  n10 -.-> n15
+  n13 --> n16
+  n14 --> n17
+  n15 -.->|day written| n18
+  n7 -.->|filters| g1
+  n12 -.->|filters| g3
+  n15 -.->|filters| g5
+```
+
+## statement_1
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `job_minutes`
+
+Calculated in **statement_1** as `sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))`, which is `SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)`.
+
+```text
+statement_1.job_minutes = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.duration_mins  (int)
+```
+
+Rows that count:
+- Window of sum_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- WHERE in statement_1: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `minutes_so_far`
+
+Calculated in **statement_1** as `sum_of(job_runs.duration_mins, over=window(ORDER_BY=job_runs.run_id, rows=(None, 0)))`, which is `SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`.
+
+```text
+statement_1.minutes_so_far = sum_of(job_runs.duration_mins, over=window(ORDER_BY=job_runs.run_id, rows=(None, 0)))
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of sum_of(...), its order and rows: `ORDER_BY=job_runs.run_id, rows=(None, 0)`, which is `ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
+- WHERE in statement_1: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `duration_mins` | ops.job_runs.duration_mins |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement_1: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
+  SUM(job_runs.duration_mins) OVER (ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS minutes_so_far
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+## statement_2
+
+It writes the Saved table mart.runs_before, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `two_days.minutes_before`
+
+Calculated in **two_days** as `lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+two_days.minutes_before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in two_days: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | two_days.run_id ← ops.job_runs.run_id |
+| `minutes_before` | two_days.minutes_before (calculated) ← ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('two_days', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement_2: Key (run_id), since two_days' rows are told apart by run_id.
+- mart.runs_before's Key (run_id, dt) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+WITH two_days AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = '2026-09-24')
+SELECT
+  two_days.run_id,
+  two_days.minutes_before
+FROM two_days
+WHERE
+  two_days.dt = '2026-09-24'
+```
+
+---
+
+
 == doc:row_number
 -- Statement 1: to_hive
 WITH numbered AS (
@@ -2521,6 +3131,8 @@ numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descen
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `last_n_days(job_runs.dt, 2)`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -3076,6 +3688,25 @@ WHERE
 
 ---
 
+
+== doc:admin.move_to_own_folder
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23'
+-- Statement 1: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-23 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23';
 
 == worked:groups_and_top_n:teams
 -- Statement 1: to_hive
@@ -4150,6 +4781,8 @@ numbered.newest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descen
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -4285,6 +4918,8 @@ numbered.longest_first = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=desce
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.duration_mins)`, which is `ORDER BY job_runs.duration_mins DESC`
 - WHERE in numbered: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -6373,6 +7008,15 @@ WHERE
 == worked:saved_table:rebuild
 -- Statement 1: to_hive
 DROP TABLE IF EXISTS mart.runs_to_review
+-- Statement 1: show_hive
+-- admin.drop_table(mart.runs_to_review) drops the table mart.runs_to_review: the warehouse
+-- forgets it, and every Statement that reads it fails until it is created again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then the table's files go too, and nothing brings them back.
+-- Check first: DESCRIBE FORMATTED mart.runs_to_review shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.runs_to_review;
 -- Statement 2: to_hive
 CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
@@ -8577,6 +9221,8 @@ statement.rn = row_number(PARTITION_BY=[wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx,
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`, which is `PARTITION BY wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`
+- Window of row_number(...), its order: `ORDER_BY=descending(wide.v)`, which is `ORDER BY wide.v DESC`
 - WHERE in statement: `equals(wide.dt, "2026-09-24")`, which is `wide.dt = '2026-09-24'` (reads ops.wide.dt)
 
 ### Keys
@@ -8654,6 +9300,8 @@ statement.rn = row_number(PARTITION_BY=[wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`, which is `PARTITION BY wide.kxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx, wide.v`
+- Window of row_number(...), its order: `ORDER_BY=descending(wide.v)`, which is `ORDER BY wide.v DESC`
 - WHERE in statement: `equals(wide.dt, "2026-09-24")`, which is `wide.dt = '2026-09-24'` (reads ops.wide.dt)
 
 ### Keys
@@ -10111,6 +10759,8 @@ statement.rn = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=[descending(job
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.duration_mins), job_runs.run_id`, which is `ORDER BY job_runs.duration_mins DESC, job_runs.run_id ASC`
 - WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Keys
@@ -12046,6 +12696,1537 @@ GROUP BY
 ---
 
 
+== edge:joins:semi
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON (
+    run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+  )
+  AND run_alerts.severity = 'high'
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+read 2 ON: (run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24') AND run_alerts.severity = 'high'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(all_of(equals(run_alerts.run_id, job…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.severity<br/><small>string</small>"]
+    n8["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n9["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n0 -.-> n6
+  n9 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON (
+    run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+  )
+  AND run_alerts.severity = 'high'
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:joins:anti
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+  AND (
+    job_runs.status = 'FAILED' OR job_runs.status IS NULL
+  )
+  AND run_alerts.run_id IS NULL
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+read 2 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE: job_runs.dt = '2026-09-24'
+WHERE: job_runs.status = 'FAILED' OR job_runs.status IS NULL
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"WHERE in statement<br/><small>any_of(equals(job_runs.status, #quot;FAILED#quot;), i…</small>"}}
+    n6{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n8["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n7 -.-> n6
+  n0 -.-> n6
+  n8 -.-> n6
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+  AND (
+    job_runs.status = 'FAILED' OR job_runs.status IS NULL
+  )
+  AND run_alerts.run_id IS NULL
+```
+
+---
+
+
+== edge:joins:anti_with_no_where
+-- Statement 1: to_hive
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.dt = '2026-09-24' AND job_runs.job_id = jobs.job_id
+WHERE
+  job_runs.job_id IS NULL
+-- Statement 1: the Statement
+output job_id: jobs.job_id
+output job_name: jobs.job_name
+read 2 ON: job_runs.dt = '2026-09-24' AND job_runs.job_id = jobs.job_id
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>jobs.job_id</small><br/><small>in the Key</small>"]
+    n3["job_name<br/><small>jobs.job_name</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(job_runs.dt, #quot;2026-09-24#quot;), e…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n6["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 -.-> n4
+  n0 -.-> n4
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.jobs.job_id |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since jobs' rows are told apart by job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.job_id,
+  jobs.job_name
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.dt = '2026-09-24' AND job_runs.job_id = jobs.job_id
+WHERE
+  job_runs.job_id IS NULL
+```
+
+---
+
+
+== edge:joins:anti_then_group_by
+-- Statement 1: to_hive
+SELECT
+  jobs.team,
+  COUNT(*) AS never_ran
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+GROUP BY
+  jobs.team
+-- Statement 1: the Statement
+output team: jobs.team
+output never_ran: COUNT(*)
+read 2 ON: job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.team<br/><small>string</small>"]
+    n5["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]
+    n2["never_ran<br/><small>count_rows()</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n3{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(job_runs.job_id, jobs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.job_runs"]
+    n4["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n6["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n4 -.-> n3
+  n5 -.-> n3
+  n6 -.-> n3
+  n3 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `never_ran`
+
+Calculated in **statement** as `count_rows()`, which is `COUNT(*)`.
+
+```text
+statement.never_ran = count_rows()
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- ANTI JOIN ON (keeps the rows with no match) in statement: `all_of(equals(job_runs.job_id, jobs.job_id), equals(job_runs.dt, "2026-09-24"))`, which is `job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt, ops.job_runs.job_id, ops.jobs.job_id)
+
+One value for each different `jobs.team`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (team), since GROUP_BY makes one row for each team.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.team,
+  COUNT(*) AS never_ran
+FROM ops.jobs AS jobs
+LEFT JOIN ops.job_runs AS job_runs
+  ON job_runs.job_id = jobs.job_id AND job_runs.dt = '2026-09-24'
+WHERE
+  job_runs.job_id IS NULL
+GROUP BY
+  jobs.team
+```
+
+---
+
+
+== edge:joins:semi_and_anti_in_a_write
+-- Statement 1: to_hive
+INSERT OVERWRITE TABLE mart.runs_to_check PARTITION(dt = '2026-09-24')
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id AND jobs.team = 'web'
+WHERE
+  job_runs.dt = '2026-09-24' AND jobs.job_id IS NULL
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+read 2 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+read 3 ON: jobs.job_id = job_runs.job_id AND jobs.team = 'web'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n11["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+    n9{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(jobs.job_id, job_runs.job_id)…</small>"}}
+  end
+  subgraph g3["ops.run_alerts"]
+    n7["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n8["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  subgraph g4["ops.jobs"]
+    n10["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n12["ops.jobs.team<br/><small>string</small>"]
+  end
+  subgraph g5["mart.runs_to_check"]
+    n13["mart.runs_to_check.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n14["mart.runs_to_check.status<br/><small>string</small>"]
+    n15["mart.runs_to_check.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n0 -.-> n6
+  n8 -.-> n6
+  n10 -.-> n9
+  n11 -.-> n9
+  n12 -.-> n9
+  n1 --> n13
+  n3 --> n14
+  n4 -.->|day written| n15
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n9 -.->|filters| g1
+```
+
+## statement
+
+It writes the Saved table mart.runs_to_check, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+- mart.runs_to_check's Key (run_id) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+INSERT OVERWRITE TABLE mart.runs_to_check PARTITION(dt = '2026-09-24')
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id AND jobs.team = 'web'
+WHERE
+  job_runs.dt = '2026-09-24' AND jobs.job_id IS NULL
+```
+
+---
+
+
+== edge:joins:full
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+-- Statement 1: the Statement
+output run_id: COALESCE(recorded.run_id, started.run_id)
+output job_id: COALESCE(recorded.job_id, started.started_job_id)
+output found: CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END
+read 2 ON: started.run_id = recorded.run_id
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+output job_id: job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+output started_job_id: scheduler_runs.job_id
+WHERE: scheduler_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["recorded.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n4{{"WHERE in recorded<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n6["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n8["ops.scheduler_runs.job_id<br/><small>bigint</small>"]
+    n11["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n7["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+    n9["started.started_job_id<br/><small>scheduler_runs.job_id</small>"]
+  end
+  subgraph g5["filters on started"]
+    n10{{"WHERE in started<br/><small>equals(scheduler_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>fill_null(recorded.run_id, started.run_id)</small>"]
+    n13["job_id<br/><small>fill_null(recorded.job_id, started.started_…</small>"]
+    n14["found<br/><small>if_else(is_null(started.run_id), #quot;only in j…</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n15{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 --> n7
+  n8 --> n9
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n3 --> n13
+  n9 --> n13
+  n7 --> n14
+  n1 --> n14
+  n7 -.-> n15
+  n1 -.-> n15
+  n4 -.->|filters| g1
+  n10 -.->|filters| g4
+  n15 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `fill_null(recorded.run_id, started.run_id)`, which is `COALESCE(recorded.run_id, started.run_id)`.
+
+```text
+statement.run_id = fill_null(recorded.run_id, started.run_id)
+├─ recorded.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ started.run_id
+   └─ ops.scheduler_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `fill_null(recorded.job_id, started.started_job_id)`, which is `COALESCE(recorded.job_id, started.started_job_id)`.
+
+```text
+statement.job_id = fill_null(recorded.job_id, started.started_job_id)
+├─ recorded.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ started.started_job_id
+   └─ ops.scheduler_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `found`
+
+Calculated in **statement** as `if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))`, which is `CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END`.
+
+```text
+statement.found = if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))
+├─ started.run_id
+│  └─ ops.scheduler_runs.run_id  (bigint)
+└─ recorded.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+```
+
+---
+
+
+== edge:joins:full_only_one_side
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: the Statement
+output run_id: COALESCE(recorded.run_id, started.run_id)
+output job_id: COALESCE(recorded.job_id, started.started_job_id)
+output found: CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END
+read 2 ON: started.run_id = recorded.run_id
+WHERE: recorded.run_id IS NULL OR started.run_id IS NULL
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+output job_id: job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+output started_job_id: scheduler_runs.job_id
+WHERE: scheduler_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["recorded.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n4{{"WHERE in recorded<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n6["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n8["ops.scheduler_runs.job_id<br/><small>bigint</small>"]
+    n11["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n7["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+    n9["started.started_job_id<br/><small>scheduler_runs.job_id</small>"]
+  end
+  subgraph g5["filters on started"]
+    n10{{"WHERE in started<br/><small>equals(scheduler_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>fill_null(recorded.run_id, started.run_id)</small>"]
+    n13["job_id<br/><small>fill_null(recorded.job_id, started.started_…</small>"]
+    n14["found<br/><small>if_else(is_null(started.run_id), #quot;only in j…</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n15{{"WHERE in statement<br/><small>any_of(is_null(recorded.run_id), is_null(st…</small>"}}
+    n16{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 --> n7
+  n8 --> n9
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n3 --> n13
+  n9 --> n13
+  n7 --> n14
+  n1 --> n14
+  n1 -.-> n15
+  n7 -.-> n15
+  n7 -.-> n16
+  n1 -.-> n16
+  n4 -.->|filters| g1
+  n10 -.->|filters| g4
+  n15 -.->|filters| g6
+  n16 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `fill_null(recorded.run_id, started.run_id)`, which is `COALESCE(recorded.run_id, started.run_id)`.
+
+```text
+statement.run_id = fill_null(recorded.run_id, started.run_id)
+├─ recorded.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ started.run_id
+   └─ ops.scheduler_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `any_of(is_null(recorded.run_id), is_null(started.run_id))`, which is `recorded.run_id IS NULL OR started.run_id IS NULL` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `fill_null(recorded.job_id, started.started_job_id)`, which is `COALESCE(recorded.job_id, started.started_job_id)`.
+
+```text
+statement.job_id = fill_null(recorded.job_id, started.started_job_id)
+├─ recorded.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ started.started_job_id
+   └─ ops.scheduler_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `any_of(is_null(recorded.run_id), is_null(started.run_id))`, which is `recorded.run_id IS NULL OR started.run_id IS NULL` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `found`
+
+Calculated in **statement** as `if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))`, which is `CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END`.
+
+```text
+statement.found = if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))
+├─ started.run_id
+│  └─ ops.scheduler_runs.run_id  (bigint)
+└─ recorded.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `any_of(is_null(recorded.run_id), is_null(started.run_id))`, which is `recorded.run_id IS NULL OR started.run_id IS NULL` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.run_id IS NULL OR started.run_id IS NULL
+```
+
+---
+
+
+== edge:joins:full_where_refused
+-- refused
+GuardRefused:
+  What happened:  WHERE has recorded.job_id = 1, a condition on recorded, and FULL_JOIN(started) keeps the rows of both sides that have no match.
+  Why it matters: A row with no match in recorded has NULL in every recorded column, so this WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.
+  Usual fix:      Pick each side's rows, and bound its days, in a derived(...) table of its own, then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps the rows with no match on that side.
+  Opt-out:        FULL_JOIN(started, ON=..., keeps_only_matches=True)
+
+== edge:joins:full_keeps_only_matches
+-- Statement 1: to_hive
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.job_id = 1
+-- Statement 1: the Statement
+output run_id: COALESCE(recorded.run_id, started.run_id)
+output job_id: COALESCE(recorded.job_id, started.started_job_id)
+output found: CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END
+read 2 ON: started.run_id = recorded.run_id
+WHERE: recorded.job_id = 1
+-- Statement 1: Derived table recorded
+output run_id: job_runs.run_id
+output job_id: job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- Statement 1: Derived table started
+output run_id: scheduler_runs.run_id
+output started_job_id: scheduler_runs.job_id
+WHERE: scheduler_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["recorded"]
+    n1["recorded.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["recorded.job_id<br/><small>job_runs.job_id</small>"]
+  end
+  subgraph g2["filters on recorded"]
+    n4{{"WHERE in recorded<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g3["ops.scheduler_runs"]
+    n6["ops.scheduler_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n8["ops.scheduler_runs.job_id<br/><small>bigint</small>"]
+    n11["ops.scheduler_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g4["started"]
+    n7["started.run_id<br/><small>scheduler_runs.run_id</small><br/><small>in the Key</small>"]
+    n9["started.started_job_id<br/><small>scheduler_runs.job_id</small>"]
+  end
+  subgraph g5["filters on started"]
+    n10{{"WHERE in started<br/><small>equals(scheduler_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g6["statement"]
+    n12["run_id<br/><small>fill_null(recorded.run_id, started.run_id)</small>"]
+    n13["job_id<br/><small>fill_null(recorded.job_id, started.started_…</small>"]
+    n14["found<br/><small>if_else(is_null(started.run_id), #quot;only in j…</small>"]
+  end
+  subgraph g7["filters on statement"]
+    n15{{"WHERE in statement<br/><small>equals(recorded.job_id, 1)</small>"}}
+    n16{{"FULL JOIN ON (keeps the rows of both sides, matched or not) in statement<br/><small>equals(started.run_id, recorded.run_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n6 --> n7
+  n8 --> n9
+  n11 -.-> n10
+  n1 --> n12
+  n7 --> n12
+  n3 --> n13
+  n9 --> n13
+  n7 --> n14
+  n1 --> n14
+  n3 -.-> n15
+  n7 -.-> n16
+  n1 -.-> n16
+  n4 -.->|filters| g1
+  n10 -.->|filters| g4
+  n15 -.->|filters| g6
+  n16 -.->|filters| g6
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `run_id`
+
+Calculated in **statement** as `fill_null(recorded.run_id, started.run_id)`, which is `COALESCE(recorded.run_id, started.run_id)`.
+
+```text
+statement.run_id = fill_null(recorded.run_id, started.run_id)
+├─ recorded.run_id
+│  └─ ops.job_runs.run_id  (bigint)
+└─ started.run_id
+   └─ ops.scheduler_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `equals(recorded.job_id, 1)`, which is `recorded.job_id = 1` (reads ops.job_runs.job_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `job_id`
+
+Calculated in **statement** as `fill_null(recorded.job_id, started.started_job_id)`, which is `COALESCE(recorded.job_id, started.started_job_id)`.
+
+```text
+statement.job_id = fill_null(recorded.job_id, started.started_job_id)
+├─ recorded.job_id
+│  └─ ops.job_runs.job_id  (bigint)
+└─ started.started_job_id
+   └─ ops.scheduler_runs.job_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `equals(recorded.job_id, 1)`, which is `recorded.job_id = 1` (reads ops.job_runs.job_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+#### `found`
+
+Calculated in **statement** as `if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))`, which is `CASE WHEN started.run_id IS NULL THEN 'only in job_runs' ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END END`.
+
+```text
+statement.found = if_else(is_null(started.run_id), "only in job_runs", if_else(is_null(recorded.run_id), "only started", "in both"))
+├─ started.run_id
+│  └─ ops.scheduler_runs.run_id  (bigint)
+└─ recorded.run_id
+   └─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- WHERE in recorded: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in started: `equals(scheduler_runs.dt, "2026-09-24")`, which is `scheduler_runs.dt = '2026-09-24'` (reads ops.scheduler_runs.dt)
+- WHERE in statement: `equals(recorded.job_id, 1)`, which is `recorded.job_id = 1` (reads ops.job_runs.job_id)
+- FULL JOIN ON (keeps the rows of both sides, matched or not) in statement: `equals(started.run_id, recorded.run_id)`, which is `started.run_id = recorded.run_id` (reads ops.job_runs.run_id, ops.scheduler_runs.run_id)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('recorded', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- derived('started', ...): Key (run_id), since scheduler_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since FULL_JOIN(started, ON=...) keeps the rows of each side that have no match, with NULL in the other side's columns.
+
+### Hive as submitted
+
+```sql
+WITH recorded AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.job_id
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt = '2026-09-24'
+), started AS (
+  SELECT
+    scheduler_runs.run_id,
+    scheduler_runs.job_id AS started_job_id
+  FROM ops.scheduler_runs AS scheduler_runs
+  WHERE
+    scheduler_runs.dt = '2026-09-24'
+)
+SELECT
+  COALESCE(recorded.run_id, started.run_id) AS run_id,
+  COALESCE(recorded.job_id, started.started_job_id) AS job_id,
+  CASE
+    WHEN started.run_id IS NULL
+    THEN 'only in job_runs'
+    ELSE CASE WHEN recorded.run_id IS NULL THEN 'only started' ELSE 'in both' END
+  END AS found
+FROM recorded
+FULL JOIN started
+  ON started.run_id = recorded.run_id
+WHERE
+  recorded.job_id = 1
+```
+
+---
+
+
+== edge:joins:full_of_a_table_with_days
+-- refused
+LoadRefused:
+  What happened:  FULL_JOIN(scheduler_runs, ON=...) reads ops.scheduler_runs, but nothing bounds its Date partition dt at both ends.
+  Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
+  Usual fix:      Read scheduler_runs through a derived(...) table that bounds its days in its own WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of its table, so a bound in ON= reads every day all the same, and one in WHERE throws away the rows it keeps.
+  Opt-out:        FULL_JOIN(scheduler_runs, ON=..., reads_all_partitions=True)
+
+== edge:joins:semi_column_read
+-- refused
+ValueError:
+  What happened:  SELECT reads run_alerts.severity, a column of run_alerts, which SEMI_JOIN only tests.
+  Why it matters: SEMI_JOIN(run_alerts, ...) keeps each row that has a match in run_alerts, once, and adds none of its columns: Hive lets only its ON= read them.
+  Usual fix:      To test the rows of run_alerts, put the test in SEMI_JOIN(run_alerts, ON=...). To show its columns, use JOIN(run_alerts, ON=...), which gives a row for each match.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:joins:right_join
+-- refused
+ValueError:
+  What happened:  RIGHT_JOIN(jobs, ...): the Toolbox doesn't write a RIGHT JOIN.
+  Why it matters: A RIGHT JOIN keeps every row of jobs and only the matching rows of the tables before it. LEFT_JOIN gives the same rows with the tables swapped, and reads in order: the table whose every row is kept comes first, in FROM.
+  Usual fix:      Put jobs in FROM(jobs), and the table now in FROM in LEFT_JOIN(..., ON=...), with the same ON=.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:joins:broadcast
+-- Statement 1: to_hive
+SELECT /*+ MAPJOIN(jobs) */
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n8["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["ops.jobs"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(jobs) */
+  job_runs.run_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:joins:broadcast_two_and_distinct
+-- Statement 1: to_hive
+SELECT /*+ MAPJOIN(jobs, run_alerts) */ DISTINCT
+  job_runs.job_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output job_id: job_runs.job_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+read 3 ON: run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n10["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
+    n3["team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["ops.jobs"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+  end
+  subgraph g3["filters on statement"]
+    n4{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"LEFT JOIN ON in statement<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+    n8{{"SEMI JOIN ON (keeps each row with a match, once) in statement<br/><small>all_of(equals(run_alerts.run_id, job_runs.r…</small>"}}
+  end
+  subgraph g4["ops.run_alerts"]
+    n9["ops.run_alerts.run_id<br/><small>bigint</small>"]
+    n11["ops.run_alerts.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n0 -.-> n6
+  n9 -.-> n8
+  n10 -.-> n8
+  n11 -.-> n8
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n8 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_id` | ops.job_runs.job_id |
+| `team` | ops.jobs.team |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (job_id), since SELECT_DISTINCT makes one row for each different job_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(jobs, run_alerts) */ DISTINCT
+  job_runs.job_id,
+  jobs.team
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.jobs AS jobs
+  ON jobs.job_id = job_runs.job_id
+LEFT SEMI JOIN ops.run_alerts AS run_alerts
+  ON run_alerts.run_id = job_runs.run_id AND run_alerts.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:joins:broadcast_in_a_derived_table
+-- Statement 1: to_hive
+WITH teams AS (
+  SELECT /*+ MAPJOIN(jobs) */
+    job_runs.run_id,
+    jobs.team
+  FROM ops.job_runs AS job_runs
+  JOIN ops.jobs AS jobs
+    ON jobs.job_id = job_runs.job_id
+  WHERE
+    job_runs.dt = '2026-09-24'
+)
+SELECT /*+ MAPJOIN(other) */
+  teams.run_id,
+  other.job_name AS name
+FROM teams
+JOIN ops.jobs AS other
+  ON other.team = teams.team
+-- Statement 1: the Statement
+output run_id: teams.run_id
+output name: other.job_name
+read 2 ON: other.team = teams.team
+-- Statement 1: Derived table teams
+output run_id: job_runs.run_id
+output team: jobs.team
+read 2 ON: jobs.job_id = job_runs.job_id
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+    n8["ops.job_runs.job_id<br/><small>bigint</small>"]
+  end
+  subgraph g1["teams"]
+    n1["teams.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["teams.team<br/><small>jobs.team</small>"]
+  end
+  subgraph g2["ops.jobs"]
+    n2["ops.jobs.team<br/><small>string</small>"]
+    n7["ops.jobs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n10["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g3["filters on teams"]
+    n4{{"WHERE in teams<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n6{{"JOIN ON in teams<br/><small>equals(jobs.job_id, job_runs.job_id)</small>"}}
+  end
+  subgraph g4["statement"]
+    n9["run_id<br/><small>teams.run_id</small>"]
+    n11["name<br/><small>other.job_name</small>"]
+  end
+  subgraph g5["filters on statement"]
+    n12{{"JOIN ON in statement<br/><small>equals(other.team, teams.team)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n7 -.-> n6
+  n8 -.-> n6
+  n1 --> n9
+  n10 --> n11
+  n2 -.-> n12
+  n3 -.-> n12
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+  n12 -.->|filters| g4
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | teams.run_id ← ops.job_runs.run_id |
+| `name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('teams', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement: no Key the Toolbox can see, since JOIN(other, ON=...) can match several other rows to one row.
+
+### Hive as submitted
+
+```sql
+WITH teams AS (
+  SELECT /*+ MAPJOIN(jobs) */
+    job_runs.run_id,
+    jobs.team
+  FROM ops.job_runs AS job_runs
+  JOIN ops.jobs AS jobs
+    ON jobs.job_id = job_runs.job_id
+  WHERE
+    job_runs.dt = '2026-09-24'
+)
+SELECT /*+ MAPJOIN(other) */
+  teams.run_id,
+  other.job_name AS name
+FROM teams
+JOIN ops.jobs AS other
+  ON other.team = teams.team
+```
+
+---
+
+
+== edge:joins:broadcast_a_name_in_backticks
+-- Statement 1: to_hive
+SELECT /*+ MAPJOIN(`order`) */
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.`order` AS `order`
+  ON `order`.`1st` = job_runs.run_id AND `order`.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24' AND `order`.`1st` IS NULL
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+read 2 ON: `order`.`1st` = job_runs.run_id AND `order`.dt = '2026-09-24'
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n3["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+    n4{{"ANTI JOIN ON (keeps the rows with no match) in statement<br/><small>all_of(equals(#96;order#96;.#96;1st#96;, job_runs.run_i…</small>"}}
+  end
+  subgraph g3["ops.order"]
+    n5["ops.order.1st<br/><small>bigint</small>"]
+    n6["ops.order.dt<br/><small>string</small>"]
+  end
+  n0 --> n1
+  n3 -.-> n2
+  n5 -.-> n4
+  n0 -.-> n4
+  n6 -.-> n4
+  n2 -.->|filters| g1
+  n4 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT /*+ MAPJOIN(`order`) */
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+LEFT JOIN ops.`order` AS `order`
+  ON `order`.`1st` = job_runs.run_id AND `order`.dt = '2026-09-24'
+WHERE
+  job_runs.dt = '2026-09-24' AND `order`.`1st` IS NULL
+```
+
+---
+
+
 == edge:derived:depth_1
 -- Statement 1: to_hive
 WITH step_1 AS (
@@ -13236,30 +15417,6 @@ GuardRefused:
   Usual fix:      Add job_runs.dt to GROUP_BY(...), or run the Statement whole with run(...).
   Opt-out:        none - this one can't be switched off.
 
-== edge:drop_table:odd
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.`order`
-
-== edge:drop_table:spark_words
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.`semi`
-
-== edge:drop_table:compact
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.compact_runs
-
-== edge:drop_table:events
--- Statement 1: to_hive
-DROP TABLE IF EXISTS ops.events
-
-== edge:drop_table:daily_runs
--- Statement 1: to_hive
-DROP TABLE IF EXISTS mart.daily_runs
-
-== edge:drop_table:region_runs
--- Statement 1: to_hive
-DROP TABLE IF EXISTS mart.region_runs
-
 == edge:create_table:tinyint
 -- Statement 1: to_hive
 CREATE EXTERNAL TABLE mart.typed (
@@ -14216,6 +16373,8 @@ numbered.newest = row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(j
 ```
 
 Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=descending(job_runs.run_id)`, which is `ORDER BY job_runs.run_id DESC`
 - WHERE in numbered: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
 
 ### Copied columns
@@ -14609,6 +16768,1896 @@ WHERE
 
 ---
 
+
+== edge:admin:drop_table:odd
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.`order`
+-- Statement 1: show_hive
+-- admin.drop_table(ops.order) drops the table ops.order: the warehouse forgets it, and every
+-- Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/order, unless the
+-- table itself has external.table.purge true: purge=True isn't in its Table reference. A
+-- table or day made there again reads them back, and only someone with access to the folder
+-- can delete them.
+-- Check first: DESCRIBE FORMATTED ops.`order` shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.`order`;
+
+== edge:admin:drop_table:spark_words
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.`semi`
+-- Statement 1: show_hive
+-- admin.drop_table(ops.semi) drops the table ops.semi: the warehouse forgets it, and every
+-- Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/semi, unless the
+-- table itself has external.table.purge true: purge=True isn't in its Table reference. A
+-- table or day made there again reads them back, and only someone with access to the folder
+-- can delete them.
+-- Check first: DESCRIBE FORMATTED ops.`semi` shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.`semi`;
+
+== edge:admin:drop_table:compact
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.compact_runs
+-- Statement 1: show_hive
+-- admin.drop_table(ops.compact_runs) drops the table ops.compact_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: DESCRIBE FORMATTED ops.compact_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.compact_runs;
+
+== edge:admin:drop_table:events
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS ops.events
+-- Statement 1: show_hive
+-- admin.drop_table(ops.events) drops the table ops.events: the warehouse forgets it, and
+-- every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/ops/events, unless
+-- the table itself has external.table.purge true: purge=True isn't in its Table reference. A
+-- table or day made there again reads them back, and only someone with access to the folder
+-- can delete them.
+-- Check first: DESCRIBE FORMATTED ops.events shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS ops.events;
+
+== edge:admin:drop_table:daily_runs
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 1: show_hive
+-- admin.drop_table(mart.daily_runs) drops the table mart.daily_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/mart/daily_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: DESCRIBE FORMATTED mart.daily_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.daily_runs;
+
+== edge:admin:drop_table:region_runs
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.region_runs
+-- Statement 1: show_hive
+-- admin.drop_table(mart.region_runs) drops the table mart.region_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- The table's files stay in the table's folder, /data/your_team/tables/mart/region_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: DESCRIBE FORMATTED mart.region_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.region_runs;
+
+== edge:admin:drop_table:purge
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.admin_runs
+-- Statement 1: show_hive
+-- admin.drop_table(mart.admin_runs) drops the table mart.admin_runs: the warehouse forgets
+-- it, and every Statement that reads it fails until it is created again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then the table's files go too, and nothing brings them back.
+-- Check first: DESCRIBE FORMATTED mart.admin_runs shows, under Table Parameters, whether
+-- external.table.purge is true in the table itself: that, not the Table reference, decides
+-- whether the files go.
+DROP TABLE IF EXISTS mart.admin_runs;
+
+== edge:admin:drop_table:not_saved
+-- refused
+ValueError:
+  What happened:  admin.drop_table(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:purge_True
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.admin_runs, before="2025-01-01") drops each day of mart.admin_runs
+-- before 2025-01-01, every row of it, so no Statement reads it again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then those days' files go too, and nothing brings them back.
+-- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
+-- go.
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
+
+== edge:admin:drop_days:purge_False
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.admin_runs, before="2025-01-01") drops each day of mart.admin_runs
+-- before 2025-01-01, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/mart/admin_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
+-- go.
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
+
+== edge:admin:drop_days:purge_None
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.admin_runs, before="2025-01-01") drops each day of mart.admin_runs
+-- before 2025-01-01, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/mart/admin_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS mart.admin_runs lists its days: the ones before 2025-01-01
+-- go.
+ALTER TABLE mart.admin_runs DROP IF EXISTS PARTITION (dt < '2025-01-01');
+
+== edge:admin:drop_days:compact
+-- Statement 1: to_hive
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101')
+-- Statement 1: show_hive
+-- admin.drop_days(ops.compact_runs, before="20250101") drops each day of ops.compact_runs
+-- before 20250101, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS ops.compact_runs lists its days: the ones before 20250101 go.
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101');
+
+== edge:admin:drop_days:a_date
+-- Statement 1: to_hive
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101')
+-- Statement 1: show_hive
+-- admin.drop_days(ops.compact_runs, before="20250101") drops each day of ops.compact_runs
+-- before 20250101, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/ops/compact_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS ops.compact_runs lists its days: the ones before 20250101 go.
+ALTER TABLE ops.compact_runs DROP IF EXISTS PARTITION (day < '20250101');
+
+== edge:admin:drop_days:written_another_way
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) compares the Date partition compact_runs.day with '2025-01-01', but its Table reference writes days like '20250101'.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as '20250101', or pass a datetime.date. If the table's days really are written like '2025-01-01', add date_format="%Y-%m-%d" to its Table reference instead.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:region_runs
+-- Statement 1: to_hive
+ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23')
+-- Statement 1: show_hive
+-- admin.drop_days(mart.region_runs, before="2026-09-23") drops each day of mart.region_runs
+-- before 2026-09-23, every row of it, so no Statement reads it again.
+-- Those days' files stay in the table's folder, /data/your_team/tables/mart/region_runs,
+-- unless the table itself has external.table.purge true: purge=True isn't in its Table
+-- reference. A table or day made there again reads them back, and only someone with access
+-- to the folder can delete them.
+-- Check first: SHOW PARTITIONS mart.region_runs lists its days: the ones before 2026-09-23
+-- go.
+ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION (dt < '2026-09-23');
+
+== edge:admin:drop_days:no_date_partition
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) was given mart.admin_runs, whose Table reference has no Date partition.
+  Why it matters: It drops whole days, and a table with no Date partition keeps none.
+  Usual fix:      To empty the table, give its Table reference purge=True, send admin.set_properties(t), then drop it with admin.drop_table(t) and create it again.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:not_a_day
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) compares the Date partition admin_runs.dt with '2025/01/01', but its Table reference writes days like '2025-01-01'.
+  Why it matters: Hive compares Date partition values as text, so a differently written day would match no days, or the wrong ones.
+  Usual fix:      Write the day as '2025-01-01', or pass a datetime.date. If the table's days really are written like '2025/01/01', add date_format="%Y/%m/%d" to its Table reference instead.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:drop_days:not_saved
+-- refused
+ValueError:
+  What happened:  admin.drop_days(...) was given ops.job_runs, which isn't one of your Saved tables: its Table reference has no location=.
+  Why it matters: It changes a table, so it takes only your own Saved tables, each in a folder of its own under location=. A Table reference with no location= is a table someone else owns, and changing it could break their work.
+  Usual fix:      If ops.job_runs is yours, add location=... to its Table(...) call, such as location="/data/your_team/tables", the folder your Saved tables go in. If it isn't yours, ask whoever owns it.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:one
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  note STRING
+) CASCADE
+-- Statement 1: show_hive
+-- admin.add_columns(mart.admin_runs, send=...) adds the column note to mart.admin_runs,
+-- after its other columns. The rows already there read NULL in it until their day is written
+-- again.
+-- CASCADE adds it to each day already in the table too, so a day written again keeps its
+-- values.
+-- Hard to undo: Hive drops a column only when every other column is listed again by hand,
+-- with ALTER TABLE ... REPLACE COLUMNS.
+-- Check first: DESCRIBE mart.admin_runs lists the table's columns now.
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  note STRING
+) CASCADE;
+
+== edge:admin:add_columns:two
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  fails BIGINT,
+  note STRING
+) CASCADE
+-- Statement 1: show_hive
+-- admin.add_columns(mart.admin_runs, send=...) adds the columns fails and note to
+-- mart.admin_runs, after its other columns. The rows already there read NULL in them until
+-- their day is written again.
+-- CASCADE adds them to each day already in the table too, so a day written again keeps their
+-- values.
+-- Hard to undo: Hive drops a column only when every other column is listed again by hand,
+-- with ALTER TABLE ... REPLACE COLUMNS.
+-- Check first: DESCRIBE mart.admin_runs lists the table's columns now.
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  fails BIGINT,
+  note STRING
+) CASCADE;
+
+== edge:admin:add_columns:no_date_partition
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  `two words` STRING
+)
+-- Statement 1: show_hive
+-- admin.add_columns(mart.admin_runs, send=...) adds the column two words to mart.admin_runs,
+-- after its other columns. The rows already there read NULL in it until their day is written
+-- again.
+-- Hard to undo: Hive drops a column only when every other column is listed again by hand,
+-- with ALTER TABLE ... REPLACE COLUMNS.
+-- Check first: DESCRIBE mart.admin_runs lists the table's columns now.
+ALTER TABLE mart.admin_runs ADD COLUMNS (
+  `two words` STRING
+);
+
+== edge:admin:add_columns:none_new
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.admin_runs, send=...): mart.admin_runs has every column of its Table reference already.
+  Why it matters: It adds the columns the Table reference has and the table doesn't.
+  Usual fix:      Add the new column's line to the Table reference first, with its type, after the other columns.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:before_the_tables_own
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.admin_runs, send=...): the Table reference lists fails before note, which the table has already.
+  Why it matters: Hive adds new columns after the table's own, and a write fills a table's columns in their order, so the Table reference lists them in the table's order.
+  Usual fix:      Move the line of fails after the line of note.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:untyped
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.admin_runs, send=...): fails has no type: its line in the Table reference says None.
+  Why it matters: Hive needs each new column's type to add it.
+  Usual fix:      Give it its Hive type, such as "fails": "string".
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:add_columns:a_partition
+-- refused
+ValueError:
+  What happened:  admin.add_columns(mart.region_runs, send=...): region is a Partition in the Table reference, but not in the table.
+  Why it matters: A table can't gain a Partition: each Partition is a folder, and the table's files are already laid out without it.
+  Usual fix:      Create a new table with it, and write its days into it again; or, if the table's Partition has another name, correct the Table reference.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:set_properties:all
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false',
+  'orc.compress'='SNAPPY',
+  'made_by'='it\'s daily'
+)
+-- Statement 1: show_hive
+-- admin.set_properties(mart.admin_runs) sets 3 table properties of mart.admin_runs, as its
+-- Table reference says. Its other properties, and its rows, stay as they are.
+-- With external.table.purge false, dropping the table or its days leaves their files in its
+-- folder, from now on.
+-- orc.compress applies to the files written from now on; the files already there keep
+-- theirs.
+-- Can be undone: change purge=, compression= or properties= in the Table reference back to
+-- what the table had, and send this again.
+-- Check first: DESCRIBE FORMATTED mart.admin_runs lists the table's properties now, under
+-- Table Parameters.
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false',
+  'orc.compress'='SNAPPY',
+  'made_by'='it\'s daily'
+);
+
+== edge:admin:set_properties:purge
+-- Statement 1: to_hive
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='true'
+)
+-- Statement 1: show_hive
+-- admin.set_properties(mart.admin_runs) sets 1 table property of mart.admin_runs, as its
+-- Table reference says. Its other properties, and its rows, stay as they are.
+-- With external.table.purge true, dropping the table or its days deletes their files too,
+-- from now on.
+-- Can be undone: change purge=, compression= or properties= in the Table reference back to
+-- what the table had, and send this again.
+-- Check first: DESCRIBE FORMATTED mart.admin_runs lists the table's properties now, under
+-- Table Parameters.
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='true'
+);
+
+== edge:admin:set_properties:none
+-- refused
+ValueError:
+  What happened:  admin.set_properties(mart.admin_runs): its Table reference gives no purge=, compression= or properties=.
+  Why it matters: It sets the table's properties to what its Table reference gives.
+  Usual fix:      Add purge=, compression= or properties= to its Table(...) call, such as purge=True, then call it again.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:two_days
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.daily_runs, send=...) moves mart.daily_runs to its own
+-- folder, /data/your_team/tables/mart/daily_runs. This first step creates
+-- mart.daily_runs_moving there; the steps after it copy each of its 2 days into it, compare
+-- the two, then drop mart.daily_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23'
+-- Statement 2: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-23 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-23')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-23';
+-- Statement 3: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+-- Statement 3: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-24 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24';
+-- Statement 4: to_hive
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 4: show_hive
+-- Compares each day's rows in mart.daily_runs and mart.daily_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 5: to_hive
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 5: show_hive
+-- Sets external.table.purge to false on mart.daily_runs, so that dropping it next leaves the
+-- files in its folder, which other tables may read.
+ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 6: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 6: show_hive
+-- Drops the old mart.daily_runs: its files stay in the folder it shared. Can't be undone, so
+-- send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.daily_runs;
+-- Statement 7: to_hive
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
+-- Statement 7: show_hive
+-- Gives mart.daily_runs_moving the name mart.daily_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/daily_runs. If this step fails, send it alone again.
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
+
+== edge:admin:move:region_runs
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.region_runs_moving (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/region_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.region_runs, send=...) moves mart.region_runs to its own
+-- folder, /data/your_team/tables/mart/region_runs. This first step creates
+-- mart.region_runs_moving there; the steps after it copy each of its 1 day into it, compare
+-- the two, then drop mart.region_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- Each copy fills region from its rows, which needs the Session setting
+-- "dynamic_partitions": send run(hive_settings("dynamic_partitions"), send=...) first.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.region_runs_moving (
+  job_id BIGINT,
+  runs BIGINT
+)
+PARTITIONED BY (
+  dt STRING,
+  region STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/region_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.region_runs_moving PARTITION(dt = '2026-09-24', region)
+SELECT
+  region_runs.job_id,
+  region_runs.runs,
+  region_runs.region
+FROM mart.region_runs AS region_runs
+WHERE
+  region_runs.dt = '2026-09-24'
+-- Statement 2: show_hive
+-- Copies mart.region_runs's rows on 2026-09-24 into mart.region_runs_moving.
+INSERT OVERWRITE TABLE mart.region_runs_moving PARTITION(dt = '2026-09-24', region)
+SELECT
+  region_runs.job_id,
+  region_runs.runs,
+  region_runs.region
+FROM mart.region_runs AS region_runs
+WHERE
+  region_runs.dt = '2026-09-24';
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    region_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs AS region_runs
+  WHERE
+    NOT region_runs.dt IS NULL
+  GROUP BY
+    region_runs.dt
+), copied_days AS (
+  SELECT
+    region_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs_moving AS region_runs_moving
+  WHERE
+    NOT region_runs_moving.dt IS NULL
+  GROUP BY
+    region_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares each day's rows in mart.region_runs and mart.region_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    region_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs AS region_runs
+  WHERE
+    NOT region_runs.dt IS NULL
+  GROUP BY
+    region_runs.dt
+), copied_days AS (
+  SELECT
+    region_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.region_runs_moving AS region_runs_moving
+  WHERE
+    NOT region_runs_moving.dt IS NULL
+  GROUP BY
+    region_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+ALTER TABLE mart.region_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 4: show_hive
+-- Sets external.table.purge to false on mart.region_runs, so that dropping it next leaves
+-- the files in its folder, which other tables may read.
+ALTER TABLE mart.region_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 5: to_hive
+DROP TABLE IF EXISTS mart.region_runs
+-- Statement 5: show_hive
+-- Drops the old mart.region_runs: its files stay in the folder it shared. Can't be undone,
+-- so send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.region_runs;
+-- Statement 6: to_hive
+ALTER TABLE mart.region_runs_moving RENAME TO mart.region_runs
+-- Statement 6: show_hive
+-- Gives mart.region_runs_moving the name mart.region_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/region_runs. If this step fails, send it alone again.
+ALTER TABLE mart.region_runs_moving RENAME TO mart.region_runs;
+
+== edge:admin:move:compact
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS ops.compact_runs_moving (
+  run_id BIGINT,
+  status STRING,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  day STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/ops/compact_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(ops.compact_runs, send=...) moves ops.compact_runs to its own
+-- folder, /data/your_team/tables/ops/compact_runs. This first step creates
+-- ops.compact_runs_moving there; the steps after it copy each of its 1 day into it, compare
+-- the two, then drop ops.compact_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS ops.compact_runs_moving (
+  run_id BIGINT,
+  status STRING,
+  PRIMARY KEY (run_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  day STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/ops/compact_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE ops.compact_runs_moving PARTITION(day = '20260924')
+SELECT
+  compact_runs.run_id,
+  compact_runs.status
+FROM ops.compact_runs AS compact_runs
+WHERE
+  compact_runs.day = '20260924'
+-- Statement 2: show_hive
+-- Copies ops.compact_runs's rows on 20260924 into ops.compact_runs_moving.
+INSERT OVERWRITE TABLE ops.compact_runs_moving PARTITION(day = '20260924')
+SELECT
+  compact_runs.run_id,
+  compact_runs.status
+FROM ops.compact_runs AS compact_runs
+WHERE
+  compact_runs.day = '20260924';
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    compact_runs.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs AS compact_runs
+  WHERE
+    NOT compact_runs.day IS NULL
+  GROUP BY
+    compact_runs.day
+), copied_days AS (
+  SELECT
+    compact_runs_moving.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs_moving AS compact_runs_moving
+  WHERE
+    NOT compact_runs_moving.day IS NULL
+  GROUP BY
+    compact_runs_moving.day
+)
+SELECT
+  old_days.day,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.day = old_days.day
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares each day's rows in ops.compact_runs and ops.compact_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    compact_runs.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs AS compact_runs
+  WHERE
+    NOT compact_runs.day IS NULL
+  GROUP BY
+    compact_runs.day
+), copied_days AS (
+  SELECT
+    compact_runs_moving.day,
+    COUNT(*) AS row_count
+  FROM ops.compact_runs_moving AS compact_runs_moving
+  WHERE
+    NOT compact_runs_moving.day IS NULL
+  GROUP BY
+    compact_runs_moving.day
+)
+SELECT
+  old_days.day,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.day = old_days.day
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+ALTER TABLE ops.compact_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 4: show_hive
+-- Sets external.table.purge to false on ops.compact_runs, so that dropping it next leaves
+-- the files in its folder, which other tables may read.
+ALTER TABLE ops.compact_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 5: to_hive
+DROP TABLE IF EXISTS ops.compact_runs
+-- Statement 5: show_hive
+-- Drops the old ops.compact_runs: its files stay in the folder it shared. Can't be undone,
+-- so send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS ops.compact_runs;
+-- Statement 6: to_hive
+ALTER TABLE ops.compact_runs_moving RENAME TO ops.compact_runs
+-- Statement 6: show_hive
+-- Gives ops.compact_runs_moving the name ops.compact_runs. Its files stay at its own folder,
+-- /data/your_team/tables/ops/compact_runs. If this step fails, send it alone again.
+ALTER TABLE ops.compact_runs_moving RENAME TO ops.compact_runs;
+
+== edge:admin:move:managed
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.daily_runs, send=...) moves mart.daily_runs to its own
+-- folder, /data/your_team/tables/mart/daily_runs. This first step creates
+-- mart.daily_runs_moving there; the steps after it copy each of its 1 day into it, compare
+-- the two, then drop mart.daily_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files are dropped with it: it is managed, so its files are its own.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
+  job_id BIGINT,
+  runs BIGINT,
+  PRIMARY KEY (job_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/daily_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24'
+-- Statement 2: show_hive
+-- Copies mart.daily_runs's rows on 2026-09-24 into mart.daily_runs_moving.
+INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt = '2026-09-24')
+SELECT
+  daily_runs.job_id,
+  daily_runs.runs
+FROM mart.daily_runs AS daily_runs
+WHERE
+  daily_runs.dt = '2026-09-24';
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares each day's rows in mart.daily_runs and mart.daily_runs_moving, and stops the
+-- move, before anything is dropped, if any day differs or is missing from the copy. It gives
+-- back no rows when they match.
+WITH old_days AS (
+  SELECT
+    daily_runs.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs AS daily_runs
+  WHERE
+    NOT daily_runs.dt IS NULL
+  GROUP BY
+    daily_runs.dt
+), copied_days AS (
+  SELECT
+    daily_runs_moving.dt,
+    COUNT(*) AS row_count
+  FROM mart.daily_runs_moving AS daily_runs_moving
+  WHERE
+    NOT daily_runs_moving.dt IS NULL
+  GROUP BY
+    daily_runs_moving.dt
+)
+SELECT
+  old_days.dt,
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+LEFT JOIN copied_days
+  ON copied_days.dt = old_days.dt
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 4: show_hive
+-- Drops the old mart.daily_runs: its files go too, since it is managed. Can't be undone, so
+-- send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.daily_runs;
+-- Statement 5: to_hive
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
+-- Statement 5: show_hive
+-- Gives mart.daily_runs_moving the name mart.daily_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/daily_runs. If this step fails, send it alone again.
+ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
+
+== edge:admin:move:no_date_partition
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.admin_runs, send=...): mart.admin_runs's own folder, /data/your_team/tables/mart/admin_runs, is inside the folder it is in now, hdfs://namenode:8020/data/your_team/tables.
+  Why it matters: A table with no Date partition reads every file under its folder, the folders inside it too where the warehouse is set to, so the old table could read the copy's files as its own while the move runs.
+  Usual fix:      Give its Table reference a location= outside that folder, and move it there.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:no_date_partition_elsewhere
+-- Statement 1: to_hive
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
+  job_id BIGINT
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/admin_runs'
+-- Statement 1: show_hive
+-- admin.move_to_own_folder(mart.admin_runs, send=...) moves mart.admin_runs to its own
+-- folder, /data/your_team/tables/mart/admin_runs. This first step creates
+-- mart.admin_runs_moving there; the steps after it copy the table's rows into it, compare
+-- the two, then drop mart.admin_runs and give the copy its name. Send them in order, one at
+-- a time.
+-- The old table's files stay where they are, since its folder may hold other tables' files
+-- too: ask whoever looks after the folder before deleting any.
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
+  job_id BIGINT
+)
+STORED AS ORC
+LOCATION '/data/your_team/tables/mart/admin_runs';
+-- Statement 2: to_hive
+INSERT OVERWRITE TABLE mart.admin_runs_moving
+SELECT
+  admin_runs.job_id
+FROM mart.admin_runs AS admin_runs
+-- Statement 2: show_hive
+-- Copies mart.admin_runs's rows into mart.admin_runs_moving.
+INSERT OVERWRITE TABLE mart.admin_runs_moving
+SELECT
+  admin_runs.job_id
+FROM mart.admin_runs AS admin_runs;
+-- Statement 3: to_hive
+WITH old_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs AS admin_runs
+), copied_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs_moving AS admin_runs_moving
+)
+SELECT
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+CROSS JOIN copied_days
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count
+-- Statement 3: show_hive
+-- Compares the rows in mart.admin_runs and mart.admin_runs_moving, and stops the move,
+-- before anything is dropped, if they differ. It gives back no rows when they match.
+WITH old_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs AS admin_runs
+), copied_days AS (
+  SELECT
+    COUNT(*) AS row_count
+  FROM mart.admin_runs_moving AS admin_runs_moving
+)
+SELECT
+  old_days.row_count AS old_rows,
+  copied_days.row_count AS copied_rows
+FROM old_days
+CROSS JOIN copied_days
+WHERE
+  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+-- Statement 4: to_hive
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+)
+-- Statement 4: show_hive
+-- Sets external.table.purge to false on mart.admin_runs, so that dropping it next leaves the
+-- files in its folder, which other tables may read.
+ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
+  'external.table.purge'='false'
+);
+-- Statement 5: to_hive
+DROP TABLE IF EXISTS mart.admin_runs
+-- Statement 5: show_hive
+-- Drops the old mart.admin_runs: its files stay in the folder it shared. Can't be undone, so
+-- send it only after the step before it, the comparison, gave back no rows.
+DROP TABLE IF EXISTS mart.admin_runs;
+-- Statement 6: to_hive
+ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs
+-- Statement 6: show_hive
+-- Gives mart.admin_runs_moving the name mart.admin_runs. Its files stay at its own folder,
+-- /data/your_team/tables/mart/admin_runs. If this step fails, send it alone again.
+ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs;
+
+== edge:admin:move:at_its_own_folder
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.daily_runs, send=...): mart.daily_runs is at its own folder already, /data/your_team/tables/mart/daily_runs.
+  Why it matters: There is nothing to move.
+  Usual fix:      Leave it where it is; check_table_reference(t, send=...) says whether anything else differs.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:admin:move:lacking_a_column
+-- refused
+ValueError:
+  What happened:  admin.move_to_own_folder(mart.daily_runs, send=...): mart.daily_runs has no column runs, which its Table reference lists.
+  Why it matters: The move copies the Table reference's columns from the table, so each must be there.
+  Usual fix:      Make the Table reference match the table first: check_table_reference(t, send=...) lists what differs.
+  Opt-out:        none - this one can't be switched off.
+
+== edge:windows:totals
+-- Statement 1: to_hive
+SELECT
+  SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
+  COUNT(*) OVER () AS `rows`,
+  AVG(job_runs.duration_mins) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+  ) AS moving_average,
+  MIN(job_runs.duration_mins) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING
+  ) AS least_ahead,
+  MAX(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_failed,
+  SUM(job_runs.duration_mins) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS so_far,
+  COUNT(*) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING
+  ) AS after
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output job_minutes: SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)
+output rows: COUNT(*) OVER ()
+output moving_average: AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)
+output least_ahead: MIN(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)
+output most_failed: MAX(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+output so_far: SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+output after: COUNT(*) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n1["ops.job_runs.duration_mins<br/><small>int</small>"]
+    n4["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n7["ops.job_runs.status<br/><small>string</small>"]
+    n12["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n2["job_minutes<br/><small>sum_of(job_runs.duration_mins, over=window(…</small>"]
+    n3["rows<br/><small>count_rows(over=window())</small>"]
+    n5["moving_average<br/><small>average_of(job_runs.duration_mins, over=win…</small>"]
+    n6["least_ahead<br/><small>min_of(job_runs.duration_mins, over=window(…</small>"]
+    n8["most_failed<br/><small>max_of(job_runs.duration_mins, where=equals…</small>"]
+    n9["so_far<br/><small>sum_of(job_runs.duration_mins, over=window(…</small>"]
+    n10["after<br/><small>count_rows(over=window(PARTITION_BY=job_run…</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n11{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n0 --> n2
+  n1 --> n2
+  n0 --> n5
+  n1 --> n5
+  n4 --> n5
+  n0 --> n6
+  n1 --> n6
+  n4 --> n6
+  n0 --> n8
+  n4 --> n8
+  n1 --> n8
+  n7 --> n8
+  n0 --> n9
+  n1 --> n9
+  n4 --> n9
+  n0 --> n10
+  n4 --> n10
+  n12 -.-> n11
+  n11 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `job_minutes`
+
+Calculated in **statement** as `sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))`, which is `SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)`.
+
+```text
+statement.job_minutes = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.duration_mins  (int)
+```
+
+Rows that count:
+- Window of sum_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `rows`
+
+Calculated in **statement** as `count_rows(over=window())`, which is `COUNT(*) OVER ()`.
+
+```text
+statement.rows = count_rows(over=window())
+└─ (no columns: it counts rows)
+```
+
+Rows that count:
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `moving_average`
+
+Calculated in **statement** as `average_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(-6, 0)))`, which is `AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)`.
+
+```text
+statement.moving_average = average_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(-6, 0)))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of average_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of average_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(-6, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN 6 PRECEDING AND CURRENT ROW`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `least_ahead`
+
+Calculated in **statement** as `min_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(0, 2)))`, which is `MIN(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)`.
+
+```text
+statement.least_ahead = min_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(0, 2)))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of min_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of min_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(0, 2)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `most_failed`
+
+Calculated in **statement** as `max_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"), over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(None, None)))`, which is `MAX(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)`.
+
+```text
+statement.most_failed = max_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"), over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(None, None)))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.run_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.status  (string)
+```
+
+Rows that count:
+- Window of max_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of max_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(None, None)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `so_far`
+
+Calculated in **statement** as `sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(None, 0)))`, which is `SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`.
+
+```text
+statement.so_far = sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(None, 0)))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of sum_of(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of sum_of(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `after`
+
+Calculated in **statement** as `count_rows(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(1, None)))`, which is `COUNT(*) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)`.
+
+```text
+statement.after = count_rows(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(1, None)))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of count_rows(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of count_rows(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(1, None)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id) AS job_minutes,
+  COUNT(*) OVER () AS `rows`,
+  AVG(job_runs.duration_mins) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+  ) AS moving_average,
+  MIN(job_runs.duration_mins) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING
+  ) AS least_ahead,
+  MAX(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_failed,
+  SUM(job_runs.duration_mins) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS so_far,
+  COUNT(*) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING
+  ) AS after
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:windows:places
+-- Statement 1: to_hive
+SELECT
+  ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS rn,
+  RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS rk,
+  DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS dr,
+  NTILE(4) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS quarter,
+  LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS before,
+  LAG(job_runs.duration_mins, 3) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS three_before,
+  LEAD(job_runs.status, 2) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS two_after
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output rn: ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+output rk: RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+output dr: DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+output quarter: NTILE(4) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+output before: LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+output three_before: LAG(job_runs.duration_mins, 3) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+output two_after: LEAD(job_runs.status, 2) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n1["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n6["ops.job_runs.duration_mins<br/><small>int</small>"]
+    n9["ops.job_runs.status<br/><small>string</small>"]
+    n12["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n2["rn<br/><small>row_number(over=window(PARTITION_BY=job_run…</small>"]
+    n3["rk<br/><small>rank(over=window(PARTITION_BY=job_runs.job_…</small>"]
+    n4["dr<br/><small>dense_rank(over=window(PARTITION_BY=job_run…</small>"]
+    n5["quarter<br/><small>ntile(4, over=window(PARTITION_BY=job_runs.…</small>"]
+    n7["before<br/><small>lag(job_runs.duration_mins, over=window(PAR…</small>"]
+    n8["three_before<br/><small>lag(job_runs.duration_mins, over=window(PAR…</small>"]
+    n10["two_after<br/><small>lead(job_runs.status, over=window(PARTITION…</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n11{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n0 --> n2
+  n1 --> n2
+  n0 --> n3
+  n1 --> n3
+  n0 --> n4
+  n1 --> n4
+  n0 --> n5
+  n1 --> n5
+  n0 --> n7
+  n6 --> n7
+  n1 --> n7
+  n0 --> n8
+  n6 --> n8
+  n1 --> n8
+  n0 --> n10
+  n9 --> n10
+  n1 --> n10
+  n12 -.-> n11
+  n11 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `rn`
+
+Calculated in **statement** as `row_number(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.rn = row_number(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of row_number(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of row_number(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `rk`
+
+Calculated in **statement** as `rank(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.rk = rank(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of rank(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of rank(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `dr`
+
+Calculated in **statement** as `dense_rank(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.dr = dense_rank(over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of dense_rank(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of dense_rank(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `quarter`
+
+Calculated in **statement** as `ntile(4, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `NTILE(4) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.quarter = ntile(4, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of ntile(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of ntile(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `before`
+
+Calculated in **statement** as `lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `three_before`
+
+Calculated in **statement** as `lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id), back=3)`, which is `LAG(job_runs.duration_mins, 3) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.three_before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id), back=3)
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `two_after`
+
+Calculated in **statement** as `lead(job_runs.status, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id), ahead=2)`, which is `LEAD(job_runs.status, 2) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)`.
+
+```text
+statement.two_after = lead(job_runs.status, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id), ahead=2)
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.status  (string)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of lead(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lead(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS rn,
+  RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS rk,
+  DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS dr,
+  NTILE(4) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS quarter,
+  LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS before,
+  LAG(job_runs.duration_mins, 3) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS three_before,
+  LEAD(job_runs.status, 2) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) AS two_after
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:windows:values
+-- Statement 1: to_hive
+SELECT
+  FIRST_VALUE(job_runs.status) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id ASC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS first_status,
+  LAST_VALUE(job_runs.status) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS status_so_far,
+  COALESCE(
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC),
+    0
+  ) AS before_or_0
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+-- Statement 1: the Statement
+output first_status: FIRST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+output status_so_far: LAST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+output before_or_0: COALESCE(LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC), 0)
+WHERE: job_runs.dt = '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n1["ops.job_runs.status<br/><small>string</small>"]
+    n2["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n5["ops.job_runs.duration_mins<br/><small>int</small>"]
+    n8["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n3["first_status<br/><small>first_value(job_runs.status, over=window(PA…</small>"]
+    n4["status_so_far<br/><small>last_value(job_runs.status, over=window(PAR…</small>"]
+    n6["before_or_0<br/><small>fill_null(lag(job_runs.duration_mins, over=…</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n7{{"WHERE in statement<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  n0 --> n3
+  n1 --> n3
+  n2 --> n3
+  n0 --> n4
+  n1 --> n4
+  n2 --> n4
+  n0 --> n6
+  n5 --> n6
+  n2 --> n6
+  n8 -.-> n7
+  n7 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `first_status`
+
+Calculated in **statement** as `first_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))`, which is `FIRST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)`.
+
+```text
+statement.first_status = first_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.status  (string)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of first_value(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of first_value(...), its order and rows: `ORDER_BY=job_runs.run_id, rows=(None, None)`, which is `ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `status_so_far`
+
+Calculated in **statement** as `last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(None, 0)))`, which is `LAST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`.
+
+```text
+statement.status_so_far = last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id), rows=(None, 0)))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.status  (string)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of last_value(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of last_value(...), its order and rows: `ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+#### `before_or_0`
+
+Calculated in **statement** as `fill_null(lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)), 0)`, which is `COALESCE(LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC), 0)`.
+
+```text
+statement.before_or_0 = fill_null(lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)), 0)
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.run_id  (bigint)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`, which is `ORDER BY job_runs.run_id ASC`
+- WHERE in statement: `equals(job_runs.dt, "2026-09-24")`, which is `job_runs.dt = '2026-09-24'` (reads ops.job_runs.dt)
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  FIRST_VALUE(job_runs.status) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id ASC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS first_status,
+  LAST_VALUE(job_runs.status) OVER (
+    PARTITION BY job_runs.job_id
+    ORDER BY job_runs.run_id DESC
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS status_so_far,
+  COALESCE(
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC),
+    0
+  ) AS before_or_0
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:windows:filtered_in_the_statement_that_reads_it
+-- Statement 1: to_hive
+WITH with_before AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
+)
+SELECT
+  with_before.run_id
+FROM with_before
+WHERE
+  with_before.minutes_before > 10
+-- Statement 1: the Statement
+output run_id: with_before.run_id
+WHERE: with_before.minutes_before > 10
+-- Statement 1: Derived table with_before
+output run_id: job_runs.run_id
+output dt: job_runs.dt
+output minutes_before: LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC)
+WHERE: job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.dt<br/><small>string</small>"]
+    n3["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n4["ops.job_runs.duration_mins<br/><small>int</small>"]
+  end
+  subgraph g1["with_before"]
+    n1["with_before.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n5["with_before.minutes_before<br/><small>lag(job_runs.duration_mins, over=window(PAR…</small>"]
+  end
+  subgraph g2["filters on with_before"]
+    n6{{"WHERE in with_before<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
+  end
+  subgraph g3["statement"]
+    n7["run_id<br/><small>with_before.run_id</small><br/><small>in the Key</small>"]
+  end
+  subgraph g4["filters on statement"]
+    n8{{"WHERE in statement<br/><small>more_than(with_before.minutes_before, 10)</small>"}}
+  end
+  n0 --> n1
+  n3 --> n5
+  n4 --> n5
+  n2 --> n5
+  n2 -.-> n6
+  n1 --> n7
+  n5 -.-> n8
+  n6 -.->|filters| g1
+  n8 -.->|filters| g3
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `with_before.minutes_before`
+
+Calculated in **with_before** as `lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt))`, which is `LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC)`.
+
+```text
+with_before.minutes_before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.dt  (string)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.dt`, which is `ORDER BY job_runs.dt ASC`
+- WHERE in with_before: `between(job_runs.dt, "2026-09-24", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.job_runs.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | with_before.run_id ← ops.job_runs.run_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('with_before', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement: Key (run_id), since with_before's rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+WITH with_before AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
+)
+SELECT
+  with_before.run_id
+FROM with_before
+WHERE
+  with_before.minutes_before > 10
+```
+
+---
+
+
+== edge:windows:write_looking_back
+-- Statement 1: to_hive
+WITH with_before AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.events_before PARTITION(dt = '2026-09-24')
+SELECT
+  with_before.run_id AS event_id,
+  with_before.minutes_before
+FROM with_before
+WHERE
+  with_before.dt = '2026-09-24'
+-- Statement 1: the Statement
+output event_id: with_before.run_id
+output minutes_before: with_before.minutes_before
+WHERE: with_before.dt = '2026-09-24'
+-- Statement 1: Derived table with_before
+output run_id: job_runs.run_id
+output dt: job_runs.dt
+output minutes_before: LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC)
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.dt<br/><small>string</small>"]
+    n4["ops.job_runs.job_id<br/><small>bigint</small>"]
+    n5["ops.job_runs.duration_mins<br/><small>int</small>"]
+  end
+  subgraph g1["with_before"]
+    n1["with_before.run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["with_before.dt<br/><small>job_runs.dt</small>"]
+    n6["with_before.minutes_before<br/><small>lag(job_runs.duration_mins, over=window(PAR…</small>"]
+  end
+  subgraph g2["filters on with_before"]
+    n7{{"WHERE in with_before<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+  end
+  subgraph g3["statement"]
+    n8["event_id<br/><small>with_before.run_id</small><br/><small>in the Key</small>"]
+    n9["minutes_before<br/><small>with_before.minutes_before</small>"]
+  end
+  subgraph g4["filters on statement"]
+    n10{{"WHERE in statement<br/><small>equals(with_before.dt, #quot;2026-09-24#quot;)</small>"}}
+  end
+  subgraph g5["mart.events_before"]
+    n11["mart.events_before.event_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n12["mart.events_before.minutes_before<br/><small>int</small>"]
+    n13["mart.events_before.dt<br/><small>string</small><br/><small>in the Key</small>"]
+  end
+  n0 --> n1
+  n2 --> n3
+  n4 --> n6
+  n5 --> n6
+  n2 --> n6
+  n2 -.-> n7
+  n1 --> n8
+  n6 --> n9
+  n3 -.-> n10
+  n8 --> n11
+  n9 --> n12
+  n10 -.->|day written| n13
+  n7 -.->|filters| g1
+  n10 -.->|filters| g3
+```
+
+## statement
+
+It writes the Saved table mart.events_before, one day at a time.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+#### `with_before.minutes_before`
+
+Calculated in **with_before** as `lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt))`, which is `LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC)`.
+
+```text
+with_before.minutes_before = lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt))
+├─ ops.job_runs.job_id  (bigint)
+├─ ops.job_runs.duration_mins  (int)
+└─ ops.job_runs.dt  (string)
+```
+
+Rows that count:
+- Window of lag(...), its groups: `PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`
+- Window of lag(...), its order: `ORDER_BY=job_runs.dt`, which is `ORDER BY job_runs.dt ASC`
+- WHERE in with_before: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `event_id` | with_before.run_id ← ops.job_runs.run_id |
+| `minutes_before` | with_before.minutes_before (calculated) ← ops.job_runs.job_id |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- derived('with_before', ...): Key (run_id), since job_runs' rows are told apart by run_id.
+- statement: Key (event_id), since with_before's rows are told apart by run_id.
+- mart.events_before's Key (event_id, dt) holds: each row written has its own.
+
+### Hive as submitted
+
+```sql
+WITH with_before AS (
+  SELECT
+    job_runs.run_id,
+    job_runs.dt,
+    LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.dt ASC) AS minutes_before
+  FROM ops.job_runs AS job_runs
+  WHERE
+    job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+)
+INSERT OVERWRITE TABLE mart.events_before PARTITION(dt = '2026-09-24')
+SELECT
+  with_before.run_id AS event_id,
+  with_before.minutes_before
+FROM with_before
+WHERE
+  with_before.dt = '2026-09-24'
+```
+
+---
+
+
+== edge:windows:refused:by_day_across_days
+-- refused
+GuardRefused:
+  What happened:  by_day can't split this Statement: derived('with_before', ...) works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_runs.dt, so it looks across days.
+  Why it matters: Split by day, each day's Statement would see only that day's rows, so the Window would stop at the edge of each day: a lag would find no row before the day's first, and a running total would start again each day.
+  Usual fix:      Add job_runs.dt to PARTITION_BY= of lag(...) if it should look within each day. To look back across days, write one day at a time: read the day and the days before it in a derived(...) table, and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in the Statement that writes; help(window) shows how. Or run the Statement whole with run(...).
+  Opt-out:        none - this one can't be switched off.
+
+== edge:windows:refused:in_where
+-- refused
+ValueError:
+  What happened:  WHERE has LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC) > 10, which looks across rows through a Window.
+  Why it matters: Windows are worked out last, after the rows are picked and grouped, so Hive can't use it in WHERE of the SELECT that makes it.
+  Usual fix:      Work it out in a derived(...) table, then use it in the Statement that reads it; help(row_number) shows how.
+  Opt-out:        none - this one can't be switched off.
 
 == edge:stack:UNION_ALL
 -- Statement 1: to_hive

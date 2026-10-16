@@ -1381,6 +1381,29 @@ def _real_table(t, call: str) -> Table:
     return t
 
 
+def need_saved_table(t, what: str) -> Table:
+    """The Table reference of one of the user's own Saved tables, which a call that changes a
+    table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)".
+
+    A Saved table is a Table reference with location=: one with none is a table someone else
+    owns, which the Toolbox only reads.
+    """
+    t = _real_table(t, what)
+    if t._location is None:
+        refuse(
+            what=f"{what} was given {t._name}, which isn't one of your Saved tables: its Table "
+            "reference has no location=.",
+            why="It changes a table, so it takes only your own Saved tables, each in a folder "
+            "of its own under location=. A Table reference with no location= is a table "
+            "someone else owns, and changing it could break their work.",
+            fix=f'If {t._name} is yours, add location=... to its Table(...) call, such as '
+            'location="/data/your_team/tables", the folder your Saved tables go in. If it '
+            "isn't yours, ask whoever owns it.",
+            error=ValueError,
+        )
+    return t
+
+
 def check_key(t, send):
     """Check on the newest day that no two rows share the Table reference's key.
 
@@ -1586,7 +1609,7 @@ def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
     return []
 
 
-_SET_IT = "or set it with admin.set_properties(...)"
+_SET_IT = "or set it with admin.set_properties(t)"
 
 
 def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[str]]:
@@ -1745,8 +1768,9 @@ def create_table(t, may_exist=False):
     says what to write. If the table already exists, the warehouse refuses to create it
     again. Without that refusal, you could edit the Table reference, send this again, and
     think the table had changed when it hadn't. Compare the two with
-    check_table_reference(t, send=...), or, to start the table again, drop it with
-    drop_table(t).
+    check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
+    or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
+    import admin).
     may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table
     alone.
 
@@ -1836,35 +1860,6 @@ def partition_columns(t: Table) -> list[str]:
     return [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
 
 
-def drop_table(t):
-    """The DROP TABLE IF EXISTS Statement for a Saved table, from its Table reference.
-
-    For a Saved table whose Table reference has purge=True, it deletes the whole table,
-    every day of it, and the Toolbox can't bring it back. Without purge=True, the warehouse
-    only forgets the table: its files stay in its folder, and a table created there again
-    reads them back. Use it only for a Saved table you made: it takes any Table reference,
-    so given the reference of a table others fill, such as job_runs, it would drop that
-    table too, if your account is allowed to. The usual
-    reason is changing a Saved table's columns: create_table refuses while the old table
-    exists, so drop it, create it again, and write its days again. That needs purge=True in
-    the Table reference before the table is created, or the old days come back under the
-    new columns. IF EXISTS means that sending it for a table that isn't there does nothing,
-    rather than failing.
-
-    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/tables", purge=True)
-    >>> print(to_hive(drop_table(daily_runs)))
-    DROP TABLE IF EXISTS mart.daily_runs
-    """
-    from .clauses import Statement  # here, not at the top: clauses.py imports this file
-
-    t = _real_table(t, "drop_table(...)")
-    s = Statement()
-    s._ddl = Node("Drop", target=table_node(t._name))
-    return s
-
-
 # Types people often write for one create_table takes, and the one to write instead.
 _NEAREST_TYPE = {
     "integer": "int", "long": "bigint", "short": "smallint", "byte": "tinyint", "real": "float",
@@ -1876,16 +1871,17 @@ _NEAREST_TYPE = {
 _NEEDS_LENGTH = ("varchar", "char")
 
 
-def _column_definition(t: Table, column: str) -> Node:
-    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table."""
+def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
+    """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table, or
+    `call`, such as admin.add_columns(...), which adds it."""
+    call = call or f"create_table({t._alias})"
     kind = t._columns[column]
     if not is_hive_type(kind):
         written = " ".join(kind.lower().split())
         nearest = _NEAREST_TYPE.get(written)
         length = "its length, such as " if written in _NEEDS_LENGTH else ""
         refuse(
-            what=f"create_table({t._alias}): {column}'s type {kind!r} isn't one create_table "
-            "can use.",
+            what=f"{call}: {column}'s type {kind!r} isn't one create_table can use.",
             why="create_table takes only the types Hive and Spark both have, spelled as "
             "DESCRIBE prints them, such as int rather than integer, and with their sizes "
             "written out, such as decimal(10,2), so the table it makes matches its Table "
@@ -1900,5 +1896,5 @@ def _column_definition(t: Table, column: str) -> Node:
             "reserve, such as date or user.",
             error=ValueError,
         )
-    check_writable_type(kind, f"create_table({t._alias}): {column}'s type {kind!r}")
+    check_writable_type(kind, f"{call}: {column}'s type {kind!r}")
     return Node("ColumnDef", name=column, type=kind)

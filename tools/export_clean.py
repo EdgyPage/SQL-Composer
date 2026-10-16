@@ -167,6 +167,12 @@ def describe_toolbox(folder: str) -> dict:
         group = groups.setdefault(file, {"file": file, "about": first_line(module.__doc__),
                                          "names": []})
         group["names"].append([name, line])
+    # The admin module, imported by name: its functions, each as admin.<name>.
+    admin = toolbox.admin
+    groups[Path(admin.__file__).name] = {
+        "file": Path(admin.__file__).name, "about": first_line(admin.__doc__),
+        "names": [[f"admin.{name}", "- " + first_line(inspect.getdoc(getattr(admin, name)))]
+                  for name in admin.__all__]}
     return {
         "folder": str(Path(toolbox.__file__).parent),
         "version": toolbox.VERSION,

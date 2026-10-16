@@ -49,7 +49,7 @@ def toolbox_docstrings() -> list[doctest.DocTest]:
     return [test for module in modules for test in finder.find(module) if test.examples]
 
 
-@pytest.mark.parametrize("name", sqlglot_composer.__all__)
+@pytest.mark.parametrize("name", sqlglot_composer.__all__ + example_gallery.ADMIN)
 def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
     titled = [title for title, _ in gallery_entries().values()
               if re.search(rf"(?<![\w.]){name}(?![\w.])", title)]
@@ -190,7 +190,7 @@ def test_a_statement_given_to_run_shows_its_hive() -> None:
     ("entry_id", "names"),
     [
         ("row_number", ["SELECT", "AS", "FROM", "WHERE", "statement", "derived", "equals",
-                        "last_n_days", "row_number", "descending", "to_hive"]),
+                        "last_n_days", "row_number", "window", "descending", "to_hive"]),
         ("repeated_rows", ["SELECT", "AS", "FROM", "JOIN", "LEFT_JOIN", "WHERE", "GROUP_BY",
                            "statement", "derived", "equals", "between", "count_rows",
                            "sum_of", "example_database"]),

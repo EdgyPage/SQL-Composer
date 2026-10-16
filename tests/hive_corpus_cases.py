@@ -13,13 +13,18 @@ Every case builds only through the Toolbox's public names, as a user would.
 
 from __future__ import annotations
 
+import datetime
 import random
 
+import pandas as pd
+
 from sqlglot_composer import (
+    ANTI_JOIN,
     AS,
     CROSS_JOIN,
     EXCEPT,
     FROM,
+    FULL_JOIN,
     GROUP_BY,
     HAVING,
     INSERT_INTO,
@@ -29,10 +34,12 @@ from sqlglot_composer import (
     LEFT_JOIN,
     LIMIT,
     ORDER_BY,
+    RIGHT_JOIN,
     SELECT,
     SELECT_DISTINCT,
     UNION,
     UNION_ALL,
+    SEMI_JOIN,
     WHERE,
     Table,
     all_of,
@@ -47,12 +54,13 @@ from sqlglot_composer import (
     count_rows,
     create_table,
     cube,
+    dense_rank,
     derived,
     descending,
-    drop_table,
     equals,
     fill_null,
     grouping_sets,
+    first_value,
     hive_function,
     hive_settings,
     if_else,
@@ -61,13 +69,18 @@ from sqlglot_composer import (
     is_not_null,
     is_null,
     is_total,
+    lag,
     last_n_days,
+    last_value,
+    lead,
     less_than,
     max_of,
     min_of,
     month_start,
     more_than,
     not_equals,
+    ntile,
+    rank,
     row_number,
     rollup,
     starts_with,
@@ -75,8 +88,10 @@ from sqlglot_composer import (
     sum_of,
     unchecked_hive,
     week_start,
+    window,
 )
-from composer_core.example_database import job_runs, jobs, run_alerts
+from composer_core.example_database import job_runs, jobs, run_alerts, scheduler_runs
+from sqlglot_composer import admin
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
@@ -366,6 +381,113 @@ def _read_cases() -> dict:
     }
 
 
+def _alerts_of_the_day():
+    return all_of(equals(run_alerts.run_id, job_runs.run_id), one_day(run_alerts))
+
+
+def _two_records():
+    """The runs job_runs holds and the runs the scheduler started, on one day each."""
+    recorded = derived("recorded", statement(
+        SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs), WHERE(one_day())))
+    started = derived("started", statement(
+        SELECT(scheduler_runs.run_id, AS(scheduler_runs.job_id, "started_job_id")),
+        FROM(scheduler_runs), WHERE(one_day(scheduler_runs))))
+    return recorded, started
+
+
+def _full_join(*where, **options):
+    recorded, started = _two_records()
+    return statement(
+        SELECT(AS(fill_null(recorded.run_id, started.run_id), "run_id"),
+               AS(fill_null(recorded.job_id, started.started_job_id), "job_id"),
+               AS(if_else(is_null(started.run_id), "only in job_runs",
+                          if_else(is_null(recorded.run_id), "only started", "in both")),
+                  "found")),
+        FROM(recorded), FULL_JOIN(started, ON=equals(started.run_id, recorded.run_id),
+                                  **options),
+        *([WHERE(*where)] if where else []))
+
+
+def _join_cases() -> dict:
+    """SEMI_JOIN, ANTI_JOIN, FULL_JOIN and broadcast=, and what each refuses."""
+    recorded, started = _two_records()
+    other = AS(jobs, "other")
+    return {
+        "joins:semi": lambda: [statement(
+            SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
+            SEMI_JOIN(run_alerts, ON=all_of(_alerts_of_the_day(),
+                                            equals(run_alerts.severity, "high"))),
+            WHERE(one_day()))],
+        "joins:anti": lambda: [statement(
+            SELECT(job_runs.run_id), FROM(job_runs),
+            ANTI_JOIN(run_alerts, ON=_alerts_of_the_day()),
+            WHERE(one_day(), any_of(equals(job_runs.status, "FAILED"),
+                                    is_null(job_runs.status))))],
+        "joins:anti_with_no_where": lambda: [statement(
+            SELECT(jobs.job_id, jobs.job_name), FROM(jobs),
+            ANTI_JOIN(job_runs, ON=all_of(one_day(), equals(job_runs.job_id, jobs.job_id))))],
+        "joins:anti_then_group_by": lambda: [statement(
+            SELECT(jobs.team, AS(count_rows(), "never_ran")), FROM(jobs),
+            ANTI_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id), one_day())),
+            GROUP_BY(jobs.team))],
+        "joins:semi_and_anti_in_a_write": lambda: [statement(
+            INSERT_OVERWRITE(runs_to_check),
+            SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
+            SEMI_JOIN(run_alerts, ON=_alerts_of_the_day()),
+            ANTI_JOIN(jobs, ON=all_of(equals(jobs.job_id, job_runs.job_id),
+                                      equals(jobs.team, "web"))),
+            WHERE(one_day()))],
+        "joins:full": lambda: [_full_join()],
+        "joins:full_only_one_side": lambda: [_full_join(
+            any_of(is_null(recorded.run_id), is_null(started.run_id)))],
+        "joins:full_where_refused": lambda: [_full_join(equals(recorded.job_id, 1))],
+        "joins:full_keeps_only_matches": lambda: [_full_join(
+            equals(recorded.job_id, 1), keeps_only_matches=True)],
+        "joins:full_of_a_table_with_days": lambda: [statement(
+            SELECT(recorded.run_id), FROM(recorded),
+            FULL_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.run_id, recorded.run_id),
+                                                one_day(scheduler_runs))))],
+        "joins:semi_column_read": lambda: [statement(
+            SELECT(job_runs.run_id, run_alerts.severity), FROM(job_runs),
+            SEMI_JOIN(run_alerts, ON=_alerts_of_the_day()), WHERE(one_day()))],
+        "joins:right_join": lambda: [RIGHT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id))],
+        "joins:broadcast": lambda: [statement(
+            SELECT(job_runs.run_id, jobs.team), FROM(job_runs),
+            JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
+            WHERE(one_day()))],
+        "joins:broadcast_two_and_distinct": lambda: [statement(
+            SELECT_DISTINCT(job_runs.job_id, jobs.team), FROM(job_runs),
+            LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
+            SEMI_JOIN(run_alerts, ON=_alerts_of_the_day(), broadcast=True),
+            WHERE(one_day()))],
+        "joins:broadcast_in_a_derived_table": lambda: [_broadcast_in_steps(other)],
+        "joins:broadcast_a_name_in_backticks": lambda: [statement(
+            SELECT(job_runs.run_id), FROM(job_runs),
+            ANTI_JOIN(odd, ON=all_of(equals(getattr(odd, "1st"), job_runs.run_id), one_day(odd)),
+                      broadcast=True),
+            WHERE(one_day()))],
+    }
+
+
+def _broadcast_in_steps(other):
+    teams = derived("teams", statement(
+        SELECT(job_runs.run_id, jobs.team), FROM(job_runs),
+        JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True), WHERE(one_day())))
+    return statement(SELECT(teams.run_id, AS(other.job_name, "name")), FROM(teams),
+                     JOIN(other, ON=equals(other.team, teams.team), many_matches=True,
+                          broadcast=True))
+
+
+runs_to_check = Table(
+    "mart.runs_to_check",
+    columns={"run_id": "bigint", "status": "string", "dt": "string"},
+    date_partition="dt",
+    key=["run_id"],
+    location=BASE,
+)
+"""A Saved table written through a SEMI_JOIN and an ANTI_JOIN, which keep its Key."""
+
+
 def _reading_top_n():
     """A Statement with no ORDER_BY of its own, reading a Derived table that has one."""
     longest = derived("longest", statement(
@@ -418,8 +540,6 @@ def _structure_cases() -> dict:
         INSERT_OVERWRITE(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs), WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
         GROUP_BY(job_runs.job_id))]
-    for name, t in EDGE_TABLES.items():
-        found[f"drop_table:{name}"] = lambda t=t: [drop_table(t)]
     for kind in TYPES:
         found[f"create_table:{kind}"] = lambda kind=kind: [create_table(Table(
             "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt",
@@ -434,7 +554,7 @@ def _structure_cases() -> dict:
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
     found["create_table:key_with_the_day"] = lambda: [create_table(runs_per_job_day)]
     found.update(_storage_cases())
-    return {**found, **_key_cases()}
+    return {**found, **_key_cases(), **_admin_cases()}
 
 
 runs_per_job_day = Table(
@@ -525,6 +645,115 @@ def _storage_cases() -> dict:
         INSERT_OVERWRITE(region_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs), WHERE(one_day()), GROUP_BY(job_runs.job_id))]
     return found
+
+
+def warehouse(t, location=None, kind="EXTERNAL_TABLE", lacking=(), days=(DAY,)):
+    """A stand-in for send at work: the warehouse's DESCRIBE, DESCRIBE FORMATTED and SHOW
+    PARTITIONS for a Saved table, without the columns `lacking`, at `location` (by default a
+    folder it shares with others, BASE itself), holding `days`."""
+    partitions = [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
+
+    def send(hive: str) -> pd.DataFrame:
+        if hive.startswith("SHOW PARTITIONS"):
+            listed = [f"{t._date_partition}={day}" for day in days]
+            return pd.DataFrame({"partition": listed})
+        rows = [(name, kind_, "") for name, kind_ in t._columns.items()
+                if name not in lacking and name not in partitions]
+        if partitions:
+            rows += [("", None, None), ("# Partition Information", None, None),
+                     ("# col_name", "data_type", "comment"),
+                     *[(name, t._columns[name], "") for name in partitions if name not in lacking]]
+        if hive.startswith("DESCRIBE FORMATTED"):
+            rows += [("", None, None), ("# Detailed Table Information", None, None),
+                     ("Location:", location or f"hdfs://namenode:8020{BASE}", None),
+                     ("Table Type:", kind, None)]
+        return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
+    return send
+
+
+def _saved(name="mart.admin_runs", columns=None, date_partition="dt", **storage):
+    """A Saved table of the user's for the admin module's cases."""
+    columns = columns or {"job_id": "bigint", "runs": "bigint", "dt": "string"}
+    return Table(name, columns=columns, date_partition=date_partition, location=BASE, **storage)
+
+
+def _admin_cases() -> dict:
+    """The admin module's Statements: each function, its options, and its refusals."""
+    found = {f"admin:drop_table:{name}": (lambda t=t: [admin.drop_table(t)])
+             for name, t in EDGE_TABLES.items()}
+    found["admin:drop_table:purge"] = lambda: [admin.drop_table(_saved(purge=True))]
+    found["admin:drop_table:not_saved"] = lambda: [admin.drop_table(job_runs)]
+    for purge in (True, False, None):
+        found[f"admin:drop_days:purge_{purge}"] = lambda purge=purge: [
+            admin.drop_days(_saved(purge=purge), before="2025-01-01")]
+    found["admin:drop_days:compact"] = lambda: [admin.drop_days(compact, before="20250101")]
+    found["admin:drop_days:a_date"] = lambda: [admin.drop_days(
+        compact, before=datetime.date(2025, 1, 1))]
+    found["admin:drop_days:written_another_way"] = lambda: [admin.drop_days(
+        compact, before="2025-01-01")]
+    found["admin:drop_days:region_runs"] = lambda: [admin.drop_days(region_runs,
+                                                                    before=FIRST_DAY)]
+    found["admin:drop_days:no_date_partition"] = lambda: [admin.drop_days(
+        _saved(columns={"job_id": "bigint"}, date_partition=None), before="2025-01-01")]
+    found["admin:drop_days:not_a_day"] = lambda: [admin.drop_days(_saved(), before="2025/01/01")]
+    found["admin:drop_days:not_saved"] = lambda: [admin.drop_days(job_runs, before=DAY)]
+    found.update(_add_columns_cases())
+    found["admin:set_properties:all"] = lambda: [admin.set_properties(_saved(
+        purge=False, compression="SNAPPY", properties={"made_by": "it's daily"}))]
+    found["admin:set_properties:purge"] = lambda: [admin.set_properties(_saved(purge=True))]
+    found["admin:set_properties:none"] = lambda: [admin.set_properties(_saved())]
+    found.update(_move_cases())
+    return found
+
+
+def _add_columns_cases() -> dict:
+    wider = {"job_id": "bigint", "runs": "bigint", "fails": "bigint", "note": "string",
+             "dt": "string"}
+    return {
+        "admin:add_columns:one": lambda: [admin.add_columns(
+            _saved(columns=wider), send=warehouse(_saved(columns=wider), lacking=("note",)))],
+        "admin:add_columns:two": lambda: [admin.add_columns(
+            _saved(columns=wider), send=warehouse(_saved(columns=wider),
+                                                  lacking=("fails", "note")))],
+        "admin:add_columns:no_date_partition": lambda: [admin.add_columns(
+            _saved(columns={"job_id": "bigint", "two words": "string"}, date_partition=None),
+            send=warehouse(_saved(columns={"job_id": "bigint", "two words": "string"},
+                                  date_partition=None), lacking=("two words",)))],
+        "admin:add_columns:none_new": lambda: [admin.add_columns(
+            _saved(), send=warehouse(_saved()))],
+        "admin:add_columns:before_the_tables_own": lambda: [admin.add_columns(
+            _saved(columns=wider), send=warehouse(_saved(columns=wider), lacking=("fails",)))],
+        "admin:add_columns:untyped": lambda: [admin.add_columns(
+            _saved(columns={"job_id": "bigint", "fails": None, "dt": "string"}),
+            send=warehouse(_saved(), lacking=("fails",)))],
+        "admin:add_columns:a_partition": lambda: [admin.add_columns(
+            region_runs, send=warehouse(region_runs, lacking=("region",)))],
+    }
+
+
+def _move_cases() -> dict:
+    return {
+        "admin:move:two_days": lambda: admin.move_to_own_folder(
+            daily_runs, send=warehouse(daily_runs, days=(FIRST_DAY, DAY))),
+        "admin:move:region_runs": lambda: admin.move_to_own_folder(
+            region_runs, send=warehouse(region_runs)),
+        "admin:move:compact": lambda: admin.move_to_own_folder(compact, send=warehouse(
+            compact, days=("20260924",))),
+        "admin:move:managed": lambda: admin.move_to_own_folder(daily_runs, send=warehouse(
+            daily_runs, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs",
+            kind="MANAGED_TABLE")),
+        "admin:move:no_date_partition": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, date_partition=None),
+            send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None))),
+        "admin:move:no_date_partition_elsewhere": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, date_partition=None),
+            send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None),
+                           location="hdfs://namenode:8020/data/old_tables")),
+        "admin:move:at_its_own_folder": lambda: admin.move_to_own_folder(
+            daily_runs, send=warehouse(daily_runs, location=f"{BASE}/mart/daily_runs")),
+        "admin:move:lacking_a_column": lambda: admin.move_to_own_folder(
+            daily_runs, send=warehouse(daily_runs, lacking=("runs",))),
+    }
 
 
 # Hive written by hand: a write into daily_runs, which a Statement then reads.
@@ -656,10 +885,79 @@ def _subtotal_cases() -> dict:
     }
 
 
+events_before = Table(
+    "mart.events_before",
+    columns={"event_id": "bigint", "minutes_before": "int", "dt": "string"},
+    date_partition="dt",
+    key=["event_id", "dt"],
+    location=BASE,
+)
+"""A Saved table written from a window that looks back on earlier days."""
+
+
+def _window_cases() -> dict:
+    """Each function over a window, each way rows= is written, a window that wraps, a write
+    that reads earlier days and keeps one, and what by_day and a Statement refuse."""
+    minutes, by_job = job_runs.duration_mins, window(PARTITION_BY=job_runs.job_id,
+                                                     ORDER_BY=job_runs.run_id)
+
+    def over(rows):
+        return window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id),
+                      rows=rows)
+
+    def looking_back(first):
+        return derived("with_before", statement(
+            SELECT(job_runs.run_id, job_runs.dt,
+                   AS(lag(minutes, over=window(PARTITION_BY=job_runs.job_id,
+                                               ORDER_BY=job_runs.dt)), "minutes_before")),
+            FROM(job_runs), WHERE(between(job_runs.dt, first, DAY))))
+
+    def write_looking_back():
+        with_before = looking_back(FIRST_DAY)
+        return statement(INSERT_OVERWRITE(events_before),
+                         SELECT(AS(with_before.run_id, "event_id"), with_before.minutes_before),
+                         FROM(with_before), WHERE(equals(with_before.dt, DAY)))
+
+    def by_day_looking_back():
+        with_before = looking_back(FIRST_DAY)
+        return by_day(statement(SELECT(with_before.run_id, with_before.minutes_before),
+                                FROM(with_before)))
+
+    return {
+        "windows:totals": lambda: [_rows(
+            AS(sum_of(minutes, over=window(PARTITION_BY=job_runs.job_id)), "job_minutes"),
+            AS(count_rows(over=window()), "rows"),
+            AS(average_of(minutes, over=over((-6, 0))), "moving_average"),
+            AS(min_of(minutes, over=over((0, 2))), "least_ahead"),
+            AS(max_of(minutes, where=equals(job_runs.status, "FAILED"),
+                      over=over((None, None))), "most_failed"),
+            AS(sum_of(minutes, over=over((None, 0))), "so_far"),
+            AS(count_rows(over=over((1, None))), "after"))],
+        "windows:places": lambda: [_rows(
+            AS(row_number(over=by_job), "rn"), AS(rank(over=by_job), "rk"),
+            AS(dense_rank(over=by_job), "dr"), AS(ntile(4, over=by_job), "quarter"),
+            AS(lag(minutes, over=by_job), "before"),
+            AS(lag(minutes, over=by_job, back=3), "three_before"),
+            AS(lead(job_runs.status, over=by_job, ahead=2), "two_after"))],
+        "windows:values": lambda: [_rows(
+            AS(first_value(job_runs.status, over=by_job), "first_status"),
+            AS(last_value(job_runs.status, over=over((None, 0))), "status_so_far"),
+            AS(fill_null(lag(minutes, over=by_job), 0), "before_or_0"))],
+        "windows:filtered_in_the_statement_that_reads_it": lambda: [statement(
+            SELECT(looking_back(DAY).run_id), FROM(looking_back(DAY)),
+            WHERE(more_than(looking_back(DAY).minutes_before, 10)))],
+        "windows:write_looking_back": lambda: [write_looking_back()],
+        "windows:refused:by_day_across_days": by_day_looking_back,
+        "windows:refused:in_where": lambda: [_rows(job_runs.run_id, where=[
+            more_than(lag(minutes, over=by_job), 10)])],
+    }
+
+
 def edge_cases() -> list:
     """Every edge case, as (id, function returning its Statements), in a fixed order."""
     named = {**_calculation_cases(), **_hive_function_cases(), **_read_cases(),
-             **_structure_cases(), **_stack_cases(), **_subtotal_cases()}
+             **_join_cases(), **_structure_cases(), **_window_cases(),
+             **_stack_cases(), **_subtotal_cases()}
     return _width_cases() + [(f"edge:{name}", build) for name, build in named.items()]
 
 

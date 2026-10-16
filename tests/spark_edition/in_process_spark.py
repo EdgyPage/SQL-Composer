@@ -116,10 +116,13 @@ REFUSED = {"edge:hive_function:date_format": "DATETIME_PATTERN_RECOGNITION"}
 
 
 def queries(edition: editions.Edition) -> list[Hive]:
-    """Each query an Edition's golden holds: its SELECTs and WITHs."""
+    """Each query an Edition's golden holds: its SELECTs and WITHs. A move's comparison
+    (admin.move_to_own_folder) is left out: it reads the copy the move's own first step makes,
+    which only test_spark_hive_tables' move creates, and runs there."""
     from composer_core.example_database import _is_query
 
-    return [hive for hive in hive_texts(edition) if _is_query(hive.text)]
+    return [hive for hive in hive_texts(edition) if _is_query(hive.text)
+            and not hive.case.startswith("edge:admin:move:")]
 
 
 _TABLE_READ = re.compile(r"\b(?:FROM|JOIN)\s+(`?\w+`?\.`?\w+`?)")

@@ -9,7 +9,7 @@ calculation with no name or None in a comparison, stops at that call. One that n
 Statement, like a GROUP_BY that leaves a column out or a Date partition with no bound, stops
 at statement(...). The dates Load limit and a write that covers more than one day stop at
 to_hive, the row limit stops at run once the rows are back, and by_day(...) refuses any LIMIT
-and any grouping it can't split. A Warning shows at your own JOIN or LEFT_JOIN line. Every
+and any grouping it can't split. A Warning shows at your own join's line. Every
 opt-out is a keyword on one of your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
@@ -188,6 +188,16 @@ _REGROUPING_FIXES = {
     "after your own GROUP_BY.",
     "a division": "Keep both sides of the division as their own columns, add up each "
     "one, and divide after your own GROUP_BY.",
+    "worked out over a Window": "Add up the column it was made from instead, under your own "
+    "GROUP_BY; or keep one row for each group first, with row_number(...) kept at 1 in a "
+    "derived(...) table, and add up those.",
+}
+# Why a reason doesn't add up, where the usual sentence doesn't say.
+_REGROUPING_WHY = {
+    "worked out over a Window": "A value worked out over a Window counts the rows its Window "
+    "covers, and the Windows of neighbouring rows cover the same rows, so adding the values up "
+    "again counts rows more than once: a job's total beside each of its 3 runs, added up, is 3 "
+    "times the job's total.",
 }
 # A column listed in does_not_add_up could be any of the three.
 _REGROUPING_FIX_FOR_A_LISTED_COLUMN = (
@@ -208,9 +218,10 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     raise GuardRefused(
         four_part_message(
             what=f"{call} adds up {column}, which is {reason}.",
-            why="Averages, ratios and distinct counts don't add up: the average of daily "
-            "averages is not the weekly average, and a user seen on two days would be "
-            "counted twice.",
+            why=_REGROUPING_WHY.get(
+                reason, "Averages, ratios and distinct counts don't add up: the average of "
+                "daily averages is not the weekly average, and a user seen on two days would be "
+                "counted twice."),
             fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
             # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
             opt_out=f"{call[:-1]}, adds_up=True)",
@@ -273,6 +284,25 @@ def guard_left_join_then_where(table: str, condition: str, keeps_only_matches: b
             fix=f"Move the condition into LEFT_JOIN({table}, ON=...), next to the join "
             "condition, so it only decides which rows match.",
             opt_out=f"LEFT_JOIN({table}, ON=..., keeps_only_matches=True)",
+        )
+    )
+
+
+def guard_full_join_then_where(joined: str, table: str, condition: str,
+                               keeps_only_matches: bool) -> None:
+    """A WHERE on a FULL_JOIN's tables throws away the rows FULL_JOIN kept with no match."""
+    if keeps_only_matches:
+        return
+    raise GuardRefused(
+        four_part_message(
+            what=f"WHERE has {condition}, a condition on {table}, and FULL_JOIN({joined}) keeps "
+            "the rows of both sides that have no match.",
+            why=f"A row with no match in {table} has NULL in every {table} column, so this "
+            "WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.",
+            fix="Pick each side's rows, and bound its days, in a derived(...) table of its own, "
+            "then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps the rows with no "
+            "match on that side.",
+            opt_out=f"FULL_JOIN({joined}, ON=..., keeps_only_matches=True)",
         )
     )
 
@@ -341,14 +371,24 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> None:
     )
 
 
-def guard_one_day_per_write(call: str, days: int) -> None:
-    """A write fills one day. No opt-out."""
+def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> None:
+    """A write fills one day. No opt-out.
+
+    `windowed` is True when the Statement works out a Window, which may read earlier days on
+    purpose: the fix then says how to keep the one day written.
+    """
+    fix = "Send one Statement per day: for day in by_day(s): run(day, send=...)."
+    if windowed:
+        fix = (f"If its Window reads earlier days on purpose, keep only the day written in the "
+               f"Statement that writes, with WHERE(equals(the_derived_table.dt, day)) on the "
+               f"day column its derived(...) table keeps; help(window) shows how. Otherwise: "
+               f"{fix[0].lower()}{fix[1:]}")
     raise GuardRefused(
         four_part_message(
             what=f"{call} covers {days} days.",
             why="A write fills one day of the Saved table at a time, so every day's rows "
             "would land in that one day.",
-            fix="Send one Statement per day: for day in by_day(s): run(day, send=...).",
+            fix=fix,
             opt_out=None,
         )
     )
@@ -401,6 +441,29 @@ def guard_by_day_stack(step: str, call: str) -> None:
             fix=f"Add the day to the SELECT of each Statement of {call}(...), under one name, "
             "such as job_runs.dt in one and run_alerts.dt in the other (use AS(..., \"dt\") "
             "where a name differs), or run the Statement whole with run(...).",
+            opt_out=None,
+        )
+    )
+
+
+def guard_by_day_window(call: str, step: str, keeping: str, add: str) -> None:
+    """by_day can't split a Statement whose Window looks across days. No opt-out.
+
+    `call` is the Window's calculation, such as lag(...); `keeping` names the Date partition
+    as the step sees it, and `add` says where it goes.
+    """
+    raise GuardRefused(
+        four_part_message(
+            what=f"by_day can't split this Statement: {step} works out {call} over a Window "
+            f"whose PARTITION_BY leaves out {keeping}, so it looks across days.",
+            why="Split by day, each day's Statement would see only that day's rows, so the "
+            "Window would stop at the edge of each day: a lag would find no row before the "
+            "day's first, and a running total would start again each day.",
+            fix=f"{add} if it should look within each day. To look back across days, write "
+            "one day at a time: read the day and the days before it in a derived(...) table, "
+            "and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in "
+            "the Statement that writes; help(window) shows how. Or run the Statement whole "
+            "with run(...).",
             opt_out=None,
         )
     )
@@ -491,7 +554,7 @@ def callers_frame():
 # What each kind of object is called in a message, by its class's name.
 _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column named with AS",
            "Condition": "condition", "Clause": "clause", "Ordering": "descending(...)",
-           "Statement": "Statement"}
+           "Statement": "Statement", "Window": "window(...)"}
 
 
 def refuse_what_the_other_edition_made(value, call: str) -> None:
@@ -578,12 +641,20 @@ def refuse_what_isnt_a_dataframe(result) -> None:
 
 
 def load_limit_date_bound(call: str, table: str, full_name: str, date_partition: str,
-                          reads_all_partitions: bool) -> None:
-    """Every read of a partitioned table bounds its Date partition at both ends."""
+                          reads_all_partitions: bool, full_join: bool = False) -> None:
+    """Every read of a partitioned table bounds its Date partition at both ends.
+
+    `full_join` is True for a side of a FULL_JOIN, whose days only a Derived table can bound.
+    """
     if reads_all_partitions:
         return
     column = f"{table}.{date_partition}"
-    if call.startswith("LEFT_JOIN"):
+    if full_join:
+        fix = (f"Read {table} through a derived(...) table that bounds its days in its own "
+               "WHERE, and FULL_JOIN that: FULL_JOIN keeps every row of its table, so a bound "
+               "in ON= reads every day all the same, and one in WHERE throws away the rows it "
+               "keeps.")
+    elif call.startswith(("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")):
         fix = f"Bound it inside ON=, as in ON=all_of(equals(...), last_n_days({column}, 7))."
     else:
         fix = (f'Bound it in WHERE, as in WHERE(between({column}, "2026-09-01", "2026-09-24")) '
