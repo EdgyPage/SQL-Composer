@@ -48,6 +48,7 @@ from sqlglot_composer import (
     export_lineage,
     fill_null,
     is_null,
+    lag,
     last_n_days,
     not_equals,
     row_number,
@@ -57,6 +58,7 @@ from sqlglot_composer import (
     to_hive,
     unchecked_hive,
     week_start,
+    window,
 )
 
 job_runs = example_database.job_runs
@@ -405,6 +407,49 @@ def test_a_derived_table_stays_on_screen_as_its_own_group(tmp_path) -> None:
             "└─ ops.job_runs.run_id  (bigint)") in entry
     assert "| `status` | numbered.status ← ops.job_runs.status |" in markdown
     assert "WITH numbered AS (" in markdown
+
+
+def test_a_windows_partition_by_and_order_by_are_rows_that_count(tmp_path) -> None:
+    so_far = statement(
+        SELECT(job_runs.run_id,
+               AS(sum_of(job_runs.duration_mins, over=window(
+                   PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id),
+                   rows=(None, 0))), "minutes_so_far"),
+               AS(lag(job_runs.status, over=window(ORDER_BY=job_runs.run_id)), "before")),
+        FROM(job_runs),
+        WHERE(last_n_days(job_runs.dt, 2)),
+    )
+    markdown, page = read(export_lineage(so_far, to=tmp_path / "lineage.html"))
+    entry = section(markdown, "#### `minutes_so_far`")
+    assert ("Rows that count:\n- Window of sum_of(...), its groups: "
+            "`PARTITION_BY=job_runs.job_id`, which is `PARTITION BY job_runs.job_id`\n"
+            "- Window of sum_of(...), its order and rows: "
+            "`ORDER_BY=descending(job_runs.run_id), rows=(None, 0)`, which is `ORDER BY "
+            "job_runs.run_id DESC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`\n- WHERE "
+            "in so_far:") in entry
+    before = section(markdown, "#### `before`")
+    assert "- Window of lag(...), its order: `ORDER_BY=job_runs.run_id`" in before
+    assert "its groups" not in before
+    assert ("<li>Window of sum_of(...), its groups: <code>PARTITION_BY=job_runs.job_id</code>"
+            in page)
+
+
+def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(tmp_path) -> None:
+    events = example_database.job_events
+    with_before = derived("with_before", statement(
+        SELECT(events.event_id, events.dt,
+               AS(lag(events.minutes, over=window(PARTITION_BY=events.job_id,
+                                                  ORDER_BY=events.dt)), "minutes_before")),
+        FROM(events), WHERE(between(events.dt, "2026-09-17", "2026-09-24"))))
+    events_before = Table("mart.events_before", date_partition="dt", key=["event_id", "dt"],
+                          columns={"event_id": "bigint", "minutes_before": "int",
+                                   "dt": "string"}, location="/data/your_team/tables")
+    write_events = statement(INSERT_OVERWRITE(events_before),
+                             SELECT(with_before.event_id, with_before.minutes_before),
+                             FROM(with_before), WHERE(equals(with_before.dt, "2026-09-24")))
+    markdown, _ = read(export_lineage(write_events, to=tmp_path / "lineage.html"))
+    assert ("WHERE in write_events", "mart.events_before.dt", "day written") in chart(
+        markdown)["arrows"]
 
 
 def test_having_and_limit_are_drawn_as_conditions(tmp_path) -> None:

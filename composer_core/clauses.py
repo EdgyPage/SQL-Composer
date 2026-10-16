@@ -31,6 +31,7 @@ from .refusals import (
 from .tables import Column, Table, aliased
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .edition import hive_text
+from .windows import refuse_a_window_in, ungrouped_in_window
 
 TOOLBOX_VERSION = "4.1"
 
@@ -903,7 +904,7 @@ def _check_order_names(s: Statement) -> None:
 
 
 def _check_placement(s: Statement) -> None:
-    """Refuse a count, a sum or a row number where Hive can't work it out yet."""
+    """Refuse a count, a sum or a window where Hive can't work it out yet."""
     places = [("WHERE", c) for c in s._where] + [("HAVING", c) for c in s._having]
     places += [("ON=", read.on) for read in s._reads if read.on is not None]
     places += [("GROUP_BY", column) for column in s._group_by]
@@ -922,14 +923,7 @@ def _check_placement(s: Statement) -> None:
                 error=ValueError,
             )
         if has_window(part._tree):
-            refuse(
-                what=f"{place} has {part!r}, which numbers rows.",
-                why="Rows are numbered last, after the rows are picked and grouped, so Hive "
-                f"can't use the number in {place} of the SELECT that makes it.",
-                fix="Number the rows in a derived(...) table, then use the number in the "
-                "Statement that reads it; help(row_number) shows how.",
-                error=ValueError,
-            )
+            refuse_a_window_in(place, part)
 
 
 def _trees(s: Statement) -> list[Node]:
@@ -983,7 +977,7 @@ def _guard_group_by(s: Statement) -> None:
             # A calculation in SELECT, such as week_start(dt) named "week", is grouped by its
             # name: grouped by the column inside it, it would give one row per day, not week.
             if (place == "SELECT" and ungrouped and tree.kind != "Column"
-                    and not has_aggregate(tree)):
+                    and not has_aggregate(tree) and not has_window(tree)):
                 inside = list(dict.fromkeys(hive_text(column) for column in ungrouped))
                 calculations.append((names[number], inside))
                 continue
@@ -1002,7 +996,8 @@ def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:
         return []
     if tree.kind == "Column":
         return [tree]
-    return [column for child in tree.children() for column in _ungrouped(child, groups)]
+    children = ungrouped_in_window(tree) if tree.kind == "Window" else tree.children()
+    return [column for child in children for column in _ungrouped(child, groups)]
 
 
 def read_spans(s: Statement) -> list[tuple[Clause, object]]:

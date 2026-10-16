@@ -9,7 +9,12 @@ out from how it makes its rows:
 - otherwise its rows are those of the table in FROM, so its Key is that table's Key, once SELECT
   returns the Key's columns. A join that matches its table's whole Key adds at most one row to
   each row and keeps it; any other join adds the joined table's Key to it;
-- a row_number(...) gives a second Key: its PARTITION_BY columns and the number.
+- a row_number(...) gives a second Key: its PARTITION_BY columns and the number, written
+  with its 4.x keywords or over=window(...) alike.
+
+Any other Window, such as a lag(...), a rank(...) or a running total, gives each row a value and
+keeps every row, so it changes no Key. A rank kept at 1 isn't a Key: rows tied in its
+ORDER_BY share rank 1.
 
 A column WHERE holds to one value, such as the day a write writes or a row number kept at 1,
 is left out of a Key. So is a column the rest of the Key decides: a run's run_id, job_runs'
