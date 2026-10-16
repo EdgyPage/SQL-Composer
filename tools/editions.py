@@ -63,7 +63,8 @@ CORE = "composer_core"
 CORE_PRODUCT = "Composer core"
 CORE_FILES = ("__init__.py", "calculations.py", "checks.py", "clauses.py", "conditions.py",
               "edition.py", "example_database.py", "keys.py", "lineage.py", "public.py",
-              "refusals.py", "running.py", "tables.py", "trees.py", "unchecked.py", "CHANGES.md")
+              "refusals.py", "running.py", "tables.py", "trees.py", "unchecked.py", "windows.py",
+              "CHANGES.md")
 EDITION_FILES = ("__init__.py", "writing.py", "engine.py")
 # The functions each Edition file offers the shared files, and the dev tools and tests
 # (example_database_cannot_run), with their parameters: both Editions' copies have exactly

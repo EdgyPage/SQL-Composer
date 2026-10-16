@@ -249,7 +249,13 @@ KINDS = {
     "Avg": ("this",),
     "Min": ("this",),
     "Max": ("this",),
-    "Window": ("this", "partition_by", "order"),
+    # A calculation over a window. rows is (start, end), each a count of rows from the row
+    # itself (negative before it, 0 the row, positive after it) or None for every row that
+    # way, written ROWS BETWEEN ... AND ...; or None, when the Hive has no ROWS.
+    "Window": ("this", "partition_by", "order", "rows"),
+    # A function that works only over a window, such as LAG: its name, one of WINDOW_CALLS,
+    # and its arguments.
+    "WindowCall": ("name", "args"),
     "Order": ("expressions",),
     "Ordered": ("this", "desc"),
     "Alias": ("this", "alias"),
@@ -280,6 +286,9 @@ KINDS = {
     "Drop": ("target",),
 }
 
+# The functions a WindowCall may name: the ones windows.py writes.
+WINDOW_CALLS = frozenset({"rank", "dense_rank", "ntile", "lag", "lead", "first_value",
+                          "last_value"})
 # The date functions a Call may name: the ones week_start and month_start write.
 DATE_CALLS = frozenset({"date_sub", "next_day", "trunc", "unix_timestamp", "from_unixtime"})
 AGGREGATES = frozenset({"Count", "Sum", "Avg", "Min", "Max"})
@@ -309,6 +318,9 @@ class Node:
         if kind == "Call" and parts.get("name") not in DATE_CALLS:
             raise ValueError(f"trees: {parts.get('name')!r} isn't one of the date functions a "
                              "Call writes.")
+        if kind == "WindowCall" and parts.get("name") not in WINDOW_CALLS:
+            raise ValueError(f"trees: {parts.get('name')!r} isn't one of the functions a "
+                             "WindowCall writes.")
         self.kind = kind
         self.parts = {name: parts[name] for name in KINDS[kind] if name in parts}
         self.meta = {}
@@ -449,13 +461,35 @@ def is_aggregate(node: Node) -> bool:
 
 
 def has_aggregate(node: Node) -> bool:
-    """True when the tree adds rows up (COUNT, SUM, ...) outside a window, the
-    ROW_NUMBER() OVER (...) that row_number(...) writes."""
+    """True when the tree adds rows up (COUNT, SUM, ...) outside a window: a sum over a
+    window, SUM(...) OVER (...), gives each row a value of its own, and adds no rows up."""
     if node.kind == "Window":
         return False
     return is_aggregate(node) or any(has_aggregate(child) for child in node.children())
 
 
 def has_window(node: Node) -> bool:
-    """True when the tree numbers rows: the ROW_NUMBER() OVER (...) of row_number(...)."""
+    """True when the tree looks across rows through a window, as ROW_NUMBER() OVER (...)."""
     return node.kind == "Window" or any(has_window(child) for child in node.children())
+
+
+def rows_text(rows: tuple) -> str:
+    """A Window's rows=(start, end) as Hive writes it: ROWS BETWEEN 6 PRECEDING AND CURRENT ROW.
+
+    Each end is a count of rows from the row itself, negative before it and positive after
+    it, 0 the row itself, or None for no limit that way.
+    """
+    ends = []
+    for count, unbounded in zip(rows, ("UNBOUNDED PRECEDING", "UNBOUNDED FOLLOWING")):
+        if count is None:
+            ends.append(unbounded)
+        elif count == 0:
+            ends.append("CURRENT ROW")
+        else:
+            ends.append(f"{abs(count)} {'PRECEDING' if count < 0 else 'FOLLOWING'}")
+    return f"ROWS BETWEEN {ends[0]} AND {ends[1]}"
+
+
+def numbers_rows(node: Node) -> bool:
+    """True when the tree numbers rows: the ROW_NUMBER() OVER (...) of row_number(...)."""
+    return any(window.parts["this"].kind == "RowNumber" for window in node.find_all("Window"))

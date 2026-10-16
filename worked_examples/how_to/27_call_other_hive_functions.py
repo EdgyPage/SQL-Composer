@@ -317,13 +317,14 @@ Write `"yyyy-MM"`, and it gives each day's month, such as 2026-09.
 ### A function that works over a window of rows
 
 lag, lead, rank and the other window functions need OVER (...) after them, which
-`hive_function` can't write, so it refuses them, and its message gives the pandas line that
-does the same. [Finish in pandas](#finish_in_pandas) shows them.
+`hive_function` can't write, so it refuses them, and its message names the Toolbox's own
+function that writes it, such as `lag`, which takes a `window`. [Look across rows, then
+finish in pandas](#finish_in_pandas) shows them.
 
 ## Next
 
-- [Finish in pandas](#finish_in_pandas): lag, rank and a rolling sum, worked out on the rows
-  `run` gives back.
+- [Look across rows, then finish in pandas](#finish_in_pandas): lag, rank and a rolling sum,
+  each over a Window.
 - The gallery's [`hive_function`](examples.html#hive_function) entry, and
   [`fill_null`](examples.html#fill_null) for putting a value in where a column is NULL.
 - [Test your own Statements](#test_your_own_statements): check that a Statement gives the

@@ -195,6 +195,6 @@ way than the Statement does.
   Statement you've tested gets rows you can trust.
 - [Review a change with Lineage](#review_a_change_with_lineage): see what a change does to
   every Statement it reaches, then run these tests again.
-- [Finish in pandas](#finish_in_pandas): more of what pandas does with the rows `run` gives
-  back.
+- [Look across rows, then finish in pandas](#finish_in_pandas): more of what pandas does
+  with the rows `run` gives back.
 """

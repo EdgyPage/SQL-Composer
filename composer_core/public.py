@@ -17,7 +17,6 @@ from .calculations import (
     max_of,
     min_of,
     month_start,
-    row_number,
     sum_of,
     week_start,
 )
@@ -71,6 +70,17 @@ from .tables import (
     write_table_reference,
 )
 from .unchecked import hive_settings, set_admin_log, unchecked_hive
+from .windows import (
+    dense_rank,
+    first_value,
+    lag,
+    last_value,
+    lead,
+    ntile,
+    rank,
+    row_number,
+    window,
+)
 
 TOOLBOX_VERSION = "4.1"
 
@@ -130,9 +140,18 @@ __all__ = [
     "fill_null",
     "week_start",
     "month_start",
-    "row_number",
     "descending",
     "hive_function",
+    # windows.py
+    "window",
+    "row_number",
+    "rank",
+    "dense_rank",
+    "ntile",
+    "lag",
+    "lead",
+    "first_value",
+    "last_value",
     # running.py
     "to_hive",
     "show_hive",

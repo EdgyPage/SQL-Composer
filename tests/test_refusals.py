@@ -364,6 +364,20 @@ def test_guard_by_day_grouping_refuses() -> None:
         by_day(weekly)
 
 
+def test_guard_by_day_window_refuses() -> None:
+    from sqlglot_composer import lag, window
+
+    with_before = statement(
+        SELECT(job_runs.run_id, AS(lag(job_runs.duration_mins, over=window(
+            PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)), "before")),
+        FROM(job_runs),
+        WHERE(DAYS),
+    )
+    with pytest.raises(GuardRefused, match="it works out lag\\(...\\) over a Window whose "
+                       "PARTITION_BY leaves out the Date partition job_runs.dt"):
+        by_day(with_before)
+
+
 # --- The Warning --------------------------------------------------------------------------
 
 
