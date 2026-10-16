@@ -30,7 +30,7 @@ Last updated: 2026-10-15, wave 2 running.
 | 03 Session settings, Unchecked statement, Admin log | merged (641a749), drift fix c5e251c |
 | 04 The admin module | running, branch `worktree-agent-a488bd9fe0f586e60` |
 | 05 Joins | running, branch `worktree-agent-aa687d203297246a7` |
-| 06 Windows | running, branch `worktree-agent-a645f39d46eaedee7` |
+| 06 Windows | merged (e523617); open for the user: `running.kept_day` lets any write read several days when a step above keeps one with `equals(...)`, not only a window's |
 | 07 Stacking and subtotals | running, branch `worktree-agent-af1a5baa3f9895606` |
 | 08 Upkeep and speed | running, branch `worktree-agent-a0f9ffdeaa6cbfa6a` |
 | 09 Ship 5.0 | blocked on 01-08 |
