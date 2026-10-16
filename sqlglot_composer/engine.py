@@ -402,6 +402,9 @@ def run_query(text: str, tables: dict) -> tuple[list, list]:
     if tree.find(exp.GroupingSets):
         # Its executor would group by every column, leaving out the subtotal rows unsaid.
         _refuse_missing_part("GROUPING SETS, which rollup, cube and grouping_sets write")
+    # The executor would run a LEFT SEMI JOIN as a LEFT JOIN, repeating and keeping rows.
+    if any(join.kind == "SEMI" for join in tree.find_all(exp.Join)):
+        _refuse_missing_part("LEFT SEMI JOIN")
     try:
         with _mix_ups_stopped(tree):
             result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,

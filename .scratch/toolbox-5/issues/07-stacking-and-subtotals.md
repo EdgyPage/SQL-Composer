@@ -67,7 +67,7 @@ review and the beginner reader in the commit that resolves this ticket.
 - **The Example databases.** sqlglot's executor silently ignores GROUPING SETS (it gave no
   subtotal rows), so sqlglot Composer's `run_query` refuses them with "its executor has no
   GROUPING SETS"; it runs the four Stacks. Spark Composer's runs both. No table was added:
-  how-to 33 reconciles `ops.jobs` (each job's team today) with `ops.job_owners` (each day's
+  how-to 35 reconciles `ops.jobs` (each job's team today) with `ops.job_owners` (each day's
   team), which disagree on 2026-09-17 about report_build and agree on 2026-09-24.
 - **Lineage.** Each Statement of a Stack is drawn as a step of its own, "<name>, 1st
   Statement", ...; a UNION_ALL or UNION column is fed from that column of every Statement; an
@@ -76,8 +76,8 @@ review and the beginner reader in the commit that resolves this ticket.
   values come from the first Statement). Each Stack's and subtotals' Keys line says what it
   keeps or loses. A write reading a Stack draws "day written" from every Statement's bound.
 - **Docs and tests.** Docstrings with Worked examples for each name (gallery entries); how-to
-  33 "Reconcile two tables" and 34 "Subtotals and grand totals" (with pandas stand-ins for
-  sqlglot Composer; Intermediate is now 19 to 34, in `tools/how_to_page.py`,
+  35 "Reconcile two tables" and 36 "Subtotals and grand totals" (with pandas stand-ins for
+  sqlglot Composer; Intermediate is now 19 to 36, after 05 took 33 and 04 took 34, in `tools/how_to_page.py`,
   `tests/test_how_tos.py` and `tests/repo/test_export_clean.py`); CHANGES 5.0 "New" lines;
   CONTEXT words **Stack** and **Subtotal row**; `tests/test_stacking.py` (both Editions:
   Hive, refusals, Keys, writes, by_day, Example database results, Lineage), a refusal test
@@ -92,7 +92,7 @@ check to compare with the first Statement that knows a type, not only the first.
 INTERSECT/EXCEPT from the first Statement only: kept, as above, and CHANGES now says so.
 Scope beyond the list (by_day of Stacks, writes from Stacks, the sqlglot separator) follows
 from "a Stack is a Statement" and Hive's grammar: kept. Standards: "level" (a glossary word)
-removed from docstrings, how-to 34 and its stand-in; "stacking" as a noun in the writers'
+removed from docstrings, how-to 36 and its stand-in; "stacking" as a noun in the writers'
 comments reworded; Spark as the reason for the HAVING refusal reworded for a sqlglot Composer
 user; CHANGES' untrue Lineage sentence and `_add_stack`'s docstring fixed; `grouped()` now
 returns the subtotals' text instead of setting it on the Statement; stray blank lines removed.
@@ -106,7 +106,7 @@ imports it, as keys.py does).
 
 **Beginner reader:** [report](../reports/07-beginner-reader.md), 35 stops (2 stuck). Done:
 rollup's and is_total's first lines say what rows you get and what is_total tests; "adds up"
-for a column is now "totals over" everywhere (docstrings, refusals, CONTEXT, how-to 34);
+for a column is now "totals over" everywhere (docstrings, refusals, CONTEXT, how-to 36);
 GROUPING SETS's lines and `()` are named in rollup's docstring, which also says sqlglot
 Composer's Example database can't make subtotals; UNION_ALL's position-vs-name sentence split,
 "a number in one Statement and text in another", the Key and the LIMIT that
@@ -115,8 +115,8 @@ paragraph saying what they buy; EXCEPT's example says what it gives; "beside" re
 well" / "added to the groups' rows"; the Toolbox, not Hive, refuses writing subtotals;
 cube's count renamed job_count; "[] is the grand total"; the HAVING/ORDER_BY refusal's why;
 guard_by_day_stack's what and fix; the different-days and Derived-table-name whys; CONTEXT's
-Stack names its four functions; CHANGES' grammar and by_day's limit; how-to 33's counting and
-Key lines; how-to 34's sort note, rollup "drops its columns from the right", the NULL/None
+Stack names its four functions; CHANGES' grammar and by_day's limit; how-to 35's counting and
+Key lines; how-to 36's sort note, rollup "drops its columns from the right", the NULL/None
 note and the "Week and month rollups" link. Left: `job_runs` undefined in the docstrings'
 examples (the doctests' convention, as everywhere); ORDER_BY without LIMIT in a Stack's
 Statement meets its Load limit first (existing order of checks).
@@ -128,4 +128,4 @@ Statement meets its Load limit first (existing order of checks).
   were run on Spark only. The refusal of is_total in HAVING or ORDER_BY of a column SELECT
   leaves out is Spark's rule, applied to both Editions; Hive may not need it.
 - The Example database gained no table: reconciling uses `ops.jobs` against `ops.job_owners`.
-  Ticket 05 may add a table for FULL_JOIN; how-to 33 could switch to it if it suits better.
+  Ticket 05 added `ops.scheduler_runs` for FULL_JOIN; how-to 35 could switch to it if it suits better.

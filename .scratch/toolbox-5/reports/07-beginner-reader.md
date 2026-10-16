@@ -2,7 +2,7 @@
 
 Run on 2026-10-15 on the working copy after the first commit (a1ee296) and the code review's
 fixes, sqlglot Composer. The reader read the cheat-sheet lines, every new docstring, both new
-how-tos (33 and 34), each new refusal (triggered live) and the 5.0 CHANGES and CONTEXT lines.
+how-tos (then 33 and 34, now 35 and 36), each new refusal (triggered live) and the 5.0 CHANGES and CONTEXT lines.
 35 stops: 2 stuck, 12 rereads, the rest a moment. How each was handled is in the ticket's
 Answer.
 

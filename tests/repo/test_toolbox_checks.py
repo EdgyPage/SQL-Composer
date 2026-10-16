@@ -3,7 +3,8 @@
 - each Toolbox file imports only the standard library, itself and what `tools/editions.py`
   allows it: pandas and numpy, and its Edition's library in the files that need it;
 - every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md has a section for it;
-- the public names are exactly the list below, so a name is added or removed only here;
+- the public names are exactly the list below, so a name is added or removed only here, and
+  so are the admin module's, which the star import leaves out;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
 - each Edition's library pin in requirements-dev.txt (sqlglot for sqlglot Composer, pyspark for
   Spark Composer) falls inside the range its engine.py supports, and CI runs each Edition at the
@@ -35,7 +36,7 @@ TOOLBOX = toolbox_folder()
 PUBLIC_NAMES = [
     "TOOLBOX_VERSION", "VERSION",
     "Table", "write_table_reference", "first_look", "check_key", "check_table_reference",
-    "create_table", "drop_table", "all_columns",
+    "create_table", "all_columns",
     "SELECT", "SELECT_DISTINCT", "AS", "FROM", "JOIN", "LEFT_JOIN", "CROSS_JOIN", "WHERE",
     "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT", "INSERT_OVERWRITE", "INSERT_INTO", "statement",
     "derived",
@@ -49,10 +50,17 @@ PUBLIC_NAMES = [
     "export_lineage",
     # Toolbox 5.0, ticket 03: Session settings, the Unchecked statement and the Admin log.
     "hive_settings", "unchecked_hive", "set_admin_log",
+    # Toolbox 5.0, ticket 05: Joins.
+    "SEMI_JOIN", "ANTI_JOIN", "FULL_JOIN", "RIGHT_JOIN",
+    # Toolbox 5.0, ticket 06: windows.
+    "window", "rank", "dense_rank", "ntile", "lag", "lead", "first_value", "last_value",
     # Toolbox 5.0, ticket 07: Stacks and subtotals.
     "UNION_ALL", "UNION", "INTERSECT", "EXCEPT", "rollup", "cube", "grouping_sets", "is_total",
     "example_database",
 ]
+# The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
+# ticket 04: drop_table moved here from the names above.
+ADMIN_NAMES = ["drop_table", "drop_days", "add_columns", "set_properties", "move_to_own_folder"]
 
 
 # Every Toolbox folder: the Composer core, and each Edition's.
@@ -66,11 +74,17 @@ def toolbox_files() -> list[Path]:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 75
-    assert len(set(PUBLIC_NAMES)) == 75
+    assert len(PUBLIC_NAMES) == 86
+    assert len(set(PUBLIC_NAMES)) == 86
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name
+
+
+def test_the_admin_modules_names_are_the_decided_ones() -> None:
+    assert sqlglot_composer.admin.__all__ == ADMIN_NAMES
+    for name in ADMIN_NAMES:
+        assert callable(getattr(sqlglot_composer.admin, name)), name
 
 
 def test_spark_composer_has_the_same_public_names() -> None:

@@ -28,7 +28,8 @@ from .trees import Node, number
 TOOLBOX_VERSION = "4.1"
 
 # How each Stack is written in Hive.
-HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT", "EXCEPT": "EXCEPT"}
+STACK_HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT",
+             "EXCEPT": "EXCEPT"}
 
 
 def nth(position: int) -> str:

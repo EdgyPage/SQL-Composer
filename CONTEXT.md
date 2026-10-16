@@ -102,6 +102,13 @@ A Statement given a name so another Statement can read from it, with its output 
 like a Table reference's. It lives only inside the Statement that reads it, and is never stored.
 _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what it is)
 
+**Window**:
+The rows a calculation looks across for each row of a Statement: the rows of that row's group,
+in an order, and sometimes only those near it, such as the six before it. A calculation over a
+Window gives each row a value of its own and keeps every row, as a running total, a rank or the
+value of the row before does. Its groups are SQL's PARTITION BY, which has nothing to do with a
+Partition.
+_Avoid_: frame, OVER clause (OVER is how it lands in the string), analytic function
 **Stack**:
 A Statement made of other whole Statements, whose rows it puts together one Statement after
 another, their columns matched by name: every row of each (`UNION_ALL`), each different row
@@ -121,7 +128,9 @@ A real table in the warehouse that a Statement writes into, which other Statemen
 its own Table reference, like any other table. It is what Hive calls an external table: its
 files are in a folder of its own under the folder the user's Saved tables go in, which its
 Table reference names along with how it is stored; the user's own Statements are the only ones
-that write it.
+that write it. Hive's other kind, a managed table, keeps its files where the warehouse chooses:
+create_table made those before 5.0, and admin.move_to_own_folder moves one to a folder of its
+own.
 _Avoid_: materialized view, cache, temp table, output table
 
 **Unchecked statement**:
@@ -134,8 +143,10 @@ _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
 A Statement from the Toolbox's admin module that changes a Saved table's definition or deletes its
-data, such as dropping a table or its old days, adding columns or setting its properties. It runs
-like any Statement, and shows what it will change and what can't be undone before its Hive.
+data, such as dropping a table or its old days, adding columns, setting its properties or moving
+it to a folder of its own. It runs like any Statement, shows what it will change and what can't
+be undone before its Hive, and is refused for any table that isn't one of the user's Saved
+tables. The admin module is imported by name, apart from the everyday names.
 _Avoid_: one-time action, migration, maintenance
 
 **Admin log**:
@@ -164,6 +175,12 @@ _Avoid_: shard, chunk, cluster
 The one date column a table is partitioned by, which every Statement reading the table must bound
 at both ends.
 _Avoid_: dt, partition key, date column
+
+**Map join**:
+A join in which the warehouse copies a small table whole to every worker, so the big table's
+rows are matched where they are, without first being sorted and sent across the cluster. Hive
+chooses one by itself from the tables' sizes and statistics; `broadcast=True` asks for one.
+_Avoid_: replicated join, small-table join
 
 **Session setting**:
 A Hive `SET` the user sends before a Statement, which holds for the rest of the session. A named

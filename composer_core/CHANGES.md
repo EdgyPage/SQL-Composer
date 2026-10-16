@@ -13,10 +13,29 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `location=`. A table you only read needs none. A table create_table made before 5.0 is a
   managed table, in a folder the warehouse chose, and a table made by hand may share a folder
   with another: check_table_reference(t, send=...) now reports both, and 5.0's
-  admin.move_to_own_folder(t, send=...) copies such a table's days into one create_table
-  makes at its own folder. Until it is moved, writing it works as in 4.x.
+  admin.move_to_own_folder(t, send=...) copies such a table's days into a new table, which
+  create_table makes at its own folder. Until it is moved, writing it works as in 4.x.
+- **`drop_table` moved into the admin module.** `from sqlglot_composer import *` no longer
+  brings it. Add `from sqlglot_composer import admin` below your star import, and write
+  `admin.drop_table(t)` where you wrote `drop_table(t)`; a line that imports `drop_table` by
+  name now stops with an ImportError. It now refuses a table that isn't one of your Saved
+  tables, a Table reference with no `location=`.
 
 ### New
+
+- **The admin module: `from sqlglot_composer import admin`**, the changes to your own Saved
+  tables, written and checked for you. The star import leaves it out, so a notebook that
+  changes a table says so. `admin.drop_table(t)`; `admin.drop_days(t, before=...)`, which
+  drops a Saved table's days before a given day, the job TRUNCATE can't do on an external table;
+  `admin.add_columns(t, send=...)`, which adds the columns its Table reference lists and the
+  table lacks; `admin.set_properties(t)`, which sets purge, compression and properties as its
+  Table reference gives them; and `admin.move_to_own_folder(t, send=...)`, the steps that move
+  a Saved table to its own folder: a copy made there, each day copied, the rows compared, the
+  old table dropped and the copy given its name. Each makes an ordinary Statement (the move a
+  list of them), which `run` sends and logs in the Admin log, and `show_hive` prints what it
+  changes, what can't be undone and what to check first before its Hive. Each refuses a table
+  that isn't one of your Saved tables. The how-to "Move a Saved table to its own folder" walks
+  a table out of a folder it shares.
 
 - **Session settings: `hive_settings("name")` gives the `SET` lines of a named set**, for
   `run` to send before your Statements, one line at a time, as Hive takes them. Four sets come
@@ -31,11 +50,11 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `show_hive` marks it, `export_lineage` draws it as one step it can't see inside, linked to
   the tables its text names, and text that starts `DROP`, `ALTER` or `TRUNCATE` gets a note
   naming the admin function that does the same job with its checks, where one does.
-- **The Admin log.** Each `run` of an Unchecked statement adds an entry to `admin_log.md`,
-  beside the script or notebook that runs it: when, the call, the Hive sent, the script and
-  its git commit, and whether it worked. The Toolbox only ever adds to it. To keep it
-  elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and call
-  `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
+- **The Admin log.** Each `run` of an Unchecked statement or an Admin statement adds an
+  entry to `admin_log.md`, beside the script or notebook that runs it: when, the call, the
+  Hive sent, the script and its git commit, and whether it worked. The Toolbox only ever adds
+  to it. To keep it elsewhere, keep its path in a settings.py of your own as `ADMIN_LOG`, and
+  call `set_admin_log(ADMIN_LOG)` at the top of each notebook or pipeline.
 - The Example database answers a `SET` line, as Spark does, with the setting and its value.
 - **A Saved table's Table reference says how it is stored**, and create_table writes it:
   `purge=True` (dropping it deletes its files too), `properties={...}` (other table
@@ -62,6 +81,41 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Lineage shows Keys**: each column that is part of a Key is marked "in the Key" in the
   chart, and the report lists each step's Key, or where it lost one, and whether a write's Key
   holds.
+- **Three more joins.** `SEMI_JOIN(t, ON=...)` keeps each row that has a match in t, once,
+  written `LEFT SEMI JOIN`; `ANTI_JOIN(t, ON=...)` keeps each row that has none, written as a
+  `LEFT JOIN` with a `WHERE` that keeps the rows whose matched column is NULL, since Hive 3 has
+  no anti join. Neither repeats rows, so both keep the reading table's Key and give no
+  repeated-rows Warning, and only their `ON=` may read t's columns. `FULL_JOIN(t, ON=...)`
+  pairs the rows that match and keeps the rows of each side that have none, to compare two
+  records of the same things. A `WHERE` on either side, other than `is_null(...)`, is refused
+  (opt-out `keeps_only_matches=True`), since it would throw away the rows the join keeps; bound
+  each side's days in a Derived table of its own instead. Its rows have no Key until a
+  GROUP_BY gives them one. `RIGHT_JOIN` is refused,
+  saying to swap the tables and write `LEFT_JOIN`. Lineage names each join's `ON=` with what it
+  keeps. The how-to "Semi-, anti- and full joins" walks through them.
+- **`broadcast=True` on JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN** asks for a map join: the
+  joined table is copied to every worker, written as Hive's `/*+ MAPJOIN(t) */` hint. Hive
+  makes map joins by itself with the Session setting "map_joins", and follows the hint only
+  once `hive.ignore.mapjoin.hint` is set to false; Spark always follows it.
+- The Example database has a seventh table, `ops.scheduler_runs`: the scheduler's own record
+  of the runs it started on 2026-09-23 and 2026-09-24, which lacks run 99 and holds a run 100
+  that job_runs lacks, for FULL_JOIN to find. sqlglot Composer's Example database can't run a
+  `LEFT SEMI JOIN`, and says so.
+- **Windows: `window(PARTITION_BY=..., ORDER_BY=..., rows=(-6, 0))`** names the rows a
+  calculation looks across for each row. Pass it as `over=` to `sum_of`, `average_of`,
+  `count_rows`, `min_of` and `max_of` for a running total, a moving average or a group's total
+  beside each row; and to the new `rank`, `dense_rank`, `ntile`, `lag`, `lead`, `first_value`
+  and `last_value`, which always take one. `row_number(over=window(...))` numbers rows the same
+  as `row_number(PARTITION_BY=..., ORDER_BY=...)`, which still works. A Window keeps every row,
+  so a Statement's Key stays what it was. A value worked out over a Window doesn't add up
+  again: sum_of refuses it unless you pass `adds_up=True`. Lineage lists each Window's groups
+  and order under "Rows that count". The how-to once called "Finish in pandas", now "Look
+  across rows, then finish in pandas", works out lag, rank and a rolling sum this way. sqlglot
+  Composer's Example database can't run a Window; Spark Composer's can.
+- **A write may read earlier days and write one**, as a Window that looks back needs: read the
+  day and the days before it in a Derived table that keeps the day column, and keep only the
+  day written in the Statement that writes, with `WHERE(equals(the_derived_table.dt, day))`.
+  The Toolbox writes the day that Statement keeps.
 - **Stacks: `UNION_ALL`, `UNION`, `INTERSECT` and `EXCEPT` put whole Statements' rows
   together**, one Statement after another, their columns matched by name, so a column is never
   stacked under one of another name. A Statement that lacks a column, or returns it as
@@ -94,9 +148,20 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`. The how-to
   "Keys, checked before each write" shows each.
 - create_table refuses a Table reference with no `location=`.
+- **by_day refuses a Statement whose Window looks across days**: one whose `PARTITION_BY=`
+  leaves out the day, such as each job's `lag(...)`: split by day, each day's Statement would
+  stop at its own day's edge. In 4.x a `row_number(...)` there was refused as grouping across
+  days; the message now says how the Window would be cut off, and how to write one day that
+  reads the earlier days it needs.
+- `hive_function("lag", ...)`, and `"lead"`, `"rank"`, `"dense_rank"`, `"ntile"` and
+  `"row_number"`, are refused as before, and the message now names the Toolbox's own function,
+  such as `lag(column, over=window(...))`, where it gave a pandas line.
 - Table(...) refuses storage options on a table with no `location=`, a `location=` that isn't
   a whole folder or already ends with the table's own folder, two Saved tables whose folders
   are one or sit one inside the other, and any option create_table couldn't write.
+- **Each admin function refuses a table that isn't one of your Saved tables**, a Table
+  reference with no `location=`, such as a table another team fills: `admin.drop_table`, which
+  as `drop_table` took any Table reference, included.
 
 ## 4.1
 

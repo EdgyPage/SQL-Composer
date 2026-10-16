@@ -18,7 +18,7 @@ out like this:
 
     Start a notebook                    <- the title, on line 1
 
-    For: Getting started                <- Getting started (how-tos 1-18) or Intermediate (19-34)
+    For: Getting started                <- Getting started (how-tos 1-18) or Intermediate (19-36)
 
     ## Goal                             <- the six fixed headings, each once, in this order:
     ## When you'd use it                   Goal, When you'd use it, Steps, Check it worked,
@@ -134,7 +134,7 @@ class Group(NamedTuple):
 GROUPS = (
     Group("Getting started", "getting-started", range(1, 19),
           "your first notebooks: from one Statement to a daily pipeline and its Lineage"),
-    Group("Intermediate", "intermediate", range(19, 35),
+    Group("Intermediate", "intermediate", range(19, 37),
           "work over many days and many tables: daily copies, rollups, pipelines of Saved "
           "tables and their Keys, quality checks and testing"),
 )
@@ -667,7 +667,7 @@ __STYLE__</style></head><body>
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
 then what it gives: its Hive (ready to paste into another program), its result on the Example
-database, or a file it writes. The Example database is six made-up tables that ship inside the
+database, or a file it writes. The Example database is seven made-up tables that ship inside the
 Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
 2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
