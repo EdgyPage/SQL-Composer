@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16. All nine tickets merged into dev (ccc74de). Final drift review and test runs in progress; then push dev. The export (tools/export_clean.py) and pushing main are the user's.
+Last updated: 2026-10-16. DONE on dev: all nine tickets merged, no drift item open, the three full runs green (on ccc74de; later commits are docs), dev pushed. Left to the user: Spark CI failures (set aside), the export (python tools/export_clean.py) and pushing main.
 
 ## The plan (the user's brief)
 
@@ -36,7 +36,7 @@ Last checked: 2026-10-15, evening; `dev` local tip 289a8bb. `origin/dev` is at f
 | 06 Windows | `worktree-agent-a645f39d46eaedee7` | merged (e523617), drift fixes D166-D168 merged (f7f2e04, closed) |
 | 07 Stacking and subtotals | `worktree-agent-af1a5baa3f9895606` | merged (5a329a1; how-tos 35, 36; 86 names); drift D179-D180 fixed by 8406f79 |
 | 08 Upkeep and speed | `worktree-agent-a0f9ffdeaa6cbfa6a` | merged (6396219); drift fixes D181-D182 merged (fdafa76), D183 fixed (a655ac2) |
-| 09 Ship 5.0 | `worktree-agent-a4c3d9aa4d966c508` | merged (ccc74de; TOOLBOX_VERSION 5.0, D156 closed by 1f1b8ca; Parts A-C); drift review of ccc74de and the three full runs running; then push dev. Export and pushing main: the user's step |
+| 09 Ship 5.0 | `worktree-agent-a4c3d9aa4d966c508` | merged (ccc74de; TOOLBOX_VERSION 5.0, D156 closed by 1f1b8ca); final drift items D184-D186 closed by 244e087 |
 
 A fresh session can't message these agents (their ids live only in the session that started
 them). For a branch whose agent never reported: check `git -C <worktree> status`, `git log
@@ -44,8 +44,7 @@ dev..<branch>` and the ticket's Status line in the worktree; finish it with a ne
 that worktree (commit or stash what's there first), or merge it if it's resolved and its
 checks pass.
 
-Drift open: only D156 (`version`, closed by ticket 09 raising TOOLBOX_VERSION to "5.0"; the
-stop hook nags about it each turn, which is expected).
+Drift open: none.
 
 ## The user's answers to wave 2's questions (2026-10-16)
 
