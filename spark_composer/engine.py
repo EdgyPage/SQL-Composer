@@ -42,7 +42,7 @@ if __package__:
     from composer_core import _four_part_message as four_part_message
     from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 def _stop(what, why, fix):
@@ -53,8 +53,9 @@ def _stop(what, why, fix):
 _LOWEST = (3, 5, 0)
 _BELOW = (4, 3, 0)
 _NEWEST_TESTED = (4, 2, 0)
-# The Javas the Example database's Spark starts on: both supported Sparks document Java 17,
-# and Spark 4.0 documents 21 as well; the Hadoop inside Spark can't start on Java 23 or newer.
+# The Javas the Example database's Spark starts on: every supported Spark, 3.5 to 4.2, documents
+# Java 17, and Spark 4.0 and later document 21 as well; the Hadoop inside Spark can't start on
+# Java 23 or newer.
 _JAVA_NEEDED = 17
 _JAVA_NEWEST = 21
 

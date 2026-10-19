@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 # --- Session settings ------------------------------------------------------------------------

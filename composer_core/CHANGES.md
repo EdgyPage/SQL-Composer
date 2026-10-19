@@ -2,6 +2,29 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 5.1
+
+Nothing to change in your notebooks or files: copy the two folders in over 5.0's.
+
+- **`requirements.txt`, at the top of the download, lists what the Toolbox needs** beyond
+  Python's standard library: every package pinned to the version it is tested on, with the
+  packages pandas and pyspark need in turn. It has a section for both Editions and one for each
+  Edition: delete the section of the Edition you don't use, then `pip install -r
+  requirements.txt`. Its pins are for Python 3.11; the README's Install says what to do on a
+  newer Python, or where your notebook already has pandas or pyspark.
+- **Spark Composer supports pyspark up to 4.2**: 3.5.0 or newer, below 4.3, where it was below
+  4.1, and it is tested on pyspark 4.2.0.
+- **A column or table named collations, current_path or current_schema is written in
+  backticks**, in both Editions: Spark 4.2 reserves those words, and both Editions write the same
+  Hive.
+- **hive_function knows Spark 4.2's new aggregates**, such as approx_top_k, as functions that
+  turn many rows into one, so a SELECT with one beside a plain column needs GROUP_BY, as with
+  sum_of.
+- **sqlglot Composer is tested on sqlglot 30.23.0**, still within 25.24.2 or newer, below 31.
+  That sqlglot writes a few characters of a value (NUL and SUB) differently, so both Editions now
+  write a value's characters by one table of their own: your Hive is what 5.0 wrote on sqlglot
+  30.19.0, whichever sqlglot you have.
+
 ## 5.0
 
 5.0 fills in the SQL the Toolbox left out: Keys checked before each write, how your Saved tables
@@ -235,25 +258,13 @@ files. Each is listed again, with more, under New or Refused now below.
   `"row_number"`, are refused as before, and the message now names the Toolbox's own function,
   such as `lag(column, over=window(...))`, where it gave a pandas line.
 
-### The license and requirements.txt
+### The license
 
 - **The Toolbox, its Example projects and its Templates are under the MIT No Attribution
   license** (`LICENSE`, at the top of the download): use, change, share or sell them, privately
   or commercially, with no need to name where they came from, so you needn't copy `LICENSE`
   along with the folders. Before, the download had no license at all. Nothing to change in
   your notebooks or files.
-- **`requirements.txt`, at the top of the download, lists what the Toolbox needs** beyond
-  Python's standard library, every package pinned to the version it is tested on, the packages
-  pandas and pyspark need in turn included, in one section for both
-  Editions and one for each Edition: delete the section of the Edition you don't use, then
-  `pip install -r requirements.txt`.
-- **Spark Composer supports pyspark up to 4.2** (3.5.0 or newer, below 4.3; it was below 4.1),
-  and is tested on pyspark 4.2.0. A column named collations, current_path or current_schema,
-  which Spark 4.2 reserves, is now written in backticks, in both Editions; hive_function counts
-  Spark 4.2's new aggregates, such as approx_top_k, as aggregates. sqlglot Composer is tested on
-  sqlglot 30.23.0, still within 25.24.2 or newer, below 31, and writes a value's characters the
-  same way at every sqlglot in that range.
-
 ## 4.1
 
 Nothing to change in your notebooks or files: copy the two folders in over 4.0's.

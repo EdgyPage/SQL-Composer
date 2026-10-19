@@ -1,6 +1,7 @@
 # What the Toolbox needs beyond Python 3.11's standard library, every package pinned to the
 # version it is tested on, the packages those need in turn included.
 # Install with: pip install -r requirements.txt
+# The pins are for Python 3.11: pandas 2.0.3 and numpy 1.25.2 have no builds for 3.12 or newer.
 #
 # You use one Edition: keep its section and delete the other Edition's section before you
 # install. pyspark is a large download, so a sqlglot Composer user saves the most.

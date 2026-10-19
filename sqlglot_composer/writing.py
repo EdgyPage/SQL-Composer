@@ -20,7 +20,7 @@ from composer_core.trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 _DIALECT = "hive"
 
