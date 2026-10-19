@@ -4,7 +4,7 @@ A fresh session picking up the Toolbox 5.0 build reads this first, then `CLAUDE.
 map's Notes and "Decisions so far". The session that writes it updates it at each milestone
 (a merge, a wave's start or end, a user decision, a CI result).
 
-Last updated: 2026-10-16. SHIPPED: Toolbox 5.0 exported from dev f8cbaef (main 48cb4ac) and main pushed at the user's request. Open: the Spark CI failures, set aside by the user.
+Last updated: 2026-10-19. SHIPPED: 5.0 with the MIT-0 LICENSE, main 36f9d91 pushed (from dev 51fd9ac). Every agent worktree and its worktree-agent-* branch is removed (all were merged into dev); the branch names below are history only. Open: the Spark CI failures, set aside by the user.
 
 ## The plan (the user's brief)
 
