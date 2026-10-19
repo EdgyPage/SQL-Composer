@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """Each job and day with an owner but no event, as a Derived table to read.
 
 Why: a job that didn't run leaves no row to count, so finding it means looking for what is

@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """Several Building blocks in one file, one of them built from the other two.
 
 Why: blocks about the same table belong together, and a block built from other blocks takes

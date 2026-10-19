@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """Keys: which columns tell a Statement's rows apart, worked out from its clauses (ADR 0005).
 
 A Table reference declares its table's Key. A Statement's, and so a Derived table's, is worked

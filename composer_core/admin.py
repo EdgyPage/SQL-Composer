@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """The admin module: changes to your own Saved tables, written and checked for you.
 
 It isn't brought by `from sqlglot_composer import *`. Import it by name:

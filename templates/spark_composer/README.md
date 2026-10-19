@@ -1,4 +1,4 @@
-<!-- Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy -->
+<!-- Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy -->
 # Templates
 
 Each file here is the empty shape of one of your own scripts. Copy it into your project, then

@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """Every step of a run, in order, for Saved tables written by incremental loads.
 
 Why: a Statement that reads a Saved table must run after the one that writes it, and keeping
