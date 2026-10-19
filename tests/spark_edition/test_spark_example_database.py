@@ -338,9 +338,9 @@ def test_a_query_spark_refuses_shows_what_spark_said() -> None:
 @pytest.mark.parametrize(("sql", "said"), [
     # ANSI's division by zero, raised while Spark runs the query, not while it reads it.
     ("SELECT sum(duration_mins) / 0 AS x FROM ops.job_runs", "[DIVIDE_BY_ZERO]"),
-    # ANSI's overflow, whose advice names a try_ function in single quotes.
-    ("SELECT duration_mins * 2147483647 AS x FROM ops.job_runs",
-     "[ARITHMETIC_OVERFLOW] integer overflow."),
+    # ANSI's overflow, whose advice names a try_ function in single quotes. Spark words it
+    # "integer overflow." up to 4.0 and "overflow." from 4.2, so only its class is matched.
+    ("SELECT duration_mins * 2147483647 AS x FROM ops.job_runs", "[ARITHMETIC_OVERFLOW]"),
     # A Java error pyspark leaves as one, from a function Spark calls on each row.
     ("SELECT java_method('java.lang.Integer', 'parseInt', job_name) AS n FROM ops.jobs",
      "NumberFormatException"),

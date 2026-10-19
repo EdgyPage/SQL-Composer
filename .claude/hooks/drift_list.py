@@ -25,7 +25,8 @@ REQUESTS_FILE = "sql-composer-drift-requests"
 
 WATCHED_FOLDERS = ("composer_core/", "sqlglot_composer/", "spark_composer/", "worked_examples/",
                    "example_projects/", "templates/", "docs/")
-WATCHED_FILES = frozenset({"CONTEXT.md", "CLAUDE.md", "requirements-dev.txt"})
+WATCHED_FILES = frozenset({"CONTEXT.md", "CLAUDE.md", "requirements-dev.txt",
+                           "requirements.txt"})
 
 # git, its own options (such as -C <folder>, -c <name>=<value> or --git-dir <folder>, quoted
 # or not), then a subcommand that makes a commit. `git log --grep=revert` names no such

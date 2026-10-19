@@ -16,7 +16,7 @@ from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from composer_core.refusals import four_part_message
-from composer_core.trees import Node, arguments_text, plain_name
+from composer_core.trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
@@ -31,11 +31,17 @@ def _hive_with_hints():
 
     It also writes GROUPING SETS straight after GROUP BY's columns, as in GROUP BY a, b
     GROUPING SETS ((a, b), a, ()): Hive refuses a comma before it, which an older sqlglot,
-    such as 25.24.2, writes.
+    such as 25.24.2, writes. And it escapes a string value's characters by the Composer core's
+    table, trees.HIVE_ESCAPES, as Spark Composer does, whatever sqlglot version runs.
     """
     hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
     hive.generator_class = type("HiveWithHints", (hive.generator_class,),
                                 {"QUERY_HINTS": True, "GROUPINGS_SEP": ""})
+    # A string value's characters are escaped by the Composer core's table, not sqlglot's own,
+    # which changed within the supported range. The quote is left to sqlglot, which escapes it
+    # as the table does.
+    hive.ESCAPED_SEQUENCES = {character: escaped for character, escaped
+                              in HIVE_ESCAPES.items() if character != "'"}
     return hive
 
 

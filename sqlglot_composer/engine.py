@@ -24,7 +24,7 @@ def _stop(what, why, fix):
 
 _LOWEST = (25, 24, 2)
 _BELOW = (31, 0, 0)
-_NEWEST_TESTED = (30, 19, 0)
+_NEWEST_TESTED = (30, 23, 0)
 # The executor counts COUNT(DISTINCT ...) right only from 30.19.0.
 _EXECUTOR_NEEDS = (30, 19, 0)
 

@@ -31,7 +31,7 @@ _Avoid_: release, build, hash
 
 **Clean branch**:
 The branch holding only the Toolbox's Composer core, its Editions, each Edition's copy of the
-Example projects and the Templates, and their README and license, generated from the Dev branch and never
+Example projects and the Templates, and their README, license and requirements.txt, generated from the Dev branch and never
 edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 

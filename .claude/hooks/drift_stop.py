@@ -38,8 +38,8 @@ def what_blocks(my_commits: list[str], drift_text: str) -> str | None:
     reasons = []
     if unreviewed:
         reasons.append(
-            f"Commits {', '.join(unreviewed)} still need a drift review: start a subagent on "
-            f"{REVIEWER_BRIEF.as_posix()} for each."
+            f"Commits {', '.join(unreviewed)} still need a drift review: start a subagent (model "
+            f"\"opus\") on {REVIEWER_BRIEF.as_posix()} for each."
         )
     if still_open:
         reasons.append(

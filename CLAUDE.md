@@ -2,7 +2,7 @@
 
 This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
 branch**: the Toolbox, each Edition's copy of the Example projects and the Templates, its
-README and its license (`LICENSE`, MIT No Attribution, as dev holds it), generated from this branch by `python tools/export_clean.py` and never edited or committed to by hand. Each export commits to
+README, its license (`LICENSE`, MIT No Attribution) and `requirements.txt`, each as dev holds it, generated from this branch by `python tools/export_clean.py` and never edited or committed to by hand. Each export commits to
 `main` locally, replacing whatever it held (before the first export, the v1 draft), and never
 pushes; pushing `main` is the user's step. A hook refuses commits and file edits while `main`
 is checked out.
@@ -23,7 +23,9 @@ charted through `.scratch/toolbox-5/map.md`.
 `python -m pytest`, which tests sqlglot Composer and the repo's own checks, and
 `python -m pytest --edition spark`, which tests Spark Composer. Spark Composer's Example database
 needs Java 17: without it, its tests skip and say so. Set up with
-`pip install -r requirements-dev.txt`.
+`pip install -r requirements-dev.txt`, which pins what dev tests on. `requirements.txt` is what a
+user installs: the same pins, a section for each Edition, which a test holds to
+`requirements-dev.txt` and to the libraries `tools/editions.py` lets the Toolbox import.
 
 CI runs four jobs on Python 3.11: each Edition at the bottom of its library's range and at its
 pin, which `.github/workflows/dev.yml` names. Spark Composer's jobs run on Java 17, with sqlglot
@@ -53,7 +55,8 @@ core holds and which each Edition writes itself.
 ## Drift
 
 After a commit that touches the Composer core or either Edition of the Toolbox,
-`worked_examples/`, `docs/`, `CONTEXT.md`, `CLAUDE.md` or `requirements-dev.txt`, the drift
+`worked_examples/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
+`requirements-dev.txt`, the drift
 reviewer looks for anything the commit made untrue and adds one open item per finding to
 `.scratch/drift.md`. It edits nothing else.
 
@@ -98,9 +101,16 @@ A `task` ticket that changes code is done when:
 ## Maintainer agents
 
 - **Code reviewer:** the `code-review` skill, pointed at the ticket and
-  `docs/agents/standards.md`.
-- **Beginner reader:** `.claude/agents/beginner-reader.md`. It only advises; the user decides
-  what changes.
+  `docs/agents/standards.md`. Spawn its two sub-agents as this repo's agents, on Sonnet for
+  speed: the Standards axis as `review-standards` and the Spec axis as `review-spec`
+  (`.claude/agents/`, `model: sonnet`).
+- **Beginner reader:** `.claude/agents/beginner-reader.md`, on the newest Opus. It only advises;
+  the user decides what changes.
+- **Drift reviewer:** `.claude/hooks/drift-reviewer.md`, run as a subagent on the newest Opus
+  (model `opus`), as the drift hook's message says.
+
+Each names its model by alias (`sonnet`, `opus`), which always means the newest of that class.
+The skills come from `mattpocock/skills`; update them with `npx skills update -g -y`.
 
 Tests are written with the `tdd` skill, and the glossary is kept with `domain-modeling`.
 
@@ -116,4 +126,5 @@ A `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single context: `CONTEXT.md` (the glossary) and `docs/adr/` at the repo root.
+Single context: `CONTEXT.md` (the glossary) and `docs/adr/` at the repo root. The skills call
+the glossary GLOSSARY.md: in this repo, read and write `CONTEXT.md` wherever they say so.

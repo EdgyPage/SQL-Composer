@@ -43,8 +43,9 @@ def review_request(commit: str, watched: list[str]) -> str:
     touched = plain_paths(watched)
     return (
         f"Commit {commit[:7]} touches {touched}, so it needs a drift review. Start a subagent "
-        f"now, before other work, with this prompt: \"Read {REVIEWER_BRIEF.as_posix()} and "
-        f"follow it for commit {commit[:7]}.\" Then fix any item it opens as your next commits."
+        f"on the newest Opus (model \"opus\") now, before other work, with this prompt: "
+        f"\"Read {REVIEWER_BRIEF.as_posix()} and follow it for commit {commit[:7]}.\" Then fix "
+        f"any item it opens as your next commits."
     )
 
 
