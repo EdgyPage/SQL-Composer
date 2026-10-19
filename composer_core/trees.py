@@ -69,8 +69,8 @@ HIVE_RESERVED = frozenset(
 
 # The functions hive_function may be given by name that turn many rows into one, as SUM and
 # COUNT do: every one Spark's own list of functions puts among its aggregates at 3.5.0, 4.0.4
-# and 4.2.0 (the last five lines, the sketches, top-k and measure 4.2 added), and Hive's, most
-# of which are among them.
+# and 4.2.0 (the last five lines, those added after 4.0.4), and Hive's, most of which are
+# among them.
 HIVE_AGGREGATES = frozenset(
     """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
     bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set context_ngrams
