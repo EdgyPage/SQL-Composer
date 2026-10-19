@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Spark Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """How Spark Composer writes a Statement as Hive text, using only Python's standard library.
 
 The other files build a Statement's parts as the Toolbox's own tree: nested Nodes (trees.py),
@@ -29,31 +29,18 @@ import contextvars
 import re
 from typing import NoReturn
 
-from composer_core.trees import HIVE_TYPES, Node, plain_name, rows_text
+from composer_core.trees import HIVE_ESCAPES, HIVE_TYPES, Node, plain_name, rows_text
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # The width past which a list of pieces, or a call's arguments, go one to a line.
 WIDTH = 80
 # How far each level is indented.
 PAD = 2
 
-# How a character of a string value is written between single quotes. Each is escaped on its
-# own, so an escape's backslash is never escaped again. BEL, FF and VT are written \a, \f and
-# \v, as sqlglot Composer writes them, which Hive and Spark read back as the letters a, f and v: the
-# Toolbox refuses a value that holds one before it gets here, and _quoted would stop it if one
-# did.
-_ESCAPES = {
-    "\\": "\\\\",
-    "'": "\\'",
-    "\n": "\\n",
-    "\t": "\\t",
-    "\r": "\\r",
-    "\x07": "\\a",
-    "\x0c": "\\f",
-    "\x0b": "\\v",
-    "\x08": "\\b",
-}
+# How a character of a string value is written between single quotes: the Composer core's
+# table (trees.HIVE_ESCAPES), which sqlglot Composer writes with too.
+_ESCAPES = HIVE_ESCAPES
 
 _OPERATORS = {
     "EQ": "=", "NEQ": "<>", "GT": ">", "GTE": ">=", "LT": "<", "LTE": "<=", "Like": "LIKE",

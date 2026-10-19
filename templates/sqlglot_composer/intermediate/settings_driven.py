@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
+# sqlglot Composer 5.1, exported 2026-10-19 16:34 - copy it, then edit your copy
 """Statements from settings: the same ones for each table, its differences as text.
 
 Why: when the same Statements repeat over many tables, writing each table's few differences

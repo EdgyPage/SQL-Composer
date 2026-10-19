@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
+# Spark Composer 5.1, exported 2026-10-19 16:34 - copy it, then edit your copy
 """A Saved table's steps: create, preview a day, write a day, backfill past days.
 
 Why: numbers counted once a day and saved can be read by anyone, quickly, without counting

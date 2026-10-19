@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
+# Spark Composer 5.1, exported 2026-10-19 16:34 - copy it, then edit your copy
 """ops.region_costs - one row per job, region and day: its cost there, in cents.
 
 Why: the project's Statements read the table through this file, so each column they name, and

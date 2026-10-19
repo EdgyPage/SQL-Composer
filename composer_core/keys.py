@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """Keys: which columns tell a Statement's rows apart, worked out from its clauses (ADR 0005).
 
 A Table reference declares its table's Key. A Statement's, and so a Derived table's, is worked
@@ -40,7 +40,7 @@ from .edition import hive_text
 from .joins import ONLY_TESTS
 from .trees import has_aggregate, has_window
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 class Found(NamedTuple):

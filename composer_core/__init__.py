@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """The code both Editions of the Toolbox share. Never import it yourself.
 
 Import your Edition's folder instead, sqlglot_composer or spark_composer, which loads this
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # The export script writes this folder's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.

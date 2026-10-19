@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """Conditions: the tests that go in WHERE, HAVING and JOIN's ON=.
 
 Each condition is a named function, never a Python operator: `equals(job_runs.status,
@@ -26,7 +26,7 @@ from .tables import (
 from .trees import Node, combined, has_aggregate
 from .edition import hive_text
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 def today() -> datetime.date:

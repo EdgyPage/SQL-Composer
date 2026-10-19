@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """Stacks and subtotals: UNION_ALL and the rest, rollup, cube, grouping_sets and is_total.
 
 A Stack puts the rows of whole Statements together, one Statement after another:
@@ -26,7 +26,7 @@ from .refusals import refuse
 from .tables import Column, Table, made_by, python_text, readable, type_family
 from .trees import Node, number
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # How each Stack is written in Hive.
 STACK_HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT",

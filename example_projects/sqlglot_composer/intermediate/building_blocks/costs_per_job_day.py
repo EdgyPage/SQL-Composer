@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
+# sqlglot Composer 5.1, exported 2026-10-19 16:34 - copy it, then edit your copy
 """Each job's cost per day in cents, all regions added up, as a Derived table.
 
 Why: example 1 saves these numbers and the quality checks compare them with what it saved, and
