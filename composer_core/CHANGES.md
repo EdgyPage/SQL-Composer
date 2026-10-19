@@ -235,6 +235,12 @@ files. Each is listed again, with more, under New or Refused now below.
   `"row_number"`, are refused as before, and the message now names the Toolbox's own function,
   such as `lag(column, over=window(...))`, where it gave a pandas line.
 
+### The license
+
+- **The Toolbox is under the MIT No Attribution license** (`LICENSE`, beside the README): use,
+  change, share or sell it, privately or commercially, with no need to name where it came
+  from. Before, the download had no license at all.
+
 ## 4.1
 
 Nothing to change in your notebooks or files: copy the two folders in over 4.0's.

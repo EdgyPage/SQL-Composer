@@ -22,7 +22,8 @@ core, `composer_core/`, and each Edition `tools/editions.py` names in EXPORTED:
   places the two Editions' Hive differs, from `DECLARED_DIFFERENCES` in `tools/editions.py`,
   the list of how-tos, from `worked_examples/how_to/`, the list of Templates, as
   `templates/README.md`'s tables give them, and a cheat sheet: one line per public name, grouped by file,
-  from each docstring's first line.
+  from each docstring's first line;
+- it copies `LICENSE`, the MIT No Attribution license, as dev holds it, with no stamp.
 
 It then checks what it built:
 
@@ -42,8 +43,8 @@ It then checks what it built:
   reach the network;
 - the folders have one version, and both Editions describe the same public names the same way;
 - the tree holds nothing outside its allowlist: the Composer core's folder and each Edition's,
-  flat, each Edition's copies of the Example projects and the Templates, and
-  `.github/README.md`.
+  flat, each Edition's copies of the Example projects and the Templates, `.github/README.md`
+  and `LICENSE`.
 
 Only then does it commit the tree to `main`, as one new commit on top of the old `main`. It
 never checks `main` out and never pushes: pushing `main` is your step.
@@ -79,6 +80,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DRIFT_LIST = ".scratch/drift.md"
 README = ".github/README.md"
 README_TEMPLATE = "docs/clean-branch-readme.md"
+# The license, MIT No Attribution: main holds dev's copy unchanged, unstamped, at its root.
+LICENSE = "LICENSE"
 VERSION_MARKER = "<!-- VERSION -->"
 DIFFERENCES_MARKER = "<!-- DIFFERENCES -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
@@ -349,13 +352,13 @@ def files_in(folder: Path) -> list[str]:
 def outside_allowlist(paths: list[str]) -> list[str]:
     """The paths `main` may not hold: it holds the Composer core's and each exported Edition's
     flat folder, each exported Edition's copy of the Example projects and the Templates, in a
-    folder named for it, and the README."""
+    folder named for it, the README and the license."""
     folders = set(exported_folders())
     shipped = {edition.folder for edition in editions.EXPORTED}
 
     def allowed(path: str) -> bool:
         parts = path.split("/")
-        return (path == README
+        return (path in (README, LICENSE)
                 or (len(parts) == 2 and parts[0] in folders)
                 or (len(parts) > 2 and parts[0] in COPIED and parts[1] in shipped))
 
@@ -599,6 +602,9 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
             f"The export ships each Edition's copy of {' and '.join(COPIED)}, and the README "
             f"lists the how-tos, but this commit doesn't have {', '.join(missing)}. Commit it "
             "on dev.")
+    if not (source / LICENSE).is_file():
+        raise ExportRefused(f"main ships dev's {LICENSE}, but this commit doesn't have one. "
+                            "Commit it on dev.")
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
     check_readme(template)
     version = toolbox_version_of(source, editions.CORE)
@@ -621,6 +627,9 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
                     stamp_text(products, version, when), source),
         encoding="utf-8", newline="\n")
     check_offline(into, [README])
+    (into / LICENSE).write_text((source / LICENSE).read_text(encoding="utf-8"),
+                                encoding="utf-8", newline="\n")
+    check_offline(into, [LICENSE])
     outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
@@ -672,7 +681,7 @@ def tree_of(repo: Path, into: Path, index: Path) -> str:
 
 def committed_files(repo: Path, commit: str, into: Path) -> Path:
     """Write what `commit` holds of the Toolbox's folders, the Example projects, the Templates,
-    the how-tos and the README template into `into`.
+    the how-tos, the README template and the license into `into`.
 
     The build reads these rather than the checkout, so a file git ignores (a stray log, say)
     can never reach `main`. A folder the commit lacks is left out, for the build to refuse.
@@ -680,6 +689,8 @@ def committed_files(repo: Path, commit: str, into: Path) -> Path:
     held = git(repo, "ls-tree", "--name-only", commit).splitlines()
     paths = [folder for folder in [*exported_folders(), *COPIED] if folder in held]
     paths.append(README_TEMPLATE)
+    if LICENSE in held:
+        paths.append(LICENSE)
     if HOW_TOS.split("/")[0] in held:
         paths.append(HOW_TOS)
     archive = subprocess.run(
