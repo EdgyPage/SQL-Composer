@@ -57,15 +57,15 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
         why="sqlglot Composer relies on this behaviour to write Hive safely, so a Statement could "
         "come out wrong.",
         fix="Install again the sqlglot version that sqlglot Composer is tested on, from a notebook cell with "
-        '%pip install --force-reinstall "sqlglot==30.19.0", then restart the kernel. '
+        '%pip install --force-reinstall "sqlglot==30.23.0", then restart the kernel. '
         "If you can't install packages, "
         "ask whoever looks after your environment.",
     )
 
 
 def test_a_newer_sqlglot_in_range_prints_a_note(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(sqlglot, "__version__", "30.20.1")
+    monkeypatch.setattr(sqlglot, "__version__", "30.24.1")
     sqlglot_composer.engine.check_installed()
     assert capsys.readouterr().out == (
-        "Note: sqlglot 30.20.1 is newer than any version sqlglot Composer was tested on "
-        "(30.19.0). Its behaviour checks passed.\n")
+        "Note: sqlglot 30.24.1 is newer than any version sqlglot Composer was tested on "
+        "(30.23.0). Its behaviour checks passed.\n")

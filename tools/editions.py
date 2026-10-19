@@ -91,7 +91,7 @@ PAGES = ("examples.html", "how_to.html")
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
 # The sqlglot whose layout Spark Composer's writing.py copies, which
 # tests/repo/test_edition_parity.py holds equal to the sqlglot pin in requirements-dev.txt.
-LAYOUT_MIRRORS_SQLGLOT = "30.19.0"
+LAYOUT_MIRRORS_SQLGLOT = "30.23.0"
 
 
 @dataclass(frozen=True)

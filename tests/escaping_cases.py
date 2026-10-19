@@ -3,7 +3,8 @@
 A value in a Statement is safe only because sqlglot escapes a string-literal node when it
 generates Hive, and that is behaviour sqlglot does not document. These cases are every value
 shape that has broken an escaper somewhere, with the exact Hive sqlglot writes for it. They
-hold, byte for byte, across the supported range 25.24.2 to 30.19.0 (see the research behind
+hold, byte for byte, across the supported range 25.24.2 to 30.23.0, with the Composer core's own
+escape table, trees.HIVE_ESCAPES (see the research behind
 "Which sqlglot APIs can the Toolbox use at work?").
 
 `sqlglot_edition/test_sqlglot_escaping_cases.py` checks them against sqlglot alone. The

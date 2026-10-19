@@ -35,13 +35,16 @@ Each Edition needs Python 3.11 or newer, with pandas and numpy, and:
   Example database runs queries on sqlglot 30.19.0 or newer, and so does a struct column in
   create_table, so install that:
   `%pip install "sqlglot>=30.19.0,<31"`.
-- Spark Composer: pyspark 3.5.0 or newer, below 4.1: `%pip install "pyspark>=3.5.0,<4.1"`. Its
+- Spark Composer: pyspark 3.5.0 or newer, below 4.3: `%pip install "pyspark>=3.5.0,<4.3"`. Its
   Example database starts a Spark of its own, in a second Python in the background, so your
   `spark` is never touched. That Spark needs Java 17 to 21: set JAVA_HOME to it, or have `java`
   on the PATH.
 
 1. Download this branch as a zip and extract it.
-2. Copy the whole `composer_core` folder, and the whole `sqlglot_composer` folder or the whole
+2. Install what the Toolbox needs: in `requirements.txt`, at the top of the download, delete the
+   section for the Edition you don't use (each section's heading says which), then run
+   `pip install -r requirements.txt`, or `%pip install -r requirements.txt` from a notebook.
+3. Copy the whole `composer_core` folder, and the whole `sqlglot_composer` folder or the whole
    `spark_composer` folder, side by side into the folder that holds your notebooks and scripts.
 
 The download's two other folders, `example_projects` and `templates`, are for reading and

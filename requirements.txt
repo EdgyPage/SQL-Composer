@@ -1,0 +1,24 @@
+# What the Toolbox needs beyond Python 3.11's standard library, every package pinned to the
+# version it is tested on, the packages those need in turn included.
+# Install with: pip install -r requirements.txt
+#
+# You use one Edition: keep its section and delete the other Edition's section before you
+# install. pyspark is a large download, so a sqlglot Composer user saves the most.
+
+# ---- Both Editions: keep these ----
+pandas==2.0.3
+numpy==1.25.2
+# what pandas needs in turn
+python-dateutil==2.9.0.post0
+pytz==2026.5
+tzdata==2026.5
+six==1.17.0
+
+# ---- sqlglot Composer only: delete this section if you use Spark Composer ----
+sqlglot==30.23.0
+
+# ---- Spark Composer only: delete this section if you use sqlglot Composer ----
+# Its Example database also needs Java 17 to 21, which pip can't install.
+pyspark==4.2.0
+# what pyspark needs in turn
+py4j==0.10.9.9

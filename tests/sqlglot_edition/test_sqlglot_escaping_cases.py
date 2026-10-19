@@ -1,9 +1,12 @@
-"""The escaping matrix checked against sqlglot alone: the tripwire for a sqlglot upgrade.
+"""The escaping matrix checked against sqlglot: the tripwire for a sqlglot upgrade.
 
-Nothing here imports the Toolbox. These tests say what sqlglot does with each case in
-`escaping_cases.py`, so a sqlglot version that changes it fails here first. CI runs them at
-both ends of the supported range. A failure means sqlglot changed how it escapes: check the
-new output against Hive's own lexer rules before re-recording a case.
+Nothing here imports an Edition. These tests say what sqlglot's Hive writes for each case in
+`escaping_cases.py` when it escapes a string by the Composer core's table
+(`trees.HIVE_ESCAPES`), as sqlglot Composer has it do, so a sqlglot version that changes how it
+applies that table, quotes, or reads back fails here first. CI runs them at both ends of the
+supported range. A failure means sqlglot changed how it escapes: check the new output against
+Hive's own lexer rules before re-recording a case. (sqlglot's own table changed within the
+range, 30.23.0 writing NUL and SUB as \\0 and \\Z, which is why the Toolbox brings its own.)
 
 The round trips parse with sqlglot's own Hive parser. That proves sqlglot's writer and reader
 agree, not that Hive agrees with either; nothing on `dev` can ask Hive.
@@ -17,17 +20,29 @@ import pytest
 import sqlglot
 from sqlglot import exp
 
+from composer_core.trees import HIVE_ESCAPES
 from escaping_cases import (
     CONTROL_CHARACTER_LABELS,
     IDENTIFIER_CASES,
     INJECTION,
     INJECTION_PAYLOADS,
     QUOTE,
+    REFUSED_CONTROL_CHARACTERS,
     STRING_CASES,
     has_bare_quote,
 )
 
-HIVE = "hive"
+
+def _hive_with_the_cores_escapes():
+    """sqlglot's Hive escaping a string's characters by the Composer core's table, as sqlglot
+    Composer's writer has it do; the quote is left to sqlglot."""
+    hive = type(sqlglot.Dialect.get_or_raise("hive"))()
+    hive.ESCAPED_SEQUENCES = {character: escaped for character, escaped
+                              in HIVE_ESCAPES.items() if character != QUOTE}
+    return hive
+
+
+HIVE = _hive_with_the_cores_escapes()
 
 STRING_IDS = [label for label, _value, _expected in STRING_CASES]
 IDENTIFIER_IDS = [label for label, _name, _expected in IDENTIFIER_CASES]
@@ -86,7 +101,21 @@ def test_a_control_character_never_reaches_the_sql_text(value: str) -> None:
     assert not {"\n", "\r", "\t"} & set(written)
 
 
-@pytest.mark.parametrize(("_label", "value", "expected"), STRING_CASES, ids=STRING_IDS)
+READ_BACK_CASES = [
+    pytest.param(
+        *case,
+        id=case[0],
+        marks=pytest.mark.skipif(
+            case[0] in REFUSED_CONTROL_CHARACTERS,
+            reason="the Toolbox refuses this value: Hive reads its escape as a letter, and so "
+            "does a newer sqlglot, such as 30.23.0",
+        ),
+    )
+    for case in STRING_CASES
+]
+
+
+@pytest.mark.parametrize(("_label", "value", "expected"), READ_BACK_CASES)
 def test_a_written_literal_reads_back_as_the_same_value(
     _label: str, value: str, expected: str
 ) -> None:

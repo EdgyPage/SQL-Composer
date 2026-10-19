@@ -6,6 +6,8 @@
 - the public names are exactly the list below, so a name is added or removed only here, and
   so are the admin module's, which the star import leaves out;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
+- requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
+  each under its own Edition's heading, pinned to the version requirements-dev.txt pins;
 - each Edition's library pin in requirements-dev.txt (sqlglot for sqlglot Composer, pyspark for
   Spark Composer) falls inside the range its engine.py supports, and CI runs each Edition at the
   bottom of that range and at the pin; Spark Composer's jobs run on Java 17, without sqlglot,
@@ -178,6 +180,95 @@ def test_each_library_pin_is_inside_the_range_its_edition_supports(edition) -> N
     engine, pin = _engine(edition), _pin(edition)
     assert engine._LOWEST <= pin < engine._BELOW
     assert pin == engine._NEWEST_TESTED
+
+
+def _requirements() -> dict[str, str]:
+    """requirements.txt, what a user installs: each package with its exact pin, such as
+    {"sqlglot": "30.23.0"}. A line that isn't an exact pin is refused here."""
+    found = {}
+    for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines():
+        line = line.split("#")[0].strip()
+        if line:
+            pinned = re.fullmatch(r"([A-Za-z0-9_.-]+)==([\w.]+)", line)
+            assert pinned, f"requirements.txt gives {line!r}, not an exact pin such as name==1.2.3"
+            found[pinned.group(1)] = pinned.group(2)
+    return found
+
+
+def _dev_pins() -> dict[str, str]:
+    """requirements-dev.txt's exact pins, the versions dev and CI test on."""
+    text = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
+    return dict(re.findall(r"^([A-Za-z0-9_.-]+)==([\w.]+)$", text, re.MULTILINE))
+
+
+def _the_libraries() -> set[str]:
+    """What tools/editions.py lets the Toolbox import: pandas, numpy and each Edition's library."""
+    return set(editions.SHARED_IMPORTS) | {e.library for e in editions.EDITIONS.values()}
+
+
+def _normal(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _needs(package: str) -> set[str] | None:
+    """The packages an installed `package` needs in turn, its extras left out, or None where
+    this Python hasn't installed it (as sqlglot in CI's Spark Composer jobs)."""
+    import importlib.metadata
+    try:
+        requires = importlib.metadata.distribution(package).requires or []
+    except importlib.metadata.PackageNotFoundError:
+        return None
+    return {_normal(re.match(r"[A-Za-z0-9_.-]+", line).group())
+            for line in requires if "extra ==" not in line}
+
+
+def test_requirements_names_every_library_the_toolbox_may_import() -> None:
+    # A new library the Toolbox imports must be allowed in tools/editions.py, and so here too.
+    assert _the_libraries() <= set(_requirements())
+
+
+def test_requirements_lists_what_each_listed_package_needs_in_turn() -> None:
+    # So pip installs nothing requirements.txt doesn't pin, and it lists nothing nobody needs.
+    listed = {_normal(name) for name in _requirements()}
+    needed = set()
+    for name in listed:
+        needs = _needs(name)
+        if needs is not None:
+            assert needs <= listed, f"{name} needs {sorted(needs - listed)}, not in requirements.txt"
+            needed |= needs
+    if all(_needs(name) is not None for name in listed):
+        assert listed == {_normal(name) for name in _the_libraries()} | needed
+
+
+def test_requirements_pins_the_versions_dev_tests_on() -> None:
+    # So a user installs exactly what both runs and CI's pinned jobs passed on.
+    dev = _dev_pins()
+    assert _requirements() == {name: dev[name] for name in _requirements()}
+
+
+def _section_of(package: str) -> str:
+    """The `# ---- ... ----` heading requirements.txt lists `package` under."""
+    heading = ""
+    for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines():
+        if line.startswith("# ----"):
+            heading = line
+        elif re.match(rf"{re.escape(package)}\b", line):
+            return heading
+    raise AssertionError(f"requirements.txt doesn't list {package}")
+
+
+@EACH_EDITION
+def test_requirements_lists_each_library_under_its_own_editions_heading(edition) -> None:
+    # So a user deletes the other Edition's section by hand, knowing which it is.
+    others = [e.product for e in editions.EDITIONS.values() if e is not edition]
+    heading = _section_of(edition.library)
+    assert f"{edition.product} only" in heading
+    assert all(f"if you use {other}" in heading for other in others)
+
+
+@pytest.mark.parametrize("package", sorted(editions.SHARED_IMPORTS))
+def test_requirements_lists_pandas_and_numpy_under_both_editions(package) -> None:
+    assert "Both Editions" in _section_of(package)
 
 
 @EACH_EDITION

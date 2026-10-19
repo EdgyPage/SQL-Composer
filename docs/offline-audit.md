@@ -11,7 +11,9 @@ Read: the Composer core, both Editions, `tools/`, `tests/`, `.claude/hooks/`, th
 the Worked examples, Example projects and Templates, every page, and the installed libraries:
 sqlglot 30.19.0, pandas 2.0.3, numpy 1.25.2, pyspark 4.0.4 and py4j 0.10.9.9, the pins in
 `requirements-dev.txt`. The bottoms of the Editions' ranges, which CI also runs (sqlglot 25.24.2
-and pyspark 3.5.0), weren't read; the tests run them under the same trap.
+and pyspark 3.5.0), weren't read; the tests run them under the same trap. The pins have since
+moved to sqlglot 30.23.0 and pyspark 4.2.0 (2026-10-19, py4j still 0.10.9.9), which this audit
+didn't read either; the tests run them under the same trap too.
 
 ## The verdict
 
