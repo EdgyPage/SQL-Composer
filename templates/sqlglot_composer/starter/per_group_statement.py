@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
+# sqlglot Composer 5.1, exported 2026-10-19 16:34 - copy it, then edit your copy
 """A Statement counting and adding up per group, keeping groups that pass a test.
 
 Why: GROUP_BY makes one row per group, and HAVING then keeps the groups whose counts pass a

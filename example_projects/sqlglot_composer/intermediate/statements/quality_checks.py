@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
+# sqlglot Composer 5.1, exported 2026-10-19 16:34 - copy it, then edit your copy
 """Quality checks: the same Statements for each table, written from settings.py.
 
 Why: the same few checks catch most bad days in any table, so they are written once here and

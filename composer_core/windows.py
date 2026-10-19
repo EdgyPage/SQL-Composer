@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """Windows: a calculation over the rows around each row, such as a running total or a rank.
 
 window(...) names the rows each row's value is worked out over: the rows that share its
@@ -16,7 +16,7 @@ from .refusals import refuse
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # What a function needs of its window: ORDER_BY, and whether it takes rows=.
 TOTAL = "a total"  # sum_of, average_of, count_rows, min_of, max_of: rows= with ORDER_BY

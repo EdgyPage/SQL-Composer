@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """Joins: how each join clause is written in Hive, and the checks statement(...) runs on
 SEMI_JOIN, ANTI_JOIN and FULL_JOIN.
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 from .refusals import guard_full_join_then_where, refuse
 from .trees import Node
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # How each join clause is written in Hive.
 HOW = {

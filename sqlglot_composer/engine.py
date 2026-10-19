@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# sqlglot Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """What sqlglot Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
@@ -15,7 +15,7 @@ import re
 from composer_core import _four_part_message as four_part_message
 from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 def _stop(what, why, fix):
@@ -25,7 +25,7 @@ def _stop(what, why, fix):
 
 _LOWEST = (25, 24, 2)
 _BELOW = (31, 0, 0)
-_NEWEST_TESTED = (30, 19, 0)
+_NEWEST_TESTED = (30, 23, 0)
 # The executor counts COUNT(DISTINCT ...) right only from 30.19.0.
 _EXECUTOR_NEEDS = (30, 19, 0)
 

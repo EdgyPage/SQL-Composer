@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """The Edition this Python runs: its own two files, which write the Hive and run it.
 
 Each Edition writes its Hive in its own writing.py and runs the Example database in its own
@@ -12,7 +12,7 @@ import os
 
 from . import _stop
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # Set by plug(...), when the Edition is imported.
 FOLDER = None

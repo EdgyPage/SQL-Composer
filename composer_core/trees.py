@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Composer core 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
@@ -22,13 +22,33 @@ from __future__ import annotations
 import re
 from collections import deque
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
+# How each Edition writes a character of a string value between single quotes, escaped on its
+# own so an escape's backslash is never escaped again; every other character is written as it
+# is. It is the Toolbox's own table, so both Editions write the same Hive whatever version of
+# its library sqlglot Composer runs on, whose own table changed within the supported range
+# (30.23.0 writes NUL as \0 and SUB as \Z, which Hive also reads; 30.19.0 wrote both as they
+# are): sqlglot Composer's writing.py hands this one to it. BEL, FF and VT are
+# written \a, \f and \v, which Hive reads back as the letters a, f and v, so the Toolbox refuses
+# a value holding one (refusals.CONTROL_CHARACTERS) before it is written.
+HIVE_ESCAPES = {
+    "\\": "\\\\",
+    "'": "\\'",
+    "\n": "\\n",
+    "\t": "\\t",
+    "\r": "\\r",
+    "\x07": "\\a",
+    "\x0c": "\\f",
+    "\x0b": "\\v",
+    "\x08": "\\b",
+}
+
 # Hive's and Spark's reserved words: a name that is one of these must be written in backticks.
-# The last three lines are the words Spark reserves in any of its keyword modes, or won't take
-# as the name FROM gives a table, and Hive doesn't reserve.
+# The last four lines are the words Spark reserves in any of its keyword modes, or won't take
+# as the name FROM gives a table, and Hive doesn't reserve; the very last, those 4.2 added.
 HIVE_RESERVED = frozenset(
     """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
     CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
@@ -44,12 +64,14 @@ HIVE_RESERVED = frozenset(
     WITH
     ANTI ANY CALL CHECK COLLATE COLLATION CURRENT_TIME CURRENT_USER ESCAPE EXCEPT EXECUTE
     FILTER LEADING MINUS NATURAL OFFSET OVERLAPS PERCENTILE_CONT PERCENTILE_DISC RECURSIVE SEMI
-    SESSION_USER SOME SQL TRAILING UNIQUE UNKNOWN WITHIN""".split()
+    SESSION_USER SOME SQL TRAILING UNIQUE UNKNOWN WITHIN
+    COLLATIONS CURRENT_PATH CURRENT_SCHEMA""".split()
 )
 
 # The functions hive_function may be given by name that turn many rows into one, as SUM and
-# COUNT do: every one Spark's own list of functions puts among its aggregates at 3.5.0 and 4.0.4,
-# and Hive's, most of which are among them.
+# COUNT do: every one Spark's own list of functions puts among its aggregates at 3.5.0, 4.0.4
+# and 4.2.0 (the last five lines, those added after 4.0.4), and Hive's, most of which are
+# among them.
 HIVE_AGGREGATES = frozenset(
     """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
     bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set context_ngrams
@@ -60,6 +82,11 @@ HIVE_AGGREGATES = frozenset(
     regr_avgx regr_avgy regr_count regr_intercept regr_r2 regr_slope regr_sxx regr_sxy regr_syy
     skewness some std stddev stddev_pop stddev_samp string_agg sum try_avg try_sum var_pop
     var_samp variance
+    approx_top_k approx_top_k_accumulate approx_top_k_combine bitmap_and_agg kll_merge_agg_bigint
+    kll_merge_agg_double kll_merge_agg_float kll_sketch_agg_bigint kll_sketch_agg_double
+    kll_sketch_agg_float measure theta_intersection_agg theta_sketch_agg theta_union_agg
+    tuple_intersection_agg_double tuple_intersection_agg_integer tuple_sketch_agg_double
+    tuple_sketch_agg_integer tuple_union_agg_double tuple_union_agg_integer
     """.split()
 )
 
@@ -72,7 +99,7 @@ WINDOW_FUNCTIONS = frozenset(
 
 # How many arguments a function hive_function may call takes: (fewest, most), with most None
 # when there is no upper limit. Where Hive and Spark both have the function, it is the count both
-# take; where only Spark has it, such as count_if, the count Spark takes at 3.5.0 and 4.0.4.
+# take; where only Spark has it, such as count_if, the count Spark takes at 3.5.0, 4.0.4 and 4.2.0.
 # hive_function counts a call's arguments by this list in both Editions; a function not listed
 # here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {

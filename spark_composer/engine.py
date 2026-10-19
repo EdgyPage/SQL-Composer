@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
+# Spark Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
 """What Spark Composer runs on: the pyspark it needs, and the Spark its Example database uses.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it
@@ -43,7 +43,7 @@ if __package__:
     from composer_core import _four_part_message as four_part_message
     from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 def _stop(what, why, fix):
@@ -52,10 +52,11 @@ def _stop(what, why, fix):
 
 
 _LOWEST = (3, 5, 0)
-_BELOW = (4, 1, 0)
-_NEWEST_TESTED = (4, 0, 4)
-# The Javas the Example database's Spark starts on: both supported Sparks document Java 17,
-# and Spark 4.0 documents 21 as well; the Hadoop inside Spark can't start on Java 23 or newer.
+_BELOW = (4, 3, 0)
+_NEWEST_TESTED = (4, 2, 0)
+# The Javas the Example database's Spark starts on: every supported Spark, 3.5 to 4.2, documents
+# Java 17, and Spark 4.0 and later document 21 as well; the Hadoop inside Spark can't start on
+# Java 23 or newer.
 _JAVA_NEEDED = 17
 _JAVA_NEWEST = 21
 
@@ -1153,7 +1154,7 @@ def _serve() -> None:
         from pyspark import java_gateway
         from pyspark.sql import SparkSession
 
-        # pyspark 3.5.0 and 4.0.4 both start Spark's launcher through this name.
+        # pyspark 3.5.0, 4.0.4 and 4.2.0 all start Spark's launcher through this name.
         java_gateway.Popen = _Launcher
         builder = SparkSession.builder
         for key, value in config["settings"].items():
@@ -1207,7 +1208,7 @@ def _run(spark, sql: str) -> dict:
 def _still_there(spark) -> bool:
     """Whether this Spark still runs: its Java answers, and hasn't stopped its SparkContext.
 
-    It asks through a private part of pyspark, there in 3.5.0 and 4.0.4 alike.
+    It asks through a private part of pyspark, there in 3.5.0, 4.0.4 and 4.2.0 alike.
     """
     try:
         return not spark.sparkContext._jsc.sc().isStopped()
