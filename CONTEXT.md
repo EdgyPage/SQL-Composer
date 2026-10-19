@@ -25,14 +25,14 @@ adds what is its own, how it writes its Hive and runs its Example database.
 _Avoid_: base, common, shared library, framework
 
 **Toolbox version**:
-The feature number of the Toolbox (`5.0`), raised only when a big feature lands, and shared by both
+The feature number of the Toolbox (`5.1`), raised only when a big feature lands, and shared by both
 Editions. Two copies of the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
 The branch holding only the Toolbox's Composer core, its Editions, each Edition's copy of the
-Example projects and the Templates, and their README, license and requirements.txt, generated from the Dev branch and never
-edited by hand.
+Example projects and the Templates, and their README, license and requirements.txt, generated
+from the Dev branch and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:

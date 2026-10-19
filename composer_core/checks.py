@@ -16,7 +16,7 @@ import sys
 
 from . import _stop
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 _PYTHON_NEEDED = (3, 11)
 

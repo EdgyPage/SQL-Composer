@@ -555,14 +555,11 @@ def test_the_readme_says_what_each_edition_needs_as_its_engine_checks_it() -> No
                        (ROOT / "composer_core" / "checks.py").read_text(encoding="utf-8"),
                        re.MULTILINE).groups()
     assert f"Each Edition needs Python {'.'.join(python)} or newer" in template
-    assert (f"sqlglot Composer: the sqlglot library, {sql['_LOWEST']} or newer, below "
-            f"{_short(sql['_BELOW'])}. sqlglot Composer's Example database runs queries on "
-            f"sqlglot {sql['_EXECUTOR_NEEDS']} or newer") in template
-    assert (f'`%pip install "sqlglot>={sql["_EXECUTOR_NEEDS"]},<{_short(sql["_BELOW"])}"`'
-            in template)
-    assert (f"Spark Composer: pyspark {spark['_LOWEST']} or newer, below "
-            f"{_short(spark['_BELOW'])}: `%pip install "
-            f'"pyspark>={spark["_LOWEST"]},<{_short(spark["_BELOW"])}"`') in template
+    assert (f"any sqlglot from {sql['_LOWEST']} up to (not including) {_short(sql['_BELOW'])}, "
+            f"whose Example database and a struct column in create_table need "
+            f"{sql['_EXECUTOR_NEEDS']} or newer") in template
+    assert (f"any pyspark from {spark['_LOWEST']} up to (not including) "
+            f"{_short(spark['_BELOW'])}") in template
     assert f"needs Java {java['_JAVA_NEEDED']} to {java['_JAVA_NEWEST']}" in template
 
 

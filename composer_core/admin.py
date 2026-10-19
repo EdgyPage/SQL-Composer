@@ -39,7 +39,7 @@ from .tables import (
 )
 from .trees import Node
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 
 # --- Pieces every Admin statement shares ------------------------------------------------------

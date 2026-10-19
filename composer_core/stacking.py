@@ -25,7 +25,7 @@ from .refusals import refuse
 from .tables import Column, Table, made_by, python_text, readable, type_family
 from .trees import Node, number
 
-TOOLBOX_VERSION = "5.0"
+TOOLBOX_VERSION = "5.1"
 
 # How each Stack is written in Hive.
 STACK_HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT",
