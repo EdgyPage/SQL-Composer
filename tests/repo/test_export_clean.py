@@ -155,7 +155,7 @@ def exported_files() -> list[str]:
                for path in (ROOT / folder).iterdir() if path.name != "__pycache__"]
     copies = [f"{folder}/{edition.folder}/{relative}" for folder in COPIED
               for edition in editions.EXPORTED for relative in copied_files(folder)]
-    return sorted([".github/README.md", *toolbox, *copies])
+    return sorted([".github/README.md", "LICENSE", *toolbox, *copies])
 
 
 def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
@@ -164,7 +164,7 @@ def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
 
 
 def test_anything_outside_the_allowlist_is_named() -> None:
-    paths = ["sqlglot_composer/tables.py", ".github/README.md", "README.md",
+    paths = ["sqlglot_composer/tables.py", ".github/README.md", "LICENSE", "README.md",
              "sqlglot_composer/notes/x.py", "tools/export_clean.py", ".github/workflows/dev.yml"]
     assert export_clean.outside_allowlist(paths) == [
         "README.md", "sqlglot_composer/notes/x.py", "tools/export_clean.py",
@@ -303,9 +303,24 @@ def dev_copy(folder: Path) -> Path:
                         ignore=shutil.ignore_patterns("__pycache__"))
     (folder / "docs").mkdir()
     shutil.copy(ROOT / export_clean.README_TEMPLATE, folder / export_clean.README_TEMPLATE)
+    shutil.copy(ROOT / export_clean.LICENSE, folder / export_clean.LICENSE)
     shutil.copytree(ROOT / export_clean.HOW_TOS, folder / export_clean.HOW_TOS,
                     ignore=shutil.ignore_patterns("__pycache__"))
     return folder
+
+
+def test_main_holds_devs_license_word_for_word(clean: Path) -> None:
+    # Unstamped, so that GitHub and anyone reading it see the MIT No Attribution license as is.
+    assert (clean / "LICENSE").read_text(encoding="utf-8") == (
+        ROOT / "LICENSE").read_text(encoding="utf-8")
+    assert (clean / "LICENSE").read_text(encoding="utf-8").startswith("MIT No Attribution\n")
+
+
+def test_a_dev_without_its_license_is_refused(tmp_path: Path) -> None:
+    source = dev_copy(tmp_path / "dev")
+    (source / export_clean.LICENSE).unlink()
+    with pytest.raises(export_clean.ExportRefused, match="LICENSE"):
+        export_clean.build(source, tmp_path / "clean", WHEN)
 
 
 def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
@@ -414,8 +429,8 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
-        ".github", "composer_core", "example_projects", "spark_composer", "sqlglot_composer",
-        "templates"]
+        ".github", "LICENSE", "composer_core", "example_projects", "spark_composer",
+        "sqlglot_composer", "templates"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
 
