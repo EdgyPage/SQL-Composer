@@ -237,9 +237,11 @@ files. Each is listed again, with more, under New or Refused now below.
 
 ### The license
 
-- **The Toolbox is under the MIT No Attribution license** (`LICENSE`, beside the README): use,
-  change, share or sell it, privately or commercially, with no need to name where it came
-  from. Before, the download had no license at all.
+- **The Toolbox, its Example projects and its Templates are under the MIT No Attribution
+  license** (`LICENSE`, at the top of the download): use, change, share or sell them, privately
+  or commercially, with no need to name where they came from, so you needn't copy `LICENSE`
+  along with the folders. Before, the download had no license at all. Nothing to change in
+  your notebooks or files.
 
 ## 4.1
 
