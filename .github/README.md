@@ -1,7 +1,7 @@
-<!-- sqlglot Composer and Spark Composer 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit -->
+<!-- sqlglot Composer and Spark Composer 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit -->
 # sqlglot Composer and Spark Composer
 
-This is version 5.0, exported 2026-10-16 09:20.
+This is version 5.0, exported 2026-10-19 09:24.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -465,6 +465,13 @@ Both Editions write the same Hive for a Statement, except in these places, each 
 )` where Spark Composer writes `runs BIGINT
 )`.
 
+## License
+
+The Toolbox, its Example projects and its Templates are under the MIT No Attribution license,
+in `LICENSE`: use them, change them, share them or sell them, at work or anywhere else, with
+no need to say where they came from, so you needn't copy `LICENSE` along with the two folders.
+They come as they are, with no warranty.
+
 ## Cheat sheet
 
 Everything the Toolbox offers, one line each, grouped by the file it lives in: the two constants
@@ -481,7 +488,7 @@ import the module by name, `from sqlglot_composer import admin`, and call `admin
 Write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'5.0'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 5.0, exported 2026-10-16 09:20'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'sqlglot Composer 5.0, exported 2026-10-19 09:24'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 

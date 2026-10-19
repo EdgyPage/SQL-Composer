@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """What the quality checks need to know about each table the project reads.
 
 Why: the checks are the same for every table, so each table's few differences are written once

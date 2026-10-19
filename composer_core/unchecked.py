@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """Session settings, Unchecked statements and the Admin log: Hive sent as you chose it.
 
 hive_settings(...) gives the SET lines of a named set of Session settings, and

@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive

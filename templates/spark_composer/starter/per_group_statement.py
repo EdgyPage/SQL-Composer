@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """A Statement counting and adding up per group, keeping groups that pass a test.
 
 Why: GROUP_BY makes one row per group, and HAVING then keeps the groups whose counts pass a

@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """Windows: a calculation over the rows around each row, such as a running total or a rank.
 
 window(...) names the rows each row's value is worked out over: the rows that share its

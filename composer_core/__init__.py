@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """The code both Editions of the Toolbox share. Never import it yourself.
 
 Import your Edition's folder instead, sqlglot_composer or spark_composer, which loads this

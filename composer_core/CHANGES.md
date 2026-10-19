@@ -1,4 +1,4 @@
-<!-- Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit -->
+<!-- Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit -->
 # Changes
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
@@ -235,6 +235,14 @@ files. Each is listed again, with more, under New or Refused now below.
 - `hive_function("lag", ...)`, and `"lead"`, `"rank"`, `"dense_rank"`, `"ntile"` and
   `"row_number"`, are refused as before, and the message now names the Toolbox's own function,
   such as `lag(column, over=window(...))`, where it gave a pandas line.
+
+### The license
+
+- **The Toolbox, its Example projects and its Templates are under the MIT No Attribution
+  license** (`LICENSE`, at the top of the download): use, change, share or sell them, privately
+  or commercially, with no need to name where they came from, so you needn't copy `LICENSE`
+  along with the folders. Before, the download had no license at all. Nothing to change in
+  your notebooks or files.
 
 ## 4.1
 

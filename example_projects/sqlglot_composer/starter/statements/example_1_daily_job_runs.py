@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """Example 1: each job's runs, failed runs and minutes per day, saved every day.
 
 Why: counting every run again each time someone asks is slow, so the counts are worked out

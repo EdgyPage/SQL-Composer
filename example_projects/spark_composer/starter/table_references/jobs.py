@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """ops.jobs - one row per job: its name, the team that owns it and its region.
 
 Why: the project's Statements read the table through this file, so each column they name, and

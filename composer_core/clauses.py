@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:

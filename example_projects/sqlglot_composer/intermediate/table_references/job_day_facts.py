@@ -1,4 +1,4 @@
-# sqlglot Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# sqlglot Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """mart.job_day_facts - one row per job and day it ran, with that day's team.
 
 Why: example 2 saves each job's day here with the team that owned the job that day, so a

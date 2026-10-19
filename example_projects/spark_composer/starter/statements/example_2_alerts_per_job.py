@@ -1,4 +1,4 @@
-# Spark Composer 5.0, exported 2026-10-16 09:20 - copy it, then edit your copy
+# Spark Composer 5.0, exported 2026-10-19 09:24 - copy it, then edit your copy
 """Example 2: each job's alerts and high alerts per day, saved every day.
 
 Why: an alert names only its run, so finding its job means joining every alert to job_runs,

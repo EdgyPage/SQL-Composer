@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """The Edition this Python runs: its own two files, which write the Hive and run it.
 
 Each Edition writes its Hive in its own writing.py and runs the Example database in its own

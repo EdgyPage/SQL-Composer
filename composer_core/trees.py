@@ -1,4 +1,4 @@
-# Composer core 5.0, exported 2026-10-16 09:20 - generated from dev, do not edit
+# Composer core 5.0, exported 2026-10-19 09:24 - generated from dev, do not edit
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
