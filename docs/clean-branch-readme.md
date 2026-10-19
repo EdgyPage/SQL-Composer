@@ -403,7 +403,8 @@ Both Editions write the same Hive for a Statement, except in these places, each 
 
 The Toolbox, its Example projects and its Templates are under the MIT No Attribution license,
 in `LICENSE`: use them, change them, share them or sell them, at work or anywhere else, with
-no need to say where they came from. They come as they are, with no warranty.
+no need to say where they came from, so you needn't copy `LICENSE` along with the two folders.
+They come as they are, with no warranty.
 
 ## Cheat sheet
 
