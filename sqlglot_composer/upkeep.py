@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """Keeping reads and joins fast: repair_partitions, compute_statistics and explain.
 
 Each gives a Statement, run like any other, and each is safe to send again. repair_partitions

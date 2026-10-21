@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """The import self-check: the Toolbox's folder checks itself before any other file is trusted.
 
 At work the Toolbox is one folder pasted beside your scripts. Its __init__.py runs these checks

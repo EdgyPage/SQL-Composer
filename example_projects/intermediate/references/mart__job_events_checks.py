@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - copy it, then edit your copy
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
 """mart.job_events_checks - one row per day: ops.job_events' row count that day.
 
 Why: its notebook saves each day's count, so a day of ops.job_events that came in short shows

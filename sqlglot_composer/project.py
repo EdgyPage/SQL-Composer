@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """The project module: a Project's folders and files, made and archived for you, and logged.
 
 It isn't brought by `from sqlglot_composer import *`. Import it by name:

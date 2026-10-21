@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """The Example database: seven made-up tables, and a send to run Statements on.
 
 Four of its Table references have rows on two days, 2026-09-23 and 2026-09-24: `jobs`,

@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - copy it, then edit your copy
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
 """ops.run_alerts - one row per alert a run raised.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the
