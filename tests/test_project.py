@@ -435,7 +435,7 @@ def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started) -> None:
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.\n"
         "Left out, since it can't be read yet: references/mart__daily_job_runs.py. Fill in "
-        "every <...> in it, then refresh again.")
+        "every <...> in it, and check it holds a Table(...) call, then refresh again.")
 
 
 def test_a_named_refresh_keeps_the_rows_of_a_file_that_cant_be_read(started) -> None:
