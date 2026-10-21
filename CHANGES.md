@@ -13,6 +13,12 @@ Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder
   `statement(...)`, a clause function, a Table reference's columns, the condition functions,
   `window(...)`, `hive_settings(...)` and `unchecked_hive(...)`, never by calling the name
   itself.
+- **Every function says in a type hint what it takes and gives back.** `help(FROM)` now
+  starts `FROM(table: 'Table', reads_all_partitions: 'bool' = False) -> 'Clause'`: each hint is
+  shown in quotes, and a name in it that isn't public, such as `Named` from `AS(...)`, is only
+  the name of what that function gives. The Templates `project.new_table` writes from, the
+  how-tos, the Example gallery and the Example projects are hinted the same way, with public
+  names only. A notebook made from a 6.0 Template still works as it is.
 
 ## 6.0
 
