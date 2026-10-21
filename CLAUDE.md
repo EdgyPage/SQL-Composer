@@ -48,7 +48,7 @@ what each may import. `CHANGES.md`, the change notes, is at the repo's top.
 
 ## Drift
 
-After a commit that touches the Toolbox's folders,
+After a commit that touches the Toolbox's folder,
 `worked_examples/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
 `requirements-dev.txt`, the drift
 reviewer looks for anything the commit made untrue and adds one open item per finding to

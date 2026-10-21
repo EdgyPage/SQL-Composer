@@ -53,7 +53,7 @@ tiny, so this page sets small numbers, to see each limit at work:
 {'rows': 5, 'dates': 7}
 
 It gives back the limits now in force. Call it in your own notebook, never inside the
-Toolbox's folders, which you replace with each update.
+Toolbox's folder, which you replace with each update.
 
 ### See the automatic LIMIT
 

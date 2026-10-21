@@ -1,10 +1,10 @@
 """The import self-check: the Toolbox's folder checks itself before any other file is trusted.
 
 At work the Toolbox is one folder pasted beside your scripts. Its __init__.py runs these checks
-before any other file is trusted. If a file is
-missing, extra, from another version or export, or from another Toolbox folder, or if this
-Python can't run the Toolbox, the import stops and says what happened, why it matters and the
-usual fix. Every stop is headed by the folder you imported, `importing`, whichever folder it
+before any other file is trusted. If a file is missing, extra, from another version or download,
+or from another Toolbox folder, such as an old composer_core folder's file pasted in, or if
+this Python can't run the Toolbox, the import stops and says what happened, why it matters and
+the usual fix. Every stop is headed by the folder you imported, `importing`, whichever folder it
 found the problem in.
 """
 

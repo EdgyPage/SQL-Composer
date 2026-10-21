@@ -45,9 +45,9 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 ## Update
 
 Updating from 5.x or 4.x, with a `composer_core` folder beside `sqlglot_composer`? Since 6.0
-the Toolbox is one folder: delete `composer_core` too, then copy the new folder in as below, and
-read the 6.0 section of `CHANGES.md`, at the top of the download: pandas 3 shows a missing text
-value as NaN. From 4.x, see [Update from 4.x](#update-from-4x) too. Updating from 3.x or SQL
+the Toolbox is one folder: in step 1 below, delete `composer_core` as well, and afterwards read
+the 6.0 section of `CHANGES.md`, at the top of the download, for what else changed, such as
+pandas 3 showing a missing text value as NaN. From 4.x, see [Update from 4.x](#update-from-4x) too. Updating from 3.x or SQL
 Composer? See [Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x)
 too. Using Spark Composer? It was dropped in 6.0. Install sqlglot, as Install says, delete
 `spark_composer` and `composer_core`, copy in `sqlglot_composer`, change each
@@ -98,7 +98,7 @@ version.
 
 ## Update from 3.x
 
-Before 4.0, each Edition was one folder you copied on its own, with no `composer_core`, and
+Before 4.0, sqlglot Composer was one folder you copied on its own, with no `composer_core`, and
 sqlglot Composer was named SQL Composer, in a folder named `sql_composer`. These steps are the
 same from 3.0, 3.1 or 3.2. To update from SQL Composer:
 

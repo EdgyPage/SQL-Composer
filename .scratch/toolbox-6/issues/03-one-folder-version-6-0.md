@@ -1,7 +1,7 @@
 # One folder, version 6.0
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 02
 Size: L
 
@@ -45,3 +45,20 @@ started its 6.0 section there; this ticket did the rest, on the branch `toolbox-
   Edition, so their `PYTHONPATH=../..` holds on main.
 - CONTEXT.md drops Edition and Composer core (both now avoid-words of Toolbox); CLAUDE.md, the
   drift reviewer and the beginner reader name one folder; ADR 0009 supersedes ADR 0003.
+
+### Reviews
+
+- Spec (2026-10-20): import order safe, no cycle from removing `edition.py`. Two gaps fixed in
+  the follow-up commit: the export now also imports the stamped folder copied on its own
+  (`check_imports_alone`, the old "copied without composer_core" check's successor), and refuses
+  an `__init__.py` with no TOOLBOX_VERSION instead of failing on it. CHANGES.md's Spark note no
+  longer says to copy a `composer_core`. The README's Update and history sections are ticket 04's.
+- Standards (2026-10-20): "Edition", now an avoid-word, left the code's names:
+  `refuse_what_another_folder_made`, `tests/sqlglot_checks/`, and three test names; ragged
+  lines rewrapped. Kept on purpose: the self-check's vote over each file's stamp, which is what
+  names a pasted-in old `composer_core` or `spark_composer` file, and the registry's per-file
+  import rule (only `writing.py` and `engine.py` may import sqlglot).
+- Beginner reader (2026-10-20): CHANGES.md's two-folder leftover, "Edition" in CHANGES.md and the
+  README's 3.x section, the plural "Toolbox's folders" and the unclear PYTHONPATH from
+  `table_references/` in both Example project READMEs and how-to 15, the README's 5.x step order,
+  and a note for imports that named `composer_core` directly, all fixed in the follow-up commit.

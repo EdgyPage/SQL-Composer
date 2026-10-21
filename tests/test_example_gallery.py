@@ -266,7 +266,7 @@ def test_the_page_names_no_folder_a_toolbox_user_does_not_have() -> None:
     assert "worked_examples/" not in GALLERY.read_text(encoding="utf-8")
 
 
-def test_the_page_names_no_edition_but_its_own() -> None:
+def test_the_page_names_no_dropped_folder() -> None:
     page = GALLERY.read_text(encoding="utf-8")
     assert [name for name in ("spark_composer", "Spark Composer") if name in page] == []
 
