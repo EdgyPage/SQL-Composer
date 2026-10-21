@@ -20,7 +20,10 @@ statement, the admin module, and the joins, windows, stacking and upkeep SQL sti
 charted through `.scratch/toolbox-5/map.md`. Toolbox 6.0 (Spark Composer dropped, one Toolbox
 folder, the README as a tutorial, and Projects: an admin folder, a notebook per Saved table, and a
 flat folder of Table references feeding a Reference sheet) is charted through
-`.scratch/toolbox-6/map.md`; read its Notes before working one of its tickets.
+`.scratch/toolbox-6/map.md`; read its Notes before working one of its tickets. Toolbox 6.1 (type
+hints on every function, and Statement, Column and Condition made public) is charted through
+`.scratch/toolbox-6-1/map.md`; read its Notes, which set the hint style, before working one of its
+tickets.
 
 ## Checks
 
