@@ -8,6 +8,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### To update from 5.x
 
+- **The README is a tutorial**: eight steps, from installing the Toolbox to the Lineage of a
+  Saved table, each pointing to the how-to that walks through it. What it said about one version,
+  such as updating from 4.x or 3.x, is in these notes, under that version's "To update".
 - **The Toolbox is one folder, `sqlglot_composer`.** Delete both old folders, `composer_core`
   and `sqlglot_composer`, copy in the new `sqlglot_composer`, and restart the kernel. Imports
   `from sqlglot_composer import ...` stay as they are; one that named `composer_core`, such as
@@ -63,7 +66,7 @@ refuses some writes 4.x let through, so read To update first.
 
 ### To update from 4.x
 
-Copy both folders in as the README's Update says, then change these in your notebooks and
+Copy both folders in as the README's Update said then, then change these in your notebooks and
 files. Each is listed again, with more, under New or Refused now below.
 
 - **A write into a Saved table whose Table reference declares a Key is refused unless the

@@ -365,20 +365,23 @@ def test_every_path_the_readme_names_is_on_main(clean: Path) -> None:
     held = export_clean.files_in(clean)
     folders = {f"{folder}/" for path in held for folder in
                ("/".join(path.split("/")[:end]) for end in range(1, path.count("/") + 1))}
-    missing = [path for path in named_paths(readme(clean))
+    # The README is .github/README.md: a path going up one folder starts at main's top.
+    missing = [path for path in (named.split("#")[0].removeprefix("../")
+                                 for named in named_paths(readme(clean)))
                if not (clean / path).exists()
                and not any(f"/{one}".endswith(f"/{path}") for one in [*held, *folders])]
     assert not missing
 
 
 def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) -> None:
-    section = section_of(readme(clean), "How-tos")
-    numbered = re.findall(r"^(\d+)\. (.+)$", section, re.MULTILINE)
+    section = section_of(readme(clean), "The how-tos")
+    numbered = re.findall(r"^(\d+)\. \[(.+)\]\(\.\./sqlglot_composer/how_to\.html#\w+\)$",
+                          section, re.MULTILINE)
     assert [int(number) for number, _ in numbered] == list(range(1, 38))
     assert numbered[0] == ("1", "Start a notebook")
     assert numbered[18] == ("19", "A day written another way, and a second partition")
-    assert section.index("Getting started, how-tos 1 to 18:\n\n1. Start a notebook\n") < (
-        section.index("Intermediate, how-tos 19 to 37:\n\n19. A day written another way"))
+    assert section.index("Getting started, how-tos 1 to 18:\n\n1. [Start a notebook](") < (
+        section.index("Intermediate, how-tos 19 to 37:\n\n19. [A day written another way"))
     assert "<!--" not in section
 
 

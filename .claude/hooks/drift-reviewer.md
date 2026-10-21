@@ -32,7 +32,9 @@ Each finding is one of these. The kind is the word in backticks.
 4. `glossary`: a new domain word appears in a name, message or doc and isn't in `CONTEXT.md`, or
    a word the glossary says to avoid is used.
 5. `standing-docs`: `docs/agents/standards.md`, the README template or `CLAUDE.md` says something
-   the diff has made untrue.
+   the diff has made untrue. The README template is a tutorial, numbered steps that each point
+   to a how-to: a change a user would notice that it doesn't walk through belongs in a how-to or
+   in `CHANGES.md`, never in a README section about one version.
 6. `worked-example`: an example's "why" sentence that the diff has made untrue.
 
 Leave out anything a test already fails on, matters of taste, and anything that was untrue

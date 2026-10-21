@@ -327,14 +327,15 @@ def cheat_sheet(groups: list[dict]) -> str:
 
 
 def how_tos_text(source: Path) -> str:
-    """Each how-to's number and title, under its group, such as "Getting started, how-tos 1 to
-    18:", read from the docstrings in worked_examples/how_to/ that how_to.html is written from.
+    """Each how-to's number and title, linked to it on how_to.html, under its group, such as
+    "Getting started, how-tos 1 to 18:", read from the docstrings in worked_examples/how_to/ that
+    how_to.html is written from. The README is at .github/README.md, so a link goes up one folder.
 
     Each docstring's line 1 is its title and line 3 names its group, as `For: Getting started`.
     tools/how_to_page.py reads them the same way, but importing it loads the Toolbox into
     this Python, so the two lines are read here again.
     """
-    groups: dict[str, list[tuple[int, str]]] = {}
+    groups: dict[str, list[tuple[int, str, str]]] = {}
     for path in sorted((source / HOW_TOS).glob("[0-9][0-9]_*.py")):
         doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8"))) or ""
         laid_out = re.match(r"(?P<title>[^\n]+)\n\nFor: (?P<group>[^\n]+)\n", doc)
@@ -342,12 +343,14 @@ def how_tos_text(source: Path) -> str:
             raise ExportRefused(f"{HOW_TOS}/{path.name}'s docstring must start with its title on "
                                 "line 1 and `For: <its group>` on line 3, as tools/how_to_page.py "
                                 "reads it.")
-        groups.setdefault(laid_out["group"], []).append((int(path.name[:2]), laid_out["title"]))
+        groups.setdefault(laid_out["group"], []).append(
+            (int(path.name[:2]), laid_out["title"], path.stem[3:]))
     if not groups:
         raise ExportRefused(f"There are no how-tos in {HOW_TOS}/ for the README to list.")
     return "\n\n".join(
         f"{group}, how-tos {how_tos[0][0]} to {how_tos[-1][0]}:\n\n"
-        + "\n".join(f"{number}. {title}" for number, title in how_tos)
+        + "\n".join(f"{number}. [{title}](../{toolbox_registry.FOLDER}/how_to.html#{slug})"
+                    for number, title, slug in how_tos)
         for group, how_tos in groups.items())
 
 
