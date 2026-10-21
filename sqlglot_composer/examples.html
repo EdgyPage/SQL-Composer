@@ -3182,7 +3182,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <pre class="python">set_admin_log(&quot;logs/admin_log.md&quot;).name</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;admin_log.md&#x27;</pre>
-<pre class="python">set_admin_log()  # back to admin_log.md beside the script or notebook that runs</pre>
+<pre class="python">set_admin_log()  # back to the usual place</pre>
 <p class="names">Toolbox names used: <code>set_admin_log</code></p>
 </section>
 <section class="entry" id="repair_partitions">
@@ -3436,7 +3436,7 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <h3><code>project.check</code></h3>
 <p class="why">Report each Table folder or Table reference that the registry gets wrong.</p>
 <p>It reports any the registry doesn&#x27;t list, and any it lists that isn&#x27;t there, and changes nothing.</p>
-<p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or archived with remove_table or remove_reference.</p>
+<p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table or remove_reference.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3486,7 +3486,7 @@ tables/ and send.py. Next: write your send in send.py.</pre>
 <section class="entry" id="project.remove_reference">
 <h3><code>project.remove_reference</code></h3>
 <p class="why">Move a Table reference into admin/removed/, named by the time, deleting nothing.</p>
-<p>references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. It refuses while the table has a Table folder, whose notebook imports the reference: remove_table first.</p>
+<p>references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. It refuses while the table has a Table folder, whose notebook imports the reference: remove_table first. A Table reference the registry lists but that was deleted by hand only has its row marked.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3508,7 +3508,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <section class="entry" id="project.remove_table">
 <h3><code>project.remove_table</code></h3>
 <p class="why">Move a Table folder into admin/removed/, named by the time, deleting nothing.</p>
-<p>tables/mart__daily_job_runs/ moves, whole, to a folder such as admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked removed. The table stays in the warehouse, and its Table reference in references/: drop the table with admin.drop_table, and archive the reference with remove_reference.</p>
+<p>tables/mart__daily_job_runs/ moves, whole, to a folder such as admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked removed. The table stays in the warehouse, and its Table reference in references/: drop the table with admin.drop_table, and archive the reference with remove_reference. A Table folder the registry lists but that was deleted by hand only has its row marked.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
