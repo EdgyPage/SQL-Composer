@@ -25,7 +25,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 <header>
 <h1>sqlglot Composer 6.1: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
-109 examples from the Toolbox's docstrings. Each shows its Python and, for each
+111 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -74,15 +74,16 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
 <p class="why">Why: most questions about a table are &quot;how many per something&quot;, and these are the four shapes that answer them.</p>
 <p class="label">The top of its script, groups_and_top_n.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, at_least,
-    between, count_distinct, count_rows, descending, example_database, statement, sum_of,
+    AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, Statement,
+    at_least, between, count_distinct, count_rows, descending, example_database, statement,
+    sum_of,
 )
 
 jobs = example_database.jobs
@@ -90,7 +91,7 @@ job_runs = example_database.job_runs
 
 FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
-<h4><code>teams()</code></h4><pre class="python">def teams():
+<h4><code>teams()</code></h4><pre class="python">def teams() -&gt; Statement:
     &quot;&quot;&quot;Each team once (SELECT DISTINCT), to see which values a column holds.&quot;&quot;&quot;
     return statement(
         SELECT_DISTINCT(jobs.team),
@@ -102,7 +103,7 @@ FROM ops.jobs AS jobs</pre><p class="label">Result on the Example database</p><d
 <tr><td>data</td></tr>
 <tr><td>finance</td></tr>
 <tr><td>web</td></tr>
-</table></div><h4><code>runs_and_days_per_job()</code></h4><pre class="python">def runs_and_days_per_job():
+</table></div><h4><code>runs_and_days_per_job()</code></h4><pre class="python">def runs_and_days_per_job() -&gt; Statement:
     &quot;&quot;&quot;How many runs each job had, and on how many different days (COUNT DISTINCT).
 
     count_rows counts every run; count_distinct counts each day once, however many runs
@@ -130,7 +131,7 @@ GROUP BY
 <tr><td>1</td><td>4</td><td>2</td></tr>
 <tr><td>2</td><td>3</td><td>2</td></tr>
 <tr><td>3</td><td>2</td><td>2</td></tr>
-</table></div><h4><code>busy_jobs()</code></h4><pre class="python">def busy_jobs():
+</table></div><h4><code>busy_jobs()</code></h4><pre class="python">def busy_jobs() -&gt; Statement:
     &quot;&quot;&quot;Only the jobs with 3 runs or more (HAVING).
 
     WHERE picks rows before they are counted, so it can&#x27;t test a count. HAVING tests each
@@ -155,7 +156,7 @@ HAVING
 <tr><th>job_id</th><th>runs</th></tr>
 <tr><td>1</td><td>4</td></tr>
 <tr><td>2</td><td>3</td></tr>
-</table></div><h4><code>two_longest_running_jobs()</code></h4><pre class="python">def two_longest_running_jobs():
+</table></div><h4><code>two_longest_running_jobs()</code></h4><pre class="python">def two_longest_running_jobs() -&gt; Statement:
     &quot;&quot;&quot;The 2 jobs with the most minutes in total (ORDER BY with LIMIT).
 
     A sort needs a LIMIT: without one, the warehouse puts every row in order before any comes
@@ -183,15 +184,15 @@ LIMIT 2</pre><p class="label">Result on the Example database</p><div class="scro
 <tr><td>1</td><td>67</td></tr>
 <tr><td>3</td><td>60</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>ORDER_BY</code>, <code>LIMIT</code>, <code>statement</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>descending</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>ORDER_BY</code>, <code>LIMIT</code>, <code>statement</code>, <code>Statement</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>descending</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="jobs_that_never_ran">
 <h3>Jobs with no runs, and jobs with at least one: anti-join and semi-join.</h3>
 <p class="why">Why: a job missing from the runs is often the very problem you&#x27;re looking for, and a plain JOIN can&#x27;t show it, since JOIN keeps only the rows that match.</p>
 <p class="label">The top of its script, jobs_that_never_ran.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, all_of, between, derived, equals,
-    example_database, is_null, statement,
+    FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, Statement, all_of, between, derived,
+    equals, example_database, is_null, statement,
 )
 
 jobs = example_database.jobs
@@ -199,7 +200,7 @@ job_runs = example_database.job_runs
 
 FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
-<h4><code>jobs_that_never_ran()</code></h4><pre class="python">def jobs_that_never_ran():
+<h4><code>jobs_that_never_ran()</code></h4><pre class="python">def jobs_that_never_ran() -&gt; Statement:
     &quot;&quot;&quot;Every job with no run on these days (in SQL, an anti-join).
 
     LEFT_JOIN keeps every job, and a job with no run gets NULL in job_runs&#x27; columns, so
@@ -228,7 +229,7 @@ WHERE
   job_runs.run_id IS NULL</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>job_name</th></tr>
 <tr><td>4</td><td>cache_warm</td></tr>
-</table></div><h4><code>jobs_that_ran()</code></h4><pre class="python">def jobs_that_ran():
+</table></div><h4><code>jobs_that_ran()</code></h4><pre class="python">def jobs_that_ran() -&gt; Statement:
     &quot;&quot;&quot;Every job with at least one run on these days, each job once (in SQL, a semi-join).
 
     A JOIN straight to job_runs would repeat a job once per run. So first make the list of
@@ -261,14 +262,14 @@ JOIN ran
 <tr><td>2</td><td>invoice_sync</td></tr>
 <tr><td>3</td><td>report_build</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>all_of</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>all_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="labels_and_counts">
 <h3>Label with if_else, fill NULL with fill_null, count by condition, and divide.</h3>
 <p class="why">Why: codes and NULLs make a result hard to read, and a count of each kind side by side gives one row per job instead of one row per job and status.</p>
 <p class="label">The top of its script, labels_and_counts.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, equals, example_database,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, between, count_rows, equals, example_database,
     fill_null, if_else, is_null, more_than, statement,
 )
 
@@ -276,7 +277,7 @@ job_runs = example_database.job_runs
 
 FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
-<h4><code>labelled_runs()</code></h4><pre class="python">def labelled_runs():
+<h4><code>labelled_runs()</code></h4><pre class="python">def labelled_runs() -&gt; Statement:
     &quot;&quot;&quot;Each run with a readable status and a length label (in SQL, COALESCE and CASE WHEN).
 
     A run still going has no status yet (NULL), which fill_null shows as RUNNING. if_else
@@ -307,7 +308,7 @@ WHERE
 <tr><td>102</td><td>FAILED</td><td>short</td></tr>
 <tr><td>103</td><td>SUCCESS</td><td>long</td></tr>
 <tr><td>104</td><td>SUCCESS</td><td>long</td></tr>
-</table></div><h4><code>outcomes_per_job()</code></h4><pre class="python">def outcomes_per_job():
+</table></div><h4><code>outcomes_per_job()</code></h4><pre class="python">def outcomes_per_job() -&gt; Statement:
     &quot;&quot;&quot;One row per job, with a column for each outcome (a pivot).
 
     count_rows(where=...) counts only the rows where its condition holds, so each column
@@ -338,7 +339,7 @@ GROUP BY
 <tr><td>1</td><td>3</td><td>0</td><td>0</td></tr>
 <tr><td>2</td><td>1</td><td>1</td><td>1</td></tr>
 <tr><td>3</td><td>1</td><td>1</td><td>0</td></tr>
-</table></div><h4><code>failed_share_per_job()</code></h4><pre class="python">def failed_share_per_job():
+</table></div><h4><code>failed_share_per_job()</code></h4><pre class="python">def failed_share_per_job() -&gt; Statement:
     &quot;&quot;&quot;Each job&#x27;s failed runs as a percent of its runs: one count divided by another.
 
     Divide after GROUP_BY, as one count by another, not an average of per-row values. Times
@@ -370,14 +371,14 @@ GROUP BY
 <tr><td>2</td><td>33.333333333333336</td></tr>
 <tr><td>3</td><td>50.0</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>if_else</code>, <code>fill_null</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>if_else</code>, <code>fill_null</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="lists_and_text">
 <h3>Keep rows by a list of values, by either of two conditions, or by text.</h3>
 <p class="why">Why: filters like &quot;these two jobs&quot;, &quot;failed or still running&quot; and &quot;names starting with&quot; come up in almost every Statement, and each has one trap worth knowing.</p>
 <p class="label">The top of its script, lists_and_text.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    FROM, SELECT, WHERE, any_of, between, contains, equals, example_database, is_in,
+    FROM, SELECT, WHERE, Statement, any_of, between, contains, equals, example_database, is_in,
     is_not_in, is_null, starts_with, statement,
 )
 
@@ -386,7 +387,7 @@ job_runs = example_database.job_runs
 
 FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
-<h4><code>runs_of_listed_jobs()</code></h4><pre class="python">def runs_of_listed_jobs():
+<h4><code>runs_of_listed_jobs()</code></h4><pre class="python">def runs_of_listed_jobs() -&gt; Statement:
     &quot;&quot;&quot;Runs of jobs 1 and 3 only (IN a list).&quot;&quot;&quot;
     return statement(
         SELECT(job_runs.run_id, job_runs.job_id),
@@ -405,7 +406,7 @@ WHERE
 <tr><td>101</td><td>1</td></tr>
 <tr><td>103</td><td>3</td></tr>
 <tr><td>104</td><td>1</td></tr>
-</table></div><h4><code>runs_that_did_not_pass()</code></h4><pre class="python">def runs_that_did_not_pass():
+</table></div><h4><code>runs_that_did_not_pass()</code></h4><pre class="python">def runs_that_did_not_pass() -&gt; Statement:
     &quot;&quot;&quot;Runs whose status is neither TEST nor SUCCESS (NOT IN a list).
 
     The trap: a run still going has status NULL, and NOT IN drops NULL rows too, so it is
@@ -426,7 +427,7 @@ WHERE
 <tr><th>run_id</th><th>status</th></tr>
 <tr><td>97</td><td>FAILED</td></tr>
 <tr><td>102</td><td>FAILED</td></tr>
-</table></div><h4><code>runs_to_check()</code></h4><pre class="python">def runs_to_check():
+</table></div><h4><code>runs_to_check()</code></h4><pre class="python">def runs_to_check() -&gt; Statement:
     &quot;&quot;&quot;Runs that failed or are still going (OR).
 
     any_of keeps a row where at least one of its conditions holds. is_null finds the runs
@@ -450,7 +451,7 @@ WHERE
 <tr><td>97</td><td>FAILED</td></tr>
 <tr><td>98</td><td><i>NULL</i></td></tr>
 <tr><td>102</td><td>FAILED</td></tr>
-</table></div><h4><code>jobs_by_name()</code></h4><pre class="python">def jobs_by_name():
+</table></div><h4><code>jobs_by_name()</code></h4><pre class="python">def jobs_by_name() -&gt; Statement:
     &quot;&quot;&quot;Jobs whose name starts with &quot;invoice&quot; or contains &quot;_build&quot; (LIKE).
 
     The trap: in LIKE, _ means &quot;any one character&quot;. contains and starts_with match _ and %
@@ -470,7 +471,7 @@ WHERE
 <tr><td>2</td><td>invoice_sync</td></tr>
 <tr><td>3</td><td>report_build</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>is_in</code>, <code>is_not_in</code>, <code>contains</code>, <code>starts_with</code>, <code>any_of</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>is_in</code>, <code>is_not_in</code>, <code>contains</code>, <code>starts_with</code>, <code>any_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="saved_table">
 <h3>Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</h3>
@@ -478,7 +479,7 @@ WHERE
 <p>A Saved table is written one day at a time, and each function below is one step. The Example database can&#x27;t be written to, so the steps show their Hive but no result. At work, send each one with run(step(), send=run_query), run_query being your own send function, and loop over the ones that return a list.</p>
 <p class="label">The top of its script, saved_table.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, admin,
+    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, Statement, admin,
     create_table, equals, example_database, statement,
 )
 from references.mart__runs_to_review import runs_to_review
@@ -513,7 +514,7 @@ runs_to_review = Table(
     location=&quot;/data/your_team/tables&quot;,
     purge=True,
 )</pre>
-<h4><code>create()</code></h4><pre class="python">def create():
+<h4><code>create()</code></h4><pre class="python">def create() -&gt; Statement:
     &quot;&quot;&quot;Step 1, once: create the table from its Table reference.
 
     The warehouse refuses if the table already exists. That is on purpose: after you edit the Table
@@ -531,7 +532,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>create_if_missing()</code></h4><pre class="python">def create_if_missing():
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>create_if_missing()</code></h4><pre class="python">def create_if_missing() -&gt; Statement:
     &quot;&quot;&quot;Step 1, in a notebook you run from the top every day: create the table only if missing.
 
     may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so the second day&#x27;s run skips it
@@ -549,7 +550,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>failed_runs()</code></h4><pre class="python">def failed_runs(day=LAST_DAY):
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>failed_runs()</code></h4><pre class="python">def failed_runs(day: str = LAST_DAY) -&gt; Statement:
     &quot;&quot;&quot;Step 2: fill one day with that day&#x27;s failed runs, replacing whatever the day held.
 
     Because INSERT_OVERWRITE replaces the day, sending it twice leaves the same rows, not
@@ -567,7 +568,7 @@ SELECT
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day=LAST_DAY):
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day: str = LAST_DAY) -&gt; Statement:
     &quot;&quot;&quot;Step 3: add that day&#x27;s runs that succeeded but raised a high alert.
 
     INSERT_INTO keeps the failed runs step 2 wrote, and adds these beside them. They come
@@ -598,7 +599,7 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days=(FIRST_DAY, LAST_DAY)):
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days: tuple[str, ...] = (FIRST_DAY, LAST_DAY)) -&gt; list[Statement]:
     &quot;&quot;&quot;Step 4: write past days, oldest first, each the way steps 2 and 3 write one.
 
     To backfill is to write days that have already happened: a new table&#x27;s past days, every
@@ -643,7 +644,7 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild() -&gt; list[Statement]:
     &quot;&quot;&quot;Step 5, rarely: after changing the table&#x27;s columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.
@@ -667,7 +668,7 @@ LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
 )</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
-<p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>example_database</code>, <code>admin.drop_table</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>example_database</code>, <code>admin.drop_table</code></p>
 </section>
 <section class="entry" id="step_by_step">
 <h3>Build a long Statement from named steps, each one reading the step before it.</h3>
@@ -675,7 +676,7 @@ TBLPROPERTIES (
 <p>Each step is a Derived table, which the Toolbox writes at the top of the Hive as a WITH ... AS (...) part (a CTE). Run a step on its own to check it before building on it.</p>
 <p class="label">The top of its script, step_by_step.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, at_least, between, count_rows, derived,
+    AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, Statement, at_least, between, count_rows, derived,
     equals, example_database, statement, sum_of,
 )
 
@@ -684,7 +685,7 @@ job_runs = example_database.job_runs
 
 FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
-<h4><code>minutes_per_job()</code></h4><pre class="python">def minutes_per_job():
+<h4><code>minutes_per_job()</code></h4><pre class="python">def minutes_per_job() -&gt; Statement:
     &quot;&quot;&quot;Step 1: each job&#x27;s runs and minutes over the two days.&quot;&quot;&quot;
     return statement(
         SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;),
@@ -705,7 +706,7 @@ GROUP BY
 <tr><td>1</td><td>4</td><td>67</td></tr>
 <tr><td>2</td><td>3</td><td>53</td></tr>
 <tr><td>3</td><td>2</td><td>60</td></tr>
-</table></div><h4><code>minutes_per_team()</code></h4><pre class="python">def minutes_per_team():
+</table></div><h4><code>minutes_per_team()</code></h4><pre class="python">def minutes_per_team() -&gt; Statement:
     &quot;&quot;&quot;Step 2: add each job&#x27;s team from jobs, then total the minutes per team.
 
     Summing step 1&#x27;s minutes again is safe, since a sum of sums is still the right sum. The
@@ -741,7 +742,7 @@ GROUP BY
 <tr><th>team</th><th>runs</th><th>minutes</th></tr>
 <tr><td>data</td><td>4</td><td>67</td></tr>
 <tr><td>finance</td><td>5</td><td>113</td></tr>
-</table></div><h4><code>busy_teams()</code></h4><pre class="python">def busy_teams():
+</table></div><h4><code>busy_teams()</code></h4><pre class="python">def busy_teams() -&gt; Statement:
     &quot;&quot;&quot;Step 3: keep the teams with 100 minutes of runs or more, reading step 2.&quot;&quot;&quot;
     per_team = derived(&quot;per_team&quot;, minutes_per_team())
     return statement(
@@ -779,16 +780,18 @@ WHERE
 <tr><th>team</th><th>minutes</th></tr>
 <tr><td>finance</td><td>113</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>at_least</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>example_database</code></p>
 </section>
 <h2 id="wrong-numbers">Worked examples of a wrong number and its fix</h2>
 <section class="entry" id="latest_and_top_n">
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
 <p class="label">The top of its script, latest_and_top_n.py, a Table notebook&#x27;s logic cell in a Project</p>
-<pre class="python">from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
-    equals, example_database, max_of, row_number, run, statement,
+<pre class="python">import pandas as pd
+
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, at_most, between, derived,
+    descending, equals, example_database, max_of, row_number, run, statement,
 )
 
 job_runs = example_database.job_runs
@@ -797,7 +800,7 @@ FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless():
+<pre class="python">def careless() -&gt; Statement:
     &quot;&quot;&quot;What most people write first: it runs, and job 2&#x27;s newest run shows SUCCESS.
 
     Run 102 is job 2&#x27;s newest, and it FAILED. max_of(job_runs.status) is the largest status
@@ -823,7 +826,7 @@ GROUP BY
 <tr><td>2</td><td>102</td><td>SUCCESS</td></tr>
 <tr><td>3</td><td>103</td><td>SUCCESS</td></tr>
 </table></div></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Number each job&#x27;s runs from the newest, then keep number 1: one whole run per job.&quot;&quot;&quot;
     numbered = derived(&quot;numbered&quot;, statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
@@ -858,7 +861,7 @@ WHERE
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
 <tr><td>3</td><td>103</td><td>SUCCESS</td></tr>
 </table></div></div>
-</div><h4>Also in this script: <code>top_runs_per_job()</code></h4><pre class="python">def top_runs_per_job(n=2):
+</div><h4>Also in this script: <code>top_runs_per_job()</code></h4><pre class="python">def top_runs_per_job(n: int = 2) -&gt; Statement:
     &quot;&quot;&quot;The n longest runs of each job: number them from the longest, keep numbers 1 to n.&quot;&quot;&quot;
     numbered = derived(&quot;numbered&quot;, statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.duration_mins,
@@ -897,15 +900,15 @@ WHERE
 <tr><td>3</td><td>97</td><td>30</td></tr>
 <tr><td>3</td><td>103</td><td>30</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>descending</code>, <code>row_number</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>at_most</code>, <code>between</code>, <code>max_of</code>, <code>descending</code>, <code>row_number</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="left_join_then_where">
 <h3>LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</h3>
 <p class="why">Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE on job_runs then throws that row away again.</p>
 <p class="label">The top of its script, left_join_then_where.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, equals,
-    example_database, is_not_null, statement,
+    AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, Statement, all_of, between, count_rows,
+    equals, example_database, is_not_null, statement,
 )
 
 jobs = example_database.jobs
@@ -915,7 +918,7 @@ FIRST_DAY = &quot;2026-09-23&quot;
 LAST_DAY = &quot;2026-09-24&quot;</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless(keeps_only_matches=False):
+<pre class="python">def careless(keeps_only_matches: bool = False) -&gt; Statement:
     &quot;&quot;&quot;What most people write first: the days go in WHERE. The Guard refuses it.
 
     careless(keeps_only_matches=True) pastes the Guard&#x27;s opt-out and shows what goes wrong:
@@ -951,7 +954,7 @@ GROUP BY
 <tr><td>nightly_load</td><td>4</td></tr>
 <tr><td>report_build</td><td>2</td></tr>
 </table></div></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Put the days in LEFT_JOIN&#x27;s ON=, so they only decide which runs match.&quot;&quot;&quot;
     return statement(
         SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), &quot;runs&quot;)),
@@ -976,7 +979,7 @@ GROUP BY
 <tr><td>report_build</td><td>2</td></tr>
 </table></div></div>
 </div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>is_not_null</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_not_null</code>, <code>between</code>, <code>all_of</code>, <code>count_rows</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="nan_in_a_list">
 <h3>NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</h3>
@@ -985,7 +988,8 @@ GROUP BY
 <pre class="python">import pandas as pd
 
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_not_in, statement,
+    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, example_database, is_not_in,
+    statement,
 )
 
 job_runs = example_database.job_runs
@@ -997,7 +1001,7 @@ DAY = &quot;2026-09-24&quot;
 LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless():
+<pre class="python">def careless() -&gt; Statement:
     &quot;&quot;&quot;What most people write first. The Guard refuses the NaN, with no opt-out.
 
     In Hive it would count 0 runs, when 3 runs on the day are from jobs not left out.
@@ -1014,7 +1018,7 @@ LEAVE_OUT = pd.DataFrame({&quot;job_id&quot;: [2, None]})</pre>
   Usual fix:      Drop NaN and infinite values first, for example with pandas&#x27; dropna().
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p class="note">It has no opt-out, so there is no Hive to run.</p></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Drop the NaN first with pandas&#x27; dropna(): the 3 runs of the other jobs come back.&quot;&quot;&quot;
     leave_out = LEAVE_OUT.job_id.dropna().tolist()
     return statement(
@@ -1030,14 +1034,15 @@ WHERE
 <tr><td>3</td></tr>
 </table></div></div>
 </div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>is_not_in</code>, <code>count_rows</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_not_in</code>, <code>count_rows</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="none_in_equals">
 <h3>None in equals: a search for a missing status finds nothing.</h3>
 <p class="why">Why: in SQL nothing equals NULL, not even NULL, so <code>status = NULL</code> matches no rows at all.</p>
 <p class="label">The top of its script, none_in_equals.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_null, statement,
+    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, example_database, is_null,
+    statement,
 )
 
 job_runs = example_database.job_runs
@@ -1045,7 +1050,7 @@ job_runs = example_database.job_runs
 DAY = &quot;2026-09-23&quot;</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless():
+<pre class="python">def careless() -&gt; Statement:
     &quot;&quot;&quot;What most people write first. The Guard refuses it at equals(...), with no opt-out.
 
     In Hive it would count 0 runs, when one run (98) is still running with no status.
@@ -1062,7 +1067,7 @@ DAY = &quot;2026-09-23&quot;</pre>
   Usual fix:      Use is_null(column) or is_not_null(column) to find missing values.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p class="note">It has no opt-out, so there is no Hive to run.</p></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Use is_null(...) to find a missing value: it finds the one run still going.&quot;&quot;&quot;
     return statement(
         SELECT(AS(count_rows(), &quot;running&quot;)),
@@ -1077,7 +1082,7 @@ WHERE
 <tr><td>1</td></tr>
 </table></div></div>
 </div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>count_rows</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>count_rows</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="not_equals_drops_null">
 <h3>not_equals: leaving out TEST runs also leaves out the run still going.</h3>
@@ -1085,7 +1090,7 @@ WHERE
 <p>No Guard catches this, since the Toolbox can&#x27;t know which columns may be NULL; not_equals&#x27; docstring says so instead.</p>
 <p class="label">The top of its script, not_equals_drops_null.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, any_of, count_rows, equals, example_database, is_null,
+    AS, FROM, SELECT, WHERE, Statement, any_of, count_rows, equals, example_database, is_null,
     not_equals, statement,
 )
 
@@ -1094,7 +1099,7 @@ job_runs = example_database.job_runs
 DAY = &quot;2026-09-23&quot;</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless():
+<pre class="python">def careless() -&gt; Statement:
     &quot;&quot;&quot;What most people write first, expecting pandas&#x27; !=: it counts 3 runs, not 4.
 
     Run 98 is still running, so its status is NULL, and `status &lt;&gt; &#x27;TEST&#x27;` drops it.
@@ -1111,7 +1116,7 @@ WHERE
 <tr><th>runs</th></tr>
 <tr><td>3</td></tr>
 </table></div></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Keep the NULL rows by asking for them too: the 4 runs pandas&#x27; != would give.&quot;&quot;&quot;
     return statement(
         SELECT(AS(count_rows(), &quot;runs&quot;)),
@@ -1130,7 +1135,7 @@ WHERE
 <tr><td>4</td></tr>
 </table></div></div>
 </div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>not_equals</code>, <code>is_null</code>, <code>any_of</code>, <code>count_rows</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>not_equals</code>, <code>is_null</code>, <code>any_of</code>, <code>count_rows</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="regrouping">
 <h3>Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</h3>
@@ -1140,8 +1145,8 @@ WHERE
 
 from building_blocks.jobs_per_day import jobs_per_day
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, between, count_distinct, example_database,
-    run, statement, sum_of, week_start,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, between, count_distinct,
+    example_database, run, statement, sum_of, week_start,
 )
 
 job_runs = example_database.job_runs
@@ -1152,14 +1157,14 @@ LAST_DAY = &quot;2026-09-24&quot;</pre>
 <pre class="python">&quot;&quot;&quot;How many different jobs ran each day, as a Derived table other Statements can read.&quot;&quot;&quot;
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_distinct, derived, example_database,
-    statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_distinct, derived,
+    example_database, statement,
 )
 
 job_runs = example_database.job_runs
 
 
-def jobs_per_day(first_day, last_day):
+def jobs_per_day(first_day: str, last_day: str) -&gt; Table:
     &quot;&quot;&quot;One row per day, with how many different jobs ran that day.&quot;&quot;&quot;
     return derived(
         &quot;jobs_per_day&quot;,
@@ -1172,7 +1177,7 @@ def jobs_per_day(first_day, last_day):
     )</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless(adds_up=False):
+<pre class="python">def careless(adds_up: bool = False) -&gt; Statement:
     &quot;&quot;&quot;What most people write first: add up each day&#x27;s count. The Guard refuses it.
 
     careless(adds_up=True) pastes the Guard&#x27;s opt-out and shows the wrong number: 6 jobs,
@@ -1210,7 +1215,7 @@ GROUP BY
 <tr><th>week</th><th>jobs_that_ran</th></tr>
 <tr><td>2026-09-21</td><td>6</td></tr>
 </table></div></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Count the different jobs over the whole week, straight from job_runs.&quot;&quot;&quot;
     return statement(
         SELECT(AS(week_start(job_runs.dt), &quot;week&quot;),
@@ -1230,7 +1235,7 @@ GROUP BY
 <tr><td>2026-09-21</td><td>3</td></tr>
 </table></div></div>
 </div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>between</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>week_start</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>between</code>, <code>count_distinct</code>, <code>sum_of</code>, <code>week_start</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="repeated_rows">
 <h3>Repeated rows: joining alerts onto runs makes the minutes come out too big.</h3>
@@ -1238,8 +1243,8 @@ GROUP BY
 <p class="label">The top of its script, repeated_rows.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from building_blocks.alerts_per_run import alerts_per_run
 from sqlglot_composer import (
-    AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,
-    statement, sum_of,
+    AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, Statement, between, count_rows, equals,
+    example_database, statement, sum_of,
 )
 
 job_runs = example_database.job_runs
@@ -1250,13 +1255,14 @@ DAY = &quot;2026-09-24&quot;</pre>
 <pre class="python">&quot;&quot;&quot;Alerts counted per run, so joining them onto job_runs can&#x27;t repeat a run.&quot;&quot;&quot;
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, example_database, statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, example_database,
+    statement,
 )
 
 run_alerts = example_database.run_alerts
 
 
-def alerts_per_run(first_day, last_day):
+def alerts_per_run(first_day: str, last_day: str) -&gt; Table:
     &quot;&quot;&quot;One row per run, with how many alerts it raised between the two days.&quot;&quot;&quot;
     return derived(
         &quot;alerts_per_run&quot;,
@@ -1269,7 +1275,7 @@ def alerts_per_run(first_day, last_day):
     )</pre>
 <div class="pair">
 <div><h4>Careless: what most people write first</h4>
-<pre class="python">def careless(many_matches=False):
+<pre class="python">def careless(many_matches: bool = False) -&gt; Statement:
     &quot;&quot;&quot;What most people write first: it runs, and the Toolbox warns at the JOIN line.
 
     run_alerts has one row per alert, so each run is repeated once per alert it raised.
@@ -1300,7 +1306,7 @@ WHERE
 <tr><th>minutes</th><th>alerts</th></tr>
 <tr><td>150</td><td>7</td></tr>
 </table></div></div>
-<div><h4>Fixed</h4><pre class="python">def fixed():
+<div><h4>Fixed</h4><pre class="python">def fixed() -&gt; Statement:
     &quot;&quot;&quot;Count the alerts per run first, then join: one row per run, so minutes count once.
 
     It is a LEFT_JOIN, so a run that raised no alert keeps its minutes too.
@@ -1333,7 +1339,7 @@ WHERE
 <tr><td>100</td><td>7</td></tr>
 </table></div></div>
 </div>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>example_database</code></p>
+<p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>LEFT_JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>Statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>example_database</code></p>
 </section>
 <h2 id="docstrings">Examples from the docstrings</h2>
 <section class="entry" id="TOOLBOX_VERSION">
@@ -1371,7 +1377,7 @@ WHERE
 ...
 AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;status&#x27;? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.</pre>
 <p class="names">Toolbox names used: <code>Table</code></p>
-<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+<p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="Column">
 <h3><code>Column</code></h3>
@@ -2154,6 +2160,17 @@ WHERE
 </table></div>
 <p class="names">Toolbox names used: <code>Statement</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code></p>
 </section>
+<section class="entry" id="Clause">
+<h3><code>Clause</code></h3>
+<p class="why">One clause of a Statement, made by a clause function such as SELECT(...).</p>
+<p>Each clause function fills in only the parts its clause has; the rest keep their defaults. statement(...) reads them back to build the Statement. Make one with its clause function, never Clause(). Write the name in a type hint, to say that a function of yours gives back a clause, as a Building block that joins a table does:</p>
+<pre class="python">def with_their_jobs() -&gt; Clause:
+    return JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id))</pre>
+<pre class="python">with_their_jobs()</pre>
+<p class="label">Python shows</p>
+<pre class="output">&lt;JOIN clause - put it in statement(...)&gt;</pre>
+<p class="names">Toolbox names used: <code>Clause</code>, <code>JOIN</code>, <code>equals</code></p>
+</section>
 <section class="entry" id="derived">
 <h3><code>derived</code></h3>
 <p class="why">Name a Statement so another Statement can read it like a table.</p>
@@ -2855,6 +2872,17 @@ WHERE
 <p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>window</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>lag</code>, <code>to_hive</code></p>
 </section>
+<section class="entry" id="Window">
+<h3><code>Window</code></h3>
+<p class="why">The rows a calculation looks across for each row, made by window(...) for over=.</p>
+<p>Make one with window(...), never Window(). Write the name in a type hint, to say that a function of yours gives back a Window:</p>
+<pre class="python">def each_jobs_runs_in_order() -&gt; Window:
+    return window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])</pre>
+<pre class="python">each_jobs_runs_in_order()</pre>
+<p class="label">Python shows</p>
+<pre class="output">window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])</pre>
+<p class="names">Toolbox names used: <code>Window</code>, <code>window</code></p>
+</section>
 <section class="entry" id="row_number">
 <h3><code>row_number</code></h3>
 <p class="why">Number the rows of each group from 1, in ORDER_BY&#x27;s order.</p>
@@ -2976,7 +3004,7 @@ WHERE
 <section class="entry" id="to_hive">
 <h3><code>to_hive</code></h3>
 <p class="why">The Hive string for a Statement, ready to send.</p>
-<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. An Admin statement, from the admin module, is checked by the function that made it instead: no Load limit applies to it, so the move&#x27;s comparison reads every day, and an ALTER TABLE it writes isn&#x27;t read back. The Hive may write a function differently from how you would by hand, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same.</p>
+<p>It checks itself by reading the string back, and refuses what would read too many days (see set_load_limits) or write more than one day. An Admin statement, from the admin module, is checked by the function that made it instead: no Load limit applies to it, so the move&#x27;s comparison reads every day, and an ALTER TABLE it writes isn&#x27;t read back. The Hive may write a function differently from how you would by hand, for example DATE_SUB(dt, 7) as DATE_ADD(dt, 7 * -1), which means the same. Given Session settings, it gives their SET lines, one to a line; given an Unchecked statement, its text as you wrote it.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
@@ -3039,7 +3067,7 @@ WHERE
 <section class="entry" id="run">
 <h3><code>run</code></h3>
 <p class="why">Send a Statement&#x27;s Hive through your <code>send</code> function and return what comes back.</p>
-<p><code>send</code> is your own function from a Hive string to a pandas DataFrame. At work it calls the query API; example_database.send runs the Example database instead. A write into a table with partitioned_by= needs the Session setting &quot;dynamic_partitions&quot; sent first, with run(hive_settings(&quot;dynamic_partitions&quot;), send=...), as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For explain(s), run gives back Hive&#x27;s plan as text, rather than a DataFrame.</p>
+<p><code>send</code> is your own function from a Hive string to a pandas DataFrame. At work it calls the query API; example_database.send runs the Example database instead. A write into a table with partitioned_by= needs the Session setting &quot;dynamic_partitions&quot; sent first, with run(hive_settings(&quot;dynamic_partitions&quot;), send=...), as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For explain(s), run gives back Hive&#x27;s plan as text, rather than a DataFrame, and for hive_settings(...) it gives back None, since it sends each SET line as a call of its own. A write gives back what your send gave back for it.</p>
 <pre class="python">run(statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     FROM(job_runs),

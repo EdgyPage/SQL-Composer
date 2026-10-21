@@ -143,7 +143,7 @@ first, to see the rows the write would save. These are the runs that failed on 2
 `INSERT_OVERWRITE(runs_to_review)` turns the same SELECT into a write. A daily write is a
 function of the day, so the same lines write any day:
 
->>> def failed_runs(day):
+>>> def failed_runs(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(runs_to_review),
 ...         SELECT(job_runs.run_id, job_runs.job_id),
@@ -210,7 +210,7 @@ row for each different `"run_id"` and `"job_id"`, and one `"run_id"` always come
 The day written comes from the table in `FROM`, here `run_alerts.dt`. The joined table needs a
 bound on its days too; here it is the same day.
 
->>> def alerted_runs(day):
+>>> def alerted_runs(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_INTO(runs_to_review),
 ...         # A run can raise several high alerts: DISTINCT keeps each run once.
@@ -260,7 +260,7 @@ day is always written in the same order: the INSERT_OVERWRITE first, which clear
 then the INSERT_INTO. To redo a day, send both again, in that order. Keep the day's writes in
 one list, in the order they are sent:
 
->>> def write_day(day):
+>>> def write_day(day: str) -> list[Statement]:
 ...     return [failed_runs(day), alerted_runs(day)]
 >>> day_writes = write_day("2026-09-24")
 >>> len(day_writes)
@@ -270,7 +270,9 @@ At work, a loop sends the day's writes in order. Here it is a function that take
 send, written as in [Start a Project](#start_a_project); it isn't called on this page, since
 the Example database's send would refuse the writes:
 
->>> def send_day(day, send):
+>>> from collections.abc import Callable
+>>> import pandas as pd
+>>> def send_day(day: str, send: Callable[[str], pd.DataFrame]) -> None:
 ...     for write in write_day(day):
 ...         run(write, send=send)
 
@@ -358,14 +360,14 @@ sqlglot_composer.refusals.GuardRefused:
 Give each write the new column. Python looks up `runs_to_review` when the function runs, so
 the functions written again here write the new table:
 
->>> def failed_runs(day):
+>>> def failed_runs(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(runs_to_review),
 ...         SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...         FROM(job_runs),
 ...         WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")),
 ...     )
->>> def alerted_runs(day):
+>>> def alerted_runs(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_INTO(runs_to_review),
 ...         SELECT_DISTINCT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),

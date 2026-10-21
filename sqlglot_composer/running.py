@@ -10,8 +10,11 @@ from __future__ import annotations
 import datetime
 import inspect
 import textwrap
+from collections.abc import Callable
 from types import FrameType
 from typing import NamedTuple, NoReturn
+
+import pandas as pd
 
 from . import _FOLDER, writing
 from .clauses import (
@@ -60,7 +63,8 @@ TOOLBOX_VERSION = "6.1"
 _limits = {"rows": None, "dates": None}
 
 
-def set_load_limits(rows=None, dates=None):
+def set_load_limits(rows: int | None = None,
+                    dates: int | None = None) -> dict[str, int | None]:
     """Switch on an automatic LIMIT and a cap on days per Statement; both start off.
 
     Call it from your own notebook, since the Toolbox folder is replaced on each update.
@@ -415,7 +419,7 @@ def _self_check(text: str) -> None:
         )
 
 
-def to_hive(s):
+def to_hive(s: Statement | SessionSettings | UncheckedStatement) -> str:
     """The Hive string for a Statement, ready to send.
 
     It checks itself by reading the string back, and refuses what would read too many days
@@ -424,7 +428,8 @@ def to_hive(s):
     the move's comparison reads every day, and an ALTER TABLE it writes isn't read back. The
     Hive may write a function
     differently from how you would by hand, for example DATE_SUB(dt, 7) as
-    DATE_ADD(dt, 7 * -1), which means the same.
+    DATE_ADD(dt, 7 * -1), which means the same. Given Session settings, it gives their SET
+    lines, one to a line; given an Unchecked statement, its text as you wrote it.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
@@ -538,7 +543,8 @@ def _plan(result: object) -> HivePlan:
     return HivePlan("\n".join(lines).rstrip())
 
 
-def show_hive(*statements):
+def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
+              | list[Statement]) -> str:
     """Print the Hive that runs, ready to paste into another program, and return it.
 
     Each Statement's Hive is exactly what to_hive gives and run sends, with a ; added at the
@@ -629,7 +635,8 @@ def show_hive(*statements):
     return HiveText(text)
 
 
-def run(s, send):
+def run(s: Statement | SessionSettings | UncheckedStatement,
+        send: Callable[[str], pd.DataFrame]) -> pd.DataFrame | str | None:
     """Send a Statement's Hive through your `send` function and return what comes back.
 
     `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
@@ -637,7 +644,9 @@ def run(s, send):
     table with partitioned_by= needs the Session setting "dynamic_partitions" sent first,
     with run(hive_settings("dynamic_partitions"), send=...), as show_hive prints and
     help(INSERT_OVERWRITE) explains: run sends the write alone. For explain(s), run gives back
-    Hive's plan as text, rather than a DataFrame.
+    Hive's plan as text, rather than a DataFrame, and for hive_settings(...) it gives back
+    None, since it sends each SET line as a call of its own. A write gives back what your send
+    gave back for it.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -775,7 +784,7 @@ def _one_day(step: Statement, day: datetime.date) -> Statement:
     return statement(*clauses, returns_all_rows=step._returns_all_rows)
 
 
-def by_day(s):
+def by_day(s: Statement) -> list[Statement]:
     """Split a Statement into one Statement per day its FROM table reads, oldest first.
 
     Use it to read a long range a day at a time, or to write a Saved table day by day:

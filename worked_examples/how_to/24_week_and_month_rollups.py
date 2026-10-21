@@ -253,7 +253,7 @@ from sqlglot_composer import (
 job_events = example_database.job_events
 
 
-def every_event():
+def every_event() -> pd.DataFrame:
     """Every event over the 14 days, read with a Statement the Example database can run, each
     with its week and month, as week_start and month_start give them."""
     events = run(
@@ -267,30 +267,30 @@ def every_event():
                          month=days.dt.strftime("%Y-%m-01"))
 
 
-def every_start():
+def every_start() -> pd.DataFrame:
     events = every_event()
     return events[events.event_type == "start"]
 
 
-def starts_per_week_in_pandas():
+def starts_per_week_in_pandas() -> pd.DataFrame:
     """starts_per_week's result, computed in pandas, not by running this Hive."""
     return every_start().groupby(["week", "job_id"], as_index=False).size().rename(
         columns={"size": "starts"})
 
 
-def starts_per_month_in_pandas():
+def starts_per_month_in_pandas() -> pd.DataFrame:
     """starts_per_month's result, computed in pandas, not by running this Hive."""
     return every_start().groupby(["month", "job_id"], as_index=False).size().rename(
         columns={"size": "starts"})
 
 
-def jobs_per_week_in_pandas():
+def jobs_per_week_in_pandas() -> pd.DataFrame:
     """jobs_per_week's result, computed in pandas, not by running this Hive."""
     return every_start().groupby("week", as_index=False).job_id.nunique().rename(
         columns={"job_id": "jobs_that_ran"})
 
 
-def days_per_week_in_pandas():
+def days_per_week_in_pandas() -> pd.DataFrame:
     """days_per_week's result, computed in pandas, not by running this Hive."""
     return every_event().groupby("week", as_index=False).dt.nunique().rename(
         columns={"dt": "days"})

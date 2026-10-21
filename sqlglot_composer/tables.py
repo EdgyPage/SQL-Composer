@@ -21,7 +21,7 @@ import re
 import urllib.parse
 from collections.abc import Callable
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import numpy as np
 import pandas as pd
@@ -47,6 +47,9 @@ from .trees import (
     number,
     string,
 )
+
+if TYPE_CHECKING:  # clauses.py imports this file
+    from .clauses import Statement
 
 TOOLBOX_VERSION = "6.1"
 
@@ -143,8 +146,9 @@ class Column:
     (job_runs.duration_mins + 1) * 2
     """
 
-    def __init__(self, tree, *, table=None, name=None, type=None, adds_up=True,
-                 not_adding_up_because=None):
+    def __init__(self, tree: Node, *, table: Table | None = None, name: str | None = None,
+                 type: str | None = None, adds_up: bool = True,
+                 not_adding_up_because: str | None = None) -> None:
         self._tree = tree
         self._table = table
         self._name = name
@@ -164,65 +168,65 @@ class Column:
     # be a dict key or go in a set.
     __hash__ = object.__hash__
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> NoReturn:
         _no_operator("==", "equals(column, value)")
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> NoReturn:
         _no_operator("!=", "not_equals(column, value)")
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> NoReturn:
         _no_operator("<", "less_than(column, value)")
 
-    def __le__(self, other):
+    def __le__(self, other: object) -> NoReturn:
         _no_operator("<=", "at_most(column, value)")
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> NoReturn:
         _no_operator(">", "more_than(column, value)")
 
-    def __ge__(self, other):
+    def __ge__(self, other: object) -> NoReturn:
         _no_operator(">=", "at_least(column, value)")
 
-    def __and__(self, other):
+    def __and__(self, other: object) -> NoReturn:
         _no_operator("&", "all_of(...), or separate conditions in WHERE(...)")
 
     __rand__ = __and__
 
-    def __or__(self, other):
+    def __or__(self, other: object) -> NoReturn:
         _no_operator("|", "any_of(...)")
 
     __ror__ = __or__
 
-    def __invert__(self):
+    def __invert__(self) -> NoReturn:
         _no_operator("~", "the opposite condition, such as not_equals(...) or is_not_null(...)")
 
-    def __bool__(self):
+    def __bool__(self) -> NoReturn:
         _no_operator("if, and, or or not", "a condition such as equals(...)")
 
-    def __add__(self, other):
+    def __add__(self, other: Column | int | float) -> Column:
         return arithmetic(self, other, "Add", "+")
 
-    def __radd__(self, other):
+    def __radd__(self, other: int | float) -> Column:
         return arithmetic(other, self, "Add", "+")
 
-    def __sub__(self, other):
+    def __sub__(self, other: Column | int | float) -> Column:
         return arithmetic(self, other, "Sub", "-")
 
-    def __rsub__(self, other):
+    def __rsub__(self, other: int | float) -> Column:
         return arithmetic(other, self, "Sub", "-")
 
-    def __mul__(self, other):
+    def __mul__(self, other: Column | int | float) -> Column:
         return arithmetic(self, other, "Mul", "*")
 
-    def __rmul__(self, other):
+    def __rmul__(self, other: int | float) -> Column:
         return arithmetic(other, self, "Mul", "*")
 
-    def __truediv__(self, other):
+    def __truediv__(self, other: Column | int | float) -> Column:
         return arithmetic(self, other, "Div", "/")
 
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other: int | float) -> Column:
         return arithmetic(other, self, "Div", "/")
 
-    def __neg__(self):
+    def __neg__(self) -> Column:
         return arithmetic(0, self, "Sub", "-")
 
 
@@ -658,10 +662,16 @@ class Table:
     AttributeError: job_runs has no column 'stauts'. Did you mean 'status'? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.
     """
 
-    def __init__(self, name, columns, date_partition, key=None, does_not_add_up=(),
-                 date_format=None, location=None, purge=None, properties=None, stored_as=None,
-                 compression=None, partitioned_by=None, bucketed_by=None, buckets=None,
-                 sorted_by=None, descriptions=None):
+    def __init__(self, name: str, columns: dict[str, str | None], date_partition: str | None,
+                 key: list[str] | None = None,
+                 does_not_add_up: list[str] | tuple[str, ...] = (),
+                 date_format: str | None = None, location: str | None = None,
+                 purge: bool | None = None, properties: dict[str, str] | None = None,
+                 stored_as: str | None = None, compression: str | None = None,
+                 partitioned_by: list[str] | None = None,
+                 bucketed_by: list[str] | None = None, buckets: int | None = None,
+                 sorted_by: list[str] | None = None,
+                 descriptions: dict[str, str] | None = None) -> None:
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
             refuse(
                 what=f"Table({name!r}, ...) isn't a table name.",
@@ -744,6 +754,7 @@ class Table:
             _check_date_format(date_format)
 
     def __getattr__(self, attribute: str) -> Column:
+        """A column of the table, by its name, such as job_runs.status."""
         columns = self.__dict__.get("_columns")
         if columns is None or attribute.startswith("__"):
             raise AttributeError(attribute)
@@ -771,7 +782,8 @@ class Table:
             not_adding_up_because=because,
         )
 
-    def __dir__(self):
+    def __dir__(self) -> list[str]:
+        """The table's attributes and its columns, so tab completion lists the columns."""
         return sorted(set(super().__dir__()) | set(self._columns))
 
     def __repr__(self) -> str:
@@ -1064,7 +1076,7 @@ def source(table: Table) -> Node:
     return table_node(table._name, alias=table._alias)
 
 
-def all_columns(t):
+def all_columns(t: Table) -> list[Column]:
     """Every column of a Table reference, in its order, for SELECT instead of `*`.
 
     >>> all_columns(jobs)
@@ -1093,7 +1105,7 @@ def _columns_of(t: object, call: str) -> list[Column]:
     return [t._column(column) for column in t._columns]
 
 
-def first_look(t):
+def first_look(t: Table) -> Statement:
     """A first look at a table: all its columns, and 20 of yesterday's rows.
 
     It is an ordinary Statement, bounded to the day before today like any other, so it is
@@ -1268,7 +1280,8 @@ def _day_format_of(value: str | None) -> str | None:
     return None
 
 
-def write_table_reference(name, send, folder=None):
+def write_table_reference(name: str, send: Callable[[str], pd.DataFrame],
+                          folder: str | Path | None = None) -> Path:
     '''Write a table's Table reference as a file, such as ops__run_alerts.py.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
@@ -1507,7 +1520,7 @@ def need_saved_table(t: object, what: str) -> Table:
     return t
 
 
-def check_key(t, send):
+def check_key(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
     """Check on the newest day that no two rows share the Table reference's key.
 
     JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table
@@ -1573,7 +1586,7 @@ def _same_type(first: str, second: str) -> bool:
     return "".join(first.lower().split()) == "".join(second.lower().split())
 
 
-def check_table_reference(t, send):
+def check_table_reference(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
     """Compare a Table reference with its table as it is now, and list what differs.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send`, and lists problems (which make
@@ -1866,7 +1879,7 @@ def _partitions_and_buckets_problems(t: Table, described: Described, fix: str) -
     return problems
 
 
-def create_table(t, may_exist=False):
+def create_table(t: Table, may_exist: bool = False) -> Statement:
     """The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.
 
     A Saved table is one your Statements write into. Send it once with

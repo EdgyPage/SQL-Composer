@@ -39,14 +39,14 @@ Statements read like a table, as in [Reusable Derived tables](#reusable_derived_
 `SELECT_DISTINCT` keeps each run once, so the block's key is job_id and dt, and joins on both
 don't warn:
 
->>> def starts_between(first_day, last_day):
+>>> def starts_between(first_day: str, last_day: str) -> Table:
 ...     return derived("starts", statement(
 ...         SELECT_DISTINCT(job_events.job_id, job_events.dt),
 ...         FROM(job_events),
 ...         WHERE(equals(job_events.event_type, "start"),
 ...               between(job_events.dt, first_day, last_day)),
 ...     ))
->>> def finishes_between(first_day, last_day):
+>>> def finishes_between(first_day: str, last_day: str) -> Table:
 ...     return derived("finishes", statement(
 ...         SELECT_DISTINCT(job_events.job_id, job_events.dt),
 ...         FROM(job_events),
@@ -76,7 +76,7 @@ This block reads two blocks, so it takes them as arguments rather than building 
 The Statement that uses it builds each block once, and hands the same one to every piece that
 reads it:
 
->>> def unfinished_runs(starts, finishes):
+>>> def unfinished_runs(starts: Table, finishes: Table) -> Table:
 ...     return derived("unfinished_runs", statement(
 ...         SELECT(starts.job_id, starts.dt),
 ...         FROM(starts),
@@ -148,7 +148,7 @@ To keep each job that has at least one match, each once, join to a list that hol
 once: SQL calls this a semi-join. A plain `JOIN` straight to job_events would repeat a job once
 per event. The block is that list:
 
->>> def jobs_that_started(first_day, last_day):
+>>> def jobs_that_started(first_day: str, last_day: str) -> Table:
 ...     return derived("jobs_that_started", statement(
 ...         SELECT_DISTINCT(job_events.job_id),
 ...         FROM(job_events),
@@ -220,7 +220,7 @@ A block that builds the blocks it reads itself is easy to call, but a Statement 
 and the inner block too then holds two Derived tables called `starts`, one from each call.
 The Toolbox can't tell they are the same, so it refuses:
 
->>> def unfinished_between(first_day, last_day):
+>>> def unfinished_between(first_day: str, last_day: str) -> Table:
 ...     return unfinished_runs(starts_between(first_day, last_day),
 ...                            finishes_between(first_day, last_day))
 >>> still_going = unfinished_between("2026-09-11", "2026-09-24")
@@ -246,7 +246,7 @@ A name that holds the day, such as `f"starts_{first_day}"`, changes every day. W
 written `2026-09-23` it can't even be a name, since a Derived table's name is letters, digits
 and underscores:
 
->>> def starts_on(day):
+>>> def starts_on(day: str) -> Table:
 ...     return derived(f"starts_{day}", statement(
 ...         SELECT_DISTINCT(job_events.job_id),
 ...         FROM(job_events),

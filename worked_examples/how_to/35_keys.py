@@ -54,7 +54,7 @@ over all the days; leave it out when each value appears on one day only, as a ru
 `GROUP_BY(job_runs.job_id)` makes one row for each `"job_id"`, so the Toolbox can see the Key
 holds, and builds the write:
 
->>> def write_day(day):
+>>> def write_day(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(job_day),
 ...         SELECT(job_runs.job_id, AS(count_rows(), "runs"),
@@ -121,7 +121,7 @@ joined to `ops.jobs` on its whole Key, `jobs.job_id`, which keeps one row for ea
 ...     date_partition="dt",
 ...     key=["job_id", "dt"],
 ... )
->>> def write_newest(day):
+>>> def write_newest(day: str) -> Statement:
 ...     numbered = derived("numbered", statement(
 ...         SELECT(job_runs.job_id, job_runs.run_id,
 ...                AS(row_number(PARTITION_BY=job_runs.job_id,

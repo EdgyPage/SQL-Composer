@@ -113,7 +113,8 @@ _Avoid_: report, case, output script
 
 **Clause function**:
 A Toolbox function named after one SQL clause - `SELECT`, `FROM`, `WHERE`, `GROUP_BY` - and
-written in SQL order. A Statement is made of them, given in that order.
+written in SQL order. A Statement is made of them, given in that order. Each gives back a
+`Clause`, the name a type hint uses.
 _Avoid_: builder, chain, method
 
 **Column**:
@@ -151,7 +152,7 @@ The rows a calculation looks across for each row of a Statement: the rows of tha
 in an order, and sometimes only those near it, such as the six before it. A calculation over a
 Window gives each row a value of its own and keeps every row, as a running total, a rank or the
 value of the row before does. Its groups are SQL's PARTITION BY, which has nothing to do with a
-Partition.
+Partition. In Python, `window(...)` gives back a `Window`, the name a type hint uses.
 _Avoid_: frame, OVER clause (OVER is how it lands in the string), analytic function
 
 **Stack**:

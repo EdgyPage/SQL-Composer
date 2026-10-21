@@ -6,8 +6,8 @@ times.
 
 from building_blocks.alerts_per_run import alerts_per_run
 from sqlglot_composer import (
-    AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,
-    statement, sum_of,
+    AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, Statement, between, count_rows, equals,
+    example_database, statement, sum_of,
 )
 
 job_runs = example_database.job_runs
@@ -16,7 +16,7 @@ run_alerts = example_database.run_alerts
 DAY = "2026-09-24"
 
 
-def careless(many_matches=False):
+def careless(many_matches: bool = False) -> Statement:
     """What most people write first: it runs, and the Toolbox warns at the JOIN line.
 
     run_alerts has one row per alert, so each run is repeated once per alert it raised.
@@ -32,7 +32,7 @@ def careless(many_matches=False):
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Count the alerts per run first, then join: one row per run, so minutes count once.
 
     It is a LEFT_JOIN, so a run that raised no alert keeps its minutes too.

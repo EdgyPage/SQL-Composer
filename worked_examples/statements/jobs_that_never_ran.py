@@ -5,8 +5,8 @@ JOIN can't show it, since JOIN keeps only the rows that match.
 """
 
 from sqlglot_composer import (
-    FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, all_of, between, derived, equals,
-    example_database, is_null, statement,
+    FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, Statement, all_of, between, derived,
+    equals, example_database, is_null, statement,
 )
 
 jobs = example_database.jobs
@@ -16,7 +16,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def jobs_that_never_ran():
+def jobs_that_never_ran() -> Statement:
     """Every job with no run on these days (in SQL, an anti-join).
 
     LEFT_JOIN keeps every job, and a job with no run gets NULL in job_runs' columns, so
@@ -37,7 +37,7 @@ def jobs_that_never_ran():
     )
 
 
-def jobs_that_ran():
+def jobs_that_ran() -> Statement:
     """Every job with at least one run on these days, each job once (in SQL, a semi-join).
 
     A JOIN straight to job_runs would repeat a job once per run. So first make the list of

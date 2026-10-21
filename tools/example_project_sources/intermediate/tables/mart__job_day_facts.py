@@ -30,7 +30,9 @@ DAY = "2026-09-24"  # the Example database's last day
 # %%
 # logic
 # 2. The logic: imports and functions only
-from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, by_day, create_table, statement
+from sqlglot_composer import (
+    FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, by_day, create_table, statement,
+)
 from building_blocks.days_rewritten import first_day_written
 from building_blocks.events_per_job_day import events_per_job_day
 from building_blocks.owner_on_day import owner_on_day
@@ -38,12 +40,12 @@ from references.mart__job_day_facts import job_day_facts
 from references.ops__job_owners import job_owners
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.job_day_facts from its Table reference, if it isn't there yet."""
     return create_table(job_day_facts, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's day beside its team that day. The day
     isn't selected: INSERT_OVERWRITE writes it as this table's Date partition."""
     events = events_per_job_day(first_day, last_day)
@@ -54,19 +56,19 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows a write of the day would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_days(first_day, last_day):
+def write_days(first_day: str, last_day: str) -> list[Statement]:
     """One write per day from first_day to last_day, oldest first. by_day cuts it at
     ops.job_events' days, the table in the Building block's FROM; owner_on_day matches each
     day to that day's snapshot."""
     return by_day(statement(INSERT_OVERWRITE(job_day_facts), *rows(first_day, last_day)))
 
 
-def write_day(day):
+def write_day(day: str) -> list[Statement]:
     """Step 3, every run: the writes of the last 3 days, ending on the day, as a list, oldest
     first, so cell 3 passes them on as *write_day(DAY). run_tables sends each in turn."""
     return write_days(first_day_written(day), day)

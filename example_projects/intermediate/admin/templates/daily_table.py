@@ -43,20 +43,20 @@ DAY = <DAY>  # a day to try the cells on, in quotes, such as "2026-09-24"
 # logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, by_day, count_rows,
-    create_table, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
+    by_day, count_rows, create_table, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
 from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares, so preview, write_day and backfill can never
     disagree. The day stays in GROUP_BY, so the days stay apart, and out of SELECT: INSERT_OVERWRITE
     writes it as this table's Date partition, the day the table read is bounded to."""
@@ -68,17 +68,17 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's rows, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day, day))
 
 
-def backfill(first_day, last_day):
+def backfill(first_day: str, last_day: str) -> list[Statement]:
     """Step 4, when needed: one write per day from first_day to last_day, oldest first."""
     return by_day(statement(INSERT_OVERWRITE(<TABLE>), *rows(first_day, last_day)))
 

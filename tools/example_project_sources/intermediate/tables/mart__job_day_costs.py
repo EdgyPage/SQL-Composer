@@ -33,36 +33,38 @@ DAY = "2026-09-24"  # the Example database's last day
 # %%
 # logic
 # 2. The logic: imports and functions only
-from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, by_day, create_table, statement
+from sqlglot_composer import (
+    FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, by_day, create_table, statement,
+)
 from building_blocks.costs_per_job_day import costs_per_job_day
 from building_blocks.days_rewritten import first_day_written
 from references.mart__job_day_costs import job_day_costs
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.job_day_costs from its Table reference, if it isn't there yet."""
     return create_table(job_day_costs, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's cost per day. The day isn't selected:
     INSERT_OVERWRITE writes it as this table's Date partition, written its own way."""
     costs = costs_per_job_day(first_day, last_day)
     return [SELECT(costs.job_id, costs.cost_cents), FROM(costs)]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows a write of the day would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_days(first_day, last_day):
+def write_days(first_day: str, last_day: str) -> list[Statement]:
     """One write per day from first_day to last_day, oldest first: also a backfill, given an
     earlier first_day."""
     return by_day(statement(INSERT_OVERWRITE(job_day_costs), *rows(first_day, last_day)))
 
 
-def write_day(day):
+def write_day(day: str) -> list[Statement]:
     """Step 3, every run: the writes of the last 3 days, ending on the day, as a list, oldest
     first, so cell 3 passes them on as *write_day(DAY). run_tables sends each in turn."""
     return write_days(first_day_written(day), day)

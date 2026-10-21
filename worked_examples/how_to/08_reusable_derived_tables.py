@@ -87,7 +87,7 @@ reads it: nothing is saved in the warehouse.
 A Building block is a function that gives back the Derived table, so any Statement can call
 it. The days become its arguments, and the name is written once, inside it:
 
->>> def runs_per_job(first_day, last_day):
+>>> def runs_per_job(first_day: str, last_day: str) -> Table:
 ...     \"\"\"One row per job: its runs, failed runs and minutes from first_day to last_day.\"\"\"
 ...     return derived("runs_per_job", statement(
 ...         SELECT(
@@ -174,7 +174,7 @@ so the Statement picks the days once and every block reads the same ones; and on
 never imports another's (see Keep it in a file, below). The Statement builds `runs_per_job` and
 hands it in:
 
->>> def busy_jobs(per_job, min_runs):
+>>> def busy_jobs(per_job: Table, min_runs: int) -> Table:
 ...     \"\"\"The jobs of per_job, from runs_per_job, with at least min_runs runs.\"\"\"
 ...     return derived("busy_jobs", statement(
 ...         SELECT(per_job.job_id, per_job.runs, per_job.minutes),
@@ -278,13 +278,13 @@ or a Statement:
 
     \"\"\"Each job's runs, failed runs and minutes, as a Derived table to read.\"\"\"
     from sqlglot_composer import (
-        AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, statement,
-        sum_of,
+        AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, equals,
+        statement, sum_of,
     )
     from references.ops__job_runs import job_runs
 
 
-    def runs_per_job(first_day, last_day):
+    def runs_per_job(first_day: str, last_day: str) -> Table:
         \"\"\"One row per job: its runs, failed runs and minutes from first_day to last_day.\"\"\"
         return derived("runs_per_job", statement(
             SELECT(
@@ -340,7 +340,7 @@ it. Here a block of each job's long runs keeps the name `runs_per_job`. A Statem
 it beside `busy`, which reads the real `runs_per_job`, holds two different steps under one
 name, and stops:
 
->>> def long_runs_per_job(first_day, last_day):
+>>> def long_runs_per_job(first_day: str, last_day: str) -> Table:
 ...     return derived("runs_per_job", statement(
 ...         SELECT(job_runs.job_id, AS(count_rows(), "long_runs")),
 ...         FROM(job_runs),

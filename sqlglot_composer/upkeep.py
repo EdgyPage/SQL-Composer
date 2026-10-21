@@ -8,6 +8,7 @@ fourth Statement of this kind.
 
 from __future__ import annotations
 
+import datetime
 import inspect
 from types import FrameType
 
@@ -35,7 +36,7 @@ def _upkeep(tree: Node) -> Statement:
     return s
 
 
-def repair_partitions(t):
+def repair_partitions(t: Table) -> Statement:
     """The MSCK REPAIR TABLE Statement, which lists the days in a Saved table's folder.
 
     The warehouse keeps a list of each table's Partitions, the day folders it reads, and never
@@ -67,7 +68,8 @@ def repair_partitions(t):
     return _upkeep(Node("Repair", target=table_node(t._name)))
 
 
-def compute_statistics(t, day=None, columns=False):
+def compute_statistics(t: Table, day: str | datetime.date | None = None,
+                       columns: bool | list[Column | str] = False) -> Statement:
     """The ANALYZE TABLE Statement, which counts a Saved table's rows for one day.
 
     Hive picks how to join a table from its statistics: how many rows and bytes each day
@@ -187,7 +189,7 @@ def _column_name(t: Table, column: object) -> str:
     )
 
 
-def explain(s):
+def explain(s: Statement) -> Statement:
     """The EXPLAIN Statement: Hive's plan for running a Statement, without running it.
 
     run(explain(s), send=...) gives back Hive's plan as text, which prints line by line. It is

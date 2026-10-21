@@ -49,20 +49,20 @@ DAY = <DAY>  # a day to try the cells on, in quotes, such as "2026-09-24"
 # logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, create_table, statement,
-    sum_of, week_start,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
+    create_table, statement, sum_of, week_start,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
 from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day):
+def rows(day: str) -> list[Clause]:
     """The day's totals per group: the clauses preview and write_day share. The day stays in GROUP_BY, so the days stay apart, and out of SELECT: INSERT_OVERWRITE
     writes it as this table's Date partition, the day the table read is bounded to."""
     return [
@@ -74,17 +74,17 @@ def rows(day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's totals, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
 
 
-def week_totals(first_day, last_day):
+def week_totals(first_day: str, last_day: str) -> Statement:
     """Each group's totals per week, read from the days this table saved, first_day to
     last_day: the week is the Monday it starts on. dt is this table's Date partition, as its
     Table reference names it."""

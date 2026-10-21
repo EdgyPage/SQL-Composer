@@ -7,7 +7,8 @@ Why: pandas writes a blank cell as NaN, Hive can only read it as NULL, and a NUL
 import pandas as pd
 
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_not_in, statement,
+    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, example_database, is_not_in,
+    statement,
 )
 
 job_runs = example_database.job_runs
@@ -19,7 +20,7 @@ DAY = "2026-09-24"
 LEAVE_OUT = pd.DataFrame({"job_id": [2, None]})
 
 
-def careless():
+def careless() -> Statement:
     """What most people write first. The Guard refuses the NaN, with no opt-out.
 
     In Hive it would count 0 runs, when 3 runs on the day are from jobs not left out.
@@ -31,7 +32,7 @@ def careless():
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Drop the NaN first with pandas' dropna(): the 3 runs of the other jobs come back."""
     leave_out = LEAVE_OUT.job_id.dropna().tolist()
     return statement(

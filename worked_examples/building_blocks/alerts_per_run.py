@@ -1,13 +1,14 @@
 """Alerts counted per run, so joining them onto job_runs can't repeat a run."""
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, example_database, statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, example_database,
+    statement,
 )
 
 run_alerts = example_database.run_alerts
 
 
-def alerts_per_run(first_day, last_day):
+def alerts_per_run(first_day: str, last_day: str) -> Table:
     """One row per run, with how many alerts it raised between the two days."""
     return derived(
         "alerts_per_run",

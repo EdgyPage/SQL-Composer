@@ -15,6 +15,7 @@ location= is a table someone else owns. Each run of one adds an entry to the Adm
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import urllib.parse
 from collections.abc import Callable
@@ -111,7 +112,7 @@ def _check_purge(t: Table) -> str:
 # --- Dropping ---------------------------------------------------------------------------------
 
 
-def drop_table(t):
+def drop_table(t: Table) -> Statement:
     """Drop one of your Saved tables: the DROP TABLE IF EXISTS Statement.
 
     The warehouse forgets the table, and every Statement that reads it fails until it is
@@ -152,7 +153,7 @@ def drop_table(t):
     return _admin_statement(call, about, Node("Drop", target=table_node(t._name)))
 
 
-def drop_days(t, before):
+def drop_days(t: Table, before: str | datetime.date) -> Statement:
     """Drop a Saved table's days before a given day: an ALTER TABLE Statement.
 
     Each day of the table before `before`, a datetime.date or a day written as the Table
@@ -211,7 +212,7 @@ def drop_days(t, before):
 # --- Adding columns ---------------------------------------------------------------------------
 
 
-def add_columns(t, send):
+def add_columns(t: Table, send: Callable[[str], pd.DataFrame]) -> Statement:
     """Add the new columns of a Saved table's Table reference to the table itself.
 
     It sends DESCRIBE through your `send` as it is made, and adds each column of the Table
@@ -330,7 +331,7 @@ def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
 # --- Table properties -------------------------------------------------------------------------
 
 
-def set_properties(t):
+def set_properties(t: Table) -> Statement:
     """Set a Saved table's properties as its Table reference gives them.
 
     It sets the table's properties to its Table reference's: purge= as external.table.purge,
@@ -397,7 +398,8 @@ def set_properties(t):
 _MOVING = "_moving"
 
 
-def move_to_own_folder(t, send):
+def move_to_own_folder(t: Table,
+                       send: Callable[[str], pd.DataFrame]) -> list[Statement]:
     """Move a Saved table to a folder of its own: a list of Statements to run.
 
     A Saved table belongs in its own folder, under its Table reference's location=: in a

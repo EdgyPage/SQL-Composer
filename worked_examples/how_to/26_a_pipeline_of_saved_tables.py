@@ -81,7 +81,7 @@ LOCATION '/data/your_team/tables/mart/team_day';
 
 Each write is a function of the day it writes. mart.job_day is written from the raw events:
 
->>> def write_job_day(day):
+>>> def write_job_day(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(job_day),
 ...         SELECT(job_events.job_id,
@@ -97,7 +97,7 @@ any other table, with each job's team taken from that day's copy of the owners, 
 up as of a day](#look_things_up_as_of_a_day) does. Adding up the jobs' counts into the team's is
 safe: a sum of counts is still the right count.
 
->>> def write_team_day(day):
+>>> def write_team_day(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(team_day),
 ...         SELECT(job_owners.team,
@@ -118,7 +118,7 @@ whenever you read it, which is quick, since each day holds a row per team.
 Read whole weeks, from a Monday to a Sunday; here the week holding 2026-09-24, the day the
 pipeline below writes:
 
->>> def weekly_rollup(first_day, last_day):
+>>> def weekly_rollup(first_day: str, last_day: str) -> Statement:
 ...     return statement(
 ...         SELECT(AS(week_start(team_day.dt), "week"), team_day.team,
 ...                AS(sum_of(team_day.starts), "starts"),
@@ -136,7 +136,7 @@ haven't written yet, and nothing would stop it. So one function lists the day's 
 order, each writer before its readers, and it is the only place that order is kept, as in [Run
 a daily pipeline](#run_a_daily_pipeline):
 
->>> def pipeline(day):
+>>> def pipeline(day: str) -> list[Statement]:
 ...     return [write_job_day(day), write_team_day(day)]
 >>> job_day_step, team_day_step = pipeline("2026-09-24")
 >>> text = show_hive(job_day_step, team_day_step)
@@ -171,7 +171,10 @@ GROUP BY
 That printout is a dry run: every write for the day, in order, sent nowhere. At work, one runner
 sends them, in order:
 
-    def run_pipeline(day, send):
+    from collections.abc import Callable
+    import pandas as pd
+
+    def run_pipeline(day: str, send: Callable[[str], pd.DataFrame]) -> None:
         for step in pipeline(day):
             run(step, send=send)
 

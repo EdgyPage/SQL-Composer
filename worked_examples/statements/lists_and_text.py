@@ -5,7 +5,7 @@ come up in almost every Statement, and each has one trap worth knowing.
 """
 
 from sqlglot_composer import (
-    FROM, SELECT, WHERE, any_of, between, contains, equals, example_database, is_in,
+    FROM, SELECT, WHERE, Statement, any_of, between, contains, equals, example_database, is_in,
     is_not_in, is_null, starts_with, statement,
 )
 
@@ -16,7 +16,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def runs_of_listed_jobs():
+def runs_of_listed_jobs() -> Statement:
     """Runs of jobs 1 and 3 only (IN a list)."""
     return statement(
         SELECT(job_runs.run_id, job_runs.job_id),
@@ -25,7 +25,7 @@ def runs_of_listed_jobs():
     )
 
 
-def runs_that_did_not_pass():
+def runs_that_did_not_pass() -> Statement:
     """Runs whose status is neither TEST nor SUCCESS (NOT IN a list).
 
     The trap: a run still going has status NULL, and NOT IN drops NULL rows too, so it is
@@ -39,7 +39,7 @@ def runs_that_did_not_pass():
     )
 
 
-def runs_to_check():
+def runs_to_check() -> Statement:
     """Runs that failed or are still going (OR).
 
     any_of keeps a row where at least one of its conditions holds. is_null finds the runs
@@ -53,7 +53,7 @@ def runs_to_check():
     )
 
 
-def jobs_by_name():
+def jobs_by_name() -> Statement:
     """Jobs whose name starts with "invoice" or contains "_build" (LIKE).
 
     The trap: in LIKE, _ means "any one character". contains and starts_with match _ and %

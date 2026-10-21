@@ -30,7 +30,7 @@ are what the change does, Statement by Statement, whatever the code looked like.
 Statements](#share_building_blocks_between_statements): a Derived table of each job's finished
 runs over the days you give it, and the minutes they took.
 
->>> def finished_runs(first_day, last_day):
+>>> def finished_runs(first_day: str, last_day: str) -> Table:
 ...     return derived("finished_runs", statement(
 ...         SELECT(job_events.job_id,
 ...                AS(count_rows(), "runs"),
@@ -44,7 +44,7 @@ runs over the days you give it, and the minutes they took.
 Two Statements read it: the minutes each team's jobs ran, and the two jobs that ran longest.
 A function builds both, so after you change the Building block, one call builds them again:
 
->>> def build_statements(first_day, last_day):
+>>> def build_statements(first_day: str, last_day: str) -> tuple[Statement, Statement]:
 ...     runs = finished_runs(first_day, last_day)
 ...     minutes_per_team = statement(
 ...         SELECT(jobs.team, AS(sum_of(runs.minutes), "minutes")),
@@ -89,7 +89,7 @@ name, for the last mistake below, then write it again with the change, and build
 Statements again, since each holds the Building block as it was when it was built:
 
 >>> finished_only = finished_runs
->>> def finished_runs(first_day, last_day):
+>>> def finished_runs(first_day: str, last_day: str) -> Table:
 ...     return derived("finished_runs", statement(
 ...         SELECT(job_events.job_id,
 ...                AS(count_rows(), "runs"),
@@ -111,7 +111,7 @@ lines, each under the part of the Markdown file it is in: the Statement, from it
 heading, then the column or the Hive, from the heading under that. It leaves out the last line
 of each file, which says when the file was made, and so differs every time:
 
->>> def changed_lines(before_file, after_file):
+>>> def changed_lines(before_file: str, after_file: str) -> None:
 ...     before = Path(before_file).read_text(encoding="utf-8").splitlines()
 ...     after = Path(after_file).read_text(encoding="utf-8").splitlines()
 ...     part = heading = shown = None
@@ -159,7 +159,7 @@ for the column. `outputs_fed_by` keeps the outputs of the Statements, named like
 `minutes_per_team.minutes`, and leaves out the Derived table's own columns, whose headings hold a
 dot already, such as `finished_runs in minutes_per_team.minutes`:
 
->>> def outputs_fed_by(column, markdown_file):
+>>> def outputs_fed_by(column: str, markdown_file: str) -> list[str]:
 ...     fed, statement_name, output = [], None, None
 ...     for line in Path(markdown_file).read_text(encoding="utf-8").splitlines():
 ...         if line.startswith("## "):

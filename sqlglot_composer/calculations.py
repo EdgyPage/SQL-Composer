@@ -8,6 +8,9 @@ max. Each takes `where=` to count or add up only some rows.
 
 from __future__ import annotations
 
+import datetime
+from typing import TYPE_CHECKING
+
 from .conditions import Condition
 from .refusals import (
     guard_unsafe_regrouping,
@@ -35,6 +38,9 @@ from .trees import (
     string,
 )
 from .writing import check_writable_call
+
+if TYPE_CHECKING:
+    from .windows import Window  # here only: windows.py imports this file
 
 TOOLBOX_VERSION = "6.1"
 
@@ -118,7 +124,7 @@ def _over(tree: Node, over: object, call: str, adds_up: bool,
     return windowed(tree, over, call, TOTAL), adds_up, because
 
 
-def count_rows(where=None, over=None):
+def count_rows(where: Condition | None = None, over: Window | None = None) -> Column:
     """The number of rows, or of the rows where a condition holds.
 
     over=window(...) counts the rows of each row's Window, beside each row: see help(window).
@@ -135,7 +141,7 @@ def count_rows(where=None, over=None):
                   adds_up=adds_up, not_adding_up_because=because)
 
 
-def count_distinct(column, where=None):
+def count_distinct(column: Column, where: Condition | None = None) -> Column:
     """The number of different values in a column, leaving out NULL.
 
     A distinct count doesn't add up: counts for two days can't be added to give the count
@@ -148,7 +154,8 @@ def count_distinct(column, where=None):
                       because="a distinct count", distinct=True)
 
 
-def sum_of(column, where=None, adds_up=False, over=None):
+def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False,
+           over: Window | None = None) -> Column:
     """The total of a column, or of its rows where a condition holds.
 
     It refuses a column made by an average, a division or a distinct count, or one its Table
@@ -174,7 +181,8 @@ def sum_of(column, where=None, adds_up=False, over=None):
     return _aggregate("sum_of", "Sum", column, where, over=over)
 
 
-def average_of(column, where=None, adds_up=False, over=None):
+def average_of(column: Column, where: Condition | None = None, adds_up: bool = False,
+               over: Window | None = None) -> Column:
     """The average of a column that isn't a division, an average or a distinct count.
 
     An average itself doesn't add up: the average of two daily averages isn't the average
@@ -198,7 +206,8 @@ def average_of(column, where=None, adds_up=False, over=None):
                       because="an average", over=over)
 
 
-def min_of(column, where=None, over=None):
+def min_of(column: Column, where: Condition | None = None,
+           over: Window | None = None) -> Column:
     """The smallest value in a column.
 
     over=window(...) gives each row the smallest of its Window's rows; see help(window).
@@ -209,7 +218,8 @@ def min_of(column, where=None, over=None):
     return _aggregate("min_of", "Min", column, where, over=over)
 
 
-def max_of(column, where=None, over=None):
+def max_of(column: Column, where: Condition | None = None,
+           over: Window | None = None) -> Column:
     """The largest value in a column.
 
     over=window(...) gives each row the largest of its Window's rows; see help(window).
@@ -226,7 +236,9 @@ def _as_column(value: object, call: str) -> Column:
     return Column(literal(value, call=call, in_condition=False))
 
 
-def if_else(condition, then, otherwise):
+def if_else(condition: Condition,
+            then: Column | str | int | float | datetime.date | None,
+            otherwise: Column | str | int | float | datetime.date | None) -> Column:
     """One value where a condition holds and another where it doesn't (CASE WHEN).
 
     >>> if_else(equals(job_runs.status, "FAILED"), 1, 0)
@@ -253,7 +265,7 @@ def if_else(condition, then, otherwise):
     return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because)
 
 
-def fill_null(column, value):
+def fill_null(column: Column, value: Column | str | int | float | datetime.date) -> Column:
     """The column, with a value put in where it is NULL (COALESCE).
 
     >>> fill_null(job_runs.status, "RUNNING")
@@ -287,7 +299,7 @@ def _call(name: str, *args: Node) -> Node:
     return Node("Call", name=name, args=list(args))
 
 
-def week_start(column):
+def week_start(column: Column) -> Column:
     """The Monday that starts each date's week, to group days into weeks.
 
     Hive has no function for the Monday of a week, so this takes the first Monday after the
@@ -305,7 +317,7 @@ def week_start(column):
     return Column(made_by(tree, "week_start", column), type="string")
 
 
-def month_start(column):
+def month_start(column: Column) -> Column:
     """The first day of each date's month, to group days into months.
 
     The result is text, a day like "2026-09-01": CAST(... AS STRING) makes it text wherever
@@ -330,7 +342,7 @@ class Ordering:
         return f"descending({self._target!r})"
 
 
-def descending(column):
+def descending(column: Column | str) -> Ordering:
     """Sort by a column from largest to smallest, in ORDER_BY or a Window's ORDER_BY.
 
     Pass a column; in ORDER_BY(...), the name of an output column as a string works too, but
@@ -355,7 +367,7 @@ def ordered(item: object, call: str) -> Node:
     return Node("Ordered", this=tree, desc=descending_order)
 
 
-def hive_function(name, *args):
+def hive_function(name: str, *args: Column | str | int | float | datetime.date) -> Column:
     """Call a Hive function the Toolbox doesn't wrap, with your text quoted for you.
 
     The Toolbox writes the function's name in capitals, and writes the call in its usual form:

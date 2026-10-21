@@ -31,7 +31,7 @@ The question: over a range of days, how many runs did each job finish, and how m
 those runs take? `ops.job_events` has a row per event, and a run's finish event says how many
 minutes it took. This first try counts every row of each job, and adds up every row's minutes:
 
->>> def careless_finished_runs(first_day, last_day):
+>>> def careless_finished_runs(first_day: str, last_day: str) -> Statement:
 ...     return statement(
 ...         SELECT(job_events.job_id,
 ...                AS(count_rows(), "finished"),
@@ -56,14 +56,14 @@ in pandas, which counts in a way of its own: keep the finish events, then count 
 their minutes, per job. This is an oracle, an answer you trust because you can read each step
 of it:
 
->>> def events(first_day, last_day):
+>>> def events(first_day: str, last_day: str) -> pd.DataFrame:
 ...     every_event = statement(
 ...         SELECT(all_columns(job_events)),
 ...         FROM(job_events),
 ...         WHERE(between(job_events.dt, first_day, last_day)),
 ...     )
 ...     return run(every_event, send=example_database.send)
->>> def oracle(rows):
+>>> def oracle(rows: pd.DataFrame) -> pd.DataFrame:
 ...     finishes = rows[rows["event_type"] == "finish"]
 ...     return finishes.groupby("job_id", as_index=False).agg(
 ...         finished=("event_id", "count"), minutes=("minutes", "sum"))
@@ -82,10 +82,12 @@ on the whole table.
 is True. `same_rows` puts each DataFrame's rows in one order, by `"job_id"`, and turns them
 into a list of plain dicts, which compare with `==` as Python lists do:
 
->>> def same_rows(result, expected):
+>>> def same_rows(result: pd.DataFrame, expected: pd.DataFrame) -> bool:
 ...     return (result.sort_values("job_id").to_dict("records")
 ...             == expected.sort_values("job_id").to_dict("records"))
->>> def test_statement(make_statement, first_day, last_day):
+>>> from collections.abc import Callable
+>>> def test_statement(make_statement: Callable[[str, str], Statement],
+...                    first_day: str, last_day: str) -> None:
 ...     result = run(make_statement(first_day, last_day), send=example_database.send)
 ...     expected = oracle(events(first_day, last_day))
 ...     message = f"{first_day} to {last_day}:\\n{result}\\n{expected}"
@@ -104,7 +106,7 @@ event's minutes are 0, which is why one range of days, and a check by eye, aren'
 
 Keep only the finish events, in `WHERE`:
 
->>> def finished_runs(first_day, last_day):
+>>> def finished_runs(first_day: str, last_day: str) -> Statement:
 ...     return statement(
 ...         SELECT(job_events.job_id,
 ...                AS(count_rows(), "finished"),

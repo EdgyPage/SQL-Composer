@@ -98,7 +98,7 @@ starts and finishes, every column of mart.job_day but dt: you never select the d
 Toolbox writes it into the Hive's PARTITION(dt = '...') from the day each write reads. dt stays in
 `GROUP_BY`, so each day's counts stay apart:
 
->>> def rewrite_last_days(n):
+>>> def rewrite_last_days(n: int) -> list[Statement]:
 ...     return by_day(statement(
 ...         INSERT_OVERWRITE(job_day),
 ...         SELECT(job_events.job_id,
@@ -153,7 +153,10 @@ The Example database can't be written to, so the writes stop here. At work, a fu
 them in order through your own send, and you call it once a day, `load_last_days(send)`, as
 [Run a daily pipeline](#run_a_daily_pipeline) does for one day:
 
-    def load_last_days(send):
+    from collections.abc import Callable
+    import pandas as pd
+
+    def load_last_days(send: Callable[[str], pd.DataFrame]) -> None:
         for day in rewrite_last_days(3):
             run(day, send=send)
 

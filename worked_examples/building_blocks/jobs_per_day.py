@@ -1,14 +1,14 @@
 """How many different jobs ran each day, as a Derived table other Statements can read."""
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_distinct, derived, example_database,
-    statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_distinct, derived,
+    example_database, statement,
 )
 
 job_runs = example_database.job_runs
 
 
-def jobs_per_day(first_day, last_day):
+def jobs_per_day(first_day: str, last_day: str) -> Table:
     """One row per day, with how many different jobs ran that day."""
     return derived(
         "jobs_per_day",

@@ -122,7 +122,7 @@ Its logic cell now imports `ops.job_runs`' Table reference, and counts each job'
     from references.ops__job_runs import job_runs
 
 
-    def rows(first_day, last_day):
+    def rows(first_day: str, last_day: str) -> list[Clause]:
         \"\"\"The clauses every step below shares. The day stays in GROUP_BY, so the days
         stay apart, and out of SELECT: INSERT_OVERWRITE writes it as this table's Date
         partition, the day the table read is bounded to.\"\"\"

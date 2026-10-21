@@ -267,6 +267,8 @@ counts too.
   [`row_number`](examples.html#row_number).
 """
 
+import pandas as pd
+
 from sqlglot_composer import (
     FROM, SELECT, WHERE, all_columns, between, example_database, run, statement,
 )
@@ -274,7 +276,7 @@ from sqlglot_composer import (
 job_owners = example_database.job_owners
 
 
-def newest_owner_in_pandas():
+def newest_owner_in_pandas() -> pd.DataFrame:
     """newest_owner's result, computed in pandas, not by running this Hive."""
     every_day = run(
         statement(SELECT(all_columns(job_owners)), FROM(job_owners),

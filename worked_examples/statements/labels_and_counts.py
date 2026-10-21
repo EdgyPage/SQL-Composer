@@ -5,7 +5,7 @@ one row per job instead of one row per job and status.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, equals, example_database,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, between, count_rows, equals, example_database,
     fill_null, if_else, is_null, more_than, statement,
 )
 
@@ -15,7 +15,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def labelled_runs():
+def labelled_runs() -> Statement:
     """Each run with a readable status and a length label (in SQL, COALESCE and CASE WHEN).
 
     A run still going has no status yet (NULL), which fill_null shows as RUNNING. if_else
@@ -32,7 +32,7 @@ def labelled_runs():
     )
 
 
-def outcomes_per_job():
+def outcomes_per_job() -> Statement:
     """One row per job, with a column for each outcome (a pivot).
 
     count_rows(where=...) counts only the rows where its condition holds, so each column
@@ -52,7 +52,7 @@ def outcomes_per_job():
     )
 
 
-def failed_share_per_job():
+def failed_share_per_job() -> Statement:
     """Each job's failed runs as a percent of its runs: one count divided by another.
 
     Divide after GROUP_BY, as one count by another, not an average of per-row values. Times

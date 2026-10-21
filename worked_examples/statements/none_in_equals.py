@@ -4,7 +4,8 @@ Why: in SQL nothing equals NULL, not even NULL, so `status = NULL` matches no ro
 """
 
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_null, statement,
+    AS, FROM, SELECT, WHERE, Statement, count_rows, equals, example_database, is_null,
+    statement,
 )
 
 job_runs = example_database.job_runs
@@ -12,7 +13,7 @@ job_runs = example_database.job_runs
 DAY = "2026-09-23"
 
 
-def careless():
+def careless() -> Statement:
     """What most people write first. The Guard refuses it at equals(...), with no opt-out.
 
     In Hive it would count 0 runs, when one run (98) is still running with no status.
@@ -24,7 +25,7 @@ def careless():
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Use is_null(...) to find a missing value: it finds the one run still going."""
     return statement(
         SELECT(AS(count_rows(), "running")),

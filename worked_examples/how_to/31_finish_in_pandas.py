@@ -205,7 +205,7 @@ day it writes. Here a job's run before may be up to 6 days back, so read the day
 ...                     columns={"event_id": "bigint", "job_id": "bigint", "minutes": "int",
 ...                              "minutes_before": "int", "dt": "string"},
 ...                     location="/data/your_team/tables", purge=True)
->>> def changes_on(day):
+>>> def changes_on(day: str) -> Statement:
 ...     week_before = (datetime.date.fromisoformat(day) - datetime.timedelta(days=6)).isoformat()
 ...     week = derived("week", statement(
 ...         SELECT(job_events.event_id, job_events.job_id, job_events.dt, job_events.minutes,
@@ -227,7 +227,9 @@ WITH week AS (
 The Example database can't be written to, so the write stops here. At work, a function sends
 one such Statement for each day, oldest first, through your own send:
 
-    def write_changes(days, send):
+    from collections.abc import Callable
+
+    def write_changes(days: list[str], send: Callable[[str], pd.DataFrame]) -> None:
         for day in days:
             run(changes_on(day), send=send)
 

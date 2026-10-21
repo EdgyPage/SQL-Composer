@@ -4,9 +4,11 @@ Why: to keep whole rows, since max_of on each column can take the status from a 
 run than the newest one.
 """
 
+import pandas as pd
+
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
-    equals, example_database, max_of, row_number, run, statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, at_most, between, derived,
+    descending, equals, example_database, max_of, row_number, run, statement,
 )
 
 job_runs = example_database.job_runs
@@ -15,7 +17,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def careless():
+def careless() -> Statement:
     """What most people write first: it runs, and job 2's newest run shows SUCCESS.
 
     Run 102 is job 2's newest, and it FAILED. max_of(job_runs.status) is the largest status
@@ -30,7 +32,7 @@ def careless():
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Number each job's runs from the newest, then keep number 1: one whole run per job."""
     numbered = derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
@@ -46,7 +48,7 @@ def fixed():
     )
 
 
-def top_runs_per_job(n=2):
+def top_runs_per_job(n: int = 2) -> Statement:
     """The n longest runs of each job: number them from the longest, keep numbers 1 to n."""
     numbered = derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.duration_mins,
@@ -63,7 +65,7 @@ def top_runs_per_job(n=2):
     )
 
 
-def every_run():
+def every_run() -> pd.DataFrame:
     """Every run on both days, read with a Statement the Example database can run."""
     return run(
         statement(SELECT(all_columns(job_runs)), FROM(job_runs),
@@ -72,14 +74,14 @@ def every_run():
     )
 
 
-def fixed_in_pandas():
+def fixed_in_pandas() -> pd.DataFrame:
     """fixed()'s result, computed in pandas, not by running this Hive."""
     newest_first = every_run().sort_values("run_id", ascending=False)
     latest = newest_first.groupby("job_id").head(1)
     return latest[["job_id", "run_id", "status"]].sort_values("job_id").reset_index(drop=True)
 
 
-def top_runs_per_job_in_pandas(n=2):
+def top_runs_per_job_in_pandas(n: int = 2) -> pd.DataFrame:
     """top_runs_per_job(n)'s result, computed in pandas, not by running this Hive.
 
     Its rows are in the Example database's order for a Statement with no ORDER_BY: by the first

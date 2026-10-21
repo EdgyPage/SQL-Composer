@@ -63,7 +63,7 @@ class SessionSettings:
     <Session settings map_joins - show_hive(...) shows their SET lines>
     """
 
-    def __init__(self, names: list[str], lines: list[str]):
+    def __init__(self, names: list[str], lines: list[str]) -> None:
         self._names = names  # the sets' names, in the order given
         self._lines = lines  # each "SET name=value", without a ;
 
@@ -72,7 +72,9 @@ class SessionSettings:
                 "SET lines>")
 
 
-def hive_settings(*names, sets=None):
+def hive_settings(*names: str,
+                  sets: dict[str, dict[str, str | int | float | bool]] | None = None
+                  ) -> SessionSettings:
     """The SET lines of Session settings, by name, to send before your Statements.
 
     Hive keeps a Session setting for the rest of the session, so send them first, then your
@@ -280,7 +282,7 @@ class UncheckedStatement:
     <Unchecked statement - show_hive(...) shows its Hive>
     """
 
-    def __init__(self, text: str):
+    def __init__(self, text: str) -> None:
         self._text = text  # the Hive as written, without a last ;
 
     def __repr__(self) -> str:
@@ -291,7 +293,7 @@ class UncheckedNote(UserWarning):
     """An Unchecked statement changes a table: the note says which admin function does it."""
 
 
-def unchecked_hive(text):
+def unchecked_hive(text: str) -> UncheckedStatement:
     """Hive you write by hand, for run to send when no clause function writes it yet.
 
     No Guard, Warning or Load limit looks inside it: the Toolbox sends the text as you wrote
@@ -416,7 +418,7 @@ def _note_a_change(text: str) -> None:
 _admin_log = {"path": None}
 
 
-def set_admin_log(path=None):
+def set_admin_log(path: str | Path | None = None) -> Path | None:
     """Set where the Admin log is written, such as ADMIN_LOG from your own settings.py.
 
     The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an

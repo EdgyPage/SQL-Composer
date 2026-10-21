@@ -252,7 +252,7 @@ job_runs = example_database.job_runs
 jobs = example_database.jobs
 
 
-def runs_on(day):
+def runs_on(day: str) -> pd.DataFrame:
     """Each run of the day, with its job's team and name, read with a Statement the Example
     database can run."""
     return run(statement(SELECT(all_columns(job_runs), jobs.team, jobs.job_name),
@@ -260,7 +260,8 @@ def runs_on(day):
                          WHERE(equals(job_runs.dt, day))), send=example_database.send)
 
 
-def _rollup(rows, columns, totals):
+def _rollup(rows: pd.DataFrame, columns: list[str],
+            totals: dict[str, tuple[str, str]]) -> pd.DataFrame:
     """The rows of a rollup over `columns`: each set, from all of them down to none, with the
     columns a set totals over missing, as pandas 3 shows NULL text (NaN), and a 1 in "subtotal"
     where there are any."""
@@ -279,7 +280,7 @@ def _rollup(rows, columns, totals):
     return found
 
 
-def _sorted(frame, columns):
+def _sorted(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     """The rows as the Example database gives them: sorted by every column, NULL first."""
     keys = [frame[column].map(lambda value: (value is not None and value == value, value))
             for column in columns]
@@ -287,7 +288,7 @@ def _sorted(frame, columns):
     return frame.iloc[order][columns].reset_index(drop=True)
 
 
-def runs_per_job_in_pandas():
+def runs_per_job_in_pandas() -> pd.DataFrame:
     """runs_per_job's result, computed in pandas, not by running this Hive."""
     rows = runs_on("2026-09-24")
     found = _rollup(rows, ["team", "job_name"],
@@ -295,14 +296,14 @@ def runs_per_job_in_pandas():
     return _sorted(found, ["team", "job_name", "runs", "minutes"])
 
 
-def runs_per_status_in_pandas():
+def runs_per_status_in_pandas() -> pd.DataFrame:
     """runs_per_status's result, computed in pandas, not by running this Hive."""
     rows = runs_on("2026-09-23")
     found = _rollup(rows, ["status"], {"runs": ("run_id", "count")})
     return _sorted(found, ["status", "subtotal", "runs"])
 
 
-def labelled_in_pandas():
+def labelled_in_pandas() -> pd.DataFrame:
     """labelled's result, computed in pandas, not by running this Hive."""
     found = runs_per_job_in_pandas()
     team = found["team"].where(found["team"].notna(), "every team")
@@ -311,7 +312,7 @@ def labelled_in_pandas():
     return _sorted(labelled, ["team", "job", "runs"])
 
 
-def team_totals_in_pandas():
+def team_totals_in_pandas() -> pd.DataFrame:
     """team_totals' result, computed in pandas, not by running this Hive."""
     found = runs_per_job_in_pandas()
     return found[found["job_name"].isna()][["team", "job_name", "runs"]].reset_index(drop=True)

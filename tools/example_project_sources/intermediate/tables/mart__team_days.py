@@ -37,8 +37,8 @@ DAY = "2026-09-24"  # the Example database's last day
 # logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, all_of, between, by_day,
-    create_table, equals, statement, sum_of, week_start,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
+    all_of, between, by_day, create_table, equals, statement, sum_of, week_start,
 )
 from building_blocks.days_rewritten import first_day_written
 from building_blocks.events_per_job_day import events_per_job_day
@@ -49,12 +49,12 @@ from references.mart__team_days import team_days
 from references.ops__job_owners import job_owners
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.team_days from its Table reference, if it isn't there yet."""
     return create_table(team_days, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each team's numbers per day of job_day_facts, the
     table in FROM. The costs are joined on their day as well as their job, so each day's facts
     meet only that day's costs; their days go in LEFT_JOIN's ON=, since a WHERE on
@@ -78,23 +78,23 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows a write of the day would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_days(first_day, last_day):
+def write_days(first_day: str, last_day: str) -> list[Statement]:
     """One write per day from first_day to last_day, oldest first."""
     return by_day(statement(INSERT_OVERWRITE(team_days), *rows(first_day, last_day)))
 
 
-def write_day(day):
+def write_day(day: str) -> list[Statement]:
     """Step 3, every run, once the two tables it reads have written the same days: the writes
     of the last 3 days, ending on the day, as a list, oldest first."""
     return write_days(first_day_written(day), day)
 
 
-def week_totals(first_day, last_day):
+def week_totals(first_day: str, last_day: str) -> Statement:
     """Each team's events, runs, minutes and cost per week, from the days this table saved.
     A week that first_day or last_day cuts through counts only its days in between."""
     return statement(
@@ -114,7 +114,7 @@ def week_totals(first_day, last_day):
     )
 
 
-def team_day_from_job_events(day):
+def team_day_from_job_events(day: str) -> Statement:
     """Each team's events, runs and minutes for a day, from ops.job_events and ops.job_owners
     themselves, through the Building blocks mart.job_day_facts saves: so it runs on the
     Example database. The costs are left out: ops.region_costs writes its days like 20260924,
