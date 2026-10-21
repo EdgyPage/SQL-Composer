@@ -6,8 +6,8 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-This page is a tutorial: eight steps, from installing the Toolbox to a Saved table written
-every day and the Lineage of each of its columns. Most steps point to the how-to that walks
+This page is a tutorial: eight steps, from installing the Toolbox, through a Saved table written
+every day and the Lineage of each of its columns, to a project of your own. Most steps point to the how-to that walks
 through them in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your
 browser. What changed in each
 version, and how to update from it, is in `CHANGES.md`.

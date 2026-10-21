@@ -8,8 +8,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### To update from 5.x
 
-- **The README is a tutorial**: eight steps, from installing the Toolbox to the Lineage of a
-  Saved table, each pointing to the how-to that walks through it. What it said about one version,
+- **The README is a tutorial**: eight steps, from installing the Toolbox to a project of your
+  own, each pointing to the how-tos that walk through it. What it said about one version,
   such as updating from 4.x or 3.x, is in these notes, under that version's "To update".
 - **The Toolbox is one folder, `sqlglot_composer`.** Delete both old folders, `composer_core`
   and `sqlglot_composer`, copy in the new `sqlglot_composer`, and restart the kernel. Imports

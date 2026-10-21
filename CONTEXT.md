@@ -259,7 +259,7 @@ _Avoid_: cookbook, docs site, examples page
 
 **README**:
 The page the Clean branch opens on: a tutorial of numbered steps, from installing the Toolbox
-to Lineage, each pointing to the How-tos that walk through it. A How-to is never called a
+to a project of the user's own, each pointing to the How-tos that walk through it. A How-to is never called a
 tutorial; what changed in each version is in the change notes, never in the README.
 _Avoid_: manual, guide, docs
 
