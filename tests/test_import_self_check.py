@@ -9,6 +9,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,7 +37,8 @@ def _files(folder: Path) -> list[str]:
     return sorted(p.name for p in folder.iterdir() if p.name != "__pycache__")
 
 
-def import_copy(tmp_path: Path, change=None, name: str = FOLDER) -> str:
+def import_copy(tmp_path: Path, change: Callable[..., None] | None = None,
+                name: str = FOLDER) -> str:
     """Copy the folder as `name`, apply `change` to the copy, import it, and return what it
     printed."""
     copy = tmp_path / name
@@ -54,12 +56,12 @@ def with_file_list(copy: Path) -> None:
     init.write_text(text, encoding="utf-8")
 
 
-def test_an_untouched_copy_imports(tmp_path) -> None:
+def test_an_untouched_copy_imports(tmp_path: Path) -> None:
     assert import_copy(tmp_path, with_file_list) == ""
 
 
 @pytest.mark.parametrize("name", ["writing.py", "running.py"])
-def test_a_file_from_another_version_stops_the_import(tmp_path, name: str) -> None:
+def test_a_file_from_another_version_stops_the_import(tmp_path: Path, name: str) -> None:
     def older(copy: Path) -> None:
         path = copy / name
         text = path.read_text(encoding="utf-8").replace(f'TOOLBOX_VERSION = "{VERSION}"',
@@ -76,7 +78,7 @@ def test_a_file_from_another_version_stops_the_import(tmp_path, name: str) -> No
     ) + "\n")
 
 
-def test_an_extra_file_stops_the_import(tmp_path) -> None:
+def test_an_extra_file_stops_the_import(tmp_path: Path) -> None:
     def extra(copy: Path) -> None:
         with_file_list(copy)
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
@@ -92,7 +94,7 @@ def test_an_extra_file_stops_the_import(tmp_path) -> None:
     ) + "\n")
 
 
-def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path) -> None:
+def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path: Path) -> None:
     """The four-part message is built in the folder's __init__.py, so it works without
     refusals.py."""
     def missing(copy: Path) -> None:
@@ -114,8 +116,8 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path) -> None:
     (["examples.html", "how_to.html"], "a missing examples.html leaves you without the Example "
      "gallery, and a missing how_to.html leaves you without the how-tos"),
 ])
-def test_a_missing_page_stops_the_import_and_says_what_it_holds(tmp_path, pages: list[str],
-                                                                lost: str) -> None:
+def test_a_missing_page_stops_the_import_and_says_what_it_holds(
+        tmp_path: Path, pages: list[str], lost: str) -> None:
     assert sorted(pages) == [page for page in toolbox_registry.PAGES if page in pages]
 
     def missing(copy: Path) -> None:
@@ -137,7 +139,7 @@ def test_every_page_is_one_the_missing_file_stop_says_what_it_holds() -> None:
     assert set(toolbox_registry.PAGES) == set(checks._PAGES)
 
 
-def test_a_folder_missing_what_checks_it_stops_the_import(tmp_path) -> None:
+def test_a_folder_missing_what_checks_it_stops_the_import(tmp_path: Path) -> None:
     assert import_copy(tmp_path, lambda copy: (copy / "checks.py").unlink()).endswith(
         import_stop(
             what=f"checks.py is missing from the {FOLDER} folder.",
@@ -160,7 +162,7 @@ def stamp_every_file(copy: Path, odd: str | None = None, product: str = PRODUCT,
         path.write_text(line + "\n" + path.read_text(encoding="utf-8"), encoding="utf-8")
 
 
-def test_an_exported_copy_imports(tmp_path) -> None:
+def test_an_exported_copy_imports(tmp_path: Path) -> None:
     def exported(copy: Path) -> None:
         with_file_list(copy)
         stamp_every_file(copy)
@@ -169,7 +171,7 @@ def test_an_exported_copy_imports(tmp_path) -> None:
 
 
 @pytest.mark.parametrize("odd", ["writing.py", "tables.py", "examples.html"])
-def test_files_from_two_exports_stop_the_import(tmp_path, odd: str) -> None:
+def test_files_from_two_exports_stop_the_import(tmp_path: Path, odd: str) -> None:
     assert import_copy(tmp_path, lambda copy: stamp_every_file(copy, odd=odd)).endswith(
         import_stop(
             what=f"{odd} came from a different export than {FOLDER}/__init__.py.",
@@ -199,19 +201,19 @@ FROM_ELSEWHERE_FIX = (f"Delete the {FOLDER} folder, then copy it in again from t
 
 
 @pytest.mark.parametrize("odd", ["writing.py", "engine.py", "tables.py", "examples.html"])
-def test_a_file_from_the_other_folder_stops_the_import(tmp_path, odd: str) -> None:
+def test_a_file_from_the_other_folder_stops_the_import(tmp_path: Path, odd: str) -> None:
     assert import_copy(tmp_path, lambda copy: from_the_other_folder(copy, odd)).endswith(
         import_stop(what=f"{odd} is from the {OTHER.folder} folder, and this is the {FOLDER} "
                     "folder.", why=FROM_ELSEWHERE_WHY, fix=FROM_ELSEWHERE_FIX) + "\n")
 
 
-def test_every_file_from_the_other_folder_is_named(tmp_path) -> None:
+def test_every_file_from_the_other_folder_is_named(tmp_path: Path) -> None:
     pasted = import_copy(tmp_path,
                          lambda copy: from_the_other_folder(copy, "writing.py", "engine.py"))
     assert f"What happened:  engine.py, writing.py are from the {OTHER.folder} folder" in pasted
 
 
-def test_the_other_folders_init_stops_the_import_naming_itself(tmp_path) -> None:
+def test_the_other_folders_init_stops_the_import_naming_itself(tmp_path: Path) -> None:
     """Its own text names the other folder, so the stop goes by the folder the import found."""
     def pasted_in(copy: Path) -> None:
         (copy / "__init__.py").write_text(other_folders_init(), encoding="utf-8")
@@ -222,7 +224,7 @@ def test_the_other_folders_init_stops_the_import_naming_itself(tmp_path) -> None
         why=FROM_ELSEWHERE_WHY, fix=FROM_ELSEWHERE_FIX) + "\n")
 
 
-def renamed_copy(tmp_path: Path, change) -> str:
+def renamed_copy(tmp_path: Path, change: Callable[..., None]) -> str:
     """Copy the folder as my_toolbox, as its export would, apply `change`, and import it."""
     def exported_then_changed(copy: Path) -> None:
         with_file_list(copy)
@@ -232,11 +234,12 @@ def renamed_copy(tmp_path: Path, change) -> str:
     return import_copy(tmp_path, exported_then_changed, name="my_toolbox")
 
 
-def test_a_renamed_folder_imports(tmp_path) -> None:
+def test_a_renamed_folder_imports(tmp_path: Path) -> None:
     assert renamed_copy(tmp_path, lambda copy: None) == ""
 
 
-def test_a_file_from_the_other_folder_in_a_renamed_folder_stops_the_import(tmp_path) -> None:
+def test_a_file_from_the_other_folder_in_a_renamed_folder_stops_the_import(
+        tmp_path: Path) -> None:
     def pasted_in(copy: Path) -> None:
         writing = copy / "writing.py"
         writing.write_text(writing.read_text(encoding="utf-8").replace(PRODUCT, OTHER.product, 1),
@@ -246,7 +249,7 @@ def test_a_file_from_the_other_folder_in_a_renamed_folder_stops_the_import(tmp_p
 
 
 def test_the_other_folders_init_in_a_renamed_folder_stops_the_import_naming_itself(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     """The folder is what most of its files' stamps say, whatever the pasted __init__.py says."""
     def pasted_in(copy: Path) -> None:
         (copy / "__init__.py").write_text(other_folders_init(), encoding="utf-8")
@@ -270,7 +273,7 @@ def renamed_stop(odd: str) -> str:
             "\n  Opt-out:        none - this one can't be switched off.\n")
 
 
-def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None:
+def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path: Path) -> None:
     """An examples.html regenerated on dev, pasted into an exported folder, is caught too."""
     def exported_but_one(copy: Path) -> None:
         dev_page = (copy / "examples.html").read_text(encoding="utf-8")
@@ -281,7 +284,7 @@ def test_a_file_unstamped_among_exported_ones_stops_the_import(tmp_path) -> None
                                                                           exported_but_one)
 
 
-def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
+def test_an_exported_copy_says_when_it_was_exported(tmp_path: Path) -> None:
     def stamped(copy: Path) -> None:
         stamp_every_file(copy)
         (copy.parent / "show.py").write_text(f"import {FOLDER}\nprint({FOLDER}.VERSION)\n",
@@ -293,7 +296,7 @@ def test_an_exported_copy_says_when_it_was_exported(tmp_path) -> None:
     assert shown.stdout.strip() == f"{PRODUCT} {VERSION}, exported 2026-10-02 14:05"
 
 
-def test_an_older_python_stops_the_import(monkeypatch) -> None:
+def test_an_older_python_stops_the_import(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sys, "version_info", (3, 9, 7, "final", 0))
     with pytest.raises(ImportError) as error:
         checks.check_python(PRODUCT, FOLDER)
@@ -306,7 +309,7 @@ def test_an_older_python_stops_the_import(monkeypatch) -> None:
     )
 
 
-def test_a_stop_in_a_renamed_folder_is_headed_by_its_own_name(tmp_path) -> None:
+def test_a_stop_in_a_renamed_folder_is_headed_by_its_own_name(tmp_path: Path) -> None:
     def extra(copy: Path) -> None:
         (copy / "my_notes.py").write_text("x = 1\n", encoding="utf-8")
 

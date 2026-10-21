@@ -5,7 +5,9 @@ from __future__ import annotations
 import importlib
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
 import pytest
@@ -27,7 +29,8 @@ from sqlglot_composer import (
 from sqlglot_composer.example_database import job_runs, jobs
 
 
-def describing(columns, partitions=(), days=()):
+def describing(columns: list[tuple[str, str]], partitions: list[str] | tuple[str, ...] = (),
+               days: list[str] | tuple[str, ...] = ()) -> Callable[..., pd.DataFrame]:
     """A stand-in for `send` at work: it answers DESCRIBE and SHOW PARTITIONS like Hive."""
 
     def send(hive: str) -> pd.DataFrame:
@@ -57,7 +60,8 @@ def describing(columns, partitions=(), days=()):
         ({"date_partition": "dt", "date_format": "%d.%m"}, "%Y exactly once"),
     ],
 )
-def test_a_table_reference_refuses_names_that_arent_its_columns(arguments, message) -> None:
+def test_a_table_reference_refuses_names_that_arent_its_columns(
+        arguments: dict[str, str | list[str] | None], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         Table("ops.t", columns={"run_id": "bigint", "dt": "string"}, **arguments)
 
@@ -75,7 +79,7 @@ def test_a_table_name_must_be_a_hive_name() -> None:
 # --- write_table_reference -------------------------------------------------------------------
 
 
-def _imported_job_runs_reference(folder: Path):
+def _imported_job_runs_reference(folder: Path) -> ModuleType:
     """references/ops__job_runs.py, imported from `folder` as a notebook beside references/
     imports it, and forgotten after, so another test can write its own."""
     sys.path.insert(0, str(folder))
@@ -87,7 +91,8 @@ def _imported_job_runs_reference(folder: Path):
             sys.modules.pop(name, None)
 
 
-def test_write_table_reference_writes_a_file_that_imports(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_writes_a_file_that_imports(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "references").mkdir()
     path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
@@ -98,8 +103,8 @@ def test_write_table_reference_writes_a_file_that_imports(tmp_path, monkeypatch)
     assert written._descriptions["status"] == "SUCCESS / FAILED / TEST, NULL while running"
 
 
-def test_an_alias_under_the_aliases_heading_imports_beside_its_table(tmp_path,
-                                                                     monkeypatch) -> None:
+def test_an_alias_under_the_aliases_heading_imports_beside_its_table(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "references").mkdir()
     path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
@@ -119,7 +124,8 @@ def test_an_alias_under_the_aliases_heading_imports_beside_its_table(tmp_path,
     assert "job_runs.status = 'FAILED'" in hive
 
 
-def test_write_table_reference_never_overwrites(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_never_overwrites(tmp_path: Path,
+                                                monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "ops__jobs.py").write_text("mine", encoding="utf-8")
     with pytest.raises(FileExistsError, match="nothing was written") as refused:
@@ -130,14 +136,16 @@ def test_write_table_reference_never_overwrites(tmp_path, monkeypatch) -> None:
     assert str(tmp_path.name) not in str(refused.value)
 
 
-def test_write_table_reference_refuses_a_folder_that_isnt_there(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_refuses_a_folder_that_isnt_there(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(FileNotFoundError, match=r"folder='refrences'\): there is no such folder"):
         write_table_reference("ops.jobs", send=example_database.send, folder="refrences")
     assert list(tmp_path.iterdir()) == []
 
 
-def test_write_table_reference_refuses_a_name_with_no_database(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_refuses_a_name_with_no_database(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="has no database name") as refused:
         write_table_reference("jobs", send=example_database.send)
@@ -149,13 +157,15 @@ def test_write_table_reference_refuses_a_name_with_no_database(tmp_path, monkeyp
     ({"status": 3}, "isn't a dict of columns and text"),
     (["status"], "isn't a dict of columns and text"),
 ])
-def test_table_refuses_descriptions_of_columns_it_doesnt_have(descriptions, said) -> None:
+def test_table_refuses_descriptions_of_columns_it_doesnt_have(
+        descriptions: dict[str, str | int] | list[str], said: str) -> None:
     with pytest.raises(ValueError, match=said):
         Table("ops.runs", columns={"status": "string", "dt": "string"}, date_partition="dt",
               descriptions=descriptions)
 
 
-def test_write_table_reference_finds_a_date_format(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_finds_a_date_format(tmp_path: Path,
+                                                   monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = describing([("n", "int"), ("day", "string"), ("region", "string")],
                       partitions=["day", "region"],
@@ -165,8 +175,8 @@ def test_write_table_reference_finds_a_date_format(tmp_path, monkeypatch) -> Non
     assert 'date_format="%Y%m%d",' in text
 
 
-def test_write_table_reference_leaves_a_partition_that_isnt_a_date_to_you(tmp_path,
-                                                                        monkeypatch) -> None:
+def test_write_table_reference_leaves_a_partition_that_isnt_a_date_to_you(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = describing([("n", "int"), ("region", "string")], partitions=["region"],
                       days=["region=LON"])
@@ -177,7 +187,8 @@ def test_write_table_reference_leaves_a_partition_that_isnt_a_date_to_you(tmp_pa
 # --- What a real warehouse sends back ---------------------------------------------------------
 
 
-def answering(describe_rows, partitions, sent=None):
+def answering(describe_rows: list[tuple[str, str | None, str | None]], partitions: list[str],
+              sent: list[str] | None = None) -> Callable[..., pd.DataFrame]:
     """A stand-in for `send` answering with the rows given, noting every command it is sent."""
 
     def send(hive: str) -> pd.DataFrame:
@@ -215,7 +226,9 @@ NEWER_PARTITIONING = [
 
 @pytest.mark.parametrize("describe", [COMPACT_DESCRIBE, HIVE_DESCRIBE, NEWER_PARTITIONING],
                          ids=["compact", "hive", "newer_partitioning"])
-def test_describe_is_read_as_warehouses_list_it(describe, tmp_path, monkeypatch) -> None:
+def test_describe_is_read_as_warehouses_list_it(
+        describe: list[tuple[str, str | None, str | None]], tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = answering(describe, ["dt=2026-09-24"])
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
@@ -226,7 +239,8 @@ def test_describe_is_read_as_warehouses_list_it(describe, tmp_path, monkeypatch)
     assert 'date_partition="dt",\n' in text
 
 
-def test_every_escaped_character_of_a_partition_value_is_read(tmp_path, monkeypatch) -> None:
+def test_every_escaped_character_of_a_partition_value_is_read(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     sent = []
     send = answering(COMPACT_DESCRIBE, ["region=eu%3Dwest/dt=2026%2F09%2F24/note=50%25%5Cx"], sent)
@@ -236,7 +250,8 @@ def test_every_escaped_character_of_a_partition_value_is_read(tmp_path, monkeypa
     assert "runs.dt = '2026/09/24'" in sent[-1]
 
 
-def test_a_section_after_the_partitions_is_not_read_as_partitions(tmp_path, monkeypatch) -> None:
+def test_a_section_after_the_partitions_is_not_read_as_partitions(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = answering(COMPACT_DESCRIBE, ["dt=2026-09-24"])
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
@@ -246,7 +261,8 @@ def test_a_section_after_the_partitions_is_not_read_as_partitions(tmp_path, monk
     assert repr(check_table_reference(t, send=send)) == "ops.runs matches its Table reference."
 
 
-def test_an_escaped_partition_value_is_read_as_its_day(tmp_path, monkeypatch) -> None:
+def test_an_escaped_partition_value_is_read_as_its_day(tmp_path: Path,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = answering(COMPACT_DESCRIBE, ["dt=2026%2F09%2F23", "dt=2026%2F09%2F24"])
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
@@ -262,7 +278,8 @@ def test_the_null_day_is_never_the_newest() -> None:
     assert "runs.dt = '2026-09-23'" in sent[-1]
 
 
-def test_a_reserved_table_name_is_quoted_in_what_is_sent(tmp_path, monkeypatch) -> None:
+def test_a_reserved_table_name_is_quoted_in_what_is_sent(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     sent = []
     write_table_reference("ops.order", send=answering(COMPACT_DESCRIBE, ["dt=2026-09-24"], sent))
@@ -304,7 +321,7 @@ def test_a_table_hive_cant_describe_is_reported_not_raised() -> None:
 
 
 def test_a_send_that_fails_is_reported_not_raised() -> None:
-    def broken(hive: str):
+    def broken(hive: str) -> pd.DataFrame:
         raise ConnectionError("the query API is down")
 
     verdict = check_table_reference(job_runs, send=broken)

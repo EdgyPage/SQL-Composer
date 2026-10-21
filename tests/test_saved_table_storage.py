@@ -8,6 +8,8 @@ compression, partitioned_by, and Buckets with bucketed_by, buckets and sorted_by
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+
 import pandas as pd
 import pytest
 
@@ -20,6 +22,7 @@ from sqlglot_composer import (
     JOIN,
     SELECT,
     WHERE,
+    Statement,
     Table,
     check_table_reference,
     count_rows,
@@ -29,6 +32,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
+from sqlglot_composer.clauses import Clause
 from sqlglot_composer.example_database import job_runs, jobs
 
 BASE = "/data/your_team/tables"
@@ -37,7 +41,7 @@ REGION_RUNS = Table("mart.region_runs", columns={"job_id": "bigint", "region": "
                     date_partition="dt", location=BASE, partitioned_by=["region"])
 
 
-def saved(**storage) -> Table:
+def saved(**storage: object) -> Table:
     """mart.daily_runs, one of the user's Saved tables, with the storage given."""
     return Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                              "dt": "string"},
@@ -134,7 +138,8 @@ def test_create_table_refuses_a_table_with_no_location() -> None:
     ({"purge": True}, "has purge= but no location="),
     ({"bucketed_by": ["job_id"], "buckets": 4}, "has bucketed_by= but no location="),
 ])
-def test_a_table_reference_refuses_storage_create_table_couldnt_write(storage, message) -> None:
+def test_a_table_reference_refuses_storage_create_table_couldnt_write(
+        storage: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                           "dt": "string"}, date_partition="dt", **storage)
@@ -171,7 +176,8 @@ def test_two_saved_tables_at_one_folder_are_refused() -> None:
 # --- Writing a table partitioned after its day ------------------------------------------------
 
 
-def region_runs_on(day: str, clause=INSERT_OVERWRITE):
+def region_runs_on(day: str,
+                   clause: Callable[[Table], Clause] = INSERT_OVERWRITE) -> Statement:
     return statement(
         clause(REGION_RUNS),
         SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
@@ -201,13 +207,15 @@ WRITTEN = (
 
 @pytest.mark.parametrize(("clause", "first"), [(INSERT_OVERWRITE, "INSERT OVERWRITE TABLE"),
                                                (INSERT_INTO, "INSERT INTO")])
-def test_a_write_fills_its_day_and_the_partitions_after_it_from_its_rows(clause, first) -> None:
+def test_a_write_fills_its_day_and_the_partitions_after_it_from_its_rows(
+        clause: Callable[[Table], Clause], first: str) -> None:
     # The Partitions after the day go last, in their order, as Hive fills them by position.
     assert to_hive(region_runs_on("2026-09-24", clause)) == (
         f"{first} mart.region_runs {WRITTEN}")
 
 
-def test_show_hive_prints_the_session_setting_a_partitioned_write_needs_first(capsys) -> None:
+def test_show_hive_prints_the_session_setting_a_partitioned_write_needs_first(
+        capsys: pytest.CaptureFixture[str]) -> None:
     text = show_hive(region_runs_on("2026-09-24"))
     assert text == (
         '-- The Session setting "dynamic_partitions": this write fills region from its rows.\n'
@@ -239,10 +247,12 @@ ORC_INPUT = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"
 PARQUET_INPUT = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
 
 
-def formatted(location="hdfs://namenode:8020/data/your_team/tables/mart/daily_runs",
-              kind="EXTERNAL_TABLE", parameters=(("EXTERNAL", "TRUE"),), input_format=ORC_INPUT,
-              partitions=("dt",), buckets=-1, bucket_columns="[]", sort_columns="[]",
-              one_line=False):
+def formatted(location: str = "hdfs://namenode:8020/data/your_team/tables/mart/daily_runs",
+              kind: str = "EXTERNAL_TABLE",
+              parameters: Sequence[tuple[str, str]] = (("EXTERNAL", "TRUE"),),
+              input_format: str = ORC_INPUT, partitions: tuple[str, ...] = ("dt",),
+              buckets: int = -1, bucket_columns: str = "[]", sort_columns: str = "[]",
+              one_line: bool = False) -> Callable[[str], pd.DataFrame]:
     """A stand-in for `send` at work, answering DESCRIBE FORMATTED for mart.daily_runs as Hive 3
     prints it, or as some warehouses do, with the table properties on one line, and SHOW
     PARTITIONS with one day."""
@@ -286,7 +296,7 @@ def formatted(location="hdfs://namenode:8020/data/your_team/tables/mart/daily_ru
     return send
 
 
-def checked(send, **storage) -> str:
+def checked(send: Callable[[str], pd.DataFrame], **storage: object) -> str:
     return str(check_table_reference(saved(**storage), send=send))
 
 
@@ -345,7 +355,8 @@ TEXT_INPUT = "org.apache.hadoop.mapred.TextInputFormat"
 @pytest.mark.parametrize("answer", [{"input_format": TEXT_INPUT},
                                     {"partitions": ("region", "dt")}],
                          ids=["a file format it doesn't write", "the day not first"])
-def test_a_layout_the_move_cant_fix_at_its_own_folder_is_written_again_there(answer) -> None:
+def test_a_layout_the_move_cant_fix_at_its_own_folder_is_written_again_there(
+        answer: dict[str, str | tuple[str, ...]]) -> None:
     """admin.move_to_own_folder refuses a table at its own folder, whose copy would go to the
     same folder: there the fix is to write the table again, not to move it."""
     at_its_own = checked(formatted(**answer))
@@ -385,7 +396,9 @@ def test_a_managed_table_is_a_problem() -> None:
     ({"properties": {"made_by": "runs"}}, [("made_by", "jobs")], "its property 'made_by' is "
      "'jobs' in the table: change it in properties= to \"made_by\": \"jobs\","),
 ])
-def test_a_table_property_that_differs_is_a_problem(storage, parameters, problem) -> None:
+def test_a_table_property_that_differs_is_a_problem(
+        storage: dict[str, bool | str | dict[str, str]], parameters: list[tuple[str, str]],
+        problem: str) -> None:
     assert f"  - {problem}" in checked(formatted(parameters=parameters), **storage)
 
 

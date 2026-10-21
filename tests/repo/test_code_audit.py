@@ -132,7 +132,8 @@ def test_a_pinned_read_only_workflow_passes(tmp_path: Path) -> None:
      "outputs": [{"output_type": "stream", "name": "stdout", "text": ["hi"]}], "source": []},
     {"cell_type": "markdown", "metadata": {}, "source": ["<script>alert(1)</script>"]},
 ])
-def test_a_notebook_that_was_run_or_carries_a_script_is_found(tmp_path: Path, cell: dict) -> None:
+def test_a_notebook_that_was_run_or_carries_a_script_is_found(
+        tmp_path: Path, cell: dict[str, object]) -> None:
     notebook = json.dumps({"cells": [cell], "metadata": {}, "nbformat": 4, "nbformat_minor": 4})
     assert planted(tmp_path, {"example_projects/x/y.ipynb": notebook}) == ["notebook"]
 
@@ -147,7 +148,8 @@ def test_code_that_runs_at_exit_or_on_every_event_is_found(tmp_path: Path, text:
     assert planted(tmp_path, {"tools/x.py": text}) == ["hook"]
 
 
-def test_the_command_line_runs_the_offline_policy_too(tmp_path: Path, capsys) -> None:
+def test_the_command_line_runs_the_offline_policy_too(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (tmp_path / "tools").mkdir()
     (tmp_path / "tools" / "x.py").write_text("import pickle\n", encoding="utf-8")
     assert code_audit.main(["code_audit.py", "--root", str(tmp_path)]) == 1
@@ -184,7 +186,8 @@ def test_every_audited_entry_gives_its_reason() -> None:
     assert all(entry.reason.strip() for entry in code_audit.AUDITED)
 
 
-def test_the_command_line_prints_each_finding_and_fails(tmp_path: Path, capsys) -> None:
+def test_the_command_line_prints_each_finding_and_fails(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     (tmp_path / "x.md").write_text(f"a{RLO}\n", encoding="utf-8")
     assert code_audit.main(["code_audit.py", "--root", str(tmp_path)]) == 1
     assert "x.md:1 hidden text" in capsys.readouterr().out

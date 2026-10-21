@@ -15,7 +15,7 @@ from conftest import toolbox_folder
 TOOLBOX = toolbox_folder()
 
 
-def _toolbox_trees():
+def _toolbox_trees() -> dict[str, ast.Module]:
     return {path.name: ast.parse(path.read_text(encoding="utf-8"))
             for path in sorted(TOOLBOX.glob("*.py"))}
 

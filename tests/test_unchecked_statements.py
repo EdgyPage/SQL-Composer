@@ -10,6 +10,7 @@ Admin log (tests/test_admin_log.py), and Lineage draws it as one opaque step
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 
 import pytest
 
@@ -17,6 +18,7 @@ from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
+    UncheckedStatement,
     equals,
     example_database,
     hive_settings,
@@ -33,12 +35,12 @@ job_runs = example_database.job_runs
 
 
 @pytest.fixture(autouse=True)
-def admin_log_in_tmp(tmp_path):
+def admin_log_in_tmp(tmp_path: Path) -> None:
     """Every run here logs into a file of its own, never beside the tests."""
     set_admin_log(tmp_path / "admin_log.md")
 
 
-def no_note(text: str):
+def no_note(text: str) -> UncheckedStatement:
     """unchecked_hive(text), checked to give no note."""
     with warnings.catch_warnings():
         warnings.simplefilter("error")
@@ -61,7 +63,7 @@ def test_no_load_limit_looks_inside_it() -> None:
 
 @pytest.mark.parametrize("given, said", [(None, "None"), (42, "42"), ("  ;\n", "no Hive")],
                          ids=["None", "a number", "blank"])
-def test_what_isnt_hive_text_is_refused(given, said) -> None:
+def test_what_isnt_hive_text_is_refused(given: str | int | None, said: str) -> None:
     with pytest.raises((TypeError, ValueError)) as refused:
         unchecked_hive(given)
     assert said in str(refused.value)
@@ -75,21 +77,22 @@ def test_it_says_how_to_see_it() -> None:
 # --- Shown and run as a Statement is ---------------------------------------------------------
 
 
-def test_show_hive_marks_it_as_unchecked(capsys) -> None:
+def test_show_hive_marks_it_as_unchecked(capsys: pytest.CaptureFixture[str]) -> None:
     show_hive(no_note("SELECT 1"))
     assert capsys.readouterr().out == (
         "-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked "
         "inside\nSELECT 1;\n")
 
 
-def test_show_hive_puts_the_semicolon_after_a_last_comment_on_its_own_line(capsys) -> None:
+def test_show_hive_puts_the_semicolon_after_a_last_comment_on_its_own_line(
+        capsys: pytest.CaptureFixture[str]) -> None:
     show_hive(no_note("SELECT 1 -- the one row\n"))
     assert capsys.readouterr().out.endswith("\nSELECT 1 -- the one row\n;\n")
     show_hive(no_note("SELECT '--' AS dashes"))
     assert capsys.readouterr().out.endswith("\nSELECT '--' AS dashes;\n")
 
 
-def test_a_dry_run_marks_it_among_the_statements(capsys) -> None:
+def test_a_dry_run_marks_it_among_the_statements(capsys: pytest.CaptureFixture[str]) -> None:
     settings = hive_settings("map_joins")
     by_hand = no_note("SELECT 1")
     read_day = statement(SELECT(job_runs.run_id), FROM(job_runs),
@@ -104,7 +107,7 @@ def test_a_dry_run_marks_it_among_the_statements(capsys) -> None:
 def test_run_sends_the_text_and_gives_back_what_send_gives() -> None:
     sent = []
 
-    def send(hive):
+    def send(hive: str) -> str:
         sent.append(hive)
         return "what came back"
 
@@ -136,7 +139,8 @@ def test_it_runs_on_the_example_database() -> None:
     ("-- tidy up\n  Drop table mart.daily_runs", "admin.drop_table"),
 ], ids=["truncate", "truncate a day", "drop table", "drop partition", "add columns",
         "tblproperties", "location", "after a comment"])
-def test_text_that_changes_a_table_gets_a_note_naming_the_admin_function(text, function) -> None:
+def test_text_that_changes_a_table_gets_a_note_naming_the_admin_function(text: str,
+                                                                         function: str) -> None:
     with pytest.warns(UserWarning) as noted:
         unchecked_hive(text)
     assert len(noted) == 1
@@ -153,7 +157,7 @@ def test_truncate_notes_that_hive_refuses_it_on_an_external_table() -> None:
 
 @pytest.mark.parametrize("text", ["DROP VIEW mart.v", "ALTER TABLE mart.daily_runs RENAME TO "
                                   "mart.d"], ids=["drop view", "rename"])
-def test_a_change_no_admin_function_does_gets_a_note_naming_none(text) -> None:
+def test_a_change_no_admin_function_does_gets_a_note_naming_none(text: str) -> None:
     with pytest.warns(UserWarning) as noted:
         unchecked_hive(text)
     note = str(noted[0].message)
@@ -163,5 +167,5 @@ def test_a_change_no_admin_function_does_gets_a_note_naming_none(text) -> None:
 
 @pytest.mark.parametrize("text", ["SELECT 1", "INSERT OVERWRITE TABLE mart.d SELECT 1",
                                   "SELECT 'DROP TABLE x'", "MSCK REPAIR TABLE mart.d"])
-def test_other_text_gets_no_note(text) -> None:
+def test_other_text_gets_no_note(text: str) -> None:
     no_note(text)

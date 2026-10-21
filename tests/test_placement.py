@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from sqlglot_composer import (
@@ -14,7 +16,9 @@ from sqlglot_composer import (
     ORDER_BY,
     SELECT,
     WHERE,
+    Column,
     GuardRefused,
+    Statement,
     all_of,
     count_rows,
     descending,
@@ -29,16 +33,18 @@ from sqlglot_composer import (
     to_hive,
     week_start,
 )
+from sqlglot_composer.calculations import Ordering
+from sqlglot_composer.clauses import Clause
 from sqlglot_composer.example_database import job_runs, jobs
 
 DAYS = equals(job_runs.dt, "2026-09-24")
 
 
-def numbered():
+def numbered() -> Column:
     return row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
 
 
-def per_job(*clauses):
+def per_job(*clauses: Clause) -> Statement:
     """A Statement over one day of job_runs grouped by job_id, with the clauses given."""
     select, *rest = clauses
     return statement(select, FROM(job_runs), WHERE(DAYS), GROUP_BY(job_runs.job_id), *rest)
@@ -73,7 +79,8 @@ def per_job(*clauses):
                  "SELECT has job_runs.job_id, but the Statement counts",
                  id="a_count_only_in_order_by"),
 ])
-def test_the_group_by_guard_refuses_what_hive_refuses(make, said) -> None:
+def test_the_group_by_guard_refuses_what_hive_refuses(make: Callable[[], Statement],
+                                                      said: str) -> None:
     with pytest.raises(GuardRefused, match=said):
         make()
 
@@ -113,7 +120,8 @@ def test_the_group_by_guard_takes_what_hive_takes() -> None:
                                    GROUP_BY(numbered())),
                  "GROUP_BY has", id="a_row_number_in_group_by"),
 ])
-def test_a_count_or_a_row_number_is_refused_where_hive_refuses_it(make, said) -> None:
+def test_a_count_or_a_row_number_is_refused_where_hive_refuses_it(make: Callable[[], Statement],
+                                                                  said: str) -> None:
     with pytest.raises(ValueError, match=said):
         make()
 
@@ -133,7 +141,7 @@ def test_a_row_number_in_where_is_sent_to_a_derived_table() -> None:
     pytest.param(lambda: hive_function("collect_set", numbered()),
                  id="a_row_number_in_an_aggregate_hive_function"),
 ])
-def test_a_count_or_a_row_number_inside_a_count_is_refused(make) -> None:
+def test_a_count_or_a_row_number_inside_a_count_is_refused(make: Callable[[], Column]) -> None:
     with pytest.raises(ValueError, match="inside"):
         make()
 
@@ -155,7 +163,7 @@ def test_order_by_refuses_a_name_select_has_not() -> None:
 
 
 @pytest.mark.parametrize("order", [[], "minutes", descending("minutes")])
-def test_row_number_orders_by_columns_only(order) -> None:
+def test_row_number_orders_by_columns_only(order: list[Column] | str | Ordering) -> None:
     with pytest.raises((TypeError, ValueError), match="row_number"):
         row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=order)
 

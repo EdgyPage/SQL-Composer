@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from pathlib import Path
+from typing import NoReturn
+
 import pandas as pd
 import pytest
 
@@ -21,15 +25,18 @@ RUNS_DESCRIBE = [
 ]
 
 
-def runs(**more):
+def runs(**more: object) -> Table:
     return Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
                  date_partition="dt", key=["run_id"], **more)
 
 
-def answering(describe=RUNS_DESCRIBE, days=("dt=2026-09-24",), show_partitions=None):
+def answering(describe: list[tuple[str, str | None, str | None]] = RUNS_DESCRIBE,
+              days: tuple[str, ...] = ("dt=2026-09-24",),
+              show_partitions: Callable[[str], pd.DataFrame] | None = None
+              ) -> Callable[[str], pd.DataFrame]:
     """A stand-in for `send`: DESCRIBE gives `describe`, SHOW PARTITIONS gives `days`."""
 
-    def send(hive: str):
+    def send(hive: str) -> pd.DataFrame:
         if hive.startswith("DESCRIBE"):
             return pd.DataFrame(describe, columns=["col_name", "data_type", "comment"])
         if hive.startswith("SHOW PARTITIONS"):
@@ -54,20 +61,23 @@ def answering(describe=RUNS_DESCRIBE, days=("dt=2026-09-24",), show_partitions=N
                  id="write_table_reference"),
     pytest.param(lambda send: check_key(runs(), send=send), id="check_key"),
 ])
-def test_an_answer_that_isnt_a_frame_is_refused(tool, answer, tmp_path, monkeypatch) -> None:
+def test_an_answer_that_isnt_a_frame_is_refused(tool: Callable[..., object],
+                                                answer: Callable[[str], object], tmp_path: Path,
+                                                monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises((TypeError, ValueError), match="What happened:.*send gave back"):
         tool(answer)
 
 
-def test_a_send_that_isnt_a_function_is_refused(tmp_path, monkeypatch) -> None:
+def test_a_send_that_isnt_a_function_is_refused(tmp_path: Path,
+                                                monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(TypeError, match="send=None isn't a function"):
         write_table_reference("ops.runs", send=None)
 
 
 def test_a_describe_with_no_columns_is_refused_by_write_table_reference(
-        tmp_path, monkeypatch) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="DESCRIBE ops.runs listed no columns"):
         write_table_reference("ops.runs", send=answering(describe=[]))
@@ -99,7 +109,7 @@ def test_a_saved_table_with_no_days_yet_matches() -> None:
 
 
 def test_write_table_reference_names_the_date_partition_of_a_table_with_no_days(
-        tmp_path, monkeypatch) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     text = write_table_reference("ops.runs", send=answering(days=())).read_text(encoding="utf-8")
     assert 'date_partition="dt",  # TODO check: no days yet; once it has one' in text
@@ -116,7 +126,7 @@ def test_check_key_on_a_day_written_another_way_says_what_to_run() -> None:
 
 
 def test_a_failed_show_partitions_is_reported_on_one_readable_line() -> None:
-    def fails(hive):
+    def fails(hive: str) -> NoReturn:
         raise RuntimeError("the cluster is down")
 
     text = repr(check_table_reference(runs(), send=answering(show_partitions=fails)))
@@ -132,7 +142,8 @@ def test_a_failed_show_partitions_is_reported_on_one_readable_line() -> None:
                  id="a_day_python_reads_but_hive_wouldnt_match"),
     pytest.param(("dt=20260924",), 'change the line to date_format="%Y%m%d"', id="another_way"),
 ])
-def test_check_table_reference_says_which_line_a_newest_day_needs(days, said) -> None:
+def test_check_table_reference_says_which_line_a_newest_day_needs(days: tuple[str, ...],
+                                                                  said: str) -> None:
     assert said in repr(check_table_reference(runs(), send=answering(days=days)))
 
 
@@ -170,7 +181,7 @@ def test_check_table_reference_notes_a_partition_an_unpartitioned_reference_leav
     pytest.param(lambda: first_look("ops.jobs"), id="first_look"),
     pytest.param(lambda: all_columns("ops.jobs"), id="all_columns"),
 ])
-def test_a_table_name_as_text_is_refused(call) -> None:
+def test_a_table_name_as_text_is_refused(call: Callable[[], object]) -> None:
     with pytest.raises(TypeError, match="not its name as text"):
         call()
 
@@ -181,7 +192,8 @@ def test_a_table_name_as_text_is_refused(call) -> None:
     pytest.param({"columns": {"dt": "string"}, "date_partition": 5},
                  "date_partition=5 isn't text", id="a_number_partition"),
 ])
-def test_table_refuses_arguments_that_arent_text(arguments, said) -> None:
+def test_table_refuses_arguments_that_arent_text(
+        arguments: dict[str, object], said: str) -> None:
     with pytest.raises(TypeError, match=said):
         Table("ops.runs", **arguments)
 
@@ -194,8 +206,9 @@ def test_table_refuses_arguments_that_arent_text(arguments, said) -> None:
     # A table named like a Python word can't be a Python name itself.
     ("dim.class", "dim__class.py", "t_class"),
 ])
-def test_write_table_reference_names_the_file_and_the_table(table, file, variable, tmp_path,
-                                                           monkeypatch) -> None:
+def test_write_table_reference_names_the_file_and_the_table(
+        table: str, file: str, variable: str, tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     describe = [("id", "bigint", "")]
     path = write_table_reference(table, send=answering(describe=describe))
@@ -203,7 +216,8 @@ def test_write_table_reference_names_the_file_and_the_table(table, file, variabl
     assert f"\n{variable} = Table(\n" in path.read_text(encoding="utf-8")
 
 
-def test_write_table_reference_leaves_out_days_it_cant_bound(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_leaves_out_days_it_cant_bound(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = answering(days=("dt=2026-9-24",))
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
@@ -211,7 +225,8 @@ def test_write_table_reference_leaves_out_days_it_cant_bound(tmp_path, monkeypat
             "isn't a day the Toolbox can bound") in text
 
 
-def test_a_first_partition_that_holds_no_days_points_to_the_others(tmp_path, monkeypatch) -> None:
+def test_a_first_partition_that_holds_no_days_points_to_the_others(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     describe = [
         ("run_id", "bigint", ""), ("region", "string", ""), ("dt", "string", ""),

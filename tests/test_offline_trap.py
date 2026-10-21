@@ -75,14 +75,16 @@ ALLOWED = [
 
 
 @pytest.mark.parametrize(("event", "args"), REFUSED, ids=lambda value: str(value))
-def test_this_python_refuses_what_would_reach_another_computer(event: str, args: tuple) -> None:
+def test_this_python_refuses_what_would_reach_another_computer(
+        event: str, args: tuple[object, ...]) -> None:
     with pytest.raises(RuntimeError, match=f"^{event} .* was refused: this Python reaches "
                        "nothing off this computer"):
         sys.audit(event, *args)
 
 
 @pytest.mark.parametrize(("event", "args"), ALLOWED, ids=lambda value: str(value))
-def test_this_python_allows_what_stays_on_this_computer(event: str, args: tuple) -> None:
+def test_this_python_allows_what_stays_on_this_computer(
+        event: str, args: tuple[object, ...]) -> None:
     sys.audit(event, *args)
 
 

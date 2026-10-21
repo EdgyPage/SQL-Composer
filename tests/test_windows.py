@@ -10,6 +10,8 @@ window that looks across days.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from sqlglot_composer import (
@@ -20,6 +22,7 @@ from sqlglot_composer import (
     INSERT_OVERWRITE,
     SELECT,
     WHERE,
+    Column,
     GuardRefused,
     Table,
     average_of,
@@ -54,7 +57,7 @@ ONE_DAY = equals(job_runs.dt, DAY)
 by_job = window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)
 
 
-def hive_of(column) -> str:
+def hive_of(column: Column) -> str:
     """The Hive of one calculation on one line, once a Statement over one day of job_runs
     takes it, as to_hive checks it there."""
     to_hive(statement(SELECT(AS(column, "x")), FROM(job_runs), WHERE(ONE_DAY)))
@@ -119,7 +122,7 @@ def hive_of(column) -> str:
                  "ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)",
                  id="row_number_with_its_4x_keywords"),
 ])
-def test_each_window_function_writes_its_hive(column, hive) -> None:
+def test_each_window_function_writes_its_hive(column: Callable[[], Column], hive: str) -> None:
     assert hive_of(column()) == hive
 
 
@@ -171,13 +174,13 @@ def test_a_window_shows_how_it_was_written() -> None:
     pytest.param(lambda: sum_of(lag(job_runs.duration_mins, over=by_job)), "through a Window",
                  id="a_window_inside_a_sum"),
 ])
-def test_it_refuses(make, said) -> None:
+def test_it_refuses(make: Callable[[], object], said: str) -> None:
     with pytest.raises((TypeError, ValueError), match=said):
         make()
 
 
 @pytest.mark.parametrize("place", ["WHERE", "HAVING"])
-def test_a_windows_result_is_filtered_only_through_a_derived_table(place) -> None:
+def test_a_windows_result_is_filtered_only_through_a_derived_table(place: str) -> None:
     before = lag(job_runs.duration_mins, over=by_job)
     clauses = [WHERE(ONE_DAY, more_than(before, 5))] if place == "WHERE" else [
         WHERE(ONE_DAY), GROUP_BY(job_runs.job_id), HAVING(more_than(before, 5))]
@@ -262,7 +265,7 @@ events_before = Table("mart.events_before", columns={
     date_partition="dt", key=["event_id", "dt"], location=BASE)
 
 
-def finished_with_the_run_before(first: str, last: str):
+def finished_with_the_run_before(first: str, last: str) -> Table:
     """Each finish of job_events between two days, with the minutes of the job's finish
     before it, which may be on an earlier day."""
     return derived("with_before", statement(
@@ -283,7 +286,7 @@ def test_by_day_refuses_a_window_that_looks_across_days() -> None:
     assert "PARTITION_BY" in message and "the days before it" in message
 
 
-def all_of_with_before(t) -> list:
+def all_of_with_before(t: Table) -> list[Column]:
     return [t.event_id, t.dt, t.minutes, t.minutes_before]
 
 
@@ -292,7 +295,8 @@ def all_of_with_before(t) -> list:
                  id="its_4x_keywords"),
     pytest.param(lambda: row_number(over=by_job), id="over_a_window"),
 ])
-def test_by_day_says_where_the_day_goes_in_either_form_of_row_number(numbering) -> None:
+def test_by_day_says_where_the_day_goes_in_either_form_of_row_number(
+        numbering: Callable[[], Column]) -> None:
     s = statement(SELECT(job_runs.run_id, AS(numbering(), "rn")), FROM(job_runs),
                   WHERE(between(job_runs.dt, "2026-09-23", DAY)))
     with pytest.raises(GuardRefused) as refused:

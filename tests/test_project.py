@@ -14,6 +14,7 @@ import ast
 import csv
 import datetime
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -37,7 +38,7 @@ ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project", "n
 
 
 @pytest.fixture
-def started(tmp_path, monkeypatch) -> Path:
+def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A Project just started in a folder of its own, the time pinned, the Admin log unmoved."""
     for module in ("project", "unchecked"):
         monkeypatch.setattr(toolbox_module(module), "_now", lambda: NOW)
@@ -47,7 +48,7 @@ def started(tmp_path, monkeypatch) -> Path:
     return tmp_path
 
 
-def registry(root: Path) -> list[dict]:
+def registry(root: Path) -> list[dict[str, str]]:
     with open(root / "admin" / "registry.csv", encoding="utf-8", newline="") as rows:
         return list(csv.DictReader(rows))
 
@@ -65,7 +66,7 @@ def log_text(root: Path) -> str:
 # --- start ------------------------------------------------------------------------------------
 
 
-def test_start_lays_out_a_project(started) -> None:
+def test_start_lays_out_a_project(started: Path) -> None:
     assert sorted(path.name for path in started.iterdir()) == [
         "admin", "building_blocks", "references", "send.py", "tables"]
     assert sorted(path.name for path in (started / "admin").iterdir()) == sorted(
@@ -79,7 +80,7 @@ def test_start_lays_out_a_project(started) -> None:
         "kind,table,created_at,removed_at\n")
 
 
-def test_each_admin_notebook_puts_the_project_on_the_path_and_parses(started) -> None:
+def test_each_admin_notebook_puts_the_project_on_the_path_and_parses(started: Path) -> None:
     for name in ADMIN_NOTEBOOKS:
         found = cells(started / "admin" / f"{name}.ipynb")
         assert [kind for kind, _ in found[:2]] == ["markdown", "code"], name
@@ -89,13 +90,13 @@ def test_each_admin_notebook_puts_the_project_on_the_path_and_parses(started) ->
                 ast.parse(text)
 
 
-def test_send_py_sends_to_the_example_database_until_you_change_it(started) -> None:
+def test_send_py_sends_to_the_example_database_until_you_change_it(started: Path) -> None:
     text = (started / "send.py").read_text(encoding="utf-8")
     ast.parse(text)
     assert "return example_database.send(hive)  # at work: your warehouse's call" in text
 
 
-def test_start_logs_a_project_action(started) -> None:
+def test_start_logs_a_project_action(started: Path) -> None:
     assert ("## 2026-10-21 09:30:00, Project action\n\n- Call: `project.start()`\n"
             "- Files: created admin/, references/, building_blocks/, tables/, send.py\n"
             in log_text(started))
@@ -103,7 +104,8 @@ def test_start_logs_a_project_action(started) -> None:
 
 @pytest.mark.parametrize("there",
                          ["admin", "references", "building_blocks", "tables", "send.py"])
-def test_start_refuses_a_folder_that_has_any_of_its_parts(there, tmp_path, monkeypatch) -> None:
+def test_start_refuses_a_folder_that_has_any_of_its_parts(
+        there: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / there).mkdir()
     with pytest.raises(FileExistsError, match=f"{there}/? is already in the folder"):
@@ -111,7 +113,8 @@ def test_start_refuses_a_folder_that_has_any_of_its_parts(there, tmp_path, monke
     assert [path.name for path in tmp_path.iterdir()] == [there]
 
 
-def test_start_refuses_a_folder_inside_a_project(started, monkeypatch) -> None:
+def test_start_refuses_a_folder_inside_a_project(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(started / "building_blocks")
     with pytest.raises(FileExistsError, match="was run inside a Project"):
         project.start()
@@ -123,7 +126,7 @@ def test_start_refuses_a_folder_inside_a_project(started, monkeypatch) -> None:
 # --- new_table --------------------------------------------------------------------------------
 
 
-def test_new_table_makes_a_table_folder_and_a_reference(started) -> None:
+def test_new_table_makes_a_table_folder_and_a_reference(started: Path) -> None:
     report = project.new_table("mart.daily_job_runs")
     folder = started / "tables" / "mart__daily_job_runs"
     assert sorted(path.name for path in folder.iterdir()) == [
@@ -155,7 +158,7 @@ def test_new_table_makes_a_table_folder_and_a_reference(started) -> None:
             "lineage/); created references/mart__daily_job_runs.py\n") in log_text(started)
 
 
-def test_new_table_keeps_a_reference_that_is_there(started) -> None:
+def test_new_table_keeps_a_reference_that_is_there(started: Path) -> None:
     reference = started / "references" / "mart__daily_job_runs.py"
     reference.write_text("# mine", encoding="utf-8")
     assert "Kept references/mart__daily_job_runs.py" in repr(
@@ -164,7 +167,7 @@ def test_new_table_keeps_a_reference_that_is_there(started) -> None:
     assert [row["kind"] for row in registry(started)] == ["table_folder"]
 
 
-def test_new_table_uses_a_template_of_yours(started) -> None:
+def test_new_table_uses_a_template_of_yours(started: Path) -> None:
     (started / "admin" / "templates" / "mine.py").write_text(
         "# %% [markdown]\n# # <DB>.<TABLE>\n\n# %%\n# logic\nNAME = '<NAME>'\n",
         encoding="utf-8")
@@ -175,7 +178,7 @@ def test_new_table_uses_a_template_of_yours(started) -> None:
     assert 'project.new_table("mart.daily_job_runs", template="mine")' in log_text(started)
 
 
-def test_new_table_refuses_a_table_folder_that_is_there(started) -> None:
+def test_new_table_refuses_a_table_folder_that_is_there(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     notebook = started / "tables" / "mart__daily_job_runs" / "mart__daily_job_runs.ipynb"
     notebook.write_text("{}", encoding="utf-8")
@@ -184,7 +187,7 @@ def test_new_table_refuses_a_table_folder_that_is_there(started) -> None:
     assert notebook.read_text(encoding="utf-8") == "{}"
 
 
-def test_new_table_refuses_a_table_the_registry_lists(started) -> None:
+def test_new_table_refuses_a_table_the_registry_lists(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     folder = started / "tables" / "mart__daily_job_runs"
     for path in sorted(folder.rglob("*"), reverse=True):
@@ -205,21 +208,24 @@ def test_new_table_refuses_a_table_the_registry_lists(started) -> None:
     ("mart.daily_job_runs", "building_block", FileNotFoundError,
      "there is no Table notebook Template 'building_block'"),
 ])
-def test_new_table_refuses(started, name, template, error, said) -> None:
+def test_new_table_refuses(
+        started: Path, name: str, template: str, error: type[Exception], said: str) -> None:
     with pytest.raises(error, match=said):
         project.new_table(name, template=template)
     assert list((started / "tables").iterdir()) == []
     assert registry(started) == []
 
 
-def test_a_project_action_outside_a_project_is_refused(tmp_path, monkeypatch) -> None:
+def test_a_project_action_outside_a_project_is_refused(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(FileNotFoundError, match="was run outside a Project"):
         project.new_table("mart.daily_job_runs")
     assert list(tmp_path.iterdir()) == []
 
 
-def test_a_project_action_runs_from_any_folder_inside_it(started, monkeypatch) -> None:
+def test_a_project_action_runs_from_any_folder_inside_it(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(started / "admin")
     project.new_table("mart.daily_job_runs")
     assert (started / "tables" / "mart__daily_job_runs").is_dir()
@@ -228,7 +234,7 @@ def test_a_project_action_runs_from_any_folder_inside_it(started, monkeypatch) -
 # --- remove_table and remove_reference --------------------------------------------------------
 
 
-def test_remove_table_archives_the_folder_and_keeps_the_reference(started) -> None:
+def test_remove_table_archives_the_folder_and_keeps_the_reference(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     report = project.remove_table("mart.daily_job_runs")
     archived = started / "admin" / "removed" / "20261021-093000-mart__daily_job_runs"
@@ -246,13 +252,14 @@ def test_remove_table_archives_the_folder_and_keeps_the_reference(started) -> No
     assert (started / "tables" / "mart__daily_job_runs").is_dir()
 
 
-def test_remove_table_refuses_a_table_folder_neither_there_nor_registered(started) -> None:
+def test_remove_table_refuses_a_table_folder_neither_there_nor_registered(
+        started: Path) -> None:
     with pytest.raises(FileNotFoundError, match="there is no tables/mart__daily_job_runs/ to "
                        "remove, and the registry lists none"):
         project.remove_table("mart.daily_job_runs")
 
 
-def test_remove_table_marks_removed_a_registered_folder_deleted_by_hand(started) -> None:
+def test_remove_table_marks_removed_a_registered_folder_deleted_by_hand(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     folder = started / "tables" / "mart__daily_job_runs"
     for path in sorted(folder.rglob("*"), reverse=True):
@@ -267,7 +274,7 @@ def test_remove_table_marks_removed_a_registered_folder_deleted_by_hand(started)
     assert not (started / "admin" / "removed").exists()
 
 
-def test_remove_reference_archives_the_file(started) -> None:
+def test_remove_reference_archives_the_file(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     project.remove_table("mart.daily_job_runs")
     project.remove_reference("mart.daily_job_runs")
@@ -277,19 +284,19 @@ def test_remove_reference_archives_the_file(started) -> None:
     assert [row["removed_at"] for row in registry(started)] == ["2026-10-21 09:30:00"] * 2
 
 
-def test_remove_reference_refuses_while_its_table_folder_is_there(started) -> None:
+def test_remove_reference_refuses_while_its_table_folder_is_there(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     with pytest.raises(ValueError, match="tables/mart__daily_job_runs/ is still there"):
         project.remove_reference("mart.daily_job_runs")
     assert (started / "references" / "mart__daily_job_runs.py").is_file()
 
 
-def test_remove_reference_refuses_a_file_that_isnt_there(started) -> None:
+def test_remove_reference_refuses_a_file_that_isnt_there(started: Path) -> None:
     with pytest.raises(FileNotFoundError, match="there is no references/ops__jobs.py"):
         project.remove_reference("ops.jobs")
 
 
-def test_new_table_doesnt_register_a_reference_twice(started) -> None:
+def test_new_table_doesnt_register_a_reference_twice(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     project.remove_table("mart.daily_job_runs")
     (started / "references" / "mart__daily_job_runs.py").unlink()
@@ -301,12 +308,12 @@ def test_new_table_doesnt_register_a_reference_twice(started) -> None:
 # --- register and check -----------------------------------------------------------------------
 
 
-def test_check_finds_nothing_in_a_new_project(started) -> None:
+def test_check_finds_nothing_in_a_new_project(started: Path) -> None:
     assert repr(project.check()) == ("Every Table folder and Table reference is registered, "
                                      "and each one registered is there.")
 
 
-def test_check_reports_what_was_made_or_moved_by_hand(started) -> None:
+def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     (started / "references" / "ops__jobs.py").write_text("# by hand", encoding="utf-8")
     (started / "tables" / "mart__by_hand").mkdir()
@@ -318,7 +325,7 @@ def test_check_reports_what_was_made_or_moved_by_hand(started) -> None:
         "mark it removed with project.remove_table(...) or project.remove_reference(...).")
 
 
-def test_check_changes_nothing(started) -> None:
+def test_check_changes_nothing(started: Path) -> None:
     (started / "references" / "ops__jobs.py").write_text("# by hand", encoding="utf-8")
     before = log_text(started)
     project.check()
@@ -326,7 +333,7 @@ def test_check_changes_nothing(started) -> None:
     assert registry(started) == []
 
 
-def test_register_adopts_what_was_made_by_hand(started) -> None:
+def test_register_adopts_what_was_made_by_hand(started: Path) -> None:
     (started / "references" / "ops__jobs.py").write_text("# by hand", encoding="utf-8")
     assert repr(project.register("ops.jobs")) == "Registered references/ops__jobs.py."
     assert [(row["kind"], row["table"]) for row in registry(started)] == [
@@ -335,7 +342,7 @@ def test_register_adopts_what_was_made_by_hand(started) -> None:
     assert "registered" in repr(project.check())
 
 
-def test_register_refuses_when_there_is_nothing_to_adopt(started) -> None:
+def test_register_refuses_when_there_is_nothing_to_adopt(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     with pytest.raises(ValueError, match="nothing to register"):
         project.register("mart.daily_job_runs")
@@ -346,9 +353,9 @@ def test_register_refuses_when_there_is_nothing_to_adopt(started) -> None:
 # --- add_references ---------------------------------------------------------------------------
 
 
-def failing_on(missing: str):
+def failing_on(missing: str) -> Callable[..., pd.DataFrame]:
     """The Example database's send, but a table it doesn't have fails, as a warehouse's does."""
-    def send(hive):
+    def send(hive: str) -> pd.DataFrame:
         if missing in hive:
             raise RuntimeError(f"Table not found: {missing}")
         return example_database.send(hive)
@@ -356,7 +363,7 @@ def failing_on(missing: str):
     return send
 
 
-def test_add_references_writes_each_table_and_registers_it(started) -> None:
+def test_add_references_writes_each_table_and_registers_it(started: Path) -> None:
     report = project.add_references(["ops.jobs", "ops.job_runs"], send=example_database.send)
     assert sorted(path.name for path in (started / "references").iterdir()) == [
         "ops__job_runs.py", "ops__jobs.py"]
@@ -368,14 +375,14 @@ def test_add_references_writes_each_table_and_registers_it(started) -> None:
                             "fill in their TODO lines.")
 
 
-def test_add_references_names_three_files_or_more_as_a_sentence_does(started) -> None:
+def test_add_references_names_three_files_or_more_as_a_sentence_does(started: Path) -> None:
     report = project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
                                     send=example_database.send)
     assert repr(report) == ("Wrote references/ops__jobs.py, references/ops__job_runs.py and "
                             "references/ops__run_alerts.py: fill in their TODO lines.")
 
 
-def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started) -> None:
+def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started: Path) -> None:
     (started / "references" / "ops__jobs.py").write_text("# mine", encoding="utf-8")
     with pytest.raises(project.SkippedTables) as skipped:
         project.add_references(["ops.jobs", "ops.job_ownres", "jobs", "ops.run_alerts"],
@@ -399,7 +406,7 @@ def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started) 
     assert "- Result: 1 of 4 written; SkippedTables named the rest, above\n" in log
 
 
-def test_add_references_refuses_a_name_where_a_list_goes(started) -> None:
+def test_add_references_refuses_a_name_where_a_list_goes(started: Path) -> None:
     with pytest.raises(ValueError, match="names isn't a list of tables"):
         project.add_references("ops.jobs", send=example_database.send)
 
@@ -407,13 +414,13 @@ def test_add_references_refuses_a_name_where_a_list_goes(started) -> None:
 # --- The Reference sheet ----------------------------------------------------------------------
 
 
-def sheet(root: Path) -> list[dict]:
+def sheet(root: Path) -> list[dict[str, str]]:
     path = root / "references" / "reference_sheet.csv"
     with open(path, encoding="utf-8", newline="") as rows:
         return list(csv.DictReader(rows))
 
 
-def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started) -> None:
+def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started: Path) -> None:
     project.add_references(["ops.job_runs"], send=example_database.send)
     reference = started / "references" / "ops__job_runs.py"
     text = reference.read_text(encoding="utf-8").replace("key=None,", 'key=["run_id"],')
@@ -436,7 +443,8 @@ def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started) -> N
     assert repr(report) == "Wrote references/reference_sheet.csv: 6 rows, 1 table."
 
 
-def test_refreshing_one_table_replaces_only_its_rows(started, monkeypatch) -> None:
+def test_refreshing_one_table_replaces_only_its_rows(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project.add_references(["ops.jobs", "ops.run_alerts"], send=example_database.send)
     project.refresh_reference_sheet()
     later = datetime.datetime(2026, 10, 22, 8, 0, 0)
@@ -453,7 +461,7 @@ def test_refreshing_one_table_replaces_only_its_rows(started, monkeypatch) -> No
     assert len(rows) == 8
 
 
-def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started) -> None:
+def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
     project.add_references(["ops.jobs"], send=example_database.send)
     assert repr(project.refresh_reference_sheet()) == (
@@ -462,7 +470,7 @@ def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started) -> None:
         "every <...> in it, and check it holds a Table(...) call, then refresh again.")
 
 
-def test_a_named_refresh_keeps_the_rows_of_a_file_that_cant_be_read(started) -> None:
+def test_a_named_refresh_keeps_the_rows_of_a_file_that_cant_be_read(started: Path) -> None:
     project.add_references(["ops.jobs"], send=example_database.send)
     project.refresh_reference_sheet()
     reference = started / "references" / "ops__jobs.py"
@@ -473,7 +481,7 @@ def test_a_named_refresh_keeps_the_rows_of_a_file_that_cant_be_read(started) -> 
     assert len(sheet(started)) == 4
 
 
-def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started) -> None:
+def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started: Path) -> None:
     """A Toolbox refusal from inside add_references is one line of the error, not a second
     four-part message inside the first."""
     with pytest.raises(project.SkippedTables) as skipped:
@@ -485,7 +493,7 @@ def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started) ->
     assert "DESCRIBE ops.empty listed no columns.)" in " ".join(message.split())
 
 
-def test_refreshing_a_table_with_no_reference_is_refused(started) -> None:
+def test_refreshing_a_table_with_no_reference_is_refused(started: Path) -> None:
     with pytest.raises(FileNotFoundError, match="there is no references/ops__jobs.py to read"):
         project.refresh_reference_sheet("ops.jobs")
 
@@ -558,7 +566,7 @@ def write_day(day):
 
 
 @pytest.fixture
-def two_tables(started) -> Path:
+def two_tables(started: Path) -> Path:
     """A Project with two Table folders, mart.team_runs reading what mart.daily_runs writes,
     their Table references filled in, and ops.job_runs's written from the Example database."""
     templates = started / "admin" / "templates"
@@ -576,14 +584,14 @@ def notebook_of(root: Path, stem: str) -> Path:
     return root / "tables" / stem / f"{stem}.ipynb"
 
 
-def test_load_gives_the_logic_cells_functions(two_tables) -> None:
+def test_load_gives_the_logic_cells_functions(two_tables: Path) -> None:
     logic = project.load("mart.daily_runs")
     assert repr(logic) == "The logic of mart.daily_runs: write_day."
     assert to_hive(logic.write_day("2026-09-24")).startswith(
         "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')")
 
 
-def test_load_reads_the_references_as_they_are_now(two_tables) -> None:
+def test_load_reads_the_references_as_they_are_now(two_tables: Path) -> None:
     project.load("mart.daily_runs")
     reference = two_tables / "references" / "mart__daily_runs.py"
     reference.write_text(DAILY_RUNS.replace('"mart.daily_runs"', '"mart.daily_runs_v2"'),
@@ -592,7 +600,7 @@ def test_load_reads_the_references_as_they_are_now(two_tables) -> None:
     assert "mart.daily_runs_v2" in to_hive(write)
 
 
-def test_load_refuses_a_notebook_it_cant_find(two_tables) -> None:
+def test_load_refuses_a_notebook_it_cant_find(two_tables: Path) -> None:
     with pytest.raises(FileNotFoundError,
                        match="there is no tables/mart__nope/mart__nope.ipynb"):
         project.load("mart.nope")
@@ -605,7 +613,8 @@ def test_load_refuses_a_notebook_it_cant_find(two_tables) -> None:
     ("# logic\nfrom sqlglot_composer import run as go\ngo(1, send=print)\n", "calls run"),
     ("# logical next steps\nx = 1\n", "has no cell whose first line is # logic"),
 ])
-def test_load_refuses_a_logic_cell_it_cant_run_safely(two_tables, logic, said) -> None:
+def test_load_refuses_a_logic_cell_it_cant_run_safely(
+        two_tables: Path, logic: str, said: str) -> None:
     (two_tables / "admin" / "templates" / "odd.py").write_text(f"# %%\n{logic}",
                                                                encoding="utf-8")
     project.new_table("mart.odd", template="odd")
@@ -613,7 +622,8 @@ def test_load_refuses_a_logic_cell_it_cant_run_safely(two_tables, logic, said) -
         project.load("mart.odd")
 
 
-def test_run_tables_with_no_send_prints_each_write_writers_first(two_tables, capsys) -> None:
+def test_run_tables_with_no_send_prints_each_write_writers_first(
+        two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
     report = project.run_tables("2026-09-24", tables=["mart.team_runs", "mart.daily_runs"])
     printed = capsys.readouterr().out
     daily = printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs")
@@ -623,7 +633,7 @@ def test_run_tables_with_no_send_prints_each_write_writers_first(two_tables, cap
                             "them.")
 
 
-def test_run_tables_sends_every_registered_table_in_order(two_tables) -> None:
+def test_run_tables_sends_every_registered_table_in_order(two_tables: Path) -> None:
     sent = []
     report = project.run_tables("2026-09-24", send=sent.append)
     assert [hive.split("\n")[0] for hive in sent] == [
@@ -632,8 +642,9 @@ def test_run_tables_sends_every_registered_table_in_order(two_tables) -> None:
     assert repr(report) == "Wrote 2026-09-24 of 2 tables, in order."
 
 
-def test_run_tables_stops_at_the_first_that_fails(two_tables, capsys) -> None:
-    def send(hive):
+def test_run_tables_stops_at_the_first_that_fails(
+        two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    def send(hive: str) -> None:
         if "mart.team_runs" in hive.split("\n")[0]:
             raise RuntimeError("the warehouse said no")
 
@@ -674,7 +685,7 @@ def write_day(day):
 """
 
 
-def test_run_tables_refuses_a_loop(started) -> None:
+def test_run_tables_refuses_a_loop(started: Path) -> None:
     templates = started / "admin" / "templates"
     for table, other in (("ping", "pong"), ("pong", "ping")):
         (templates / f"{table}.py").write_text(LOOP_LOGIC.replace("<OTHER>", other),
@@ -687,12 +698,13 @@ def test_run_tables_refuses_a_loop(started) -> None:
         project.run_tables("2026-09-24")
 
 
-def test_run_tables_with_no_table_folder_says_so(started) -> None:
+def test_run_tables_with_no_table_folder_says_so(started: Path) -> None:
     assert repr(project.run_tables("2026-09-24")) == (
         "No Table folder to run: make one with project.new_table(...).")
 
 
-def test_lineage_crosses_table_folders_through_load(two_tables, monkeypatch) -> None:
+def test_lineage_crosses_table_folders_through_load(
+        two_tables: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(two_tables / "tables" / "mart__team_runs")
     daily = project.load("mart.daily_runs").write_day("2026-09-24")
     team = project.load("mart.team_runs").write_day("2026-09-24")
@@ -704,8 +716,8 @@ def test_lineage_crosses_table_folders_through_load(two_tables, monkeypatch) -> 
     assert text.index("mart.daily_runs") < text.index("mart.team_runs")
 
 
-def test_one_write_s_lineage_goes_in_its_table_folder_named_by_the_time(two_tables,
-                                                                       monkeypatch) -> None:
+def test_one_write_s_lineage_goes_in_its_table_folder_named_by_the_time(
+        two_tables: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(toolbox_module("lineage"), "_now", lambda: NOW)
     monkeypatch.chdir(two_tables / "admin")
     html_file, markdown_file = export_lineage(project.load("mart.daily_runs").write_day(
@@ -719,8 +731,8 @@ def test_one_write_s_lineage_goes_in_its_table_folder_named_by_the_time(two_tabl
 # --- The Admin log inside a Project -----------------------------------------------------------
 
 
-def test_an_admin_statement_run_inside_a_project_logs_in_its_admin_folder(started,
-                                                                          monkeypatch) -> None:
+def test_an_admin_statement_run_inside_a_project_logs_in_its_admin_folder(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(started / "tables")
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "dt": "string"},
               date_partition="dt", location="/data/your_team/tables")

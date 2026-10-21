@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -43,7 +44,7 @@ def dev_toolbox_files() -> list[str]:
 
 
 @pytest.fixture(scope="module")
-def clean(tmp_path_factory) -> Path:
+def clean(tmp_path_factory: pytest.TempPathFactory) -> Path:
     folder = tmp_path_factory.mktemp("clean")
     export_clean.build(ROOT, folder, WHEN)
     return folder
@@ -230,7 +231,8 @@ def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return make_repo(tmp_path, monkeypatch, dev_copy, autocrlf="false")
 
 
-def make_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, copy, autocrlf: str) -> Path:
+def make_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, copy: Callable[..., Path],
+              autocrlf: str) -> Path:
     """A v1 `main`, and `dev` checked out holding what `copy` puts in a folder."""
     for who in ("AUTHOR", "COMMITTER"):
         monkeypatch.setenv(f"GIT_{who}_NAME", "Test")
@@ -407,7 +409,8 @@ def _main_commit(repo: Path) -> str:
     return git(repo, "for-each-ref", "--format=%(objectname)", "refs/heads/main")
 
 
-def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys) -> None:
+def test_preview_builds_into_a_folder_and_commits_nothing(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     main_before = _main_commit(ROOT)
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()

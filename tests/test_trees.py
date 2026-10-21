@@ -111,7 +111,7 @@ def test_replaced_swaps_the_nodes_below_the_top_without_looking_inside() -> None
     tree.meta["call"] = "top"
     seen = []
 
-    def stand_in(node):
+    def stand_in(node: Node) -> Node | None:
         seen.append(node.kind)
         return Node("Var", this=node.meta["call"]) if "call" in node.meta else None
 

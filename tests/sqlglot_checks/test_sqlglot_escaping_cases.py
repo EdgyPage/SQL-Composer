@@ -33,7 +33,7 @@ from escaping_cases import (
 )
 
 
-def _hive_with_the_cores_escapes():
+def _hive_with_the_cores_escapes() -> sqlglot.Dialect:
     """sqlglot's Hive escaping a string's characters by the Toolbox's table, as sqlglot
     Composer's writer has it do; the quote is left to sqlglot."""
     hive = type(sqlglot.Dialect.get_or_raise("hive"))()

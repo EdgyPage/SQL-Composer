@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import textwrap
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
@@ -70,7 +71,8 @@ def test_there_is_a_how_to_and_how_to_1_starts_a_project() -> None:
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
-def test_each_how_to_runs_as_a_doctest(path: Path, tmp_path, monkeypatch) -> None:
+def test_each_how_to_runs_as_a_doctest(
+        path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     text = how_to_page.docstring_of(path)
     test = doctest.DocTestParser().get_doctest(text, {}, path.stem, str(path), 0)
@@ -368,7 +370,8 @@ function check(ok, what) { if (!ok) throw new Error(what); }
 """
 
 
-def test_the_script_filters_the_how_tos_and_puts_a_copy_button_on_each_block(tmp_path) -> None:
+def test_the_script_filters_the_how_tos_and_puts_a_copy_button_on_each_block(
+        tmp_path: Path) -> None:
     node = shutil.which("node")
     if node is None:
         # GitHub's ubuntu-latest runners come with node, so CI always runs this test.
@@ -394,7 +397,7 @@ def test_the_script_gives_every_block_of_python_and_hive_a_copy_button_and_nothi
 
 
 def a_how_to(tmp_path: Path, steps: str, name: str = "01_try_it.py",
-             group: str = "Getting started", headings=how_to_page.HEADINGS,
+             group: str = "Getting started", headings: Sequence[str] = how_to_page.HEADINGS,
              stand_ins: str = "") -> Path:
     """A how-to's file with `steps` under Steps, a line of prose under each other heading, and
     `stand_ins` after its docstring."""
@@ -405,7 +408,7 @@ def a_how_to(tmp_path: Path, steps: str, name: str = "01_try_it.py",
     return path
 
 
-def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path) -> None:
+def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path: Path) -> None:
     """Common mistakes show the repeated-rows Warning as the step really gives it."""
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
@@ -423,7 +426,7 @@ def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path) -> None:
 
 
 @pytest.mark.needs_example_database
-def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
+def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
 >>> path = write_table_reference("ops.run_alerts", send=example_database.send)
 >>> job_runs = example_database.job_runs
@@ -450,7 +453,7 @@ def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
 
 
 def test_a_long_file_a_step_writes_is_folded_and_a_file_shown_before_is_not_shown_again(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     lines = how_to_page.FOLD_AFTER + 1
     path = a_how_to(tmp_path, f""">>> from pathlib import Path
 >>> long_text = "".join(f"line {{number}}" + chr(10) for number in range({lines}))
@@ -466,7 +469,7 @@ def test_a_long_file_a_step_writes_is_folded_and_a_file_shown_before_is_not_show
             "<code>long.md</code> above.</p>") in shown
 
 
-def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path) -> None:
+def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
@@ -480,7 +483,7 @@ tables/ and send.py. Next: write your send in send.py.""")
     assert "It writes send.py" not in shown
 
 
-def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path) -> None:
+def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
 >>> run_alerts = example_database.run_alerts
@@ -511,7 +514,7 @@ def weeks_in_pandas():
 
 
 @pytest.mark.needs_example_database
-def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path) -> None:
+def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, WEEKS, stand_ins=WEEKS_IN_PANDAS)
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     cells = re.findall(r"<td>(.*?)</td>", shown)
@@ -521,18 +524,18 @@ def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path) -> N
 
 
 @pytest.mark.needs_example_database
-def test_without_its_stand_in_the_statement_shows_why_it_cannot_run(tmp_path) -> None:
+def test_without_its_stand_in_the_statement_shows_why_it_cannot_run(tmp_path: Path) -> None:
     shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, WEEKS)))
     assert "The Example database can&#x27;t run this Hive" in shown
 
 
-def test_a_stand_in_for_no_statement_is_refused(tmp_path) -> None:
+def test_a_stand_in_for_no_statement_is_refused(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, ">>> weeks = 1", stand_ins=WEEKS_IN_PANDAS)
     with pytest.raises(how_to_page.HowToRefused, match="makes a Statement weeks"):
         how_to_page.how_to_html(how_to_page.read_how_to(path))
 
 
-def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> None:
+def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path: Path) -> None:
     headings = list(how_to_page.HEADINGS)
     headings[0], headings[1] = headings[1], headings[0]
     path = a_how_to(tmp_path, "Words.", headings=headings)
@@ -545,13 +548,13 @@ def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> No
     ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 22 to 40"),
     ("02_try_it.py", "Advanced", "says `For: Advanced`"),
 ])
-def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path, name: str,
+def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path: Path, name: str,
                                                                   group: str, says: str) -> None:
     with pytest.raises(how_to_page.HowToRefused, match=says):
         how_to_page.read_how_to(a_how_to(tmp_path, "Words.", name=name, group=group))
 
 
-def test_a_step_that_shows_the_folder_it_ran_in_is_refused(tmp_path) -> None:
+def test_a_step_that_shows_the_folder_it_ran_in_is_refused(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, ">>> import os\n>>> os.getcwd()")
     with pytest.raises(how_to_page.HowToRefused, match="differs from one computer to another"):
         how_to_page.how_to_html(how_to_page.read_how_to(path))

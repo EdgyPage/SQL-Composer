@@ -224,11 +224,11 @@ class TagCounter(HTMLParser):
         self.open: list[str] = []
         self.problems: list[str] = []
 
-    def handle_starttag(self, tag, attrs) -> None:
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag not in self.EMPTY:
             self.open.append(tag)
 
-    def handle_endtag(self, tag) -> None:
+    def handle_endtag(self, tag: str) -> None:
         if not self.open or self.open.pop() != tag:
             self.problems.append(f"</{tag}> at line {self.getpos()[0]}")
 
@@ -282,7 +282,7 @@ def test_a_scripts_statements_are_found_on_the_example_day() -> None:
 
     script = types.ModuleType("a_worked_example")
 
-    def on_the_example_day():
+    def on_the_example_day() -> sqlglot_composer.Statement:
         assert conditions.today() == example_gallery.TODAY
         return statement(SELECT(jobs.team), FROM(jobs))
 

@@ -6,11 +6,13 @@ rely on sqlglot's executor, the thing it checks.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import example_database, run
+from sqlglot_composer import Statement, example_database, run
 from statements import (
     groups_and_top_n,
     jobs_that_never_ran,
@@ -26,7 +28,7 @@ def runs() -> pd.DataFrame:
     return found[found.dt.between("2026-09-23", "2026-09-24")]
 
 
-def result(s) -> list[dict]:
+def result(s: Statement) -> list[dict[str, object]]:
     return run(s, send=example_database.send).to_dict("records")
 
 
@@ -121,7 +123,8 @@ def test_distinct_counts_having_and_top_n() -> None:
         ("runs_to_check", lambda r: r.status.eq("FAILED") | r.status.isna()),
     ],
 )
-def test_lists_and_either_condition(statement: str, keep) -> None:
+def test_lists_and_either_condition(statement: str,
+                                    keep: Callable[[pd.DataFrame], pd.Series]) -> None:
     kept = runs()[keep(runs())]
     found = result(getattr(lists_and_text, statement)())
     assert [row["run_id"] for row in found] == list(kept.run_id)

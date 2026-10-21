@@ -8,6 +8,7 @@ team, and ops.region_costs each run's cost, partitioned by region, then by a day
 from __future__ import annotations
 
 import datetime
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -52,7 +53,7 @@ PARTITION_HEADERS = [("", None, None), ("# Partition Information", None, None),
                      ("# col_name", "data_type", "comment")]
 
 
-def described(name: str) -> list[tuple]:
+def described(name: str) -> list[tuple[str | None, ...]]:
     """DESCRIBE's rows, a missing cell read as None: pandas 3 shows missing text as NaN."""
     frame = example_database.send(f"DESCRIBE {name}")
     return [tuple(None if pd.isna(cell) else cell for cell in row)
@@ -160,7 +161,8 @@ def reference_text(name: str, columns: list[str], date_lines: list[str], first_k
     ])
 
 
-def test_write_table_reference_on_job_events(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_on_job_events(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     path = write_table_reference("ops.job_events", send=example_database.send)
     assert path.read_text(encoding="utf-8") == reference_text("job_events", [
@@ -176,7 +178,8 @@ def test_write_table_reference_on_job_events(tmp_path, monkeypatch) -> None:
     assert path.name == "ops__job_events.py"
 
 
-def test_write_table_reference_on_job_owners(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_on_job_owners(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     path = write_table_reference("ops.job_owners", send=example_database.send)
     assert path.read_text(encoding="utf-8") == reference_text("job_owners", [
@@ -188,7 +191,8 @@ def test_write_table_reference_on_job_owners(tmp_path, monkeypatch) -> None:
         "team")
 
 
-def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatch) -> None:
+def test_write_table_reference_on_region_costs_points_at_dt(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Its first partition, region, holds no days, so the TODO names dt for you to check."""
     monkeypatch.chdir(tmp_path)
     path = write_table_reference("ops.region_costs", send=example_database.send)
@@ -204,7 +208,7 @@ def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatc
 
 
 @pytest.mark.parametrize("t", [events, owners])
-def test_check_table_reference_finds_each_one_matches(t) -> None:
+def test_check_table_reference_finds_each_one_matches(t: Table) -> None:
     verdict = check_table_reference(t, send=example_database.send)
     assert verdict.ok
     assert str(verdict) == f"{t._name} matches its Table reference."
@@ -235,7 +239,7 @@ def test_check_table_reference_gives_region_costs_date_format() -> None:
     (owners, "ops.job_owners: the key (job_id, dt) holds on 2026-09-24."),
     (costs, "ops.region_costs: the key (job_id, region, dt) holds on 20260924."),
 ])
-def test_check_key_holds_on_each(t, said: str) -> None:
+def test_check_key_holds_on_each(t: Table, said: str) -> None:
     verdict = check_key(t, send=example_database.send)
     assert verdict.ok
     assert str(verdict) == said
@@ -260,7 +264,7 @@ def test_events_per_type_over_the_14_days() -> None:
 
 @pytest.mark.needs_example_database
 def test_each_jobs_team_on_the_day_it_changes() -> None:
-    def teams_on(day: str) -> dict:
+    def teams_on(day: str) -> dict[int, str]:
         s = statement(SELECT(owners.job_id, owners.team), FROM(owners),
                       WHERE(equals(owners.dt, day)))
         return run(s, send=example_database.send).set_index("job_id").team.to_dict()

@@ -7,6 +7,9 @@ Each test checks the Hive the Toolbox writes for one of them.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+from pathlib import Path
+
 import pytest
 
 from sqlglot_composer import (
@@ -24,8 +27,11 @@ from sqlglot_composer import (
     UNION,
     UNION_ALL,
     WHERE,
+    Column,
+    Condition,
     GuardRefused,
     LoadRefused,
+    Statement,
     Table,
     between,
     by_day,
@@ -45,7 +51,9 @@ from sqlglot_composer import (
     to_hive,
     week_start,
 )
+from sqlglot_composer.clauses import Clause, Named
 from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
+from sqlglot_composer.stacking import Subtotals
 
 DAY = "2026-09-24"
 BASE = "/data/your_team/tables"
@@ -54,17 +62,17 @@ flagged_runs = Table("mart.flagged_runs", columns={"run_id": "bigint", "dt": "st
                      date_partition="dt", key=["run_id", "dt"], location=BASE)
 
 
-def failed_runs(day=DAY):
+def failed_runs(day: str = DAY) -> Statement:
     return statement(SELECT(job_runs.run_id), FROM(job_runs),
                      WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")))
 
 
-def alerted_runs(day=DAY):
+def alerted_runs(day: str = DAY) -> Statement:
     return statement(SELECT(run_alerts.run_id), FROM(run_alerts),
                      WHERE(equals(run_alerts.dt, day), equals(run_alerts.severity, "high")))
 
 
-def both_days(table, *more):
+def both_days(table: Table, *more: Condition) -> Clause:
     return WHERE(between(table.dt, "2026-09-23", DAY), *more)
 
 
@@ -82,7 +90,8 @@ def test_union_all_writes_each_statement_one_after_another() -> None:
 
 @pytest.mark.parametrize("stack, written", [(UNION, "UNION"), (INTERSECT, "INTERSECT"),
                                             (EXCEPT, "EXCEPT"), (UNION_ALL, "UNION ALL")])
-def test_each_stack_is_written_between_every_two_statements(stack, written) -> None:
+def test_each_stack_is_written_between_every_two_statements(stack: Callable[..., Statement],
+                                                            written: str) -> None:
     hive = to_hive(stack(failed_runs(), alerted_runs(), failed_runs("2026-09-23")))
     assert hive.count(f"\n{written}\nSELECT") == 2
 
@@ -188,7 +197,8 @@ def test_a_number_stacks_with_a_number_of_another_size() -> None:
                        WHERE(equals(job_runs.dt, DAY))), "2nd Statement writes mart.flagged_runs"),
     (lambda: UNION_ALL(failed_runs(), alerted_runs()), "2nd Statement is itself a Stack"),
 ])
-def test_a_statement_that_cant_be_stacked_is_refused(bad, said) -> None:
+def test_a_statement_that_cant_be_stacked_is_refused(bad: Callable[[], Statement],
+                                                     said: str) -> None:
     with pytest.raises(ValueError, match=said):
         UNION_ALL(failed_runs(), bad())
 
@@ -238,7 +248,7 @@ def test_union_all_loses_the_key_and_a_join_on_it_says_so() -> None:
 # --- Stacks: writing a Saved table from one -------------------------------------------------
 
 
-def write_from(stack):
+def write_from(stack: Statement) -> Statement:
     flagged = derived("flagged", stack)
     return statement(INSERT_OVERWRITE(flagged_runs), SELECT(flagged.run_id), FROM(flagged))
 
@@ -294,12 +304,12 @@ def test_by_day_splits_a_union_that_keeps_the_day() -> None:
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("stack, run_ids", [(UNION_ALL, [101, 102, 102]), (UNION, [101, 102]),
                                             (INTERSECT, [102]), (EXCEPT, [])])
-def test_each_stack_gives_its_rows(stack, run_ids) -> None:
+def test_each_stack_gives_its_rows(stack: Callable[..., Statement], run_ids: list[int]) -> None:
     result = run(stack(failed_runs(), alerted_runs()), send=example_database.send)
     assert list(result["run_id"]) == run_ids
 
 
-def owners_on(day):
+def owners_on(day: str) -> Statement:
     return statement(SELECT(job_owners.job_id, job_owners.team), FROM(job_owners),
                      WHERE(equals(job_owners.dt, day)))
 
@@ -318,7 +328,7 @@ def test_except_both_ways_finds_where_two_tables_differ() -> None:
 # --- Stacks: Lineage -------------------------------------------------------------------------
 
 
-def test_lineage_feeds_each_output_from_every_statement(tmp_path) -> None:
+def test_lineage_feeds_each_output_from_every_statement(tmp_path: Path) -> None:
     flags = UNION_ALL(failed_runs(), alerted_runs())
     _, markdown = export_lineage(flags, to=tmp_path / "flags.html")
     text = markdown.read_text(encoding="utf-8")
@@ -326,7 +336,7 @@ def test_lineage_feeds_each_output_from_every_statement(tmp_path) -> None:
     assert "ops.job_runs.run_id" in report and "ops.run_alerts.run_id" in report
 
 
-def test_lineage_shows_what_except_leaves_out(tmp_path) -> None:
+def test_lineage_shows_what_except_leaves_out(tmp_path: Path) -> None:
     flags = EXCEPT(alerted_runs(), failed_runs())
     _, markdown = export_lineage(flags, to=tmp_path / "flags.html")
     text = markdown.read_text(encoding="utf-8")
@@ -336,13 +346,15 @@ def test_lineage_shows_what_except_leaves_out(tmp_path) -> None:
 # --- Subtotals: the Hive ---------------------------------------------------------------------
 
 
-def runs_by(*groups, select=(jobs.team, jobs.job_name), having=()):
+def runs_by(*groups: Column | Subtotals,
+            select: tuple[Column | Named, ...] = (jobs.team, jobs.job_name),
+            having: Sequence[Clause] = ()) -> Statement:
     return statement(SELECT(*select, AS(count_rows(), "runs")), FROM(job_runs),
                      JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                      WHERE(equals(job_runs.dt, DAY)), GROUP_BY(*groups), *having)
 
 
-def grouping_of(s) -> str:
+def grouping_of(s: Statement) -> str:
     return to_hive(s).split("GROUP BY\n", 1)[1]
 
 

@@ -28,14 +28,20 @@ import importlib
 import inspect
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import pytest
 
 import toolbox_registry as registry
 import offline_trap
+
+if TYPE_CHECKING:
+    from sqlglot_composer.clauses import Statement
+    from sqlglot_composer.project import TableLogic
 
 # Every test, and every library a test calls, reaches nothing off this computer.
 offline_trap.install()
@@ -111,7 +117,7 @@ def example_rows(table: str) -> pd.DataFrame:
 
 
 @contextlib.contextmanager
-def project_on_the_path(folder: Path, top_names: tuple[str, ...]):
+def project_on_the_path(folder: Path, top_names: tuple[str, ...]) -> Iterator[None]:
     """Import a project's scripts as a notebook started in `folder` does, by their own folder
     names, such as references.
 
@@ -143,7 +149,7 @@ def without_the_write(hive: str) -> str:
     return "\n".join(line for line in hive.splitlines() if not line.startswith(INSERT))
 
 
-def value_as_hive(x) -> str:
+def value_as_hive(x: object) -> str:
     if x is None or (isinstance(x, float) and pd.isna(x)):
         return "NULL"
     return f"'{x}'" if isinstance(x, str) else str(int(x))
@@ -169,7 +175,7 @@ def standing_in(hive: str, saved: dict[str, pd.DataFrame]) -> str:
 
 
 
-def statements_in(result) -> list:
+def statements_in(result: object) -> list[Statement]:
     """The Statements a function gives: one, a list or a dict of them, or a Building block's
     Derived table, read whole by a Statement."""
     toolbox = toolbox_module()
@@ -186,7 +192,7 @@ def statements_in(result) -> list:
     return found
 
 
-def functions_given(module, given: dict) -> dict[str, list]:
+def functions_given(module: ModuleType, given: dict[str, object]) -> dict[str, list[Statement]]:
     """Each function the module defines whose parameters `given` names, by name, with the
     Statements it gives when they are given those values. A function with a parameter `given`
     doesn't name, such as column_name(column), is left out, and so is one that gives no
@@ -205,7 +211,7 @@ def functions_given(module, given: dict) -> dict[str, list]:
     return found
 
 
-def is_a_select_on_the_example_database(s) -> bool:
+def is_a_select_on_the_example_database(s: Statement) -> bool:
     """Whether the Example database can run a Statement: a SELECT, not a create or a write,
     reading only the Example database's tables, which are all in ops., and so no Saved table,
     which only a warehouse holds."""
@@ -223,7 +229,7 @@ def every_day(first_day: str, last_day: str) -> list[str]:
     return [(first + datetime.timedelta(days=n)).isoformat() for n in range(days + 1)]
 
 
-def previewed_days(module, days) -> pd.DataFrame:
+def previewed_days(module: TableLogic, days: list[str]) -> pd.DataFrame:
     """What the module's preview shows for each of the days on the Example database, with the
     day as dt: the rows a Saved table its write fills would hold."""
     toolbox = toolbox_module()
@@ -277,13 +283,13 @@ def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def no_load_limits():
+def no_load_limits() -> Iterator[None]:
     yield
     toolbox_module().set_load_limits()
 
 
 @pytest.fixture(autouse=True)
-def admin_log_where_it_starts(tmp_path_factory):
+def admin_log_where_it_starts(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
     """set_admin_log changes where the Admin log goes for the whole session, so each test
     starts with it in a folder of pytest's own, where an Admin statement a test runs logs
     without writing beside the tests, and ends with it beside the script or notebook that

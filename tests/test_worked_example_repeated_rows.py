@@ -48,7 +48,8 @@ def test_the_careless_statement_gives_the_inflated_minutes() -> None:
 
 
 @pytest.mark.needs_example_database
-def test_the_fixed_statement_keeps_runs_that_raised_no_alert(monkeypatch) -> None:
+def test_the_fixed_statement_keeps_runs_that_raised_no_alert(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(example, "DAY", "2026-09-23")  # runs 95, 96, 98 and 99 raised none
     _, right_minutes, alerts = pandas_check()
     result = run(example.fixed(), send=example_database.send)

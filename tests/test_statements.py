@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import re
 import warnings
+from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
@@ -25,6 +26,7 @@ from sqlglot_composer import (
     WHERE,
     GuardRefused,
     LoadRefused,
+    Statement,
     Table,
     all_columns,
     any_of,
@@ -75,7 +77,8 @@ def test_a_typo_in_a_column_fails_with_the_column_list() -> None:
         (lambda: bool(job_runs.status), "equals"),
     ],
 )
-def test_python_operators_that_would_mislead_are_refused(write, points_to) -> None:
+def test_python_operators_that_would_mislead_are_refused(write: Callable[[], object],
+                                                         points_to: str) -> None:
     with pytest.raises(TypeError, match=points_to):
         write()
 
@@ -167,7 +170,8 @@ def test_hive_function_refuses_a_name_that_isnt_a_plain_name() -> None:
     (lambda: hive_function("concat_ws", "-"), "gives concat_ws 1 argument, and concat_ws takes "
      "2 or more arguments."),
 ])
-def test_hive_function_counts_arguments_by_the_list_in_trees(call, said) -> None:
+def test_hive_function_counts_arguments_by_the_list_in_trees(call: Callable[[], object],
+                                                             said: str) -> None:
     with pytest.raises(TypeError, match=re.escape(said)):
         call()
 
@@ -198,7 +202,8 @@ def test_hive_function_refuses_a_function_that_needs_a_window(name: str) -> None
 @pytest.mark.parametrize(("name", "instead"), [
     ("lag", "lag(column, over=window(...))"), ("rank", "rank(over=window(...))"),
     ("ntile", "ntile(parts, over=window(...))"), ("row_number", "row_number(over=window(...))")])
-def test_the_window_refusal_names_the_toolbox_function_that_writes_over(name, instead) -> None:
+def test_the_window_refusal_names_the_toolbox_function_that_writes_over(name: str,
+                                                                        instead: str) -> None:
     with pytest.raises(ValueError, match=re.escape(f"Use {instead}, which writes OVER")):
         hive_function(name, jobs.team)
 
@@ -304,7 +309,7 @@ def test_a_reserved_word_as_a_name_is_quoted() -> None:
 # --- Derived tables -----------------------------------------------------------------------
 
 
-def per_run():
+def per_run() -> Table:
     return derived("alerts_per_run", statement(
         SELECT(run_alerts.run_id, AS(count_rows(), "alerts"),
                AS(count_distinct(run_alerts.severity), "severities")),
@@ -395,7 +400,7 @@ daily_runs = Table(
 )
 
 
-def backfill():
+def backfill() -> Statement:
     return statement(
         INSERT_OVERWRITE(daily_runs),
         SELECT(AS(sum_of(job_runs.duration_mins), "minutes"), job_runs.job_id,
@@ -432,7 +437,7 @@ def test_a_write_with_no_bound_on_its_day_is_refused() -> None:
         to_hive(unbounded)
 
 
-def adding_a_day(day="2026-09-24"):
+def adding_a_day(day: str = "2026-09-24") -> Statement:
     return statement(
         INSERT_INTO(daily_runs),
         SELECT(job_runs.job_id, AS(count_rows(), "runs"),
@@ -532,7 +537,8 @@ def test_by_day_splits_a_list_of_days() -> None:
 # --- to_hive and the load limits ----------------------------------------------------------
 
 
-def test_to_hive_stops_on_hive_that_doesnt_read_back_the_same(monkeypatch) -> None:
+def test_to_hive_stops_on_hive_that_doesnt_read_back_the_same(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(writing, "read_back", lambda text: text + " ")
     with pytest.raises(RuntimeError, match="bug in the Toolbox, not in your Statement: "
                        "nothing was sent"):

@@ -8,6 +8,8 @@ the Example database says so.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 
@@ -28,8 +30,10 @@ from sqlglot_composer import (
     SELECT_DISTINCT,
     SEMI_JOIN,
     WHERE,
+    Condition,
     GuardRefused,
     LoadRefused,
+    Statement,
     Table,
     all_of,
     any_of,
@@ -46,6 +50,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
+from sqlglot_composer.clauses import Clause
 
 job_runs = example_database.job_runs
 jobs = example_database.jobs
@@ -55,38 +60,38 @@ scheduler_runs = example_database.scheduler_runs
 FIRST, LAST = "2026-09-23", "2026-09-24"
 
 
-def both_days(table):
+def both_days(table: Table) -> Condition:
     return between(table.dt, FIRST, LAST)
 
 
-def alerts_match():
+def alerts_match() -> Condition:
     """ON= for a run's alerts on the two days: run_alerts.run_id isn't run_alerts' Key."""
     return all_of(equals(run_alerts.run_id, job_runs.run_id), both_days(run_alerts))
 
 
-def runs_with_an_alert(**options):
+def runs_with_an_alert(**options: bool) -> Statement:
     return statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
                      SEMI_JOIN(run_alerts, ON=alerts_match(), **options),
                      WHERE(both_days(job_runs)))
 
 
-def runs_with_no_alert(**options):
+def runs_with_no_alert(**options: bool) -> Statement:
     return statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
                      ANTI_JOIN(run_alerts, ON=alerts_match(), **options),
                      WHERE(both_days(job_runs)))
 
 
-def recorded():
+def recorded() -> Table:
     return derived("recorded", statement(SELECT(job_runs.run_id), FROM(job_runs),
                                          WHERE(both_days(job_runs))))
 
 
-def started():
+def started() -> Table:
     return derived("started", statement(SELECT(scheduler_runs.run_id), FROM(scheduler_runs),
                                         WHERE(both_days(scheduler_runs))))
 
 
-def both_records(*where, **options):
+def both_records(*where: Condition, **options: bool) -> Statement:
     rec, sta = recorded(), started()
     return statement(
         SELECT(AS(fill_null(rec.run_id, sta.run_id), "run_id"), AS(rec.run_id, "in_job_runs"),
@@ -141,7 +146,7 @@ def test_full_join_is_written_full_join() -> None:
 
 
 @pytest.mark.parametrize("join", [JOIN, LEFT_JOIN, SEMI_JOIN, ANTI_JOIN])
-def test_broadcast_writes_hive_s_mapjoin_hint(join) -> None:
+def test_broadcast_writes_hive_s_mapjoin_hint(join: Callable[..., Clause]) -> None:
     s = statement(SELECT(job_runs.run_id), FROM(job_runs),
                   join(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True),
                   WHERE(both_days(job_runs)))
@@ -174,7 +179,7 @@ def test_no_broadcast_writes_no_hint() -> None:
 
 
 @pytest.mark.parametrize("value", [1, "yes", None])
-def test_broadcast_must_be_true_or_false(value) -> None:
+def test_broadcast_must_be_true_or_false(value: int | str | None) -> None:
     with pytest.raises(ValueError, match=r"broadcast= is True or False"):
         JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=value)
 
@@ -214,7 +219,7 @@ def test_full_join_keeps_the_runs_only_one_record_holds() -> None:
 
 @pytest.mark.needs_example_database
 def test_broadcast_changes_no_row() -> None:
-    def per_team(broadcast):
+    def per_team(broadcast: bool) -> Statement:
         return statement(SELECT(jobs.team, AS(count_rows(), "runs")), FROM(job_runs),
                          JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id),
                               broadcast=broadcast),
@@ -226,7 +231,7 @@ def test_broadcast_changes_no_row() -> None:
 # --- What they refuse ------------------------------------------------------------------------
 
 
-def _reading_the_joined_table(join, place):
+def _reading_the_joined_table(join: Callable[..., Clause], place: str) -> Statement:
     on = alerts_match()
     clauses = {
         "SELECT": [SELECT(job_runs.run_id, run_alerts.severity), FROM(job_runs),
@@ -253,7 +258,8 @@ def _reading_the_joined_table(join, place):
 @pytest.mark.parametrize("place", ["SELECT", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY",
                                    "JOIN(jobs, ON=...)"])
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
-def test_a_semi_or_anti_joined_table_s_columns_are_read_only_in_its_on(join, place) -> None:
+def test_a_semi_or_anti_joined_table_s_columns_are_read_only_in_its_on(
+        join: Callable[..., Clause], place: str) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         with pytest.raises(ValueError) as refused:
@@ -268,7 +274,8 @@ def test_a_semi_or_anti_joined_table_s_columns_are_read_only_in_its_on(join, pla
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
-def test_a_semi_or_anti_join_with_no_on_is_refused_in_its_own_words(join) -> None:
+def test_a_semi_or_anti_join_with_no_on_is_refused_in_its_own_words(
+        join: Callable[..., Clause]) -> None:
     """Not the CROSS_JOIN refusal: a semi or anti join never multiplies rows."""
     with pytest.raises(ValueError) as refused:
         join(run_alerts)
@@ -292,7 +299,8 @@ def test_right_join_is_refused_naming_the_swapped_left_join() -> None:
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
-def test_a_semi_or_anti_joined_table_s_days_are_bounded_in_its_on(join) -> None:
+def test_a_semi_or_anti_joined_table_s_days_are_bounded_in_its_on(
+        join: Callable[..., Clause]) -> None:
     with pytest.raises(LoadRefused, match=r"Bound it inside ON="):
         statement(SELECT(job_runs.run_id), FROM(job_runs),
                   join(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id)),
@@ -300,7 +308,8 @@ def test_a_semi_or_anti_joined_table_s_days_are_bounded_in_its_on(join) -> None:
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
-def test_a_semi_or_anti_join_off_the_key_gives_no_repeated_rows_warning(join) -> None:
+def test_a_semi_or_anti_join_off_the_key_gives_no_repeated_rows_warning(
+        join: Callable[..., Clause]) -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         statement(SELECT(job_runs.run_id), FROM(job_runs), join(run_alerts, ON=alerts_match()),
@@ -321,7 +330,8 @@ def test_full_join_warns_of_repeated_rows_as_join_does() -> None:
     pytest.param(lambda rec, sta: all_of(is_null(rec.run_id), equals(sta.run_id, 95)),
                  id="a_test_beside_an_is_null"),
 ])
-def test_a_where_on_a_full_join_s_tables_is_refused(condition) -> None:
+def test_a_where_on_a_full_join_s_tables_is_refused(
+        condition: Callable[..., Condition]) -> None:
     rec, sta = recorded(), started()
     with pytest.raises(GuardRefused, match=r"FULL_JOIN\(started\) keeps the rows of both sides"):
         statement(SELECT(rec.run_id), FROM(rec),
@@ -386,7 +396,8 @@ per_run = Table("mart.per_run", columns={"run_id": "bigint", "status": "string",
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
-def test_a_semi_or_anti_join_keeps_the_reading_table_s_key(join) -> None:
+def test_a_semi_or_anti_join_keeps_the_reading_table_s_key(
+        join: Callable[..., Clause]) -> None:
     statement(INSERT_OVERWRITE(per_run), SELECT(job_runs.run_id, job_runs.status),
               FROM(job_runs), join(run_alerts, ON=alerts_match()),
               WHERE(equals(job_runs.dt, LAST)))
@@ -434,14 +445,15 @@ def test_by_day_splits_an_anti_join_on_its_from_table() -> None:
     (runs_with_no_alert, "ANTI JOIN ON (keeps the rows with no match) in s"),
     (both_records, "FULL JOIN ON (keeps the rows of both sides, matched or not) in s"),
 ])
-def test_lineage_names_each_join_s_condition(make, said, tmp_path) -> None:
+def test_lineage_names_each_join_s_condition(make: Callable[..., Statement], said: str,
+                                             tmp_path: Path) -> None:
     s = make()
     _, markdown_file = export_lineage(s, to=tmp_path / "lineage.html")
     markdown = markdown_file.read_text(encoding="utf-8")
     assert said in markdown
 
 
-def test_lineage_says_where_a_full_join_lost_the_key(tmp_path) -> None:
+def test_lineage_says_where_a_full_join_lost_the_key(tmp_path: Path) -> None:
     s = both_records()
     _, markdown_file = export_lineage(s, to=tmp_path / "lineage.html")
     assert "FULL_JOIN(started, ON=...) keeps the rows of each side" in markdown_file.read_text(

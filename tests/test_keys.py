@@ -11,6 +11,7 @@ less often.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Callable
 
 import pytest
 
@@ -26,6 +27,7 @@ from sqlglot_composer import (
     SELECT,
     SELECT_DISTINCT,
     WHERE,
+    Condition,
     GuardRefused,
     Table,
     all_of,
@@ -42,6 +44,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
+from sqlglot_composer.clauses import Clause
 from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
@@ -61,11 +64,11 @@ no_key = Table("mart.no_key", columns={"job_id": "bigint", "status": "string", "
                date_partition="dt", location=BASE)
 
 
-def on_the_day():
+def on_the_day() -> Condition:
     return equals(job_runs.dt, DAY)
 
 
-def numbered_runs():
+def numbered_runs() -> Table:
     """job_runs' runs numbered per job, newest first."""
     return derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.run_id,
@@ -78,7 +81,7 @@ def numbered_runs():
 
 
 @pytest.mark.parametrize("write", [INSERT_OVERWRITE, INSERT_INTO])
-def test_a_group_by_over_the_key_proves_it(write) -> None:
+def test_a_group_by_over_the_key_proves_it(write: Callable[[Table], Clause]) -> None:
     statement(write(per_job), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
               FROM(job_runs), WHERE(on_the_day()), GROUP_BY(job_runs.job_id))
 
@@ -183,14 +186,15 @@ def test_a_cross_join_with_one_row_keeps_the_key() -> None:
 # --- What doesn't, and the refusal -----------------------------------------------------------
 
 
-def refusal(*clauses) -> str:
+def refusal(*clauses: Clause) -> str:
     with pytest.raises(GuardRefused) as refused:
         statement(*clauses)
     return " ".join(str(refused.value).split())
 
 
 @pytest.mark.parametrize("write", [INSERT_OVERWRITE, INSERT_INTO])
-def test_a_write_with_no_proof_is_refused_with_its_opt_out(write) -> None:
+def test_a_write_with_no_proof_is_refused_with_its_opt_out(
+        write: Callable[[Table], Clause]) -> None:
     said = refusal(write(per_job), SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs")),
                    FROM(job_runs), WHERE(on_the_day()))
     name = write.__name__
@@ -258,7 +262,7 @@ def test_unproven_key_must_be_true_or_false() -> None:
 # --- A Derived table's Key reaches further ---------------------------------------------------
 
 
-def joins_quietly(*clauses) -> None:
+def joins_quietly(*clauses: Clause) -> None:
     """The Statement is built with no repeated-rows Warning."""
     with warnings.catch_warnings():
         warnings.simplefilter("error")

@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -124,7 +125,7 @@ def _version(text: str) -> tuple[int, ...]:
     return tuple(int(n) for n in text.split("."))
 
 
-def _engine():
+def _engine() -> ModuleType:
     """engine.py, which holds the range of sqlglot the Toolbox supports."""
     return sqlglot_composer.engine
 

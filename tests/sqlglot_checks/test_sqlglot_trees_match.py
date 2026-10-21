@@ -15,19 +15,19 @@ import pytest
 from sqlglot import exp
 
 import hive_corpus_cases
-from sqlglot_composer import GuardRefused, LoadRefused, writing
+from sqlglot_composer import GuardRefused, LoadRefused, Statement, writing
 from sqlglot_composer.clauses import derived_tables
-from sqlglot_composer.trees import HIVE_AGGREGATES, KINDS, has_aggregate
+from sqlglot_composer.trees import HIVE_AGGREGATES, KINDS, Node, has_aggregate
 
 
-def _trees_of(s) -> list:
+def _trees_of(s: Statement) -> list[Node]:
     found = [column._tree for column, _ in s._outputs]
     found += [c._tree for c in s._where + s._having]
     found += [read.on._tree for read in s._reads if read.on is not None]
     return found + [c._tree for c in s._group_by] + list(s._order_by)
 
 
-def _corpus_trees() -> list:
+def _corpus_trees() -> list[Node]:
     found = []
     for _, build in hive_corpus_cases.edge_cases() + hive_corpus_cases.generated_cases():
         try:

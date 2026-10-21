@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime
 import random
+from collections.abc import Callable
 
 import pandas as pd
 
@@ -41,7 +42,12 @@ from sqlglot_composer import (
     UNION_ALL,
     SEMI_JOIN,
     WHERE,
+    Column,
+    Condition,
+    SessionSettings,
+    Statement,
     Table,
+    UncheckedStatement,
     all_of,
     any_of,
     at_least,
@@ -93,7 +99,10 @@ from sqlglot_composer import (
     week_start,
     window,
 )
+from sqlglot_composer.clauses import Clause, Named
 from sqlglot_composer.example_database import job_runs, jobs, run_alerts, scheduler_runs
+from sqlglot_composer.stacking import Subtotals
+from sqlglot_composer.windows import Window
 from sqlglot_composer import admin
 
 DAY = "2026-09-24"
@@ -167,22 +176,23 @@ EDGE_TABLES = {"odd": odd, "standard_words": standard_words, "compact": compact,
                "daily_runs": daily_runs, "region_runs": region_runs}
 
 
-def edge_tables() -> list:
+def edge_tables() -> list[Table]:
     return list(EDGE_TABLES.values())
 
 
-def one_day(t=job_runs):
+def one_day(t: Table = job_runs) -> Condition:
     return equals(t.dt, DAY)
 
 
-def _rows(*outputs, where=()):
+def _rows(*outputs: Column | Named,
+          where: list[Condition] | tuple[Condition, ...] = ()) -> Statement:
     return statement(SELECT(*outputs), FROM(job_runs), WHERE(one_day(), *where))
 
 
 # --- Where a pretty line wraps: each pair is one character either side, on sqlglot 30.19.0 --
 
 
-def _width_cases() -> list:
+def _width_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
     """Each construct with a value one character short of wrapping, and one that wraps.
 
     Then an IN list and a column type far too wide for one line.
@@ -234,7 +244,7 @@ def _width_cases() -> list:
     return found
 
 
-def _window(length: int):
+def _window(length: int) -> Statement:
     key = "k" + "x" * length
     wide = Table("ops.wide", columns={key: "string", "v": "bigint", "dt": "string"},
                  date_partition="dt")
@@ -244,7 +254,8 @@ def _window(length: int):
         FROM(wide), WHERE(equals(wide.dt, DAY)))
 
 
-def _building(make, value):
+def _building(make: Callable[..., Statement], value: str | int
+              ) -> Callable[..., list[Statement]]:
     """A case: the one Statement `make(value)` builds."""
     return lambda: [make(value)]
 
@@ -252,7 +263,7 @@ def _building(make, value):
 # --- Brackets, conditions and calculations -------------------------------------------------
 
 
-def _calculation_cases() -> dict:
+def _calculation_cases() -> dict[str, Callable[..., list[Statement]]]:
     minutes = job_runs.duration_mins
     return {
         "brackets:add_then_divide": lambda: [_rows(AS((minutes + 1) / 2, "x"))],
@@ -300,7 +311,7 @@ def _calculation_cases() -> dict:
     }
 
 
-def _hive_function_cases() -> dict:
+def _hive_function_cases() -> dict[str, Callable[..., list[Statement]]]:
     """Functions sqlglot may rename or rewrite; each is written as sqlglot writes it today."""
     status, dt = job_runs.status, job_runs.dt
     calls = {
@@ -326,8 +337,9 @@ AGGREGATE_FUNCTIONS = {"collect_set"}
 """The functions above that aggregate, so their case groups by job."""
 
 
-def _function_case(function, args):
-    def build():
+def _function_case(function: str, args: list[Column | str | int]
+                   ) -> Callable[..., list[Statement]]:
+    def build() -> list[Statement]:
         call = hive_function(function, *args)
         if function in AGGREGATE_FUNCTIONS:
             return [statement(SELECT(job_runs.job_id, AS(call, "x")), FROM(job_runs),
@@ -339,7 +351,7 @@ def _function_case(function, args):
 # --- Reads, joins and Derived tables -------------------------------------------------------
 
 
-def _read_cases() -> dict:
+def _read_cases() -> dict[str, Callable[..., list[Statement]]]:
     return {
         "reads:left_join_keeps_only_matches": lambda: [statement(
             SELECT(jobs.job_name, job_runs.run_id), FROM(jobs),
@@ -383,11 +395,11 @@ def _read_cases() -> dict:
     }
 
 
-def _alerts_of_the_day():
+def _alerts_of_the_day() -> Condition:
     return all_of(equals(run_alerts.run_id, job_runs.run_id), one_day(run_alerts))
 
 
-def _two_records():
+def _two_records() -> tuple[Table, Table]:
     """The runs job_runs holds and the runs the scheduler started, on one day each."""
     recorded = derived("recorded", statement(
         SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs), WHERE(one_day())))
@@ -397,7 +409,7 @@ def _two_records():
     return recorded, started
 
 
-def _full_join(*where, **options):
+def _full_join(*where: Condition, **options: bool) -> Statement:
     recorded, started = _two_records()
     return statement(
         SELECT(AS(fill_null(recorded.run_id, started.run_id), "run_id"),
@@ -410,7 +422,7 @@ def _full_join(*where, **options):
         *([WHERE(*where)] if where else []))
 
 
-def _join_cases() -> dict:
+def _join_cases() -> dict[str, Callable[..., list[Statement]]]:
     """SEMI_JOIN, ANTI_JOIN, FULL_JOIN and broadcast=, and what each refuses."""
     recorded, started = _two_records()
     other = AS(jobs, "other")
@@ -471,7 +483,7 @@ def _join_cases() -> dict:
     }
 
 
-def _broadcast_in_steps(other):
+def _broadcast_in_steps(other: Table) -> Statement:
     teams = derived("teams", statement(
         SELECT(job_runs.run_id, jobs.team), FROM(job_runs),
         JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), broadcast=True), WHERE(one_day())))
@@ -490,7 +502,7 @@ runs_to_check = Table(
 """A Saved table written through a SEMI_JOIN and an ANTI_JOIN, which keep its Key."""
 
 
-def _reading_top_n():
+def _reading_top_n() -> Statement:
     """A Statement with no ORDER_BY of its own, reading a Derived table that has one."""
     longest = derived("longest", statement(
         SELECT(job_runs.run_id, job_runs.duration_mins), FROM(job_runs), WHERE(one_day()),
@@ -498,7 +510,7 @@ def _reading_top_n():
     return statement(SELECT(longest.run_id, longest.duration_mins), FROM(longest))
 
 
-def _self_join():
+def _self_join() -> Statement:
     earlier = AS(job_runs, "earlier")
     return statement(
         SELECT(job_runs.run_id, AS(earlier.run_id, "earlier_run")), FROM(job_runs),
@@ -506,7 +518,7 @@ def _self_join():
         WHERE(one_day(), equals(earlier.dt, FIRST_DAY)))
 
 
-def _last_step(depth: int):
+def _last_step(depth: int) -> Table:
     """A Derived table `depth` deep: each step reads the one before, the first reads job_runs."""
     step = derived("step_1", statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs),
@@ -517,12 +529,12 @@ def _last_step(depth: int):
     return step
 
 
-def _reading_steps(depth: int) -> list:
+def _reading_steps(depth: int) -> list[Statement]:
     step = _last_step(depth)
     return [statement(SELECT(step.job_id, step.runs), FROM(step))]
 
 
-def _write(clause, depth: int) -> list:
+def _write(clause: Callable[..., Clause], depth: int) -> list[Statement]:
     """A write of one day, reading Derived tables `depth` deep (0: straight from job_runs)."""
     if depth == 0:
         return [statement(clause(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -531,7 +543,7 @@ def _write(clause, depth: int) -> list:
     return [statement(clause(daily_runs), SELECT(step.job_id, step.runs), FROM(step))]
 
 
-def _structure_cases() -> dict:
+def _structure_cases() -> dict[str, Callable[..., list[Statement]]]:
     found = {f"derived:depth_{depth}": (lambda depth=depth: _reading_steps(depth))
              for depth in (1, 2, 3)}
     for clause in (INSERT_OVERWRITE, INSERT_INTO):
@@ -578,22 +590,24 @@ team_runs = Table(
 """A Saved table with no days, written from several days of job_runs."""
 
 
-def _no_day_cases() -> dict:
+def _no_day_cases() -> dict[str, Callable[..., list[Statement]]]:
     """A write into a Saved table with no days: each clause, from several days, a Derived
     table and a Stack, the Key's refusal, and what refuses it as working one day at a time."""
-    def runs_per_team(clause=INSERT_OVERWRITE, where=(between(job_runs.dt, FIRST_DAY, DAY),)):
+    def runs_per_team(clause: Callable[..., Clause] = INSERT_OVERWRITE,
+                      where: tuple[Condition, ...] = (between(job_runs.dt, FIRST_DAY, DAY),)
+                      ) -> Statement:
         return statement(clause(team_runs), SELECT(jobs.team, AS(count_rows(), "runs")),
                          FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                          *([WHERE(*where)] if where else []), GROUP_BY(jobs.team))
 
-    def from_a_stack():
+    def from_a_stack() -> Statement:
         each = [statement(SELECT(jobs.team, jobs.job_id), FROM(jobs),
                           WHERE(equals(jobs.team, team))) for team in ("data", "finance")]
         both = derived("both", UNION(*each))
         return statement(INSERT_OVERWRITE(job_teams, unproven_key=True),
                          SELECT(both.job_id, both.team), FROM(both))
 
-    def from_a_derived_table():
+    def from_a_derived_table() -> Statement:
         teams = derived("teams", statement(SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs)))
         return statement(INSERT_OVERWRITE(job_teams), SELECT(teams.team, teams.job_id),
                          FROM(teams))
@@ -636,9 +650,9 @@ runs_per_job_day = Table(
 """A Saved table whose Key holds its Date partition, for the Key's writes."""
 
 
-def _key_cases() -> dict:
+def _key_cases() -> dict[str, Callable[..., list[Statement]]]:
     """A write into a Saved table with a Key: each way the Key is shown, and the refusal."""
-    def newest_per_job(**opt_out):
+    def newest_per_job(**opt_out: bool) -> Statement:
         numbered = derived("numbered", statement(
             SELECT(job_runs.job_id, job_runs.run_id, AS(row_number(
                 PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)), "newest")),
@@ -648,7 +662,7 @@ def _key_cases() -> dict:
                          FROM(numbered), JOIN(jobs, ON=equals(jobs.job_id, numbered.job_id)),
                          WHERE(equals(numbered.newest, 1)))
 
-    def every_run(**opt_out):
+    def every_run(**opt_out: bool) -> Statement:
         return statement(INSERT_OVERWRITE(runs_per_job_day, **opt_out),
                          SELECT(job_runs.job_id, job_runs.run_id, AS(jobs.team, "team")),
                          FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
@@ -671,7 +685,8 @@ def _key_cases() -> dict:
     }
 
 
-def _stored(location=BASE, **storage):
+def _stored(location: str = BASE, **storage: bool | str | int | list[str] | dict[str, str]
+            ) -> Callable[..., list[Statement]]:
     """create_table for a Saved table of three columns, stored as `storage` says."""
     return lambda: [create_table(Table(
         "mart.stored", columns={"job_id": "bigint", "region": "string", "runs": "bigint",
@@ -679,7 +694,7 @@ def _stored(location=BASE, **storage):
         date_partition="dt", location=location, **storage))]
 
 
-def _storage_cases() -> dict:
+def _storage_cases() -> dict[str, Callable[..., list[Statement]]]:
     """A Saved table's storage, each option on its own and all together, and the writes into
     a table with a Partition inside each day."""
     found = {
@@ -716,7 +731,7 @@ def _storage_cases() -> dict:
     return found
 
 
-def _upkeep_cases() -> dict:
+def _upkeep_cases() -> dict[str, Callable[..., list[Statement]]]:
     """repair_partitions, compute_statistics and explain: each on the Saved tables above, a
     day written another way, awkward names, and what each refuses."""
     found = {f"upkeep:repair_partitions:{name}": (lambda t=t: [repair_partitions(t)])
@@ -752,7 +767,9 @@ def _upkeep_cases() -> dict:
     return found
 
 
-def warehouse(t, location=None, kind="EXTERNAL_TABLE", lacking=(), days=(DAY,)):
+def warehouse(t: Table, location: str | None = None, kind: str = "EXTERNAL_TABLE",
+              lacking: tuple[str, ...] = (), days: tuple[str, ...] = (DAY,)
+              ) -> Callable[..., pd.DataFrame]:
     """A stand-in for send at work: the warehouse's DESCRIBE, DESCRIBE FORMATTED and SHOW
     PARTITIONS for a Saved table, without the columns `lacking`, at `location` (by default a
     folder it shares with others, BASE itself), holding `days`."""
@@ -776,13 +793,15 @@ def warehouse(t, location=None, kind="EXTERNAL_TABLE", lacking=(), days=(DAY,)):
     return send
 
 
-def _saved(name="mart.admin_runs", columns=None, date_partition="dt", **storage):
+def _saved(name: str = "mart.admin_runs", columns: dict[str, str | None] | None = None,
+           date_partition: str | None = "dt", **storage: bool | str | dict[str, str] | None
+           ) -> Table:
     """A Saved table of the user's for the admin module's cases."""
     columns = columns or {"job_id": "bigint", "runs": "bigint", "dt": "string"}
     return Table(name, columns=columns, date_partition=date_partition, location=BASE, **storage)
 
 
-def _admin_cases() -> dict:
+def _admin_cases() -> dict[str, Callable[..., list[Statement]]]:
     """The admin module's Statements: each function, its options, and its refusals."""
     found = {f"admin:drop_table:{name}": (lambda t=t: [admin.drop_table(t)])
              for name, t in EDGE_TABLES.items()}
@@ -811,7 +830,7 @@ def _admin_cases() -> dict:
     return found
 
 
-def _add_columns_cases() -> dict:
+def _add_columns_cases() -> dict[str, Callable[..., list[Statement]]]:
     wider = {"job_id": "bigint", "runs": "bigint", "fails": "bigint", "note": "string",
              "dt": "string"}
     return {
@@ -836,7 +855,7 @@ def _add_columns_cases() -> dict:
     }
 
 
-def _move_cases() -> dict:
+def _move_cases() -> dict[str, Callable[..., list[Statement]]]:
     return {
         "admin:move:two_days": lambda: admin.move_to_own_folder(
             daily_runs, send=warehouse(daily_runs, days=(FIRST_DAY, DAY))),
@@ -867,19 +886,21 @@ BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
            "GROUP BY job_id")
 
 
-def _reading_daily_runs():
+def _reading_daily_runs() -> Statement:
     return statement(SELECT(daily_runs.job_id, daily_runs.runs), FROM(daily_runs),
                      WHERE(equals(daily_runs.dt, DAY)))
 
 
-def by_hand_cases() -> list:
+def by_hand_cases(
+) -> list[tuple[str, Callable[..., list[Statement | SessionSettings | UncheckedStatement]]]]:
     """Session settings and Unchecked statements, alone and in a pipeline with Statements, as
     (id, function returning what it builds). They are kept apart from edge_cases, whose
     every case builds Statements only."""
     return [(f"by_hand:{name}", build) for name, build in _by_hand_cases().items()]
 
 
-def _by_hand_cases() -> dict:
+def _by_hand_cases(
+) -> dict[str, Callable[..., list[Statement | SessionSettings | UncheckedStatement]]]:
     found = {f"hive_settings:{name}": (lambda name=name: [hive_settings(name)])
              for name in ("dynamic_partitions", "map_joins", "statistics_on_write",
                           "merge_small_files")}
@@ -897,24 +918,24 @@ def _by_hand_cases() -> dict:
     return found
 
 
-def _failed(day=DAY):
+def _failed(day: str = DAY) -> Statement:
     return statement(SELECT(job_runs.run_id, job_runs.job_id), FROM(job_runs),
                      WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")))
 
 
-def _alerted(day=DAY):
+def _alerted(day: str = DAY) -> Statement:
     """run_alerts' runs, its columns in the other order from _failed's."""
     return statement(SELECT(AS(run_alerts.alert_id, "job_id"), run_alerts.run_id),
                      FROM(run_alerts), WHERE(equals(run_alerts.dt, day)))
 
 
-def _runs_per_job():
+def _runs_per_job() -> Table:
     return derived("per_job", statement(SELECT(job_runs.job_id, AS(count_rows(), "runs")),
                                         FROM(job_runs), WHERE(one_day()),
                                         GROUP_BY(job_runs.job_id)))
 
 
-def _stack_cases() -> dict:
+def _stack_cases() -> dict[str, Callable[..., list[Statement]]]:
     """Stacks of whole Statements, read, written and refused."""
     found = {f"stack:{stack.__name__}": (lambda stack=stack: [stack(
         _failed(), _alerted(), _failed(FIRST_DAY))]) for stack in (UNION_ALL, UNION, INTERSECT,
@@ -938,7 +959,7 @@ def _stack_cases() -> dict:
     return found
 
 
-def _per_job_of(stack, written: bool):
+def _per_job_of(stack: Callable[..., Statement], written: bool) -> Statement:
     """The runs of each job in a Stack of _failed and _alerted, read, or written into
     daily_runs."""
     flags = derived("flags", stack(_failed(), _alerted()))
@@ -947,7 +968,7 @@ def _per_job_of(stack, written: bool):
                      GROUP_BY(flags.job_id))
 
 
-def _stack_by_day():
+def _stack_by_day() -> list[Statement]:
     """A UNION_ALL over two days, split by day: each Statement it stacks is split."""
     flags = derived("flags", UNION_ALL(
         statement(SELECT(job_runs.run_id), FROM(job_runs),
@@ -957,9 +978,11 @@ def _stack_by_day():
     return by_day(statement(SELECT(flags.run_id), FROM(flags)))
 
 
-def _subtotal_cases() -> dict:
+def _subtotal_cases() -> dict[str, Callable[..., list[Statement]]]:
     """Subtotals in GROUP_BY, is_total, and a set of columns too wide for one line."""
-    def per_team(*groups, select=(jobs.team, jobs.job_name), more=()):
+    def per_team(*groups: Column | Subtotals,
+                 select: tuple[Column | Named, ...] = (jobs.team, jobs.job_name),
+                 more: list[Clause] | tuple[Clause, ...] = ()) -> Statement:
         return statement(SELECT(*select, AS(count_rows(), "runs")), FROM(job_runs),
                          JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                          WHERE(one_day()), GROUP_BY(*groups), *more)
@@ -1000,30 +1023,30 @@ events_before = Table(
 """A Saved table written from a window that looks back on earlier days."""
 
 
-def _window_cases() -> dict:
+def _window_cases() -> dict[str, Callable[..., list[Statement]]]:
     """Each function over a window, each way rows= is written, a window that wraps, a write
     that reads earlier days and keeps one, and what by_day and a Statement refuse."""
     minutes, by_job = job_runs.duration_mins, window(PARTITION_BY=job_runs.job_id,
                                                      ORDER_BY=job_runs.run_id)
 
-    def over(rows):
+    def over(rows: tuple[int | None, int | None]) -> Window:
         return window(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id),
                       rows=rows)
 
-    def looking_back(first):
+    def looking_back(first: str) -> Table:
         return derived("with_before", statement(
             SELECT(job_runs.run_id, job_runs.dt,
                    AS(lag(minutes, over=window(PARTITION_BY=job_runs.job_id,
                                                ORDER_BY=job_runs.dt)), "minutes_before")),
             FROM(job_runs), WHERE(between(job_runs.dt, first, DAY))))
 
-    def write_looking_back():
+    def write_looking_back() -> Statement:
         with_before = looking_back(FIRST_DAY)
         return statement(INSERT_OVERWRITE(events_before),
                          SELECT(AS(with_before.run_id, "event_id"), with_before.minutes_before),
                          FROM(with_before), WHERE(equals(with_before.dt, DAY)))
 
-    def write_keeping_a_day_with_no_window():
+    def write_keeping_a_day_with_no_window() -> Statement:
         # Only a write with a Window may read several days and keep one: this one has none.
         several = derived("several", statement(
             SELECT(job_runs.run_id, job_runs.dt, job_runs.duration_mins), FROM(job_runs),
@@ -1033,7 +1056,7 @@ def _window_cases() -> dict:
                                 AS(several.duration_mins, "minutes_before")),
                          FROM(several), WHERE(equals(several.dt, DAY)))
 
-    def by_day_looking_back():
+    def by_day_looking_back() -> list[Statement]:
         with_before = looking_back(FIRST_DAY)
         return by_day(statement(SELECT(with_before.run_id, with_before.minutes_before),
                                 FROM(with_before)))
@@ -1070,7 +1093,7 @@ def _window_cases() -> dict:
     }
 
 
-def edge_cases() -> list:
+def edge_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
     """Every edge case, as (id, function returning its Statements), in a fixed order."""
     named = {**_calculation_cases(), **_hive_function_cases(), **_read_cases(),
              **_join_cases(), **_structure_cases(), **_window_cases(),
@@ -1086,20 +1109,20 @@ STRINGS = ("FAILED", "O'Brien", "a_b%", "C:\\temp", "Berlin \u2013 M\u00fcnchen"
            "x" * 40)
 
 
-def generated_cases() -> list:
+def generated_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
     """GENERATED Statements, each from a seed of its own, so adding one never changes another."""
     return [(f"gen:{number:03d}", _generated(SEED + number)) for number in range(GENERATED)]
 
 
-def _generated(seed: int):
-    def build() -> list:
+def _generated(seed: int) -> Callable[..., list[Statement]]:
+    def build() -> list[Statement]:
         pick = random.Random(seed)
         shape = pick.choice((_row_statement, _grouped_statement, _derived_statement))
         return [shape(pick)]
     return build
 
 
-def _date_bound(pick):
+def _date_bound(pick: random.Random) -> Condition:
     return pick.choice((
         lambda: equals(job_runs.dt, DAY),
         lambda: between(job_runs.dt, FIRST_DAY, DAY),
@@ -1108,7 +1131,7 @@ def _date_bound(pick):
     ))()
 
 
-def _leaf_condition(pick):
+def _leaf_condition(pick: random.Random) -> Condition:
     """One condition on job_runs, with a value picked from STRINGS or a small number."""
     text, number = pick.choice(STRINGS), pick.randint(-5, 60)
     status, minutes = job_runs.status, job_runs.duration_mins
@@ -1124,7 +1147,7 @@ def _leaf_condition(pick):
     ))()
 
 
-def _condition(pick):
+def _condition(pick: random.Random) -> Condition:
     """A condition, sometimes any_of or all_of of two or three, once nested."""
     roll = pick.random()
     if roll < 0.6:
@@ -1136,7 +1159,7 @@ def _condition(pick):
     return combine(*parts)
 
 
-def _row_value(pick, joined: bool):
+def _row_value(pick: random.Random, joined: bool) -> Column:
     """A column or a calculation of one row."""
     minutes = job_runs.duration_mins
     choices = [
@@ -1155,7 +1178,7 @@ def _row_value(pick, joined: bool):
     return pick.choice(choices)()
 
 
-def _reads(pick) -> tuple[list, bool]:
+def _reads(pick: random.Random) -> tuple[list[Clause], bool]:
     """FROM job_runs, and half the time a JOIN or LEFT_JOIN of jobs on its key."""
     if pick.random() < 0.5:
         return [FROM(job_runs)], False
@@ -1163,7 +1186,7 @@ def _reads(pick) -> tuple[list, bool]:
     return [FROM(job_runs), join(jobs, ON=equals(jobs.job_id, job_runs.job_id))], True
 
 
-def _ordered(pick, names: list[str]) -> list:
+def _ordered(pick: random.Random, names: list[str]) -> list[Clause]:
     """Sometimes ORDER_BY an output with a LIMIT; sometimes a LIMIT alone; else nothing."""
     roll = pick.random()
     if roll < 0.4:
@@ -1173,7 +1196,7 @@ def _ordered(pick, names: list[str]) -> list:
     return [LIMIT(pick.randint(1, 50))] if roll < 0.55 else []
 
 
-def _row_statement(pick):
+def _row_statement(pick: random.Random) -> Statement:
     reads, joined = _reads(pick)
     outputs = [AS(_row_value(pick, joined), f"c{n}") for n in range(pick.randint(1, 4))]
     select = SELECT_DISTINCT if pick.random() < 0.2 else SELECT
@@ -1182,7 +1205,7 @@ def _row_statement(pick):
                      *_ordered(pick, [f"c{n}" for n in range(len(outputs))]))
 
 
-def _aggregate(pick):
+def _aggregate(pick: random.Random) -> Column:
     minutes = job_runs.duration_mins
     where = _condition(pick) if pick.random() < 0.3 else None
     return pick.choice((
@@ -1193,13 +1216,13 @@ def _aggregate(pick):
     ))()
 
 
-def _group_key(pick, joined: bool):
+def _group_key(pick: random.Random, joined: bool) -> Column:
     keys = [job_runs.job_id, job_runs.status, job_runs.dt, week_start(job_runs.dt),
             month_start(job_runs.dt)]
     return pick.choice(keys + ([jobs.team, jobs.region] if joined else []))
 
 
-def _grouped_statement(pick):
+def _grouped_statement(pick: random.Random) -> Statement:
     reads, joined = _reads(pick)
     keys = [AS(_group_key(pick, joined), f"k{n}") for n in range(pick.randint(1, 2))]
     totals = [AS(_aggregate(pick), f"a{n}") for n in range(pick.randint(1, 3))]
@@ -1210,7 +1233,7 @@ def _grouped_statement(pick):
                      *_ordered(pick, names + [f"a{n}" for n in range(len(totals))]))
 
 
-def _derived_statement(pick):
+def _derived_statement(pick: random.Random) -> Statement:
     """A Derived table of totals per job, read by an outer Statement that may join jobs."""
     per_job = derived("per_job", statement(
         SELECT(job_runs.job_id, AS(_aggregate(pick), "total")), FROM(job_runs),

@@ -15,8 +15,10 @@ from sqlglot_composer import (
     LEFT_JOIN,
     SELECT,
     WHERE,
+    Condition,
     GuardRefused,
     LoadRefused,
+    Statement,
     all_of,
     contains,
     count_distinct,
@@ -173,7 +175,8 @@ def test_count_distinct_is_right_on_the_executor() -> None:
         (starts_with(jobs.job_name, "invoice%"), []),
     ],
 )
-def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None:
+def test_an_underscore_or_percent_is_matched_as_itself(condition: Condition,
+                                                       names: list[str]) -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs), WHERE(condition))
     assert list(run(s, send=example_database.send).job_name) == names
 
@@ -189,7 +192,7 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None
     "SELECT j.job_id FROM ops.jobs AS j, mart.jobs AS m",
     "SELECT job_id FROM ops.jobs WHERE (job_id = 1",
 ])
-def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive) -> None:
+def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive: str) -> None:
     with pytest.raises(RuntimeError) as refused:
         example_database.send(hive)
     message = str(refused.value)
@@ -200,13 +203,13 @@ def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive) ->
 
 
 @pytest.mark.parametrize("hive", ["DESCRIBE mart.jobs", "SHOW PARTITIONS mart.job_runs"])
-def test_a_table_in_another_database_isnt_described(hive) -> None:
+def test_a_table_in_another_database_isnt_described(hive: str) -> None:
     with pytest.raises(ValueError, match="The Example database has no table '"):
         example_database.send(hive)
 
 
 @pytest.mark.parametrize("given", [5, None, statement(SELECT(jobs.team), FROM(jobs))])
-def test_send_takes_only_hive_text(given) -> None:
+def test_send_takes_only_hive_text(given: int | Statement | None) -> None:
     with pytest.raises(TypeError,
                        match=r"(?s)isn't Hive text.*run\(s, send=example_database.send\)"):
         example_database.send(given)

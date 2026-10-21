@@ -11,6 +11,7 @@ from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
+    Column,
     Table,
     between,
     create_table,
@@ -34,7 +35,8 @@ def test_hive_function_output_reads_back_the_same_on_every_version() -> None:
     (job_runs.duration_mins / 2, "(job_runs.duration_mins / 2) * -1"),
     (job_runs.duration_mins * 2, "job_runs.duration_mins * 2 * -1"),
 ])
-def test_date_sub_takes_away_the_whole_day_count_on_every_version(days, written) -> None:
+def test_date_sub_takes_away_the_whole_day_count_on_every_version(days: Column,
+                                                                  written: str) -> None:
     assert repr(hive_function("date_sub", job_runs.dt, days)) == (
         f"DATE_ADD(job_runs.dt, {written})")
 
@@ -58,7 +60,8 @@ def test_a_struct_column_is_written_with_its_colons_or_refused() -> None:
             create_table(t)
 
 
-def test_a_struct_column_this_sqlglot_cant_write_is_refused(monkeypatch) -> None:
+def test_a_struct_column_this_sqlglot_cant_write_is_refused(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(writing, "_writes_struct_colons", lambda: False)
     t = Table("mart.t", columns={"a": "array<struct<name:string>>"}, date_partition=None)
     with pytest.raises(ValueError, match=re.escape(
