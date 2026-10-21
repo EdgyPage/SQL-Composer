@@ -22,7 +22,8 @@ Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder
   works as it is.
 - **`project.run_tables` refuses a `write_day` that gives something it can't put in order**,
   such as Session settings or an empty list, with a message naming the table and what its
-  `write_day` gave, before anything is sent. It stopped with Python's AttributeError before.
+  `write_day` gave, before anything is sent. Session settings stopped with Python's
+  AttributeError before, and an empty list skipped the table without a word.
 
 ## 6.0
 
