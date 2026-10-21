@@ -52,6 +52,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   log), `references/`, `building_blocks/`, `tables/` and `send.py`, your send written once.
   `project.new_table("mart.daily_job_runs")` makes a Table folder, with a notebook made from a
   Template and a `lineage/` folder, and the table's Table reference to fill in;
+  `project.add_references([...], send=send)` writes many tables' Table references at once,
+  skipping any already there or that DESCRIBE can't read, and naming each skipped at the end;
+  `project.refresh_reference_sheet()` writes `references/reference_sheet.csv`, a row per
+  column of every Table reference, with its Aliases and description;
   `remove_table` and `remove_reference` move what they remove into `admin/removed/`, deleting
   nothing; `register` adopts what you made by hand, and `check()` reports what the registry
   doesn't know. Inside a Project, Admin statements log to `admin/admin_log.md` too, wherever

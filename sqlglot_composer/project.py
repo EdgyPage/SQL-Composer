@@ -22,14 +22,17 @@ A Project is the folder you work in, laid out the same way every time:
             └── lineage/
 
 start() makes it, once. new_table makes a Table folder and remove_table archives one;
-remove_reference archives a Table reference; register adopts one made by hand; check reports
-any made or deleted by hand. None of them touches the warehouse, and none deletes a file: each
-moves what it removes into admin/removed/. Each but check adds an entry to admin/admin_log.md,
-which also logs every Admin statement run inside the Project.
+add_references writes Table references in bulk, remove_reference archives one, register adopts
+one made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
+rebuilds references/reference_sheet.csv, a row per column of every Table reference. Only
+add_references touches the warehouse, sending DESCRIBE, and none deletes a file: what they
+remove moves into admin/removed/. Each but check and refresh_reference_sheet adds an entry to
+admin/admin_log.md, which also logs every Admin statement run inside the Project.
 """
 
 from __future__ import annotations
 
+import ast
 import csv
 import datetime
 import json
@@ -39,12 +42,13 @@ from pathlib import Path
 
 from .project_templates import TEMPLATES
 from .refusals import callers_frame, refuse
-from .tables import TABLE_NAME
+from .tables import TABLE_NAME, write_table_reference
 from .unchecked import _code, _script_line, _write_entry
 
 TOOLBOX_VERSION = "6.0"
 
-__all__ = ["start", "new_table", "remove_table", "remove_reference", "register", "check"]
+__all__ = ["start", "new_table", "remove_table", "add_references", "remove_reference",
+           "register", "check", "refresh_reference_sheet"]
 
 # The file a folder is a Project by: start() writes it, and only a Project has it.
 REGISTRY = Path("admin") / "registry.csv"
@@ -59,6 +63,12 @@ TABLE_FOLDER = "table_folder"
 REFERENCE = "reference"
 # The Template a Saved table's Table reference is made from.
 REFERENCE_TEMPLATE = "saved_table_reference"
+# The Reference sheet, and its columns: one row per column of every Table reference, "yes" in
+# date_partition and in_key for the Date partition and the Key's columns, and the column's
+# Aliases and description.
+REFERENCE_SHEET = Path("references") / "reference_sheet.csv"
+SHEET_COLUMNS = ["table", "column", "type", "date_partition", "in_key", "aliases",
+                 "description", "exported_at"]
 
 SEND_TEXT = '''"""send - runs a Hive string on your warehouse and gives back a pandas DataFrame.
 
@@ -103,6 +113,23 @@ ADMIN_NOTEBOOKS = {
         "`references/` until you archive it too, with the last cell.",
         ['project.remove_table("mart.your_table")',
          '# project.remove_reference("mart.your_table")'],
+    ),
+    "add_references": (
+        "# Add references\n\nWrites one Table reference per table into `references/`, "
+        "named `<db>__<table>.py`, from the table's DESCRIBE, sent through your send. A table "
+        "already there, or one DESCRIBE can't read, is skipped; the rest are still written, "
+        "and one error at the end names every table skipped, and why. Then fill in each file's "
+        "TODO lines and add your Aliases.",
+        ["from send import send",
+         'project.add_references([\n    "ops.your_table",\n    "ops.another_table",\n], '
+         "send=send)"],
+    ),
+    "refresh_reference_sheet": (
+        "# Refresh the Reference sheet\n\nRebuilds `references/reference_sheet.csv` from "
+        "every file in `references/`: one row per column, with its type, whether it is the "
+        "Date partition or in the Key, its Aliases and its description. A Table notebook's last "
+        "cell refreshes only its own table's rows.",
+        ["project.refresh_reference_sheet()"],
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder or Table "
@@ -395,6 +422,91 @@ def _remove(root: Path, kind: str, name: str, call: str, frame) -> ProjectReport
     return ProjectReport([f"Moved {shown} to {moved}."])
 
 
+# --- add_references ---------------------------------------------------------------------------
+
+
+class SkippedTables(Exception):
+    """Raised by add_references once it has written every table it could: it names each table
+    it skipped, and why."""
+
+
+def add_references(names, send):
+    """Write a Table reference for each table into references/, skipping any it can't.
+
+    `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
+    "ops.job_runs"]. Each is written as write_table_reference writes one, into
+    references/<db>__<table>.py, and registered. A table whose file is there already, a name
+    that isn't a table's, and a table DESCRIBE can't read through your `send` are each skipped,
+    and the rest still written. It logs them all in one entry; then, if it skipped any, it
+    raises one SkippedTables error naming each, and why. Run it again with only those once
+    you've fixed their names: the ones written are skipped as there already.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and send.py. Next: write your send in send.py.
+    >>> project.add_references(["ops.jobs", "ops.job_runs"], send=example_database.send)
+    Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+    """
+    frame = callers_frame()
+    call = f"project.add_references({_quoted_list(names)}, send=...)"
+    root = _project(call)
+    if isinstance(names, str) or not isinstance(names, (list, tuple)) or not names:
+        refuse(
+            what=f"{call}: names isn't a list of tables.",
+            why="It writes a Table reference for each table in the list.",
+            fix='Write it as a list, such as project.add_references(["ops.jobs"], send=send).',
+            error=ValueError,
+        )
+    written, skipped = [], []
+    for name in names:
+        if not isinstance(name, str) or not TABLE_NAME.fullmatch(name) or "." not in name:
+            skipped.append((name, "not a table's name with its database, such as ops.jobs"))
+            continue
+        stem = name.replace(".", "__", 1)
+        if (root / "references" / f"{stem}.py").exists():
+            skipped.append((name, f"references/{stem}.py is there already"))
+            continue
+        try:
+            write_table_reference(name, send=send, folder=root / "references")
+        # Whatever the send raises, the table is reported, and the rest still written.
+        except Exception as error:  # noqa: BLE001
+            reason = " ".join(str(error).split())
+            skipped.append((name, f"DESCRIBE failed: {type(error).__name__}: {reason}"))
+            continue
+        written.append(name)
+        if not _in_use(root, REFERENCE, name):
+            _add_rows(root, [REFERENCE], name)
+    files = [f"references/{name.replace('.', '__', 1)}.py" for name in written]
+    said = [f"{name} ({why})" for name, why in skipped]
+    result = "worked" if not skipped else (
+        f"failed, with SkippedTables: {len(skipped)} of {len(names)} skipped, named above")
+    _log(root, call, [str(name) for name in names], [f"created {file}" for file in files],
+         frame, said, result)
+    if skipped:
+        refuse(
+            what=f"add_references skipped {len(skipped)} of {len(names)} tables: "
+            + "; ".join(said) + ".",
+            why="Each table is written or skipped on its own, so one name that is wrong or "
+            "already there never stops the rest"
+            + (f": {', '.join(files)} {'was' if len(files) == 1 else 'were'} written."
+               if files else "."),
+            fix="Check each name skipped, then run add_references again with only those. Each "
+            "is in admin/admin_log.md.",
+            error=SkippedTables,
+        )
+    return ProjectReport([f"Wrote {' and '.join(files)}: fill in their TODO lines."
+                          if len(files) > 1 else
+                          f"Wrote {files[0]}: fill in its TODO lines."])
+
+
+def _quoted_list(names) -> str:
+    """The list of names as the call is written in a notebook, each in double quotes."""
+    if isinstance(names, (list, tuple)):
+        return "[" + ", ".join(_quoted(name) for name in names) + "]"
+    return _quoted(names)
+
+
 # --- register and check -----------------------------------------------------------------------
 
 
@@ -477,6 +589,121 @@ def check():
                                    "and each one registered is there."])
 
 
+# --- The Reference sheet ----------------------------------------------------------------------
+
+
+def refresh_reference_sheet(name=None):
+    """Rebuild the Reference sheet: a row per column of every Table reference.
+
+    Each row gives the table, the column, its type, "yes" when it is the Date partition or in
+    the Key, its column Aliases (each name below the Table reference that is the column itself,
+    such as minutes = job_runs.duration_mins), its description, and when it was written. The
+    sheet is read from the files in references/, never from the warehouse. Given a table's
+    name, it replaces only that table's rows. A file that doesn't parse yet, such as one with a
+    <...> still to fill in, is left out, and the report says so. It changes no other file, and
+    isn't logged.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and send.py. Next: write your send in send.py.
+    >>> project.add_references(["ops.run_alerts"], send=example_database.send)
+    Wrote references/ops__run_alerts.py: fill in its TODO lines.
+    >>> project.refresh_reference_sheet()
+    Wrote references/reference_sheet.csv: 4 rows, 1 table.
+    """
+    call = f"project.refresh_reference_sheet({_quoted(name) if name is not None else ''})"
+    root = _project(call)
+    now = f"{_now():%Y-%m-%d %H:%M:%S}"
+    if name is None:
+        paths = sorted((root / "references").glob("*.py"))
+        kept = []
+    else:
+        _, _, stem = _table_name(name, call)
+        path = root / "references" / f"{stem}.py"
+        if not path.is_file():
+            refuse(
+                what=f"{call}: there is no references/{stem}.py to read.",
+                why="The Reference sheet is read from the Table references in references/.",
+                fix="Check the name, or leave it out to rebuild the whole sheet.",
+                error=FileNotFoundError,
+            )
+        paths = [path]
+        kept = [row for row in _sheet(root) if row["table"] != name]
+    rows, left_out = [], []
+    for path in paths:
+        read = _reference_rows(path, now)
+        if read is None:
+            left_out.append(f"references/{path.name}")
+        else:
+            rows += read
+    rows = sorted(kept + rows, key=lambda row: row["table"])
+    with open(root / REFERENCE_SHEET, "w", encoding="utf-8", newline="") as sheet:
+        writer = csv.DictWriter(sheet, SHEET_COLUMNS, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    tables = len({row["table"] for row in rows})
+    report = [f"Wrote references/reference_sheet.csv: {len(rows)} row{'s' * (len(rows) != 1)}, "
+              f"{tables} table{'s' * (tables != 1)}."]
+    if left_out:
+        report.append(f"Left out, since it doesn't parse yet: {', '.join(left_out)}.")
+    return ProjectReport(report)
+
+
+def _sheet(root: Path) -> list[dict]:
+    """The Reference sheet's rows, or none when it hasn't been written yet."""
+    if not (root / REFERENCE_SHEET).is_file():
+        return []
+    with open(root / REFERENCE_SHEET, encoding="utf-8", newline="") as sheet:
+        return list(csv.DictReader(sheet))
+
+
+def _reference_rows(path: Path, now: str) -> list[dict] | None:
+    """The Reference sheet's rows for one Table reference file, read without running it: its
+    Table(...) call's name, columns, Date partition, Key and descriptions, and the column
+    Aliases below it. None for a file that doesn't parse or has no Table(...)."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (SyntaxError, ValueError):
+        return None
+    found = None
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and isinstance(node.value, ast.Call)
+                and getattr(node.value.func, "id", getattr(node.value.func, "attr", None))
+                == "Table"):
+            found = node
+            break
+    if found is None:
+        return None
+    variable, table_call = found.targets[0].id, found.value
+    arguments = dict(zip(("name", "columns", "date_partition"), table_call.args))
+    arguments |= {given.arg: given.value for given in table_call.keywords}
+    try:
+        values = {argument: ast.literal_eval(node) for argument, node in arguments.items()
+                  if argument in ("name", "columns", "date_partition", "key", "descriptions")}
+    except ValueError:
+        return None
+    if not isinstance(values.get("name"), str) or not isinstance(values.get("columns"), dict):
+        return None
+    aliases: dict[str, list[str]] = {}
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Attribute)
+                and isinstance(node.value.value, ast.Name) and node.value.value.id == variable):
+            aliases.setdefault(node.value.attr, []).append(node.targets[0].id)
+    key = values.get("key") or []
+    key = [key] if isinstance(key, str) else list(key)
+    descriptions = values.get("descriptions") or {}
+    return [{"table": values["name"], "column": column, "type": kind or "",
+             "date_partition": "yes" if column == values.get("date_partition") else "",
+             "in_key": "yes" if column in key else "",
+             "aliases": "; ".join(aliases.get(column, [])),
+             "description": descriptions.get(column, ""), "exported_at": now}
+            for column, kind in values["columns"].items()]
+
+
 # --- Pieces they share ------------------------------------------------------------------------
 
 
@@ -498,17 +725,20 @@ def project_log(project: Path) -> Path:
     return project / "admin" / "admin_log.md"
 
 
-def _log(project: Path, call: str, tables: list[str], files: list[str], frame) -> None:
+def _log(project: Path, call: str, tables: list[str], files: list[str], frame,
+         skipped: list[str] = (), result: str = "worked") -> None:
     """Add a Project action's entry to the Project's Admin log: when, the call, the tables it
-    names, what it did to which files, the script and its commit. A refused one changed
-    nothing, and isn't logged."""
+    names, what it did to which files, what it skipped and why, the script and its commit, and
+    whether it worked. A refused one changed nothing, and isn't logged."""
     from .lineage import calling_file  # lineage imports what imports this
 
     lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
-    lines += [f"- Files: {'; '.join(files)}", _script_line(calling_file(frame)),
-              "- Result: worked", ""]
+    lines.append(f"- Files: {'; '.join(files) or 'none changed'}")
+    if skipped:
+        lines.append(f"- Skipped: {'; '.join(skipped)}")
+    lines += [_script_line(calling_file(frame)), f"- Result: {result}", ""]
     _write_entry(project_log(project), lines)
 
 
