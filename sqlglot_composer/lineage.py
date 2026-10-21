@@ -362,7 +362,7 @@ def _date_bounds(step: Statement) -> list:
 def _bounds_that_follow_the_day_written(step: Statement) -> list:
     """The conditions in the WHERE of a step that reads a write's real table through FROM that
     do nothing but bound a joined table's Date partition, where that table's JOIN sets its Date
-    partition equal to the FROM table's, the day written: as how-to 23's team write reads each
+    partition equal to the FROM table's, the day written: as how-to 26's team write reads each
     job's team from that day's snapshot."""
     table = step._reads[0].table
     written = (table._alias, table._date_partition)

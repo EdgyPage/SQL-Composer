@@ -45,7 +45,8 @@ Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
 admin/templates/daily_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
 
-It made three things, and listed each in the registry:
+It made four things, and listed two of them, the Table folder and the Table reference, in the
+registry:
 
 - tables/mart__daily_job_runs/, the table's Table folder, named after the database and the
   table joined by two underscores, as its Table reference is;

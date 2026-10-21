@@ -125,7 +125,7 @@ def test_the_intermediate_tables_meet_the_same_limits(table, calculation, missin
 
 
 def _events_of(event_type: str, name: str):
-    """Each job's days with an event of one type, over the 14 days: how-to 24's blocks."""
+    """Each job's days with an event of one type, over the 14 days: how-to 27's blocks."""
     events = example_database.job_events
     return derived(name, statement(
         SELECT_DISTINCT(events.job_id, events.dt),

@@ -62,8 +62,8 @@ from any notebook of the Project does just the same.
 
 The how-to [Start a Project](../sqlglot_composer/how_to.html#start_a_project) walks through what
 each folder is for, your send, the lines a notebook deeper in the Project starts with, and the
-mistakes people make first. Each how-to after it starts a Project of its own, since its page
-has none: in yours, leave that line out.
+mistakes people make first. A later how-to that starts a Project of its own, since its page
+has none, says so: in yours, leave `project.start()` out.
 
 ## 3. A first Statement
 

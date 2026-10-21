@@ -736,7 +736,7 @@ def test_a_writers_left_join_decides_only_the_columns_read_from_its_table_downst
 
 def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_in_its_section(
         tmp_path) -> None:
-    """How-to 23's team write reads each job's team from the snapshot of the day it writes:
+    """How-to 26's team write reads each job's team from the snapshot of the day it writes:
     the bound on job_owners.dt follows the day written, so a later reader of many days doesn't
     list it, as it doesn't list the day written."""
     team_day = Table("mart.team_day", date_partition="dt", key=["team", "dt"],
