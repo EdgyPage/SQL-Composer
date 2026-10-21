@@ -830,7 +830,7 @@ def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:
             continue
         for folder, subfolders, names in os.walk(start):
             subfolders[:] = sorted(name for name in subfolders
-                                   if not _not_read(Path(folder, name), root))
+                                   if not not_read(Path(folder, name), root))
             files += [Path(folder, name) for name in sorted(names)
                       if name.lower().endswith(READ_FILES)]
     return files
@@ -841,11 +841,11 @@ def is_read(root: Path, file: Path) -> bool:
     it skips. The hook asks this of a file before an edit, which may not exist yet."""
     if not file.name.lower().endswith(READ_FILES):
         return False
-    return not any(_not_read(folder, root) for folder in file.parents if root in folder.parents)
+    return not any(not_read(folder, root) for folder in file.parents if root in folder.parents)
 
 
-def _not_read(folder: Path, root: Path) -> bool:
-    """A folder that holds no code of the repo's: see NOT_READ; Claude Code's worktrees, which
+def not_read(folder: Path, root: Path) -> bool:
+    """Whether reading the repo at `root` skips `folder`: a folder that holds no code of the repo's: see NOT_READ; Claude Code's worktrees, which
     are other checkouts; and a Python's own folder, which holds pyvenv.cfg. Nothing in the
     Toolbox or user-copied code is skipped, since a file there could import what a skipped
     folder holds."""

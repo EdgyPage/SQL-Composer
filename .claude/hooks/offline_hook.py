@@ -18,10 +18,11 @@ text: it never imports or runs the code it judges, and it reaches nothing.
 hook's own checkout without it. A file in one of Claude Code's worktrees in it
 (`.claude/worktrees/<name>/`) is judged at its own path there, and every file by the project's
 own `tools/offline_policy.py`, never a worktree's copy, which an edit in that worktree could
-have changed to pass anything: an `ALLOWED` entry counts once the project holds it. A `.git`
-found anywhere else is not a checkout, so one planted inside the Toolbox changes nothing. A file outside the project, or in a
-checkout without the policy, isn't the repo's and passes; so does a file the policy doesn't read
-(another kind, or in `.scratch/` and the other folders it skips outside the Toolbox).
+have changed, or removed, to pass anything: an `ALLOWED` entry counts once the project holds
+it. A `.git` found anywhere else is not a checkout, so one planted inside the Toolbox changes
+nothing. A file outside the project, or in a project without the policy, isn't the repo's and
+passes; so does a file the policy doesn't read (another kind, or in `.scratch/` and the other
+folders it skips outside the Toolbox).
 
 **The policy is judged like any other file.** An edit to `tools/offline_policy.py` is read as
 maintainer code, as `tools/` is, so its allowlist can be edited, and the names and strings it
@@ -222,7 +223,7 @@ def main() -> None:
     except (ValueError, KeyError, TypeError, AttributeError, OSError) as error:
         let_through(f"its input isn't a file tool's call ({error!r})")
     root = checkout_of(file)
-    if root is None or not (root / "tools" / "offline_policy.py").is_file():
+    if root is None or not (project_folder() / "tools" / "offline_policy.py").is_file():
         return
     relative = PurePosixPath(file.relative_to(root).as_posix())
     try:

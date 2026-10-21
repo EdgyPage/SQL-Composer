@@ -74,13 +74,17 @@ def test_an_encoded_payload_is_found(tmp_path: Path, text: str) -> None:
     "import os\nos.getenv('AWS_SECRET_ACCESS_KEY')\n",
     "import keyring\n",
     "from getpass import getpass\n",
+    "open('/etc/hosts', 'a')\n",
+    "path = r'C:\\Windows\\System32\\drivers'\n",
+    "path = 'AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/x.bat'\n",
 ])
 def test_a_reach_for_credentials_or_the_home_folder_is_found(tmp_path: Path, text: str) -> None:
     assert planted(tmp_path, {"tools/x.py": text}) == ["outside the repo"]
 
 
 def test_an_ordinary_environment_read_is_not_found(tmp_path: Path) -> None:
-    text = "import os\nos.environ.get('JPY_SESSION_NAME')\nos.environ.get('CI')\n"
+    text = ("import os\nos.environ.get('JPY_SESSION_NAME')\nos.environ.get('CI')\n"
+            "os.environ.get('GIT_AUTHOR_NAME')\n")
     assert planted(tmp_path, {"tools/x.py": text}) == []
 
 
@@ -96,6 +100,8 @@ def test_an_ordinary_environment_read_is_not_found(tmp_path: Path) -> None:
     (".github/workflows/ci.yml",
      "permissions: write-all\njobs:\n  a:\n    steps:\n      - run: pytest\n"),
     ("pyproject.toml", "[tool.pytest.ini_options]\naddopts = \"-p evil_plugin\"\n"),
+    ("pyproject.toml", "[tool.pytest.ini_options]\naddopts = [\n  \"-q\",\n  \"-pevil\",\n]\n"),
+    (".github/workflows/ci.yml", "jobs:\n  a:\n    steps:\n      - run: pytest\n"),
     ("pyproject.toml", "[build-system]\nrequires = [\"x\"]\n"),
     ("requirements.txt", "pandas==3.0.6\n--extra-index-url http://x\n"),
     ("requirements-dev.txt", "pandas>=3\n"),
@@ -129,6 +135,23 @@ def test_a_pinned_read_only_workflow_passes(tmp_path: Path) -> None:
 def test_a_notebook_that_was_run_or_carries_a_script_is_found(tmp_path: Path, cell: dict) -> None:
     notebook = json.dumps({"cells": [cell], "metadata": {}, "nbformat": 4, "nbformat_minor": 4})
     assert planted(tmp_path, {"example_projects/x/y.ipynb": notebook}) == ["notebook"]
+
+
+@pytest.mark.parametrize("text", [
+    "import atexit\natexit.register(run)\n",
+    "import sys\nsys.addaudithook(watch)\n",
+    "import sys\nsys.settrace(watch)\n",
+    "import threading\nthreading.setprofile(watch)\n",
+])
+def test_code_that_runs_at_exit_or_on_every_event_is_found(tmp_path: Path, text: str) -> None:
+    assert planted(tmp_path, {"tools/x.py": text}) == ["hook"]
+
+
+def test_the_command_line_runs_the_offline_policy_too(tmp_path: Path, capsys) -> None:
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools" / "x.py").write_text("import pickle\n", encoding="utf-8")
+    assert code_audit.main(["code_audit.py", "--root", str(tmp_path)]) == 1
+    assert "tools/x.py:1 dynamic code: import pickle" in capsys.readouterr().out
 
 
 def test_a_finding_says_where_it_is(tmp_path: Path) -> None:
