@@ -59,6 +59,11 @@ holds the hints later. This map is the design, built out ticket by ticket.
 
 ## Decisions so far
 
+- [01 Version 6.1 and the type names public](issues/01-version-6-1-and-the-type-names-public.md):
+  6.1 everywhere the current version is named; `Statement`, `Column`, `Condition`,
+  `SessionSettings` and `UncheckedStatement` public (94 names), each docstring a hinted function
+  of the user's; `Statement(...)` by hand stays Python's TypeError (the user's choice).
+
 ## Not yet specified
 
 - Nothing.
