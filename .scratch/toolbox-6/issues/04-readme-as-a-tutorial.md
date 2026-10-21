@@ -1,7 +1,7 @@
 # README as a tutorial
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 03
 Size: M
 
@@ -46,3 +46,12 @@ Built on the branch `toolbox-6/04-readme-tutorial`.
   five steps, with a 4.x example and a line for Spark Composer users); CHANGES.md's 5.0 section
   said the README's Update covers two folders (now "said then"); the how-to list wasn't links
   (the export now writes links); Date partition, Key, Guard and the Levels are glossed in place.
+- Spec (2026-10-20): nothing lost from the Update sections (CHANGES.md already held them); two
+  cautions from the removed 5.0 sections were nowhere else, now in the README: no UPDATE, DELETE,
+  MERGE or TRUNCATE on a Saved table (step 6), and Spark refusing `admin.drop_days` (the Spark
+  notes). Kept, for the user to confirm: "If your send runs the Hive on Spark", which is about a
+  user's own send, not the dropped Spark Composer. Step 8 is ticket 10's to replace.
+- Standards (2026-10-20): "tutorial" is the How-to's avoid-word, so CONTEXT.md gains README,
+  "a tutorial of numbered steps ... A How-to is never called a tutorial"; CHANGES.md's "said
+  then, then" reworded; a long line rewrapped. The link shape written in three places is held
+  by a test, and left.

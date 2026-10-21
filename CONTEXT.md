@@ -257,6 +257,12 @@ The searchable page holding every Worked example, generated from them, which shi
 Toolbox.
 _Avoid_: cookbook, docs site, examples page
 
+**README**:
+The page the Clean branch opens on: a tutorial of numbered steps, from installing the Toolbox
+to Lineage, each pointing to the How-tos that walk through it. A How-to is never called a
+tutorial; what changed in each version is in the change notes, never in the README.
+_Avoid_: manual, guide, docs
+
 **How-to**:
 A walkthrough of one job from start to finish, as one notebook: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
