@@ -33,7 +33,9 @@ DESCRIBE through your send, and run_tables, given your send, writes your tables;
 never touch the warehouse. start, new_table, remove_table, remove_reference, register and
 add_references, the Project actions, each add an entry to admin/admin_log.md, the log that
 also keeps every Admin statement run inside the Project. check, refresh_reference_sheet, load
-and run_tables change none of your files but the Reference sheet, and log nothing.
+and run_tables change none of your files but the Reference sheet, and add no entry of their
+own, though an Admin or Unchecked statement run_tables sends is logged, as run logs one
+anywhere.
 """
 
 from __future__ import annotations
@@ -771,7 +773,8 @@ def load(name):
     It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
     whose first line is # logic. That cell only imports and defines; in a notebook made from
     the daily_table Template, it defines create, rows, preview, write_day and backfill, and
-    load gives each of them (the functions only, not other names the cell sets). So another
+    load gives each of them (the functions and classes only, not other names the cell
+    sets). So another
     table's notebook can use this table's write_day, for lineage across your tables, and
     run_tables can write every table in order. It reads the notebook file as last saved, and
     your references/ and building_blocks/ as they are on disk now. It refuses a notebook with
@@ -881,7 +884,9 @@ def run_tables(day, send=None, tables=None):
     it prints each one's Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
     sends nothing: a dry run, to read before you send. With your send, it sends each in turn,
     printing a line as each one works, and stops at the first that fails: the tables after
-    it aren't written. It logs nothing: what it writes is in the warehouse, not your files.
+    it aren't written. It adds no entry of its own to the Admin log, since what it writes is
+    in the warehouse, not your files; a write_day that gives an Admin or Unchecked statement is
+    logged by run, as anywhere else.
 
     >>> from sqlglot_composer import project
     >>> project.start()
