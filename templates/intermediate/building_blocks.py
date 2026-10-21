@@ -31,14 +31,16 @@ Fill in:
     <TABLE>: the Table reference of the rows seen, such as job_events.
     <TABLE_FILE>: its file's name in table_references/, without .py, such as
         ops__job_events: the database and the table joined by two underscores, as
-        write_table_reference names it.
+        write_table_reference names it, or job_events for the
+        Example projects' files, named for their table alone.
     <MATCH_COLUMN>: its column holding the key, such as job_id.
     <DATE_PARTITION>: its Date partition, such as dt.
     <EXPECTED_TABLE>: the Table reference listing each key and day that should have rows,
         such as job_owners.
     <EXPECTED_TABLE_FILE>: its file's name in table_references/, without .py, such as
         ops__job_owners: the database and the table joined by two underscores, as
-        write_table_reference names it.
+        write_table_reference names it, or job_owners for the
+        Example projects' files, named for their table alone.
     <EXPECTED_MATCH_COLUMN>: its column holding the same key, such as job_id.
     <EXPECTED_DATE_PARTITION>: its Date partition, such as dt.
 """
@@ -47,7 +49,8 @@ from sqlglot_composer import (
     FROM, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, all_of, between, derived, equals, is_null,
     statement,
 )
-from table_references.<EXPECTED_TABLE_FILE> import <EXPECTED_TABLE>  # the keys and days expected
+# the keys and days expected
+from table_references.<EXPECTED_TABLE_FILE> import <EXPECTED_TABLE>
 from table_references.<TABLE_FILE> import <TABLE>  # the rows seen
 
 

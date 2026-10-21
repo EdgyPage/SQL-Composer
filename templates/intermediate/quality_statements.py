@@ -31,7 +31,8 @@ Fill in:
     <TABLE>: the Table reference to look at, such as job_events.
     <TABLE_FILE>: its file's name in table_references/, without .py, such as
         ops__job_events: the database and the table joined by two underscores, as
-        write_table_reference names it.
+        write_table_reference names it, or job_events for the
+        Example projects' files, named for their table alone.
     <KEY_COLUMN>: the column that picks out one row, such as event_id; for a key of several
         columns, list each in KEY.
     <DATE_PARTITION>: its Date partition, such as dt.

@@ -27,7 +27,8 @@ Fill in:
     <TABLE>: the Table reference it reads, such as job_runs.
     <TABLE_FILE>: its file's name in table_references/, without .py, such as
         ops__job_runs: the database and the table joined by two underscores, as
-        write_table_reference names it.
+        write_table_reference names it, or job_runs for the
+        Example projects' files, named for their table alone.
     <GROUP_COLUMN>: the column each row is for, such as job_id.
     <DATE_PARTITION>: the table's Date partition, the column holding each row's day, such as dt.
     <NUMBER_COLUMN>: a column of numbers to add up, such as duration_mins.

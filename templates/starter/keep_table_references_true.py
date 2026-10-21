@@ -16,8 +16,9 @@ notebook_start.py's cell 1 writes it:
 write_new_table_references writes a Table reference file for each table in NEW_TABLES, asking
 the table for its columns: a file named for the database and the table, in
 table_references/, such as table_references/ops__job_events.py for "ops.job_events". It makes
-the folder if it isn't there, and never writes over a file that is. Fill in each TODO line it leaves: what one row is, the
-key, and does_not_add_up, the columns that mean nothing added up, such as averages. Then move
+the folder if it isn't there, and never writes over a file that is. Fill in each TODO line it
+leaves: what one row is, the key, and does_not_add_up, the columns that mean nothing added up,
+such as averages. Then move
 the table from NEW_TABLES to TABLE_REFERENCES, and import its Table reference beside the
 others.
 

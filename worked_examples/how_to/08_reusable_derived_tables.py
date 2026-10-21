@@ -300,7 +300,10 @@ Toolbox and the Table references it reads, never another block's file or a State
 This file imports its Table reference from a folder table_references/, beside
 building_blocks/: once you have many, Table references get a folder of their own too. In
 [Import a table's column names programmatically](#import_column_names) the file sat beside the
-notebook, so the line there was `from ops__job_runs import job_runs`.
+notebook, so the line there was `from ops__job_runs import job_runs`. Here the file is
+table_references/job_runs.py, named for its table alone, as the starter Example project names
+it; a file write_table_reference wrote keeps its name, and is imported as
+`from table_references.ops__job_runs import job_runs`.
 
 A notebook then imports the block with
 `from building_blocks.runs_per_job import runs_per_job`. The starter Example project, in the
