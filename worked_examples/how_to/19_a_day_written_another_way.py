@@ -57,7 +57,7 @@ written as `20260924`, the year, then the month, then the day, with nothing betw
 ### Write its Table reference
 
 `write_table_reference` sends the same two commands through your send and writes the Table
-reference for you, as `region_costs.py` in the folder you're working in:
+reference for you, as ops__region_costs.py in the folder you're working in:
 
 >>> path = write_table_reference("ops.region_costs", send=example_database.send)
 
@@ -77,7 +77,7 @@ row is one job's cost in one region on one day, so the key is job_id, region and
 cost_cents is a plain amount, which adds up, so `does_not_add_up=[]` stays empty.
 
 Try the finished reference in your notebook first, as below; once the next step says it
-matches, copy it into `region_costs.py` and import it from there in every notebook:
+matches, copy it into ops__region_costs.py and import it from there in every notebook:
 
 >>> region_costs = Table(
 ...     "ops.region_costs",

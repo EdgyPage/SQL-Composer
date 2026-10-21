@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
 import re
+import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -12,7 +15,12 @@ from sqlglot_composer import (
     check_key,
     check_table_reference,
     create_table,
+    FROM,
+    SELECT,
+    WHERE,
+    equals,
     example_database,
+    statement,
     to_hive,
     write_table_reference,
 )
@@ -67,26 +75,82 @@ def test_a_table_name_must_be_a_hive_name() -> None:
 # --- write_table_reference -------------------------------------------------------------------
 
 
+def _imported_job_runs_reference(folder: Path):
+    """references/ops__job_runs.py, imported from `folder` as a notebook beside references/
+    imports it, and forgotten after, so another test can write its own."""
+    sys.path.insert(0, str(folder))
+    try:
+        return importlib.import_module("references.ops__job_runs")
+    finally:
+        sys.path.remove(str(folder))
+        for name in ("references.ops__job_runs", "references"):
+            sys.modules.pop(name, None)
+
+
 def test_write_table_reference_writes_a_file_that_imports(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    path = write_table_reference("ops.job_runs", send=example_database.send)
-    scope: dict = {}
-    exec(path.read_text(encoding="utf-8"), scope)
-    written = scope["job_runs"]
+    (tmp_path / "references").mkdir()
+    path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
+    assert path == Path("references") / "ops__job_runs.py"
+    written = _imported_job_runs_reference(tmp_path).job_runs
     assert repr(written) == repr(job_runs)
-    assert '"status": "string",  # SUCCESS / FAILED / TEST, NULL while running' in \
-        path.read_text(encoding="utf-8")
+    # Each column's DESCRIBE comment is its description.
+    assert written._descriptions["status"] == "SUCCESS / FAILED / TEST, NULL while running"
+
+
+def test_an_alias_under_the_aliases_heading_imports_beside_its_table(tmp_path,
+                                                                     monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "references").mkdir()
+    path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
+    text = path.read_text(encoding="utf-8")
+    assert "# --- Aliases " in text and "#     <alias> = job_runs.run_id" in text
+    # The user's Aliases, as the heading's examples show them.
+    aliases = 'minutes = job_runs.duration_mins\nfailed = equals(job_runs.status, "FAILED")\n'
+    path.write_text(text.replace("import Table", "import Table, equals") + aliases,
+                    encoding="utf-8")
+    reference = _imported_job_runs_reference(tmp_path)
+    hive = to_hive(statement(SELECT(reference.minutes), FROM(reference.job_runs),
+                             WHERE(reference.failed,
+                                   equals(reference.job_runs.dt, "2026-09-24"))))
+    assert hive.startswith("SELECT\n  job_runs.duration_mins\n")
+    assert "job_runs.status = 'FAILED'" in hive
 
 
 def test_write_table_reference_never_overwrites(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "jobs.py").write_text("mine", encoding="utf-8")
+    (tmp_path / "ops__jobs.py").write_text("mine", encoding="utf-8")
     with pytest.raises(FileExistsError, match="nothing was written") as refused:
         write_table_reference("ops.jobs", send=example_database.send)
-    assert (tmp_path / "jobs.py").read_text(encoding="utf-8") == "mine"
+    assert (tmp_path / "ops__jobs.py").read_text(encoding="utf-8") == "mine"
     # The file by its name, in the folder you're working in: a whole path differs per computer.
-    assert "jobs.py already exists in the folder you're working in" in str(refused.value)
+    assert "ops__jobs.py already exists in the folder you're working in" in str(refused.value)
     assert str(tmp_path.name) not in str(refused.value)
+
+
+def test_write_table_reference_refuses_a_folder_that_isnt_there(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError, match=r"folder='refrences'\): there is no such folder"):
+        write_table_reference("ops.jobs", send=example_database.send, folder="refrences")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_write_table_reference_refuses_a_name_with_no_database(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="has no database name") as refused:
+        write_table_reference("jobs", send=example_database.send)
+    assert 'Write the database first, like "ops.jobs".' in str(refused.value)
+
+
+@pytest.mark.parametrize(("descriptions", "said"), [
+    ({"stauts": "what the run ended as"}, "descriptions names 'stauts', which isn't one"),
+    ({"status": 3}, "isn't a dict of columns and text"),
+    (["status"], "isn't a dict of columns and text"),
+])
+def test_table_refuses_descriptions_of_columns_it_doesnt_have(descriptions, said) -> None:
+    with pytest.raises(ValueError, match=said):
+        Table("ops.runs", columns={"status": "string", "dt": "string"}, date_partition="dt",
+              descriptions=descriptions)
 
 
 def test_write_table_reference_finds_a_date_format(tmp_path, monkeypatch) -> None:

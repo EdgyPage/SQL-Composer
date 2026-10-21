@@ -65,6 +65,10 @@ FILLS = {
         "<KNOWN_QUERY>": "\"SELECT * FROM ops.job_runs WHERE dt = '2026-09-24' LIMIT 5\"",
         "<TABLE_NAME>": '"ops.job_runs"',
         "<TABLE>": "job_runs",
+        "<REFERENCE_FILE>": "ops__job_runs",
+        # The Example project's own Table references, which the filled Templates import, are
+        # named for their tables alone.
+        "<KEPT_REFERENCE_FILE>": "job_runs",
         "<DATE_PARTITION>": "dt",
         "<DAY>": '"2026-09-24"',
         "<SAVED_TABLE>": "job_day_minutes",
@@ -397,13 +401,14 @@ def test_notebook_start_runs_in_an_empty_folder(tmp_path: Path, monkeypatch, cap
         assert re.search(r"^\s+one\n0\s+1$", printed, re.MULTILINE)
         assert "WHERE\n  job_runs.dt = '2026-09-24'\nLIMIT 20;" in printed
         assert "run_id" in printed.split("LIMIT 20;")[1]
-        written = (tmp_path / "table_references" / "job_runs.py").read_text(encoding="utf-8")
+        written = (tmp_path / "table_references" / "ops__job_runs.py").read_text(
+            encoding="utf-8")
         assert "TODO" in written
         del sys.modules[module_name(relative)]
         importlib.import_module(module_name(relative))
         assert ("ops.job_runs has its Table reference already: the file is yours to edit."
                 in capsys.readouterr().out)
-        assert (tmp_path / "table_references" / "job_runs.py").read_text(
+        assert (tmp_path / "table_references" / "ops__job_runs.py").read_text(
             encoding="utf-8") == written
 
 
@@ -420,7 +425,7 @@ def test_keeping_table_references_true_starts_in_an_empty_folder(tmp_path: Path,
     with project_on_the_path(tmp_path, ("keep_table_references_true", "table_references")):
         references = importlib.import_module("keep_table_references_true")
         assert references.write_new_table_references(example_database.send) == [
-            tmp_path / "table_references" / "job_events.py"]
+            tmp_path / "table_references" / "ops__job_events.py"]
         references.compare_with_the_tables(example_database.send)
     assert capsys.readouterr().out.startswith("TABLE_REFERENCES is empty: move each table")
 
@@ -431,7 +436,7 @@ def test_keeping_table_references_true_writes_new_ones_and_compares_the_rest(
     references = starter["keep_table_references_true"]
     folder = references.folder / "table_references"
     (written,) = references.module.write_new_table_references(example_database.send)
-    assert written == folder / "job_events.py"
+    assert written == folder / "ops__job_events.py"
     assert "TODO" in written.read_text(encoding="utf-8")
     assert references.module.write_new_table_references(example_database.send) == []
     assert "ops.job_events: its Table reference is there already" in capsys.readouterr().out

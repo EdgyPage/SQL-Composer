@@ -432,7 +432,7 @@ def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
 ... )
 >>> html_file, markdown_file = export_lineage(failed)""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
-    table_reference = re.search(r'<p class="label">It writes run_alerts.py</p>\n'
+    table_reference = re.search(r'<p class="label">It writes ops__run_alerts.py</p>\n'
                                 r'<pre class="python">(.*?)</pre>', shown, re.DOTALL)
     assert f"from {FOLDER} import Table" in page_text(table_reference.group(1))
     assert "key=None, # TODO" in page_text(table_reference.group(1))

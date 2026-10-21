@@ -37,6 +37,14 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   newer.
 - **pandas 3 shows a missing text value as NaN**, where pandas 2 showed None: a run's result
   with a NULL in a text column reads NaN there. Test for it with `isna()`, never `== None`.
+- **`write_table_reference` names its file for the database and the table**, such as
+  `ops__job_runs.py` for `ops.job_runs`, so `from ops__job_runs import job_runs` imports it;
+  `folder="references"` writes it into that folder. A column's DESCRIBE comment now goes in
+  `Table`'s new `descriptions={...}`, not a `#` comment, and an Aliases heading below the Table
+  reference shows how to add your own names for its columns and conditions. A table named
+  like a Python word, such as class, still gets t_ in front of its variable, but a table named
+  like a module, such as calendar, no longer does. Files written before 6.0 keep their names:
+  nothing to change.
 
 ## 5.1
 

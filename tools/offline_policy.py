@@ -292,8 +292,6 @@ ALLOWED: tuple[Allowed, ...] = (
             "exec", "runs the test's own line of code in a scope with no name"),
     Allowed("tests/test_refusals.py", "test_a_repeated_rows_warning_shows_under_python_dash_c",
             "process", "subprocess.run", PYTHON),
-    Allowed("tests/test_tables.py", "test_write_table_reference_writes_a_file_that_imports",
-            "dynamic code", "exec", "runs the Table reference file the Toolbox just wrote"),
     Allowed("tests/test_templates.py", "filled_project", "dynamic code",
             "importlib.import_module", "imports a filled-in template's modules by name"),
     Allowed("tests/test_templates.py", "test_notebook_start_runs_in_an_empty_folder",

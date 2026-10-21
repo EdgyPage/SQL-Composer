@@ -251,9 +251,9 @@ run(failed, send=send_without_a_dataframe)</pre>
 </table></div>
 <p>The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next section: its name is empty, and its other two cells are missing, NULL in Hive, which the table on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
 <h5>Write one table&#x27;s Table reference</h5>
-<p><code>write_table_reference</code> sends those two commands through your send and turns what comes back into a Table reference file. It writes the file in the folder your notebook runs in, named after the table, and gives back the file&#x27;s path:</p>
+<p><code>write_table_reference</code> sends those two commands through your send and turns what comes back into a Table reference file. It writes the file in the folder your notebook runs in, named after the database and the table joined by two underscores, and gives back the file&#x27;s path:</p>
 <pre class="python">path = write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
-<p class="label">It writes job_runs.py</p>
+<p class="label">It writes ops__job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
 
@@ -262,7 +262,7 @@ job_runs = Table(
     columns={
         &quot;run_id&quot;: &quot;bigint&quot;,
         &quot;job_id&quot;: &quot;bigint&quot;,
-        &quot;status&quot;: &quot;string&quot;,  # SUCCESS / FAILED / TEST, NULL while running
+        &quot;status&quot;: &quot;string&quot;,
         &quot;duration_mins&quot;: &quot;int&quot;,
         &quot;avg_retry_secs&quot;: &quot;double&quot;,
         &quot;dt&quot;: &quot;string&quot;,
@@ -270,19 +270,34 @@ job_runs = Table(
     date_partition=&quot;dt&quot;,
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;run_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)</pre>
+    descriptions={
+        &quot;status&quot;: &quot;SUCCESS / FAILED / TEST, NULL while running&quot;,
+    },
+)
+
+# --- Aliases ----------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below this heading.
+# Import one beside the table: from references.ops__job_runs import job_runs, &lt;alias&gt;
+#
+# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
+# output and the lineage still say the column&#x27;s own name. To name an output, use AS(...).
+#     &lt;alias&gt; = job_runs.run_id
+# A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
+# Add what it calls, such as equals, to the import from sqlglot_composer above.
+#     &lt;alias&gt; = equals(job_runs.run_id, &lt;value&gt;)</pre>
 <pre class="python">path.name</pre>
-<p class="label">Python shows</p><pre class="output">&#x27;job_runs.py&#x27;</pre>
-<p>Read the file it wrote. It imports <code>Table</code>, then makes one variable, <code>job_runs</code>, named like the file:</p>
-<ul><li><code>columns</code> holds every column and its type, and a column&#x27;s comment in the warehouse comes along as a <code>#</code> comment, such as status&#x27;s <code>SUCCESS / FAILED / TEST, NULL while running</code>;</li><li><code>date_partition=&quot;dt&quot;</code> comes from <code>SHOW PARTITIONS</code>;</li><li>three lines say TODO: the description on the first line, <code>key=None</code> and <code>does_not_add_up=[]</code>. The table can&#x27;t tell anyone those, so the file leaves them to you.</li></ul>
+<p class="label">Python shows</p><pre class="output">&#x27;ops__job_runs.py&#x27;</pre>
+<p>Read the file it wrote. It imports <code>Table</code>, then makes one variable, <code>job_runs</code>, named after the table:</p>
+<ul><li><code>columns</code> holds every column and its type;</li><li><code>date_partition=&quot;dt&quot;</code> comes from <code>SHOW PARTITIONS</code>;</li><li>three lines say TODO: the description on the first line, <code>key=None</code> and <code>does_not_add_up=[]</code>. The table can&#x27;t tell anyone those, so the file leaves them to you;</li><li><code>descriptions=</code> holds each column&#x27;s comment in the warehouse, such as status&#x27;s <code>SUCCESS / FAILED / TEST, NULL while running</code>;</li><li>under the Aliases heading at the end, commented-out examples show how to add your own names for the table&#x27;s columns and conditions, as Fill in the TODOs, below, does.</li></ul>
+<p>To write the file into another folder, such as the references/ folder a Project keeps its Table references in, pass <code>folder=&quot;references&quot;</code>: the folder must be there already.</p>
 <h5>Write several in a loop</h5>
 <p><code>write_table_reference</code> is a plain function, so a Python <code>for</code> loop writes one file per table in a list:</p>
 <pre class="python">for name in [&quot;ops.jobs&quot;, &quot;ops.run_alerts&quot;]:
     path = write_table_reference(name, send=example_database.send)
     print(path.name)</pre>
-<p class="label">Python prints</p><pre class="output">jobs.py
-run_alerts.py</pre>
-<p class="label">It writes jobs.py</p>
+<p class="label">Python prints</p><pre class="output">ops__jobs.py
+ops__run_alerts.py</pre>
+<p class="label">It writes ops__jobs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.jobs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
 
@@ -297,8 +312,19 @@ jobs = Table(
     date_partition=None,
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)</pre>
-<p class="label">It writes run_alerts.py</p>
+)
+
+# --- Aliases ----------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below this heading.
+# Import one beside the table: from references.ops__jobs import jobs, &lt;alias&gt;
+#
+# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
+# output and the lineage still say the column&#x27;s own name. To name an output, use AS(...).
+#     &lt;alias&gt; = jobs.job_id
+# A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
+# Add what it calls, such as equals, to the import from sqlglot_composer above.
+#     &lt;alias&gt; = equals(jobs.job_id, &lt;value&gt;)</pre>
+<p class="label">It writes ops__run_alerts.py</p>
 <pre class="python">&quot;&quot;&quot;ops.run_alerts - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
 
@@ -307,25 +333,39 @@ run_alerts = Table(
     columns={
         &quot;alert_id&quot;: &quot;bigint&quot;,
         &quot;run_id&quot;: &quot;bigint&quot;,
-        &quot;severity&quot;: &quot;string&quot;,  # low / high
+        &quot;severity&quot;: &quot;string&quot;,
         &quot;dt&quot;: &quot;string&quot;,
     },
     date_partition=&quot;dt&quot;,
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;alert_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)</pre>
-<p>Each file, and the variable in it, is named after the part of the table&#x27;s name after the dot: <code>ops.jobs</code> gives jobs.py, holding a variable named jobs. A table named like a word Python keeps for itself, such as class, or like a module Python already has, such as calendar or pandas, gets t_ in front: <code>ops.calendar</code> would give t_calendar.py, holding t_calendar, because <code>import calendar</code> would bring in Python&#x27;s own calendar module, not your file.</p>
+    descriptions={
+        &quot;severity&quot;: &quot;low / high&quot;,
+    },
+)
+
+# --- Aliases ----------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below this heading.
+# Import one beside the table: from references.ops__run_alerts import run_alerts, &lt;alias&gt;
+#
+# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
+# output and the lineage still say the column&#x27;s own name. To name an output, use AS(...).
+#     &lt;alias&gt; = run_alerts.alert_id
+# A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
+# Add what it calls, such as equals, to the import from sqlglot_composer above.
+#     &lt;alias&gt; = equals(run_alerts.alert_id, &lt;value&gt;)</pre>
+<p>Each file is named after the database and the table, <code>ops.jobs</code> giving ops__jobs.py, since a dot or a dash can&#x27;t be in a name Python imports. The variable in it is named after the table alone, jobs. A table named like a word Python keeps for itself, such as class, gets t_ in front of its variable: <code>ops.class</code> would give ops__class.py, holding t_class.</p>
 <h5>Fill in the TODOs</h5>
-<p>Open job_runs.py in your editor and replace the three TODO lines. This is the file with them filled in; nothing else changes:</p>
+<p>Open ops__job_runs.py in your editor and replace the three TODO lines. This is the file with them filled in, and two Aliases of your own under its Aliases heading, whose comment lines are left out here:</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - one row per run of a job.&quot;&quot;&quot;
-from sqlglot_composer import Table
+from sqlglot_composer import Table, equals
 
 job_runs = Table(
     &quot;ops.job_runs&quot;,
     columns={
         &quot;run_id&quot;: &quot;bigint&quot;,
         &quot;job_id&quot;: &quot;bigint&quot;,
-        &quot;status&quot;: &quot;string&quot;,  # SUCCESS / FAILED / TEST, NULL while running
+        &quot;status&quot;: &quot;string&quot;,
         &quot;duration_mins&quot;: &quot;int&quot;,
         &quot;avg_retry_secs&quot;: &quot;double&quot;,
         &quot;dt&quot;: &quot;string&quot;,
@@ -333,10 +373,17 @@ job_runs = Table(
     date_partition=&quot;dt&quot;,
     key=[&quot;run_id&quot;],
     does_not_add_up=[&quot;avg_retry_secs&quot;],
-)</pre>
-<ul><li>The first line says, in your own words, what one row is.</li><li><code>key=</code> lists the columns that pick out one row. Every run has its own <code>job_runs.run_id</code>, so it is <code>key=[&quot;run_id&quot;]</code>. Ask whoever owns the table if you aren&#x27;t sure: <code>check_key</code>, below, checks it. JOIN uses the key to warn you when a join would repeat rows.</li><li><code>does_not_add_up=</code> lists the columns that are averages, ratios or counts of different values. <code>job_runs.avg_retry_secs</code> is each run&#x27;s average wait between retries: adding up two runs&#x27; averages gives a number that means nothing, so the Toolbox refuses to add it up once it is listed here.</li></ul>
-<p>Then import the file in your notebook, as you import any of your own .py files:</p>
-<pre class="python">from job_runs import job_runs</pre>
+    descriptions={
+        &quot;status&quot;: &quot;SUCCESS / FAILED / TEST, NULL while running&quot;,
+    },
+)
+
+# --- Aliases ---------------------------------------------------------------------------
+minutes = job_runs.duration_mins
+failed = equals(job_runs.status, &quot;FAILED&quot;)</pre>
+<ul><li>The first line says, in your own words, what one row is.</li><li><code>key=</code> lists the columns that pick out one row. Every run has its own <code>job_runs.run_id</code>, so it is <code>key=[&quot;run_id&quot;]</code>. Ask whoever owns the table if you aren&#x27;t sure: <code>check_key</code>, below, checks it. JOIN uses the key to warn you when a join would repeat rows.</li><li><code>does_not_add_up=</code> lists the columns that are averages, ratios or counts of different values. <code>job_runs.avg_retry_secs</code> is each run&#x27;s average wait between retries: adding up two runs&#x27; averages gives a number that means nothing, so the Toolbox refuses to add it up once it is listed here.</li><li>An Alias is your own name, written by hand. <code>minutes</code> is a plainer name for <code>job_runs.duration_mins</code>: only a shorter name, since the Hive, the output and the lineage still say duration_mins. <code>failed</code> names a condition on this table alone, for <code>WHERE</code> or <code>count_rows(where=...)</code>; <code>equals</code> joins <code>Table</code> in the import at the top, since it calls it.</li></ul>
+<p>Then import the file in your notebook, as you import any of your own .py files, with the Aliases you use beside the table:</p>
+<pre class="python">from ops__job_runs import job_runs, minutes, failed</pre>
 <p>The Example database ships this same Table reference, filled in the same way, so the steps here use its copy:</p>
 <pre class="python">job_runs = example_database.job_runs</pre>
 <h5>Check the file against the table</h5>
@@ -425,7 +472,7 @@ WHERE
 <h4>Check it worked</h4>
 <p>The three Table reference files are in the folder your notebook runs in:</p>
 <pre class="python">from pathlib import Path
-[Path(name).exists() for name in [&quot;job_runs.py&quot;, &quot;jobs.py&quot;, &quot;run_alerts.py&quot;]]</pre>
+[Path(name).exists() for name in [&quot;ops__job_runs.py&quot;, &quot;ops__jobs.py&quot;, &quot;ops__run_alerts.py&quot;]]</pre>
 <p class="label">Python shows</p><pre class="output">[True, True, True]</pre>
 <p>Once you&#x27;ve filled in a file&#x27;s TODOs, both checks pass for its table:</p>
 <pre class="python">check_table_reference(job_runs, send=example_database.send)</pre>
@@ -460,7 +507,7 @@ job_runs has no column &#x27;duration&#x27;. Did you mean &#x27;duration_mins&#x
 <p><code>write_table_reference</code> never overwrites a file: once written, the file is yours, and rewriting it would lose the key and the notes you added. Run a second time for the same table, it stops:</p>
 <pre class="python">write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">FileExistsError:
-  What happened:  job_runs.py already exists in the folder you&#x27;re working in, so nothing was written.
+  What happened:  ops__job_runs.py already exists in the folder you&#x27;re working in, so nothing was written.
   Why it matters: A Table reference is yours once written, and rewriting it would lose your key, filters and notes.
   Usual fix:      Edit that file, or check it against the table with check_table_reference(t, send=...).
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
@@ -4644,9 +4691,9 @@ partitions.tail(5)</pre>
 <tr><td>region=us/dt=20260921</td></tr>
 </table></div>
 <h5>Write its Table reference</h5>
-<p><code>write_table_reference</code> sends the same two commands through your send and writes the Table reference for you, as <code>region_costs.py</code> in the folder you&#x27;re working in:</p>
+<p><code>write_table_reference</code> sends the same two commands through your send and writes the Table reference for you, as ops__region_costs.py in the folder you&#x27;re working in:</p>
 <pre class="python">path = write_table_reference(&quot;ops.region_costs&quot;, send=example_database.send)</pre>
-<p class="label">It writes region_costs.py</p>
+<p class="label">It writes ops__region_costs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.region_costs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
 
@@ -4654,18 +4701,32 @@ region_costs = Table(
     &quot;ops.region_costs&quot;,
     columns={
         &quot;job_id&quot;: &quot;bigint&quot;,
-        &quot;cost_cents&quot;: &quot;bigint&quot;,  # NULL until the bill comes in
+        &quot;cost_cents&quot;: &quot;bigint&quot;,
         &quot;region&quot;: &quot;string&quot;,
         &quot;dt&quot;: &quot;string&quot;,
     },
     date_partition=None,  # TODO: partitioned by region, dt; its last region value, &#x27;us&#x27;, isn&#x27;t a day the Toolbox can bound; if dt holds the days, name it in date_partition=
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)</pre>
+    descriptions={
+        &quot;cost_cents&quot;: &quot;NULL until the bill comes in&quot;,
+    },
+)
+
+# --- Aliases ----------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below this heading.
+# Import one beside the table: from references.ops__region_costs import region_costs, &lt;alias&gt;
+#
+# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
+# output and the lineage still say the column&#x27;s own name. To name an output, use AS(...).
+#     &lt;alias&gt; = region_costs.job_id
+# A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
+# Add what it calls, such as equals, to the import from sqlglot_composer above.
+#     &lt;alias&gt; = equals(region_costs.job_id, &lt;value&gt;)</pre>
 <p>Look at its line starting <code>date_partition=</code>. The Date partition is the one column of days that every Statement must bound at both ends, and <code>write_table_reference</code> looks for it in the first partition column only. Here that is region, which holds <code>&quot;eu&quot;</code> and <code>&quot;us&quot;</code>, not days, so it can&#x27;t be the Date partition: it writes <code>date_partition=None</code> and a TODO. The TODO names both partition columns, says region&#x27;s last value, <code>&#x27;us&#x27;</code>, isn&#x27;t a day the Toolbox could bound, and asks you to name dt, the column that holds the days, yourself.</p>
 <h5>Finish the Table reference</h5>
 <p>Change the TODO line into two lines: <code>date_partition=&quot;dt&quot;,</code> names the Date partition, and <code>date_format=&quot;%Y%m%d&quot;,</code> says how its days are written, in the codes Python&#x27;s dates use: <code>%Y</code> is the year, <code>%m</code> the month and <code>%d</code> the day. Fill in the other two TODOs while you are there: one row is one job&#x27;s cost in one region on one day, so the key is job_id, region and dt; and cost_cents is a plain amount, which adds up, so <code>does_not_add_up=[]</code> stays empty.</p>
-<p>Try the finished reference in your notebook first, as below; once the next step says it matches, copy it into <code>region_costs.py</code> and import it from there in every notebook:</p>
+<p>Try the finished reference in your notebook first, as below; once the next step says it matches, copy it into ops__region_costs.py and import it from there in every notebook:</p>
 <pre class="python">region_costs = Table(
     &quot;ops.region_costs&quot;,
     columns={

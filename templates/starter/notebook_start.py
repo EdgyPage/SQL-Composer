@@ -18,8 +18,8 @@ The cells, in order:
    and gives back a pandas DataFrame. Try it on a query that reads no table, then on one you
    have run before on a table you know, to see its rows come back with their columns named.
 2. Write the table's Table reference: write_table_reference asks the table for its columns and
-   writes table_references/<TABLE>.py. Fill in each TODO line it leaves, such as the key, before
-   cell 3. It never writes over a file that is there, so running cell 2 again leaves your
+   writes table_references/<REFERENCE_FILE>.py. Fill in each TODO line it leaves, such as the
+   key, before cell 3. It never writes over a file that is there, so running cell 2 again leaves your
    filled-in file as it is.
 3. Import the Table reference and run a first Statement: 20 rows of one day of the table.
 
@@ -40,9 +40,10 @@ Fill in:
         "SELECT * FROM ops.job_runs WHERE dt = '2026-09-24' LIMIT 5".
     <TABLE_NAME>: the table to read, by its name in the warehouse, in quotes, such as
         "ops.job_runs".
-    <TABLE>: that name after the dot, such as job_runs: write_table_reference names the file
-        and the Table reference by it (with t_ in front of a name Python already uses, such
-        as t_calendar).
+    <TABLE>: that name after the dot, such as job_runs: write_table_reference names the Table
+        reference by it (with t_ in front of a word Python keeps for itself, such as t_class).
+    <REFERENCE_FILE>: the name of the file write_table_reference writes, without .py: the
+        database and the table joined by two underscores, such as ops__job_runs.
     <DATE_PARTITION>: the table's Date partition, the column holding each row's day, such as dt.
     <DAY>: a day the table holds, in quotes, written as the table writes its days, such as
         "2026-09-24".
@@ -50,7 +51,6 @@ Fill in:
 
 # --- Cell 1: the Toolbox and your send ---
 
-import contextlib
 from pathlib import Path
 
 import pandas as pd  # for your send, if it builds its DataFrame with pd.DataFrame(...)
@@ -74,17 +74,14 @@ print(send(<KNOWN_QUERY>))  # the rows you know, each column named
 # --- Cell 2: the table's Table reference, written once ---
 
 Path("table_references").mkdir(exist_ok=True)  # the folder for your Table references
-# write_table_reference writes into the folder Python is working in, so this works in
-# table_references/ while it writes, then goes back
-with contextlib.chdir("table_references"):
-    try:
-        write_table_reference(<TABLE_NAME>, send=send)
-    except FileExistsError:
-        print(<TABLE_NAME>, "has its Table reference already: the file is yours to edit.")
+try:
+    write_table_reference(<TABLE_NAME>, send=send, folder="table_references")
+except FileExistsError:
+    print(<TABLE_NAME>, "has its Table reference already: the file is yours to edit.")
 
 # --- Cell 3: a first Statement, once each TODO line is filled in ---
 
-from table_references.<TABLE> import <TABLE>  # the Table reference cell 2 wrote
+from table_references.<REFERENCE_FILE> import <TABLE>  # the Table reference cell 2 wrote
 # To practise on the Example database without cell 2, its tables' Table references come with
 # the Toolbox: write <TABLE> = example_database.<TABLE> in place of the import above.
 
