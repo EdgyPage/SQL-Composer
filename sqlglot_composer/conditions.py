@@ -25,7 +25,7 @@ from .tables import (
 from .trees import Node, combined, has_aggregate
 from .writing import hive_text
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 
 def today() -> datetime.date:
@@ -93,7 +93,16 @@ def days_in_either(first: Span, second: Span) -> Span:
 
 
 class Condition:
-    """A test on rows, for WHERE, HAVING or ON=. Combine several with all_of or any_of."""
+    """A test on rows, for WHERE, HAVING or ON=: the condition functions give one back.
+
+    Combine several with all_of(...) or any_of(...). Write the name in a type hint, to say
+    that a function of yours gives back a Condition:
+
+    >>> def failed(status: Column) -> Condition:
+    ...     return equals(status, "FAILED")
+    >>> failed(job_runs.status)
+    job_runs.status = 'FAILED'
+    """
 
     def __init__(self, tree, *, spans=None, only_bounds=None, keeps_unmatched=frozenset()):
         self._tree = tree

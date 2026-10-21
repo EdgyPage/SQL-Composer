@@ -46,7 +46,7 @@ from .trees import (
     string,
 )
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 # The day a message writes when it needs an example of one: the day after the Example
@@ -127,8 +127,18 @@ def _no_operator(symbol: str, instead: str) -> None:
 class Column:
     """One column of a table, or a calculation made from columns.
 
-    Arithmetic works with Python's + - * / and comes out bracketed. Comparisons don't: use
-    the condition functions, such as equals(...), instead of ==.
+    A Table reference's columns are its attributes, such as `job_runs.status`, and the
+    calculation functions, such as sum_of(...), give back a Column too. Arithmetic works with
+    Python's + - * /, bracketed as Python groups it. Comparisons don't: use the condition
+    functions, such as equals(...), instead of ==. Write the name in a type hint, to say that
+    a function of yours takes or gives back a Column:
+
+    >>> def hours(minutes: Column) -> Column:
+    ...     return minutes / 60
+    >>> hours(job_runs.duration_mins)
+    job_runs.duration_mins / 60
+    >>> (job_runs.duration_mins + 1) * 2
+    (job_runs.duration_mins + 1) * 2
     """
 
     def __init__(self, tree, *, table=None, name=None, type=None, adds_up=True,

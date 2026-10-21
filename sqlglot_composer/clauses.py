@@ -44,7 +44,7 @@ from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .writing import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -112,7 +112,27 @@ class Named:
 
 
 class Statement:
-    """A query, assembled by statement(...). to_hive(s) gives its Hive string."""
+    """A query, made by statement(...): to_hive(s) gives its Hive string.
+
+    Make one with statement(...), never Statement(); a Stack, such as UNION_ALL(...), and
+    explain(...) give back a Statement too. Write the name in a type hint, to say that a
+    function of yours gives back a Statement:
+
+    >>> def failed_runs(first_day: str, last_day: str) -> Statement:
+    ...     return statement(
+    ...         SELECT(job_runs.run_id, job_runs.status),
+    ...         FROM(job_runs),
+    ...         WHERE(between(job_runs.dt, first_day, last_day),
+    ...               equals(job_runs.status, "FAILED")),
+    ...     )
+    >>> print(to_hive(failed_runs("2026-09-23", "2026-09-24")))
+    SELECT
+      job_runs.run_id,
+      job_runs.status
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED'
+    """
 
     def __init__(self):
         # Filled in by statement(...), from the clauses it was given:
