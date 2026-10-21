@@ -15,11 +15,9 @@ import copy
 import datetime
 import decimal
 import difflib
-import importlib.util
 import json
 import keyword
 import re
-import sys
 import urllib.parse
 from pathlib import Path
 
@@ -563,6 +561,20 @@ def _names(value, argument: str) -> list[str]:
     return list(value)
 
 
+def _descriptions(name: str, value) -> dict[str, str]:
+    """A Table reference's descriptions=, each column's description in words."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or not all(isinstance(text, str) for text in value.values()):
+        refuse(
+            what=f"Table({name!r}): descriptions={value!r} isn't a dict of columns and text.",
+            why="Each description says in words what a column holds.",
+            fix='Write it as descriptions={"status": "SUCCESS or FAILED"}.',
+            error=ValueError,
+        )
+    return {str(column): text for column, text in value.items()}
+
+
 class Table:
     """A Table reference: a table's columns, the day column it's split by, and its key.
 
@@ -588,6 +600,9 @@ class Table:
       "2026-09-25", for example date_format="%Y%m%d". It must put the year first, then the
       month, then the day: Hive compares the days as text, and only year-first text sorts in
       date order. The time zone is whatever the table uses; the Toolbox doesn't convert it.
+    - `descriptions` says in words what a column holds, such as {"status": "SUCCESS or
+      FAILED"}, for the columns you want to describe. write_table_reference fills it from the
+      comments DESCRIBE prints; it never changes the Hive.
 
     A Saved table, one your Statements write into, also says how it is stored, which
     create_table writes and check_table_reference compares with the table. Of these, a Saved
@@ -632,7 +647,7 @@ class Table:
     def __init__(self, name, columns, date_partition, key=None, does_not_add_up=(),
                  date_format=None, location=None, purge=None, properties=None, stored_as=None,
                  compression=None, partitioned_by=None, bucketed_by=None, buckets=None,
-                 sorted_by=None):
+                 sorted_by=None, descriptions=None):
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
             refuse(
                 what=f"Table({name!r}, ...) isn't a table name.",
@@ -681,6 +696,7 @@ class Table:
         self._partitioned_by = _names(partitioned_by, "partitioned_by")
         self._bucketed_by = _names(bucketed_by, "bucketed_by")
         self._sorted_by = _names(sorted_by, "sorted_by")
+        self._descriptions = _descriptions(name, descriptions)
         self._check_own_columns(date_format)
         _set_storage(self, location, purge, properties, stored_as, compression, buckets)
 
@@ -692,6 +708,7 @@ class Table:
         named["partitioned_by"] = self._partitioned_by
         named["bucketed_by"] = self._bucketed_by
         named["sorted_by"] = self._sorted_by
+        named["descriptions"] = list(self._descriptions)
         for argument, names in named.items():
             for column in names:
                 if column not in self._columns:
@@ -1235,22 +1252,28 @@ def _day_format_of(value: str | None) -> str | None:
     return None
 
 
-def write_table_reference(name, send):
-    '''Write a table's Table reference as `<table>.py` in the folder you're working in.
+def write_table_reference(name, send, folder=None):
+    '''Write a table's Table reference as a file, such as ops__run_alerts.py.
 
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
-    description, never its rows) and writes `<table>.py` in the folder you're working in, or
-    `t_<table>.py` for a table named like a Python word or a module Python already has, such as
-    calendar or pandas, which the file would be imported in place of. The
+    description, never its rows) and writes the file in `folder`, such as "references", or in
+    the folder you're working in when folder is left out. The file is imported as
+    `from references.ops__run_alerts import run_alerts`: two underscores join the database and
+    the table, since a dot or a dash can't be in a name Python imports. The Table reference in
+    it is named for the table alone, or t_<table> for a table named like a Python word, such
+    as t_class. Each column's comment, which DESCRIBE prints, becomes its description. The
     newest day SHOW PARTITIONS lists gives the Date partition's date_format. The Date partition
     is looked for in the first partition column only: a table partitioned first by something
     else, such as a region, gets date_partition=None and a TODO naming its partition columns.
     Name the one that holds the days, and check_table_reference(t, send=...) then gives the
     line its date_format needs, if any. It never guesses
-    the key or which columns don't add up: those are TODOs for you. The file is yours from then
-    on, and this refuses to overwrite it.
+    the key or which columns don't add up: those are TODOs for you. Below the Table reference,
+    under its Aliases heading, you can add your own names for its columns and conditions, as
+    its examples show. The file is yours from then on, and this refuses to overwrite it.
 
     >>> path = write_table_reference("ops.run_alerts", send=example_database.send)
+    >>> path.name
+    'ops__run_alerts.py'
     >>> print(path.read_text())
     """ops.run_alerts - TODO: say in one line what one row is."""
     from sqlglot_composer import Table
@@ -1260,13 +1283,27 @@ def write_table_reference(name, send):
         columns={
             "alert_id": "bigint",
             "run_id": "bigint",
-            "severity": "string",  # low / high
+            "severity": "string",
             "dt": "string",
         },
         date_partition="dt",
         key=None,  # TODO: the columns that pick out one row, such as key=["alert_id"]
         does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+        descriptions={
+            "severity": "low / high",
+        },
     )
+    <BLANKLINE>
+    # --- Aliases ----------------------------------------------------------------------------------
+    # Your own names for this table's columns and conditions, written by hand below this heading.
+    # Import one beside the table: from references.ops__run_alerts import run_alerts, <alias>
+    #
+    # A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
+    # output and the lineage still say the column's own name. To name an output, use AS(...).
+    #     <alias> = run_alerts.alert_id
+    # A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
+    # Add what it calls, such as equals, to the import from sqlglot_composer above.
+    #     <alias> = equals(run_alerts.alert_id, <value>)
     <BLANKLINE>
     '''
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
@@ -1276,14 +1313,31 @@ def write_table_reference(name, send):
             fix='Write it like "ops.job_runs".',
             error=ValueError,
         )
-    short = name.split(".")[-1]
-    taken = keyword.iskeyword(short) or _is_a_module(short)
-    variable = short if short.isidentifier() and not taken else f"t_{short}"
-    path = Path(f"{variable}.py")
+    if "." not in name:
+        refuse(
+            what=f"write_table_reference({name!r}, ...) has no database name.",
+            why="The file is named for the database and the table, such as ops__job_runs.py, "
+            "and the Table reference reads the table wherever your send runs.",
+            fix=f'Write the database first, like "ops.{name}".',
+            error=ValueError,
+        )
+    database, short = name.split(".")
+    variable = short if short.isidentifier() and not keyword.iskeyword(short) else f"t_{short}"
+    where = Path(folder) if folder is not None else Path()
+    if not where.is_dir():
+        refuse(
+            what=f"write_table_reference({name!r}, ..., folder={folder!r}): there is no "
+            "such folder.",
+            why="It writes the file into a folder that is there already, so a typo never "
+            "makes a folder of its own.",
+            fix="Make the folder first, or name one that is there, such as folder=\"references\".",
+            error=FileNotFoundError,
+        )
+    path = where / f"{database}__{short}.py"
     if path.exists():
         refuse(
-            what=f"{path.name} already exists in the folder you're working in, so nothing "
-            "was written.",
+            what=f"{path.name} already exists in {_folder_name(folder)}, so nothing was "
+            "written.",
             why="A Table reference is yours once written, and rewriting it would lose "
             "your key, filters and notes.",
             fix="Edit that file, or check it against the table with "
@@ -1301,27 +1355,14 @@ def write_table_reference(name, send):
             error=ValueError,
         )
     date_lines = _date_partition_lines(name, partitions, send, call)
-    path.write_text(_reference_text(name, variable, columns, comments, date_lines),
-                    encoding="utf-8")
+    path.write_text(_reference_text(name, variable, columns, comments, date_lines,
+                                    partitions[:1]), encoding="utf-8")
     return path
 
 
-def _is_a_module(name: str) -> bool:
-    """Whether Python already has a module of this name, such as calendar, pandas or a Toolbox
-    folder, which a Table reference file named like it would be imported in place of.
-
-    A file of that name in the folder you're working in is yours, not a module, so it doesn't
-    count: write_table_reference refuses to overwrite it.
-    """
-    if name in sys.stdlib_module_names:
-        return True
-    try:
-        spec = importlib.util.find_spec(name)
-    except (ImportError, ValueError):
-        return False
-    if spec is None:
-        return False
-    return spec.origin is None or Path(spec.origin).resolve().parent != Path.cwd().resolve()
+def _folder_name(folder) -> str:
+    """The folder write_table_reference writes into, as its refusals name it."""
+    return "the folder you're working in" if folder is None else f"the folder {str(folder)!r}"
 
 
 def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> list[str]:
@@ -1346,7 +1387,11 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
     return lines
 
 
-def _reference_text(name, variable, columns, comments, date_lines) -> str:
+# The heading a Table reference's Aliases go under, ruled to the width of the file.
+ALIASES_HEADING = "# --- Aliases " + "-" * 82
+
+
+def _reference_text(name, variable, columns, comments, date_lines, date_partition) -> str:
     lines = [
         f'"""{name} - TODO: say in one line what one row is."""',
         f"from {_FOLDER} import Table",
@@ -1356,16 +1401,40 @@ def _reference_text(name, variable, columns, comments, date_lines) -> str:
         "    columns={",
     ]
     for column, kind in columns.items():
-        comment = " ".join(comments.get(column, "").split())
-        comment = f"  # {comment}" if comment else ""
-        lines.append(f"        {json.dumps(column)}: {json.dumps(kind)},{comment}")
+        lines.append(f"        {json.dumps(column)}: {json.dumps(kind)},")
     first_key = next(iter(columns))
     lines += [
         "    },",
         *date_lines,
         f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
+    ]
+    described = {column: " ".join(comments.get(column, "").split()) for column in columns}
+    described = {column: text for column, text in described.items() if text}
+    if described:
+        lines += ["    descriptions={",
+                  *[f"        {json.dumps(column)}: {json.dumps(text)}," for column, text
+                    in described.items()],
+                  "    },"]
+    example = next((column for column in columns if column not in date_partition), first_key)
+    module = name.replace(".", "__")
+    lines += [
         ")",
+        "",
+        ALIASES_HEADING,
+        "# Your own names for this table's columns and conditions, written by hand below this "
+        "heading.",
+        f"# Import one beside the table: from references.{module} import {variable}, <alias>",
+        "#",
+        "# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, "
+        "the",
+        "# output and the lineage still say the column's own name. To name an output, use "
+        "AS(...).",
+        f"#     <alias> = {variable}.{example}",
+        "# A condition Alias names a condition on this table alone, for WHERE or "
+        "count_rows(where=...).",
+        "# Add what it calls, such as equals, to the import from sqlglot_composer above.",
+        f"#     <alias> = equals({variable}.{example}, <value>)",
         "",
     ]
     return "\n".join(lines)
@@ -1785,9 +1854,9 @@ def create_table(t, may_exist=False):
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
     reference with no location= is refused. Every column needs a type Hive has, spelled as
     DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
-    and a struct whose names are reserved words, and says what to write. If the table already exists, the warehouse refuses to create it
-    again. Without that refusal, you could edit the Table reference, send this again, and
-    think the table had changed when it hadn't. Compare the two with
+    and a struct whose names are reserved words, and says what to write. If the table
+    already exists, the warehouse refuses to create it again. Without that refusal, you could
+    edit the Table reference, send this again, and think the table had changed when it hadn't. Compare the two with
     check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
     or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
     import admin).

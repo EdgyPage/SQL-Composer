@@ -124,7 +124,10 @@ def test_an_unknown_table_is_refused_naming_all_seven() -> None:
 # --- Table references -------------------------------------------------------------------------
 
 
-def reference_text(name: str, columns: list[str], date_lines: list[str], first_key: str) -> str:
+def reference_text(name: str, columns: list[str], date_lines: list[str], first_key: str,
+                   descriptions: list[str], example: str) -> str:
+    """The file write_table_reference writes for ops.<name>: its Table reference, then its
+    Aliases heading, whose examples use the column `example`."""
     return "\n".join([
         f'"""ops.{name} - TODO: say in one line what one row is."""',
         f"from {FOLDER} import Table",
@@ -137,7 +140,25 @@ def reference_text(name: str, columns: list[str], date_lines: list[str], first_k
         *date_lines,
         f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
+        "    descriptions={",
+        *[f"        {line}" for line in descriptions],
+        "    },",
         ")",
+        "",
+        "# --- Aliases " + "-" * 82,
+        "# Your own names for this table's columns and conditions, written by hand below this "
+        "heading.",
+        f"# Import one beside the table: from references.ops__{name} import {name}, <alias>",
+        "#",
+        "# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, "
+        "the",
+        "# output and the lineage still say the column's own name. To name an output, use "
+        "AS(...).",
+        f"#     <alias> = {name}.{example}",
+        "# A condition Alias names a condition on this table alone, for WHERE or "
+        "count_rows(where=...).",
+        "# Add what it calls, such as equals, to the import from sqlglot_composer above.",
+        f"#     <alias> = equals({name}.{example}, <value>)",
         "",
     ])
 
@@ -148,10 +169,14 @@ def test_write_table_reference_on_job_events(tmp_path, monkeypatch) -> None:
     assert path.read_text(encoding="utf-8") == reference_text("job_events", [
         '"event_id": "bigint",',
         '"job_id": "bigint",',
-        '"event_type": "string",  # start / finish / retry / fail',
-        '"minutes": "int",  # minutes since the run started',
+        '"event_type": "string",',
+        '"minutes": "int",',
         '"dt": "string",',
-    ], ['    date_partition="dt",'], "event_id")
+    ], ['    date_partition="dt",'], "event_id", [
+        '"event_type": "start / finish / retry / fail",',
+        '"minutes": "minutes since the run started",',
+    ], "event_id")
+    assert path.name == "ops__job_events.py"
 
 
 def test_write_table_reference_on_job_owners(tmp_path, monkeypatch) -> None:
@@ -160,9 +185,10 @@ def test_write_table_reference_on_job_owners(tmp_path, monkeypatch) -> None:
     assert path.read_text(encoding="utf-8") == reference_text("job_owners", [
         '"job_id": "bigint",',
         '"team": "string",',
-        '"owner": "string",  # NULL when nobody owns the job',
+        '"owner": "string",',
         '"dt": "string",',
-    ], ['    date_partition="dt",'], "job_id")
+    ], ['    date_partition="dt",'], "job_id", ['"owner": "NULL when nobody owns the job",'],
+        "job_id")
 
 
 def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatch) -> None:
@@ -171,12 +197,13 @@ def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatc
     path = write_table_reference("ops.region_costs", send=example_database.send)
     assert path.read_text(encoding="utf-8") == reference_text("region_costs", [
         '"job_id": "bigint",',
-        '"cost_cents": "bigint",  # NULL until the bill comes in',
+        '"cost_cents": "bigint",',
         '"region": "string",',
         '"dt": "string",',
     ], ["    date_partition=None,  # TODO: partitioned by region, dt; its last region value, "
         "'us', isn't a day the Toolbox can bound; if dt holds the days, name it in "
-        "date_partition="], "job_id")
+        "date_partition="], "job_id", ['"cost_cents": "NULL until the bill comes in",'],
+        "job_id")
 
 
 @pytest.mark.parametrize("t", [events, owners])

@@ -14,8 +14,8 @@ notebook_start.py's cell 1 writes it:
     references.compare_with_the_tables(send)
 
 write_new_table_references writes a Table reference file for each table in NEW_TABLES, asking
-the table for its columns: a file named for the table, in table_references/, such as
-table_references/job_events.py for "ops.job_events". It makes the folder if it isn't there,
+the table for its columns: a file named for the database and the table, in
+table_references/, such as table_references/ops__job_events.py for "ops.job_events". It makes the folder if it isn't there,
 and never writes over a file that is. Fill in each TODO line it leaves: what one row is, the
 key, and does_not_add_up, the columns that mean nothing added up, such as averages. Then move
 the table from NEW_TABLES to TABLE_REFERENCES, and import its Table reference beside the
@@ -44,15 +44,16 @@ Fill in:
     <NEW_TABLE_NAME>: a table with no Table reference yet, by its name in the warehouse, in
         quotes, such as "ops.job_events"; add one per table, or leave the list empty:
         NEW_TABLES = [].
-    <TABLE>: a Table reference you keep, which is also its file's name in table_references/,
-        such as job_runs; add an import and a list entry for each.
+    <TABLE>: a Table reference you keep, such as job_runs; add an import and a list entry
+        for each.
+    <KEPT_REFERENCE_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_runs, or job_runs for a file written before 6.0.
 """
 
-import contextlib
 from pathlib import Path
 
 from sqlglot_composer import check_key, check_table_reference, write_table_reference
-from table_references.<TABLE> import <TABLE>  # an import per Table reference you keep
+from table_references.<KEPT_REFERENCE_FILE> import <TABLE>  # one per Table reference kept
 
 TABLE_REFERENCES_FOLDER = Path(__file__).resolve().parent / "table_references"
 NEW_TABLES = [<NEW_TABLE_NAME>]  # each table to write a Table reference for, by its name
@@ -64,14 +65,12 @@ def write_new_table_references(send):
     return the files written. A table whose file is there already is left as it is."""
     written = []
     TABLE_REFERENCES_FOLDER.mkdir(exist_ok=True)
-    # write_table_reference writes into the folder Python is working in, so this works in
-    # table_references/ while it writes, then goes back
-    with contextlib.chdir(TABLE_REFERENCES_FOLDER):
-        for name in NEW_TABLES:
-            try:
-                written.append(TABLE_REFERENCES_FOLDER / write_table_reference(name, send=send))
-            except FileExistsError:
-                print(f"{name}: its Table reference is there already, and is yours to edit.")
+    for name in NEW_TABLES:
+        try:
+            written.append(write_table_reference(name, send=send,
+                                                 folder=TABLE_REFERENCES_FOLDER))
+        except FileExistsError:
+            print(f"{name}: its Table reference is there already, and is yours to edit.")
     return written
 
 

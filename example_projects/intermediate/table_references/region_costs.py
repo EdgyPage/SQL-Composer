@@ -14,7 +14,7 @@ region_costs = Table(
     "ops.region_costs",
     columns={
         "job_id": "bigint",
-        "cost_cents": "bigint",  # NULL until the bill comes in
+        "cost_cents": "bigint",
         "region": "string",
         "dt": "string",
     },
@@ -25,4 +25,18 @@ region_costs = Table(
     key=["job_id", "region", "dt"],  # filled in by hand
     # filled in by hand: none of the columns is an average, a ratio or a distinct count
     does_not_add_up=[],
+    descriptions={
+        "cost_cents": "NULL until the bill comes in",
+    },
 )
+
+# --- Aliases ----------------------------------------------------------------------------------
+# Your own names for this table's columns and conditions, written by hand below this heading.
+# Import one beside the table: from references.ops__region_costs import region_costs, <alias>
+#
+# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
+# output and the lineage still say the column's own name. To name an output, use AS(...).
+#     <alias> = region_costs.job_id
+# A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
+# Add what it calls, such as equals, to the import from sqlglot_composer above.
+#     <alias> = equals(region_costs.job_id, <value>)

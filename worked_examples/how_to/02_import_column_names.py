@@ -56,20 +56,26 @@ on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under
 
 `write_table_reference` sends those two commands through your send and turns what comes back
 into a Table reference file. It writes the file in the folder your notebook runs in, named
-after the table, and gives back the file's path:
+after the database and the table joined by two underscores, and gives back the file's path:
 
 >>> path = write_table_reference("ops.job_runs", send=example_database.send)
 >>> path.name
-'job_runs.py'
+'ops__job_runs.py'
 
-Read the file it wrote. It imports `Table`, then makes one variable, `job_runs`, named like the
-file:
+Read the file it wrote. It imports `Table`, then makes one variable, `job_runs`, named after the
+table:
 
-- `columns` holds every column and its type, and a column's comment in the warehouse comes
-  along as a `#` comment, such as status's `SUCCESS / FAILED / TEST, NULL while running`;
+- `columns` holds every column and its type;
 - `date_partition="dt"` comes from `SHOW PARTITIONS`;
 - three lines say TODO: the description on the first line, `key=None` and
-  `does_not_add_up=[]`. The table can't tell anyone those, so the file leaves them to you.
+  `does_not_add_up=[]`. The table can't tell anyone those, so the file leaves them to you;
+- `descriptions=` holds each column's comment in the warehouse, such as status's
+  `SUCCESS / FAILED / TEST, NULL while running`;
+- under the Aliases heading at the end, commented-out examples show how to add your own names
+  for the table's columns and conditions, as Fill in the TODOs, below, does.
+
+To write the file into another folder, such as the references/ folder a Project keeps its
+Table references in, pass `folder="references"`: the folder must be there already.
 
 ### Write several in a loop
 
@@ -79,29 +85,29 @@ in a list:
 >>> for name in ["ops.jobs", "ops.run_alerts"]:
 ...     path = write_table_reference(name, send=example_database.send)
 ...     print(path.name)
-jobs.py
-run_alerts.py
+ops__jobs.py
+ops__run_alerts.py
 
-Each file, and the variable in it, is named after the part of the table's name after the dot:
-`ops.jobs` gives jobs.py, holding a variable named jobs. A table named like a word Python keeps
-for itself, such as class, or like a module Python already has, such as calendar or pandas,
-gets t_ in front: `ops.calendar` would give t_calendar.py, holding t_calendar, because
-`import calendar` would bring in Python's own calendar module, not your file.
+Each file is named after the database and the table, `ops.jobs` giving ops__jobs.py, since a
+dot or a dash can't be in a name Python imports. The variable in it is named after the table
+alone, jobs. A table named like a word Python keeps for itself, such as class, gets t_ in
+front of its variable: `ops.class` would give ops__class.py, holding t_class.
 
 ### Fill in the TODOs
 
-Open job_runs.py in your editor and replace the three TODO lines. This is the file with
-them filled in; nothing else changes:
+Open ops__job_runs.py in your editor and replace the three TODO lines. This is the file with
+them filled in, and two Aliases of your own under its Aliases heading, whose comment lines are
+left out here:
 
     \"\"\"ops.job_runs - one row per run of a job.\"\"\"
-    from sqlglot_composer import Table
+    from sqlglot_composer import Table, equals
 
     job_runs = Table(
         "ops.job_runs",
         columns={
             "run_id": "bigint",
             "job_id": "bigint",
-            "status": "string",  # SUCCESS / FAILED / TEST, NULL while running
+            "status": "string",
             "duration_mins": "int",
             "avg_retry_secs": "double",
             "dt": "string",
@@ -109,7 +115,14 @@ them filled in; nothing else changes:
         date_partition="dt",
         key=["run_id"],
         does_not_add_up=["avg_retry_secs"],
+        descriptions={
+            "status": "SUCCESS / FAILED / TEST, NULL while running",
+        },
     )
+
+    # --- Aliases ---------------------------------------------------------------------------
+    minutes = job_runs.duration_mins
+    failed = equals(job_runs.status, "FAILED")
 
 - The first line says, in your own words, what one row is.
 - `key=` lists the columns that pick out one row. Every run has its own `job_runs.run_id`, so
@@ -119,10 +132,15 @@ them filled in; nothing else changes:
   `job_runs.avg_retry_secs` is each run's average wait between retries: adding up two runs'
   averages gives a number that means nothing, so the Toolbox refuses to add it up once it is
   listed here.
+- An Alias is your own name, written by hand. `minutes` is a plainer name for
+  `job_runs.duration_mins`: only a shorter name, since the Hive, the output and the lineage
+  still say duration_mins. `failed` names a condition on this table alone, for `WHERE` or
+  `count_rows(where=...)`; `equals` joins `Table` in the import at the top, since it calls it.
 
-Then import the file in your notebook, as you import any of your own .py files:
+Then import the file in your notebook, as you import any of your own .py files, with the
+Aliases you use beside the table:
 
-    from job_runs import job_runs
+    from ops__job_runs import job_runs, minutes, failed
 
 The Example database ships this same Table reference, filled in the same way, so the steps
 here use its copy:
@@ -250,7 +268,7 @@ A name that isn't one of the table's columns stops the list at once: see Common 
 The three Table reference files are in the folder your notebook runs in:
 
 >>> from pathlib import Path
->>> [Path(name).exists() for name in ["job_runs.py", "jobs.py", "run_alerts.py"]]
+>>> [Path(name).exists() for name in ["ops__job_runs.py", "ops__jobs.py", "ops__run_alerts.py"]]
 [True, True, True]
 
 Once you've filled in a file's TODOs, both checks pass for its table:
@@ -311,7 +329,7 @@ it stops:
 Traceback (most recent call last):
 ...
 FileExistsError:
-  What happened:  job_runs.py already exists in the folder you're working in, so nothing was written.
+  What happened:  ops__job_runs.py already exists in the folder you're working in, so nothing was written.
 ...
 
 Edit the file instead, and run `check_table_reference` to see what has changed in the table

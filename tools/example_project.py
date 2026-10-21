@@ -238,8 +238,11 @@ def write_here(project: str) -> None:
 
     os.chdir(folder / TABLE_REFERENCES)
     for table, filling in FILLED_IN[project].items():
-        path = sqlglot_composer.write_table_reference(
-            table, send=sqlglot_composer.example_database.send).resolve()
+        written = sqlglot_composer.write_table_reference(
+            table, send=sqlglot_composer.example_database.send)
+        # Its file is named for the table alone, as the project's scripts import it, until
+        # the Example projects are laid out as Projects, with a references/ folder.
+        path = written.rename(table_reference_name(table)).resolve()
         path.write_text(filled_in(path.read_text(encoding="utf-8"), table, filling),
                         encoding="utf-8", newline="\n")
     os.chdir(folder)

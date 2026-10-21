@@ -186,17 +186,21 @@ def test_table_refuses_arguments_that_arent_text(arguments, said) -> None:
         Table("ops.runs", **arguments)
 
 
-@pytest.mark.parametrize(("table", "file"), [
-    ("dim.calendar", "t_calendar.py"),
-    ("dim.pandas", "t_pandas.py"),
-    ("dim.pytest", "t_pytest.py"),
-    ("dim.sqlglot_composer", "t_sqlglot_composer.py"),
-    ("dim.customers", "customers.py"),
+@pytest.mark.parametrize(("table", "file", "variable"), [
+    # Named for its database too, a file never shadows a module, such as calendar or pandas.
+    ("dim.calendar", "dim__calendar.py", "calendar"),
+    ("dim.pandas", "dim__pandas.py", "pandas"),
+    ("dim.customers", "dim__customers.py", "customers"),
+    # A table named like a Python word can't be a Python name itself.
+    ("dim.class", "dim__class.py", "t_class"),
 ])
-def test_write_table_reference_never_shadows_a_module(table, file, tmp_path, monkeypatch) -> None:
+def test_write_table_reference_names_the_file_and_the_table(table, file, variable, tmp_path,
+                                                           monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     describe = [("id", "bigint", "")]
-    assert write_table_reference(table, send=answering(describe=describe)).name == file
+    path = write_table_reference(table, send=answering(describe=describe))
+    assert path.name == file
+    assert f"\n{variable} = Table(\n" in path.read_text(encoding="utf-8")
 
 
 def test_write_table_reference_leaves_out_days_it_cant_bound(tmp_path, monkeypatch) -> None:
