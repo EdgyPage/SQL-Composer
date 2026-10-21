@@ -218,6 +218,7 @@ any item is open.
 - [x] D209 | fb3a471 | docstring | the project module's docstring (`sqlglot_composer/project.py` lines 29-31) now gives check and refresh_reference_sheet's reason for no Admin log entry as "which change none of your files", but refresh_reference_sheet rewrites references/reference_sheet.csv (its own docstring says "It changes no other file"); say that check changes no file and refresh_reference_sheet only the Reference sheet, which it rebuilds from references/ (and the "apart from" clause reads as if it qualified the Admin statements; put it beside "Every one of them") - closed by 470d69f
 - [x] D210 | b5dd668 | glossary | "logic cell" is now a domain word the user meets: `project.load` and `project.run_tables` docstrings (`sqlglot_composer/project.py` lines 771-778, 877), their refusals (lines 822-857, 911-913, e.g. "the logic cell of ... calls run"), the run_tables admin notebook (line 144) and ADR 0010 name "the logic cell, whose first line is # logic", but `CONTEXT.md` never names it: its Table notebook entry (lines 51-55) says only "One of its cells holds the table's logic alone". Name the logic cell there (the cell whose first line is `# logic`, which only imports and defines, and that project.load runs alone), or give it its own entry. - closed by 4845066
 - [x] D211 | 6dc260f | docstring | run_tables' docstring (`sqlglot_composer/project.py` line 884, shown in `examples.html` line 3584) now says "It logs nothing: what it writes is in the warehouse, not your files", and the module docstring (lines 35-36) that load and run_tables "change none of your files but the Reference sheet, and log nothing"; but run_tables sends each write_day(day) through run(write, send=send), and run logs every Unchecked statement and Admin statement it sends (`logged_run` in `sqlglot_composer/unchecked.py`), inside a Project to admin/admin_log.md; in_order orders Unchecked statements, so a write_day that gives one is logged. Say that run_tables adds no entry of its own, and that a write_day giving an Unchecked statement or Admin statement is logged by run, as everywhere. - closed by 4845066
+- [x] D212 | e12e90c | change-notes | CHANGES 6.0's "To update from 5.x" still says, in its one-folder line, that "the Example projects and the Templates sit in `example_projects/` and `templates/` themselves" (`CHANGES.md` lines 20-22), but this commit removed the download's `templates/` folder, and the line it added further down says so ("the download's `templates/` folder is gone", line 50). Say only the Example projects sit in `example_projects/` itself, e.g. "and the Example projects sit in `example_projects/` itself, not in a folder named `sqlglot_composer` inside it". - closed by c973853
 
 ## Reviewed commits
 
@@ -474,3 +475,6 @@ any item is open.
 - 14ba4ac: clean
 - 6dc260f: D211
 - 4845066: clean
+- e12e90c: D212
+- c0e5c7b: clean
+- c973853: clean
