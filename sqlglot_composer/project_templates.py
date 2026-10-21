@@ -48,7 +48,8 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 
 # %%
 # 1. The Project, your send, and a day to try things on
-import sys, pathlib
+import pathlib
+import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
 from sqlglot_composer import export_lineage, project, run, show_hive

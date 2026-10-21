@@ -3,10 +3,9 @@ and on each Example project in `example_projects/`.
 
 A script imports only from lower Levels and from the Toolbox, never from a higher or equal
 Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
-Each Example project has Levels of its own, its generated Table references among them, and the
-scripts beside its Level folders, such as `run_pipeline.py`, sit above the Levels, so they may
-import from any of them; but `settings.py`, which holds what a Statement reads about each table
-and imports nothing of the project's, is Level 0, beside the Table references.
+Each Example project is a Project, whose Levels are its own: Level 0 is `references/`, with
+`send.py` beside it, Level 1 `building_blocks/`, and Level 2 each Table notebook's logic cell,
+the code cell that starts `# logic`.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
 `table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what the Toolbox may import (pandas and numpy, from
@@ -20,6 +19,7 @@ Example gallery shows, and so does every script of an Example project.
 from __future__ import annotations
 
 import ast
+import json
 import sys
 from pathlib import Path
 
@@ -33,10 +33,11 @@ EXAMPLE_PROJECTS = ROOT / "example_projects"
 LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
 # An Example project's scripts beside its Level folders, such as run_pipeline.py.
 ABOVE_THE_LEVELS = 3
-# The scripts beside an Example project's Level folders that are Level 0 all the same.
-LEVEL_0_BESIDE = {"settings"}
 # Each name a script imports its Level's scripts by, with that Level.
-IMPORTED_LEVELS = {**LEVELS, **dict.fromkeys(LEVEL_0_BESIDE, 0)}
+IMPORTED_LEVELS = dict(LEVELS)
+# A Project's Levels, by the name each is imported by: send.py is Level 0, beside references/.
+PROJECT_LEVELS = {"references": 0, "send": 0, "building_blocks": 1}
+LOGIC_LEVEL = 2
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
     "repeated_rows", "regrouping", "left_join_then_where", "none_in_equals", "nan_in_a_list",
@@ -58,13 +59,26 @@ def projects() -> list[Path]:
 
 
 def project_scripts() -> list[tuple[Path, int]]:
-    """Every script of every Example project, generated or not, with its Level."""
+    """Every script of every Example project, its Table references, its Building blocks and
+    its send.py, with its Level. admin/templates/ holds Templates, not scripts."""
     found = []
     for project in projects():
-        for folder, level in LEVELS.items():
-            found += [(path, level) for path in sorted((project / folder).glob("*.py"))]
-        found += [(path, 0 if path.stem in LEVEL_0_BESIDE else ABOVE_THE_LEVELS)
-                  for path in sorted(project.glob("*.py"))]
+        for folder in ("references", "building_blocks"):
+            found += [(path, PROJECT_LEVELS[folder])
+                      for path in sorted((project / folder).glob("*.py"))]
+        found.append((project / "send.py", 0))
+    return found
+
+
+def logic_cells() -> list[tuple[Path, str]]:
+    """Each Example project Table notebook's logic cell, the code cell that starts # logic."""
+    found = []
+    for project in projects():
+        for notebook in sorted((project / "tables").glob("*/*.ipynb")):
+            cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+            found += [(notebook, "".join(cell["source"])) for cell in cells
+                      if cell["cell_type"] == "code"
+                      and "".join(cell["source"]).startswith("# logic\n")]
     return found
 
 
@@ -81,7 +95,7 @@ def _imported(node: ast.AST) -> list[str] | None:
     return None
 
 
-def _problem(name: str, level: int) -> str | None:
+def _problem(name: str, level: int, levels: dict[str, int] = IMPORTED_LEVELS) -> str | None:
     top = name.split(".")[0]
     if name.startswith("."):
         return f"{name} is a relative import; name the Level folder instead"
@@ -89,21 +103,22 @@ def _problem(name: str, level: int) -> str | None:
         return None if name == "sqlglot_composer" else f"{name} reaches inside the Toolbox"
     if top == "composer_core":
         return f"{name} is the Toolbox's folder from before 6.0: import from sqlglot_composer"
-    if top in IMPORTED_LEVELS:
-        if IMPORTED_LEVELS[top] < level:
+    if top in levels:
+        if levels[top] < level:
             return None
-        return f"{name} is Level {IMPORTED_LEVELS[top]}, not below Level {level}"
+        return f"{name} is Level {levels[top]}, not below Level {level}"
     if top in sys.stdlib_module_names or top in SHARED_IMPORTS or top == "__future__":
         return None
     return f"{name} is neither a lower Level, the Toolbox, nor something the Toolbox may import"
 
 
-def level_problems(source: str, level: int) -> list[str]:
+def level_problems(source: str, level: int,
+                   levels: dict[str, int] = IMPORTED_LEVELS) -> list[str]:
     """Every import in a Level `level` script that breaks the Levels rule."""
     problems = []
     for node in ast.walk(ast.parse(source)):
         for name in _imported(node) or []:
-            problem = _problem(name, level)
+            problem = _problem(name, level, levels)
             if problem:
                 problems.append(f"line {node.lineno}: {problem}")
     return problems
@@ -171,14 +186,20 @@ def test_a_statement_script_gives_a_title_and_why(path: Path) -> None:
 def test_there_are_both_example_projects_with_every_level() -> None:
     assert [project.name for project in projects()] == ["intermediate", "starter"]
     for project in projects():
-        missing = [folder for folder in LEVELS if not list((project / folder).glob("*.py"))]
-        assert missing == [], f"{project.name} has nothing in {missing}"
+        assert list((project / "references").glob("*.py")), project.name
+        assert list((project / "building_blocks").glob("*.py")), project.name
+        assert [cell for notebook, cell in logic_cells() if project in notebook.parents]
 
 
 @pytest.mark.parametrize("script", project_scripts(), ids=_project_id)
 def test_an_example_projects_imports_point_only_downward(script: tuple[Path, int]) -> None:
     path, level = script
-    assert level_problems(path.read_text(encoding="utf-8"), level) == []
+    assert level_problems(path.read_text(encoding="utf-8"), level, PROJECT_LEVELS) == []
+
+
+@pytest.mark.parametrize("cell", logic_cells(), ids=lambda cell: _project_id((cell[0], 0)))
+def test_a_table_notebooks_logic_imports_only_lower_levels(cell: tuple[Path, str]) -> None:
+    assert level_problems(cell[1], LOGIC_LEVEL, PROJECT_LEVELS) == []
 
 
 @pytest.mark.parametrize("script", project_scripts(), ids=_project_id)
@@ -186,11 +207,11 @@ def test_an_example_projects_script_gives_a_title_and_why(script: tuple[Path, in
     check_title_and_why(script[0])
 
 
-def test_settings_sit_at_level_0() -> None:
-    """settings.py is Level 0, so a Statement may import it, and it may import no Level."""
-    assert (EXAMPLE_PROJECTS / "intermediate" / "settings.py", 0) in project_scripts()
-    assert level_problems("from settings import TABLES_READ\n", 2) == []
-    (found,) = level_problems("from table_references.jobs import jobs\n", 0)
+def test_a_projects_send_sits_at_level_0() -> None:
+    """send.py is Level 0, so any notebook may import it, and it may import no Level."""
+    assert (EXAMPLE_PROJECTS / "starter" / "send.py", 0) in project_scripts()
+    assert level_problems("from send import send\n", 1, PROJECT_LEVELS) == []
+    (found,) = level_problems("from references.ops__jobs import jobs\n", 0, PROJECT_LEVELS)
     assert "Level 0, not below Level 0" in found
 
 

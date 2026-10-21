@@ -1,7 +1,7 @@
-"""Each job's cost per day in cents, all regions added up, as a Derived table.
+"""costs_per_job_day - each job's cost per day in cents, all regions added up.
 
-Why: example 1 saves these numbers and the quality checks compare them with what it saved, and
-writing them once here means the two always add them up the same way.
+Why: mart.job_day_costs saves these numbers, and writing them once here means a check of a
+day, or another table, adds them up the same way.
 
 ops.region_costs writes its days like 20260924, where the project's other tables write
 2026-09-24, and its Table reference says so with date_format="%Y%m%d". The days here are
@@ -17,7 +17,7 @@ regions has a row in each, which this adds up.
 import datetime
 
 from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, between, derived, statement, sum_of
-from table_references.region_costs import region_costs
+from references.ops__region_costs import region_costs
 
 
 def costs_per_job_day(first_day, last_day):
@@ -25,7 +25,7 @@ def costs_per_job_day(first_day, last_day):
 
     first_day and last_day are written like "2026-09-24", as everywhere else in the project.
     The day each row holds, region_costs.dt, is written the table's way, like 20260924; a
-    Saved table writes the day in its own way, so example 1 saves these rows as 2026-09-24.
+    Saved table writes the day in its own way, so mart.job_day_costs saves them as 2026-09-24.
 
     sum_of leaves out NULL, so a day whose only bill hasn't come in yet is NULL, not 0: no
     cost is known yet, which isn't the same as costing nothing.

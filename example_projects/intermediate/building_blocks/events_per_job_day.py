@@ -1,20 +1,18 @@
-"""Events, runs and minutes per job and day, as a Derived table to read.
+"""events_per_job_day - one row per job and day: its events, runs and minutes.
 
-Why: example 2 and example 3's team_day_from_job_events both need these numbers, and writing
-them once here means the two can never work them out two different ways.
+Why: mart.job_day_facts saves these numbers, and mart.team_days' notebook checks a day from
+them too, and writing them once here means the two always count them the same way.
 
-A run's events are its start, any retries, then its finish or a fail, each with the minutes
-since the run started. So the minutes on the event that ends a run are how long the run took.
-A run still going at the end of the day has a start and no end yet: it counts as a run, with 0
-minutes, until its end event comes in. An event lands in the partition of the day it
-happened, so a run that ends on a later day counts its minutes on that later day.
+A run's minutes are the minutes since it started, on the event that ends it: finish or fail,
+which ops.job_events' Alias ends_a_run names. A day with no run ending has 0 minutes, not
+NULL.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, fill_null, is_in,
+    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, fill_null,
     statement, sum_of,
 )
-from table_references.job_events import job_events
+from references.ops__job_events import ends_a_run, job_events  # ends_a_run: an Alias
 
 
 def events_per_job_day(first_day, last_day):
@@ -24,7 +22,6 @@ def events_per_job_day(first_day, last_day):
     first_day and last_day are days apart, and in SELECT, so a Statement that reads this can
     join each row to another table on its day, and by_day can cut it into one write per day.
     """
-    ends_a_run = is_in(job_events.event_type, ["finish", "fail"])
     return derived(
         "events_per_job_day",
         statement(

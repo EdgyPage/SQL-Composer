@@ -1,7 +1,7 @@
 # Templates and Example projects as Projects
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 07, 08
 Size: L
 
@@ -67,3 +67,33 @@ Built in two parts, each reviewed on its own: 09a, the Templates (2026-10-21, br
   `quality_checks` says how a small day shows; the example day is the same everywhere; the
   Building block shows how a notebook reads it; `<NAME>` is named; the logic cell's second
   line numbers it 2.
+
+### 09b: the Example projects as Projects
+
+Built 2026-10-21 on branch `toolbox-6/09b-example-projects-as-projects`.
+
+- `tools/example_project.py` now makes each whole project as a user does, in a Python of its
+  own started in an empty folder: `project.start()`, `project.add_references(...)` on the
+  Example database with FILLED_IN filling each TODO and adding Aliases (`minutes` and `failed`
+  on ops.job_runs, `high` on ops.run_alerts, `ends_a_run` on ops.job_events),
+  `project.new_table(...)` per Saved table, then the hand-written sources in
+  `tools/example_project_sources/<project>/` (each notebook as `# %%` cells, the Saved tables'
+  references, the Building blocks and the README), `refresh_reference_sheet()`, and each
+  table's lineage from its Table folder. The time, the commit and the calling script (a
+  notebook) are pinned, so it writes the same files everywhere.
+- The starter project: mart.daily_job_runs, mart.alerts_per_job and mart.team_day (whose
+  lineage draws all three through `load`). The intermediate one: mart.job_day_costs
+  (incremental_load), mart.job_day_facts (as_of_lookup), mart.team_days (weekly_rollup) and
+  mart.job_events_checks (quality_checks), each writing its last 3 days, the 3 named once in
+  `building_blocks/days_rewritten.py`. 5.x's settings-driven checks and lineage review are
+  not carried over: the how-tos keep teaching them.
+- The export copies a notebook or a CSV file unstamped (they have no comment syntax), and its
+  dry-run check runs each project's `project.run_tables(DAY)` from its `admin/` folder, the
+  Toolbox at main's top. The README's Example projects section says how to open them.
+- `tests/test_example_projects.py` holds each project to its generator, checks it has no TODO
+  left and nothing unregistered, loads each notebook's logic, and checks each preview against
+  pandas; `tests/repo/test_levels.py` holds a Project's Levels (references/ and send.py 0,
+  building_blocks/ 1, each logic cell 2). ruff skips the Templates' copies and the notebook
+  sources, and F401 in `change_a_saved_table.ipynb`, whose examples are commented out.
+
+#### 09b's reviews

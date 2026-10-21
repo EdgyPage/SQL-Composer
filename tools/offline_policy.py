@@ -240,8 +240,6 @@ ALLOWED: tuple[Allowed, ...] = (
             LOCAL_MODULES),
     Allowed("tests/test_example_projects.py", "<module>", "process", "subprocess",
             IMPORTS_PYTHON),
-    Allowed("tests/test_example_projects.py", "_imported", "dynamic code",
-            "importlib.import_module", "imports an Example project's own modules by name"),
     Allowed("tests/test_example_projects.py", "write_project", "process", "subprocess.run",
             "runs this same Python on tools/example_project.py"),
     Allowed("tests/test_how_tos.py", "<module>", "process", "subprocess",

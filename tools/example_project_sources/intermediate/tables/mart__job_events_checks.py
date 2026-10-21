@@ -1,0 +1,106 @@
+# %% [markdown]
+# # mart.job_events_checks
+#
+# Each day's row count of ops.job_events, saved every day, and checks of its rows.
+#
+# Why: mart.job_day_facts counts ops.job_events' rows, so a day that came in short, or a key
+# that came in twice, would give wrong numbers far from their cause. Saving each day's count
+# lets you read the days side by side and see one that looks too small; the checks look for
+# repeated keys and NULLs on any days you ask.
+#
+# Made by `project.new_table("mart.job_events_checks", template="quality_checks")`, then
+# filled in.
+#
+# The code cells: 1 the Project and your send; 2 the logic, which starts `# logic`; 3 try it;
+# 4 its lineage; 5 its rows in the Reference sheet.
+
+# %%
+# 1. The Project, your send, and a day to try things on
+import pathlib
+import sys
+sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
+
+from sqlglot_composer import export_lineage, project, run, show_hive
+from send import send
+
+DAY = "2026-09-24"  # the Example database's last day
+
+# %%
+# logic
+# 2. The logic: imports and functions only
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, all_columns, between,
+    count_rows, create_table, is_null, more_than, statement,
+)
+from references.mart__job_events_checks import job_events_checks
+from references.ops__job_events import job_events
+
+
+def create():
+    """Step 1: create mart.job_events_checks from its Table reference, if it isn't there yet."""
+    return create_table(job_events_checks, may_exist=True)
+
+
+def rows(day):
+    """The day's row count: the clauses preview and write_day share. The day isn't selected:
+    INSERT_OVERWRITE writes it as this table's Date partition."""
+    return [
+        SELECT(AS(count_rows(), "row_count")),
+        FROM(job_events),
+        WHERE(between(job_events.dt, day, day)),
+        GROUP_BY(job_events.dt),
+    ]
+
+
+def preview(day):
+    """Step 2: the row write_day(day) would save, as a SELECT to run and check first."""
+    return statement(*rows(day))
+
+
+def write_day(day):
+    """Step 3, every day: save the day's row count, replacing whatever the day held."""
+    return statement(INSERT_OVERWRITE(job_events_checks), *rows(day))
+
+
+def repeated_keys(first_day, last_day):
+    """Each event_id that picks out more than one row on the days: it should find no rows."""
+    return statement(
+        SELECT(job_events.event_id, AS(count_rows(), "times_seen")),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day)),
+        GROUP_BY(job_events.event_id),
+        HAVING(more_than(count_rows(), 1)),  # tested once the rows of each key are counted
+    )
+
+
+def column_name(column):
+    """A column's own name: a column prints as its table and its name, such as
+    job_events.minutes, and this keeps the part after the dot."""
+    return str(column).split(".")[-1]
+
+
+def null_counts(first_day, last_day):
+    """How many rows on the days hold NULL in each column, as one row: null_minutes counts
+    the rows whose minutes is NULL, and so on."""
+    counts = [AS(count_rows(where=is_null(column)), f"null_{column_name(column)}")
+              for column in all_columns(job_events)]
+    return statement(
+        SELECT(*counts),
+        FROM(job_events),
+        WHERE(between(job_events.dt, first_day, last_day)),
+    )
+
+# %%
+# 3. Try it: the Hive of each step, then the rows
+show_hive([create(), write_day(DAY)])
+run(preview(DAY), send=send)
+run(repeated_keys("2026-09-11", DAY), send=send)  # should have no rows
+run(null_counts("2026-09-11", DAY), send=send)
+
+# %%
+# 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
+export_lineage(write_day(DAY))
+
+# %%
+# 5. The Reference sheet: this table's rows, from references/mart__job_events_checks.py
+project.refresh_reference_sheet("mart.job_events_checks")

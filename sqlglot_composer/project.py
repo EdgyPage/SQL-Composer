@@ -100,7 +100,8 @@ def send(hive):
 
 # The first code cell of every admin notebook: the Project folder, one up, on Python's path.
 ADMIN_PATH_LINES = [
-    "import sys, pathlib",
+    "import pathlib",
+    "import sys",
     "sys.path.insert(0, str(pathlib.Path.cwd().parent))  # the Project: one up from admin/",
     "",
     "from sqlglot_composer import project",
@@ -147,10 +148,9 @@ ADMIN_NOTEBOOKS = {
         "tables that read it. First, with no `send`, it prints each Hive in that order and "
         "sends nothing; then, with your send, it sends them. `tables=` picks some; leave it "
         "out for every Table folder the registry lists.",
-        ['from send import send\n\nDAY = "2026-10-20"  # the day to write, as your tables '
-         "write their days",
+        ['DAY = "2026-10-20"  # the day to write, as your tables write their days',
          "project.run_tables(DAY)  # first, with no send: prints each Hive, sends nothing",
-         "# project.run_tables(DAY, send=send)"],
+         "# from send import send\n# project.run_tables(DAY, send=send)"],
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder or Table "

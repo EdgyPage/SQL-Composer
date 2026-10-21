@@ -1,0 +1,31 @@
+table,column,type,date_partition,in_key,aliases,description,exported_at
+mart.alerts_per_job,job_id,bigint,,yes,,,2026-09-25 06:00:00
+mart.alerts_per_job,alerts,bigint,,,,every alert the job's runs raised that day,2026-09-25 06:00:00
+mart.alerts_per_job,high_alerts,bigint,,,,those whose severity is high,2026-09-25 06:00:00
+mart.alerts_per_job,dt,string,yes,yes,,"the day the alerts were raised, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.daily_job_runs,job_id,bigint,,yes,,,2026-09-25 06:00:00
+mart.daily_job_runs,runs,bigint,,,,"every run of the job that day, TEST runs among them",2026-09-25 06:00:00
+mart.daily_job_runs,failed_runs,bigint,,,,its runs whose status is FAILED,2026-09-25 06:00:00
+mart.daily_job_runs,minutes,bigint,,,,the minutes of all the job's runs that day,2026-09-25 06:00:00
+mart.daily_job_runs,dt,string,yes,yes,,"the day of the runs, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.team_day,team,string,,yes,,the team that owns the jobs,2026-09-25 06:00:00
+mart.team_day,runs,bigint,,,,,2026-09-25 06:00:00
+mart.team_day,failed_runs,bigint,,,,,2026-09-25 06:00:00
+mart.team_day,minutes,bigint,,,,,2026-09-25 06:00:00
+mart.team_day,alerts,bigint,,,,0 when the team's runs raised none,2026-09-25 06:00:00
+mart.team_day,high_alerts,bigint,,,,,2026-09-25 06:00:00
+mart.team_day,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
+ops.job_runs,run_id,bigint,,yes,,,2026-09-25 06:00:00
+ops.job_runs,job_id,bigint,,,,,2026-09-25 06:00:00
+ops.job_runs,status,string,,,,"SUCCESS / FAILED / TEST, NULL while running",2026-09-25 06:00:00
+ops.job_runs,duration_mins,int,,,minutes,,2026-09-25 06:00:00
+ops.job_runs,avg_retry_secs,double,,,,,2026-09-25 06:00:00
+ops.job_runs,dt,string,yes,,,,2026-09-25 06:00:00
+ops.jobs,job_id,bigint,,yes,,,2026-09-25 06:00:00
+ops.jobs,job_name,string,,,,,2026-09-25 06:00:00
+ops.jobs,team,string,,,,,2026-09-25 06:00:00
+ops.jobs,region,string,,,,,2026-09-25 06:00:00
+ops.run_alerts,alert_id,bigint,,yes,,,2026-09-25 06:00:00
+ops.run_alerts,run_id,bigint,,,,,2026-09-25 06:00:00
+ops.run_alerts,severity,string,,,,low / high,2026-09-25 06:00:00
+ops.run_alerts,dt,string,yes,,,,2026-09-25 06:00:00
