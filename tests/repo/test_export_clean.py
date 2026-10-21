@@ -641,7 +641,7 @@ def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
 
 
 def test_the_allowlist_takes_only_the_exported_folders() -> None:
-    paths = ["composer_core/tables.py", "sqlglot_composer/writing.py", "spark_composer/writing.py",
+    paths = ["composer_core/tables.py", "sqlglot_composer/writing.py", "other_composer/writing.py",
              ".github/README.md"]
     assert export_clean.outside_allowlist(paths) == ["composer_core/tables.py",
-                                                     "spark_composer/writing.py"]
+                                                     "other_composer/writing.py"]

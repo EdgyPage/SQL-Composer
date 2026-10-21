@@ -129,7 +129,7 @@ def _table_read_back(text: str) -> str:
 def check_writable_call(name: str, args: list[Node], call: str) -> None:
     """Refuse a hive_function call sqlglot can't build from its arguments.
 
-    calculations.py has checked the call against the list Hive and Spark share already. sqlglot
+    calculations.py has checked the call against the list in trees.py already. sqlglot
     knows more functions than that list, and builds some of them only from certain arguments.
     """
     try:
@@ -227,7 +227,7 @@ def _set_part(tree: exp.Expression, part: str, value) -> None:
 
 
 def _identifier(name: str) -> exp.Identifier:
-    """A name as Hive and Spark need it: in backticks only when it isn't a plain word."""
+    """A name as Hive needs it: in backticks only when it isn't a plain word."""
     return exp.to_identifier(name, quoted=not plain_name(name))
 
 
@@ -506,7 +506,7 @@ _REPLAY = {
     "Window": _window,
     "WindowCall": _window_call,
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
-    # Hive and Spark put NULL first when sorting up and last when sorting down; telling
+    # Hive puts NULL first when sorting up and last when sorting down; telling
     # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
     "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
                                         nulls_first=not node.parts["desc"]),

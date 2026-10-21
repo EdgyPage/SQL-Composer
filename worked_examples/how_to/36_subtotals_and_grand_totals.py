@@ -128,7 +128,7 @@ The rows come sorted by their first column, as the Example database sorts them, 
 
 `is_total` in `HAVING` keeps or leaves out subtotal rows, since `HAVING` tests the rows
 `GROUP_BY` made, subtotals included. Here only each team's total and the grand total. The
-column it tests, `jobs.job_name`, must be in `SELECT` too: some warehouses, Spark among them,
+column it tests, `jobs.job_name`, must be in `SELECT` too: some warehouses
 refuse it otherwise, so the Toolbox does too.
 
 >>> team_totals = statement(

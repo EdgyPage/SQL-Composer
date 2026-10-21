@@ -86,9 +86,7 @@ def compute_statistics(t, day=None, columns=False):
     columns= counts columns too, other than the Partitions: how many different values each
     has, its smallest and largest, and how many are NULL, which Hive reads to order several
     joins. columns=True counts every column; as that reads more, columns=[daily_runs.job_id]
-    counts only the columns you name, such as those you join or filter on. Where your send
-    runs on Spark, not Hive, Spark counts columns over every day of the table, whatever the
-    day, so name only those few.
+    counts only the columns you name, such as those you join or filter on.
 
     It takes only one of your Saved tables, a Table reference with location=. The Example
     database can't run it, as its tables are made up and fixed.

@@ -235,7 +235,7 @@ Without `fill_null`, a job with no owner gets no contact at all, not "@web":
 ### YYYY for the year in date_format
 
 In a date_format pattern, write yyyy for the year. YYYY is the year a week belongs to, which
-Spark refuses in a pattern.
+differs from the year in the last days of December and the first of January.
 
 >>> by_month = statement(
 ...     SELECT(job_events.event_id,

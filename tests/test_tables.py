@@ -126,9 +126,9 @@ def answering(describe_rows, partitions, sent=None):
     return send
 
 
-# Spark lists DESCRIBE with a None comment, no blank row before the partitions, and more sections
-# after them, such as the columns that have a default value.
-SPARK_DESCRIBE = [
+# Some warehouses list DESCRIBE with a None comment, no blank row before the partitions, and
+# more sections after them, such as the columns that have a default value.
+COMPACT_DESCRIBE = [
     ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
     ("# Partition Information", "", ""), ("# col_name", "data_type", "comment"),
     ("dt", "string", None),
@@ -140,16 +140,16 @@ HIVE_DESCRIBE = [
     ("", None, None), ("# Partition Information", None, None),
     ("# col_name", "data_type", "comment"), ("dt", "string", ""),
 ]
-# Spark lists a newer kind of table's partitioning as one row per column or function of one.
-SPARK_PARTITIONING = [
+# A newer kind of table lists its partitioning as one row per column or function of one.
+NEWER_PARTITIONING = [
     ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
     ("", "", ""), ("# Partitioning", "", ""), ("Part 0", "dt", ""),
 ]
 
 
-@pytest.mark.parametrize("describe", [SPARK_DESCRIBE, HIVE_DESCRIBE, SPARK_PARTITIONING],
-                         ids=["spark", "hive", "spark_partitioning"])
-def test_describe_is_read_as_hive_and_spark_list_it(describe, tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize("describe", [COMPACT_DESCRIBE, HIVE_DESCRIBE, NEWER_PARTITIONING],
+                         ids=["compact", "hive", "newer_partitioning"])
+def test_describe_is_read_as_warehouses_list_it(describe, tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     send = answering(describe, ["dt=2026-09-24"])
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
@@ -163,7 +163,7 @@ def test_describe_is_read_as_hive_and_spark_list_it(describe, tmp_path, monkeypa
 def test_every_escaped_character_of_a_partition_value_is_read(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     sent = []
-    send = answering(SPARK_DESCRIBE, ["region=eu%3Dwest/dt=2026%2F09%2F24/note=50%25%5Cx"], sent)
+    send = answering(COMPACT_DESCRIBE, ["region=eu%3Dwest/dt=2026%2F09%2F24/note=50%25%5Cx"], sent)
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               date_partition="dt", date_format="%Y/%m/%d", key=["run_id"])
     check_key(t, send=send)
@@ -172,7 +172,7 @@ def test_every_escaped_character_of_a_partition_value_is_read(tmp_path, monkeypa
 
 def test_a_section_after_the_partitions_is_not_read_as_partitions(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = answering(SPARK_DESCRIBE, ["dt=2026-09-24"])
+    send = answering(COMPACT_DESCRIBE, ["dt=2026-09-24"])
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
     assert 'date_partition="dt",\n' in text
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
@@ -182,14 +182,14 @@ def test_a_section_after_the_partitions_is_not_read_as_partitions(tmp_path, monk
 
 def test_an_escaped_partition_value_is_read_as_its_day(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = answering(SPARK_DESCRIBE, ["dt=2026%2F09%2F23", "dt=2026%2F09%2F24"])
+    send = answering(COMPACT_DESCRIBE, ["dt=2026%2F09%2F23", "dt=2026%2F09%2F24"])
     text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
     assert 'date_format="%Y/%m/%d",' in text
 
 
 def test_the_null_day_is_never_the_newest() -> None:
     sent = []
-    send = answering(SPARK_DESCRIBE, ["dt=2026-09-23", "dt=__HIVE_DEFAULT_PARTITION__"], sent)
+    send = answering(COMPACT_DESCRIBE, ["dt=2026-09-23", "dt=__HIVE_DEFAULT_PARTITION__"], sent)
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               date_partition="dt", key=["run_id"])
     assert repr(check_key(t, send=send)) == "ops.runs: the key (run_id) holds on 2026-09-23."
@@ -199,7 +199,7 @@ def test_the_null_day_is_never_the_newest() -> None:
 def test_a_reserved_table_name_is_quoted_in_what_is_sent(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     sent = []
-    write_table_reference("ops.order", send=answering(SPARK_DESCRIBE, ["dt=2026-09-24"], sent))
+    write_table_reference("ops.order", send=answering(COMPACT_DESCRIBE, ["dt=2026-09-24"], sent))
     assert sent == ["DESCRIBE ops.`order`", "SHOW PARTITIONS ops.`order`"]
 
 
@@ -297,7 +297,7 @@ def test_create_table_refuses_untyped_columns() -> None:
                                   "char(300)", "varchar(70000)", "varchar(0)",
                                   "map<array<int>,string>", "struct<select:int>",
                                   "array<struct<any:string>>"])
-def test_create_table_refuses_a_type_hive_and_spark_dont_share(kind: str) -> None:
+def test_create_table_refuses_a_type_hive_doesnt_have(kind: str) -> None:
     t = Table("mart.t", columns={"a": kind, "dt": "string"}, date_partition="dt")
     with pytest.raises(ValueError, match=f"a's type '{re.escape(kind)}' isn't one "
                        "create_table can use"):
@@ -324,7 +324,7 @@ def test_create_tables_refusal_says_what_to_write_for_a_type_people_often_use(
     # A struct is in tests/sqlglot_checks/test_sqlglot_statements.py, since sqlglot Composer
     # refuses one where its sqlglot can't write a struct's colons.
 ])
-def test_create_table_takes_each_type_hive_and_spark_share(kind: str, written: str) -> None:
+def test_create_table_takes_each_type_hive_has(kind: str, written: str) -> None:
     t = Table("mart.t", columns={"a": kind}, date_partition=None, location="/data/tables")
     assert to_hive(create_table(t)).startswith(f"CREATE EXTERNAL TABLE mart.t (\n  a {written}")
 

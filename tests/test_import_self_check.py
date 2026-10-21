@@ -21,9 +21,9 @@ from conftest import FOLDER, PRODUCT, import_stop, toolbox_folder
 
 TOOLBOX = toolbox_folder()
 VERSION = sqlglot_composer.TOOLBOX_VERSION
-# Another Toolbox folder, whose files a paste at work could mix in: Spark Composer's, the
-# Edition dropped in 6.0, of which a user may still have a copy.
-OTHER = SimpleNamespace(folder="spark_composer", product="Spark Composer")
+# Another Toolbox folder, whose files a paste at work could mix in, such as a copy of an
+# Edition dropped before this version.
+OTHER = SimpleNamespace(folder="other_composer", product="Other Composer")
 
 
 def other_folders_init() -> str:

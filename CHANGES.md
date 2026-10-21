@@ -23,9 +23,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Spark Composer is dropped.** If you used it: install sqlglot (`pip install -r
   requirements.txt`), delete the `spark_composer` and `composer_core` folders, copy in
   `sqlglot_composer`, change each `from spark_composer import` to `from
-  sqlglot_composer import`, and restart the kernel. Where your send runs the Hive on Spark,
-  `send=lambda hive: spark.sql(hive).toPandas()` still works; the README's "If your send runs the
-  Hive on Spark" says where Spark reads Hive its own way.
+  sqlglot_composer import`, and restart the kernel.
+- **The Toolbox writes Hive, and says nothing of Spark.** The README's "If your send runs the
+  Hive on Spark" is gone, and so are the Toolbox's two refusals made only for Spark: of a send
+  that gives back a Spark DataFrame, which is now refused as any send that gives back something
+  other than a pandas DataFrame, and of a Saved table's `properties=` naming `comment`, `owner`,
+  `provider`, `location` or `is_managed_location`. If a warehouse of yours runs the Hive on
+  Spark, ask whoever looks after it where Spark reads Hive its own way.
 - **`requirements.txt` is one list, pinned for Python 3.12**: pandas 3.0.6, numpy 2.5.4 and
   sqlglot 30.23.0, with what they need in turn, and pytz, which pandas 3 no longer needs but is
   kept for code of yours that imports it. On Python 3.11, change numpy's line to

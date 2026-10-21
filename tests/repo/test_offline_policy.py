@@ -62,10 +62,6 @@ def test_a_network_import_in_the_toolbox_is_found() -> None:
     ("import ctypes\n", "process"),
     ("import pandas as pd\npd.read_csv(path)\n", "library fetcher"),
     ("import numpy as np\nnp.loadtxt(path)\n", "library fetcher"),
-    ("from pyspark import install\n", "library fetcher"),
-    ("from pyspark.sql import SparkSession\nSparkSession.builder.remote(where)\n",
-     "library fetcher"),
-    ('settings = {"spark.jars.packages": "a:b:1"}\n', "library fetcher"),
     ('page = "https://x"\n', "URL"),
     ('where = f"ftp://{host}/file"\n', "URL"),
     ('def f():\n    """Run it:\n\n    >>> import requests\n    """\n', "network"),
@@ -93,10 +89,7 @@ def test_each_forbidden_form_is_found_in_the_toolbox(text: str, kind: str) -> No
     ("from concurrent.futures import ProcessPoolExecutor\n", "process"),
     ("import pandas as pd\npd.io.parsers.read_csv(path)\n", "library fetcher"),
     ("import numpy as np\nnp.lib.npyio.loadtxt(path)\n", "library fetcher"),
-    ("from pyspark.sql import SparkSession as S\nS.builder.appName('x').remote(where)\n",
-     "library fetcher"),
     ("page = 'https:' + '//x'\n", "URL"),
-    ("builder.config('spark.' + 'remote', where)\n", "library fetcher"),
 ])
 def test_a_disguised_form_is_found_too(text: str, kind: str) -> None:
     assert kind in kinds(text)

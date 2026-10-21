@@ -161,9 +161,7 @@ def drop_days(t, before):
     isn't one of your Saved tables.
 
     Hive takes a comparison such as dt < '2025-01-01' in DROP PARTITION, so one Statement drops
-    them all. Spark takes only = there, one day at a time, so Spark refuses this Statement: if
-    Spark rather than Hive runs your tables, ask whoever looks after them. The Example
-    database, which is never written to, doesn't run it either.
+    them all. The Example database, which is never written to, doesn't run it.
 
     >>> from sqlglot_composer import admin
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
@@ -220,8 +218,7 @@ def add_columns(t, send):
     the same send. The rows already in the table read NULL in a new column until their day is
     written again. For a table with a Date partition it writes CASCADE: each day already there
     gets the new columns too. Without it, each of those days would keep its old list of
-    columns, and a day written again would lose the new columns' values. Spark refuses
-    CASCADE, so if Spark rather than Hive runs your tables, ask whoever looks after them first.
+    columns, and a day written again would lose the new columns' values.
 
     It refuses a table that isn't one of your Saved tables, a Table reference with no new
     column, a new column that isn't after the table's own, and a new Partition, which a table

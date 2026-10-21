@@ -275,9 +275,7 @@ ValueError:
 
 Send the steps in their order, each once the one before has worked: the drop is sent only
 after the compare step gave back no rows. Running only some of them, or the drop on its own,
-can lose days the copy doesn't hold. If Spark rather than Hive runs your tables, ask whoever
-looks after them first: Spark runs each of these steps, but may keep a managed table its own
-way.
+can lose days the copy doesn't hold.
 
 ## Next
 

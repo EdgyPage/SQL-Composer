@@ -280,8 +280,7 @@ GROUP BY
 
 The rows are the same with it or without it: it only changes how the work is done. Usually
 you don't need the hint, though: with "map_joins" sent, Hive makes map joins by itself, from
-the tables' sizes and statistics. Where your send runs the Hive on Spark, as spark.sql does,
-Spark heeds the hint always. Ask for it only for a table you know is small: copied to every
+the tables' sizes and statistics. Ask for it only for a table you know is small: copied to every
 worker, a big table can run them out of memory.
 
 ## Check it worked

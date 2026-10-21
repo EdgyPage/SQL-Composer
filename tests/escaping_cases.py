@@ -62,7 +62,7 @@ STRING_CASES: tuple[tuple[str, str, str], ...] = (
     ("injection_drop", DROP_PAYLOAD, r"'\'; DROP TABLE mart.deliveries; --'"),
     ("escaped_quote_injection", ESCAPED_QUOTE_INJECTION, r"'\\\' OR \'1\'=\'1'"),
     # Six more control characters, pinned as sqlglot writes them today. It writes BEL, FF, VT
-    # and backspace as \a \f \v \b and reads them back itself, but Hive's and Spark's readers
+    # and backspace as \a \f \v \b and reads them back itself, but Hive's reader
     # may take \a \f \v for the letters a f v. NUL and SUB reach the text raw. The Toolbox
     # refuses the first three (REFUSED_CONTROL_CHARACTERS, below) and writes the rest as they are.
     ("bell", "a\x07b", r"'a\ab'"),
@@ -74,7 +74,7 @@ STRING_CASES: tuple[tuple[str, str, str], ...] = (
 )
 
 REFUSED_CONTROL_CHARACTERS = frozenset({"bell", "form_feed", "vertical_tab"})
-r"""Cases the Toolbox refuses in a value: sqlglot writes them as \a \f \v, which Hive and Spark
+r"""Cases the Toolbox refuses in a value: sqlglot writes them as \a \f \v, which Hive may
 read as the letters a f v, so the value would quietly change. Their rows above still pin what
 sqlglot writes, for sqlglot's own tests; the Toolbox never writes them."""
 

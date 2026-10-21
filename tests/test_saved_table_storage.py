@@ -123,8 +123,6 @@ def test_create_table_refuses_a_table_with_no_location() -> None:
     ({"location": BASE, "properties": {"orc.compress": "SNAPPY"}}, "write compression="),
     ({"location": BASE, "properties": {"EXTERNAL": "TRUE"}}, "always makes a Saved table"),
     ({"location": BASE, "properties": {"a": True}}, "properties= has 'a': True"),
-    ({"location": BASE, "properties": {"Owner": "me"}}, "Spark keeps that property"),
-    ({"location": BASE, "properties": {"comment": "runs"}}, "Spark keeps that property"),
     ({"location": BASE, "properties": ["a"]}, "isn't a dict"),
     ({"location": BASE, "partitioned_by": ["dt"]}, "names 'dt', which is already a Partition"),
     ({"location": BASE, "partitioned_by": ["nope"]}, "partitioned_by names 'nope'"),
@@ -244,9 +242,10 @@ PARQUET_INPUT = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
 def formatted(location="hdfs://namenode:8020/data/your_team/tables/mart/daily_runs",
               kind="EXTERNAL_TABLE", parameters=(("EXTERNAL", "TRUE"),), input_format=ORC_INPUT,
               partitions=("dt",), buckets=-1, bucket_columns="[]", sort_columns="[]",
-              spark=False):
+              one_line=False):
     """A stand-in for `send` at work, answering DESCRIBE FORMATTED for mart.daily_runs as Hive 3
-    prints it, or as Spark does, and SHOW PARTITIONS with one day."""
+    prints it, or as some warehouses do, with the table properties on one line, and SHOW
+    PARTITIONS with one day."""
     columns = [("job_id", "bigint"), ("runs", "bigint")]
 
     def send(hive: str) -> pd.DataFrame:
@@ -254,7 +253,7 @@ def formatted(location="hdfs://namenode:8020/data/your_team/tables/mart/daily_ru
             return pd.DataFrame({"partition": ["dt=2026-09-24"]})
         assert hive == "DESCRIBE FORMATTED mart.daily_runs", hive
         typed = [(name, "string") for name in partitions]
-        if spark:
+        if one_line:
             rows = [(name, kind_, None) for name, kind_ in columns + typed]
         else:
             rows = [("# col_name", "data_type", "comment"), *[(n, k, "") for n, k in columns],
@@ -262,7 +261,7 @@ def formatted(location="hdfs://namenode:8020/data/your_team/tables/mart/daily_ru
         rows += [("# Partition Information", None, None), ("# col_name", "data_type", "comment"),
                  *[(name, kind_, "") for name, kind_ in typed], ("", None, None),
                  ("# Detailed Table Information", None, None)]
-        if spark:
+        if one_line:
             listed = ", ".join(f"{name}={value}" for name, value in parameters)
             rows += [("Database", "mart", ""), ("Type", kind.replace("_TABLE", ""), ""),
                      ("Table Properties", f"[{listed}]", ""), ("Location", location, ""),
@@ -291,22 +290,22 @@ def checked(send, **storage) -> str:
     return str(check_table_reference(saved(**storage), send=send))
 
 
-@pytest.mark.parametrize("spark", [False, True], ids=["hive", "spark"])
-def test_a_saved_table_stored_as_its_reference_says_matches(spark: bool) -> None:
-    location = ("file:/data/your_team/tables/mart/daily_runs" if spark
+@pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
+def test_a_saved_table_stored_as_its_reference_says_matches(one_line: bool) -> None:
+    location = ("file:/data/your_team/tables/mart/daily_runs" if one_line
                 else "hdfs://namenode:8020/data/your_team/tables/mart/daily_runs")
-    assert checked(formatted(location=location, spark=spark)) == (
+    assert checked(formatted(location=location, one_line=one_line)) == (
         "mart.daily_runs matches its Table reference.")
 
 
-@pytest.mark.parametrize("spark", [False, True], ids=["hive", "spark"])
-def test_every_storage_option_is_compared(spark: bool) -> None:
-    send = formatted(spark=spark, parameters=[("external.table.purge", "true"),
+@pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
+def test_every_storage_option_is_compared(one_line: bool) -> None:
+    send = formatted(one_line=one_line, parameters=[("external.table.purge", "true"),
                                               ("parquet.compression", "SNAPPY"),
                                               ("made_by", "runs")],
                      input_format=PARQUET_INPUT, partitions=("dt", "region"), buckets=8,
-                     bucket_columns="[`job_id`]" if spark else "[job_id]",
-                     sort_columns="[`job_id`]" if spark else "[Order(col:job_id, order:1)]")
+                     bucket_columns="[`job_id`]" if one_line else "[job_id]",
+                     sort_columns="[`job_id`]" if one_line else "[Order(col:job_id, order:1)]")
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                           "region": "string", "dt": "string"},
               date_partition="dt", location=BASE, purge=True, properties={"made_by": "runs"},

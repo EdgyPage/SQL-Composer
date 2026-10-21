@@ -138,8 +138,7 @@ day stay in the Saved table until you drop that day.
 some columns, and `sorted_by=` sorts the rows in each. A join on those columns can then pair
 file with file instead of reading everything. It pays off only on big tables, tens of millions
 of rows a day, joined on those columns; and changing it means writing the whole table again.
-Where Spark writes the table, rather than Hive, ask whoever looks after it first: Spark may
-refuse to write a table with Buckets, or write it without them. Most Saved tables need none:
+Most Saved tables need none:
 
 >>> run_facts = Table(
 ...     "mart.run_facts",
@@ -166,7 +165,7 @@ LOCATION '/data/your_team/tables/mart/run_facts'
 
 ### Why there are no indexes
 
-Hive removed indexes in its version 3, and Spark never had them, so the Toolbox writes none.
+Hive removed indexes in its version 3, so the Toolbox writes none.
 What makes a read fast instead:
 
 - Partitions: a Statement that bounds the Date partition, as every Load limit insists, opens

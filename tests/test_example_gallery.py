@@ -268,7 +268,7 @@ def test_the_page_names_no_folder_a_toolbox_user_does_not_have() -> None:
 
 def test_the_page_names_no_dropped_folder() -> None:
     page = GALLERY.read_text(encoding="utf-8")
-    assert [name for name in ("spark_composer", "Spark Composer") if name in page] == []
+    assert [name for name in ("composer_core", "Composer core") if name in page] == []
 
 
 def test_a_scripts_statements_are_found_on_the_example_day() -> None:

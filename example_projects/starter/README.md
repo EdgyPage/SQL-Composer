@@ -109,7 +109,7 @@ by its name, such as `-- 4 of 6: write_daily_job_runs`, without sending anything
 The scripts import the Toolbox as `from sqlglot_composer import ...`.
 
 Each step that runs takes `send=`: a function that takes a Hive string and returns a pandas
-DataFrame, such as `lambda hive: spark.sql(hive).toPandas()` at work. Here it is
+DataFrame, which at work calls your team's query API. Here it is
 `example_database.send`. The Example database can be read but not written, so try the
 `preview` steps there, in Python started in this folder:
 

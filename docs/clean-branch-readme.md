@@ -44,9 +44,7 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 
 The Toolbox never connects to anything itself: it writes Hive as text, and `run` hands that text
 to a function of yours, `send`, which runs it and gives back a pandas DataFrame. From a query
-API, `send` is such as `lambda hive: pd.DataFrame(my_api.query(hive))`; from a notebook with a
-`spark` session that reads the warehouse's tables, it is `lambda hive: spark.sql(hive).toPandas()`
-(see [If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark)).
+API, `send` is such as `lambda hive: pd.DataFrame(my_api.query(hive))`.
 
 The how-to [Start a notebook](../sqlglot_composer/how_to.html#start_a_notebook) walks through the
 first cells, your send among them, and the mistakes people make first.
@@ -217,41 +215,12 @@ Template needs first. Below, the starter set is listed in the order to use it.
 
 <!-- TEMPLATES -->
 
-## If your send runs the Hive on Spark
-
-The Toolbox writes Hive. Spark runs nearly all of it as Hive does, but not quite all:
-
-- With `spark.sql.ansi.enabled` on, Spark 4's default, Spark stops a whole query that divides by
-  0, where Hive gives NULL. Where a divisor could be 0, run the Statement on Spark once before
-  you rely on it.
-- Spark reads a number such as 0.5 as an exact DECIMAL, where Hive reads a DOUBLE.
-- A Saved table's Key in `CREATE TABLE`, `PRIMARY KEY (...) DISABLE NOVALIDATE`, is refused by
-  Spark. Create your Saved tables where Hive runs, or ask whoever looks after the warehouse.
-- `admin.drop_days`, which drops a range of old days at once, is Hive's: Spark refuses it, so
-  ask whoever looks after your tables how old days are dropped there.
-
-Check one setting once, by hand, in your notebook's Spark:
-`spark.conf.get("spark.sql.parser.escapedStringLiterals")` should be `"false"`, Spark's default.
-Set to `"true"`, Spark reads a backslash in a value as itself, so a value with a backslash in
-it, and the `%` or `_` that `contains` and `starts_with` match as themselves, would come out
-wrong. If it is `"true"`, ask whoever looks after your Spark whether it can be `"false"`, or run
-`spark.conf.set("spark.sql.parser.escapedStringLiterals", "false")` in your notebook first.
-
-Before you read or write a Saved table, check it isn't a Hive ACID table: one Hive keeps its
-own way, so that single rows can be changed. Spark can't read or write those as it reads other
-tables. `spark.sql("SHOW TBLPROPERTIES mart.daily_runs").toPandas()` lists a table's properties,
-and an ACID table has `transactional` set to `true`. A table `create_table` makes is never
-one, since Hive makes only its own managed tables ACID, and `create_table` makes external
-ones. If a table you read is one, ask whoever looks after the warehouse for a table Spark can
-read, one with `transactional` set to `false`.
-
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as
    `'sqlglot Composer 5.1, exported ...'`.
 2. Delete the `sqlglot_composer` folder, and any `composer_core` folder beside it, left over from
-   before 6.0. Using Spark Composer? Delete `spark_composer` too, and install sqlglot, as Install
-   says.
+   before 6.0.
 3. From the new download, copy in the whole `sqlglot_composer` folder.
 4. Restart the kernel, which still holds the old code.
 5. In `CHANGES.md`, at the top of the download, read the "To update" part of every version newer

@@ -10,7 +10,7 @@ and a `Literal`, and to_hive builds a whole Statement as one, from `Select` or `
 order, because the lineage lists a calculation's columns in the order a breadth-first walk finds
 them, and that order must not change.
 
-This file also says which names Hive and Spark need in backticks, which column types
+This file also says which names Hive needs in backticks, which column types
 create_table takes, which functions hive_function knows turn many rows into one, which it
 refuses because they work only over a window, and how many arguments it lets some functions
 take.
@@ -45,9 +45,9 @@ HIVE_ESCAPES = {
     "\x08": "\\b",
 }
 
-# Hive's and Spark's reserved words: a name that is one of these must be written in backticks.
-# The last four lines are the words Spark reserves in any of its keyword modes, or won't take
-# as the name FROM gives a table, and Hive doesn't reserve; the very last, those 4.2 added.
+# Hive's reserved words, and words the SQL standard reserves: a name that is one of these is
+# written in backticks, which Hive always takes. The last four lines are the standard's words
+# Hive doesn't reserve itself, kept in backticks so a name means the same wherever it is sent.
 HIVE_RESERVED = frozenset(
     """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
     CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
@@ -68,9 +68,8 @@ HIVE_RESERVED = frozenset(
 )
 
 # The functions hive_function may be given by name that turn many rows into one, as SUM and
-# COUNT do: every one Spark's own list of functions puts among its aggregates at 3.5.0, 4.0.4
-# and 4.2.0 (the last five lines, those added after 4.0.4), and Hive's, most of which are
-# among them.
+# COUNT do: Hive's, and those of the wider SQL some warehouses run beside it (the last five
+# lines, the newest).
 HIVE_AGGREGATES = frozenset(
     """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
     bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set context_ngrams
@@ -97,8 +96,8 @@ WINDOW_FUNCTIONS = frozenset(
 
 
 # How many arguments a function hive_function may call takes: (fewest, most), with most None
-# when there is no upper limit. Where Hive and Spark both have the function, it is the count both
-# take; where only Spark has it, such as count_if, the count Spark takes at 3.5.0, 4.0.4 and 4.2.0.
+# when there is no upper limit. Where Hive has the function, it is the count Hive takes; for
+# one of the wider SQL's, such as count_if, the count it takes there.
 # hive_function counts a call's arguments by this list; a function not listed
 # here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {
@@ -148,11 +147,11 @@ def arguments_text(fewest: int, most: int | None) -> str:
     return "1 argument" if fewest == 1 else f"{fewest} arguments"
 
 
-# The column types create_table takes: the ones Hive and Spark share, written as DESCRIBE
+# The column types create_table takes: Hive's, written as DESCRIBE
 # prints them. decimal takes (precision,scale), such as decimal(10,2), varchar and char take
 # (length), and array, map and struct hold other types, as in array<string>, map<string,int>
 # and struct<name:string,runs:int>: a map's key is a single value, and a struct's names are
-# plain words, not ones Hive or Spark reserve.
+# plain words, not ones Hive reserves.
 HIVE_TYPES = frozenset(
     """tinyint smallint int bigint float double decimal string varchar char boolean date
     timestamp binary array map struct""".split()
@@ -188,7 +187,7 @@ def _after_type(text: str) -> str | None:
 
 
 def _sizes_fit(word: str, size: str, scale: str | None) -> bool:
-    """Whether Hive and Spark take these sizes: decimal(precision,scale), with the scale no
+    """Whether Hive takes these sizes: decimal(precision,scale), with the scale no
     more than the precision, or varchar(length) or char(length)."""
     if word == "decimal":
         return scale is not None and 1 <= int(size) <= _LARGEST[word] and int(scale) <= int(size)
@@ -229,7 +228,7 @@ def _after_field_name(text: str) -> str | None:
 
 
 def plain_name(name: str) -> bool:
-    """Whether Hive and Spark can take the name as it is; any other name goes in backticks."""
+    """Whether Hive can take the name as it is; any other name goes in backticks."""
     return bool(SIMPLE_NAME.fullmatch(name)) and name.upper() not in HIVE_RESERVED
 
 

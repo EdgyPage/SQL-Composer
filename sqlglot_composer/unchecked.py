@@ -67,8 +67,8 @@ def hive_settings(*names, sets=None):
 
     Hive keeps a Session setting for the rest of the session, so send them first, then your
     Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own, and
-    gives back None. They hold only while your send keeps one session across its calls, as
-    spark.sql does in one notebook: if each call of your send opens a new session, each SET is
+    gives back None. They hold only while your send keeps one session across its calls: if
+    each call of your send opens a new session, each SET is
     gone before your Statement runs. show_hive prints them, and export_lineage, passed them
     with the Statements, writes them at the foot of both its files.
 
