@@ -28,6 +28,7 @@ DAY = "2026-09-24"  # the Example database's last day
 
 # %%
 # logic
+# 2. The logic: imports and functions only
 from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, by_day, create_table, statement
 from building_blocks.runs_per_job_day import runs_per_job_day
 from references.mart__daily_job_runs import daily_job_runs
@@ -42,8 +43,9 @@ def create():
 
 def rows(first_day, last_day):
     """The clauses every step below shares: each job's numbers per day, from the Building
-    block. The day, dt, isn't selected: INSERT_OVERWRITE writes it as the partition, from the
-    Building block's bound on ops.job_runs."""
+    block. The day, dt, isn't selected: INSERT_OVERWRITE(daily_job_runs) writes it in
+    PARTITION(dt = '...') itself, reading it from the Building block's
+    between(job_runs.dt, first_day, last_day). Cell 3 prints the Hive it makes."""
     per_job_day = runs_per_job_day(first_day, last_day)
     return [
         SELECT(per_job_day.job_id, per_job_day.runs, per_job_day.failed_runs,

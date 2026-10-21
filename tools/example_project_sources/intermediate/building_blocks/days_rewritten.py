@@ -1,9 +1,11 @@
 """days_rewritten - the days each run writes again: its own, and the two before it.
 
-Why: a bill or an event can come in a day or two after its day was saved, so every table of
-the project writes its last 3 days on each run, and naming the 3 once here keeps them alike.
+Why: a bill or an event can come in a day or two after its day was saved, so each table of
+the project that counts or adds up rows writes its last 3 days on each run, and naming the 3
+once here keeps them alike.
 
 A day written again replaces itself, so writing a day twice does no harm.
+mart.job_events_checks writes only its day, since a check is of what was in on the day it ran.
 """
 
 import datetime

@@ -28,6 +28,7 @@ DAY = "2026-09-24"  # the Example database's last day
 
 # %%
 # logic
+# 2. The logic: imports and functions only
 import datetime
 
 from sqlglot_composer import (
@@ -50,9 +51,10 @@ def create():
 
 
 def rows(first_day, last_day):
-    """The clauses every step below shares: each job's alerts per day of run_alerts, the table
-    in FROM, whose day INSERT_OVERWRITE writes as the table's Date partition. by_day leaves the
-    joined job_runs' bound as written, from the day before first_day."""
+    """The clauses every step below shares: each job's alerts per day. INSERT_OVERWRITE
+    writes the partition's day from the bound on run_alerts, the table in FROM. job_runs is
+    joined from the day before first_day too, since an alert can come the day after its run;
+    a backfill's by_day cuts only FROM's bound into days, so this one is kept as written."""
     return [
         SELECT(job_runs.job_id, AS(count_rows(), "alerts"),
                AS(count_rows(where=high), "high_alerts")),

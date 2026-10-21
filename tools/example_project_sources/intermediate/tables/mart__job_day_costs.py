@@ -8,8 +8,8 @@
 #
 # Made by `project.new_table("mart.job_day_costs", template="incremental_load")`, then filled
 # in. Its rows come from the Building block `building_blocks/costs_per_job_day.py`, and the days
-# each run writes from `building_blocks/days_rewritten.py`, which every table of the project
-# shares. A bill lands in the partition of the day it is for, but can come in later:
+# each run writes from `building_blocks/days_rewritten.py`, which each counting table of the
+# project shares. A bill lands in the partition of the day it is for, but can come in later:
 # invoice_sync's (job 2's) for 2026-09-24 is still NULL in ops.region_costs, and the next run
 # that writes the day again saves it.
 #
@@ -63,7 +63,8 @@ def write_days(first_day, last_day):
 
 
 def write_day(day):
-    """Step 3, every run: the writes of the last 3 days, ending on the day, oldest first."""
+    """Step 3, every run: the writes of the last 3 days, ending on the day, as a list, oldest
+    first, so cell 3 passes them on as *write_day(DAY). run_tables sends each in turn."""
     return write_days(first_day_written(day), day)
 
 # %%

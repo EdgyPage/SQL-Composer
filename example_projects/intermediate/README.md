@@ -5,9 +5,11 @@ A Project made for the Example database's tables `ops.job_events`, `ops.job_owne
 Project actions, then filled in by hand, as you fill in your own. It builds on the starter
 Example project: read that one first.
 
-Rows can come in late here, a bill a day or two after its day, so every table writes its last
-3 days again on each run, and a day written again replaces itself. The number 3 is written
-once, in `building_blocks/days_rewritten.py`, which every table reads.
+Rows can come in late here, a bill a day or two after its day, so each table that counts or
+adds up rows writes its last 3 days again on each run, and a day written again replaces
+itself. The number 3 is written once, in `building_blocks/days_rewritten.py`, which those
+tables read. `mart.job_events_checks` writes only the day: a check is of the rows in on the
+day it runs, and a check written again later would hide what was missing then.
 
 It builds four Saved tables, each in a Table folder of its own, each from a different
 Template:
