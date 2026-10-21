@@ -9,8 +9,11 @@ notebook's logic cell, import it and read it like a table:
 
     from building_blocks.<BLOCK> import <BLOCK>
 
-    rows = <BLOCK>(day, day)
-    statement(SELECT(rows.<GROUP_COLUMN>, rows.row_count), FROM(rows))
+
+    def preview(day):
+        per_group = <BLOCK>(day, day)
+        return statement(SELECT(per_group.<GROUP_COLUMN>, per_group.row_count),
+                         FROM(per_group))
 
 Fill in every <...>:
     <BLOCK> and <BLOCK_NAME>: its name, as a name and in quotes, such as minutes_per_job_day
