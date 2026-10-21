@@ -172,7 +172,7 @@ def test_write_table_reference_on_job_events(tmp_path, monkeypatch) -> None:
     ], ['    date_partition="dt",'], "event_id", [
         '"event_type": "start / finish / retry / fail",',
         '"minutes": "minutes since the run started",',
-    ], "event_id")
+    ], "event_type")
     assert path.name == "ops__job_events.py"
 
 
