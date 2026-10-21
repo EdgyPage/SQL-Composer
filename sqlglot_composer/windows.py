@@ -29,7 +29,8 @@ VALUE = "a value"  # first_value, last_value: ORDER_BY; rows= left out is the wh
 class Window:
     """The rows a calculation looks across for each row, made by window(...) for over=.
 
-    Make one with window(...), never Window(). Write the name in a type hint, to say that a function of yours gives back a Window:
+    Make one with window(...), never Window(). Write the name in a type hint, to say that a
+    function of yours gives back a Window:
 
     >>> def each_jobs_runs_in_order() -> Window:
     ...     return window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])

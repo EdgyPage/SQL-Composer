@@ -183,6 +183,11 @@ def send(hive: str) -&gt; pd.DataFrame:
 def send(hive: str) -&gt; pd.DataFrame:
     rows = my_api.query(hive)  # your team&#x27;s own call that runs Hive text goes here
     return pd.DataFrame(rows)</pre>
+<p><code>hive: str</code> and <code>-&gt; pd.DataFrame</code> are type hints: they say a Hive string goes in and a DataFrame comes out, and Python doesn&#x27;t check them. A function of yours that takes your send hints it as a function that takes one <code>str</code> and gives back a DataFrame, as later how-tos do:</p>
+<pre class="python">from collections.abc import Callable
+
+def run_today(send: Callable[[str], pd.DataFrame]) -&gt; None:
+    ...</pre>
 <p>This works when your API gives each row as a dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>: <code>pd.DataFrame(rows)</code> takes the column names from its keys. If it gives each row as a tuple, it gives the column names apart too, as a database cursor does in <code>cursor.description</code>. Pass those names on; don&#x27;t type them yourself, since each Statement has its own columns:</p>
 <pre class="python">def send(hive: str) -&gt; pd.DataFrame:
     cursor.execute(hive)  # your team&#x27;s own cursor, from its database library

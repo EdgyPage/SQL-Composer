@@ -231,7 +231,8 @@ def add_columns(t: Table, send: Callable[[str], pd.DataFrame]) -> Statement:
 
     >>> import pandas as pd
     >>> from sqlglot_composer import admin
-    >>> def send_at_work(hive):  # the warehouse's answer to DESCRIBE mart.daily_runs
+    >>> # the warehouse's answer to DESCRIBE mart.daily_runs
+    >>> def send_at_work(hive: str) -> pd.DataFrame:
     ...     return pd.DataFrame([
     ...         ("job_id", "bigint", ""), ("runs", "bigint", ""),
     ...         ("# Partition Information", None, None), ("dt", "string", ""),
@@ -432,7 +433,8 @@ def move_to_own_folder(t: Table,
 
     >>> import pandas as pd
     >>> from sqlglot_composer import admin
-    >>> def send_at_work(hive):  # the warehouse, with mart.daily_runs in a shared folder
+    >>> # the warehouse, with mart.daily_runs in a shared folder
+    >>> def send_at_work(hive: str) -> pd.DataFrame:
     ...     if hive.startswith("SHOW PARTITIONS"):
     ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
     ...     return pd.DataFrame([

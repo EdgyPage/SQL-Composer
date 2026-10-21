@@ -3398,7 +3398,7 @@ WHERE
 <p>It refuses a table that isn&#x27;t one of your Saved tables, a Table reference with no new column, a new column that isn&#x27;t after the table&#x27;s own, and a new Partition, which a table can&#x27;t gain: create a new table with it, and copy the days in.</p>
 <pre class="python">import pandas as pd</pre>
 <pre class="python">from sqlglot_composer import admin</pre>
-<pre class="python">def send_at_work(hive):  # the warehouse&#x27;s answer to DESCRIBE mart.daily_runs
+<pre class="python">def send_at_work(hive: str) -&gt; pd.DataFrame:
     return pd.DataFrame([
         (&quot;job_id&quot;, &quot;bigint&quot;, &quot;&quot;), (&quot;runs&quot;, &quot;bigint&quot;, &quot;&quot;),
         (&quot;# Partition Information&quot;, None, None), (&quot;dt&quot;, &quot;string&quot;, &quot;&quot;),
@@ -3471,7 +3471,7 @@ DROP TABLE IF EXISTS mart.daily_runs;</pre>
 <p>So a table with two days takes seven Statements, moves[0] to moves[6]. Each can be sent again until the old table is dropped: if one fails, fix what it says, and send them again from the first. Rows with no day aren&#x27;t copied, and go with the old table. The rows are copied as the old table reads them, so where two tables shared a day&#x27;s folder, each read the other&#x27;s rows too: check them first, or write the days again from their source instead. It refuses a table that isn&#x27;t one of your Saved tables, one already at its own folder, and one that lacks a column of its Table reference. The Example database is never written to, so it doesn&#x27;t run the steps.</p>
 <pre class="python">import pandas as pd</pre>
 <pre class="python">from sqlglot_composer import admin</pre>
-<pre class="python">def send_at_work(hive):  # the warehouse, with mart.daily_runs in a shared folder
+<pre class="python">def send_at_work(hive: str) -&gt; pd.DataFrame:
     if hive.startswith(&quot;SHOW PARTITIONS&quot;):
         return pd.DataFrame({&quot;partition&quot;: [&quot;dt=2026-09-23&quot;, &quot;dt=2026-09-24&quot;]})
     return pd.DataFrame([
@@ -3582,7 +3582,7 @@ project.register(...).</pre>
 tables/ and send.py. Next: write your send in send.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;admin/templates/plain.py&quot;).write_text(
-    &quot;# %%\n# logic\ndef write_day(day):\n    return day\n&quot;)</pre>
+    &quot;# %%\n# logic\ndef write_day(day: str) -&gt; str:\n    return day\n&quot;)</pre>
 <pre class="python">_ = project.new_table(&quot;mart.daily_job_runs&quot;, template=&quot;plain&quot;)</pre>
 <pre class="python">logic = project.load(&quot;mart.daily_job_runs&quot;)</pre>
 <pre class="python">logic</pre>
