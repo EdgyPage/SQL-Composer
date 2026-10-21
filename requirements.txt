@@ -1,7 +1,8 @@
 # What the Toolbox needs beyond Python's standard library, every package pinned to the version it
 # is tested on, the packages those need in turn included.
 # Install with: pip install -r requirements.txt
-# The pins are for Python 3.12: numpy 2.5.4 has no builds for Python 3.11.
+# The pins are for Python 3.12. On Python 3.11, numpy 2.5.4 can't install: change its line to
+# numpy==2.4.6, which pandas 3.0.6 runs on there.
 
 pandas==3.0.6
 numpy==2.5.4
@@ -9,7 +10,8 @@ numpy==2.5.4
 python-dateutil==2.9.0.post0
 tzdata==2026.5
 six==1.17.0
-# pandas 3 no longer needs pytz; it stays pinned, as the user chose (2026-10-20)
+# pytz, time zones: pandas 2 needed it and pandas 3 doesn't. It is kept for code of your own that
+# still imports it; delete its line if nothing of yours does.
 pytz==2026.5
 
 sqlglot==30.23.0

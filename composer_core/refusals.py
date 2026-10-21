@@ -601,7 +601,7 @@ _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column name
 def refuse_what_the_other_edition_made(value, call: str) -> None:
     """Refuse an object another Toolbox folder made, before it is called the wrong kind of thing.
 
-    Both Editions make their objects with composer_core's code, so what is left to refuse is an
+    The Toolbox makes its objects with composer_core's code, so what is left to refuse is an
     object from a Toolbox folder of an earlier version, such as a Table reference file that
     still imports a folder left over from 3.x. Each folder is known by the module the object's
     class is in.

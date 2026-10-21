@@ -168,6 +168,8 @@ the function gives: every team in capitals, and a contact for every job.
 >>> int(result["contact"].isna().sum())
 0
 
+`int(...)` makes the count a plain number, which numpy would otherwise print as np.int64(0).
+
 ## Common mistakes
 
 ### A column's name as text

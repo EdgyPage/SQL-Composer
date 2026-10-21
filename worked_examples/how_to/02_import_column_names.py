@@ -48,9 +48,9 @@ through the Example database's send:
 7                       dt     string
 
 The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next
-section: its name is empty, and its other two cells are missing, NULL in Hive, which this page
-shows as NULL and pandas in your notebook as NaN. The rows under `# Partition Information` say
-which column splits the table into days: dt, its Date partition.
+section: its name is empty, and its other two cells are missing, NULL in Hive, which the table
+on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under
+`# Partition Information` say which column splits the table into days: dt, its Date partition.
 
 ### Write one table's Table reference
 
@@ -215,7 +215,8 @@ WHERE
 4      99       1     TEST              5             0.0  2026-09-23
 
 Run 98 is still running, so its status and its avg_retry_secs are missing: NULL. pandas shows
-a missing value as NaN, a missing number and missing text alike.
+a missing value as NaN, a missing number and missing text alike (pandas 2 showed missing text
+as None).
 
 ### Build a SELECT from a list of column names
 

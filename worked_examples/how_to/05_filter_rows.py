@@ -25,7 +25,7 @@ runs that took too long.
 
 `ops.job_runs` holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still
 running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in
-your notebook as NaN.
+your notebook, pandas 3, as NaN.
 
 ### Give the days to read
 

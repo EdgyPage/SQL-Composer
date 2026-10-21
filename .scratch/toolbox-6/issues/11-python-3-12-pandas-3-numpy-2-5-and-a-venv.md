@@ -41,3 +41,19 @@ Built 2026-10-20 in the commit that also raises the Toolbox to 6.0.
     own hint shows, on 3.11 and 3.12 alike. pandas 3's MergeError lists the duplicates under its
     message: how-to 28 expects `...` after it.
 - The golden corpus, rewritten at the sqlglot pin, didn't change.
+
+### Reviews
+
+- Code review (spec and standards, 2026-10-20): no wrong implementation and no hard breach. The
+  standards axis found two-Edition wording left in docstrings (`tables.readable`, `refusals`),
+  an unclear `obj=None` comment and an unexplained pytz pin, all fixed in the follow-up commit;
+  the two "read a missing cell as None" lines in the Example database tests are left as two, by
+  standards.md's preference for repetition over a clever helper.
+- Beginner reader (2026-10-20): the pytz comment, the Python 3.11 install advice, "NaN" without
+  "pandas 3", the unexplained `int(...)` and a 5.x user's missing pointer to the 6.0 notes were
+  its costliest stops, all fixed in the follow-up commit. On Python 3.11, `requirements.txt`
+  and the README now say to pin numpy 2.4.6, which pandas 3.0.6 was checked to run on.
+- Drift review of 6d4e971: D198 (CLAUDE.md's export command), D199 (how-to 36 still showed None,
+  its pandas stand-ins made None of NaN) and D200 (the Example database's "None first"), fixed in
+  the follow-up commit. `edition.py`'s two-Edition docstring and its unreachable second-Edition
+  refusal go with ticket 03, which removes the plug.

@@ -250,7 +250,7 @@ run(failed, send=send_without_a_dataframe)</pre>
 <tr><td># col_name</td><td>data_type</td><td>comment</td></tr>
 <tr><td>dt</td><td>string</td><td></td></tr>
 </table></div>
-<p>The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next section: its name is empty, and its other two cells are missing, NULL in Hive, which this page shows as NULL and pandas in your notebook as NaN. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
+<p>The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next section: its name is empty, and its other two cells are missing, NULL in Hive, which the table on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
 <h5>Write one table&#x27;s Table reference</h5>
 <p><code>write_table_reference</code> sends those two commands through your send and turns what comes back into a Table reference file. It writes the file in the folder your notebook runs in, named after the table, and gives back the file&#x27;s path:</p>
 <pre class="python">path = write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
@@ -402,7 +402,7 @@ WHERE
 <tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
 <tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
 </table></div>
-<p>Run 98 is still running, so its status and its avg_retry_secs are missing: NULL. pandas shows a missing value as NaN, a missing number and missing text alike.</p>
+<p>Run 98 is still running, so its status and its avg_retry_secs are missing: NULL. pandas shows a missing value as NaN, a missing number and missing text alike (pandas 2 showed missing text as None).</p>
 <h5>Build a SELECT from a list of column names</h5>
 <p>Each column of a Table reference is one of its attributes, such as <code>job_runs.status</code>. When the names you want come as text, from a list in your settings or from another table&#x27;s columns, the built-in Python function <code>getattr</code> takes the attribute by its name, so the list of names becomes a list of columns:</p>
 <pre class="python">wanted = [&quot;run_id&quot;, &quot;status&quot;, &quot;duration_mins&quot;]
@@ -854,7 +854,7 @@ WHERE
 <pre class="python">from sqlglot_composer import *
 jobs = example_database.jobs
 job_runs = example_database.job_runs</pre>
-<p><code>ops.job_runs</code> holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in your notebook as NaN.</p>
+<p><code>ops.job_runs</code> holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in your notebook, pandas 3, as NaN.</p>
 <h5>Give the days to read</h5>
 <p>Each Statement on <code>job_runs</code> gives the first and the last day it reads, through its Date partition, <code>job_runs.dt</code>. There are three ways to write them:</p>
 <ul><li><code>equals(job_runs.dt, &quot;2026-09-24&quot;)</code> reads one day;</li><li><code>between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)</code> reads from the first day to the last, both included;</li><li><code>last_n_days(job_runs.dt, 7)</code> reads the 7 days before today, today itself left out.</li></ul>
@@ -6836,6 +6836,7 @@ list(result[&quot;team&quot;])</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;DATA&#x27;, &#x27;FINANCE&#x27;, &#x27;FINANCE&#x27;, &#x27;WEB&#x27;]</pre>
 <pre class="python">int(result[&quot;contact&quot;].isna().sum())</pre>
 <p class="label">Python shows</p><pre class="output">0</pre>
+<p><code>int(...)</code> makes the count a plain number, which numpy would otherwise print as np.int64(0).</p>
 <h4>Common mistakes</h4>
 <h5>A column&#x27;s name as text</h5>
 <p><code>hive_function</code> quotes text for you, so <code>&quot;team&quot;</code> is the word team, not the column. Every row gets the same value, and nothing stops it:</p>
@@ -9103,9 +9104,9 @@ GROUP BY
 <tr><td>finance</td><td>report_build</td><td>1</td><td>30</td></tr>
 </table></div>
 <p>Pasted into your own notebook, this <code>run</code>, and each <code>run</code> of subtotals below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which can&#x27;t make subtotals. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
-<p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas shows as <code>None</code> and the tables on this page as NULL: <code>&quot;job_name&quot;</code> in a team&#x27;s subtotal, and <code>&quot;team&quot;</code> too in the grand total.</p>
+<p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas 3 shows as NaN and the tables on this page as NULL: <code>&quot;job_name&quot;</code> in a team&#x27;s subtotal, and <code>&quot;team&quot;</code> too in the grand total.</p>
 <h5>Tell a subtotal row from a real NULL</h5>
-<p>A column can be empty in a real row too. On 2026-09-23 one run was still going, with no <code>job_runs.status</code> yet, so a rollup of <code>job_runs.status</code> has two rows with <code>None</code>:</p>
+<p>A column can be empty in a real row too. On 2026-09-23 one run was still going, with no <code>job_runs.status</code> yet, so a rollup of <code>job_runs.status</code> has two rows with NaN:</p>
 <pre class="python">runs_per_status = statement(
     SELECT(job_runs.status, AS(if_else(is_total(job_runs.status), 1, 0), &quot;subtotal&quot;),
            AS(count_rows(), &quot;runs&quot;)),
