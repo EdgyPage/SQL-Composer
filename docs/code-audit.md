@@ -144,7 +144,8 @@ Each is a choice, since the check would mostly find the repo's own ordinary code
 - `sys.path` writes, which every Table notebook's path lines make, and file deletes, which only
   tests and tools make, in temporary or generated folders.
 - A link off a page to a relative path, such as `examples.html#run`, which stays in the
-  download; a link with a scheme, `//`, `javascript:` or `data:` is found.
+  download; a link to `http(s):`, `ftp:`, `ws(s):`, `//`, `javascript:` or `data:` is found, and
+  one to `mailto:` or `file:` is not.
 - `exec_module`, a method on a loader the policy can't name; the calls that make a loader
   (`spec_from_file_location`, `module_from_spec`, `importlib.machinery`) are found instead.
 - A hook command is checked to run a file in `.claude/hooks/`, not that git tracks the file;
