@@ -13,7 +13,10 @@ What it looks for, in a Python file, by walking its syntax tree:
   `os.popen`, `os.spawn*`, `os.exec*`, `pty`, `ctypes`, `multiprocessing`;
 - **dynamic code:** `eval`, `exec`, `compile`, `__import__`, and `importlib.import_module`,
   `getattr`, `vars(module)[...]` or `module.__dict__[...]` on a module with a name that isn't
-  written out, or `from module import *`, which could reach any of the above unseen;
+  written out, or `from module import *`, which could reach any of the above unseen; and what
+  loads code from a file or from bytes: `runpy`, `pickle`, `marshal`, `shelve`, `zipimport`,
+  `importlib.machinery`'s loaders, and `importlib.util`'s `spec_from_file_location` and
+  `module_from_spec`;
 - **library fetcher:** a library function that downloads when given a URL or told to:
   `pd.read_*` and `np.loadtxt` / `genfromtxt` / `DataSource`;
 - **URL:** `http(s)://`, `ftp://` or `ws(s)://` in a string the code uses. A docstring, or any
@@ -36,7 +39,10 @@ template's placeholders, such as `<TABLE>`, are read as names, so it parses befo
 in.
 
 In a page (`.html`, `.js`), it looks for anything that loads or sends something outside the
-page: `external_references`.
+page, `external_references`: a source, a stylesheet, a fetch, a form, a link off the page or to
+`javascript:`, a `data:` URI, a page that sends itself elsewhere (`window.open`, `location =`, a
+meta refresh), and a script that runs text as code (`eval`, `new Function`, `setTimeout` given a
+string).
 
 What is allowed depends on the folder, strictest first:
 
@@ -98,11 +104,14 @@ PROCESS_FUNCTIONS = ("system", "popen", "startfile", "fork", "forkpty")
 PROCESS_PREFIXES = ("spawn", "exec", "posix_spawn")
 PROCESS_FUNCTION_MODULES = ("os", "posix", "nt")
 PROCESS_ASYNCIO = ("asyncio.create_subprocess_exec", "asyncio.create_subprocess_shell")
-DYNAMIC_FUNCTIONS = ("eval", "exec", "compile", "__import__", "importlib.__import__")
+DYNAMIC_FUNCTIONS = ("eval", "exec", "compile", "__import__", "importlib.__import__",
+                     "importlib.util.spec_from_file_location", "importlib.util.module_from_spec",
+                     "importlib.util.spec_from_loader")
 # The calls that import a module by its name, given as a string.
 IMPORTERS = ("importlib.import_module", "__import__", "importlib.__import__")
-# runpy runs a module or a file by its name.
-DYNAMIC_MODULES = ("runpy",)
+# runpy runs a module or a file by its name; the others load code from a file or from bytes.
+DYNAMIC_MODULES = ("runpy", "pickle", "_pickle", "cPickle", "marshal", "shelve", "dill",
+                   "cloudpickle", "zipimport", "importlib.machinery")
 FETCHER_MODULES = ("numpy.lib._datasource",)
 # numpy's functions that read a URL, wherever in numpy they are reached from.
 NUMPY_FETCHERS = ("loadtxt", "genfromtxt", "DataSource")
@@ -116,8 +125,13 @@ URL_START = r"\b(?:https?|ftp|wss?)://"
 URL = re.compile(URL_START, re.IGNORECASE)
 # What a page may not hold: anything that loads or sends something outside the page.
 PAGE_REFERENCE = re.compile(
-    r"\bsrc\s*=|<link\b|@import\b|\burl\s*\(|\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon"
-    r"|EventSource|<iframe\b|<object\b|<embed\b|\bimport\(|" + URL_START,
+    r"\bsrc\s*=|\bsrcset\s*=|<link\b|@import\b|\burl\s*\(|\bfetch\s*\(|XMLHttpRequest|WebSocket"
+    r"|sendBeacon|EventSource|<iframe\b|<object\b|<embed\b|\bimport\(|<form\b"
+    r"|\bhref\s*=\s*[\"']?\s*(?://|data:)|\bjavascript:|\bdata:[\w.+-]+/[\w.+-]+[;,]"
+    r"|\bwindow\.open\s*\(|\b(?:window|document|self|top)\.location\b(?:\.href)?\s*=(?!=)"
+    r"|\blocation\.href\s*=(?!=)|\blocation\.(?:assign|replace)\s*\("
+    r"|http-equiv\s*=\s*[\"']?refresh|\bimportScripts\b|\beval\s*\(|\bnew\s+Function\s*\("
+    r"|\bset(?:Timeout|Interval)\s*\(\s*[\"'`]|" + URL_START,
     re.IGNORECASE,
 )
 # The names Python has without an import, such as eval; any other name not imported is the
@@ -200,6 +214,8 @@ PYTHON = "runs this same Python on the repo's own code, in a process of its own"
 IMPORTS_GIT = "imports subprocess, to run git on a local repository"
 IMPORTS_PYTHON = "imports subprocess, to run this same Python in a process of its own"
 LOCAL_MODULES = "imports the repo's own modules by name, from its own folders"
+HOW_TO_STAND_INS = ("loads a how-to's own file from worked_examples/how_to/, to take its pandas "
+                    "stand-ins")
 TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the network "
                         "under the offline trap and its backstop, so nothing is sent")
 ALLOWED: tuple[Allowed, ...] = (
@@ -235,6 +251,10 @@ ALLOWED: tuple[Allowed, ...] = (
             "git archive of the repo's own commit"),
     Allowed("tools/export_clean.py", "export", "process", "subprocess.run",
             "git rev-parse of the repo's own main"),
+    Allowed("tools/how_to_page.py", "stand_ins_of", "dynamic code",
+            "importlib.util.spec_from_file_location", HOW_TO_STAND_INS),
+    Allowed("tools/how_to_page.py", "stand_ins_of", "dynamic code",
+            "importlib.util.module_from_spec", HOW_TO_STAND_INS),
     # The tests.
     Allowed("tests/conftest.py", "toolbox_module", "dynamic code", "importlib.import_module",
             LOCAL_MODULES),

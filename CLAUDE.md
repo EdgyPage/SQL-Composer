@@ -77,6 +77,11 @@ computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
   (`_refuse_the_network` in `tests/offline_trap.py`).
 - The export reads the Clean tree the same way before anything in it runs, and refuses on any
   finding.
+- `tools/code_audit.py` reads every file for what the policy doesn't look for: hidden text,
+  encoded payloads, reaches for credentials, and config that runs or fetches code. Its
+  `AUDITED` lists the reviewed sites, and `tests/repo/test_code_audit.py` holds the repo clean.
+  `docs/code-audit.md` (2026-10-21) is the scan behind it, of the repo, its history, `.git/`
+  and `.venv`.
 
 ## Definition of done
 

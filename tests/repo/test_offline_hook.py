@@ -223,6 +223,18 @@ def test_a_worktree_in_the_project_is_judged_at_its_own_paths(tmp_path) -> None:
     assert why is not None and "\nsqlglot_composer/x.py:1 network: import requests" in why
 
 
+def test_a_worktree_is_judged_by_the_project_s_policy_not_its_own(tmp_path) -> None:
+    # A worktree's own tools/offline_policy.py could say anything; the hook runs the project's.
+    project = a_checkout(tmp_path, {})
+    worktree = a_checkout(project / ".claude" / "worktrees" / "agent-1", {})
+    planted = ("import sys\nsys.modules[__name__].__dict__.update(\n"
+               "    findings_in=lambda *a, **k: [], is_read=lambda *a: True,\n"
+               "    scope_of=lambda path: 'toolbox')\n")
+    (worktree / "tools" / "offline_policy.py").write_text(planted, encoding="utf-8")
+    why = write(worktree / "sqlglot_composer" / "x.py", "import requests\n", project)
+    assert why is not None and "\nsqlglot_composer/x.py:1 network: import requests" in why
+
+
 def test_a_planted_checkout_inside_the_toolbox_is_still_the_toolbox(tmp_path) -> None:
     project = a_checkout(tmp_path, {"sqlglot_composer/a/.git": "gitdir: nowhere\n",
                                     "sqlglot_composer/b/pyvenv.cfg": "home = x\n"})

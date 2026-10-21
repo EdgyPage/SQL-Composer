@@ -16,10 +16,10 @@ text: it never imports or runs the code it judges, and it reaches nothing.
 
 **Which checkout and which policy.** The session's project is `$CLAUDE_PROJECT_DIR`, or this
 hook's own checkout without it. A file in one of Claude Code's worktrees in it
-(`.claude/worktrees/<name>/`) is judged at its own path there, by that worktree's own
-`tools/offline_policy.py`, so an `ALLOWED` entry added in a worktree counts in that worktree;
-any other file in the project is judged by the project's. A `.git` found anywhere else is not a
-checkout, so one planted inside the Toolbox changes nothing. A file outside the project, or in a
+(`.claude/worktrees/<name>/`) is judged at its own path there, and every file by the project's
+own `tools/offline_policy.py`, never a worktree's copy, which an edit in that worktree could
+have changed to pass anything: an `ALLOWED` entry counts once the project holds it. A `.git`
+found anywhere else is not a checkout, so one planted inside the Toolbox changes nothing. A file outside the project, or in a
 checkout without the policy, isn't the repo's and passes; so does a file the policy doesn't read
 (another kind, or in `.scratch/` and the other folders it skips outside the Toolbox).
 
@@ -84,10 +84,15 @@ class CantJudge(Exception):
     """The hook can't work out or judge the file as the edit would leave it."""
 
 
+def project_folder() -> Path:
+    """The session's project: `$CLAUDE_PROJECT_DIR`, or this hook's own checkout."""
+    return Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path(__file__).parents[2]).resolve()
+
+
 def checkout_of(file: Path) -> Path | None:
     """The checkout `file` is judged in: one of Claude Code's worktrees in the session's
     project, or the project itself; None for a file outside the project."""
-    project = Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path(__file__).parents[2]).resolve()
+    project = project_folder()
     if project not in file.parents:
         return None
     parts = file.relative_to(project).parts
@@ -171,8 +176,9 @@ def text_after(tool: str, tool_input: dict, file: Path) -> str:
 
 
 def findings(tool: str, tool_input: dict, file: Path, root: Path) -> list[str]:
-    """Each finding in the file as the edit would leave it, as `file:line kind: code`."""
-    sys.path.insert(0, str(root / "tools"))
+    """Each finding in the file as the edit would leave it, as `file:line kind: code`, judged
+    by the project's own policy, whichever checkout `root` is."""
+    sys.path.insert(0, str(project_folder() / "tools"))
     try:
         import offline_policy
     except Exception as error:
