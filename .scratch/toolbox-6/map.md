@@ -146,9 +146,9 @@ lands before 05.
 
 - CONTEXT.md (2026-10-20): new words Project, Table folder, Project action, Reference sheet,
   Alias; Admin log widened to Project actions. Edition and Composer core leave with ticket 03.
-- ADRs: Spark Composer dropped (supersedes 0002, ticket 02); one Toolbox folder (supersedes
-  0003, ticket 03); a Table notebook's logic is loaded from its `# logic` cell, not imported
-  from a .py (ticket 07).
+- ADRs: Spark Composer dropped (0008, supersedes 0002, ticket 02); one Toolbox folder (0009,
+  supersedes 0003, ticket 03); a Table notebook's logic is loaded from its `# logic` cell, not
+  imported from a .py (0010, ticket 07).
 
 ## Decisions so far
 

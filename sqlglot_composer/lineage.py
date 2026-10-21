@@ -1053,6 +1053,25 @@ def default_path(caller: Path | None, commit: str, names: list[str],
     return caller_folder(caller) / "lineage" / name
 
 
+def _table_folder_path(statements, caller: Path | None,
+                       when: datetime.datetime) -> Path | None:
+    """Inside a Project, for one Statement writing a Saved table with a Table folder, that
+    folder's lineage/{time}-{db}__{table}.html; otherwise None."""
+    from .project import project_folder  # it imports what imports this
+
+    if len(statements) != 1 or not _tables_written(statements[0]):
+        return None
+    project = project_folder(caller_folder(caller)) or project_folder(Path.cwd())
+    written = _tables_written(statements[0])[0]
+    if project is None or "." not in written:
+        return None
+    stem = written.replace(".", "__", 1)
+    folder = project / "tables" / stem
+    if not folder.is_dir():
+        return None
+    return folder / "lineage" / f"{when:%Y%m%d-%H%M%S}-{stem}.html"
+
+
 def caller_folder(caller: Path | None) -> Path:
     """The calling file's folder. A notebook's kernel starts in the notebook's own folder."""
     return caller.parent if caller is not None and caller.is_absolute() else Path.cwd()
@@ -1136,8 +1155,12 @@ def export_lineage(*statements, to=None):
 
     The files go in a lineage/ folder beside your script or notebook, named by the time,
     your scripts' git commit, the file and the Statement's variable, such as
-    lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. to= names the
-    HTML file instead. It returns the two paths, HTML first.
+    lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a
+    Project, one Statement that writes a Saved table with a Table folder goes in that folder's
+    lineage/, named by the time and the table, such as
+    tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds
+    to the table's history; the commit is in the footer. to= names the HTML file instead. It
+    returns the two paths, HTML first.
 
     >>> runs_per_team = statement(
     ...     SELECT(jobs.team, AS(count_rows(), "runs")),
@@ -1158,7 +1181,9 @@ def export_lineage(*statements, to=None):
     names = statement_names(statements, frame)
     caller = calling_file(frame)
     commit = scripts_commit(caller_folder(caller))
-    html_path = _html_path(to) if to is not None else default_path(caller, commit, names, when)
+    html_path = (_html_path(to) if to is not None
+                 else _table_folder_path(statements, caller, when)
+                 or default_path(caller, commit, names, when))
     markdown_path = html_path.with_suffix(".md")
     ordered = in_order(list(zip(statements, names)))
     graph = build_graph(ordered)
