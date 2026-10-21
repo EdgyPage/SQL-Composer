@@ -19,8 +19,8 @@ The cells, in order:
    have run before on a table you know, to see its rows come back with their columns named.
 2. Write the table's Table reference: write_table_reference asks the table for its columns and
    writes table_references/<REFERENCE_FILE>.py. Fill in each TODO line it leaves, such as the
-   key, before cell 3. It never writes over a file that is there, so running cell 2 again leaves your
-   filled-in file as it is.
+   key, before cell 3. It never writes over a file that is there, so running cell 2 again
+   leaves your filled-in file as it is.
 3. Import the Table reference and run a first Statement: 20 rows of one day of the table.
 
 To practise on the Example database's made-up tables first, fill each placeholder in with the

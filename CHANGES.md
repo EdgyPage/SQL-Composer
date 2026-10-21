@@ -43,8 +43,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `Table`'s new `descriptions={...}`, not a `#` comment, and an Aliases heading below the Table
   reference shows how to add your own names for its columns and conditions. A table named
   like a Python word, such as class, still gets t_ in front of its variable, but a table named
-  like a module, such as calendar, no longer does. Files written before 6.0 keep their names:
-  nothing to change.
+  like a module, such as calendar, no longer does, since its file's name starts with its
+  database. A name with no database, such as `"jobs"`, is refused: write `"ops.jobs"`. Files
+  written before 6.0 keep their names: nothing to change.
 
 ## 5.1
 

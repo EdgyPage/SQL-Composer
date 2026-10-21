@@ -1294,16 +1294,16 @@ def write_table_reference(name, send, folder=None):
         },
     )
     <BLANKLINE>
-    # --- Aliases ----------------------------------------------------------------------------------
-    # Your own names for this table's columns and conditions, written by hand below this heading.
-    # Import one beside the table: from references.ops__run_alerts import run_alerts, <alias>
+    # --- Aliases ------------------------------------------------------------------------------
+    # Your own names for this table's columns and conditions, written by hand below.
+    # Import one beside the table: from ops__run_alerts import run_alerts, <alias>
     #
-    # A column Alias is a plainer name for one column. It is only a shorter name: the Hive, the
-    # output and the lineage still say the column's own name. To name an output, use AS(...).
-    #     <alias> = run_alerts.alert_id
-    # A condition Alias names a condition on this table alone, for WHERE or count_rows(where=...).
-    # Add what it calls, such as equals, to the import from sqlglot_composer above.
-    #     <alias> = equals(run_alerts.alert_id, <value>)
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
+    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    #     <alias> = run_alerts.severity
+    # A condition Alias names a condition on this table alone, for WHERE or
+    # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+    #     <alias> = equals(run_alerts.severity, <value>)
     <BLANKLINE>
     '''
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
@@ -1330,7 +1330,7 @@ def write_table_reference(name, send, folder=None):
             "such folder.",
             why="It writes the file into a folder that is there already, so a typo never "
             "makes a folder of its own.",
-            fix="Make the folder first, or name one that is there, such as folder=\"references\".",
+            fix='Make the folder first, or name one that is there, such as folder="references".',
             error=FileNotFoundError,
         )
     path = where / f"{database}__{short}.py"
@@ -1355,8 +1355,9 @@ def write_table_reference(name, send, folder=None):
             error=ValueError,
         )
     date_lines = _date_partition_lines(name, partitions, send, call)
-    path.write_text(_reference_text(name, variable, columns, comments, date_lines,
-                                    partitions[:1]), encoding="utf-8")
+    module = path.stem if folder is None else f"{Path(folder).name}.{path.stem}"
+    path.write_text(_reference_text(name, variable, columns, comments, date_lines, module),
+                    encoding="utf-8")
     return path
 
 
@@ -1388,10 +1389,12 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
 
 
 # The heading a Table reference's Aliases go under, ruled to the width of the file.
-ALIASES_HEADING = "# --- Aliases " + "-" * 82
+ALIASES_HEADING = "# --- Aliases " + "-" * 78
 
 
-def _reference_text(name, variable, columns, comments, date_lines, date_partition) -> str:
+def _reference_text(name, variable, columns, comments, date_lines, module) -> str:
+    """A Table reference file's text. `module` is the name the file is imported by, such as
+    references.ops__job_runs, which its Aliases heading shows."""
     lines = [
         f'"""{name} - TODO: say in one line what one row is."""',
         f"from {_FOLDER} import Table",
@@ -1416,24 +1419,23 @@ def _reference_text(name, variable, columns, comments, date_lines, date_partitio
                   *[f"        {json.dumps(column)}: {json.dumps(text)}," for column, text
                     in described.items()],
                   "    },"]
-    example = next((column for column in columns if column not in date_partition), first_key)
-    module = name.replace(".", "__")
+    # The examples' column: the first that is neither an id nor a Date partition's day, if any.
+    days = [line.split('"')[1] for line in date_lines if line.startswith('    date_partition="')]
+    example = next((column for column in columns
+                    if not column.endswith("_id") and column not in days), first_key)
     lines += [
         ")",
         "",
         ALIASES_HEADING,
-        "# Your own names for this table's columns and conditions, written by hand below this "
-        "heading.",
-        f"# Import one beside the table: from references.{module} import {variable}, <alias>",
+        "# Your own names for this table's columns and conditions, written by hand below.",
+        f"# Import one beside the table: from {module} import {variable}, <alias>",
         "#",
-        "# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, "
-        "the",
-        "# output and the lineage still say the column's own name. To name an output, use "
-        "AS(...).",
+        "# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame "
+        "run",
+        "# gives back, still call the column by its own name. To rename an output, use AS(...).",
         f"#     <alias> = {variable}.{example}",
-        "# A condition Alias names a condition on this table alone, for WHERE or "
-        "count_rows(where=...).",
-        "# Add what it calls, such as equals, to the import from sqlglot_composer above.",
+        "# A condition Alias names a condition on this table alone, for WHERE or",
+        "# count_rows(where=...). Add what it calls, such as equals, to the import at the top.",
         f"#     <alias> = equals({variable}.{example}, <value>)",
         "",
     ]
@@ -1856,7 +1858,8 @@ def create_table(t, may_exist=False):
     DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
     and a struct whose names are reserved words, and says what to write. If the table
     already exists, the warehouse refuses to create it again. Without that refusal, you could
-    edit the Table reference, send this again, and think the table had changed when it hadn't. Compare the two with
+    edit the Table reference, send this again, and think the table had changed when it hadn't.
+    Compare the two with
     check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
     or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
     import admin).

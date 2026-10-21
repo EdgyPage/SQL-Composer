@@ -146,6 +146,14 @@ def table_reference_name(table: str) -> str:
     return f"{table.split('.')[-1]}.py"
 
 
+def written_as_imported(text: str, written: str, imported: str) -> str:
+    """A Table reference's text with its Aliases heading's import naming the file it was
+    renamed to: table_references.job_runs, where it was written as table_references.ops__job_runs.
+    """
+    return text.replace(f"from {TABLE_REFERENCES}.{written} import",
+                        f"from {TABLE_REFERENCES}.{imported} import")
+
+
 def generated(project: str) -> list[str]:
     """The project's generated Table references, as paths inside its folder."""
     return [f"{TABLE_REFERENCES}/{table_reference_name(table)}" for table in FILLED_IN[project]]
@@ -236,16 +244,14 @@ def write_here(project: str) -> None:
     import sqlglot_composer
     from sqlglot_composer import lineage
 
-    os.chdir(folder / TABLE_REFERENCES)
     for table, filling in FILLED_IN[project].items():
         written = sqlglot_composer.write_table_reference(
-            table, send=sqlglot_composer.example_database.send)
+            table, send=sqlglot_composer.example_database.send, folder=TABLE_REFERENCES)
         # Its file is named for the table alone, as the project's scripts import it, until
         # the Example projects are laid out as Projects, with a references/ folder.
-        path = written.rename(table_reference_name(table)).resolve()
-        path.write_text(filled_in(path.read_text(encoding="utf-8"), table, filling),
-                        encoding="utf-8", newline="\n")
-    os.chdir(folder)
+        path = written.rename(written.parent / table_reference_name(table)).resolve()
+        text = written_as_imported(path.read_text(encoding="utf-8"), written.stem, path.stem)
+        path.write_text(filled_in(text, table, filling), encoding="utf-8", newline="\n")
 
     lineage._now = lambda: PINNED_TIME
     lineage.scripts_commit = lambda _scripts_folder: PINNED_COMMIT
