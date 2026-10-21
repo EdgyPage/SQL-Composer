@@ -14,7 +14,7 @@ import re
 from composer_core import _four_part_message as four_part_message
 from composer_core import _stop as _core_stop
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 
 def _stop(what, why, fix):

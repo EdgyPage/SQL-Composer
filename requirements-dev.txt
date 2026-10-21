@@ -1,4 +1,7 @@
-# The development environment on `dev`: `pip install -r requirements-dev.txt`.
+# The development environment on `dev`: a virtual environment on Python 3.12, in .venv:
+#
+#     py -3.12 -m venv .venv
+#     .venv/Scripts/python -m pip install -r requirements-dev.txt
 #
 # The Toolbox needs the standard library, pandas and numpy, which work already has, and sqlglot.
 # pytest and ruff are for `dev` only.
@@ -7,15 +10,15 @@
 # suite on 25.24.2, the bottom of that range.
 sqlglot==30.23.0
 
-pandas==2.0.3
-numpy==1.25.2
+pandas==3.0.6
+numpy==2.5.4
 
 # What pandas needs in turn, pinned as requirements.txt pins them (a test holds the two files
-# to the same versions).
+# to the same versions), and pytz, which pandas 3 no longer needs but the user keeps pinned.
 python-dateutil==2.9.0.post0
-pytz==2026.5
 tzdata==2026.5
 six==1.17.0
+pytz==2026.5
 
 pytest==9.0.2
 ruff==0.15.17

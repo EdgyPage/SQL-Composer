@@ -48,7 +48,7 @@ from .trees import (
     string,
 )
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 # The day a message writes when it needs an example of one: the day after the Example
@@ -722,9 +722,12 @@ class Table:
             return self._column(attribute)
         close = difflib.get_close_matches(attribute, list(columns), n=1)
         hint = f" Did you mean {close[0]!r}?" if close else ""
+        # obj= marks the error as one that already says where it came from, so Python 3.12 and
+        # newer don't add a "Did you mean" of their own after the hint.
         raise AttributeError(
             f"{self._alias} has no column {attribute!r}.{hint} Its columns are: "
-            f"{', '.join(columns)}."
+            f"{', '.join(columns)}.",
+            obj=None,
         )
 
     def _column(self, name: str) -> Column:

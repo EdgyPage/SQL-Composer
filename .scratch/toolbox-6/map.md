@@ -135,8 +135,10 @@ settled the design below; this map is the design document, built out ticket by t
 - [08 References in bulk and the Reference sheet](issues/08-references-in-bulk-and-the-reference-sheet.md)
 - [09 Templates and Example projects as Projects](issues/09-templates-and-example-projects-as-projects.md)
 - [10 How-tos and the README tutorial](issues/10-how-tos-and-the-readme-tutorial.md)
+- [11 Python 3.12, pandas 3, numpy 2.5, and a venv](issues/11-python-3-12-pandas-3-numpy-2-5-and-a-venv.md)
 
-Tickets 02-04 don't wait for the user's review of 01; 05-10 do.
+Tickets 02-04 don't wait for the user's review of 01; 05-10 do. Ticket 11, asked for on
+2026-10-20 while ticket 02 closed, lands before 03.
 
 ## Records this changes
 

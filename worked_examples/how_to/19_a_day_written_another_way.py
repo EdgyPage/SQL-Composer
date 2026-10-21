@@ -36,8 +36,8 @@ cents, partitioned by region, then by day:
 1               cost_cents     bigint  NULL until the bill comes in
 2                   region     string
 3                       dt     string
-4                                None                          None
-5  # Partition Information       None                          None
+4                                 NaN                           NaN
+5  # Partition Information        NaN                           NaN
 6               # col_name  data_type                       comment
 7                   region     string
 8                       dt     string

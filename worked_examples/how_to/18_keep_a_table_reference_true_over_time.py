@@ -50,8 +50,8 @@ and their types, then the partition columns again, under a heading of their own:
 3            duration_mins        int
 4           avg_retry_secs     double
 5                       dt     string
-6                                None
-7  # Partition Information       None
+6                                 NaN
+7  # Partition Information        NaN
 8               # col_name  data_type
 9                       dt     string
 

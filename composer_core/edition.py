@@ -11,7 +11,7 @@ import os
 
 from . import _stop
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 # Set by plug(...), when the Edition is imported.
 FOLDER = None

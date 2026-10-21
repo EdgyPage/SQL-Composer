@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 5.1: How-tos</title>
+<title>sqlglot Composer 6.0: How-tos</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -33,7 +33,7 @@ details summary{cursor:pointer;color:#555;margin:4px 0}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 5.1: How-tos</h1>
+<h1>sqlglot Composer 6.0: How-tos</h1>
 <p>Each how-to walks through one job from start to finish: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
@@ -110,7 +110,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <p>At the top of every notebook, or script, that writes Hive with the Toolbox. Its first cell imports the Toolbox and writes <code>send</code>; every cell after it builds Statements and runs them.</p>
 <h4>Steps</h4>
 <h5>Put the two folders beside your notebook</h5>
-<p>The Toolbox is two folders: <code>composer_core</code>, the code both Editions share, and <code>sqlglot_composer</code>, this Edition&#x27;s own. Copy both from the Toolbox you downloaded, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
+<p>The Toolbox is two folders: <code>composer_core</code>, the code every Toolbox function runs, and <code>sqlglot_composer</code>, the folder you import. Copy both from the Toolbox you downloaded, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
 <h5>Import the Toolbox</h5>
 <p>One line imports every Toolbox name: <code>statement</code>, the clause functions such as <code>SELECT</code>, <code>FROM</code> and <code>WHERE</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, and the rest.</p>
 <pre class="python">from sqlglot_composer import *</pre>
@@ -250,7 +250,7 @@ run(failed, send=send_without_a_dataframe)</pre>
 <tr><td># col_name</td><td>data_type</td><td>comment</td></tr>
 <tr><td>dt</td><td>string</td><td></td></tr>
 </table></div>
-<p>The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next section: its name is empty, and its other two cells are missing, NULL in Hive, which this page shows as NULL and pandas in your notebook as None. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
+<p>The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next section: its name is empty, and its other two cells are missing, NULL in Hive, which this page shows as NULL and pandas in your notebook as NaN. The rows under <code># Partition Information</code> say which column splits the table into days: dt, its Date partition.</p>
 <h5>Write one table&#x27;s Table reference</h5>
 <p><code>write_table_reference</code> sends those two commands through your send and turns what comes back into a Table reference file. It writes the file in the folder your notebook runs in, named after the table, and gives back the file&#x27;s path:</p>
 <pre class="python">path = write_table_reference(&quot;ops.job_runs&quot;, send=example_database.send)</pre>
@@ -402,7 +402,7 @@ WHERE
 <tr><td>98</td><td>2</td><td><i>NULL</i></td><td>15</td><td><i>NULL</i></td><td>2026-09-23</td></tr>
 <tr><td>99</td><td>1</td><td>TEST</td><td>5</td><td>0.0</td><td>2026-09-23</td></tr>
 </table></div>
-<p>Run 98 is still running, so its status and its avg_retry_secs are missing: NULL. pandas shows a missing number as NaN, and missing text as None.</p>
+<p>Run 98 is still running, so its status and its avg_retry_secs are missing: NULL. pandas shows a missing value as NaN, a missing number and missing text alike.</p>
 <h5>Build a SELECT from a list of column names</h5>
 <p>Each column of a Table reference is one of its attributes, such as <code>job_runs.status</code>. When the names you want come as text, from a list in your settings or from another table&#x27;s columns, the built-in Python function <code>getattr</code> takes the attribute by its name, so the list of names becomes a list of columns:</p>
 <pre class="python">wanted = [&quot;run_id&quot;, &quot;status&quot;, &quot;duration_mins&quot;]
@@ -854,7 +854,7 @@ WHERE
 <pre class="python">from sqlglot_composer import *
 jobs = example_database.jobs
 job_runs = example_database.job_runs</pre>
-<p><code>ops.job_runs</code> holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in your notebook as None.</p>
+<p><code>ops.job_runs</code> holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in your notebook as NaN.</p>
 <h5>Give the days to read</h5>
 <p>Each Statement on <code>job_runs</code> gives the first and the last day it reads, through its Date partition, <code>job_runs.dt</code>. There are three ways to write them:</p>
 <ul><li><code>equals(job_runs.dt, &quot;2026-09-24&quot;)</code> reads one day;</li><li><code>between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)</code> reads from the first day to the last, both included;</li><li><code>last_n_days(job_runs.dt, 7)</code> reads the 7 days before today, today itself left out.</li></ul>
@@ -2472,7 +2472,7 @@ WHERE
 <p><code>run</code> sends a write as it sends a read. The Example database can&#x27;t be written to, so here it stops, and says so:</p>
 <pre class="python">run(write_failed, send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
-  What happened:  The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.
+  What happened:  The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.
   Why it matters: Its tables are made up and fixed, so every Worked example gives the same numbers, and nothing in them is yours to change or count again.
   Usual fix:      to_hive(...) shows the Hive of any Statement without sending it, as in to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a write. It takes a Statement, such as one create_table, statement(...) or the admin module builds, not text.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
@@ -3311,7 +3311,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 <p class="note">It writes <code>lineage/20260925-090000_1a2b3c4_lineage_notebook_team_runs.html</code> too, a page to open in your browser.</p>
 <p>Nothing is sent to the warehouse: the Lineage is worked out from the Statement alone, so it works the same on the Example database and at work.</p>
 <p>The files go in a folder named lineage, beside your notebook or script; here, in the folder this how-to runs in. Each file&#x27;s name says when it was written, from which commit of your scripts, by which notebook, and for which Statement:</p>
@@ -3657,7 +3657,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 </details>
 <p class="note">It writes <code>lineage/pipeline.html</code> too, a page to open in your browser.</p>
 <p>The order you pass them in doesn&#x27;t matter: <code>export_lineage</code> puts each write before the Statements that read the Saved table it fills, which is also the order to run them in.</p>
@@ -3804,7 +3804,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 <p class="note">It writes <code>lineage/team_only.html</code> too, a page to open in your browser.</p>
 <pre class="python">&quot;ops.job_runs&quot; in team_only_markdown.read_text(encoding=&quot;utf-8&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">False</pre>
@@ -4943,7 +4943,7 @@ WHERE
 <tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-24</td></tr>
 </table></div>
 <p>Pasted into your own notebook, this <code>run</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no <code>row_number</code>. The result above was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive above as it is.</p>
-<p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm (job 4), so its owner is NULL (pandas shows it as None).</p>
+<p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm (job 4), so its owner is NULL (pandas shows it as NaN).</p>
 <h4>Check it worked</h4>
 <p>Each run should meet exactly one row of the snapshot, so the teams&#x27; runs add up to every run over the 14 days:</p>
 <pre class="python">every_run = statement(
@@ -5831,7 +5831,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 </details>
 <p class="note">It writes <code>lineage/pipeline.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.read_text(encoding=&quot;utf-8&quot;).splitlines()[0]</pre>
@@ -6668,7 +6668,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 </details>
 <p class="note">It writes <code>daily_totals.html</code> too, a page to open in your browser.</p>
 <h4>Check it worked</h4>
@@ -6834,7 +6834,7 @@ WHERE
 <pre class="python">result = run(contacts, send=example_database.send)
 list(result[&quot;team&quot;])</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;DATA&#x27;, &#x27;FINANCE&#x27;, &#x27;FINANCE&#x27;, &#x27;WEB&#x27;]</pre>
-<pre class="python">result[&quot;contact&quot;].isna().sum()</pre>
+<pre class="python">int(result[&quot;contact&quot;].isna().sum())</pre>
 <p class="label">Python shows</p><pre class="output">0</pre>
 <h4>Common mistakes</h4>
 <h5>A column&#x27;s name as text</h5>
@@ -7189,7 +7189,14 @@ int(repeated[&quot;minutes&quot;].sum()), int(minutes[&quot;minutes&quot;].sum()
 <p><code>validate=&quot;one_to_one&quot;</code> stops such a merge rather than let it through:</p>
 <pre class="python">minutes.merge(daily_costs, on=&quot;job_id&quot;, validate=&quot;one_to_one&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">MergeError:
-Merge keys are not unique in right dataset; not a one-to-one merge</pre>
+Merge keys are not unique in right dataset; not a one-to-one merge
+Duplicates in right:
+  job_id
+      1
+      1
+      1
+      1
+      1 ...</pre>
 <p>Add up per job first, as <code>cost_per_job</code> does, then merge.</p>
 <h4>Next</h4>
 <ul><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement, and what you do in pandas after it, give the numbers you meant.</li><li><a href="#keys">Keys, checked before each write</a>: a Window keeps every row, so a Statement&#x27;s Key is its FROM table&#x27;s; a <code>row_number</code> kept at 1 gives one row per group.</li><li>The gallery&#x27;s <a href="examples.html#window"><code>window</code></a>, <a href="examples.html#lag"><code>lag</code></a> and <a href="examples.html#row_number"><code>row_number</code></a> entries.</li></ul>
@@ -7485,7 +7492,7 @@ LIMIT 2
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 </details>
 <p class="note">It writes <code>before.html</code> too, a page to open in your browser.</p>
 <p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Keys, the columns that tell each step&#x27;s rows apart, then the Hive, as <a href="#lineage_of_one_statement">Lineage of one Statement</a> and <a href="#lineage_of_a_pipeline_across_saved_tables">Lineage of a pipeline across Saved tables</a> show. Open the HTML page in your browser to see the same drawn.</p>
@@ -7742,7 +7749,7 @@ LIMIT 2
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 </details>
 <p class="note">It writes <code>after.html</code> too, a page to open in your browser.</p>
 <h5>Compare the two Markdown files</h5>
@@ -8398,7 +8405,7 @@ WHERE
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 5.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 6.0.</pre>
 </details>
 <p class="note">It writes <code>lineage/newest.html</code> too, a page to open in your browser.</p>
 <pre class="python">keys = markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;### Keys&quot;)[1]

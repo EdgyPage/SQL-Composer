@@ -53,8 +53,10 @@ PARTITION_HEADERS = [("", None, None), ("# Partition Information", None, None),
 
 
 def described(name: str) -> list[tuple]:
+    """DESCRIBE's rows, a missing cell read as None: pandas 3 shows missing text as NaN."""
     frame = example_database.send(f"DESCRIBE {name}")
-    return list(frame.itertuples(index=False, name=None))
+    return [tuple(None if pd.isna(cell) else cell for cell in row)
+            for row in frame.itertuples(index=False, name=None)]
 
 
 def partitions(name: str) -> list[str]:

@@ -35,7 +35,7 @@ At work, rows come back in no fixed order: sort the DataFrame in pandas when the
 0      95  SUCCESS             12
 1      96  SUCCESS             18
 2      97   FAILED             30
-3      98     None             15
+3      98      NaN             15
 4      99     TEST              5
 """
 
@@ -49,7 +49,7 @@ from . import edition
 from .refusals import refuse
 from .tables import Table
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 # --- The Table references -----------------------------------------------------------------
 
@@ -507,8 +507,7 @@ def send(hive):
     if not _is_query(text):
         refuse(
             what="The Example database only reads, and can't be written to: it answers "
-            "SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a "
-            "SELECT.",
+            "SELECT, DESCRIBE, SHOW PARTITIONS and SET.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
             fix="to_hive(...) shows the Hive of any Statement without sending it, as in "

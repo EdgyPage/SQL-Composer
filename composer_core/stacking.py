@@ -25,7 +25,7 @@ from .refusals import refuse
 from .tables import Column, Table, made_by, python_text, readable, type_family
 from .trees import Node, number
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 # How each Stack is written in Hive.
 STACK_HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT",
@@ -632,8 +632,8 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
         refuse(
             what=f"{place} has {call}, but SELECT doesn't return {readable(column)}.",
             why=f"Some warehouses, Spark among them, refuse an is_total in {place} of a column "
-            "SELECT doesn't return, so the Toolbox refuses it in both Editions, for your "
-            "Statement to run wherever it is sent.",
+            "SELECT doesn't return, so the Toolbox refuses it too, for your Statement to run "
+            "wherever it is sent.",
             fix=f"Add {readable(column)} to SELECT.",
             error=ValueError,
         )

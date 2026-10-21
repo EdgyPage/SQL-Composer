@@ -135,9 +135,10 @@ PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 
 TOOLBOX = (editions.CORE, *editions.EDITIONS)
 USER_COPIED = ("templates", "example_projects", "worked_examples")
-# Folders never read: the tracker's notes, and what tools and Pythons leave behind.
+# Folders never read: the tracker's notes, and what tools and Pythons leave behind, the dev
+# virtual environment's installed libraries among them.
 NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff_cache",
-                      ".mypy_cache", "node_modules", "spark-warehouse", "metastore_db"})
+                      ".mypy_cache", ".venv", "node_modules", "spark-warehouse", "metastore_db"})
 # A `.pyw` is a Python file that Windows runs without a console, and imports like a `.py`.
 PYTHON_FILES = (".py", ".pyw")
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")

@@ -2,6 +2,26 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 6.0
+
+6.0 is sqlglot Composer alone, on Python 3.12, pandas 3 and numpy 2.5. More of it comes as
+6.0's work lands: these notes grow with it.
+
+### To update from 5.x
+
+- **Spark Composer is dropped.** If you used it: install sqlglot (`pip install -r
+  requirements.txt`), delete the `spark_composer` and `composer_core` folders, copy in the new
+  `composer_core` and `sqlglot_composer`, change each `from spark_composer import` to `from
+  sqlglot_composer import`, and restart the kernel. Where your send runs the Hive on Spark,
+  `send=lambda hive: spark.sql(hive).toPandas()` still works; the README's "If your send runs the
+  Hive on Spark" says where Spark reads Hive its own way.
+- **`requirements.txt` is one list, pinned for Python 3.12**: pandas 3.0.6, numpy 2.5.4 and
+  sqlglot 30.23.0, with what they need in turn, and pytz. numpy 2.5 has no builds for Python
+  3.11; there, install the pandas and numpy your Python has, as the README's Install says. The
+  Toolbox itself still runs on Python 3.11 or newer.
+- **pandas 3 shows a missing text value as NaN**, where pandas 2 showed None: a run's result
+  with a NULL in a text column reads NaN there. Test for it with `isna()`, never `== None`.
+
 ## 5.1
 
 Nothing to change in your notebooks or files: copy the two folders in over 5.0's.

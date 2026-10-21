@@ -21,9 +21,9 @@ The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot.
 2. Install what the Toolbox needs, at the versions it is tested on: run
    `pip install -r requirements.txt` in the download's top folder, or, from a notebook,
    `%pip install -r` followed by the path to that file.
-   - The pins are for Python 3.11. pandas 2.0.3 and numpy 1.25.2 have no builds for Python 3.12
-     or newer, so there pip can't install them: delete the pandas and numpy lines and the four
-     under them, and install the pandas and numpy your Python has builds of.
+   - The pins are for Python 3.12. numpy 2.5.4 has no builds for Python 3.11, so there pip
+     can't install it: delete the pandas and numpy lines and the four under them, and install the
+     pandas and numpy your Python has builds of.
    - A package your notebook already has, such as pandas, needn't be installed again: delete
      its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
      (not including) 31, whose Example database and a struct column in create_table need

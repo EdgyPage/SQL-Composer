@@ -211,8 +211,13 @@ def test_requirements_names_every_library_the_toolbox_may_import() -> None:
     assert _the_libraries() <= set(_requirements())
 
 
+# Pinned though nothing needs it: pandas 3 dropped pytz, which the user keeps (2026-10-20).
+KEPT_UNNEEDED = {"pytz"}
+
+
 def test_requirements_lists_what_each_listed_package_needs_in_turn() -> None:
-    # So pip installs nothing requirements.txt doesn't pin, and it lists nothing nobody needs.
+    # So pip installs nothing requirements.txt doesn't pin, and it lists nothing nobody needs,
+    # apart from KEPT_UNNEEDED.
     listed = {_normal(name) for name in _requirements()}
     needed = set()
     for name in listed:
@@ -221,7 +226,7 @@ def test_requirements_lists_what_each_listed_package_needs_in_turn() -> None:
             assert needs <= listed, f"{name} needs {sorted(needs - listed)}, not in requirements.txt"
             needed |= needs
     if all(_needs(name) is not None for name in listed):
-        assert listed == {_normal(name) for name in _the_libraries()} | needed
+        assert listed == {_normal(name) for name in _the_libraries()} | needed | KEPT_UNNEEDED
 
 
 def test_requirements_pins_the_versions_dev_tests_on() -> None:
@@ -236,7 +241,7 @@ def test_ci_runs_each_edition_at_the_bottom_of_its_range_and_at_its_pin(edition)
     matrix = re.search(rf"^\s+{edition.library}: \[(.*)\]$", job, re.MULTILINE).group(1)
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
     assert versions == {_engine(edition)._LOWEST, _pin(edition)}
-    assert 'python-version: "3.11"' in job
+    assert 'python-version: "3.12"' in job
     assert f'pip install "{edition.library}==${{{{ matrix.{edition.library} }}}}"' in _steps(job)
     assert "continue-on-error" not in job
 

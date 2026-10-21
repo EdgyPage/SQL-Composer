@@ -356,6 +356,7 @@ per day, so adding them up gives far too much:
 Traceback (most recent call last):
 ...
 pandas.errors.MergeError: Merge keys are not unique in right dataset; not a one-to-one merge
+...
 
 Add up per job first, as `cost_per_job` does, then merge.
 
