@@ -40,3 +40,22 @@ Built 2026-10-21 on branch `toolbox-6/08-references-and-sheet`.
 - The admin notebooks `add_references` and `refresh_reference_sheet` are written by `start()`.
 
 ## Reviews
+
+- Spec (2026-10-21): a named refresh matched old rows by the argument only (now by the
+  argument or the name the file gives); a named refresh of a file that can't be read dropped
+  its rows (now keeps them, and says so); a `references/__init__.py` would be reported every
+  time (now skipped). Answered: per-table progress lines aren't asked for, the one entry and
+  the one error name every table; refusing an empty or non-list `names` and a named refresh
+  with no file stay, each with its fix.
+- Standards (2026-10-21): one long notebook line rewrapped; the two scans of a file's
+  top-level `name = value` lines share `_simple_assignments`, and `_called` names a call; the
+  stem rule is `_stem`; skipped tables are said once, as text. `SkippedTables` is the "one
+  error" the map names, and the ticket's Answer names it.
+- Beginner reader (2026-10-21): the SkippedTables error held a whole four-part message inside
+  its own (now only the inner one's "What happened"); the docstring examples didn't import
+  `example_database`; "a name that isn't a table's" (now "not written as database.table");
+  the fix said to rerun only the skipped (now: fix them, then rerun the same list); "failed"
+  in the log when some were written (now "1 of 4 written; SkippedTables named the rest");
+  "Left out, since it doesn't parse yet" with no fix (now says to fill in every <...>); "below
+  the Table reference" (now "below the Table(...) call"); "when it was written" (now "when the
+  sheet was written"); DESCRIBE glossed where it is first named.

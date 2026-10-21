@@ -3435,8 +3435,8 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <section class="entry" id="project.add_references">
 <h3><code>project.add_references</code></h3>
 <p class="why">Write a Table reference for each table into references/, skipping any it can&#x27;t.</p>
-<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name that isn&#x27;t a table&#x27;s, and a table DESCRIBE can&#x27;t read through your <code>send</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Run it again with only those once you&#x27;ve fixed their names: the ones written are skipped as there already.</p>
-<pre class="python">from sqlglot_composer import project</pre>
+<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>send</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix the names, then run the same list again: the tables written are skipped as there already.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
@@ -3483,8 +3483,8 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <section class="entry" id="project.refresh_reference_sheet">
 <h3><code>project.refresh_reference_sheet</code></h3>
 <p class="why">Rebuild the Reference sheet: a row per column of every Table reference.</p>
-<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is the Date partition or in the Key, its column Aliases (each name below the Table reference that is the column itself, such as minutes = job_runs.duration_mins), its description, and when it was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t parse yet, such as one with a &lt;...&gt; still to fill in, is left out, and the report says so. It changes no other file, and isn&#x27;t logged.</p>
-<pre class="python">from sqlglot_composer import project</pre>
+<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is the Date partition or in the Key, its column Aliases (each line below the Table(...) call that names one column alone, such as minutes = job_runs.duration_mins), its description, and when the sheet was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t run yet, such as one with a &lt;...&gt; still to fill in, is left out (or, given its name, keeps its rows from before), and the report says so. It changes no other file, and isn&#x27;t logged.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,

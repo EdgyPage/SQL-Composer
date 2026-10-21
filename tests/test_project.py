@@ -16,6 +16,7 @@ import datetime
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from conftest import toolbox_module
 
@@ -362,7 +363,7 @@ def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started) 
     message = " ".join(str(skipped.value).split())
     assert ("add_references skipped 3 of 4 tables: ops.jobs (references/ops__jobs.py is there "
             "already); ops.job_ownres (DESCRIBE failed: RuntimeError: Table not found: "
-            "ops.job_ownres); jobs (not a table's name with its database, such as ops.jobs)."
+            "ops.job_ownres); 'jobs' (not written as database.table, such as ops.jobs)."
             ) in message
     assert "references/ops__run_alerts.py was written." in message
     # The table after the skipped ones is still written, and the file there is left alone.
@@ -375,7 +376,7 @@ def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started) 
     assert "- Files: created references/ops__run_alerts.py\n" in log
     assert ("- Skipped: ops.jobs (references/ops__jobs.py is there already); "
             "ops.job_ownres") in log
-    assert "- Result: failed, with SkippedTables: 3 of 4 skipped, named above\n" in log
+    assert "- Result: 1 of 4 written; SkippedTables named the rest, above\n" in log
 
 
 def test_add_references_refuses_a_name_where_a_list_goes(started) -> None:
@@ -433,7 +434,31 @@ def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started) -> None:
     project.add_references(["ops.jobs"], send=example_database.send)
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.\n"
-        "Left out, since it doesn't parse yet: references/mart__daily_job_runs.py.")
+        "Left out, since it can't be read yet: references/mart__daily_job_runs.py. Fill in "
+        "every <...> in it, then refresh again.")
+
+
+def test_a_named_refresh_keeps_the_rows_of_a_file_that_cant_be_read(started) -> None:
+    project.add_references(["ops.jobs"], send=example_database.send)
+    project.refresh_reference_sheet()
+    reference = started / "references" / "ops__jobs.py"
+    reference.write_text(reference.read_text(encoding="utf-8") + "oops = <ALIAS>" + "\n",
+                         encoding="utf-8")
+    assert "its rows from before are kept until then" in repr(
+        project.refresh_reference_sheet("ops.jobs"))
+    assert len(sheet(started)) == 4
+
+
+def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started) -> None:
+    """A Toolbox refusal from inside add_references is one line of the error, not a second
+    four-part message inside the first."""
+    with pytest.raises(project.SkippedTables) as skipped:
+        project.add_references(["ops.empty"], send=lambda hive: pd.DataFrame(
+            columns=["col_name", "data_type", "comment"]))
+    message = str(skipped.value)
+    assert message.count("What happened:") == 1
+    assert "ops.empty (DESCRIBE failed: ValueError: write_table_reference('ops.empty', ...): "
+    assert "DESCRIBE ops.empty listed no columns.)" in " ".join(message.split())
 
 
 def test_refreshing_a_table_with_no_reference_is_refused(started) -> None:
