@@ -333,9 +333,10 @@ def month_start(column: Column) -> Column:
 
 
 class Ordering:
-    """A column to sort by, and which way, made by descending(...).
+    """A column to sort by from largest to smallest, made by descending(...).
 
-    Make one with descending(...), never Ordering(). Write the name in a type hint, to say that
+    A column given as it is sorts from smallest to largest, and needs no Ordering. Make one
+    with descending(...), never Ordering(). Write the name in a type hint, to say that
     a function of yours gives one back:
 
     >>> def newest_first() -> Ordering:

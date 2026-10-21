@@ -10,19 +10,19 @@ Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder
   `Verdict`, `SessionSettings` and `UncheckedStatement` are public names**, so a function of
   yours can say in a type hint what it takes and gives back: `def failed_runs(first_day: str,
   last_day: str) -> Statement:`. Import them as any other name, `from sqlglot_composer import
-  Statement`. Make each as before, with `statement(...)`, a clause function, a Table
-  reference's columns, `AS(...)`, the condition functions, `descending(...)`, `window(...)`,
-  `rollup(...)` and its kin, `check_key(...)`, `hive_settings(...)` and `unchecked_hive(...)`,
-  never by calling the name itself.
+  Statement`. Make each as before, with the function that gives it back, such as
+  `statement(...)` for a Statement or `AS(...)` for a Named, never by calling the name itself:
+  `help()` on each name says which.
 - **Every function says in a type hint what it takes and gives back.** `help(FROM)` now
   starts `FROM(table: 'Table', reads_all_partitions: 'bool' = False) -> 'Clause'`: each hint is
   shown in quotes, and a name in it that isn't public, such as `ProjectReport` from the
-  project module's functions, is only the name of what that function gives. The Templates `project.new_table` writes from, the
-  how-tos, the Example gallery and the Example projects are hinted the same way, with public
-  names only. A notebook made from a 6.0 Template still works as it is.
-- **`project.run_tables` refuses a `write_day` that gives something it can't send**, such as
-  Session settings, with a message naming the table and what its `write_day` gave, before
-  anything is sent. It stopped with Python's AttributeError before.
+  project module's functions, is only the name of what that function gives. The Templates
+  `project.new_table` writes from, the how-tos, the Example gallery and the Example projects
+  are hinted the same way, with public names only. A notebook made from a 6.0 Template still
+  works as it is.
+- **`project.run_tables` refuses a `write_day` that gives something it can't put in order**,
+  such as Session settings or an empty list, with a message naming the table and what its
+  `write_day` gave, before anything is sent. It stopped with Python's AttributeError before.
 
 ## 6.0
 
