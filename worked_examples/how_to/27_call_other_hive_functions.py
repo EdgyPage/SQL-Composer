@@ -5,8 +5,8 @@ For: Intermediate
 ## Goal
 
 Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with
-`hive_function`. Then see three things about the Hive the Toolbox writes that are easy to trip
-on: a division by 0, a Python float, and a function written by another name.
+`hive_function`. Then see three things worth knowing about the Hive the Toolbox writes: what a
+division by 0 gives, how a Python float is written, and a function written by another name.
 
 ## When you'd use it
 
@@ -252,6 +252,7 @@ SELECT
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN '2026-09-24' AND '2026-09-24';
+
 ### A function that works over a window of rows
 
 lag, lead, rank and the other window functions need OVER (...) after them, which

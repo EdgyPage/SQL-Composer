@@ -61,8 +61,7 @@ def hive_text(node: Node) -> str:
 def readable_text(node: Node) -> str:
     """A part of a Statement as Hive on one line, for the lineage to show how it was written.
 
-    Here it is just its Hive: sqlglot Composer adds nothing to its Hive that the other Edition
-    doesn't.
+    Here it is just its Hive.
     """
     return hive_text(node)
 

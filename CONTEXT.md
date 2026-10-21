@@ -24,13 +24,14 @@ how it writes its Hive and runs its Example database.
 _Avoid_: base, common, shared library, framework
 
 **Toolbox version**:
-The feature number of the Toolbox (`5.1`), raised only when a big feature lands. Two copies of the same Toolbox version are told apart by when they were exported.
+The feature number of the Toolbox (`5.1`), raised only when a big feature lands. Two copies of
+the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox's Composer core, its Editions, each Edition's copy of the
-Example projects and the Templates, and their README, license and requirements.txt, generated
-from the Dev branch and never edited by hand.
+The branch holding only the Toolbox's Composer core, its Edition, a copy of the Example projects
+and the Templates, and their README, license and requirements.txt, generated from the Dev branch
+and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:
@@ -38,7 +39,8 @@ The branch where all work happens: the Toolbox plus its tests, agents and tracke
 _Avoid_: develop, internal branch, testing branch
 
 **Warehouse**:
-Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them. Each Toolbox user has one; the Example database stands in for it.
+Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them.
+Each Toolbox user has one; the Example database stands in for it.
 _Avoid_: backend, engine, server, platform
 
 ### The user's own scripts
@@ -210,8 +212,8 @@ changes no row, and they can be counted again at any time.
 _Avoid_: stats, metadata, metrics
 
 **Plan**:
-How Hive, or Spark, will run a Statement - which tables it reads, with which filters, and how
-it joins them - shown without running it.
+How Hive will run a Statement - which tables it reads, with which filters, and how it joins
+them - shown without running it.
 _Avoid_: query plan, execution plan, explain output
 
 **Map join**:
@@ -255,19 +257,19 @@ The shape of one of the user's own scripts, with its specifics left out - the ta
 days and names - each marked as a placeholder, to copy into a project and fill in; a Template
 with a placeholder left in doesn't run. Where an Example project shows scripts filled in for the
 Example database, a Template is the empty shape of such a script, or of one a project keeps
-beside them, such as a notebook's first cells. Each Edition ships a starter set and an
+beside them, such as a notebook's first cells. The Toolbox ships a starter set and an
 intermediate set, beside its Example projects.
 _Avoid_: skeleton, boilerplate, stub, scaffold, example
 
 **Example gallery**:
-The searchable page holding every Worked example, generated from them; each Edition ships its
-own.
+The searchable page holding every Worked example, generated from them, which ships in the
+Toolbox.
 _Avoid_: cookbook, docs site, examples page
 
 **How-to**:
 A walkthrough of one job from start to finish, as one notebook: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 run on the Example database; what works only at work, such as your own send, is shown and not
-run. There are Getting started how-tos and Intermediate how-tos, on a page each Edition ships
+run. There are Getting started how-tos and Intermediate how-tos, on a page the Toolbox ships
 beside its Example gallery.
 _Avoid_: tutorial, guide, lesson, recipe

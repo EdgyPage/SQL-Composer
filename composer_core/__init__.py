@@ -1,10 +1,11 @@
-"""The code both Editions of the Toolbox share. Never import it yourself.
+"""The code every Toolbox function runs. Never import it yourself.
 
-Import sqlglot_composer instead, which loads this folder beside it and plugs in the two files of its own that write and run the Hive:
+Import sqlglot_composer instead, which loads this folder beside it and plugs in the two files of
+its own that write and run the Hive:
 
     from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
-To update, delete this folder and your Edition's folder, copy both in again from one
+To update, delete this folder and sqlglot_composer, copy both in again from one
 download, and restart the kernel.
 """
 

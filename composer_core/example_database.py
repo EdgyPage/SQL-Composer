@@ -501,7 +501,7 @@ def send(hive):
     if words[:1] and words[0].upper() == "SET" and "=" in text:
         return _set(text)
     if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
-        # The plan of a query, which the Edition's engine refuses: its executor makes none.
+        # The plan of a query, which sqlglot_composer's engine refuses: its executor makes none.
         columns, rows = edition.run_query(text, _TABLES)
         return pd.DataFrame(rows, columns=columns)
     if not _is_query(text):
