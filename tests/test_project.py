@@ -20,11 +20,20 @@ import pandas as pd
 import pytest
 from conftest import toolbox_module
 
-from sqlglot_composer import Table, admin, example_database, project, run, set_admin_log
+from sqlglot_composer import (
+    Table,
+    admin,
+    example_database,
+    export_lineage,
+    project,
+    run,
+    set_admin_log,
+    to_hive,
+)
 
 NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
 ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project", "new_table",
-                   "refresh_reference_sheet", "remove_table"]
+                   "refresh_reference_sheet", "remove_table", "run_tables"]
 
 
 @pytest.fixture
@@ -464,6 +473,223 @@ def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started) ->
 def test_refreshing_a_table_with_no_reference_is_refused(started) -> None:
     with pytest.raises(FileNotFoundError, match="there is no references/ops__jobs.py to read"):
         project.refresh_reference_sheet("ops.jobs")
+
+
+# --- load, run_tables and lineage ------------------------------------------------------------
+
+DAILY_RUNS = """from sqlglot_composer import Table
+
+daily_runs = Table(
+    "mart.daily_runs",
+    columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    date_partition="dt",
+    key=["job_id", "dt"],
+    location="/data/your_team/tables",
+)
+"""
+TEAM_RUNS = """from sqlglot_composer import Table
+
+team_runs = Table(
+    "mart.team_runs",
+    columns={"runs": "bigint", "dt": "string"},
+    date_partition="dt",
+    key=["dt"],
+    location="/data/your_team/tables",
+)
+"""
+# Each table's notebook Template: a text cell and its logic cell. team_runs reads daily_runs.
+DAILY_LOGIC = """# %% [markdown]
+# # <DB>.<TABLE>
+
+# %%
+# logic
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, count_rows, statement,
+)
+from references.ops__job_runs import job_runs
+from references.<NAME> import <TABLE>
+
+
+def write_day(day):
+    return statement(
+        INSERT_OVERWRITE(<TABLE>),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, day, day)),
+        GROUP_BY(job_runs.dt, job_runs.job_id),
+    )
+
+# %%
+run(write_day("2026-09-24"), send=send)
+"""
+TEAM_LOGIC = """# %%
+# logic
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, statement, sum_of,
+)
+from references.mart__daily_runs import daily_runs
+from references.<NAME> import <TABLE>
+
+
+def write_day(day):
+    return statement(
+        INSERT_OVERWRITE(<TABLE>),
+        SELECT(AS(sum_of(daily_runs.runs), "runs")),
+        FROM(daily_runs),
+        WHERE(between(daily_runs.dt, day, day)),
+        GROUP_BY(daily_runs.dt),
+    )
+"""
+
+
+@pytest.fixture
+def two_tables(started) -> Path:
+    """A Project with two Table folders, mart.team_runs reading what mart.daily_runs writes,
+    their Table references filled in, and ops.job_runs's written from the Example database."""
+    templates = started / "admin" / "templates"
+    (templates / "daily.py").write_text(DAILY_LOGIC, encoding="utf-8")
+    (templates / "team.py").write_text(TEAM_LOGIC, encoding="utf-8")
+    project.add_references(["ops.job_runs"], send=example_database.send)
+    project.new_table("mart.daily_runs", template="daily")
+    project.new_table("mart.team_runs", template="team")
+    (started / "references" / "mart__daily_runs.py").write_text(DAILY_RUNS, encoding="utf-8")
+    (started / "references" / "mart__team_runs.py").write_text(TEAM_RUNS, encoding="utf-8")
+    return started
+
+
+def notebook_of(root: Path, stem: str) -> Path:
+    return root / "tables" / stem / f"{stem}.ipynb"
+
+
+def test_load_gives_the_logic_cells_functions(two_tables) -> None:
+    logic = project.load("mart.daily_runs")
+    assert repr(logic) == "The logic of mart.daily_runs: write_day."
+    assert to_hive(logic.write_day("2026-09-24")).startswith(
+        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')")
+
+
+def test_load_reads_the_references_as_they_are_now(two_tables) -> None:
+    project.load("mart.daily_runs")
+    reference = two_tables / "references" / "mart__daily_runs.py"
+    reference.write_text(DAILY_RUNS.replace('"mart.daily_runs"', '"mart.daily_runs_v2"'),
+                         encoding="utf-8")
+    assert "mart.daily_runs_v2" in to_hive(project.load("mart.daily_runs").write_day("2026-09-24"))
+
+
+def test_load_refuses_a_notebook_it_cant_find(two_tables) -> None:
+    with pytest.raises(FileNotFoundError, match="there is no tables/mart__nope/mart__nope.ipynb"):
+        project.load("mart.nope")
+
+
+@pytest.mark.parametrize(("logic", "said"), [
+    ("x = 1\n", "has no cell whose first line is # logic"),
+    ("# logic\nfrom references.<SOURCE> import x\n", "isn't Python yet, at its line 1"),
+    ("# logic\nfrom sqlglot_composer import run\nrun(1, send=print)\n", "calls run"),
+])
+def test_load_refuses_a_logic_cell_it_cant_run_safely(two_tables, logic, said) -> None:
+    (two_tables / "admin" / "templates" / "odd.py").write_text(f"# %%\n{logic}",
+                                                               encoding="utf-8")
+    project.new_table("mart.odd", template="odd")
+    with pytest.raises(ValueError, match=said):
+        project.load("mart.odd")
+
+
+def test_run_tables_with_no_send_prints_each_write_writers_first(two_tables, capsys) -> None:
+    report = project.run_tables("2026-09-24", tables=["mart.team_runs", "mart.daily_runs"])
+    printed = capsys.readouterr().out
+    assert printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs") < (
+        printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs"))
+    assert repr(report) == "Printed 2 writes in order, and sent nothing. Pass send= to run them."
+
+
+def test_run_tables_sends_every_registered_table_in_order(two_tables) -> None:
+    sent = []
+    report = project.run_tables("2026-09-24", send=sent.append)
+    assert [hive.split("\n")[0] for hive in sent] == [
+        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')",
+        "INSERT OVERWRITE TABLE mart.team_runs PARTITION(dt = '2026-09-24')"]
+    assert repr(report) == ("1 of 2: mart.daily_runs  worked\n"
+                            "2 of 2: mart.team_runs   worked")
+
+
+def test_run_tables_stops_at_the_first_that_fails(two_tables, capsys) -> None:
+    def send(hive):
+        raise RuntimeError("the warehouse said no")
+
+    with pytest.raises(RuntimeError, match="the warehouse said no"):
+        project.run_tables("2026-09-24", send=send)
+    assert "1 of 2: mart.daily_runs  failed: see below" in capsys.readouterr().out
+
+
+LOOP_REFERENCE = """from sqlglot_composer import Table
+
+<TABLE> = Table(
+    "<DB>.<TABLE>",
+    columns={"n": "bigint", "dt": "string"},
+    date_partition="dt",
+    key=["dt"],
+    location="/data/your_team/tables",
+)
+"""
+# A table that sums the other one's n: two of them, each reading the other, are a loop.
+LOOP_LOGIC = """# %%
+# logic
+from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE
+from sqlglot_composer import between, statement, sum_of
+from references.mart__<OTHER> import <OTHER>
+from references.<NAME> import <TABLE>
+
+
+def write_day(day):
+    return statement(
+        INSERT_OVERWRITE(<TABLE>),
+        SELECT(AS(sum_of(<OTHER>.n), "n")),
+        FROM(<OTHER>),
+        WHERE(between(<OTHER>.dt, day, day)),
+        GROUP_BY(<OTHER>.dt),
+    )
+"""
+
+
+def test_run_tables_refuses_a_loop(started) -> None:
+    templates = started / "admin" / "templates"
+    for table, other in (("ping", "pong"), ("pong", "ping")):
+        (templates / f"{table}.py").write_text(LOOP_LOGIC.replace("<OTHER>", other),
+                                               encoding="utf-8")
+        project.new_table(f"mart.{table}", template=table)
+        (started / "references" / f"mart__{table}.py").write_text(
+            LOOP_REFERENCE.replace("<DB>", "mart").replace("<TABLE>", table), encoding="utf-8")
+    with pytest.raises(ValueError, match="loop"):
+        project.run_tables("2026-09-24")
+
+
+def test_run_tables_with_no_table_folder_says_so(started) -> None:
+    assert repr(project.run_tables("2026-09-24")) == (
+        "No Table folder to run: make one with project.new_table(...).")
+
+
+def test_lineage_crosses_table_folders_through_load(two_tables, monkeypatch) -> None:
+    monkeypatch.chdir(two_tables / "tables" / "mart__team_runs")
+    daily = project.load("mart.daily_runs").write_day("2026-09-24")
+    team = project.load("mart.team_runs").write_day("2026-09-24")
+    # to= names the files: from a test, rather than a notebook, they would go beside this file.
+    _, markdown_file = export_lineage(daily, team, to=two_tables / "both.html")
+    text = markdown_file.read_text(encoding="utf-8")
+    # The drawing follows ops.job_runs, through mart.daily_runs, to mart.team_runs.
+    assert "ops.job_runs" in text and "mart.daily_runs" in text and "mart.team_runs" in text
+    assert text.index("mart.daily_runs") < text.index("mart.team_runs")
+
+
+def test_one_write_s_lineage_goes_in_its_table_folder_named_by_the_time(two_tables,
+                                                                       monkeypatch) -> None:
+    monkeypatch.setattr(toolbox_module("lineage"), "_now", lambda: NOW)
+    monkeypatch.chdir(two_tables / "admin")
+    html_file, markdown_file = export_lineage(project.load("mart.daily_runs").write_day(
+        "2026-09-24"))
+    folder = two_tables / "tables" / "mart__daily_runs" / "lineage"
+    assert (html_file, markdown_file) == (folder / "20261021-093000-mart__daily_runs.html",
+                                          folder / "20261021-093000-mart__daily_runs.md")
+    assert "from your scripts at commit" in markdown_file.read_text(encoding="utf-8")
 
 
 # --- The Admin log inside a Project -----------------------------------------------------------

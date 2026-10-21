@@ -24,7 +24,9 @@ A Project is the folder you work in, laid out the same way every time:
 start() makes it, once. new_table makes a Table folder and remove_table archives one;
 add_references writes Table references in bulk, remove_reference archives one, register adopts
 one made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
-rebuilds references/reference_sheet.csv, a row per column of every Table reference. Only
+rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
+a Table notebook's logic from anywhere in the Project, and run_tables writes a day of every
+table, writers before the tables that read them. Only
 add_references touches the warehouse, sending DESCRIBE, and none deletes a file: what they
 remove moves into admin/removed/. Every one of them but check, which changes no file, and
 refresh_reference_sheet, which changes only the Reference sheet, adds an entry to
@@ -40,6 +42,7 @@ import json
 import keyword
 import re
 import shutil
+import sys
 from pathlib import Path
 
 from .project_templates import TEMPLATES
@@ -50,7 +53,7 @@ from .unchecked import _code, _script_line, _write_entry
 TOOLBOX_VERSION = "6.0"
 
 __all__ = ["start", "new_table", "remove_table", "add_references", "remove_reference",
-           "register", "check", "refresh_reference_sheet"]
+           "register", "check", "refresh_reference_sheet", "load", "run_tables"]
 
 # The file a folder is a Project by: start() writes it, and only a Project has it.
 REGISTRY = Path("admin") / "registry.csv"
@@ -132,6 +135,16 @@ ADMIN_NOTEBOOKS = {
         "Date partition or in the Key, its Aliases and its description. A Table notebook's "
         "last cell refreshes only its own table's rows.",
         ["project.refresh_reference_sheet()"],
+    ),
+    "run_tables": (
+        "# Run the tables\n\nSends each Table notebook's `write_day(day)`, read from its logic "
+        "cell with `project.load`, writers before the tables that read them. With no `send`, "
+        "it prints each Hive in that order and sends nothing. `tables=` picks some; leave it "
+        "out for every Table folder the registry lists.",
+        ['from send import send\n\nDAY = "2026-10-20"  # the day to write, as your tables '
+         "write their days",
+         "project.run_tables(DAY)  # first, with no send: prints each Hive, sends nothing",
+         "# project.run_tables(DAY, send=send)"],
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder or Table "
@@ -724,6 +737,180 @@ def _called(call: ast.Call) -> str | None:
     """The name a call calls, such as Table for Table(...) or sqlglot_composer.Table(...)."""
     function = call.func
     return function.id if isinstance(function, ast.Name) else getattr(function, "attr", None)
+
+
+# --- load and run_tables -----------------------------------------------------------------------
+
+# The first line of a Table notebook's logic cell.
+LOGIC = "# logic"
+# The folders of a Project whose modules a logic cell imports, read again by each load.
+OWN_MODULES = ("references", "building_blocks")
+
+
+class TableLogic:
+    """A Table notebook's logic, as load gives it: each function its logic cell defines, by
+    its name, such as write_day."""
+
+    def __init__(self, name: str, functions: dict):
+        self._name = name
+        self._functions = functions
+        for function_name, function in functions.items():
+            setattr(self, function_name, function)
+
+    def __repr__(self) -> str:
+        return f"The logic of {self._name}: {', '.join(self._functions)}."
+
+
+def load(name):
+    r"""A Table notebook's logic, its functions by name, from anywhere in the Project.
+
+    It reads tables/<db>__<table>/<db>__<table>.ipynb and runs its logic cell alone, the cell
+    whose first line is # logic, which only imports and defines: create, rows, preview,
+    write_day and backfill, in a notebook made from the daily_table Template. So another
+    table's notebook can use this table's write_day, for lineage across your tables, and
+    run_tables can write every table in order. It reads the notebook and your references/ and
+    building_blocks/ as they are on disk now, saved or not run. It refuses a notebook with no
+    logic cell, one whose logic cell calls run, which would send Hive just by loading, and one
+    with a <...> still to fill in.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and send.py. Next: write your send in send.py.
+    >>> from pathlib import Path
+    >>> _ = Path("admin/templates/plain.py").write_text(
+    ...     "# %%\n# logic\ndef write_day(day):\n    return day\n")
+    >>> _ = project.new_table("mart.daily_job_runs", template="plain")
+    >>> logic = project.load("mart.daily_job_runs")
+    >>> logic
+    The logic of mart.daily_job_runs: write_day.
+    >>> logic.write_day("2026-10-20")
+    '2026-10-20'
+    """
+    call = f"project.load({_quoted(name)})"
+    root = _project(call)
+    _, _, stem = _table_name(name, call)
+    notebook = root / "tables" / stem / f"{stem}.ipynb"
+    if not notebook.is_file():
+        refuse(
+            what=f"{call}: there is no tables/{stem}/{stem}.ipynb.",
+            why="load runs the logic cell of a Table folder's notebook.",
+            fix="Check the name: admin/check_project.ipynb lists the Table folders. Make one "
+            "with project.new_table(...).",
+            error=FileNotFoundError,
+        )
+    source = _logic_cell(notebook)
+    shown = f"tables/{stem}/{stem}.ipynb"
+    if source is None:
+        refuse(
+            what=f"{call}: {shown} has no cell whose first line is {LOGIC}.",
+            why="load runs only the logic cell, the one that imports and defines the "
+            "table's functions, so it never runs the cells that send Hive.",
+            fix=f"Put {LOGIC} as the first line of the cell that defines write_day and the "
+            "others, as the daily_table Template does.",
+            error=ValueError,
+        )
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as error:
+        refuse(
+            what=f"{call}: the logic cell of {shown} isn't Python yet, at its line "
+            f"{(error.lineno or 2) - 1}: {(error.text or '').strip()}",
+            why="A placeholder such as <SOURCE_TABLE> stops Python until it is filled in.",
+            fix="Fill in every <...> in the logic cell, run it in its notebook to check it, "
+            "then load it again.",
+            error=ValueError,
+        )
+    if any(isinstance(node, ast.Call) and _called(node) == "run" for node in ast.walk(tree)):
+        refuse(
+            what=f"{call}: the logic cell of {shown} calls run.",
+            why="Loading the logic would send its Hive to your warehouse, from wherever it is "
+            "loaded, before you chose to.",
+            fix="Keep the logic cell to imports and functions that build Statements, and call "
+            "run in another cell, as the daily_table Template's cell 3 does.",
+            error=ValueError,
+        )
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    for module in [module for module in sys.modules
+                   if module.split(".")[0] in OWN_MODULES]:
+        del sys.modules[module]  # each load reads your references as they are now
+    module_name = f"logic of {name}"
+    namespace = {"__name__": module_name}
+    exec(source, namespace)
+    functions = {key: value for key, value in namespace.items()
+                 if callable(value) and getattr(value, "__module__", None) == module_name}
+    return TableLogic(name, functions)
+
+
+def _logic_cell(notebook: Path) -> str | None:
+    """The source of a notebook's logic cell, the code cell whose first line is # logic."""
+    for cell in json.loads(notebook.read_text(encoding="utf-8")).get("cells", []):
+        source = "".join(cell.get("source", []))
+        if cell.get("cell_type") == "code" and source.lstrip().startswith(LOGIC):
+            return source
+    return None
+
+
+def run_tables(day, send=None, tables=None):
+    """Write a day of every table, with each notebook's write_day(day), writers first.
+
+    Each table's write_day comes from its notebook's logic cell, through load. They run in the
+    order lineage draws them: a table is written before any table that reads it, and a loop,
+    two tables each reading the other, is refused. `tables` names some, such as
+    ["mart.team_day"]; left out, it is every Table folder the registry lists. With no `send`
+    it prints each Hive in that order and sends nothing: a dry run to read first. With your
+    send, it runs each, says it worked, and stops at the first that fails.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and send.py. Next: write your send in send.py.
+    >>> project.run_tables("2026-10-20")
+    No Table folder to run: make one with project.new_table(...).
+    """
+    from .lineage import in_order  # lineage imports what imports this
+    from .running import run, show_hive
+
+    call = f"project.run_tables({_quoted(day)}" + (", send=..." if send is not None else "") + ")"
+    root = _project(call)
+    if tables is None:
+        tables = [row["table"] for row in _registry(root)
+                  if row["kind"] == TABLE_FOLDER and not row["removed_at"]]
+    if isinstance(tables, str):
+        tables = [tables]
+    if not tables:
+        return ProjectReport(["No Table folder to run: make one with project.new_table(...)."])
+    named = []
+    for name in tables:
+        logic = load(name)
+        if not hasattr(logic, "write_day"):
+            refuse(
+                what=f"{call}: the logic cell of {name}'s notebook defines no write_day.",
+                why="run_tables writes each table's day with its write_day(day).",
+                fix="Define write_day(day) in the logic cell, as the daily_table Template "
+                "does, or leave the table out with tables=[...].",
+                error=ValueError,
+            )
+        named.append((logic.write_day(day), name))
+    ordered = in_order(named)
+    if send is None:
+        for position, (s, name) in enumerate(ordered, start=1):
+            print(f"-- {position} of {len(ordered)}: {name}")
+            show_hive(s)
+        return ProjectReport([f"Printed {len(ordered)} write{'s' * (len(ordered) != 1)} in "
+                              "order, and sent nothing. Pass send= to run them."])
+    width = max(len(name) for _, name in ordered)
+    done = []
+    for position, (s, name) in enumerate(ordered, start=1):
+        try:
+            run(s, send=send)
+        except Exception:
+            print(f"{position} of {len(ordered)}: {name:<{width}}  failed: see below. The "
+                  "tables after it weren't written.")
+            raise
+        done.append(f"{position} of {len(ordered)}: {name:<{width}}  worked")
+    return ProjectReport(done)
 
 
 # --- Pieces they share ------------------------------------------------------------------------

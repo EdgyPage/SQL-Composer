@@ -203,6 +203,10 @@ LOCAL_MODULES = "imports the repo's own modules by name, from its own folders"
 TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the network "
                         "under the offline trap and its backstop, so nothing is sent")
 ALLOWED: tuple[Allowed, ...] = (
+    # The Toolbox.
+    Allowed("sqlglot_composer/project.py", "load", "dynamic code", "exec",
+            "runs a Table notebook's logic cell, which only imports and defines, to give its "
+            "functions; load refuses a cell that calls run (the user's OK, 2026-10-21)"),
     # The dev hooks.
     Allowed(".claude/hooks/drift_list.py", "<module>", "process", "subprocess", IMPORTS_GIT),
     Allowed(".claude/hooks/drift_list.py", "git", "process", "subprocess.run", GIT),
