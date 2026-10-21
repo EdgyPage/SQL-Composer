@@ -845,10 +845,10 @@ def is_read(root: Path, file: Path) -> bool:
 
 
 def not_read(folder: Path, root: Path) -> bool:
-    """Whether reading the repo at `root` skips `folder`: a folder that holds no code of the repo's: see NOT_READ; Claude Code's worktrees, which
-    are other checkouts; and a Python's own folder, which holds pyvenv.cfg. Nothing in the
-    Toolbox or user-copied code is skipped, since a file there could import what a skipped
-    folder holds."""
+    """Whether reading the repo at `root` skips `folder`, which holds no code of the repo's:
+    one NOT_READ names, one of Claude Code's worktrees, which are other checkouts, or a Python's
+    own folder, which holds pyvenv.cfg. Nothing in the Toolbox or user-copied code is skipped,
+    since a file there could import what a skipped folder holds."""
     path = _path_from(root, folder)
     if scope_of(path) != "maintainer":
         return False
