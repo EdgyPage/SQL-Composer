@@ -1,26 +1,19 @@
 """The test setup every Toolbox test shares.
 
-The tests run against one Edition of the Toolbox, chosen with `--edition`: `sqlglot` for sqlglot
-Composer, the default, or `spark` for Spark Composer. Nothing here imports the Toolbox or
-sqlglot when the file is loaded, so the Edition is chosen before any Toolbox module is. In Spark
-Composer's run, `import sqlglot_composer` gives Spark Composer's modules and sqlglot can't be
-imported at all (`editions.use`), so the same tests run unchanged. Each run names its Edition at
-the end, so a run of the wrong one can't pass unnoticed.
+The tests run against sqlglot Composer, the one Edition of the Toolbox since 6.0.
 
 Today is pinned to 2026-09-25, the day after the Example database's last day, so
 `last_n_days(job_runs.dt, 2)` covers both of its days and every emitted date is fixed. The
 load limits are switched off again after each test, since `set_load_limits` changes them for
 the whole session.
 
-Each run collects the shared tests directly in `tests/` and its own Edition's folder,
-`tests/sqlglot_edition/` or `tests/spark_edition/`; sqlglot Composer's run also collects the
-repo's own checks in `tests/repo/`, which run once.
+A run collects the shared tests directly in `tests/`, sqlglot Composer's own in
+`tests/sqlglot_edition/`, and the repo's own checks in `tests/repo/`.
 
 A test marked `needs_example_database` runs a query on the Example database. Where this computer
-can't run one, because something it needs is missing or its Spark couldn't start, the test
-skips, saying why; whether it can is asked once a run, by sending it one query. Anything else
-that stops that query is a bug, and fails the test. `--example-database required` turns every
-such skip into a failure too, for a CI job whose Example database must run.
+can't run one, because something it needs is missing, the test skips, saying why; whether it can
+is asked once a run, by sending it one query. Anything else that stops that query is a bug, and
+fails the test.
 
 Every test runs under the offline trap, `offline_trap`, installed as this file loads: its Python
 refuses any lookup or connection that would leave this computer.
@@ -50,73 +43,13 @@ offline_trap.install()
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"
 TODAY = datetime.date(2026, 9, 25)
-# The repo's own checks, run once, in sqlglot Composer's run.
+# The repo's own checks.
 REPO_FOLDER = "repo"
-# What this run was given: its Edition, and whether its Example database must run.
-_chosen: dict = {}
-
-
-def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--edition", choices=sorted(editions.BY_OPTION),
-                     default=editions.SQLGLOT_COMPOSER.option,
-                     help="the Edition of the Toolbox to test: sqlglot for sqlglot Composer, "
-                     "spark for Spark Composer")
-    parser.addoption("--example-database", choices=["optional", "required"], default="optional",
-                     help="required: a test that needs the Example database fails where it "
-                     "can't run a query, instead of skipping")
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    _chosen["edition"] = editions.BY_OPTION[config.getoption("--edition")]
-    _chosen["example_database"] = config.getoption("--example-database")
-    editions.use(_chosen["edition"])
-
-
-def folders_left_out(config: pytest.Config) -> set[str]:
-    """The folders of tests this run doesn't collect: the other Edition's, and the repo's."""
-    chosen = config.getoption("--edition")
-    left_out = {edition.tests_folder for option, edition in editions.BY_OPTION.items()
-                if option != chosen}
-    if chosen != "sqlglot":
-        left_out.add(REPO_FOLDER)
-    return left_out
-
-
-def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
-    if collection_path.parent == TESTS and collection_path.name in folders_left_out(config):
-        return True
-    return None
-
-
-def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
-    """Stop a run given a folder its Edition doesn't collect, rather than run the wrong one."""
-    named = sorted({item.path.parent.name for item in items
-                    if item.path.parent.parent == TESTS
-                    and item.path.parent.name in folders_left_out(config)})
-    if named:
-        raise pytest.UsageError(f"tests/{named[0]}/ doesn't run with --edition "
-                                f"{config.getoption('--edition')}.")
-
-
-def pytest_report_header(config: pytest.Config) -> str:
-    return f"Edition: {edition().product} ({edition().folder}/)"
-
-
-def pytest_terminal_summary(terminalreporter) -> None:
-    terminalreporter.write_line(f"Edition tested: {edition().product} ({edition().folder}/)")
 
 
 def edition() -> editions.Edition:
-    """The Edition these tests run against."""
-    return _chosen["edition"]
-
-
-def in_this_edition(sqlglot_composer, spark_composer):
-    """What a test expects where the two Editions write different Hive on purpose.
-
-    Each such place is one of `DECLARED_DIFFERENCES` in `tools/editions.py`.
-    """
-    return spark_composer if edition() is editions.SPARK_COMPOSER else sqlglot_composer
+    """The Edition these tests run against: sqlglot Composer."""
+    return editions.SQLGLOT_COMPOSER
 
 
 def toolbox_folder() -> Path:
@@ -137,9 +70,6 @@ def toolbox_module(name: str = "") -> ModuleType:
 
 # Whether the Example database answered the one query each run sends it, and if not, why.
 _ANSWERED: dict = {}
-# What an Example database whose Spark couldn't start says: that is about this computer, so its
-# tests are skipped. Anything else the one query raises is a bug, and fails them.
-_DIDNT_START = ("quit while it was starting", "didn't start within")
 
 
 def example_database_cannot_run() -> str | None:
@@ -147,7 +77,7 @@ def example_database_cannot_run() -> str | None:
 
     Its Edition says what it lacks. Then, once a run, it is sent one query, so an Example
     database that can't answer, such as a Spark that can't start, gives every test one reason
-    rather than each test a wait of its own. Whether that reason is a bug is kept too.
+    rather than each test a reason of its own. Any reason the query gives is a bug.
     """
     reason = toolbox_module("engine").example_database_cannot_run()
     if reason is not None:
@@ -160,20 +90,15 @@ def example_database_cannot_run() -> str | None:
             said = re.search(r"What happened:\s*(.+)", str(error))
             _ANSWERED["reason"] = ("the Example database didn't answer: "
                                    + (said.group(1) if said else str(error).strip()))
-            _ANSWERED["bug"] = not any(phrase in str(error) for phrase in _DIDNT_START)
+            _ANSWERED["bug"] = True
     return _ANSWERED["reason"]
 
 
 def skip_unless_the_example_database_runs() -> None:
-    """Skip the test where the Example database can't run a query, or fail if that's a bug.
-
-    Where it is required, as in CI, it fails whatever the reason.
-    """
+    """Skip the test where the Example database can't run a query, or fail if that's a bug."""
     reason = example_database_cannot_run()
     if reason is None:
         return
-    if _chosen["example_database"] == "required":
-        pytest.fail(f"--example-database required, but {reason}")
     if _ANSWERED.get("bug"):
         pytest.fail(reason)
     pytest.skip(reason)

@@ -86,12 +86,10 @@ WHERE
 3     103  SUCCESS
 4     104  SUCCESS
 
-[sqlglot_composer only]
 Pasted into your own notebook, this `run`, and the one of `with_an_alert` under Check it
 worked, stops with a RuntimeError saying the Example database can't run a `LEFT SEMI JOIN`:
 sqlglot's own small executor doesn't know it. The result above is worked out in pandas
-instead. Hive at work runs it, and so does Spark Composer's Example database.
-[end]
+instead. Hive at work runs it.
 
 Since a semi join never repeats rows, the runs keep their Key, run_id: a write of these
 rows into a Saved table keyed by run_id is let through, as [Keys, checked before each
@@ -388,9 +386,8 @@ from sqlglot_composer import (
 )
 
 
-# sqlglot Composer's Example database can't run a LEFT SEMI JOIN, so the page and the doctest
+# The Example database can't run a LEFT SEMI JOIN, so the page and the doctest
 # get with_an_alert's result from this, worked out in pandas from two Statements it can run.
-# Spark Composer's runs the Hive itself, and its result must match.
 
 
 def with_an_alert_in_pandas() -> pd.DataFrame:

@@ -1,16 +1,12 @@
-"""Write an Edition's golden corpus, `tests/hive_corpus/<its folder>.txt`: what it shows today.
+"""Write the golden corpus, `tests/hive_corpus/sqlglot_composer.txt`: what the Toolbox shows today.
 
 Run it on `dev` only when a change is meant to alter what the Toolbox writes, then review the diff:
 
     python tools/hive_corpus.py
-    python tools/hive_corpus.py --edition spark
 
-`tests/test_hive_corpus.py` fails while the committed file of the Edition it tests differs from
-what this writes. sqlglot Composer's is written only at the sqlglot pin in requirements-dev.txt,
-since another sqlglot writes some Hive differently; Spark Composer's needs no Java.
-`tests/repo/test_edition_parity.py` holds that the two differ only where `DECLARED_DIFFERENCES`
-in `tools/editions.py` says they do. For that test, `--as-written` prints Spark Composer's
-corpus without what it adds to sqlglot Composer's Hive, as its readable_text leaves it out.
+`tests/test_hive_corpus.py` fails while the committed file differs from what this writes. It is
+written only at the sqlglot pin in requirements-dev.txt, since another sqlglot writes some Hive
+differently.
 
 The file pins, for each case under a stable id, what the Toolbox shows through its public
 names:
@@ -42,11 +38,6 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "tools"), str(ROOT / "tests")]
 
 import editions  # noqa: E402
-
-if __name__ == "__main__":
-    # Before any Toolbox import: `import sqlglot_composer` then gives the Edition asked for.
-    editions.use(editions.edition_on_command_line(sys.argv))
-
 import pandas as pd  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
@@ -65,8 +56,8 @@ def golden_path(edition: editions.Edition) -> Path:
 
 
 GOLDEN = golden_path(EDITION)
-# The command that writes this Edition's golden.
-COMMAND = f"python tools/hive_corpus.py --edition {EDITION.option}"
+# The command that writes the golden.
+COMMAND = "python tools/hive_corpus.py"
 
 PIN = re.search(r"^sqlglot==(\S+)$",
                 (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.MULTILINE)[1]
@@ -328,13 +319,12 @@ def corpus_text() -> str:
 
 
 def cannot_write() -> str | None:
-    """Why this Python can't write the Edition's golden, or None when it can."""
-    if EDITION is editions.SQLGLOT_COMPOSER:
-        import sqlglot
+    """Why this Python can't write the golden, or None when it can."""
+    import sqlglot
 
-        if sqlglot.__version__ != PIN:
-            return (f"the golden is written at the sqlglot pin, {PIN}, and this is "
-                    f"{sqlglot.__version__}: another sqlglot writes some Hive differently")
+    if sqlglot.__version__ != PIN:
+        return (f"the golden is written at the sqlglot pin, {PIN}, and this is "
+                f"{sqlglot.__version__}: another sqlglot writes some Hive differently")
     return None
 
 
@@ -344,20 +334,7 @@ def cases_in(text: str) -> dict[str, str]:
     return {block.split("\n", 1)[0]: block for block in blocks}
 
 
-def as_written() -> int:
-    """Print Spark Composer's corpus with what it adds to sqlglot Composer's Hive left out."""
-    if EDITION is not editions.SPARK_COMPOSER:
-        print("--as-written is for --edition spark: sqlglot Composer adds nothing to leave out.")
-        return 1
-    # The switch Spark Composer's readable_text sets, set here for the whole corpus.
-    sqlglot_composer.writing._AS_WRITTEN.set(True)
-    sys.stdout.buffer.write(corpus_text().encode("utf-8"))
-    return 0
-
-
 def main() -> int:
-    if "--as-written" in sys.argv:
-        return as_written()
     reason = cannot_write()
     if reason is not None:
         print(f"Nothing was written: {reason}.")

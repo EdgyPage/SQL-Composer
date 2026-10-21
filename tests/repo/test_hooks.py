@@ -60,10 +60,10 @@ def test_watched_paths_need_a_review_and_tracker_commits_do_not() -> None:
     assert needs_review([".scratch/sql-composer-v2/map.md"], "docs(wayfinder): x") == []
 
 
-def test_both_editions_and_the_worked_examples_are_watched() -> None:
-    changed = ["spark_composer/tables.py", "worked_examples/statements/regrouping.py",
+def test_the_toolbox_and_the_worked_examples_are_watched() -> None:
+    changed = ["composer_core/tables.py", "worked_examples/statements/regrouping.py",
                "tools/hive_corpus.py"]
-    assert needs_review(changed, "feat: x") == ["spark_composer/tables.py",
+    assert needs_review(changed, "feat: x") == ["composer_core/tables.py",
                                                 "worked_examples/statements/regrouping.py"]
 
 

@@ -1,18 +1,18 @@
-"""Call other Hive functions, and see where the Editions differ
+"""Call other Hive functions
 
 For: Intermediate
 
 ## Goal
 
 Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with
-`hive_function`. Then see the three places where the two Editions write different Hive for the
-same Statement, and why each gives the same result.
+`hive_function`. Then see three things about the Hive the Toolbox writes that are easy to trip
+on: a division by 0, a Python float, and a function written by another name.
 
 ## When you'd use it
 
 When the Hive you need has a function the Toolbox doesn't wrap: text functions such as upper,
-concat or substr, or date functions such as datediff and date_format. And when you read the
-Hive one Edition wrote beside Hive the other wrote, say from a colleague, and some lines differ.
+concat or substr, or date functions such as datediff and date_format. And when the Hive you
+see isn't quite what you typed.
 
 ## Steps
 
@@ -59,13 +59,9 @@ Before writing the call, `hive_function` checks it: for the functions it knows, 
 substr or date_add, it refuses the wrong number of arguments, and it refuses a function that
 works only over a window of rows, such as lag or rank. The Common mistakes below show both.
 
-### Where the two Editions write different Hive
+### Three things to know about the Hive
 
-The two Editions take the same Statements and give the same results, but in three places they
-write different Hive, each for a reason. The README lists them too, under "Where the two
-Editions' Hive differs". Each step below builds a Statement with one of them, shows the Hive
-this Edition writes, and runs it. After the three, each line that differs is listed as both
-Editions write it.
+Each step below builds a Statement, shows the Hive the Toolbox writes for it, and runs it.
 
 ### Dividing by something that could be 0
 
@@ -84,7 +80,7 @@ finishes.
 >>> text = show_hive(retries_per_finish)
 SELECT
   job_events.job_id,
-  COUNT(CASE WHEN job_events.event_type = 'retry' THEN 1 END) / ... AS retries_per_finish
+  COUNT(CASE WHEN job_events.event_type = 'retry' THEN 1 END) / COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END) AS retries_per_finish
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'
@@ -96,7 +92,7 @@ GROUP BY
 1       2                 NaN
 
 invoice_sync, job 2, is still running on 2026-09-24, so it has no finish, and its row divides
-by 0. Both Editions give that row NULL, which pandas shows as NaN, rather than stop.
+by 0. Hive gives that row NULL, which pandas shows as NaN, rather than stop.
 
 ### A Python float
 
@@ -123,11 +119,13 @@ WHERE
 GROUP BY
   job_events.job_id
 HAVING
-  AVG(job_events.minutes) > 15.5...;
+  AVG(job_events.minutes) > 15.5;
 >>> run(long_runs, send=example_database.send)
    job_id  finished_runs
 0       2              9
 1       3              3
+
+A Python float is written as it is, 15.5, which Hive reads as a DOUBLE, SQL's float.
 
 ### A hive_function call
 
@@ -143,7 +141,7 @@ yet:
 >>> text = show_hive(statuses)
 SELECT
   job_runs.run_id,
-  ...(job_runs.status, 'none') AS status
+  COALESCE(job_runs.status, 'none') AS status
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-23';
@@ -155,53 +153,9 @@ WHERE
 3      98     none
 4      99     TEST
 
-### The three, listed
-
-[sqlglot_composer only]
-This page is sqlglot Composer's, so the Hive above is sqlglot Composer's. Here is each line
-that differs, as each Edition writes it, and why. Both give the same results.
-
-- Dividing. sqlglot Composer writes the divisor as it is,
-  `COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END)`, and Spark Composer writes
-  `NULLIF(COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END), 0)`. With ANSI mode on
-  (Spark's setting for following the SQL standard strictly), Spark 4's default, Spark stops the
-  whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when y is 0, so
-  that row gets NULL, as in Hive.
-- A float. sqlglot Composer writes `HAVING AVG(job_events.minutes) > 15.5`, and Spark Composer
-  `HAVING AVG(job_events.minutes) > 15.5D`. Spark reads 15.5 as a DECIMAL, an exact decimal,
-  where Hive reads a DOUBLE, SQL's float; the D marks a DOUBLE, and doesn't mean days.
-- A hive_function call. sqlglot Composer writes `COALESCE(job_runs.status, 'none') AS status`,
-  and Spark Composer `NVL(job_runs.status, 'none') AS status`. sqlglot Composer writes the call
-  as sqlglot reads it back: sometimes by another name that does the same, as COALESCE for nvl,
-  and sometimes with an argument changed, as a date_format pattern 'YYYY-MM' written
-  'yyyy-MM'. Spark Composer writes it as you gave it, its name in capitals.
-
-None of the three changes a result: each Edition writes what its own warehouse needs to give
-the same answer.
-[end]
-[spark_composer only]
-This page is Spark Composer's, so the Hive above is Spark Composer's, with a note under each
-line it adds to. Here is each line that differs, as each Edition writes it, and why. Both give
-the same results.
-
-- Dividing. Spark Composer writes the divisor as
-  `NULLIF(COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END), 0)`, and sqlglot
-  Composer as it is, `COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END)`. With ANSI
-  mode on (Spark's setting for following the SQL standard strictly), Spark 4's default, Spark
-  stops the whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when
-  y is 0, so that row gets NULL, as in Hive.
-- A float. Spark Composer writes `HAVING AVG(job_events.minutes) > 15.5D`, and sqlglot
-  Composer `HAVING AVG(job_events.minutes) > 15.5`. Spark reads 15.5 as a DECIMAL, an exact
-  decimal, where Hive reads a DOUBLE, SQL's float; the D marks a DOUBLE, and doesn't mean days.
-- A hive_function call. Spark Composer writes `NVL(job_runs.status, 'none') AS status`, the
-  call as you gave it, its name in capitals. sqlglot Composer writes
-  `COALESCE(job_runs.status, 'none') AS status`: it writes the call as sqlglot reads it back,
-  sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an
-  argument changed, as a date_format pattern 'YYYY-MM' written 'yyyy-MM'.
-
-None of the three changes a result: each Edition writes what its own warehouse needs to give
-the same answer.
-[end]
+The Hive says COALESCE, not nvl: the Toolbox writes a `hive_function` call as sqlglot reads it
+back, sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an
+argument changed, as the Common mistakes below show for date_format. The result is the same.
 
 ## Check it worked
 
@@ -288,10 +242,8 @@ Spark refuses in a pattern.
 ...     WHERE(between(job_events.dt, "2026-09-24", "2026-09-24")),
 ... )
 
-[sqlglot_composer only]
-With sqlglot Composer no message stops you: it writes the pattern as sqlglot reads it back,
-here as yyyy-MM, which is what you meant. Write yyyy anyway, so the same notebook gives the
-same Hive with Spark Composer, which writes the pattern as you gave it, and Spark refuses YYYY.
+No message stops you: the Toolbox writes the pattern as sqlglot reads it back, here as
+yyyy-MM, which is what you meant. Write yyyy anyway, so your Python says what its Hive does.
 
 >>> text = show_hive(by_month)
 SELECT
@@ -300,20 +252,6 @@ SELECT
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN '2026-09-24' AND '2026-09-24';
-[end]
-[spark_composer only]
-Spark Composer writes the pattern as you gave it, and Spark refuses it when the Statement runs:
-
->>> run(by_month, send=example_database.send)
-Traceback (most recent call last):
-...
-RuntimeError:
-  What happened:  Spark couldn't run this Hive on the Example database: [INCONSISTENT_BEHAVIOR_CROSS_VERSION.DATETIME_PATTERN_RECOGNITION] ...
-...
-
-Write `"yyyy-MM"`, and it gives each day's month, such as 2026-09.
-[end]
-
 ### A function that works over a window of rows
 
 lag, lead, rank and the other window functions need OVER (...) after them, which
@@ -330,5 +268,5 @@ writes.
 - The gallery's [`hive_function`](examples.html#hive_function) entry, and
   [`fill_null`](examples.html#fill_null) for putting a value in where a column is NULL.
 - [Test your own Statements](#test_your_own_statements): check that a Statement gives the
-  numbers you meant, whichever Edition writes it.
+  numbers you meant.
 """

@@ -1,9 +1,8 @@
 """Every test runs under the offline trap: its Python reaches nothing off this computer.
 
-`tests/conftest.py` installs `offline_trap` as it loads, in both Editions' runs, so a test, or
+`tests/conftest.py` installs `offline_trap` as it loads, so a test, or
 a library a test calls, that looks up a name or connects anywhere but this computer fails. The
-trap is the one Spark Composer's Example database runs under (`_refuse_the_network` in
-spark_composer/engine.py).
+trap is `_refuse_the_network` in tests/offline_trap.py.
 
 These tests raise each audit event by hand, with sys.audit, so nothing could be sent even if the
 trap let one through. Then, in a Python of their own, they make the real calls, behind the

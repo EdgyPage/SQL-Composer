@@ -1,4 +1,4 @@
-# sqlglot Composer and Spark Composer
+# sqlglot Composer
 
 This is version <!-- VERSION -->.
 
@@ -8,54 +8,35 @@ give a wrong number, or read or return too much, and says what to change.
 
 ## Which folders to copy
 
-The Toolbox comes in two Editions, with the same functions and the same version. Whichever
-you use, copy two folders, each whole: `composer_core`, the code both Editions share, and the
-one Edition's own folder:
-
-- **`sqlglot_composer`, sqlglot Composer**, writes its Hive with the sqlglot package. Copy it
-  when your notebook sends Hive to the warehouse through a query API of its own.
-- **`spark_composer`, Spark Composer**, writes the same Hive itself and needs no sqlglot. Copy it
-  when your notebook runs Spark, with a `spark` session that reads the warehouse's tables.
-
-Both write the same Hive, except in the few places listed under [Where the two Editions' Hive
-differs](#where-the-two-editions-hive-differs). Three of them, dividing, a Python float and a
-Saved table's Key in CREATE TABLE, are for Spark. So if your query API runs Hive, sqlglot
-Composer's Hive is right for it. If it runs Spark, and you can install pyspark, Spark Composer's
-Hive fits it better, and works with any `send`. The fourth, a hive_function call, comes from the
-sqlglot library, which only sqlglot Composer uses. Use one Edition per notebook: importing both in one Python stops.
-
-This page writes `sqlglot_composer`. With Spark Composer, write `spark_composer` wherever this
-page writes `sqlglot_composer`: in your imports, and in `sqlglot_composer.VERSION`.
+Copy two folders, each whole: `composer_core`, the code every Toolbox function runs, and
+`sqlglot_composer`, which writes its Hive with the sqlglot package and is the folder you import.
+Your notebook sends that Hive to the warehouse through a `send` of its own: a query API, or a
+`spark` session (see [If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark)).
 
 ## Install
 
-Each Edition needs Python 3.11 or newer, pandas and numpy, and its own library: sqlglot for
-sqlglot Composer, pyspark for Spark Composer. Spark Composer's Example database starts a Spark
-of its own, in a second Python in the background, so your `spark` is never touched; that Spark
-needs Java 17 to 21: set JAVA_HOME to it, or have `java` on the PATH.
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot.
 
 1. Download this branch as a zip and extract it.
-2. Install what the Toolbox needs, at the versions it is tested on. Open `requirements.txt`, at
-   the top of the download, and delete the section for the Edition you don't use: each
-   section's heading says which. Then run `pip install -r requirements.txt` in the download's
-   top folder, or, from a notebook, `%pip install -r` followed by the path to that file.
+2. Install what the Toolbox needs, at the versions it is tested on: run
+   `pip install -r requirements.txt` in the download's top folder, or, from a notebook,
+   `%pip install -r` followed by the path to that file.
    - The pins are for Python 3.11. pandas 2.0.3 and numpy 1.25.2 have no builds for Python 3.12
      or newer, so there pip can't install them: delete the pandas and numpy lines and the four
      under them, and install the pandas and numpy your Python has builds of.
-   - A package your notebook already has, as a notebook that runs Spark at work has pyspark and
-     pandas, needn't be installed again: delete its line, so pip doesn't replace it. The
-     Toolbox works with any sqlglot from 25.24.2 up to (not including) 31, whose Example
-     database and a struct column in create_table need 30.19.0 or newer, and with any pyspark
-     from 3.5.0 up to (not including) 4.3.
-3. Copy the whole `composer_core` folder, and the whole `sqlglot_composer` folder or the whole
-   `spark_composer` folder, side by side into the folder that holds your notebooks and scripts.
+   - A package your notebook already has, such as pandas, needn't be installed again: delete
+     its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
+     (not including) 31, whose Example database and a struct column in create_table need
+     30.19.0 or newer.
+3. Copy the whole `composer_core` folder and the whole `sqlglot_composer` folder side by side
+   into the folder that holds your notebooks and scripts.
 
 The download's two other folders, `example_projects` and `templates`, are for reading and
 copying from, and the Toolbox doesn't need them: see [Example projects](#example-projects) and
 [Templates](#templates).
 
-Keep your own scripts beside the two folders, never inside them, and import from the
-Edition's folder, at its top level:
+Keep your own scripts beside the two folders, never inside them, and import from
+`sqlglot_composer`, at its top level:
 
 ```python
 from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
@@ -64,17 +45,19 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 ## Update
 
 Updating from 4.x? Copy the folders in as below, then see [Update from 4.x](#update-from-4x).
-Updating from 3.x, SQL Composer or Spark Composer, with no `composer_core` folder? See
+Updating from 3.x or SQL Composer, with no `composer_core` folder? See
 [Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x) too.
+Using Spark Composer? It was dropped in 6.0: delete `spark_composer`, copy in
+`sqlglot_composer`, change each `from spark_composer import` to `from sqlglot_composer import`,
+and see [If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark).
 
-1. Delete both folders: `composer_core` and your Edition's.
+1. Delete both folders: `composer_core` and `sqlglot_composer`.
 2. From the new download, copy in both whole folders of the same names.
 3. Restart the kernel, which still holds the old code.
 
 Keep your own files beside the folders, never inside them, so deleting them is safe. When they
 are imported, the two folders check themselves. If a file is missing, extra, from another
-version or another download, or from another Toolbox folder (`composer_core` or the other
-Edition's), or if this Python or the library it needs won't work with it, the import stops and
+version or another download, or from another Toolbox folder, or if this Python or the library it needs won't work with it, the import stops and
 says what happened, why it matters and the usual fix. `sqlglot_composer.VERSION` says which
 copy you have, and `composer_core/CHANGES.md` says what changed in each version.
 
@@ -124,14 +107,9 @@ same from 3.0, 3.1 or 3.2. To update from SQL Composer:
    wrote for you: each has the line `from sql_composer import Table` below its docstring.
 4. Restart the kernel.
 
-With Spark Composer, delete your `spark_composer` folder, then copy in the new one and the
-`composer_core` folder beside it, and restart the kernel. Your `from spark_composer import`
-lines stay as they are.
-
-With either Edition, import every name from the Edition's folder itself, never from a file
-inside it: the files inside moved to `composer_core`, so `from sql_composer.refusals import
-GuardRefused` becomes `from sqlglot_composer import GuardRefused`. Importing both Editions in
-one Python, which 3.x advised against, now stops: use one per notebook.
+Import every name from `sqlglot_composer` itself, never from a file inside it: the files
+inside moved to `composer_core`, so `from sql_composer.refusals import GuardRefused` becomes
+`from sqlglot_composer import GuardRefused`.
 
 Two new refusals can stop code that ran on 3.x. `run` refuses a read whose `send` gives back
 something other than a pandas DataFrame: if yours gives back a list of rows, end it with
@@ -175,10 +153,9 @@ returns a pandas DataFrame. On the Example database, its own `send` runs it:
 ```
 
 At work, `send` is your own, and a Statement reads your own tables: `write_table_reference`
-writes the Table reference for one. With sqlglot Composer, `send` is whatever sends a Hive
-string to your query API and gives back a pandas DataFrame, such as
-`send=lambda hive: pd.DataFrame(my_api.query(hive))`. With Spark Composer, it is usually this,
-with your notebook's own `spark` session:
+writes the Table reference for one. `send` is whatever sends a Hive string to your query API and
+gives back a pandas DataFrame, such as `send=lambda hive: pd.DataFrame(my_api.query(hive))`.
+Where your notebook has a `spark` session that reads the warehouse's tables, it is this:
 
 ```python
 result = run(first, send=lambda hive: spark.sql(hive).toPandas())
@@ -201,23 +178,18 @@ reads your own yesterday too, so pasted, its Hive shows another day, and no rows
 
 ## The Example gallery
 
-Each Edition's folder holds its own Example gallery: every Worked example on one page, its Python
+`sqlglot_composer/examples.html` is the Example gallery: every Worked example on one page, its Python
 and, for each Statement it builds, the Hive and any result. Open it in your browser. It needs
 nothing else: a box at the top keeps only the examples holding every word you type, and Ctrl+F
 searches it too. Besides each docstring's example, it holds the Worked examples that stand on
 their own: common jobs built in steps that each say why, such as building a Saved table or
 finding rows with no match, and Statements that give a wrong number shown beside their fix.
-
-- `sqlglot_composer/examples.html` shows each result from sqlglot Composer's Example database
-  or, where that can't run it, computed in pandas.
-- `spark_composer/examples.html` shows each result from Spark Composer's Example database,
-  which runs Spark, and marks the places where Spark Composer's Hive differs.
+Each result comes from the Example database or, where that can't run it, is computed in pandas.
 
 ## How-tos
 
 New to the Toolbox? After [A first Statement](#a-first-statement), start here. Beside each
-Example gallery, each Edition's folder holds a how-to page, `sqlglot_composer/how_to.html` and
-`spark_composer/how_to.html`, to open in your browser. A how-to walks through one job from
+Example gallery, `sqlglot_composer/how_to.html` is the how-to page, to open in your browser. A how-to walks through one job from
 start to finish, in steps you paste into one notebook, in order: its goal, its steps, each run
 on the Example database with what it shows, how to check it worked, and the mistakes people
 make first.
@@ -316,8 +288,8 @@ Beside `JOIN`, `LEFT_JOIN` and `CROSS_JOIN`:
   matched by name (how-to "Reconcile two tables"), and `GROUP_BY(rollup(...))`, `cube(...)` and
   `grouping_sets(...)` add subtotal and grand total rows (how-to "Subtotals and grand totals").
 
-sqlglot Composer's Example database can't run a semi join, a Window or subtotals, and says so;
-Spark Composer's runs them all. The how-tos show each result either way.
+The Example database can't run a semi join, a Window or subtotals, and says so; the how-tos
+show each result, computed in pandas.
 
 ## Keep reads and joins fast
 
@@ -331,9 +303,7 @@ list. The how-to "Keep reads and joins fast" puts them beside the Session settin
 
 An Example project is a folder of scripts laid out the way a project at work should be: Table
 references, Building blocks, Statements, and a `run_pipeline.py` that runs them in order, all
-written for the Example database's tables. Each Edition has two Example projects of its own,
-written for it: `example_projects/sqlglot_composer/` and `example_projects/spark_composer/`
-each hold
+written for the Example database's tables. `example_projects/sqlglot_composer/` holds two:
 
 - `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Examples 1 and 2 each save
   one day's numbers in a Saved table, and example 3 reads both to give each team's day.
@@ -356,8 +326,8 @@ PYTHONPATH=../../.. python run_pipeline.py
 In PowerShell, run `$env:PYTHONPATH = "..\..\.."` first, and in the Windows command prompt
 `set PYTHONPATH=..\..\..`, then `python run_pipeline.py`.
 
-To start a project of your own, copy one out of the download, put `composer_core` and your
-Edition's folder beside its `run_pipeline.py`, then replace its tables and Statements with
+To start a project of your own, copy one out of the download, put `composer_core` and
+`sqlglot_composer` beside its `run_pipeline.py`, then replace its tables and Statements with
 yours, or write its scripts from the Templates below.
 
 ## Templates
@@ -369,13 +339,21 @@ half filled in. Each Template's docstring says where in your project to copy it,
 placeholders under "Fill in:", with an example of each, and names the Example project file it
 mirrors.
 
-`templates/sqlglot_composer/` and `templates/spark_composer/` each hold a starter set and an
-intermediate set, and a `README.md` saying what each Template needs first. Below, the starter
+`templates/sqlglot_composer/` holds a starter set and an intermediate set, and a `README.md` saying what each Template needs first. Below, the starter
 set is listed in the order to use it.
 
 <!-- TEMPLATES -->
 
-## Before you use Spark Composer at work
+## If your send runs the Hive on Spark
+
+The Toolbox writes Hive. Spark runs nearly all of it as Hive does, but not quite all:
+
+- With `spark.sql.ansi.enabled` on, Spark 4's default, Spark stops a whole query that divides by
+  0, where Hive gives NULL. Where a divisor could be 0, run the Statement on Spark once before
+  you rely on it.
+- Spark reads a number such as 0.5 as an exact DECIMAL, where Hive reads a DOUBLE.
+- A Saved table's Key in `CREATE TABLE`, `PRIMARY KEY (...) DISABLE NOVALIDATE`, is refused by
+  Spark. Create your Saved tables where Hive runs, or ask whoever looks after the warehouse.
 
 Check one setting once, by hand, in your notebook's Spark:
 `spark.conf.get("spark.sql.parser.escapedStringLiterals")` should be `"false"`, Spark's default.
@@ -384,13 +362,6 @@ it, and the `%` or `_` that `contains` and `starts_with` match as themselves, wo
 wrong. If it is `"true"`, ask whoever looks after your Spark whether it can be `"false"`, or run
 `spark.conf.set("spark.sql.parser.escapedStringLiterals", "false")` in your notebook first.
 
-Two other settings may be either:
-
-- `spark.sql.ansi.enabled`: with it on, Spark 4's default, Spark stops a query that divides by
-  0, and Spark Composer writes a division so it gives NULL instead, as Hive does.
-- `spark.sql.ansi.enforceReservedKeywords`: Spark Composer puts every word Spark reserves in
-  backticks.
-
 Before you read or write a Saved table, check it isn't a Hive ACID table: one Hive keeps its
 own way, so that single rows can be changed. Spark can't read or write those as it reads other
 tables. `spark.sql("SHOW TBLPROPERTIES mart.daily_runs").toPandas()` lists a table's properties,
@@ -398,12 +369,6 @@ and an ACID table has `transactional` set to `true`. A table `create_table` make
 one, since Hive makes only its own managed tables ACID, and `create_table` makes external
 ones. If a table you read is one, ask whoever looks after the warehouse for a table Spark can
 read, one with `transactional` set to `false`.
-
-## Where the two Editions' Hive differs
-
-Both Editions write the same Hive for a Statement, except in these places, each on purpose:
-
-<!-- DIFFERENCES -->
 
 ## License
 
@@ -415,9 +380,8 @@ They come as they are, with no warranty.
 ## Cheat sheet
 
 Everything the Toolbox offers, one line each, grouped by the file it lives in: the two constants
-are in your Edition's folder, and every other name in a file of `composer_core`. Import every
-name from your Edition's folder itself, `sqlglot_composer` or `spark_composer`: never from
-`composer_core`, or from a file inside either folder. Arithmetic isn't in it: a calculation uses
+are in `sqlglot_composer`, and every other name in a file of `composer_core`. Import every name
+from `sqlglot_composer` itself: never from `composer_core`, or from a file inside either folder. Arithmetic isn't in it: a calculation uses
 Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`. The star import brings
 the 89 names listed here before the admin module. The admin module's
 functions, which change your own Saved tables, come last: the star import leaves them out, so

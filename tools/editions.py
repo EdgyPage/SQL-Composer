@@ -1,15 +1,15 @@
-"""The two Editions of the Toolbox, defined once for every tool and test on `dev`.
+"""The Toolbox's folders, defined once for every tool and test on `dev`.
 
-sqlglot Composer (`sqlglot_composer/`) writes its Hive with sqlglot. Spark Composer
-(`spark_composer/`) writes almost the same Hive itself and runs it on Spark. Both run the code
-in `composer_core/`, the Composer core, which is written once. Each Toolbox file is one of:
+sqlglot Composer (`sqlglot_composer/`) writes its Hive with sqlglot, and runs the code in
+`composer_core/`, the Composer core. Spark Composer, the second Edition, was dropped in 6.0
+(ADR 0008; the tag `last-spark-composer` holds it). Each Toolbox file is one of:
 
 - a core file, in `composer_core/`: every function a user calls, the import self-check, and
   `CHANGES.md`;
-- an Edition file, written by hand in each Edition's folder: `__init__.py` checks both folders
-  and plugs the other two into the core, `writing.py` turns a Statement into Hive, and
-  `engine.py` checks the library and runs the Example database;
-- a page each Edition's folder holds: the Example gallery, which `tools/example_gallery.py`
+- an Edition file, in `sqlglot_composer/`: `__init__.py` checks both folders and plugs the
+  other two into the core, `writing.py` turns a Statement into Hive, and `engine.py` checks the
+  library and runs the Example database;
+- a page `sqlglot_composer/` holds: the Example gallery, which `tools/example_gallery.py`
   writes, and the how-to page, which `tools/how_to_page.py` writes.
 
 What a file may import besides the standard library and its own folder is `may_import`'s answer,
@@ -18,10 +18,7 @@ and `imports_outside` lists every import that breaks it.
 
 from __future__ import annotations
 
-import argparse
 import ast
-import importlib
-import importlib.abc
 import re
 import sys
 from dataclasses import dataclass
@@ -37,8 +34,7 @@ class Edition:
     library_files: tuple[str, ...]
     # The Edition files that may import nothing but the standard library and their own folder.
     stdlib_only_files: tuple[str, ...] = ()
-    # What `--edition` calls it, for pytest and the tools; its own tests are in
-    # tests/<option>_edition/.
+    # What its own tests' folder is named for: tests/<option>_edition/.
     option: str = ""
 
     @property
@@ -48,15 +44,10 @@ class Edition:
 
 SQLGLOT_COMPOSER = Edition("sqlglot_composer", "sqlglot Composer", "sqlglot",
                            library_files=("writing.py", "engine.py"), option="sqlglot")
-SPARK_COMPOSER = Edition("spark_composer", "Spark Composer", "pyspark",
-                         library_files=("engine.py",), stdlib_only_files=("writing.py",),
-                         option="spark")
-EDITIONS = {edition.folder: edition for edition in (SQLGLOT_COMPOSER, SPARK_COMPOSER)}
-# Each Edition by its `--edition` name.
-BY_OPTION = {edition.option: edition for edition in EDITIONS.values()}
+EDITIONS = {SQLGLOT_COMPOSER.folder: SQLGLOT_COMPOSER}
 
-# The Editions the export ships to `main`: both, from 3.0.
-EXPORTED = (SQLGLOT_COMPOSER, SPARK_COMPOSER)
+# The Editions the export ships to `main`: sqlglot Composer alone, from 6.0.
+EXPORTED = (SQLGLOT_COMPOSER,)
 
 # The Composer core: the folder both Editions run, and its files.
 CORE = "composer_core"
@@ -68,8 +59,7 @@ CORE_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clause
               "CHANGES.md")
 EDITION_FILES = ("__init__.py", "writing.py", "engine.py")
 # The functions each Edition file offers the shared files, and the dev tools and tests
-# (example_database_cannot_run), with their parameters: both Editions' copies have exactly
-# these. Either may have more of its own.
+# (example_database_cannot_run), with their parameters. It may have more of its own.
 EDITION_INTERFACE = {
     "writing.py": {
         "hive_text": ["node"],
@@ -89,101 +79,6 @@ PAGES = ("examples.html", "how_to.html")
 
 # What every Toolbox file may import, besides the standard library and its own folder.
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
-# The sqlglot whose layout Spark Composer's writing.py copies, which
-# tests/repo/test_edition_parity.py holds equal to the sqlglot pin in requirements-dev.txt.
-LAYOUT_MIRRORS_SQLGLOT = "30.23.0"
-
-
-@dataclass(frozen=True)
-class Difference:
-    """One place the two Editions differ on purpose: in the Hive they write, or in a refusal.
-
-    `why` says it in plain words, for the README. `sqlglot_composer` and `spark_composer` are
-    the same piece of what each Edition shows, its Hive or its refusal, as the golden corpus
-    shows it in one of `cases`, the ids of the golden cases the difference explains.
-    `spark_composer_adds` is True for text Spark Composer adds to sqlglot Composer's Hive, which
-    its readable_text leaves out. tests/repo/test_edition_parity.py holds that the two goldens
-    differ in no other case, that each listed case really differs, and that with what Spark
-    Composer adds left out, a case differs only if a row that adds nothing lists it. `title`
-    names what differs, for the README's list. `sqlglot_composer_only` is a pattern of text
-    only sqlglot Composer writes, for a row where Spark Composer writes nothing in its place:
-    tests/repo/test_how_to_parity.py takes it out of sqlglot Composer's Hive, where the other
-    rows swap in their examples.
-    """
-
-    title: str
-    why: str
-    sqlglot_composer: str
-    spark_composer: str
-    cases: tuple[str, ...]
-    spark_composer_adds: bool = False
-    sqlglot_composer_only: str | None = None
-
-
-# Each place the two Editions differ on purpose.
-DECLARED_DIFFERENCES = {
-    "division": Difference(
-        title="Dividing by something that could be 0.",
-        why="With ANSI mode on (Spark's setting for following the SQL standard strictly), Spark "
-        "4's default, Spark stops the whole query with an error when it divides by 0, where Hive "
-        "gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL "
-        "when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 "
-        "is written as it is.",
-        sqlglot_composer="SUM(job_runs.duration_mins) / COUNT(*)",
-        spark_composer="SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)",
-        cases=("edge:brackets:nested", "edge:brackets:aggregates",
-               "worked:labels_and_counts:failed_share_per_job"),
-        spark_composer_adds=True,
-    ),
-    "float": Difference(
-        title="A Python float.",
-        why="Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as "
-        "a Decimal, where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python "
-        "float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn't mean days. A very small "
-        "or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE "
-        "already.",
-        sqlglot_composer="COALESCE(job_runs.avg_retry_secs, 0.1)",
-        spark_composer="COALESCE(job_runs.avg_retry_secs, 0.1D)",
-        cases=("worked:nan_in_a_list:fixed", "edge:calculations:values",
-               "worked:labels_and_counts:failed_share_per_job"),
-        spark_composer_adds=True,
-    ),
-    "hive_function": Difference(
-        title="A hive_function call.",
-        why="sqlglot Composer writes a hive_function call as sqlglot reads it back: sometimes by "
-        "another name that does the same, such as COALESCE for nvl, and sometimes with an "
-        "argument changed, such as a date_format pattern 'YYYY-MM' written 'yyyy-MM'. Spark "
-        "Composer writes the call as you gave it, its name in capitals. So write 'yyyy' for the "
-        "year in a date_format pattern: YYYY is the year a week belongs to, which Spark refuses "
-        "in a pattern. And hive_function counts the arguments of the functions on its own list "
-        "in both Editions; for any other function, sqlglot Composer refuses a call sqlglot can't "
-        "build, and Spark Composer writes it, for Spark to refuse when it runs, as it does nvl2 "
-        "with 1 argument, or to run, as it does unix_timestamp with none.",
-        sqlglot_composer="COALESCE(job_runs.status, 'none')",
-        spark_composer="NVL(job_runs.status, 'none')",
-        cases=("edge:hive_function:nvl", "edge:hive_function:nvl2",
-               "edge:hive_function:regexp_extract", "edge:hive_function:date_format",
-               "edge:hive_function:substr", "edge:hive_function:instr"),
-    ),
-    "primary_key": Difference(
-        title="A Saved table's Key in CREATE TABLE.",
-        why="sqlglot Composer's create_table writes a Table reference's Key into the table as "
-        "PRIMARY KEY (...) DISABLE NOVALIDATE, which Hive keeps for whoever reads the table and "
-        "never checks. Spark refuses a PRIMARY KEY in CREATE TABLE, so Spark Composer leaves it "
-        "out. Either way the Toolbox checks the Key itself, before each write.",
-        sqlglot_composer="runs BIGINT,\n  PRIMARY KEY (job_id) DISABLE NOVALIDATE\n)",
-        spark_composer="runs BIGINT\n)",
-        cases=("edge:create_table:daily_runs", "edge:create_table:may_exist",
-               "edge:create_table:compact", "edge:create_table:events",
-               "edge:create_table:key_with_the_day", "worked:saved_table:create",
-               "worked:saved_table:create_if_missing", "worked:saved_table:rebuild",
-               "edge:admin:move:two_days", "edge:admin:move:compact",
-               "edge:admin:move:managed", "edge:write:no_day:create_table"),
-        sqlglot_composer_only=r",\n *PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE",
-    ),
-}
-
-
 def may_import(edition: Edition | None, file_name: str) -> frozenset:
     """What a Toolbox file may import besides the standard library and its own folder.
 
@@ -221,20 +116,10 @@ def _imported(path: Path) -> list[str]:
     return names
 
 
-# --- Naming the other Edition -----------------------------------------------------------------
-
-
-class SwapRefused(ValueError):
-    """Text couldn't be made to name the other Edition with certainty."""
-
-
-# Any spelling of either Edition's folder or product name.
+# The library the Composer core may not name: only sqlglot Composer's folder imports it.
+LIBRARIES = ("sqlglot",)
+# sqlglot Composer's name, in any spelling, which the core's docstrings may use.
 SQLGLOT_COMPOSER_NAME = re.compile(r"sqlglot[\W_]*composer", re.IGNORECASE)
-# sqlglot Composer's name before 4.0, as SQL Composer or sql_composer.
-OLD_NAME = re.compile(r"(?<![A-Za-z])sql[\W_]*composer", re.IGNORECASE)
-SPARK_COMPOSER_NAME = re.compile(r"spark[\W_]*composer", re.IGNORECASE)
-# The libraries the Composer core may not name, since only one Edition has each.
-LIBRARIES = ("sqlglot", "pyspark")
 
 
 def libraries_named(text: str) -> list[str]:
@@ -242,75 +127,3 @@ def libraries_named(text: str) -> list[str]:
     Composer, which the core's docstrings use."""
     return [word for word in LIBRARIES
             if re.search(rf"{word}(?![_ ]composer)", text, re.IGNORECASE)]
-
-
-def named_for(edition: Edition, text: str, where: str = "The text") -> str:
-    """Text written for sqlglot Composer, such as a Worked example, naming `edition` instead.
-
-    Text that would still name sqlglot Composer another way, as sqlglot-Composer, is refused,
-    and so is its name from before 4.0, SQL Composer, which the swap would leave as it is.
-    """
-    swapped = _whole_word(SQLGLOT_COMPOSER.folder).sub(edition.folder, text)
-    swapped = _whole_word(SQLGLOT_COMPOSER.product).sub(edition.product, swapped)
-    left = sorted(set(OLD_NAME.findall(swapped)))
-    if edition is not SQLGLOT_COMPOSER:
-        left += sorted(set(SQLGLOT_COMPOSER_NAME.findall(swapped)))
-    if left:
-        raise SwapRefused(f"{where} would be left naming {', '.join(left)}.")
-    return swapped
-
-
-def _whole_word(name: str) -> re.Pattern:
-    return re.compile(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])")
-
-
-# --- Running the same tests and tools against Spark Composer ------------------------------------
-
-
-class _OnlyTheAlias(importlib.abc.MetaPathFinder):
-    """Refuses any `sqlglot_composer.*` module the alias doesn't hold, rather than load the real
-    one."""
-
-    def find_spec(self, fullname, path, target=None):
-        if _in_sqlglot_composer(fullname):
-            raise ImportError(f"{fullname} isn't part of the Spark run's alias: only Spark "
-                              "Composer's own modules stand in for sqlglot Composer's.")
-        return None
-
-
-def use(edition: Edition) -> None:
-    """Make `import sqlglot_composer` give `edition`'s folder, and make sqlglot unimportable.
-
-    The shared tests and the Worked examples say `from sqlglot_composer import ...`; in Spark
-    Composer's run that is Spark Composer's folder, and its own writing.py and engine.py stand
-    in for sqlglot Composer's. The Composer core is the same for both, so it needs no alias. It
-    must run before anything imports sqlglot_composer. For sqlglot Composer it does nothing.
-    """
-    if edition is SQLGLOT_COMPOSER:
-        return
-    if any(_in_sqlglot_composer(name) for name in sys.modules):
-        raise RuntimeError("editions.use: sqlglot_composer is already imported, so the run would "
-                           "mix the two Editions. Choose the Edition before any Toolbox import.")
-    sys.modules["sqlglot"] = None  # any `import sqlglot` now fails loudly
-    for module in toolbox_modules():
-        own = edition.folder + module.removeprefix("sqlglot_composer")
-        sys.modules[module] = importlib.import_module(own)
-    sys.meta_path.insert(0, _OnlyTheAlias())
-
-
-def _in_sqlglot_composer(module: str) -> bool:
-    return module == "sqlglot_composer" or module.startswith("sqlglot_composer.")
-
-
-def toolbox_modules() -> list[str]:
-    """The name of every module of an Edition's folder, as `sqlglot_composer` and its files."""
-    return ["sqlglot_composer"] + [f"sqlglot_composer.{name.removesuffix('.py')}"
-                                   for name in EDITION_FILES if name != "__init__.py"]
-
-
-def edition_on_command_line(arguments: list[str]) -> Edition:
-    """The Edition a tool's command line asks for: --edition sqlglot, the default, or spark."""
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--edition", choices=sorted(BY_OPTION), default=SQLGLOT_COMPOSER.option)
-    known, _ = parser.parse_known_args(arguments[1:])
-    return BY_OPTION[known.edition]

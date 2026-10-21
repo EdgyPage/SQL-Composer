@@ -16,46 +16,35 @@ how-tos, example projects and templates) is charted through
 `.scratch/shared-core-4.0/map.md`; read its Notes before working one of its tickets. Toolbox 5.0
 (Keys checked before writing, the Saved table's storage, Session settings, the Unchecked
 statement, the admin module, and the joins, windows, stacking and upkeep SQL still missing) is
-charted through `.scratch/toolbox-5/map.md`.
+charted through `.scratch/toolbox-5/map.md`. Toolbox 6.0 (Spark Composer dropped, one Toolbox
+folder, the README as a tutorial, and Projects: an admin folder, a notebook per Saved table, and a
+flat folder of Table references feeding a Reference sheet) is charted through
+`.scratch/toolbox-6/map.md`; read its Notes before working one of its tickets.
 
 ## Checks
 
-`pytest` holds every principle a test can hold, so run both runs before you commit:
-`python -m pytest`, which tests sqlglot Composer and the repo's own checks, and
-`python -m pytest --edition spark`, which tests Spark Composer. Spark Composer's Example database
-needs Java 17: without it, its tests skip and say so. Set up with
+`pytest` holds every principle a test can hold, so run `python -m pytest`, which tests the
+Toolbox and the repo's own checks, before you commit. Set up with
 `pip install -r requirements-dev.txt`, which pins what dev tests on. `requirements.txt` is what a
-user installs: the same pins, a section for each Edition, which a test holds to
-`requirements-dev.txt` and to the libraries `tools/editions.py` lets the Toolbox import.
+user installs: the same pins, which a test holds to `requirements-dev.txt` and to the libraries
+`tools/editions.py` lets the Toolbox import.
 
-CI runs four jobs on Python 3.11: each Edition at the bottom of its library's range and at its
-pin, which `.github/workflows/dev.yml` names. Spark Composer's jobs run on Java 17, with sqlglot
-uninstalled and `--example-database required`, so a Spark test that can't run fails rather
-than skips. Export only a commit whose four jobs passed: the export checks neither gallery, and
-Spark Composer's needs Java to check.
+CI runs two jobs on Python 3.11: sqlglot at the bottom of the Toolbox's range and at its pin,
+which `.github/workflows/dev.yml` names. Export only a commit whose two jobs passed: the export
+doesn't check the gallery.
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
-## Two Editions
+## The Toolbox's folders
 
-The Toolbox is built twice, as ADR 0002 records: `sqlglot_composer/` (sqlglot Composer, which
-writes its Hive with sqlglot) and `spark_composer/` (Spark Composer, which prints its own Hive
-and runs it on Spark). Both run the Composer core, `composer_core/`, which holds every file they
-share, once, as ADR 0003 records. `tools/editions.py` is the one registry of which files the
-core holds and which each Edition writes itself.
-
-- Edit a shared file in `composer_core/`. Its docstrings name sqlglot Composer; Spark Composer's
-  gallery and doctests read them with the names swapped.
-- `sqlglot_composer/writing.py` and `sqlglot_composer/engine.py` are written by hand, and so are
-  `spark_composer/writing.py` and `spark_composer/engine.py`, with the same function names and
-  parameters, which a test holds. `sqlglot_composer/__init__.py` and
-  `spark_composer/__init__.py` are the same apart from the names, which a test holds too.
-- A Python runs one Edition: a test that needs the other loads its file by path, or runs it in a
-  Python of its own.
+The Toolbox is sqlglot Composer, `sqlglot_composer/`, which writes its Hive with sqlglot and runs
+the Composer core, `composer_core/`, as ADR 0003 records. Spark Composer, a second Edition, was
+dropped in 6.0 (ADR 0008); the tag `last-spark-composer` holds it. `tools/editions.py` is the one
+registry of which files each folder holds.
 
 ## Drift
 
-After a commit that touches the Composer core or either Edition of the Toolbox,
+After a commit that touches the Toolbox's folders,
 `worked_examples/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
 `requirements-dev.txt`, the drift
 reviewer looks for anything the commit made untrue and adds one open item per finding to
@@ -80,9 +69,8 @@ computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
 - A hook, `.claude/hooks/offline_hook.py`, refuses an Edit, Write or NotebookEdit that would
   add network code; `tests/repo/test_offline_policy.py` reads the whole repo, so a file written
   any other way is caught too.
-- The Example database's own Spark process runs under a trap that refuses any lookup or
-  connection off this computer (`_refuse_the_network` in `spark_composer/engine.py`), and
-  every test run installs the same trap (`tests/offline_trap.py`).
+- Every test run installs a trap that refuses any lookup or connection off this computer
+  (`_refuse_the_network` in `tests/offline_trap.py`).
 - The export reads the Clean tree the same way before anything in it runs, and refuses on any
   finding.
 
@@ -90,8 +78,7 @@ computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
 
 A `task` ticket that changes code is done when:
 
-1. both runs pass, `python -m pytest` and `python -m pytest --edition spark`, and CI's four
-   jobs pass before the commit is exported;
+1. `python -m pytest` passes, and CI's two jobs pass before the commit is exported;
 2. the `code-review` skill has run with the ticket as its spec, and its findings are fixed or
    answered in the ticket;
 3. the ticket leaves no open item in `.scratch/drift.md`;

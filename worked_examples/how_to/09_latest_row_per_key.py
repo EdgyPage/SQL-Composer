@@ -82,9 +82,8 @@ for the next Statement to read:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... ))
 
-[sqlglot_composer only]
-sqlglot Composer's Example database runs only part of Hive, and not `row_number`. Pasted into
-your own notebook with sqlglot Composer, running a Statement that reads `numbered`, here and in
+The Example database runs only part of Hive, and not `row_number`. Pasted into your own
+notebook, running a Statement that reads `numbered`, here and in
 the steps below, stops with this message:
 
 >>> run(statement(SELECT(all_columns(numbered)), FROM(numbered)), send=example_database.send)
@@ -97,7 +96,6 @@ RuntimeError:
 So the results below that read `numbered`, or `ranked` and `oldest_first` like it, are what
 Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the
 Hive your warehouse runs.
-[end]
 
 Check the numbering alone first, with a Statement that reads every column of it:
 
@@ -226,10 +224,8 @@ result; `row_number` keeps the top N of each group.
 ## Check it worked
 
 Check that each job comes back once: one row per job, as many rows as jobs that ran.
-[sqlglot_composer only]
 On the Example database this run stops, as above; `newest` here is the pandas result. At work
 the Statement runs, and the check is the same.
-[end]
 
 >>> newest = run(latest, send=example_database.send)
 >>> newest["job_id"].is_unique
@@ -342,9 +338,8 @@ from sqlglot_composer import (
     FROM, SELECT, WHERE, all_columns, between, example_database, run, statement,
 )
 
-# sqlglot Composer's Example database can't run row_number, so the page and the doctest get
+# The Example database can't run row_number, so the page and the doctest get
 # each Statement's result from these, worked out in pandas from every run of the two days.
-# Spark Composer's runs the Hive itself, and its result must match.
 
 
 def every_run() -> pd.DataFrame:

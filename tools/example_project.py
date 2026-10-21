@@ -6,13 +6,12 @@ script that runs them in order. Most of its files are written by hand. This writ
 they stay what the Toolbox writes today:
 
     python tools/example_project.py --project intermediate
-    python tools/example_project.py --project starter --edition spark --into <folder>
+    python tools/example_project.py --project starter --into <folder>
 
 The first rewrites the generated files of `example_projects/intermediate/` itself (the starter
-project when --project is left out). The second writes the whole project, named for Spark
-Composer, into a folder that is new or empty, and refuses one that holds anything; dev keeps
-only sqlglot Composer's copy. A test fails while a committed generated file differs from what
-this writes.
+project when --project is left out). The second writes the whole project into a folder that is
+new or empty, and refuses one that holds anything. A test fails while a committed generated
+file differs from what this writes.
 
 For each project it:
 
@@ -27,8 +26,7 @@ For each project it:
 - for a project in REVIEWED_EDIT, first exports its lineage review's "before" file, from a copy
   of the project with one Building block edit undone, as the user wrote it before the edit.
 
-It runs no SELECT, so Spark Composer's needs no Java. The writing happens in a second Python
-whose folder is the project's: the project's folder names, such as table_references/, are the
+It runs no SELECT. The writing happens in a second Python whose folder is the project's: the project's folder names, such as table_references/, are the
 Worked examples' too, and its scripts import them as the user's notebook would.
 """
 
@@ -43,8 +41,6 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
-
-import editions
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_PROJECTS = ROOT / "example_projects"
@@ -231,13 +227,12 @@ def _write_with_unix_endings(path: Path) -> None:
 # --- In the second Python, whose folder is the project's -----------------------------------
 
 
-def write_here(project: str, edition_asked: editions.Edition) -> None:
+def write_here(project: str) -> None:
     """Write the generated files into the project in the folder this Python runs in."""
     folder = Path.cwd()
     # The project's folders first, as in a notebook started in the project's folder, then the
     # Toolbox's.
     sys.path[:0] = [str(folder), str(ROOT)]
-    editions.use(edition_asked)  # before any Toolbox import
     import sqlglot_composer
     from composer_core import edition, lineage
 
@@ -296,16 +291,15 @@ def write_review_before_the_edit(folder: Path, edit: dict) -> None:
 # --- In the Python you run -------------------------------------------------------------------
 
 
-def copy_project(source: Path, into: Path, edition: editions.Edition, project: str) -> None:
-    """Copy the project's hand-written files into `into`, named for `edition`."""
+def copy_project(source: Path, into: Path, project: str) -> None:
+    """Copy the project's hand-written files into `into`."""
     for relative in project_files(source):
         if is_generated(relative, project):
             continue
         text = (source / relative).read_text(encoding="utf-8")
         target = into / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(editions.named_for(edition, text, relative), encoding="utf-8",
-                          newline="\n")
+        target.write_text(text, encoding="utf-8", newline="\n")
 
 
 def remove_generated(into: Path, project: str) -> None:
@@ -316,17 +310,16 @@ def remove_generated(into: Path, project: str) -> None:
         shutil.rmtree(cache, ignore_errors=True)
 
 
-def make(project: str, edition: editions.Edition, into: Path) -> int:
-    """Write the project into `into`, for `edition`, its generated files and all."""
+def make(project: str, into: Path) -> int:
+    """Write the project into `into`, its generated files and all."""
     source = EXAMPLE_PROJECTS / project
     if into.resolve() != source.resolve():
-        copy_project(source, into, edition, project)
+        copy_project(source, into, project)
     remove_generated(into, project)
     (into / TABLE_REFERENCES).mkdir(parents=True, exist_ok=True)
     environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     return subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), "--write-here", "--project", project,
-         "--edition", edition.option],
+        [sys.executable, str(Path(__file__).resolve()), "--write-here", "--project", project],
         cwd=into, env=environment, check=False,
     ).returncode
 
@@ -334,34 +327,26 @@ def make(project: str, edition: editions.Edition, into: Path) -> int:
 def arguments(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Write an Example project's generated files.")
     parser.add_argument("--project", choices=PROJECTS, default=PROJECTS[0])
-    parser.add_argument("--edition", choices=sorted(editions.BY_OPTION),
-                        default=editions.SQLGLOT_COMPOSER.option)
     parser.add_argument("--into", type=Path,
                         help="a new or empty folder to write the whole project into; leave it "
-                        "out to rewrite example_projects/<project>/ itself (sqlglot Composer "
-                        "only)")
+                        "out to rewrite example_projects/<project>/ itself")
     parser.add_argument("--write-here", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
 
 def main(argv: list[str]) -> int:
     given = arguments(argv)
-    edition = editions.BY_OPTION[given.edition]
     if given.write_here:
-        write_here(given.project, edition)
+        write_here(given.project)
         return 0
     into = given.into
     if into is None:
-        if edition is not editions.SQLGLOT_COMPOSER:
-            print(f"dev keeps only sqlglot Composer's Example projects: name a folder to write "
-                  f"{edition.product}'s into with --into <folder>.", file=sys.stderr)
-            return 2
         into = EXAMPLE_PROJECTS / given.project
     elif into.exists() and (not into.is_dir() or any(into.iterdir())):
         print(f"{into} isn't an empty folder: name a new or empty one with --into, so no "
               "file of yours is written over.", file=sys.stderr)
         return 2
-    if make(given.project, edition, into) != 0:
+    if make(given.project, into) != 0:
         print(f"The {given.project} Example project's generated files weren't all written: "
               "see the error above.", file=sys.stderr)
         return 1

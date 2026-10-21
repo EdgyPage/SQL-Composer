@@ -5,8 +5,8 @@ MSCK REPAIR TABLE, and compute_statistics ANALYZE TABLE ... COMPUTE STATISTICS f
 with FOR COLUMNS when asked; both take only one of the user's Saved tables, a Table reference
 with location=, which need_saved_table checks for them and for the admin module. explain writes
 EXPLAIN before exactly the Hive run would send, takes any Statement since it only reads, and
-run gives back its plan as text. Spark Composer's Example database runs an EXPLAIN; sqlglot
-Composer's says it can't, and neither runs the other two, its tables being made up and fixed.
+run gives back its plan as text. The Example database says it can't explain, and runs neither of
+the other two, its tables being made up and fixed.
 """
 
 from __future__ import annotations
@@ -17,8 +17,7 @@ import re
 import pandas as pd
 import pytest
 
-import editions
-from conftest import edition, toolbox_module
+from conftest import toolbox_module
 from sqlglot_composer import (
     AS,
     FROM,
@@ -320,10 +319,6 @@ def test_the_example_database_refuses_to_repair_or_count() -> None:
 
 
 @pytest.mark.needs_example_database
-def test_spark_composers_example_database_explains_and_sqlglot_composers_cant() -> None:
-    if edition() is editions.SPARK_COMPOSER:
-        plan = run(explain(one_day()), send=example_database.send)
-        assert plan.splitlines()[0] == "== Physical Plan =="
-        return
+def test_the_example_database_says_it_cant_explain() -> None:
     with pytest.raises(RuntimeError, match="its executor has no EXPLAIN"):
         run(explain(one_day()), send=example_database.send)

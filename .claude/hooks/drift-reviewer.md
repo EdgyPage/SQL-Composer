@@ -12,14 +12,12 @@ and there only by appending. You never fix what you find, and never raise the To
   `CHANGES.md` and the Worked examples in the Example gallery. Read only what a finding needs.
 - `.scratch/drift.md`, for open items and the next item number.
 
-The Toolbox is built in two Editions: sqlglot Composer in `sqlglot_composer/`, and Spark
-Composer in `spark_composer/`. Both run the Composer core, `composer_core/`, which holds every
-file they share, once. Each Edition's folder holds only its own `__init__.py`, `writing.py`,
-`engine.py` and `examples.html`. The core's docstrings name sqlglot Composer; Spark Composer's
-gallery and doctests read them with the names swapped, so a core docstring that is true of one
-Edition only is a finding.
+The Toolbox is sqlglot Composer, in `sqlglot_composer/`, which runs the Composer core,
+`composer_core/`. `sqlglot_composer/` holds only its own `__init__.py`, `writing.py`,
+`engine.py`, `examples.html` and `how_to.html`. Spark Composer, a second Edition, was dropped in
+6.0 (ADR 0008).
 
-## The seven kinds
+## The six kinds
 
 Each finding is one of these. The kind is the word in backticks.
 
@@ -28,8 +26,7 @@ Each finding is one of these. The kind is the word in backticks.
    was last exported with (`git log -1 main`). Say which change needs it. The session asks the
    user whether to raise it.
 2. `change-notes`: a change the user would notice, in an Edition `main` already ships, has no
-   plain-words line in `CHANGES.md` under the current version. Both Editions share one
-   `CHANGES.md`.
+   plain-words line in `CHANGES.md` under the current version.
 3. `docstring`: docstring prose, or a refusal message, no longer matches what the code does. The
    doctest checks the example, not the words.
 4. `glossary`: a new domain word appears in a name, message or doc and isn't in `CONTEXT.md`, or
@@ -37,9 +34,6 @@ Each finding is one of these. The kind is the word in backticks.
 5. `standing-docs`: `docs/agents/standards.md`, the README template or `CLAUDE.md` says something
    the diff has made untrue.
 6. `worked-example`: an example's "why" sentence that the diff has made untrue.
-7. `parity`: the diff changes what one Edition does or says (a docstring, a refusal, the README,
-   `CHANGES.md`, a Worked example) without the matching change in the other, where no test holds
-   the two together and no ticket says why they differ.
 
 Leave out anything a test already fails on, matters of taste, and anything that was untrue
 before this commit and that the commit didn't touch. When unsure, leave it out: a false alarm

@@ -1,7 +1,7 @@
 """Reading a Hive string's values back by its characters alone, as Hive's own reader does.
 
 The escaping tests read the Toolbox's Hive with this in both Editions. It knows nothing of the
-Toolbox, of sqlglot or of Spark Composer's writer, so it checks all of them rather than repeat
+Toolbox or of sqlglot, so it checks both rather than repeat
 one. A value in single quotes is decoded the way Hive decodes it: a backslash before n, t, r, b
 or 0 stands for that control character, a backslash before % or _ is kept for LIKE, and a
 backslash before any other character stands for that character itself.

@@ -7,8 +7,7 @@ Markdown report. The cases are every docstring example and Worked example that b
 Statement, the edge cases in `hive_corpus_cases.py`, and about 200 generated ones.
 
 This test fails while the committed file differs from what the Edition writes today. Write it
-again only for a change that is meant to alter the output; `tests/repo/test_edition_parity.py`
-then holds the two Editions' files to each other.
+again only for a change that is meant to alter the output.
 """
 
 from __future__ import annotations
