@@ -357,11 +357,12 @@ def ordered(item, call: str) -> Node:
 def hive_function(name, *args):
     """Call a Hive function the Toolbox doesn't wrap, with your text quoted for you.
 
-    The Hive writes its name in capitals. It may write another name that does the same, as
-    COALESCE for nvl, or leave out an argument that is filled in anyway, as
-    regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none
-    is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the
-    year a week belongs to, which Spark refuses in a pattern.
+    The Toolbox writes the function's name in capitals, and writes the call in its usual form:
+    sometimes by another name that does the same, as COALESCE for nvl, or without an
+    argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1
+    is what the warehouse takes when none is given. Either way it does the same. In a date_format
+    pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark
+    refuses in a pattern.
 
     It checks the call before writing it:
 

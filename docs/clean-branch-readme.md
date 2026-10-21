@@ -47,8 +47,9 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 Updating from 4.x? Copy the folders in as below, then see [Update from 4.x](#update-from-4x).
 Updating from 3.x or SQL Composer, with no `composer_core` folder? See
 [Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x) too.
-Using Spark Composer? It was dropped in 6.0: delete `spark_composer`, copy in
-`sqlglot_composer`, change each `from spark_composer import` to `from sqlglot_composer import`,
+Using Spark Composer? It was dropped in 6.0. Install sqlglot, as Install says, delete
+`spark_composer` and `composer_core`, copy in the new `composer_core` and `sqlglot_composer`,
+change each `from spark_composer import` to `from sqlglot_composer import`, restart the kernel,
 and see [If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark).
 
 1. Delete both folders: `composer_core` and `sqlglot_composer`.

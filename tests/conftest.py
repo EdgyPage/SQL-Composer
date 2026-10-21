@@ -76,7 +76,7 @@ def example_database_cannot_run() -> str | None:
     """Why the Example database can't run a query here, or None when it can.
 
     Its Edition says what it lacks. Then, once a run, it is sent one query, so an Example
-    database that can't answer, such as a Spark that can't start, gives every test one reason
+    database that can't answer gives every test one reason
     rather than each test a reason of its own. Any reason the query gives is a bug.
     """
     reason = toolbox_module("engine").example_database_cannot_run()
