@@ -11,27 +11,32 @@ tracker's notes in `.scratch/` among them:
 - **encoded payload:** a long run of base64, hex or `\\x..` escapes, which could hold code to
   decode and run, and, in Python, a decoder: `base64`, `binascii`, `zlib`, `gzip`, `bz2`,
   `lzma`, `codecs.decode`, `bytes.fromhex`;
-- **outside the repo**, in Python: a reach for credentials or the home folder: `~`,
-  `Path.home`, `expanduser`, a path into `.ssh`, `.aws` and the like, an environment variable
-  whose name says key, token, secret, password or credential, and `keyring` or `getpass`;
+- **outside the repo**, in Python: a reach for credentials, the home folder or the system:
+  `~`, `Path.home`, `expanduser`, a path into `.ssh`, `.aws` and the like, a system path such
+  as `/etc/` or `C:\\Windows\\` or a startup folder, an environment variable whose name says
+  key, token, secret, password or credential, and `keyring` or `getpass`;
+- **hook**, in Python: code set to run at exit or on every event: `atexit.register`,
+  `sys.addaudithook`, and `sys` or `threading`'s `settrace` and `setprofile`;
 - **config** that runs or fetches code: a Claude Code hook in `.claude/settings*.json` that runs
   anything but a file in `.claude/hooks/`; a GitHub workflow step that uses an action not pinned
-  to a commit, downloads with `curl` or `wget`, pipes into a shell, or a workflow allowed to
-  write; a `pyproject.toml` that loads a pytest plugin with `-p` or builds a package; and a
-  requirements line that isn't `name==version`;
+  to a commit, downloads with `curl` or `wget`, or pipes into a shell, and a workflow allowed to
+  write or with no `permissions:` of its own; a `pyproject.toml` that loads a pytest plugin with
+  `-p` or builds a package; and a requirements line that isn't `name==version`;
 - **notebook:** a notebook that was run, whose cells keep an output or a count, or whose
   Markdown holds a script.
 
-It only reads text, never imports or runs what it reads, and reaches nothing. It skips what the
-offline policy skips outside the code (the git folder, caches, Python environments and Claude
-Code's worktrees), but reads `.scratch/`, since a note can hide text too. `AUDITED` lists each
+It only reads text, never imports or runs what it reads, and reaches nothing. It skips the
+folders the offline policy skips (`offline_policy.not_read`: the git folder, caches, Python
+environments and Claude Code's worktrees, but none inside the Toolbox or user-copied code), apart
+from `.scratch/`, which it reads, since a note can hide text too. `AUDITED` lists each
 reviewed site, by file, kind and what its finding says, with the reason it is no harm; an entry
 that matches nothing is stale.
 
     python tools/code_audit.py [--root FOLDER]
 
 It prints each finding, then the offline policy's, as `file:line kind: what`, and exits 1 if
-there is any.
+there is any. With `--root`, it reads that folder by both readers' rules, with neither's
+reviewed sites, to check a sample.
 """
 
 from __future__ import annotations
@@ -50,10 +55,8 @@ from offline_policy import Finding
 
 ROOT = offline_policy.ROOT
 
-# --- The rules ----------------------------------------------------------------------------------
+# --- What it looks for ----------------------------------------------------------------------------------
 
-# Folders never read: as the offline policy, apart from the tracker's notes.
-NOT_READ = offline_policy.NOT_READ - {".scratch"}
 # Characters that show nothing, or turn the text around: bidi controls and marks, zero-width
 # characters, and a byte-order mark anywhere but a file's start.
 HIDDEN = re.compile("[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff"
@@ -67,7 +70,14 @@ DECODER_CALLS = ("codecs.decode", "bytes.fromhex")
 # Strings that name a place credentials are kept, or the home folder.
 CREDENTIAL_PATH = re.compile(r"(?:^|[\\/~'\"])\.(?:ssh|aws|azure|gnupg|netrc|git-credentials|pypirc"
                              r"|docker|kube)\b|\bid_(?:rsa|ed25519|ecdsa|dsa)\b|^~[\\/]")
-SECRET_NAME = re.compile(r"key|token|secret|passw|credential|auth", re.IGNORECASE)
+SECRET_NAME = re.compile(r"key|token|secret|passw|credential", re.IGNORECASE)
+# A system folder, or the folder whose programs Windows runs at sign-in.
+SYSTEM_PATH = re.compile(r"^(?:/etc|/usr|/bin|/sbin|/var|/root|/boot|/System|/Library)/"
+                         r"|^[A-Za-z]:[\\/](?:Windows|Program Files|ProgramData)\b"
+                         r"|Start Menu[\\/]Programs[\\/]Startup", re.IGNORECASE)
+# Calls that set code to run at exit or on every event.
+HOOK_CALLS = ("atexit.register", "sys.addaudithook", "sys.settrace", "sys.setprofile",
+              "threading.settrace", "threading.setprofile")
 CREDENTIAL_MODULES = ("keyring", "getpass", "win32cred", "secretstorage")
 HOME_CALLS = ("Path.home", "pathlib.Path.home", "os.path.expanduser", "expanduser")
 ENVIRONMENT_READS = ("os.environ", "os.getenv", "os.environ.get", "getenv")
@@ -100,8 +110,11 @@ AUDITED = (
       for character in ("U+202E", "U+2066", "U+2069", "U+200F")),
     Audited(".scratch/drift.md", "hidden text", "U+0000",
             "a drift note quoting the NUL the Toolbox escapes in a Hive string"),
-    Audited("tests/repo/test_code_audit.py", "outside the repo", "",
+    Audited("tests/repo/test_code_audit.py", "outside the repo", "names ",
             "the audit's tests' samples, planted in a temporary folder"),
+    Audited("tests/offline_trap.py", "hook", "sys.addaudithook",
+            "the network trap every test run installs, which refuses a connection off this "
+            "computer"),
 )
 
 
@@ -110,32 +123,32 @@ AUDITED = (
 
 def audit(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Finding]:
     """Each finding in the files under `root` that `audited` doesn't cover."""
-    found = [finding for file in files(root) for finding in findings_in_file(root, file)]
-    return [finding for finding in found if not any(entry.matches(finding) for entry in audited)]
+    return [finding for finding in everything_found(root)
+            if not any(entry.matches(finding) for entry in audited)]
 
 
 def stale(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Finding]:
     """Each entry of `audited` that matches nothing under `root`."""
-    found = [finding for file in files(root) for finding in findings_in_file(root, file)]
+    found = everything_found(root)
     return [Finding(entry.file, 0, "stale entry",
                     f"AUDITED's {entry.kind} entry holding {entry.holds!r} matches nothing")
             for entry in audited if not any(entry.matches(finding) for finding in found)]
 
 
-def files(root: Path) -> list[Path]:
+def everything_found(root: Path) -> list[Finding]:
+    """Each finding in the files under `root`, reviewed or not."""
+    return [finding for file in read_files(root) for finding in findings_in_file(root, file)]
+
+
+def read_files(root: Path) -> list[Path]:
     """Every file under `root` the audit reads, in a steady order."""
     found = []
     for folder, subfolders, names in os.walk(root):
         subfolders[:] = sorted(name for name in subfolders
-                               if not _not_read(Path(folder, name), root))
+                               if name == ".scratch"
+                               or not offline_policy.not_read(Path(folder, name), root))
         found += [Path(folder, name) for name in sorted(names)]
     return found
-
-
-def _not_read(folder: Path, root: Path) -> bool:
-    relative = folder.relative_to(root).as_posix()
-    return (folder.name in NOT_READ or (folder / "pyvenv.cfg").exists()
-            or relative == ".claude/worktrees")
 
 
 def findings_in_file(root: Path, file: Path) -> list[Finding]:
@@ -205,7 +218,7 @@ def _node_findings(node: ast.AST) -> list[tuple[str, str]]:
         return ([("outside the repo", f"reads the environment's {_literal(node.slice)}")]
                 if _secret([node.slice]) else [])
     if (isinstance(node, ast.Constant) and isinstance(node.value, str)
-            and CREDENTIAL_PATH.search(node.value)):
+            and (CREDENTIAL_PATH.search(node.value) or SYSTEM_PATH.search(node.value))):
         return [("outside the repo", f"names {node.value[:60]!r}")]
     return []
 
@@ -219,6 +232,8 @@ def _call_findings(node: ast.Call) -> list[tuple[str, str]]:
         found.append(("outside the repo", f"calls {called}"))
     if called in ENVIRONMENT_READS and _secret(node.args[:1]):
         found.append(("outside the repo", f"reads the environment's {_literal(node.args[0])}"))
+    if called in HOOK_CALLS:
+        found.append(("hook", f"calls {called}"))
     return found
 
 
@@ -287,7 +302,9 @@ def _hook_findings(root: Path, text: str, path: str) -> list[Finding]:
 
 
 def _workflow_findings(text: str, path: str) -> list[Finding]:
-    found = []
+    found = ([] if re.search(r"^permissions:", text, re.MULTILINE) else
+             [Finding(path, 0, "config", "it has no permissions: of its own, so it gets the "
+                      "repository's default, which may write")])
     for number, line in enumerate(text.splitlines(), 1):
         used = re.match(r"\s*(?:-\s*)?uses:\s*([^\s#]+)", line)
         if used and not PINNED_ACTION.match(used.group(1)):
@@ -305,7 +322,7 @@ def _pyproject_findings(text: str, path: str) -> list[Finding]:
     for number, line in enumerate(text.splitlines(), 1):
         if line.strip() == "[build-system]":
             found.append(Finding(path, number, "config", "builds a package"))
-        if re.match(r"\s*addopts\s*=.*(?:^|[\s\"'])-p\s", line):
+        if re.search(r"(?:^|[\s\"'\[,])-p\s*[\w.]", line):
             found.append(Finding(path, number, "config", f"loads a plugin: {line.strip()}"))
     return found
 
@@ -321,11 +338,12 @@ def _requirements_findings(text: str, path: str) -> list[Finding]:
 
 
 def main(arguments: list[str]) -> int:
-    root = Path(arguments[arguments.index("--root") + 1]).resolve() if "--root" in arguments \
-        else ROOT
-    found = audit(root) + stale(root) if root == ROOT else audit(root, audited=())
-    if root == ROOT:
-        found += offline_policy.scan(ROOT) + offline_policy.stale_entries(ROOT)
+    if "--root" in arguments:
+        root = Path(arguments[arguments.index("--root") + 1]).resolve()
+        found = audit(root, audited=()) + offline_policy.scan(root, allowed=())
+    else:
+        found = (audit() + stale() + offline_policy.scan(ROOT)
+                 + offline_policy.stale_entries(ROOT))
     sys.stdout.reconfigure(errors="replace")
     for finding in found:
         print(finding)

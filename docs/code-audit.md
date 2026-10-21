@@ -30,8 +30,10 @@ listed below, each reviewed. Every installed library file matches the hash pip r
   Cyrillic or Greek letter inside a Latin word;
 - a file that isn't UTF-8;
 - encoded payloads: long base64, hex or `\x..` runs, and decoders (`base64`, `zlib` and the like);
-- reaches outside the repo: credential paths, the home folder, secret environment variables,
-  `keyring` and `getpass`;
+- reaches outside the repo: credential paths, the home folder, system and startup folders,
+  secret environment variables, `keyring` and `getpass`;
+- hooks: code set to run at exit or on every event (`atexit.register`, `sys.addaudithook`,
+  `settrace`, `setprofile`);
 - config that runs or fetches code: Claude Code hooks, workflows, `pyproject.toml`,
   requirements;
 - notebooks that were run.
@@ -44,6 +46,8 @@ It finds nothing beyond these reviewed sites (`AUDITED`):
   Hive string. It makes git treat the file as binary, and does nothing else.
 - `tests/repo/test_code_audit.py`: the audit's own samples, such as `~/.ssh/id_rsa`, which its
   tests plant in a temporary folder.
+- `tests/offline_trap.py`: its two `sys.addaudithook` calls, the network trap every test run
+  installs.
 
 The offline policy now also reports:
 - code loaded from a file or from bytes: `pickle`, `marshal`, `shelve`, `zipimport`,
@@ -125,9 +129,27 @@ Hive corpus's text files.
   of each kind, and `python tools/code_audit.py` runs both readers.
 - `tools/offline_policy.py`: the loaders and page references above.
 - `.claude/hooks/offline_hook.py`: it judges every checkout, a worktree's too, by the project's
-  own `tools/offline_policy.py`. It used to import the policy from the checkout it judged, so a
-  worktree's planted `offline_policy.py` would have run inside the hook and passed anything. An
-  `ALLOWED` entry now counts once the project holds it.
+  own `tools/offline_policy.py`. Two bypasses are closed:
+  - The hook used to import the policy from the checkout it judged, so a worktree's planted
+    `offline_policy.py` would have run inside the hook and passed anything.
+  - The hook passed every edit in a checkout without its own `tools/offline_policy.py`, so a
+    worktree that deleted its policy was never judged.
+
+  An `ALLOWED` entry now counts once the project holds it.
+
+## What the lasting checks leave out
+
+Each is a choice, since the check would mostly find the repo's own ordinary code:
+
+- `sys.path` writes, which every Table notebook's path lines make, and file deletes, which only
+  tests and tools make, in temporary or generated folders.
+- A link off a page to a relative path, such as `examples.html#run`, which stays in the
+  download; a link with a scheme, `//`, `javascript:` or `data:` is found.
+- `exec_module`, a method on a loader the policy can't name; the calls that make a loader
+  (`spec_from_file_location`, `module_from_spec`, `importlib.machinery`) are found instead.
+- A hook command is checked to run a file in `.claude/hooks/`, not that git tracks the file;
+  the offline policy and this audit read every file there all the same.
+- A workflow and `pyproject.toml` are read line by line, not parsed.
 
 ## Out of scope
 
@@ -137,3 +159,19 @@ Hive corpus's text files.
 - **The user's machine outside the repo and its `.venv`**: user-level Claude Code settings, and
   other Pythons.
 - **Sites that pass review:** what a reviewed site does is judged by its reason, not run.
+
+## How the sweeps were run
+
+All ran on this computer, reading only, with dev's own Python:
+
+- The repo: `python tools/code_audit.py`, which runs both readers and exits 0.
+- History: a script read the blobs named by `git rev-list --all --objects` and
+  `git fsck --no-reflogs --unreachable`, each through `git cat-file blob`. It ran each one through
+  `code_audit`'s readers and `offline_policy.findings_in` at each path it was committed at.
+- `.venv`: a script recomputed the sha256 of every file named in each `*.dist-info/RECORD`, and
+  compared each with the hash recorded there (urlsafe base64). It listed `site-packages` files
+  outside every `RECORD`, `.pth` files, `sitecustomize` and `usercustomize`, and `entry_points.txt`
+  sections, and compared each version with `requirements-dev.txt`. It ran `offline_policy.scan`
+  over sqlglot's 184 files with no `ALLOWED`.
+- Git: `.git/config`, `.git/hooks/`, `.git/info/` and `git config --list --show-origin`, read by
+  hand.
