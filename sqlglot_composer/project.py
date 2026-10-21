@@ -26,9 +26,9 @@ add_references writes Table references in bulk, remove_reference archives one, r
 one made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. Only
 add_references touches the warehouse, sending DESCRIBE, and none deletes a file: what they
-remove moves into admin/removed/. Every one of them adds an entry to admin/admin_log.md,
-which also logs every Admin statement run inside the Project, apart from check and
-refresh_reference_sheet, which change none of your files.
+remove moves into admin/removed/. Every one of them but check, which changes no file, and
+refresh_reference_sheet, which changes only the Reference sheet, adds an entry to
+admin/admin_log.md, the log that also keeps every Admin statement run inside the Project.
 """
 
 from __future__ import annotations
@@ -441,8 +441,7 @@ def add_references(names, send):
     written as database.table, and a table whose DESCRIBE (the command that lists its columns)
     fails through your `send` are each skipped, and the rest still written. It logs them all in
     one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why.
-    Fix the names, then run the same list again: the tables written are skipped as there
-    already.
+    Fix those names, then run add_references again with them alone.
 
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
@@ -491,9 +490,9 @@ def add_references(names, send):
             "already there never stops the rest"
             + (f": {', '.join(files)} {'was' if len(files) == 1 else 'were'} written."
                if files else "."),
-            fix="Fix each name skipped as wrong or whose DESCRIBE failed, then run the same "
-            "list again: the tables written are skipped as there already. Each is in "
-            "admin/admin_log.md.",
+            fix="Fix each name skipped as wrong or whose DESCRIBE failed, then run "
+            "add_references again with those names alone; a table whose file is there "
+            "already needs nothing. Each is in admin/admin_log.md.",
             error=SkippedTables,
         )
     return ProjectReport([f"Wrote {' and '.join(files)}: fill in their TODO lines."
@@ -640,6 +639,7 @@ def refresh_reference_sheet(name=None):
             )
         paths = [path]
         kept = _sheet(root)
+        had_rows = any(row["table"] == name for row in kept)
     rows, left_out = [], []
     for path in paths:
         read = _reference_rows(path, now)
@@ -659,9 +659,10 @@ def refresh_reference_sheet(name=None):
               f"{tables} table{'s' * (tables != 1)}."]
     if left_out:
         report.append(f"Left out, since {'it' if len(left_out) == 1 else 'each'} can't be read "
-                      f"yet: {', '.join(left_out)}. Fill in every <...> in it, then refresh "
-                      "again" + (", and its rows from before are kept until then." if kept
-                                 and name is not None else "."))
+                      f"yet: {', '.join(left_out)}. Fill in every <...> in it, and check it "
+                      "holds a Table(...) call, then refresh again"
+                      + (", and its rows from before are kept until then." if name is not None
+                         and had_rows else "."))
     return ProjectReport(report)
 
 
@@ -750,7 +751,8 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame,
          skipped: tuple[str, ...] | list[str] = (), result: str = "worked") -> None:
     """Add a Project action's entry to the Project's Admin log: when, the call, the tables it
     names, what it did to which files, what it skipped and why, the script and its commit, and
-    whether it worked. A refused one changed nothing, and isn't logged."""
+    whether it worked. An action refused before it changes anything isn't logged;
+    add_references logs what it wrote and skipped, then refuses."""
     from .lineage import calling_file  # lineage imports what imports this
 
     lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {_code(call)}"]

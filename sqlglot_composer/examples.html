@@ -3435,7 +3435,7 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <section class="entry" id="project.add_references">
 <h3><code>project.add_references</code></h3>
 <p class="why">Write a Table reference for each table into references/, skipping any it can&#x27;t.</p>
-<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>send</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix the names, then run the same list again: the tables written are skipped as there already.</p>
+<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>send</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix those names, then run add_references again with them alone.</p>
 <pre class="python">from sqlglot_composer import example_database, project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
