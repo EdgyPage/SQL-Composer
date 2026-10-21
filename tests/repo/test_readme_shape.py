@@ -1,8 +1,8 @@
 """The README is a tutorial, and the version history is in CHANGES.md.
 
 `docs/clean-branch-readme.md`, which the export fills in as main's README, walks a new user
-through numbered steps, from installing the Toolbox to the Lineage of a Saved table, each
-pointing to the how-to that walks through it in full. What changed in each version, and how to
+through numbered steps, from installing the Toolbox to a project of their own, each pointing to
+the how-to that walks through it in full. What changed in each version, and how to
 update from it, lives in `CHANGES.md`, at the repo's top, so the README holds no section about
 one version.
 """

@@ -156,9 +156,28 @@ Tickets 02-04 don't wait for the user's review of 01; 05-10 do. Ticket 11, asked
   placeholders, `send.py`) and the review's answers (removing keeps the reference, a dry run
   for `run_tables`, `check()` report-only, names and sheet columns as built).
 
+- [02 Remove Spark Composer](issues/02-remove-spark-composer.md): gone from dev after the tag
+  `last-spark-composer` (ADR 0008); the tests' offline trap moved to `tests/offline_trap.py`
+  with its ALLOWED entry (user's OK); pyspark's guards in the offline policy kept on purpose; the
+  user kept "Leave it" for a Spark-only user's Saved-table Key (Spark refuses PRIMARY KEY).
+- [11 Python 3.12, pandas 3, numpy 2.5, and a venv](issues/11-python-3-12-pandas-3-numpy-2-5-and-a-venv.md):
+  dev runs in `.venv` on Python 3.12 (winget, user's OK); pandas 3.0.6, numpy 2.5.4, pytz kept;
+  missing text shows NaN; on Python 3.11 the README says to pin numpy 2.4.6; the Toolbox itself
+  still checks for 3.11 or newer. The version went to 6.0 here (drift item D193).
+- [03 One folder, version 6.0](issues/03-one-folder-version-6-0.md): `composer_core` merged into
+  `sqlglot_composer` (ADR 0009); `edition.py` gone, writing and engine imported directly;
+  `tools/toolbox_registry.py` replaces `tools/editions.py`; CHANGES.md at the repo's top; main
+  ships the Example projects and Templates at dev's paths; the export also imports the folder
+  copied on its own.
+- [04 README as a tutorial](issues/04-readme-as-a-tutorial.md): eight numbered steps linking
+  the how-tos with `../sqlglot_composer/how_to.html#<slug>` (the README is `.github/README.md`
+  on main); the version-by-version sections were already in CHANGES.md; CONTEXT.md defines
+  README; `tests/repo/test_readme_shape.py` holds the shape. Step 8 is ticket 10's to replace.
+
 ## Not yet specified
 
-- Nothing yet.
+- Whether "If your send runs the Hive on Spark" stays in the README: kept for now (it is
+  about a user's own send, not Spark Composer), for the user to confirm.
 
 ## Out of scope
 
