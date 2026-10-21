@@ -1501,7 +1501,7 @@ Notes:
 <section class="entry" id="Verdict">
 <h3><code>Verdict</code></h3>
 <p class="why">What check_key(...) or check_table_reference(...) found, ready to print.</p>
-<p>Its <code>ok</code> is True when the check found nothing wrong, and printing it shows what it found. Write the name in a type hint, to say that a function of yours gives back what a check found:</p>
+<p>Its <code>ok</code> is True when the check found nothing wrong, and printing it shows what it found. Make one with check_key(...) or check_table_reference(...), never Verdict(). Write the name in a type hint, to say that a function of yours gives back what a check found:</p>
 <pre class="python">def key_holds(t: Table) -&gt; Verdict:
     return check_key(t, send=example_database.send)</pre>
 <pre class="python">verdict = key_holds(jobs)</pre>
@@ -2532,9 +2532,9 @@ GROUP BY
 <h3><code>Subtotals</code></h3>
 <p class="why">Subtotals for GROUP_BY, made by rollup(...), cube(...) or grouping_sets(...).</p>
 <p>Make them with one of those three, never Subtotals(). Write the name in a type hint, to say that a function of yours gives them back:</p>
-<pre class="python">def per_status_and_in_all() -&gt; Subtotals:
+<pre class="python">def per_status_with_a_total() -&gt; Subtotals:
     return rollup(job_runs.status)</pre>
-<pre class="python">per_status_and_in_all()</pre>
+<pre class="python">per_status_with_a_total()</pre>
 <p class="label">Python shows</p>
 <pre class="output">&lt;rollup(job_runs.status) - put it in GROUP_BY(...)&gt;</pre>
 <p class="names">Toolbox names used: <code>Subtotals</code>, <code>rollup</code></p>
@@ -2835,8 +2835,8 @@ GROUP BY
 </section>
 <section class="entry" id="Ordering">
 <h3><code>Ordering</code></h3>
-<p class="why">A column to sort by, and which way, made by descending(...).</p>
-<p>Make one with descending(...), never Ordering(). Write the name in a type hint, to say that a function of yours gives one back:</p>
+<p class="why">A column to sort by from largest to smallest, made by descending(...).</p>
+<p>A column given as it is sorts from smallest to largest, and needs no Ordering. Make one with descending(...), never Ordering(). Write the name in a type hint, to say that a function of yours gives one back:</p>
 <pre class="python">def newest_first() -&gt; Ordering:
     return descending(job_runs.dt)</pre>
 <pre class="python">newest_first()</pre>
@@ -3735,7 +3735,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <section class="entry" id="project.run_tables">
 <h3><code>project.run_tables</code></h3>
 <p class="why">Write a day of every table, each before the tables that read it.</p>
-<p>Each table&#x27;s write_day(day) comes from its notebook&#x27;s logic cell, through load; one that gives a list, as an incremental load&#x27;s does, sends each in turn. Each write_day gives Statements or Unchecked statements: anything else, such as Session settings, is refused before anything is sent. They run in the order lineage draws them: a table is written before any table that reads it, and a loop, two tables each reading the other, is refused. <code>tables</code> names some, such as [&quot;mart.team_day&quot;]; left out, it is every Table folder the registry lists. With no <code>send</code> it prints each one&#x27;s Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you send. With your send, it sends each in turn, printing a line as each one works, and stops at the first that fails: the tables after it aren&#x27;t written. It adds no entry of its own to the Admin log, since what it writes is in the warehouse, not your files; a write_day that gives an Admin or Unchecked statement is logged by run, as anywhere else.</p>
+<p>Each table&#x27;s write_day(day) comes from its notebook&#x27;s logic cell, through load; one that gives a list, as an incremental load&#x27;s does, sends each in turn. Each write_day gives Statements, an Admin statement among them, or Unchecked statements: anything else, such as Session settings, is refused before anything is sent. They run in the order lineage draws them: a table is written before any table that reads it, and a loop, two tables each reading the other, is refused. <code>tables</code> names some, such as [&quot;mart.team_day&quot;]; left out, it is every Table folder the registry lists. With no <code>send</code> it prints each one&#x27;s Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you send. With your send, it sends each in turn, printing a line as each one works, and stops at the first that fails: the tables after it aren&#x27;t written. It adds no entry of its own to the Admin log, since what it writes is in the warehouse, not your files; a write_day that gives an Admin or Unchecked statement is logged by run, as anywhere else.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>

@@ -698,11 +698,16 @@ def test_run_tables_refuses_a_loop(started: Path) -> None:
         project.run_tables("2026-09-24")
 
 
+SETTINGS = "<Session settings map_joins - show_hive(...) shows their SET lines>"
+
+
 @pytest.mark.parametrize(("gives", "said"), [
-    ('hive_settings("map_joins")', "<Session settings map_joins"),
-    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd'"),
-    ("None", "None"),
-    ('[hive_settings("map_joins")]', "a list holding <Session settings map_joins"),
+    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement or an Unchecked statement"),
+    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a Statement or an Unchecked statement"),
+    ("None", "None, which isn't a Statement or an Unchecked statement"),
+    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement or an Unchecked statement"),
+    ("(1, 2)", "a tuple, and 1 in it isn't a Statement or an Unchecked statement"),
+    ("[]", "an empty list, with no write in it"),
 ])
 def test_run_tables_refuses_what_write_day_gives_that_it_cant_send(
         started: Path, capsys: pytest.CaptureFixture[str], gives: str, said: str) -> None:
@@ -715,8 +720,7 @@ def test_run_tables_refuses_what_write_day_gives_that_it_cant_send(
     message = " ".join(str(refused.value).split())
     assert message.count("What happened:") == 1
     assert ('What happened: project.run_tables("2026-09-24"): write_day("2026-09-24"), in the '
-            f"logic cell of mart.odd's Table notebook, gave {said}") in message
-    assert "which isn't a Statement" in message
+            f"logic cell of mart.odd's Table notebook, gave {said}.") in message
     assert capsys.readouterr().out == ""
 
 

@@ -1140,7 +1140,8 @@ class Verdict:
     """What check_key(...) or check_table_reference(...) found, ready to print.
 
     Its `ok` is True when the check found nothing wrong, and printing it shows what it found.
-    Write the name in a type hint, to say that a function of yours gives back what a check
+    Make one with check_key(...) or check_table_reference(...), never Verdict(). Write the
+    name in a type hint, to say that a function of yours gives back what a check
     found:
 
     >>> def key_holds(t: Table) -> Verdict:

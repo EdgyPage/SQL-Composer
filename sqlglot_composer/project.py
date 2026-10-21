@@ -51,6 +51,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 from types import FrameType
+from typing import NoReturn
 
 import pandas as pd
 
@@ -900,11 +901,12 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
 
     Each table's write_day(day) comes from its notebook's logic cell, through load; one that
     gives a list, as an incremental load's does, sends each in turn. Each write_day gives
-    Statements or Unchecked statements: anything else, such as Session settings, is refused
-    before anything is sent. They run in the order lineage draws them: a table is written
-    before any table that reads it, and a loop, two tables each reading the other, is refused. `tables` names some, such as
-    ["mart.team_day"]; left out, it is every Table folder the registry lists. With no `send`
-    it prints each one's Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
+    Statements, an Admin statement among them, or Unchecked statements: anything else, such
+    as Session settings, is refused before anything is sent. They run in the order lineage
+    draws them: a table is written before any table that reads it, and a loop, two tables
+    each reading the other, is refused. `tables` names some, such as ["mart.team_day"]; left
+    out, it is every Table folder the registry lists. With no `send` it prints each one's
+    Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
     sends nothing: a dry run, to read before you send. With your send, it sends each in turn,
     printing a line as each one works, and stops at the first that fails: the tables after
     it aren't written. It adds no entry of its own to the Admin log, since what it writes is
@@ -967,22 +969,35 @@ def _writes_of(name: str, day: str, call: str) -> list[Statement | UncheckedStat
         )
     written = logic.write_day(day)
     # An incremental load's write_day gives several days' writes, oldest first.
-    writes = written if isinstance(written, (list, tuple)) else [written]
+    several = isinstance(written, (list, tuple))
+    writes = list(written) if several else [written]
+    kind = type(written).__name__
+    if not writes:
+        _refuse_a_write(call, name, day, f"an empty {kind}, with no write in it", written)
     for write in writes:
         if not isinstance(write, (Statement, UncheckedStatement)):
-            gave = f"a list holding {write!r}" if writes is written else repr(write)
-            refuse(
-                what=f"{call}: write_day({_quoted(day)}), in the logic cell of {name}'s "
-                f"Table notebook, gave {gave}, which isn't a Statement.",
-                why="run_tables puts the tables in order by what each write reads and "
-                "writes, so each write_day gives a Statement, an Unchecked statement, or a "
-                "list of them.",
-                fix="Make write_day return the Statement that writes the day, as the "
-                "daily_table Template's does. Session settings aren't a write: run them on "
-                "their own, with run(hive_settings(...), send=send).",
-                given=write, call=call,
-            )
-    return list(writes)
+            gave = (f"a {kind}, and {write!r} in it isn't" if several
+                    else f"{write!r}, which isn't")
+            _refuse_a_write(call, name, day,
+                            f"{gave} a Statement or an Unchecked statement", write)
+    return writes
+
+
+def _refuse_a_write(call: str, name: str, day: str, gave: str, given: object) -> NoReturn:
+    """Refuse what `name`'s write_day gave for `day`, which run_tables can't send."""
+    refuse(
+        what=f"{call}: write_day({_quoted(day)}), in the logic cell of {name}'s Table "
+        f"notebook, gave {gave}.",
+        why="run_tables puts the tables in order by the tables each Statement reads and "
+        "writes, so each write_day gives a Statement, an Unchecked statement, or a list of "
+        "them.",
+        fix="Make write_day return the Statement that writes the day, as the daily_table "
+        "Template's does; one that gives None has lost its return. For Hive you wrote by "
+        "hand, return unchecked_hive(...). Session settings aren't a write: send them before "
+        "project.run_tables, with run(hive_settings(...), send=send). They hold only while "
+        "your send keeps one session (help(hive_settings)).",
+        given=given, call=call,
+    )
 
 
 # --- Pieces they share ------------------------------------------------------------------------

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from . import example_database
 from .calculations import (
+    Ordering,
     average_of,
     count_distinct,
     count_rows,
@@ -16,7 +17,6 @@ from .calculations import (
     if_else,
     max_of,
     min_of,
-    Ordering,
     month_start,
     sum_of,
     week_start,
@@ -24,8 +24,6 @@ from .calculations import (
 from .clauses import (
     ANTI_JOIN,
     AS,
-    Clause,
-    Named,
     CROSS_JOIN,
     FROM,
     FULL_JOIN,
@@ -42,6 +40,8 @@ from .clauses import (
     SEMI_JOIN,
     SELECT_DISTINCT,
     WHERE,
+    Clause,
+    Named,
     Statement,
     derived,
     statement,
@@ -71,9 +71,9 @@ from .running import by_day, run, set_load_limits, show_hive, to_hive
 from .stacking import (
     EXCEPT,
     INTERSECT,
-    Subtotals,
     UNION,
     UNION_ALL,
+    Subtotals,
     cube,
     grouping_sets,
     is_total,

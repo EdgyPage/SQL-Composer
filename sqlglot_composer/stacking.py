@@ -359,9 +359,9 @@ class Subtotals:
     Make them with one of those three, never Subtotals(). Write the name in a type hint, to say
     that a function of yours gives them back:
 
-    >>> def per_status_and_in_all() -> Subtotals:
+    >>> def per_status_with_a_total() -> Subtotals:
     ...     return rollup(job_runs.status)
-    >>> per_status_and_in_all()
+    >>> per_status_with_a_total()
     <rollup(job_runs.status) - put it in GROUP_BY(...)>
     """
 
