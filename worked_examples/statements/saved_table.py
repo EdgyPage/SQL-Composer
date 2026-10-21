@@ -13,7 +13,7 @@ from sqlglot_composer import (
     FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, admin,
     create_table, equals, example_database, statement,
 )
-from table_references.runs_to_review import runs_to_review
+from references.mart__runs_to_review import runs_to_review
 
 job_runs = example_database.job_runs
 run_alerts = example_database.run_alerts

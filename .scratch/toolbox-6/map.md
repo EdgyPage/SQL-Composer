@@ -137,6 +137,7 @@ settled the design below; this map is the design document, built out ticket by t
 - [10 How-tos and the README tutorial](issues/10-how-tos-and-the-readme-tutorial.md)
 - [11 Python 3.12, pandas 3, numpy 2.5, and a venv](issues/11-python-3-12-pandas-3-numpy-2-5-and-a-venv.md)
 - [12 No Spark left in the code](issues/12-no-spark-left.md)
+- [13 The Example gallery in the Project layout](issues/13-the-example-gallery-in-the-project-layout.md)
 
 Tickets 02-04 don't wait for the user's review of 01; 05-10 do. Ticket 11, asked for on
 2026-10-20 while ticket 02 closed, lands before 03. Ticket 12, asked for as 05 started,

@@ -113,7 +113,7 @@ def example_rows(table: str) -> pd.DataFrame:
 @contextlib.contextmanager
 def project_on_the_path(folder: Path, top_names: tuple[str, ...]):
     """Import a project's scripts as a notebook started in `folder` does, by their own folder
-    names, such as table_references.
+    names, such as references.
 
     The Worked examples have folders of the same names, so any module of those names is put
     away first, `folder` goes first on the path, and afterwards the project's modules are put

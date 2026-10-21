@@ -2,12 +2,13 @@
 and on each Example project in `example_projects/`.
 
 A script imports only from lower Levels and from the Toolbox, never from a higher or equal
-Level. Level 0 is `table_references/`, Level 1 `building_blocks/` and Level 2 `statements/`.
-Each Example project is a Project, whose Levels are its own: Level 0 is `references/`, with
-`send.py` beside it, Level 1 `building_blocks/`, and Level 2 each Table notebook's logic cell,
-the code cell that starts `# logic`.
+Level. Level 0 is `references/`, Level 1 `building_blocks/` and Level 2 `statements/`, the
+Worked examples' scripts, which play a Table notebook's logic cell. Each Example project is a
+Project, whose Levels are its own: Level 0 is `references/`, with `send.py` beside it, Level 1
+`building_blocks/`, and Level 2 each Table notebook's logic cell, the code cell that starts
+`# logic`.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
-`table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
+`references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what the Toolbox may import (pandas and numpy, from
 `tools/toolbox_registry.py`), and the Toolbox only from its top level, as
 `from sqlglot_composer import ...`.
@@ -30,8 +31,8 @@ from toolbox_registry import SHARED_IMPORTS
 ROOT = Path(__file__).resolve().parents[2]
 WORKED_EXAMPLES = ROOT / "worked_examples"
 EXAMPLE_PROJECTS = ROOT / "example_projects"
-LEVELS = {"table_references": 0, "building_blocks": 1, "statements": 2}
-# An Example project's scripts beside its Level folders, such as run_pipeline.py.
+LEVELS = {"references": 0, "building_blocks": 1, "statements": 2}
+# A script that runs the Statements of every Level in order sits above them all.
 ABOVE_THE_LEVELS = 3
 # Each name a script imports its Level's scripts by, with that Level.
 IMPORTED_LEVELS = dict(LEVELS)
@@ -219,7 +220,7 @@ def test_a_script_above_the_levels_may_import_from_any_of_them() -> None:
     source = (
         "from statements import example_1_daily_job_runs\n"
         "from building_blocks.runs_per_job_day import runs_per_job_day\n"
-        "from table_references.jobs import jobs\n"
+        "from references.ops__jobs import jobs\n"
     )
     assert level_problems(source, ABOVE_THE_LEVELS) == []
 

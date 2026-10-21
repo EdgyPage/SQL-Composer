@@ -396,7 +396,7 @@ def script_top(module) -> str:
 
 
 # The lower Levels a Statement script may import, and how the page names each one.
-LOWER_LEVELS = {"table_references": "The Table reference", "building_blocks": "The Building block"}
+LOWER_LEVELS = {"references": "The Table reference", "building_blocks": "The Building block"}
 
 
 def lower_levels_of(module) -> list[tuple[str, Path]]:
@@ -546,7 +546,7 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
     names = names_in("\n".join([top] + [text for *_, text in lower]
                                + [inspect.getsource(function) for function in functions]))
     body = [f'<p class="why">{inline(why)}</p>', *(f"<p>{inline(note)}</p>" for note in notes),
-            label(f"The top of its script, statements/{entry_id}.py"), source_html(top)]
+            label(f"The top of its script, {entry_id}.py"), source_html(top)]
     for kind, name, folder, text in lower:
         body += [label(f"{kind} it imports, {folder}/{name}"), source_html(text)]
     body += [steps, names_html(names)]
@@ -675,7 +675,7 @@ examples on their own are scripts kept with the Toolbox's own source, not in the
 <code>{folder}</code> folder. Each entry shows the Python that builds its Statements{but_not_pandas}.
 To try one, paste the top of
 its script, with the Table reference or Building block it imports pasted in place of its
-<code>from table_references ...</code> or <code>from building_blocks ...</code> line, then the
+<code>from references ...</code> or <code>from building_blocks ...</code> line, then the
 functions.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
