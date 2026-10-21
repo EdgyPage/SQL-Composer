@@ -282,7 +282,7 @@ calculation. Here `job_runs.status` is neither, and one job's runs have several 
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  SELECT has job_runs.status, which GROUP_BY leaves out.
 ...
 
@@ -299,7 +299,7 @@ each job's newest run, see [The latest row per key](#latest_row_per_key).
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
 ...
 
@@ -354,7 +354,7 @@ is slow on a big table. The Toolbox stops a sort with no `LIMIT`:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  ORDER_BY has no LIMIT.
 ...
 

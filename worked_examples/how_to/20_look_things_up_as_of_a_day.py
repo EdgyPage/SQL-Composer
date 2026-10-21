@@ -249,7 +249,7 @@ Toolbox refuses as you build the Statement:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but nothing bounds its Date partition dt at both ends.
 ...
 

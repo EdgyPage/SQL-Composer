@@ -352,7 +352,7 @@ wrong columns. The Toolbox refuses it as it is built:
 >>> failed_runs("2026-09-24")
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(runs_to_review): it leaves out duration_mins.
 ...
 
@@ -476,7 +476,7 @@ build it:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(runs_to_review): it also selects dt.
 ...
 
@@ -497,7 +497,7 @@ refused when its Hive is written, by `show_hive`, `to_hive` or `run`:
 >>> text = show_hive(two_days)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(runs_to_review) covers 2 days.
 ...
 
@@ -518,7 +518,7 @@ Every table with a Date partition needs its days bounded, the joined one too. Le
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  JOIN(job_runs, ON=...) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
 ...
 

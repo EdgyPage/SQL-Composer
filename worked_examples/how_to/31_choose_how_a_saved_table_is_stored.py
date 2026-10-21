@@ -258,7 +258,7 @@ refused as you build it:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(job_costs): it leaves out region.
 ...
 

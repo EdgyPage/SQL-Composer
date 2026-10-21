@@ -12,20 +12,20 @@ and there only by appending. You never fix what you find, and never raise the To
   `CHANGES.md` and the Worked examples in the Example gallery. Read only what a finding needs.
 - `.scratch/drift.md`, for open items and the next item number.
 
-The Toolbox is sqlglot Composer, in `sqlglot_composer/`, which runs the Composer core,
-`composer_core/`. `sqlglot_composer/` holds only its own `__init__.py`, `writing.py`,
-`engine.py`, `examples.html` and `how_to.html`. Spark Composer, a second Edition, was dropped in
-6.0 (ADR 0008).
+The Toolbox is one folder, `sqlglot_composer/` (ADR 0009): every function a user calls, the
+import self-check, `writing.py` and `engine.py`, and its two pages, `examples.html` and
+`how_to.html`. `CHANGES.md` is at the repo's top. Spark Composer, a second Edition, was dropped
+in 6.0 (ADR 0008).
 
 ## The six kinds
 
 Each finding is one of these. The kind is the word in backticks.
 
 1. `version`: the diff adds, removes or renames a public name, or changes what a Statement
-   emits, in an Edition `main` already ships, and `TOOLBOX_VERSION` is still the version `main`
+   emits, in a Toolbox `main` already ships, and `TOOLBOX_VERSION` is still the version `main`
    was last exported with (`git log -1 main`). Say which change needs it. The session asks the
    user whether to raise it.
-2. `change-notes`: a change the user would notice, in an Edition `main` already ships, has no
+2. `change-notes`: a change the user would notice, in a Toolbox `main` already ships, has no
    plain-words line in `CHANGES.md` under the current version.
 3. `docstring`: docstring prose, or a refusal message, no longer matches what the code does. The
    doctest checks the example, not the words.

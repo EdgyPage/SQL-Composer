@@ -28,7 +28,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
-from composer_core.example_database import job_runs
+from sqlglot_composer.example_database import job_runs
 
 dt = job_runs.dt
 

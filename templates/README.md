@@ -6,8 +6,8 @@ your own. Each file's docstring says where to copy it, lists its placeholders un
 with an example for each, and names the Example project file it mirrors, filled in for the
 Example database. Python stops at a placeholder left in, so a file can't run half filled in.
 
-Your project's folder holds the Toolbox's two folders, `composer_core` and `sqlglot_composer`,
-copied whole from the Toolbox you downloaded, and your own `table_references/`,
+Your project's folder holds the Toolbox's folder, `sqlglot_composer`, copied whole from the
+Toolbox you downloaded, and your own `table_references/`,
 `building_blocks/` and `statements/`. These three are the Levels, 0, 1 and 2: a script imports
 only from a lower Level and from the Toolbox, and a script beside them, such as
 `run_pipeline.py`, sits above the Levels, so it may import from any of them.

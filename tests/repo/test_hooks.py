@@ -61,9 +61,9 @@ def test_watched_paths_need_a_review_and_tracker_commits_do_not() -> None:
 
 
 def test_the_toolbox_and_the_worked_examples_are_watched() -> None:
-    changed = ["composer_core/tables.py", "worked_examples/statements/regrouping.py",
+    changed = ["sqlglot_composer/tables.py", "worked_examples/statements/regrouping.py",
                "tools/hive_corpus.py"]
-    assert needs_review(changed, "feat: x") == ["composer_core/tables.py",
+    assert needs_review(changed, "feat: x") == ["sqlglot_composer/tables.py",
                                                 "worked_examples/statements/regrouping.py"]
 
 

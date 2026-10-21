@@ -26,8 +26,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import edition
-from .edition import check_writable_type, hive_text, readable_text
+from . import _FOLDER
+from .writing import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
     guard_control_character,
@@ -580,8 +580,8 @@ class Table:
     - `key` lists the columns that pick out one row, the table's Key. JOIN warns when a join
       doesn't use all of them; a write into a Saved table with a Key is refused unless the
       Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says
-      how); and one Edition's create_table writes it into the table (help(create_table)
-      says why the other leaves it out). Hive never checks it.
+      how); and create_table writes it into the table (help(create_table)). Hive never
+      checks it.
     - `does_not_add_up` lists columns that are averages, ratios or distinct counts, which
       sum_of(...) and average_of(...) refuse to add up.
     - `date_format` is needed only when the Date partition's days aren't written like
@@ -1361,7 +1361,7 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
 def _reference_text(name, variable, columns, comments, date_lines) -> str:
     lines = [
         f'"""{name} - TODO: say in one line what one row is."""',
-        f"from {edition.FOLDER} import Table",
+        f"from {_FOLDER} import Table",
         "",
         f"{variable} = Table(",
         f'    "{name}",',

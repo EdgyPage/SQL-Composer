@@ -86,7 +86,7 @@ they were all:
 >>> run(all_runs, send=example_database.send)
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  run(...) got back 5 rows, exactly the automatic LIMIT set by set_load_limits(rows=...).
 ...
 
@@ -149,7 +149,7 @@ days reads more than the 7 set. It is refused as soon as its Hive is written, by
 >>> text = show_hive(ten_days)
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  FROM(job_events) reads 10 days of ops.job_events, more than the 7 set by set_load_limits(dates=...).
 ...
 
@@ -258,7 +258,7 @@ Sorting is refused unless a LIMIT keeps only the first rows:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  ORDER_BY has no LIMIT.
 ...
 
@@ -282,7 +282,7 @@ instead:
 ... ))
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  JOIN(job_runs, ON=...) reads 55 days of ops.job_runs, more than the 31 set by set_load_limits(dates=...).
 ...
 

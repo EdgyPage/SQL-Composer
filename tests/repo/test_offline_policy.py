@@ -15,7 +15,7 @@ import offline_policy
 from offline_policy import Allowed, findings_in, scan, stale_entries
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOLBOX_FILE = "composer_core/somewhere.py"
+TOOLBOX_FILE = "sqlglot_composer/somewhere.py"
 # A made-up site that listens and connects on this computer only, with the entries a review
 # would give it.
 SITE = "tools/local_server.py"
@@ -144,13 +144,13 @@ def test_a_file_that_declares_an_encoding_other_than_utf_8_cant_be_read() -> Non
 
 
 def test_a_windows_script_is_read_as_python() -> None:
-    assert kinds("import requests\n", "composer_core/x.pyw") == ["network"]
+    assert kinds("import requests\n", "sqlglot_composer/x.pyw") == ["network"]
 
 
 def test_no_folder_inside_the_toolbox_or_user_copied_code_is_skipped(tmp_path) -> None:
     # A `.venv`-like folder, or one named like a cache, could otherwise hold code a Toolbox
     # file imports unread.
-    for folder in ("composer_core/a", "templates/node_modules", "composer_core/.scratch"):
+    for folder in ("sqlglot_composer/a", "templates/node_modules", "sqlglot_composer/.scratch"):
         (tmp_path / folder).mkdir(parents=True)
         (tmp_path / folder / "pyvenv.cfg").write_text("home = x\n", encoding="utf-8")
         (tmp_path / folder / "x.py").write_text("import requests\n", encoding="utf-8")
@@ -158,7 +158,7 @@ def test_no_folder_inside_the_toolbox_or_user_copied_code_is_skipped(tmp_path) -
     (tmp_path / "tools" / ".venv" / "pyvenv.cfg").write_text("home = x\n", encoding="utf-8")
     (tmp_path / "tools" / ".venv" / "x.py").write_text("import requests\n", encoding="utf-8")
     assert sorted(finding.path for finding in scan(tmp_path)) == [
-        "composer_core/.scratch/x.py", "composer_core/a/x.py", "templates/node_modules/x.py"]
+        "sqlglot_composer/.scratch/x.py", "sqlglot_composer/a/x.py", "templates/node_modules/x.py"]
 
 
 def test_a_template_is_read_with_its_placeholders_as_names() -> None:

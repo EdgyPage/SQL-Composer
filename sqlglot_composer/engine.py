@@ -11,14 +11,14 @@ from __future__ import annotations
 import contextlib
 import re
 
-from composer_core import _four_part_message as four_part_message
-from composer_core import _stop as _core_stop
+from . import _four_part_message as four_part_message
+from . import _stop as _core_stop
 
 TOOLBOX_VERSION = "6.0"
 
 
 def _stop(what, why, fix):
-    """Stop this Edition's import, named by its own folder, with the four-part message."""
+    """Stop the Toolbox's import, named by its own folder, with the four-part message."""
     _core_stop(what, why, fix, folder=__name__.split(".")[0])
 
 
@@ -98,7 +98,7 @@ def _sqlglot_behaviour():
     from sqlglot.optimizer.qualify import qualify
 
     # Written the way the Toolbox writes, now that the sqlglot it needs is known to be here.
-    from composer_core.trees import Node
+    from .trees import Node
     from .writing import sql_text, to_sqlglot
 
     def written(tree) -> str:

@@ -234,7 +234,7 @@ def write_here(project: str) -> None:
     # Toolbox's.
     sys.path[:0] = [str(folder), str(ROOT)]
     import sqlglot_composer
-    from composer_core import edition, lineage
+    from sqlglot_composer import lineage
 
     os.chdir(folder / TABLE_REFERENCES)
     for table, filling in FILLED_IN[project].items():
@@ -246,7 +246,7 @@ def write_here(project: str) -> None:
 
     lineage._now = lambda: PINNED_TIME
     lineage.scripts_commit = lambda _scripts_folder: PINNED_COMMIT
-    lineage._version = lambda: f"{edition.PRODUCT} {edition.TOOLBOX_VERSION}"
+    lineage._version = lambda: f"sqlglot Composer {sqlglot_composer.TOOLBOX_VERSION}"
     if project in REVIEWED_EDIT:
         write_review_before_the_edit(folder, REVIEWED_EDIT[project])
     import run_pipeline

@@ -1,8 +1,9 @@
 """The checks `dev` holds the Toolbox to, as decided in "What does `dev` enforce?".
 
-- each Toolbox file imports only the standard library, itself and what `tools/editions.py`
-  allows it: pandas and numpy, and its Edition's library in the files that need it;
-- every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md has a section for it;
+- each Toolbox file imports only the standard library, itself and what `tools/toolbox_registry.py`
+  allows it: pandas and numpy, and sqlglot in the files that need it;
+- every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md, at the repo's top, has a
+  section for it;
 - the public names are exactly the list below, so a name is added or removed only here, and
   so are the admin module's, which the star import leaves out;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
@@ -14,8 +15,6 @@
 
 from __future__ import annotations
 
-import importlib
-import importlib.util
 import re
 import subprocess
 import sys
@@ -23,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-import editions
+import toolbox_registry
 import sqlglot_composer
 from conftest import toolbox_folder
 
@@ -64,14 +63,17 @@ PUBLIC_NAMES = [
 ADMIN_NAMES = ["drop_table", "drop_days", "add_columns", "set_properties", "move_to_own_folder"]
 
 
-# Every Toolbox folder: the Composer core, and each Edition's.
-FOLDERS = [editions.CORE, *editions.EDITIONS]
+FOLDER = ROOT / toolbox_registry.FOLDER
 
 
 def toolbox_files() -> list[Path]:
-    """Every .py file of the Toolbox's folders: they share one TOOLBOX_VERSION."""
-    return [path for folder in FOLDERS if (ROOT / folder).is_dir()
-            for path in sorted((ROOT / folder).glob("*.py"))]
+    """Every .py file of the Toolbox's folder: they share one TOOLBOX_VERSION."""
+    return sorted(FOLDER.glob("*.py"))
+
+
+def test_the_folder_holds_exactly_its_files() -> None:
+    present = {path.name for path in FOLDER.iterdir() if path.name != "__pycache__"}
+    assert present == set(toolbox_registry.FILES)
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
@@ -88,9 +90,8 @@ def test_the_admin_modules_names_are_the_decided_ones() -> None:
         assert callable(getattr(sqlglot_composer.admin, name)), name
 
 
-@pytest.mark.parametrize("folder", [f for f in FOLDERS if (ROOT / f).is_dir()])
-def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
-    assert editions.imports_outside(ROOT / folder) == []
+def test_each_toolbox_file_imports_only_what_toolbox_folder_allows() -> None:
+    assert toolbox_registry.imports_outside(FOLDER) == []
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: f"{p.parent.name}/{p.name}")
@@ -101,14 +102,13 @@ def test_every_toolbox_file_declares_the_same_toolbox_version(path: Path) -> Non
 
 
 def test_changes_has_a_section_for_the_version() -> None:
-    changes = (ROOT / editions.CORE / "CHANGES.md").read_text(encoding="utf-8")
+    changes = (ROOT / "CHANGES.md").read_text(encoding="utf-8")
     assert f"\n## {sqlglot_composer.TOOLBOX_VERSION}\n" in changes
 
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
-    edition_folders = [folder for folder in editions.EDITIONS if (ROOT / folder).is_dir()]
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", *edition_folders, "tests", "tools",
+        [sys.executable, "-m", "ruff", "check", toolbox_registry.FOLDER, "tests", "tools",
          "worked_examples"],
         cwd=ROOT, capture_output=True, text=True,
     )
@@ -122,35 +122,26 @@ def _version(text: str) -> tuple[int, ...]:
     return tuple(int(n) for n in text.split("."))
 
 
-def _engine(edition: editions.Edition):
-    """An Edition's engine.py, which holds the range of its library it supports.
-
-    It is loaded by its path, under a name of its own.
-    """
-    path = ROOT / edition.folder / "engine.py"
-    spec = importlib.util.spec_from_file_location(f"{edition.folder}_engine", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _engine():
+    """engine.py, which holds the range of sqlglot the Toolbox supports."""
+    return sqlglot_composer.engine
 
 
-def _pin(edition: editions.Edition) -> tuple[int, ...]:
+def _pin() -> tuple[int, ...]:
     requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
-    return _version(re.search(rf"^{edition.library}==([\d.]+)$", requirements,
+    return _version(re.search(rf"^{toolbox_registry.LIBRARY}==([\d.]+)$", requirements,
                               re.MULTILINE).group(1))
 
 
-EACH_EDITION = pytest.mark.parametrize("edition", list(editions.EDITIONS.values()),
-                                       ids=lambda edition: edition.library)
 WORKFLOW = ROOT / ".github" / "workflows" / "dev.yml"
 
 
-def _job(edition: editions.Edition) -> str:
-    """The Edition's own job in dev.yml, named for its folder, as sqlglot-composer: its lines."""
+def _job() -> str:
+    """The Toolbox's job in dev.yml, named for its folder, as sqlglot-composer: its lines."""
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    found = re.search(rf"^  {edition.folder.replace('_', '-')}:\n(.*?)(?=^  \S|\Z)", workflow,
-                      re.MULTILINE | re.DOTALL)
-    assert found, f"dev.yml has no job for {edition.product}"
+    name = toolbox_registry.FOLDER.replace("_", "-")
+    found = re.search(rf"^  {name}:\n(.*?)(?=^  \S|\Z)", workflow, re.MULTILINE | re.DOTALL)
+    assert found, f"dev.yml has no job for {toolbox_registry.PRODUCT}"
     return found.group(1)
 
 
@@ -159,9 +150,8 @@ def _steps(job: str) -> list[str]:
     return re.findall(r"^\s+(?:- )?run: (.*)$", job, re.MULTILINE)
 
 
-@EACH_EDITION
-def test_each_library_pin_is_inside_the_range_its_edition_supports(edition) -> None:
-    engine, pin = _engine(edition), _pin(edition)
+def test_the_sqlglot_pin_is_inside_the_range_the_toolbox_supports() -> None:
+    engine, pin = _engine(), _pin()
     assert engine._LOWEST <= pin < engine._BELOW
     assert pin == engine._NEWEST_TESTED
 
@@ -186,8 +176,8 @@ def _dev_pins() -> dict[str, str]:
 
 
 def _the_libraries() -> set[str]:
-    """What tools/editions.py lets the Toolbox import: pandas, numpy and each Edition's library."""
-    return set(editions.SHARED_IMPORTS) | {e.library for e in editions.EDITIONS.values()}
+    """What tools/toolbox_registry.py lets the Toolbox import: pandas, numpy and sqlglot."""
+    return set(toolbox_registry.SHARED_IMPORTS) | {toolbox_registry.LIBRARY}
 
 
 def _normal(name: str) -> str:
@@ -207,7 +197,7 @@ def _needs(package: str) -> set[str] | None:
 
 
 def test_requirements_names_every_library_the_toolbox_may_import() -> None:
-    # A new library the Toolbox imports must be allowed in tools/editions.py, and so here too.
+    # A new library the Toolbox imports must be allowed in tools/toolbox_registry.py, and so here.
     assert _the_libraries() <= set(_requirements())
 
 
@@ -235,16 +225,15 @@ def test_requirements_pins_the_versions_dev_tests_on() -> None:
     assert _requirements() == {name: dev[name] for name in _requirements()}
 
 
-@EACH_EDITION
-def test_ci_runs_each_edition_at_the_bottom_of_its_range_and_at_its_pin(edition) -> None:
-    job = _job(edition)
-    matrix = re.search(rf"^\s+{edition.library}: \[(.*)\]$", job, re.MULTILINE).group(1)
+def test_ci_runs_at_the_bottom_of_sqlglots_range_and_at_its_pin() -> None:
+    job, library = _job(), toolbox_registry.LIBRARY
+    matrix = re.search(rf"^\s+{library}: \[(.*)\]$", job, re.MULTILINE).group(1)
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
-    assert versions == {_engine(edition)._LOWEST, _pin(edition)}
+    assert versions == {_engine()._LOWEST, _pin()}
     assert 'python-version: "3.12"' in job
-    assert f'pip install "{edition.library}==${{{{ matrix.{edition.library} }}}}"' in _steps(job)
+    assert f'pip install "{library}==${{{{ matrix.{library} }}}}"' in _steps(job)
     assert "continue-on-error" not in job
 
 
-def test_sqlglot_composers_ci_runs_its_tests() -> None:
-    assert _steps(_job(editions.SQLGLOT_COMPOSER))[-1] == "python -m pytest"
+def test_ci_runs_the_tests() -> None:
+    assert _steps(_job())[-1] == "python -m pytest"

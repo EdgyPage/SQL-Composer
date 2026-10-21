@@ -29,7 +29,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
-from composer_core.example_database import job_runs, jobs
+from sqlglot_composer.example_database import job_runs, jobs
 
 BASE = "/data/your_team/tables"
 REGION_RUNS = Table("mart.region_runs", columns={"job_id": "bigint", "region": "string",

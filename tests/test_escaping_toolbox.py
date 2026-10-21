@@ -3,7 +3,7 @@
 `escaping_cases.py` holds the cases. Here each case goes in through the Toolbox: each comparison
 function, both ends of a range, each item of a list, a calculation and a Date partition bound,
 and a number's text is written by the Toolbox, not by its own str(). The last checks read a whole
-Statement's Hive back by its characters, with `hive_literals.py`, so they hold in both Editions.
+Statement's Hive back by its characters, with `hive_literals.py`, so they hold whatever sqlglot writes.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
-from composer_core.example_database import job_runs
+from sqlglot_composer.example_database import job_runs
 
 # The cases the Toolbox refuses, checked on their own below; it writes the rest (WRITTEN).
 REFUSED = [case for case in STRING_CASES if case[0] in REFUSED_CONTROL_CHARACTERS]

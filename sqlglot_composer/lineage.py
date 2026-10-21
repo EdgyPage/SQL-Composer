@@ -18,7 +18,6 @@ import os
 import re
 from pathlib import Path
 
-from . import edition
 from .clauses import Statement, derived_tables
 from .keys import possessive, statement_keys, unproven, wanted_key, writes_one_day
 from .refusals import (
@@ -40,7 +39,7 @@ from .tables import readable
 from .trees import Node, rows_text
 from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
 from .windows import call_of
-from .edition import hive_text
+from .writing import hive_text
 
 TOOLBOX_VERSION = "6.0"
 
@@ -1181,7 +1180,9 @@ def _now() -> datetime.datetime:
 
 def _version() -> str:
     """The Toolbox version a lineage's footer names."""
-    return edition.VERSION
+    from . import VERSION
+
+    return VERSION
 
 
 def _footer(when: datetime.datetime, commit: str, settings: list) -> str:

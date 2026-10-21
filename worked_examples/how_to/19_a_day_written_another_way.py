@@ -272,7 +272,7 @@ works too.
 ...                              equals(region_costs.dt, job_events.dt)))
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(region_costs.dt, ...) compares region_costs.dt, whose days are written like '20260925' (date_format='%Y%m%d'), with job_events.dt, whose days are written like '2026-09-25' (date_format='%Y-%m-%d').
 ...
 

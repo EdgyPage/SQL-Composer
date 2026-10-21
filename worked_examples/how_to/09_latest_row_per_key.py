@@ -313,7 +313,7 @@ numbering newest first says DESC.
 ... ))
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC).
 ...
 

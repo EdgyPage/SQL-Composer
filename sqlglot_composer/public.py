@@ -1,6 +1,6 @@
-"""Every public name of the Toolbox, which each Edition's __init__.py imports and re-exports.
+"""Every public name of the Toolbox, which its __init__.py imports and re-exports.
 
-The two constants, TOOLBOX_VERSION and VERSION, are each Edition's own.
+The two constants, TOOLBOX_VERSION and VERSION, are __init__.py's own.
 """
 
 from __future__ import annotations

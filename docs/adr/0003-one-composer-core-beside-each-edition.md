@@ -1,6 +1,6 @@
 # The two Editions share one Composer core folder, instead of a generated copy each
 
-Status: accepted
+Status: superseded by ADR 0009 (the Toolbox is one folder, 6.0)
 
 ADR 0002 built the Toolbox twice, as two folders that each held every file: SQL Composer's
 shared files were written by hand, and Spark Composer's were generated from them with the

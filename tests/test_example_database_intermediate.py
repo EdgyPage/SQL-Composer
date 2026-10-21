@@ -12,7 +12,7 @@ import datetime
 import pandas as pd
 import pytest
 
-from conftest import edition, example_rows
+from conftest import FOLDER, example_rows
 from sqlglot_composer import (
     AS,
     FROM,
@@ -127,7 +127,7 @@ def test_an_unknown_table_is_refused_naming_all_seven() -> None:
 def reference_text(name: str, columns: list[str], date_lines: list[str], first_key: str) -> str:
     return "\n".join([
         f'"""ops.{name} - TODO: say in one line what one row is."""',
-        f"from {edition().folder} import Table",
+        f"from {FOLDER} import Table",
         "",
         f"{name} = Table(",
         f'    "ops.{name}",',
@@ -343,7 +343,7 @@ def test_a_snapshot_for_every_job_on_every_day() -> None:
     assert sorted(zip(rows.job_id, rows.dt)) == list(expected)
 
 
-# --- What the intermediate how-tos run on both Editions' Example databases -----------------
+# --- What the intermediate how-tos run on the Example database ------------------------------
 
 
 @pytest.mark.needs_example_database

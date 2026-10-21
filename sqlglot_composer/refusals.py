@@ -28,8 +28,8 @@ import pandas as pd
 
 # The one function that builds every four-part message. It lives in __init__.py, since the
 # import self-check needs it before this file can be trusted.
+from . import _FOLDER
 from . import _four_part_message as four_part_message
-from . import edition
 
 TOOLBOX_VERSION = "6.0"
 
@@ -45,7 +45,7 @@ class GuardRefused(Exception):
     >>> SELECT(count_rows())
     Traceback (most recent call last):
     ...
-    composer_core.refusals.GuardRefused:
+    sqlglot_composer.refusals.GuardRefused:
       What happened:  SELECT has a calculation with no name: COUNT(*).
       Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
@@ -63,7 +63,7 @@ class LoadRefused(Exception):
     >>> statement(SELECT(job_runs.run_id), FROM(job_runs))
     Traceback (most recent call last):
     ...
-    composer_core.refusals.LoadRefused:
+    sqlglot_composer.refusals.LoadRefused:
       What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
       Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
       Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).
@@ -581,7 +581,7 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
 
 def callers_frame():
     """The frame of the first call outside the Toolbox: the user's own line."""
-    toolbox = edition.toolbox_folders()
+    toolbox = {os.path.dirname(os.path.abspath(__file__))}
     frame = sys._getframe(1)
     while frame.f_back is not None and os.path.dirname(
         os.path.abspath(frame.f_code.co_filename)
@@ -601,13 +601,12 @@ _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column name
 def refuse_what_the_other_edition_made(value, call: str) -> None:
     """Refuse an object another Toolbox folder made, before it is called the wrong kind of thing.
 
-    The Toolbox makes its objects with composer_core's code, so what is left to refuse is an
-    object from a Toolbox folder of an earlier version, such as a Table reference file that
+    What is left to refuse is an object from a Toolbox folder of an earlier version, such as a Table reference file that
     still imports a folder left over from 3.x. Each folder is known by the module the object's
     class is in.
     """
     made_by = type(value).__module__.split(".")[0]
-    this = edition.FOLDER
+    this = _FOLDER
     if made_by == this or not made_by.endswith("_composer"):
         return
     called = _CALLED.get(type(value).__name__, "object")

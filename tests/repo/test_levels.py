@@ -9,8 +9,8 @@ import from any of them; but `settings.py`, which holds what a Statement reads a
 and imports nothing of the project's, is Level 0, beside the Table references.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
 `table_references/` holds the Table reference of the Saved table they write. Besides the Levels,
-a script may import the standard library, what both Editions of the Toolbox may import (pandas
-and numpy, from `tools/editions.py`), and the Toolbox only from its top level, as
+a script may import the standard library, what the Toolbox may import (pandas and numpy, from
+`tools/toolbox_registry.py`), and the Toolbox only from its top level, as
 `from sqlglot_composer import ...`.
 
 Each Statement script's module docstring gives a title and one sentence on why, which the
@@ -31,7 +31,7 @@ from pathlib import Path
 import pytest
 
 from conftest import COPY_IT_TO, PLACEHOLDER, TEMPLATES, template_id
-from editions import SHARED_IMPORTS
+from toolbox_registry import SHARED_IMPORTS
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKED_EXAMPLES = ROOT / "worked_examples"
@@ -94,14 +94,14 @@ def _problem(name: str, level: int) -> str | None:
     if top == "sqlglot_composer":
         return None if name == "sqlglot_composer" else f"{name} reaches inside the Toolbox"
     if top == "composer_core":
-        return f"{name} reaches inside the Toolbox: import from the Edition's folder"
+        return f"{name} is the Toolbox's folder from before 6.0: import from sqlglot_composer"
     if top in IMPORTED_LEVELS:
         if IMPORTED_LEVELS[top] < level:
             return None
         return f"{name} is Level {IMPORTED_LEVELS[top]}, not below Level {level}"
     if top in sys.stdlib_module_names or top in SHARED_IMPORTS or top == "__future__":
         return None
-    return f"{name} is neither a lower Level, the Toolbox, nor something both Editions may import"
+    return f"{name} is neither a lower Level, the Toolbox, nor something the Toolbox may import"
 
 
 def level_problems(source: str, level: int) -> list[str]:
@@ -134,7 +134,7 @@ def test_imports_point_only_downward(path: Path) -> None:
         ("from building_blocks.jobs_per_day import jobs_per_day", 1,
          "Level 1, not below Level 1"),
         ("from sqlglot_composer.clauses import SELECT", 2, "reaches inside the Toolbox"),
-        ("from composer_core.clauses import SELECT", 2, "reaches inside the Toolbox"),
+        ("from sqlglot_composer.clauses import SELECT", 2, "reaches inside the Toolbox"),
         ("from . import jobs_per_day", 2, "relative import"),
         ("import requests", 2, "neither a lower Level"),
     ],

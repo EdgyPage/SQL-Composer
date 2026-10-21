@@ -227,7 +227,7 @@ the count comes out 0 however many owners are missing. The Toolbox refuses it as
 >>> count_rows(where=equals(job_owners.owner, None))
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(job_owners.owner, None) compares with None.
 ...
 

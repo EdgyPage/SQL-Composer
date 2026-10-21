@@ -2,7 +2,7 @@
 by output name, and GROUP_BY(rollup(...)), cube(...) and grouping_sets(...), with
 is_total(column) to tell a subtotal row from a real NULL.
 
-Each test runs on both Editions, which write the same Hive for every one of them.
+Each test checks the Hive the Toolbox writes for one of them.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ from sqlglot_composer import (
     to_hive,
     week_start,
 )
-from composer_core.example_database import job_owners, job_runs, jobs, run_alerts
+from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
 BASE = "/data/your_team/tables"

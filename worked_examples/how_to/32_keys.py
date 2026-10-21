@@ -89,7 +89,7 @@ day would have two rows with the same Key. It is refused as it is built:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day) can't show that each row it writes has a Key (job_id, dt) of its own: job_runs' rows are told apart by run_id, not by job_id.
 ...
 
@@ -229,7 +229,7 @@ A GROUP_BY with one more column makes one row for each pair, not for each Key:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(job_status) can't show that each row it writes has a Key (job_id, dt) of its own: GROUP_BY makes one row for each job_id, status, not one for each job_id.
 ...
 
@@ -257,7 +257,7 @@ with two alerts comes out twice:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(run_and_alert) can't show that each row it writes has a Key (run_id, dt) of its own: JOIN(run_alerts, ON=...) can match several run_alerts rows to one row, so nothing makes its rows one for each run_id.
 ...
 

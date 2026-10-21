@@ -217,7 +217,7 @@ A setting can list under `"add_up"` a column that must not be added up, such as
 >>> daily_totals(tables["ops.job_runs"], averages, first_day, last_day)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is listed in does_not_add_up in its Table reference.
 ...
 

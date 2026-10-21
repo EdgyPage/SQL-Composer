@@ -232,7 +232,7 @@ A write fills one day, so the range write is refused as soon as its Hive is writ
 >>> text = show_hive(backfill)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(daily_job_runs) covers 2 days.
 ...
 
@@ -256,7 +256,7 @@ it gives one total per job over the range; cut into days, it would give one per 
 >>> by_day(per_job_only)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  by_day can't split this Statement: it groups rows without keeping the Date partition job_runs.dt.
 ...
 
@@ -291,7 +291,7 @@ own, so `by_day` refuses a Statement with a LIMIT:
 >>> by_day(some_runs)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  by_day can't split this Statement: it has LIMIT 10.
 ...
 

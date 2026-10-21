@@ -1,11 +1,12 @@
 # CLAUDE.md - dev branch
 
 This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
-branch**: the Toolbox, each Edition's copy of the Example projects and the Templates, its
-README, its license (`LICENSE`, MIT No Attribution) and `requirements.txt`, each as dev holds
-it, generated from this branch by `.venv/Scripts/python tools/export_clean.py` and never
-edited or committed to by hand. Each export commits to `main` locally, replacing whatever it held (before the first export, the v1 draft), and never
-pushes; pushing `main` is the user's step. A hook refuses commits and file edits while `main`
+branch**: the Toolbox, a copy of the Example projects and the Templates, its README,
+`CHANGES.md`, its license (`LICENSE`, MIT No Attribution) and `requirements.txt`, each as dev
+holds it, generated from this branch by `.venv/Scripts/python tools/export_clean.py` and never
+edited or committed to by hand. Each export commits to `main` locally, replacing whatever it
+held (before the first export, the v1 draft), and never pushes; pushing `main` is the user's
+step. A hook refuses commits and file edits while `main`
 is checked out.
 
 v2 is charted and built through the wayfinder map at `.scratch/sql-composer-v2/map.md`. Read its
@@ -30,7 +31,7 @@ it with `py -3.12 -m venv .venv`, then `.venv/Scripts/python -m pip install -r
 requirements-dev.txt`, which pins what dev tests on. Run every Python command of the repo, its
 tools and tests, with `.venv/Scripts/python`, never a bare `python`. `requirements.txt` is what a
 user installs: the same pins, which a test holds to `requirements-dev.txt` and to the libraries
-`tools/editions.py` lets the Toolbox import.
+`tools/toolbox_registry.py` lets the Toolbox import.
 
 CI runs two jobs on Python 3.12: sqlglot at the bottom of the Toolbox's range and at its pin,
 which `.github/workflows/dev.yml` names. Export only a commit whose two jobs passed: the export
@@ -38,12 +39,12 @@ doesn't check the gallery.
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
-## The Toolbox's folders
+## The Toolbox's folder
 
-The Toolbox is sqlglot Composer, `sqlglot_composer/`, which writes its Hive with sqlglot and runs
-the Composer core, `composer_core/`, as ADR 0003 records. Spark Composer, a second Edition, was
-dropped in 6.0 (ADR 0008); the tag `last-spark-composer` holds it. `tools/editions.py` is the one
-registry of which files each folder holds.
+The Toolbox is one folder, `sqlglot_composer/`, which writes its Hive with sqlglot (ADR 0009).
+Spark Composer, a second Edition, was dropped in 6.0 (ADR 0008); the tag `last-spark-composer`
+holds it. `tools/toolbox_registry.py` is the one registry of which files the folder holds and
+what each may import. `CHANGES.md`, the change notes, is at the repo's top.
 
 ## Drift
 

@@ -4,9 +4,9 @@ Why: a first Statement run on a table you know shows that the import, your send 
 reference all work, before you build anything on them.
 
 Copy it to: first_notebook.py, in your project's folder, or paste each cell below into a
-notebook started there. The project's folder holds the Toolbox's two folders, composer_core
-and sqlglot_composer; cell 2 makes a table_references/ folder beside them, for your Table
-references, if it isn't there yet.
+notebook started there. The project's folder holds the Toolbox's folder, sqlglot_composer;
+cell 2 makes a table_references/ folder beside it, for your Table references, if it isn't
+there yet.
 
 Each word in angle brackets, such as <TABLE>, is a placeholder: replace it, brackets and all,
 with your own, everywhere it is written in the code. Python stops at the first one left in,

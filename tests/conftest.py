@@ -1,6 +1,6 @@
 """The test setup every Toolbox test shares.
 
-The tests run against sqlglot Composer, the one Edition of the Toolbox since 6.0.
+The tests run against the Toolbox, sqlglot Composer.
 
 Today is pinned to 2026-09-25, the day after the Example database's last day, so
 `last_n_days(job_runs.dt, 2)` covers both of its days and every emitted date is fixed. The
@@ -34,7 +34,7 @@ from types import ModuleType
 import pandas as pd
 import pytest
 
-import editions
+import toolbox_registry as registry
 import offline_trap
 
 # Every test, and every library a test calls, reaches nothing off this computer.
@@ -47,25 +47,21 @@ TODAY = datetime.date(2026, 9, 25)
 REPO_FOLDER = "repo"
 
 
-def edition() -> editions.Edition:
-    """The Edition these tests run against: sqlglot Composer."""
-    return editions.SQLGLOT_COMPOSER
+# The Toolbox's folder and what its messages call it.
+FOLDER, PRODUCT = registry.FOLDER, registry.PRODUCT
 
 
 def toolbox_folder() -> Path:
-    """The folder of the Edition these tests run against."""
-    return ROOT / edition().folder
+    """The Toolbox's folder."""
+    return ROOT / FOLDER
 
 
 def toolbox_module(name: str = "") -> ModuleType:
-    """The Edition's folder, imported, or one of the Toolbox's files by name, such as
-    "conditions": the Edition's own writing or engine, or else the Composer core's."""
+    """The Toolbox's folder, imported, or one of its files by name, such as "conditions"."""
     if not name:
-        return importlib.import_module(edition().folder)
-    toolbox_module()  # the Edition is imported first, so its files are plugged in
-    if f"{name}.py" in editions.EDITION_FILES:
-        return importlib.import_module(f"{edition().folder}.{name}")
-    return importlib.import_module(f"{editions.CORE}.{name}")
+        return importlib.import_module(FOLDER)
+    toolbox_module()  # the folder is imported first, so its import self-check runs first
+    return importlib.import_module(f"{FOLDER}.{name}")
 
 
 # Whether the Example database answered the one query each run sends it, and if not, why.
@@ -75,7 +71,7 @@ _ANSWERED: dict = {}
 def example_database_cannot_run() -> str | None:
     """Why the Example database can't run a query here, or None when it can.
 
-    Its Edition says what it lacks. Then, once a run, it is sent one query, so an Example
+    engine.py says what it lacks. Then, once a run, it is sent one query, so an Example
     database that can't answer gives every test one reason
     rather than each test a reason of its own. Any reason the query gives is a bug.
     """
@@ -246,10 +242,10 @@ def previewed_days(module, days) -> pd.DataFrame:
 
 
 def import_stop(what: str, why: str, fix: str, folder: str | None = None) -> str:
-    """The last line of an import stop: the four parts, with no opt-out. It names the Edition's
-    folder, or `folder`, such as composer_core, when that is the one that stopped."""
+    """The last line of an import stop: the four parts, with no opt-out. It names the Toolbox's
+    folder, or `folder`, when that is the one that stopped."""
     return (
-        f"ImportError: {folder or edition().folder} stopped on import:"
+        f"ImportError: {folder or FOLDER} stopped on import:"
         f"\n  What happened:  {what}"
         f"\n  Why it matters: {why}"
         f"\n  Usual fix:      {fix}"
@@ -264,14 +260,14 @@ def page_text(html_text: str) -> str:
 
 
 def gallery_sections(folder: Path) -> dict[str, str]:
-    """Each entry on the Example gallery in an Edition's folder, by its id: its HTML."""
+    """Each entry on the Example gallery in a Toolbox folder, by its id: its HTML."""
     page = (folder / "examples.html").read_text(encoding="utf-8")
     return dict(re.findall(r'<section class="entry" id="([^"]+)">(.*?)</section>', page,
                            re.DOTALL))
 
 
 def gallery_entries() -> dict[str, tuple[str, str]]:
-    """Each entry on the Edition's Example gallery, by its id: its title and all its text."""
+    """Each entry on the Example gallery, by its id: its title and all its text."""
     return {
         entry_id: (page_text(re.search(r"<h3>(.*?)</h3>", body, re.DOTALL).group(1)),
                    page_text(body))

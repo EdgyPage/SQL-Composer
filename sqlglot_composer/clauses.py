@@ -41,7 +41,7 @@ from .refusals import (
 )
 from .tables import Column, Table, aliased, need_saved_table, python_text
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
-from .edition import hive_text
+from .writing import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
 TOOLBOX_VERSION = "6.0"
@@ -145,8 +145,8 @@ class Statement:
         self._admin_call = None
         self._admin_about = []
         self._admin_check = None
-        # The Hive of an ALTER TABLE, which the admin module writes itself from pieces the
-        # Edition wrote: the table's name, values and column types.
+        # The Hive of an ALTER TABLE, which the admin module writes itself from pieces
+        # writing.py wrote: the table's name, values and column types.
         self._admin_hive = None
         # Set instead by UNION_ALL, UNION, INTERSECT and EXCEPT (stacking.py) on a Stack:
         # (the function's name, the Statements it stacks). Its _outputs are then its columns,

@@ -263,7 +263,7 @@ the same way.
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  sum_of(job_day.avg_minutes) adds up job_day.avg_minutes, which is listed in does_not_add_up in its Table reference.
 ...
   Opt-out:        sum_of(job_day.avg_minutes, adds_up=True)

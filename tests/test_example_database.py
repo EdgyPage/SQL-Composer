@@ -30,7 +30,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from composer_core.example_database import job_runs, jobs, run_alerts
+from sqlglot_composer.example_database import job_runs, jobs, run_alerts
 
 
 def test_describe_lists_the_partition_columns_again_like_hive() -> None:
@@ -124,7 +124,7 @@ def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
 
 @pytest.mark.needs_example_database
 def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
-    from composer_core.refusals import RepeatedRowsWarning
+    from sqlglot_composer.refusals import RepeatedRowsWarning
 
     day = equals(job_runs.dt, "2026-09-24")
     with pytest.warns(RepeatedRowsWarning):
@@ -178,7 +178,7 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition, names) -> None
     assert list(run(s, send=example_database.send).job_name) == names
 
 
-# --- What it refuses, in both Editions -------------------------------------------------------
+# --- What it refuses ---------------------------------------------------------------------------
 
 
 @pytest.mark.needs_example_database
