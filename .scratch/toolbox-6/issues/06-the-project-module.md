@@ -55,3 +55,24 @@ Built 2026-10-21 on branch `toolbox-6/06-project-module`.
   gallery and the export's cheat sheet.
 
 ## Reviews
+
+- Spec (2026-10-21): a registry row whose file was deleted by hand couldn't be cleared, though
+  two messages said remove_table or remove_reference would (now each marks that row removed,
+  tested); `new_table` could add a second live reference row (now only when none is live,
+  tested). Answered: a notebook made today fails at cell 5 (`refresh_reference_sheet`) and its
+  cell 4 doesn't yet name its lineage by the Table folder: tickets 08 and 07 bring those, and
+  nothing is exported before they land. The four judged choices held.
+- Standards (2026-10-21): Registry and Table notebook added to CONTEXT.md; the Project's lookup
+  (`REGISTRY`, `project_folder`, `project_log`) and the Project action's log entry moved from
+  `unchecked.py` into `project.py`, which `_append` imports when it runs;
+  `remove_table` and `remove_reference` share `_remove`; `template_cells` is private; missing
+  docstrings and line widths fixed. Left: the `(root, kind, name)` the registry helpers share,
+  kept as plain functions ("no abstraction to study first").
+- Beginner reader (2026-10-21): "the second cell" in remove_table.ipynb (now "the last
+  cell"); the Template's cells are numbered in its text cell, and say why the day is grouped
+  on but not selected, what `<COUNT_NAME>` takes, and how a read table's import line looks;
+  `send.py` no longer says "Level 0"; `change_a_saved_table` says what to swap; the log writes
+  each call as the notebook does, in double quotes. Answered: `start()` doesn't refuse a folder
+  without sqlglot_composer, since the Toolbox may be found elsewhere on Python's path (the
+  docstring says the folder holds it); "nogit" is export_lineage's word, explained there; cell
+  5 waits for ticket 08 (above).

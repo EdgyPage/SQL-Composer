@@ -89,7 +89,8 @@ def test_start_logs_a_project_action(started) -> None:
             in log_text(started))
 
 
-@pytest.mark.parametrize("there", ["admin", "references", "building_blocks", "tables", "send.py"])
+@pytest.mark.parametrize("there",
+                         ["admin", "references", "building_blocks", "tables", "send.py"])
 def test_start_refuses_a_folder_that_has_any_of_its_parts(there, tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / there).mkdir()
@@ -113,7 +114,8 @@ def test_start_refuses_a_folder_inside_a_project(started, monkeypatch) -> None:
 def test_new_table_makes_a_table_folder_and_a_reference(started) -> None:
     report = project.new_table("mart.daily_job_runs")
     folder = started / "tables" / "mart__daily_job_runs"
-    assert sorted(path.name for path in folder.iterdir()) == ["lineage", "mart__daily_job_runs.ipynb"]
+    assert sorted(path.name for path in folder.iterdir()) == [
+        "lineage", "mart__daily_job_runs.ipynb"]
     assert list((folder / "lineage").iterdir()) == []
     found = cells(folder / "mart__daily_job_runs.ipynb")
     assert [kind for kind, _ in found] == ["markdown"] + ["code"] * 5
@@ -135,7 +137,7 @@ def test_new_table_makes_a_table_folder_and_a_reference(started) -> None:
         "Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from\n"
         "admin/templates/daily_table.py.\n"
         "Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.")
-    assert ("- Call: `project.new_table('mart.daily_job_runs')`\n"
+    assert ('- Call: `project.new_table("mart.daily_job_runs")`\n'
             "- Tables named: mart.daily_job_runs\n"
             "- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, "
             "lineage/); created references/mart__daily_job_runs.py\n") in log_text(started)
@@ -155,9 +157,10 @@ def test_new_table_uses_a_template_of_yours(started) -> None:
         "# %% [markdown]\n# # <DB>.<TABLE>\n\n# %%\n# logic\nNAME = '<NAME>'\n",
         encoding="utf-8")
     project.new_table("mart.daily_job_runs", template="mine")
-    assert cells(started / "tables" / "mart__daily_job_runs" / "mart__daily_job_runs.ipynb") == [
-        ("markdown", "# mart.daily_job_runs"), ("code", "# logic\nNAME = 'mart__daily_job_runs'")]
-    assert "project.new_table('mart.daily_job_runs', template='mine')" in log_text(started)
+    notebook = started / "tables" / "mart__daily_job_runs" / "mart__daily_job_runs.ipynb"
+    assert cells(notebook) == [("markdown", "# mart.daily_job_runs"),
+                               ("code", "# logic\nNAME = 'mart__daily_job_runs'")]
+    assert 'project.new_table("mart.daily_job_runs", template="mine")' in log_text(started)
 
 
 def test_new_table_refuses_a_table_folder_that_is_there(started) -> None:
@@ -228,9 +231,24 @@ def test_remove_table_archives_the_folder_and_keeps_the_reference(started) -> No
     assert (started / "tables" / "mart__daily_job_runs").is_dir()
 
 
-def test_remove_table_refuses_a_table_folder_that_isnt_there(started) -> None:
-    with pytest.raises(FileNotFoundError, match="there is no tables/mart__daily_job_runs/"):
+def test_remove_table_refuses_a_table_folder_neither_there_nor_registered(started) -> None:
+    with pytest.raises(FileNotFoundError, match="there is no tables/mart__daily_job_runs/ to "
+                       "remove, and the registry lists none"):
         project.remove_table("mart.daily_job_runs")
+
+
+def test_remove_table_marks_removed_a_registered_folder_deleted_by_hand(started) -> None:
+    project.new_table("mart.daily_job_runs")
+    folder = started / "tables" / "mart__daily_job_runs"
+    for path in sorted(folder.rglob("*"), reverse=True):
+        path.rmdir() if path.is_dir() else path.unlink()
+    folder.rmdir()
+    assert repr(project.remove_table("mart.daily_job_runs")) == (
+        "tables/mart__daily_job_runs/ wasn't there, so only its registry row is marked removed.")
+    assert [(row["kind"], row["removed_at"]) for row in registry(started)] == [
+        ("table_folder", "2026-10-21 09:30:00"), ("reference", "")]
+    assert "Registered, but not there" not in repr(project.check())
+    assert not (started / "admin" / "removed").exists()
 
 
 def test_remove_reference_archives_the_file(started) -> None:
@@ -255,6 +273,15 @@ def test_remove_reference_refuses_a_file_that_isnt_there(started) -> None:
         project.remove_reference("ops.jobs")
 
 
+def test_new_table_doesnt_register_a_reference_twice(started) -> None:
+    project.new_table("mart.daily_job_runs")
+    project.remove_table("mart.daily_job_runs")
+    (started / "references" / "mart__daily_job_runs.py").unlink()
+    project.new_table("mart.daily_job_runs")
+    assert [(row["kind"], row["removed_at"]) for row in registry(started)] == [
+        ("table_folder", "2026-10-21 09:30:00"), ("reference", ""), ("table_folder", "")]
+
+
 # --- register and check -----------------------------------------------------------------------
 
 
@@ -270,9 +297,9 @@ def test_check_reports_what_was_made_or_moved_by_hand(started) -> None:
     (started / "references" / "mart__daily_job_runs.py").unlink()
     assert repr(project.check()) == (
         "Not registered, made by hand: references/ops__jobs.py, tables/mart__by_hand/. Adopt "
-        "each with project.register(...).\n"
-        "Registered, but not there: references/mart__daily_job_runs.py. Put each back, or "
-        "archive it with remove_table or remove_reference.")
+        "each with\nproject.register(...).\n"
+        "Registered, but not there: references/mart__daily_job_runs.py. Put each back, or\n"
+        "mark it removed with project.remove_table(...) or project.remove_reference(...).")
 
 
 def test_check_changes_nothing(started) -> None:
@@ -286,7 +313,8 @@ def test_check_changes_nothing(started) -> None:
 def test_register_adopts_what_was_made_by_hand(started) -> None:
     (started / "references" / "ops__jobs.py").write_text("# by hand", encoding="utf-8")
     assert repr(project.register("ops.jobs")) == "Registered references/ops__jobs.py."
-    assert [(row["kind"], row["table"]) for row in registry(started)] == [("reference", "ops.jobs")]
+    assert [(row["kind"], row["table"]) for row in registry(started)] == [
+        ("reference", "ops.jobs")]
     assert "- Files: registered references/ops__jobs.py\n" in log_text(started)
     assert "registered" in repr(project.check())
 

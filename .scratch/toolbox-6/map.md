@@ -179,6 +179,16 @@ lands before 05.
   the code; only history keeps it. The refusals of a Spark DataFrame and of Spark's reserved
   table properties, the README's Spark section and the offline policy's pyspark guards are gone
   (reversing 02's keep); the lists in `trees.py` stay, so the Hive is unchanged.
+- [05 Table references for Projects](issues/05-table-references-for-projects.md):
+  `write_table_reference(name, send, folder=None)` writes `<db>__<table>.py` (refusing a name
+  with no database), DESCRIBE's comments in `descriptions=`, and an Aliases heading whose
+  import names the folder; `t_` only for a Python word. The Example projects keep table-named
+  files until 09, and the Templates name a read table's file with `<TABLE_FILE>` and the like.
+- [06 The project module](issues/06-the-project-module.md): `start`, `new_table`,
+  `remove_table`, `remove_reference`, `register`, `check`; the shipped Templates are text in
+  `sqlglot_composer/project_templates.py` (the Toolbox stays one flat folder), written into
+  `admin/templates/` by `start()`; a Project is found from the folder Python is working in;
+  Registry and Table notebook joined the glossary. 07 and 08 add their admin notebooks.
 
 ## Not yet specified
 
