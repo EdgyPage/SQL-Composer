@@ -6,9 +6,10 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-This page is a tutorial: eight steps, from installing the Toolbox to a Saved table written every
-day and the Lineage of each of its columns. Most steps point to the how-to that walks through
-them in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. What changed in each
+This page is a tutorial: eight steps, from installing the Toolbox to a Saved table written
+every day and the Lineage of each of its columns. Most steps point to the how-to that walks
+through them in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your
+browser. What changed in each
 version, and how to update from it, is in `CHANGES.md`.
 
 ## 1. Install
@@ -125,7 +126,9 @@ covers them all.
 ## 6. Save a table, every day
 
 A Saved table is a table of yours that a Statement writes, a day at a time, so a number worked
-out once a day is read by everyone after.
+out once a day is read by everyone after. Hive can't change single rows of such a table, so the
+Toolbox has no `UPDATE`, `DELETE`, `MERGE` or `TRUNCATE`: a day is written again, whole, with
+`INSERT_OVERWRITE`, which replaces it, and old days go with `admin.drop_days`.
 
 How-tos: [Save a table](../sqlglot_composer/how_to.html#save_a_table),
 [Backfill a range of days](../sqlglot_composer/how_to.html#backfill_a_range_of_days) and
@@ -224,6 +227,8 @@ The Toolbox writes Hive. Spark runs nearly all of it as Hive does, but not quite
 - Spark reads a number such as 0.5 as an exact DECIMAL, where Hive reads a DOUBLE.
 - A Saved table's Key in `CREATE TABLE`, `PRIMARY KEY (...) DISABLE NOVALIDATE`, is refused by
   Spark. Create your Saved tables where Hive runs, or ask whoever looks after the warehouse.
+- `admin.drop_days`, which drops a range of old days at once, is Hive's: Spark refuses it, so
+  ask whoever looks after your tables how old days are dropped there.
 
 Check one setting once, by hand, in your notebook's Spark:
 `spark.conf.get("spark.sql.parser.escapedStringLiterals")` should be `"false"`, Spark's default.

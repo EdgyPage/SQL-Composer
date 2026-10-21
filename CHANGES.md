@@ -66,7 +66,7 @@ refuses some writes 4.x let through, so read To update first.
 
 ### To update from 4.x
 
-Copy both folders in as the README's Update said then, then change these in your notebooks and
+Copy both folders in as 4.x's README said, then change these in your notebooks and
 files. Each is listed again, with more, under New or Refused now below.
 
 - **A write into a Saved table whose Table reference declares a Key is refused unless the
