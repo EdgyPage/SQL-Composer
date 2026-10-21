@@ -278,7 +278,7 @@ none.)
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  WHERE has job_events.dt BETWEEN '2026-09-11' AND '2026-09-24', a condition on job_events, which LEFT_JOIN brought in.
 ...
 

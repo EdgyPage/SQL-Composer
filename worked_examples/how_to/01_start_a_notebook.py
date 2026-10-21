@@ -16,13 +16,11 @@ imports the Toolbox and writes `send`; every cell after it builds Statements and
 
 ## Steps
 
-### Put the two folders beside your notebook
+### Put the folder beside your notebook
 
-The Toolbox is two folders: `composer_core`, the code every Toolbox function runs, and
-`sqlglot_composer`, the folder you import. Copy both from the Toolbox you downloaded, each whole,
-into the folder that holds your notebook, so they sit side by side. Keep your own files beside
-the two folders, never inside them: to update the Toolbox, you delete both folders and copy
-them in again.
+The Toolbox is one folder, `sqlglot_composer`. Copy it whole from the Toolbox you downloaded
+into the folder that holds your notebook. Keep your own files beside it, never inside it: to
+update the Toolbox, you delete the folder and copy it in again.
 
 ### Import the Toolbox
 
@@ -32,7 +30,7 @@ One line imports every Toolbox name: `statement`, the clause functions such as `
 >>> from sqlglot_composer import *
 
 If the import stops instead, its message says what happened, why it matters and the usual fix.
-Most often a file or a folder is missing, or the two folders come from different downloads.
+Most often a file is missing, or files from different downloads were mixed in one folder.
 
 ### Write your send
 
@@ -210,7 +208,7 @@ build it, before anything runs:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
 ...
   Opt-out:        FROM(job_runs, reads_all_partitions=True)

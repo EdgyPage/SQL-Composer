@@ -44,7 +44,7 @@ What is allowed depends on the folder, strictest first:
 
 - **user-copied code** (`templates/`, `example_projects/`, `worked_examples/`): nothing at all,
   since users copy these files into their own work;
-- **the Toolbox** (`composer_core/` and both Editions' folders): nothing, apart from the sites
+- **the Toolbox** (`sqlglot_composer/`): nothing, apart from the sites
   `ALLOWED` lists;
 - **everything else** (`tools/`, `tests/`, `.claude/hooks/`): the same, apart from URLs and
   Spark settings in strings, which tests and tools hold as text to check pages against.
@@ -75,7 +75,7 @@ import tokenize
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-import editions
+import toolbox_registry
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -133,7 +133,7 @@ LIBRARIES = ("pandas", "numpy", "pyspark", "py4j", "sqlglot")
 # A template's placeholder, such as <TABLE>, which stops it parsing until it is filled in.
 PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 
-TOOLBOX = (editions.CORE, *editions.EDITIONS)
+TOOLBOX = (toolbox_registry.FOLDER,)
 USER_COPIED = ("templates", "example_projects", "worked_examples")
 # Folders never read: the tracker's notes, and what tools and Pythons leave behind, the dev
 # virtual environment's installed libraries among them.
@@ -228,7 +228,7 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tools/export_clean.py", "<module>", "process", "subprocess",
             "imports subprocess, to run git and this same Python"),
     Allowed("tools/export_clean.py", "describe_toolbox", "dynamic code", "__import__",
-            "imports an Edition's folder by name, in the Clean tree it built"),
+            "imports the Toolbox's folder by name, in the Clean tree it built"),
     Allowed("tools/export_clean.py", "fresh_python", "process", "subprocess.run", PYTHON),
     Allowed("tools/export_clean.py", "git", "process", "subprocess.run", GIT),
     Allowed("tools/export_clean.py", "committed_files", "process", "subprocess.run",
@@ -253,8 +253,6 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/test_import_self_check.py", "<module>", "process", "subprocess",
             IMPORTS_PYTHON),
     Allowed("tests/test_import_self_check.py", "import_copy", "process", "subprocess.run",
-            PYTHON),
-    Allowed("tests/test_import_self_check.py", "renamed_copy", "process", "subprocess.run",
             PYTHON),
     Allowed("tests/test_import_self_check.py",
             "test_an_exported_copy_says_when_it_was_exported", "process", "subprocess.run",
@@ -332,9 +330,6 @@ ALLOWED: tuple[Allowed, ...] = (
             IMPORTS_PYTHON),
     Allowed("tests/repo/test_toolbox_checks.py", "test_ruff_passes_with_its_complexity_limit",
             "process", "subprocess.run", "runs ruff, in this same Python, on the repo"),
-    Allowed("tests/repo/test_two_editions.py", "<module>", "process", "subprocess",
-            IMPORTS_PYTHON),
-    Allowed("tests/repo/test_two_editions.py", "_run", "process", "subprocess.run", PYTHON),
 )
 
 
@@ -345,7 +340,7 @@ def findings_in(text: str, path: str, allowed: tuple[Allowed, ...] = ALLOWED) ->
     """Each finding in a file's text, read as the file at `path` in the repo, that `allowed`
     doesn't cover.
 
-    `path` is from the repo's root, such as "composer_core/running.py"; its folder decides what
+    `path` is from the repo's root, such as "sqlglot_composer/running.py"; its folder decides what
     is allowed, and its suffix how the text is read. A file of any other kind has no findings.
     """
     path = _repo_path(path)

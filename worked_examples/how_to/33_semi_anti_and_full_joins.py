@@ -354,7 +354,7 @@ it is refused. Pick each side's rows in its own Derived table instead.
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  WHERE has recorded.run_id > 100, a condition on recorded, and FULL_JOIN(started) keeps the rows of both sides that have no match.
 ...
 

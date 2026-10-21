@@ -1,0 +1,60 @@
+"""The Toolbox's folder, `sqlglot_composer/`, defined once for every tool and test on `dev`.
+
+From 6.0 the Toolbox is this one folder (ADR 0008 and ADR 0009). It holds every function a user
+calls, the import self-check, `writing.py`, which writes a Statement as Hive with sqlglot,
+`engine.py`, which checks sqlglot and runs the Example database, and two pages: the Example
+gallery, which `tools/example_gallery.py` writes, and the how-to page, which
+`tools/how_to_page.py` writes.
+
+What a file may import besides the standard library and its own folder is `may_import`'s answer,
+and `imports_outside` lists every import that breaks it.
+"""
+
+from __future__ import annotations
+
+import ast
+import sys
+from pathlib import Path
+
+FOLDER = "sqlglot_composer"
+PRODUCT = "sqlglot Composer"
+LIBRARY = "sqlglot"
+# The only files that may import sqlglot.
+LIBRARY_FILES = ("writing.py", "engine.py")
+PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
+                "conditions.py", "engine.py", "example_database.py", "joins.py", "keys.py",
+                "lineage.py", "public.py", "refusals.py", "running.py", "stacking.py",
+                "tables.py", "trees.py", "unchecked.py", "upkeep.py", "windows.py", "writing.py")
+PAGES = ("examples.html", "how_to.html")
+FILES = PYTHON_FILES + PAGES
+
+# What every Toolbox file may import, besides the standard library and its own folder.
+SHARED_IMPORTS = frozenset({"pandas", "numpy"})
+
+
+def may_import(file_name: str) -> frozenset:
+    """What a Toolbox file may import besides the standard library and its own folder."""
+    if file_name in LIBRARY_FILES:
+        return SHARED_IMPORTS | {LIBRARY}
+    return SHARED_IMPORTS
+
+
+def imports_outside(folder: Path) -> list[str]:
+    """Each import in the Toolbox's folder that `may_import` refuses, as "<file> imports <name>"."""
+    found = []
+    for path in sorted(folder.glob("*.py")):
+        allowed = sys.stdlib_module_names | may_import(path.name) | {"__future__"}
+        found += [f"{path.name} imports {name}" for name in _imported(path)
+                  if name.split(".")[0] not in allowed]
+    return found
+
+
+def _imported(path: Path) -> list[str]:
+    """Every module a file imports by name; its own folder's, imported relatively, aren't listed."""
+    names = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            names += [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.level == 0:
+            names.append(node.module or "")
+    return names

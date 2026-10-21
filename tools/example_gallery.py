@@ -47,16 +47,15 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKED_EXAMPLES = ROOT / "worked_examples"
 sys.path[:0] = [str(ROOT), str(WORKED_EXAMPLES)]
 
-import editions  # noqa: E402
+import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
-from composer_core import conditions, example_database  # noqa: E402
-from composer_core.clauses import Statement  # noqa: E402
+from sqlglot_composer import conditions, example_database  # noqa: E402
+from sqlglot_composer.clauses import Statement  # noqa: E402
 from sqlglot_composer import engine  # noqa: E402
 
-EDITION = editions.EDITIONS[sqlglot_composer.__name__]
-GALLERY = ROOT / EDITION.folder / "examples.html"
+GALLERY = ROOT / toolbox_registry.FOLDER / "examples.html"
 
 # Today on the page, as in the doctests: last_n_days(job_runs.dt, 2) reads both of the
 # Example database's days.
@@ -81,15 +80,10 @@ def statement_scripts() -> list:
 
 
 def toolbox_modules() -> list:
-    """The Edition's folder, then every other Toolbox file by name: the Edition's and the
-    Composer core's."""
-    own = {path.stem for path in (ROOT / EDITION.folder).glob("*.py")}
-    core = {path.stem for path in (ROOT / editions.CORE).glob("*.py")}
-    return [sqlglot_composer] + [
-        importlib.import_module(f"sqlglot_composer.{stem}" if stem in own
-                                else f"{editions.CORE}.{stem}")
-        for stem in sorted(own | core) if stem != "__init__"
-    ]
+    """The Toolbox's folder, then every other Toolbox file by name."""
+    stems = {path.stem for path in (ROOT / toolbox_registry.FOLDER).glob("*.py")}
+    return [sqlglot_composer] + [importlib.import_module(f"sqlglot_composer.{stem}")
+                                 for stem in sorted(stems) if stem != "__init__"]
 
 
 def docstrings() -> list[tuple[list[str], str]]:
@@ -106,10 +100,8 @@ def docstrings() -> list[tuple[list[str], str]]:
         for test in doctest.DocTestFinder().find(module):
             doc = inspect.cleandoc(test.docstring or "")
             if test.examples and doc not in seen:
-                name = test.name.removeprefix(f"{EDITION.folder}.")
-                found.append(([name.removeprefix(f"{editions.CORE}.")], doc))
+                found.append(([test.name.removeprefix(f"{toolbox_registry.FOLDER}.")], doc))
                 seen.add(doc)
-    # The Composer core's docstrings are written once, naming sqlglot Composer.
     return found
 
 
@@ -606,8 +598,8 @@ def gallery_page() -> str:
                       [entry for *_, entry in common + fixes] + [entry for _, entry in documented])
     return PAGE.format(
         style=STYLE,
-        product=escape(EDITION.product),
-        folder=escape(EDITION.folder),
+        product=escape(toolbox_registry.PRODUCT),
+        folder=escape(toolbox_registry.FOLDER),
         or_pandas=(", or computed in pandas where the Example database can't\nrun it"
                    if from_pandas else ""),
         but_not_pandas=(", but not\nthe pandas that computes a result the Example database can't run"

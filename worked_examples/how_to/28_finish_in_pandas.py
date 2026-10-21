@@ -327,7 +327,7 @@ the day's first would be lost. It refuses:
 >>> by_day(with_before)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  by_day can't split this Statement: it works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_events.dt, so it looks across days.
 ...
 

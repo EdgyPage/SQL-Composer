@@ -34,7 +34,7 @@ from .trees import (
     numbers_rows,
     string,
 )
-from .edition import check_writable_call
+from .writing import check_writable_call
 
 TOOLBOX_VERSION = "6.0"
 

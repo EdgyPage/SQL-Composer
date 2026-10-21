@@ -93,7 +93,7 @@ from sqlglot_composer import (
     week_start,
     window,
 )
-from composer_core.example_database import job_runs, jobs, run_alerts, scheduler_runs
+from sqlglot_composer.example_database import job_runs, jobs, run_alerts, scheduler_runs
 from sqlglot_composer import admin
 
 DAY = "2026-09-24"

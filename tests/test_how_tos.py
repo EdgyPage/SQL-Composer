@@ -24,12 +24,11 @@ from pathlib import Path
 
 import pytest
 
-import editions
 import example_gallery
 import how_to_page
 import sqlglot_composer
 from offline_policy import external_references
-from conftest import edition, gallery_sections, page_text, toolbox_folder
+from conftest import FOLDER, PRODUCT, gallery_sections, page_text, toolbox_folder
 from test_example_gallery import TagCounter
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -40,7 +39,7 @@ PUBLIC = set(sqlglot_composer.__all__)
 # Names a how-to may use without defining them: what a notebook at work has (its `spark`
 # session, the query API or database cursor a send calls), the Example database's database, and
 # the Toolbox's folders.
-OUTSIDE_NAMES = {"spark", "my_api", "cursor", "ops", editions.CORE, *editions.EDITIONS}
+OUTSIDE_NAMES = {"spark", "my_api", "cursor", "ops", FOLDER}
 
 
 def page() -> str:
@@ -138,7 +137,7 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
     for tree in trees:
         defined |= names_of(tree)[0]
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module in editions.EDITIONS:
+            if isinstance(node, ast.ImportFrom) and node.module == FOLDER:
                 # The admin module is imported by name: the star import leaves it out.
                 assert {alias.name for alias in node.names} - {"*"} <= PUBLIC | {"admin"}, (
                     ast.unparse(node))
@@ -165,9 +164,8 @@ def test_each_link_goes_to_a_how_to_or_a_gallery_entry_that_exists(path: Path) -
             assert place in SLUGS, f"no how-to {place}"
         else:
             assert page_name == "examples.html", f"{target} is neither a how-to nor the gallery"
-            for each in editions.EDITIONS.values():
-                assert not place or place in gallery_sections(ROOT / each.folder), (
-                    f"no entry {place} on {each.product}'s Example gallery")
+            assert not place or place in gallery_sections(toolbox_folder()), (
+                f"no entry {place} on the Example gallery")
 
 
 def test_every_link_on_the_page_lands() -> None:
@@ -437,13 +435,13 @@ def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path) -> None:
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     table_reference = re.search(r'<p class="label">It writes run_alerts.py</p>\n'
                                 r'<pre class="python">(.*?)</pre>', shown, re.DOTALL)
-    assert f"from {edition().folder} import Table" in page_text(table_reference.group(1))
+    assert f"from {FOLDER} import Table" in page_text(table_reference.group(1))
     assert "key=None, # TODO" in page_text(table_reference.group(1))
     stem = "lineage/20260925-090000_1a2b3c4_lineage_notebook_failed"
     markdown = re.search(rf'<p class="label">It writes {stem}.md</p>\n<pre class="file">(.*?)'
                          "</pre>", shown, re.DOTALL)
     assert (f"Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, "
-            f"with {edition().product} {sqlglot_composer.TOOLBOX_VERSION}.") in page_text(
+            f"with {PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}.") in page_text(
                 markdown.group(1))
     assert (f'<p class="note">It writes <code>{stem}.html</code> too, a page to open in your '
             "browser.</p>") in shown

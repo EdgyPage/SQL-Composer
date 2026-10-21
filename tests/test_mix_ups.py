@@ -1,7 +1,7 @@
 """Two mix-ups that are easy to make, each refused saying what went wrong.
 
 - An object made by another Toolbox folder, such as a Table reference whose file still imports a
-  folder left over from an earlier version, given to this Edition's functions. Each function
+  folder left over from an earlier version, given to the Toolbox's functions. Each function
   that checks what it was given names that folder, where it would otherwise call the object the
   wrong kind of thing.
 - A send that gives back Spark's own DataFrame, as `send=spark.sql` does without
@@ -9,7 +9,7 @@
   where it would otherwise skip the row limit or fail with Python's own error. A write isn't
   refused: Spark has carried it out by the time its send returns.
 
-Both are faked, so both runs test them without the other Edition or a Spark.
+Both are faked, so they are tested without an old folder or a Spark.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from conftest import edition
+from conftest import FOLDER
 from sqlglot_composer import (
     AS,
     admin,
@@ -50,7 +50,7 @@ job_runs = example_database.job_runs
 
 
 def _made_by(folder: str, kind: str):
-    """An object whose class a folder named `folder` made, as the other Edition's are."""
+    """An object whose class a folder named `folder` made, as an old Toolbox folder's are."""
     return type(kind, (), {"__module__": f"{folder}.tables",
                            "__repr__": lambda self: f"<{kind} from {folder}>"})()
 
@@ -103,10 +103,10 @@ def test_an_object_the_other_editions_folder_made_is_named_so(call, given: str,
         call()
     message = str(refused.value)
     assert (f"was given {called} made by the {OTHER} folder, which isn't part of the Toolbox "
-            f"you imported, {edition().folder}.") in message and given in message
+            f"you imported, {FOLDER}.") in message and given in message
     # The fix says which file to change, and how.
     assert (f"In the file the {called.split(' ', 1)[1]} came from, change `from {OTHER} import` "
-            f"to `from {edition().folder} import`.") in message
+            f"to `from {FOLDER} import`.") in message
 
 
 def test_an_object_no_edition_made_gets_the_message_it_got_before() -> None:

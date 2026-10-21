@@ -1,7 +1,7 @@
 """The escaping matrix checked against sqlglot: the tripwire for a sqlglot upgrade.
 
-Nothing here imports an Edition. These tests say what sqlglot's Hive writes for each case in
-`escaping_cases.py` when it escapes a string by the Composer core's table
+Nothing here imports the Toolbox. These tests say what sqlglot's Hive writes for each case in
+`escaping_cases.py` when it escapes a string by the Toolbox's table
 (`trees.HIVE_ESCAPES`), as sqlglot Composer has it do, so a sqlglot version that changes how it
 applies that table, quotes, or reads back fails here first. CI runs them at both ends of the
 supported range. A failure means sqlglot changed how it escapes: check the new output against
@@ -20,7 +20,7 @@ import pytest
 import sqlglot
 from sqlglot import exp
 
-from composer_core.trees import HIVE_ESCAPES
+from sqlglot_composer.trees import HIVE_ESCAPES
 from escaping_cases import (
     CONTROL_CHARACTER_LABELS,
     IDENTIFIER_CASES,
@@ -34,7 +34,7 @@ from escaping_cases import (
 
 
 def _hive_with_the_cores_escapes():
-    """sqlglot's Hive escaping a string's characters by the Composer core's table, as sqlglot
+    """sqlglot's Hive escaping a string's characters by the Toolbox's table, as sqlglot
     Composer's writer has it do; the quote is left to sqlglot."""
     hive = type(sqlglot.Dialect.get_or_raise("hive"))()
     hive.ESCAPED_SEQUENCES = {character: escaped for character, escaped

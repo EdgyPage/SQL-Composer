@@ -42,7 +42,7 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-from composer_core.example_database import job_owners, job_runs, jobs, run_alerts
+from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
 BASE = "/data/your_team/tables"

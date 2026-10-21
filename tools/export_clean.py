@@ -4,43 +4,36 @@ Run it with `dev` checked out and nothing uncommitted:
 
     python tools/export_clean.py
 
-It builds the Clean tree in a temporary folder, from what `dev` has committed: the Composer
-core, `composer_core/`, and each Edition `tools/editions.py` names in EXPORTED:
+It builds the Clean tree in a temporary folder, from what `dev` has committed:
 
-- it copies each folder, such as `sqlglot_composer/`, and stamps line 1 of every file in it with
-  its name, for example
-  `# sqlglot Composer 2.0, exported 2026-10-02 14:05 - generated from dev, do not edit` or
-  `# Composer core 2.0, exported ...`, every folder with the same time;
+- it copies the Toolbox's folder, `sqlglot_composer/`, and stamps line 1 of every file in it, for
+  example `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - generated from dev, do not edit`;
 - it writes the list of the folder's files into its `__init__.py`, for the import self-check;
-- for each Edition, it writes a copy of the Example projects and the Templates, which dev holds
-  in `example_projects/` and `templates/`, into `example_projects/<Edition's folder>/` and
-  `templates/<Edition's folder>/`: each place a file names, such as
-  `example_projects/starter/`, as main has it, and line 1 stamped, for example
-  `# sqlglot Composer 2.0, exported 2026-10-02 14:05 - copy it, then edit your copy`;
+- it copies the Example projects and the Templates, `example_projects/` and `templates/`, at the
+  same paths, with line 1 stamped, for example
+  `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - copy it, then edit your copy`;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   list of how-tos, from `worked_examples/how_to/`, the list of Templates, as
-  `templates/README.md`'s tables give them, and a cheat sheet: one line per public name, grouped by file,
-  from each docstring's first line;
-- it copies `LICENSE`, the MIT No Attribution license, and `requirements.txt`, what the
-  Toolbox needs beyond the standard library, as dev holds them, with no stamp.
+  `templates/README.md`'s tables give them, and a cheat sheet: one line per public name,
+  grouped by file, from each docstring's first line;
+- it copies `CHANGES.md`, what changed in each version, `LICENSE`, the MIT No Attribution
+  license, and `requirements.txt`, what the Toolbox needs beyond the standard library, as dev
+  holds them, with no stamp.
 
 It then checks what it built:
 
-- each Toolbox file imports only what work has (the standard library, pandas, numpy, and its
-  Edition's library where `tools/editions.py` allows it);
-- each stamped Edition, with the Composer core beside it, imports in a fresh Python, and,
-  copied without the Composer core, stops on import and says to copy `composer_core`;
+- each Toolbox file imports only what work has (the standard library, pandas, numpy, and sqlglot
+  where `tools/toolbox_registry.py` allows it);
+- the stamped folder imports in a fresh Python;
 - each Example project's `run_pipeline.py` runs its dry run, in a fresh Python, finding the
   Toolbox as its README says, and leaves no file behind; a dry run prints every step's Hive and
   sends nothing;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
-  is imported or run: the Toolbox, each Edition's copies of the Example projects and the
-  Templates, and the README, pages included and Markdown read as pages, so that none of it can
-  reach the network;
-- the folders have one version;
-- the tree holds nothing outside its allowlist: the Composer core's folder and each Edition's,
-  flat, each Edition's copies of the Example projects and the Templates, `.github/README.md`,
-  `LICENSE` and `requirements.txt`.
+  is imported or run: the Toolbox, the Example projects and the Templates, and the README,
+  pages included and Markdown read as pages, so that none of it can reach the network;
+- the folder has one version;
+- the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the Example projects
+  and the Templates, `.github/README.md`, `CHANGES.md`, `LICENSE` and `requirements.txt`.
 
 Only then does it commit the tree to `main`, as one new commit on top of the old `main`. It
 never checks `main` out and never pushes: pushing `main` is your step.
@@ -62,34 +55,34 @@ import io
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
 from pathlib import Path
 
-import editions
+import toolbox_registry
 import offline_policy
 
 ROOT = Path(__file__).resolve().parent.parent
 DRIFT_LIST = ".scratch/drift.md"
 README = ".github/README.md"
 README_TEMPLATE = "docs/clean-branch-readme.md"
-# The files main holds at its root, each dev's copy unchanged and unstamped: the license, MIT
-# No Attribution, which GitHub reads as is, and requirements.txt, which pip does.
+# The files main holds at its root, each dev's copy unchanged and unstamped: the change notes,
+# the license, MIT No Attribution, which GitHub reads as is, and requirements.txt, which pip
+# does.
+CHANGES = "CHANGES.md"
 LICENSE = "LICENSE"
 REQUIREMENTS = "requirements.txt"
-ROOT_FILES = (LICENSE, REQUIREMENTS)
+ROOT_FILES = (CHANGES, LICENSE, REQUIREMENTS)
 VERSION_MARKER = "<!-- VERSION -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
-# The folders main holds a copy of for each Edition, for the user to copy and edit: on main each
-# Edition's copy sits in a folder named for it, such as example_projects/sqlglot_composer/.
+# The folders main holds a copy of, for the user to copy and edit, at the paths dev has them.
 EXAMPLE_PROJECTS = "example_projects"
 TEMPLATES = "templates"
 COPIED = (EXAMPLE_PROJECTS, TEMPLATES)
 TEMPLATES_README = "templates/README.md"
-# The how-tos, which each Edition's how_to.html is written from, and which the README lists.
+# The how-tos, which how_to.html is written from, and which the README lists.
 HOW_TOS = "worked_examples/how_to"
 HOW_TOS_MARKER = "<!-- HOW-TOS -->"
 TEMPLATES_MARKER = "<!-- TEMPLATES -->"
@@ -144,7 +137,7 @@ def with_file_list(init_text: str, names: list[str], folder: str) -> str:
 
 
 def describe_toolbox(folder: str) -> dict:
-    """Import an Edition's folder and describe it for the cheat sheet, grouped by file.
+    """Import the Toolbox's folder and describe it for the cheat sheet, grouped by file.
 
     This runs in a fresh Python started inside the Clean tree (see `import_stamped`), so the
     folder it imports is the stamped copy, and its import self-check runs on that copy.
@@ -208,54 +201,33 @@ def fresh_python(folder: Path, code: str, path: str | None = None) -> subprocess
     )
 
 
-def import_stamped(into: Path, edition: editions.Edition) -> dict:
-    """Import an Edition's stamped folder in a fresh Python, and return `describe_toolbox()` of
-    it."""
+def import_stamped(into: Path) -> dict:
+    """Import the stamped folder in a fresh Python, and return `describe_toolbox()` of it."""
+    folder = toolbox_registry.FOLDER
     done = fresh_python(
         into, "import json, export_clean; "
-        f"print(json.dumps(export_clean.describe_toolbox({edition.folder!r})))",
+        f"print(json.dumps(export_clean.describe_toolbox({folder!r})))",
         path=str(Path(__file__).parent))
     if done.returncode != 0:
         raise ExportRefused(
-            f"The stamped copy of {edition.product} doesn't import, so nothing was exported:\n"
-            f"{last_error(done.stderr)}"
+            f"The stamped copy of {toolbox_registry.PRODUCT} doesn't import, so nothing was "
+            f"exported:\n{last_error(done.stderr)}"
         )
     described = json.loads(done.stdout.strip().splitlines()[-1])
-    if Path(described["folder"]).resolve() != (into / edition.folder).resolve():
-        raise ExportRefused(
-            f"The import check found another {edition.folder}: {described['folder']}")
+    if Path(described["folder"]).resolve() != (into / folder).resolve():
+        raise ExportRefused(f"The import check found another {folder}: {described['folder']}")
     return described
 
 
-# What an Edition says when it is imported with no composer_core beside it: its fix.
-COPY_THE_CORE = "Copy the composer_core folder from the same download beside the"
+# Where an Example project on main finds the Toolbox: the Clean tree's top folder, two up.
+TOOLBOX_FROM_A_PROJECT = os.path.join(os.pardir, os.pardir)
 
 
-def check_needs_the_core(into: Path, edition: editions.Edition) -> None:
-    """Refuse an Edition that, copied on its own, doesn't stop on import and say to copy
-    composer_core beside it."""
-    with tempfile.TemporaryDirectory() as alone:
-        shutil.copytree(into / edition.folder, Path(alone) / edition.folder)
-        done = fresh_python(Path(alone), f"import {edition.folder}")
-    if done.returncode == 0:
-        said = "imported, so another composer_core must be on this Python's path"
-    elif COPY_THE_CORE not in done.stderr:
-        said = f"gave:\n{last_error(done.stderr)}"
-    else:
-        return
-    raise ExportRefused(f"{edition.folder}, copied without composer_core beside it, must stop on "
-                        f"import and say to copy composer_core, but it {said}")
-
-
-# Where an Example project on main finds the Toolbox: the Clean tree's top folder, three up.
-TOOLBOX_FROM_A_PROJECT = os.path.join(os.pardir, os.pardir, os.pardir)
-
-
-def check_dry_runs(into: Path, edition: editions.Edition) -> None:
-    """Run each of `edition`'s Example projects' run_pipeline.py, as its README says, in a
-    fresh Python, and refuse one that stops or prints no Hive. Its dry run prints the Hive of
-    every step and sends nothing."""
-    for script in sorted((into / EXAMPLE_PROJECTS / edition.folder).glob("*/run_pipeline.py")):
+def check_dry_runs(into: Path) -> None:
+    """Run each Example project's run_pipeline.py, as its README says, in a fresh Python, and
+    refuse one that stops or prints no Hive. Its dry run prints the Hive of every step and
+    sends nothing."""
+    for script in sorted((into / EXAMPLE_PROJECTS).glob("*/run_pipeline.py")):
         before = files_in(into)
         done = fresh_python(
             script.parent, "import runpy; runpy.run_path('run_pipeline.py', run_name='__main__')",
@@ -306,9 +278,7 @@ def check_offline(into: Path, paths: list[str]) -> None:
             "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
             "stamp:\n"
             + "".join(f"  {finding}\n" for finding in found)
-            + "Take each out on dev, where a copy in example_projects/<Edition>/ or "
-            "templates/<Edition>/ is in example_projects/ or templates/. A Toolbox site that "
-            "must stay needs a reviewed entry in ALLOWED in tools/offline_policy.py, with the "
+            + "Take each out on dev. A Toolbox site that must stay needs a reviewed entry in ALLOWED in tools/offline_policy.py, with the "
             "user's OK.")
 
 
@@ -319,17 +289,13 @@ def files_in(folder: Path) -> list[str]:
 
 
 def outside_allowlist(paths: list[str]) -> list[str]:
-    """The paths `main` may not hold: it holds the Composer core's and each exported Edition's
-    flat folder, each exported Edition's copy of the Example projects and the Templates, in a
-    folder named for it, the README, the license and requirements.txt."""
-    folders = set(exported_folders())
-    shipped = {edition.folder for edition in editions.EXPORTED}
-
+    """The paths `main` may not hold: it holds the Toolbox's flat folder, the Example projects
+    and the Templates, the README, the change notes, the license and requirements.txt."""
     def allowed(path: str) -> bool:
         parts = path.split("/")
         return (path == README or path in ROOT_FILES
-                or (len(parts) == 2 and parts[0] in folders)
-                or (len(parts) > 2 and parts[0] in COPIED and parts[1] in shipped))
+                or (len(parts) == 2 and parts[0] == toolbox_registry.FOLDER)
+                or (len(parts) > 1 and parts[0] in COPIED))
 
     return [path for path in paths if not allowed(path)]
 
@@ -352,8 +318,8 @@ def how_tos_text(source: Path) -> str:
     18:", read from the docstrings in worked_examples/how_to/ that how_to.html is written from.
 
     Each docstring's line 1 is its title and line 3 names its group, as `For: Getting started`.
-    tools/how_to_page.py reads them the same way, but importing it loads an Edition into this
-    Python, so the two lines are read here again.
+    tools/how_to_page.py reads them the same way, but importing it loads the Toolbox into
+    this Python, so the two lines are read here again.
     """
     groups: dict[str, list[tuple[int, str]]] = {}
     for path in sorted((source / HOW_TOS).glob("[0-9][0-9]_*.py")):
@@ -406,30 +372,26 @@ def readme_text(template: str, groups: list[dict], version: str, stamp: str,
     return stamped("README.md", text, stamp)
 
 
-# --- Checks across the exported Editions -----------------------------------------------------
+# --- Checks on the commit ----------------------------------------------------------------------
 
 
-def exported_folders() -> list[str]:
-    """The Toolbox folders the export ships: the Composer core, then each Edition's."""
-    return [editions.CORE] + [edition.folder for edition in editions.EXPORTED]
-
-
-def check_editions(source: Path) -> None:
-    """Refuse an export whose folders don't belong together: each must be in the commit, and
-    they must have one version."""
-    missing = [folder for folder in exported_folders() if not (source / folder).is_dir()]
-    if missing:
+def check_folder(source: Path) -> None:
+    """Refuse a commit without the Toolbox's folder, or whose files declare more than one
+    version."""
+    folder = toolbox_registry.FOLDER
+    if not (source / folder).is_dir():
+        raise ExportRefused(f"The export ships {folder}, but this commit doesn't have it. "
+                            "Commit the folder on dev.")
+    versions = {path.name: re.search(r'^TOOLBOX_VERSION = "([^"]+)"$',
+                                     path.read_text(encoding="utf-8"), re.MULTILINE)
+                for path in sorted((source / folder).glob("*.py"))}
+    found = {name: version.group(1) for name, version in versions.items() if version}
+    if len(set(found.values())) > 1:
+        said = " and ".join(f"{name} is {version}" for name, version in found.items()
+                            if version != found["__init__.py"])
         raise ExportRefused(
-            f"The export ships {', '.join(exported_folders())}, but this commit doesn't have "
-            f"{', '.join(missing)}. Commit the folder on dev, or take its Edition out of "
-            "EXPORTED in tools/editions.py.")
-    versions = {folder: toolbox_version_of(source, folder) for folder in exported_folders()}
-    if len(set(versions.values())) > 1:
-        said = " and ".join(f"{folder} is {version}" for folder, version in versions.items())
-        raise ExportRefused(
-            f"The Toolbox's folders share one version, but {said}. Set TOOLBOX_VERSION in "
-            f"every .py file of {', '.join(f'{folder}/' for folder in exported_folders())}, "
-            "and commit.")
+            f"The Toolbox's files share one version, but __init__.py is {found['__init__.py']} "
+            f"and {said}. Set TOOLBOX_VERSION in every .py file of {folder}/, and commit.")
 
 
 # --- Building and committing ---------------------------------------------------------------------
@@ -442,37 +404,15 @@ def copied_files(folder: Path) -> list[str]:
                   if path.is_file() and "__pycache__" not in path.parts)
 
 
-# What an Example project's README gives PYTHONPATH to find the Toolbox: the folder two up on
-# dev, such as `PYTHONPATH=../..` or, for the Windows command prompt, `set PYTHONPATH=..\..`.
-DEVS_PYTHONPATH = re.compile(r"(PYTHONPATH=\.\.([/\\])\.\.)(?![/\\.\w])")
-
-
-def with_mains_paths(text: str, source: Path, edition: editions.Edition) -> str:
-    """A copied file's text with each place it names as main has it.
-
-    On main, each Edition's copy sits one folder deeper than on dev, in a folder named for it:
-    dev's example_projects/starter/ is main's example_projects/sqlglot_composer/starter/, and
-    an Example project's PYTHONPATH reaches one folder further up for the Toolbox.
-    """
-    for folder in COPIED:
-        inside = "|".join(sorted(path.name for path in (source / folder).iterdir()
-                                 if path.is_dir() and path.name != "__pycache__"))
-        if inside:
-            text = re.sub(rf"\b{folder}/(?=(?:{inside})\b)", f"{folder}/{edition.folder}/", text)
-    return DEVS_PYTHONPATH.sub(r"\1\2..", text)
-
-
-def build_copies(source: Path, into: Path, edition: editions.Edition, stamp: str) -> None:
-    """Write `edition`'s copy of the Example projects and the Templates into `into`: each file
-    with main's paths, and stamped."""
+def build_copies(source: Path, into: Path, stamp: str) -> None:
+    """Write the Example projects and the Templates into `into`, at dev's paths, stamped."""
     for folder in COPIED:
         for relative in copied_files(source / folder):
             where = f"{folder}/{relative}"
             text = (source / folder / relative).read_text(encoding="utf-8")
-            target = into / folder / edition.folder / relative
+            target = into / folder / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(stamped(where, with_mains_paths(text, source, edition), stamp),
-                              encoding="utf-8", newline="\n")
+            target.write_text(stamped(where, text, stamp), encoding="utf-8", newline="\n")
 
 
 def build_folder(source: Path, into: Path, folder: str, stamp: str) -> None:
@@ -490,11 +430,11 @@ def build_folder(source: Path, into: Path, folder: str, stamp: str) -> None:
             text = with_file_list(text, names, folder)
         (into / folder / name).write_text(stamped(f"{folder}/{name}", text, stamp),
                                           encoding="utf-8", newline="\n")
-    bad_imports = editions.imports_outside(into / folder)
+    bad_imports = toolbox_registry.imports_outside(into / folder)
     if bad_imports:
         raise ExportRefused(
-            f"The Toolbox may import only the standard library, pandas, numpy and its "
-            f"Edition's library where tools/editions.py allows it, which is all work has: "
+            f"The Toolbox may import only the standard library, pandas, numpy and sqlglot "
+            f"where tools/toolbox_registry.py allows it, which is all work has: "
             f"{'; '.join(f'{folder}/{bad}' for bad in bad_imports)}."
         )
     check_offline(into, [folder])
@@ -517,46 +457,39 @@ def copy_root_files(source: Path, into: Path) -> None:
 
 
 def build(source: Path, into: Path, when: datetime.datetime) -> str:
-    """Build the Clean tree from the `dev` folder `source` into the folder `into`, with each
-    Edition EXPORTED in tools/editions.py names.
+    """Build the Clean tree from the `dev` folder `source` into the folder `into`.
 
     Returns what the tree is, as main's commit names it, such as "sqlglot Composer 6.0,
     exported 2026-10-20 14:05".
     """
     if into.exists() and any(into.iterdir()):
         raise ExportRefused(f"{into} isn't empty. Build the Clean tree into an empty folder.")
-    check_editions(source)
+    check_folder(source)
     missing = [path for path in (*COPIED, HOW_TOS) if not (source / path).is_dir()]
     if missing:
         raise ExportRefused(
-            f"The export ships each Edition's copy of {' and '.join(COPIED)}, and the README "
-            f"lists the how-tos, but this commit doesn't have {', '.join(missing)}. Commit it "
-            "on dev.")
+            f"The export ships {' and '.join(COPIED)}, and the README lists the how-tos, but "
+            f"this commit doesn't have {', '.join(missing)}. Commit it on dev.")
     check_root_files(source)
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
-    version = toolbox_version_of(source, editions.CORE)
-    build_folder(source, into, editions.CORE, stamp_text(editions.CORE_PRODUCT, version, when))
-    described = []
-    for edition in editions.EXPORTED:
-        build_folder(source, into, edition.folder, stamp_text(edition.product, version, when))
-        described.append(import_stamped(into, edition))
-        check_needs_the_core(into, edition)
-        build_copies(source, into, edition, copy_stamp_text(edition.product, version, when))
-        check_offline(into, [f"{folder}/{edition.folder}" for folder in COPIED])
-        check_dry_runs(into, edition)
-    # The README is every Edition's, so its stamp names them all.
-    products = " and ".join(edition.product for edition in editions.EXPORTED)
+    folder, product = toolbox_registry.FOLDER, toolbox_registry.PRODUCT
+    version = toolbox_version_of(source, folder)
+    build_folder(source, into, folder, stamp_text(product, version, when))
+    described = import_stamped(into)
+    build_copies(source, into, copy_stamp_text(product, version, when))
+    check_offline(into, list(COPIED))
+    check_dry_runs(into)
     (into / README).parent.mkdir()
     (into / README).write_text(
-        readme_text(template, described[0]["groups"], version_text(version, when),
-                    stamp_text(products, version, when), source),
+        readme_text(template, described["groups"], version_text(version, when),
+                    stamp_text(product, version, when), source),
         encoding="utf-8", newline="\n")
     check_offline(into, [README])
     copy_root_files(source, into)
     outside = outside_allowlist(files_in(into))
     if outside:
         raise ExportRefused(f"The Clean tree holds files outside its allowlist: {outside}.")
-    return f"{products} {version_text(version, when)}"
+    return f"{product} {version_text(version, when)}"
 
 
 def git(repo: Path, *args: str, **options) -> str:
@@ -603,14 +536,15 @@ def tree_of(repo: Path, into: Path, index: Path) -> str:
 
 
 def committed_files(repo: Path, commit: str, into: Path) -> Path:
-    """Write what `commit` holds of the Toolbox's folders, the Example projects, the Templates,
-    the how-tos, the README template, the license and requirements.txt into `into`.
+    """Write what `commit` holds of the Toolbox's folder, the Example projects, the Templates,
+    the how-tos, the README template, the change notes, the license and requirements.txt into
+    `into`.
 
     The build reads these rather than the checkout, so a file git ignores (a stray log, say)
     can never reach `main`. A folder the commit lacks is left out, for the build to refuse.
     """
     held = git(repo, "ls-tree", "--name-only", commit).splitlines()
-    paths = [folder for folder in [*exported_folders(), *COPIED] if folder in held]
+    paths = [folder for folder in [toolbox_registry.FOLDER, *COPIED] if folder in held]
     paths.append(README_TEMPLATE)
     paths += [name for name in ROOT_FILES if name in held]
     if HOW_TOS.split("/")[0] in held:

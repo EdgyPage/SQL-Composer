@@ -38,7 +38,7 @@ from sqlglot_composer import (
     to_hive,
     window,
 )
-from composer_core.example_database import job_runs, jobs
+from sqlglot_composer.example_database import job_runs, jobs
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 

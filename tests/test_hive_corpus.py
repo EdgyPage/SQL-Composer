@@ -1,4 +1,4 @@
-"""The Edition's output, pinned: its golden corpus in `tests/hive_corpus/`.
+"""The Toolbox's output, pinned: its golden corpus in `tests/hive_corpus/`.
 
 `tools/hive_corpus.py` writes, for each case under a stable id, what the Toolbox shows through
 its public names: each Statement's Hive, the repr of its outputs and conditions, the commands
@@ -6,7 +6,7 @@ its public names: each Statement's Hive, the repr of its outputs and conditions,
 Markdown report. The cases are every docstring example and Worked example that builds a
 Statement, the edge cases in `hive_corpus_cases.py`, and about 200 generated ones.
 
-This test fails while the committed file differs from what the Edition writes today. Write it
+This test fails while the committed file differs from what the Toolbox writes today. Write it
 again only for a change that is meant to alter the output.
 """
 

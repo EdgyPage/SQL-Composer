@@ -1,4 +1,4 @@
-"""The Example gallery, each Edition's `examples.html`: every Worked example on one page.
+"""The Example gallery, `examples.html`: every Worked example on one page.
 
 `tools/example_gallery.py` writes it from the docstrings' examples and the Statement scripts in
 `worked_examples/statements/`, running each Statement on the Example database. The page is
@@ -18,7 +18,6 @@ from pathlib import Path
 
 import pytest
 
-import editions
 import sqlglot_composer
 from offline_policy import external_references
 from conftest import gallery_entries, page_text, toolbox_folder, toolbox_module
@@ -42,8 +41,7 @@ def test_the_committed_gallery_is_what_the_generator_writes() -> None:
 def toolbox_docstrings() -> list[doctest.DocTest]:
     """Every docstring in the Toolbox that holds a >>> example."""
     finder = doctest.DocTestFinder()
-    stems = {path.stem for folder in (toolbox_folder(), toolbox_folder().parent / editions.CORE)
-             for path in folder.glob("*.py")}
+    stems = {path.stem for path in toolbox_folder().glob("*.py")}
     modules = [toolbox_module()] + [toolbox_module(stem) for stem in sorted(stems)
                                     if stem != "__init__"]
     return [test for module in modules for test in finder.find(module) if test.examples]
@@ -278,9 +276,9 @@ def test_a_scripts_statements_are_found_on_the_example_day() -> None:
     page is written, so one that builds its Statement only on that day is still found."""
     import types
 
-    from composer_core import conditions
+    from sqlglot_composer import conditions
     from sqlglot_composer import FROM, SELECT, statement
-    from composer_core.example_database import jobs
+    from sqlglot_composer.example_database import jobs
 
     script = types.ModuleType("a_worked_example")
 

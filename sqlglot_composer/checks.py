@@ -1,7 +1,7 @@
-"""The import self-check: each Toolbox folder checks itself, then the two check each other.
+"""The import self-check: the Toolbox's folder checks itself before any other file is trusted.
 
-At work the Toolbox is two folders pasted side by side: composer_core and one Edition's. The
-Edition's __init__.py runs these checks before any other file is trusted. If a file is
+At work the Toolbox is one folder pasted beside your scripts. Its __init__.py runs these checks
+before any other file is trusted. If a file is
 missing, extra, from another version or export, or from another Toolbox folder, or if this
 Python can't run the Toolbox, the import stops and says what happened, why it matters and the
 usual fix. Every stop is headed by the folder you imported, `importing`, whichever folder it
@@ -20,17 +20,16 @@ TOOLBOX_VERSION = "6.0"
 
 _PYTHON_NEEDED = (3, 11)
 
-# Any Toolbox folder's stamp, such as "sqlglot Composer 4.1, exported 2026-10-02 14:05 - ...",
-# whose first words name the folder its file belongs in.
+# Any Toolbox folder's stamp, such as "sqlglot Composer 6.0, exported 2026-10-20 14:05 - ...",
+# whose first words name the folder its file belongs in: before 6.0, "Composer core" too.
 _STAMP = re.compile(r"(\w+ Composer|Composer core) \S+, exported ")
 
 # What each file of a Toolbox folder that isn't Python holds, for a stop that finds it missing.
-_PAGES = {"CHANGES.md": "the change notes", "examples.html": "the Example gallery",
-          "how_to.html": "the how-tos"}
+_PAGES = {"examples.html": "the Example gallery", "how_to.html": "the how-tos"}
 
 
 def check_python(product: str, importing: str) -> None:
-    """Stop if this Python is too old for the Edition being imported."""
+    """Stop if this Python is too old for the Toolbox."""
     if sys.version_info[:2] < _PYTHON_NEEDED:
         _stop(
             what=f"{product} needs Python 3.11 or newer, and this is Python "
@@ -66,7 +65,7 @@ def stamp_of(path: str) -> str | None:
 
 
 def _version_and_time(stamp: str) -> str:
-    """A stamp's version and export time, such as "Composer core 4.1, exported 2026-10-02 14:05"."""
+    """A stamp's version and export time, such as "sqlglot Composer 6.0, exported 2026-10-20 14:05"."""
     return stamp.split(" - ")[0]
 
 
@@ -116,7 +115,7 @@ def _check_home(here: str, folder: str, stamps: dict, importing: str) -> None:
             f"{home} folder, and this is {where}.",
             why="A folder's files are made to work only with each other: a .py file from "
             "another folder could make a Statement fail or come out wrong, and an "
-            "examples.html or CHANGES.md from one may not describe this folder's code.",
+            "examples.html or how_to.html from one may not describe this folder's code.",
             fix=f"Delete the {on_disk} folder, then copy it in again from the {this} folder "
             f"of one download, not from {home}.",
             folder=importing,
@@ -196,30 +195,3 @@ def check_folder(here: str, folder: str, product: str, files, version: str,
             "download.",
             folder=importing,
         )
-
-
-def check_together(edition_here: str, edition_version: str, core_version: str) -> None:
-    """Stop if the Edition's folder and composer_core come from different versions or exports."""
-    core_here = os.path.dirname(os.path.abspath(__file__))
-    edition = os.path.basename(edition_here)
-    if edition_version != core_version:
-        what = (f"{edition} is from Toolbox version {edition_version}, and composer_core is "
-                f"from {core_version}.")
-    else:
-        edition_stamp = stamp_of(os.path.join(edition_here, "__init__.py"))
-        core_stamp = stamp_of(os.path.join(core_here, "__init__.py"))
-        if edition_stamp is None or core_stamp is None:
-            return
-        edition_export = _version_and_time(edition_stamp).split(", exported ")[1]
-        core_export = _version_and_time(core_stamp).split(", exported ")[1]
-        if edition_export == core_export:
-            return
-        what = f"{edition} was exported {edition_export}, and composer_core {core_export}."
-    _stop(
-        what=what,
-        why="The two folders are written to work only with each other's copy from the same "
-        "download, so a Statement could fail or come out wrong.",
-        fix=f"Delete the {edition} and composer_core folders, then copy both in again from "
-        "one download.",
-        folder=edition,
-    )

@@ -19,7 +19,7 @@ import json
 import urllib.parse
 
 from .clauses import Statement
-from .edition import hive_text
+from .writing import hive_text
 from .refusals import refuse, refuse_what_isnt_a_dataframe
 from .tables import (
     FILE_FORMATS,

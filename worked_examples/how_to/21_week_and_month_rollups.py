@@ -184,7 +184,7 @@ would count it five times. The Toolbox refuses it as you build the Statement:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which is a distinct count.
 ...
 
@@ -204,7 +204,7 @@ Without `GROUP_BY`, the Statement has no groups for the count to count in:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  SELECT has the calculation "week" (from job_events.dt), but the Statement counts or adds up rows and has no GROUP_BY.
 ...
 

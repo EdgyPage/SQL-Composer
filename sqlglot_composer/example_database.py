@@ -45,7 +45,7 @@ import re
 
 import pandas as pd
 
-from . import edition
+from .engine import run_query
 from .refusals import refuse
 from .tables import Table
 
@@ -502,7 +502,7 @@ def send(hive):
         return _set(text)
     if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
         # The plan of a query, which sqlglot_composer's engine refuses: its executor makes none.
-        columns, rows = edition.run_query(text, _TABLES)
+        columns, rows = run_query(text, _TABLES)
         return pd.DataFrame(rows, columns=columns)
     if not _is_query(text):
         refuse(
@@ -516,7 +516,7 @@ def send(hive):
             "admin module builds, not text.",
             error=ValueError,
         )
-    columns, rows = edition.run_query(text, _TABLES)
+    columns, rows = run_query(text, _TABLES)
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)
     return pd.DataFrame(rows, columns=columns)

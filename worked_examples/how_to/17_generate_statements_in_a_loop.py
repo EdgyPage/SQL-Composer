@@ -258,7 +258,7 @@ value, so it would always count 0. A Guard stops it, and with it the loop:
 >>> matching_rows(job_runs, "status", None, "2026-09-24")
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(job_runs.status, None) compares with None.
 ...
 

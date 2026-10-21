@@ -88,9 +88,9 @@ Saved tables, so it runs on the Example database too.
 
 ## Running it here, on the Example database
 
-Python must find the Toolbox's two folders, `composer_core` and `sqlglot_composer`: put them
-beside `run_pipeline.py`, or name the folder holding them in `PYTHONPATH`. They sit in the
-Toolbox's top folder, the one that holds `example_projects` too, so in this folder:
+Python must find the Toolbox's folder, `sqlglot_composer`: put it beside `run_pipeline.py`,
+or name the folder holding it in `PYTHONPATH`. It sits in the download's top folder, the one
+that holds `example_projects` too, so in this folder:
 
 ```
 PYTHONPATH=../.. python run_pipeline.py
@@ -134,7 +134,8 @@ run_pipeline.write_lineage_files("2026-09-24")
 
 ## Running it at work
 
-1. Copy this folder, and put the Toolbox's two folders beside `run_pipeline.py`.
+1. Copy this folder, and put the Toolbox's folder, `sqlglot_composer`, beside
+   `run_pipeline.py`.
 2. In `table_references/`, delete the three generated files. Start Python in that folder,
    since `write_table_reference` writes its file into the folder Python started in, with the
    Toolbox's folders in `PYTHONPATH`. Write your own tables' Table references with

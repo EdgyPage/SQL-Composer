@@ -9,19 +9,10 @@ accepts only strings - and traced back to the table columns they read.
 ### What ships to work
 
 **Toolbox**:
-The set of Python functions that compose Hive SQL - the only thing copied to work. It is copied
-as the Composer core and its Edition, sqlglot Composer.
-_Avoid_: library, package, framework, SQL module
-
-**Edition**:
-A form the Toolbox comes in. Since 6.0 there is one, sqlglot Composer, which needs sqlglot at
-work; Spark Composer, which ran its Hive on Spark, was dropped.
-_Avoid_: flavour, variant, port, fork, backend, dialect
-
-**Composer core**:
-The part of the Toolbox that holds every function a user calls. The Edition adds what is its own,
-how it writes its Hive and runs its Example database.
-_Avoid_: base, common, shared library, framework
+The set of Python functions that compose Hive SQL - the only thing copied to work, as one
+folder, sqlglot Composer's. Before 6.0 it came in two Editions, sqlglot Composer and Spark
+Composer, and was copied as two folders, a shared core and an Edition's own.
+_Avoid_: library, package, framework, SQL module, Edition, Composer core
 
 **Toolbox version**:
 The feature number of the Toolbox (`6.0`), raised only when a big feature lands. Two copies of
@@ -29,9 +20,9 @@ the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox's Composer core, its Edition, a copy of the Example projects
-and the Templates, and their README, license and requirements.txt, generated from the Dev branch
-and never edited by hand.
+The branch holding only the Toolbox, a copy of the Example projects and the Templates, and their
+README, change notes, license and requirements.txt, generated from the Dev branch and never
+edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:

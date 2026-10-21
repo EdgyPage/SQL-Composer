@@ -209,7 +209,7 @@ before anything is sent:
 >>> to_hive(whole_window)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day) covers 3 days.
 ...
 
@@ -231,7 +231,7 @@ day's write couldn't hold just its own day. `by_day` refuses to split it:
 ... ))
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  by_day can't split this Statement: it groups rows without keeping the Date partition job_events.dt.
 ...
 

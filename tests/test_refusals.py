@@ -53,8 +53,8 @@ from sqlglot_composer import (
     to_hive,
     week_start,
 )
-from composer_core import refusals
-from composer_core.example_database import (
+from sqlglot_composer import refusals
+from sqlglot_composer.example_database import (
     job_events,
     job_owners,
     job_runs,
@@ -62,8 +62,8 @@ from composer_core.example_database import (
     region_costs,
     run_alerts,
 )
-from composer_core.refusals import RepeatedRowsWarning
-from conftest import edition, toolbox_folder
+from sqlglot_composer.refusals import RepeatedRowsWarning
+from conftest import FOLDER, toolbox_folder
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 
@@ -476,8 +476,8 @@ def test_a_repeated_rows_warning_shows_from_a_scope_with_no_name() -> None:
 def test_a_repeated_rows_warning_shows_under_python_dash_c() -> None:
     joined = subprocess.run(
         [sys.executable, "-c",
-         f"from {edition().folder} import JOIN, equals\n"
-         "from composer_core.example_database import job_runs, run_alerts\n"
+         f"from {FOLDER} import JOIN, equals\n"
+         "from sqlglot_composer.example_database import job_runs, run_alerts\n"
          "JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id))\n"
          "print('joined')"],
         cwd=toolbox_folder().parent, capture_output=True, text=True)

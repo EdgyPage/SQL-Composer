@@ -45,7 +45,7 @@ name, or the warehouse makes one up:
 >>> SELECT(count_rows())
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
   Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
@@ -196,7 +196,7 @@ stops it:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  WHERE has job_runs.status = 'FAILED', a condition on job_runs, which LEFT_JOIN brought in.
 ...
 
@@ -302,7 +302,7 @@ nothing equals a missing value, so it would match no rows. A Guard with no opt-o
 >>> equals(job_runs.status, None)
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(job_runs.status, None) compares with None.
 ...
 

@@ -6,10 +6,10 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-## Which folders to copy
+## Which folder to copy
 
-Copy two folders, each whole: `composer_core`, the code every Toolbox function runs, and
-`sqlglot_composer`, which writes its Hive with the sqlglot package and is the folder you import.
+Copy one folder, whole: `sqlglot_composer`, which writes its Hive with the sqlglot package and is
+the folder you import.
 Your notebook sends that Hive to the warehouse through a `send` of its own: a query API, or a
 `spark` session (see [If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark)).
 
@@ -28,15 +28,15 @@ which `requirements.txt`'s pins are for.
      its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
      (not including) 31, whose Example database and a struct column in create_table need
      30.19.0 or newer.
-3. Copy the whole `composer_core` folder and the whole `sqlglot_composer` folder side by side
-   into the folder that holds your notebooks and scripts.
+3. Copy the whole `sqlglot_composer` folder into the folder that holds your notebooks and
+   scripts.
 
 The download's two other folders, `example_projects` and `templates`, are for reading and
 copying from, and the Toolbox doesn't need them: see [Example projects](#example-projects) and
 [Templates](#templates).
 
-Keep your own scripts beside the two folders, never inside them, and import from
-`sqlglot_composer`, at its top level:
+Keep your own scripts beside the folder, never inside it, and import from `sqlglot_composer`,
+at its top level:
 
 ```python
 from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
@@ -44,30 +44,31 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 
 ## Update
 
-Updating from 4.x? Copy the folders in as below, then see [Update from 4.x](#update-from-4x).
-Updating from 5.x? Copy the folders in as below, then read the 6.0 section of
-`composer_core/CHANGES.md`: pandas 3 shows a missing text value as NaN. Updating from 3.x or SQL
-Composer, with no `composer_core` folder? See
-[Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x) too.
-Using Spark Composer? It was dropped in 6.0. Install sqlglot, as Install says, delete
-`spark_composer` and `composer_core`, copy in the new `composer_core` and `sqlglot_composer`,
-change each `from spark_composer import` to `from sqlglot_composer import`, restart the kernel,
-and see [If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark).
+Updating from 5.x or 4.x, with a `composer_core` folder beside `sqlglot_composer`? Since 6.0
+the Toolbox is one folder: delete `composer_core` too, then copy the new folder in as below, and
+read the 6.0 section of `CHANGES.md`, at the top of the download: pandas 3 shows a missing text
+value as NaN. From 4.x, see [Update from 4.x](#update-from-4x) too. Updating from 3.x or SQL
+Composer? See [Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x)
+too. Using Spark Composer? It was dropped in 6.0. Install sqlglot, as Install says, delete
+`spark_composer` and `composer_core`, copy in `sqlglot_composer`, change each
+`from spark_composer import` to `from sqlglot_composer import`, restart the kernel, and see
+[If your send runs the Hive on Spark](#if-your-send-runs-the-hive-on-spark).
 
-1. Delete both folders: `composer_core` and `sqlglot_composer`.
-2. From the new download, copy in both whole folders of the same names.
+1. Delete the `sqlglot_composer` folder.
+2. From the new download, copy in the whole `sqlglot_composer` folder.
 3. Restart the kernel, which still holds the old code.
 
-Keep your own files beside the folders, never inside them, so deleting them is safe. When they
-are imported, the two folders check themselves. If a file is missing, extra, from another
-version or another download, or from another Toolbox folder, or if this Python or the library it needs won't work with it, the import stops and
-says what happened, why it matters and the usual fix. `sqlglot_composer.VERSION` says which
-copy you have, and `composer_core/CHANGES.md` says what changed in each version.
+Keep your own files beside the folder, never inside it, so deleting it is safe. When it is
+imported, the folder checks itself. If a file is missing, extra, from another version or another
+download, or from another Toolbox folder, or if this Python or the library it needs won't work
+with it, the import stops and says what happened, why it matters and the usual fix.
+`sqlglot_composer.VERSION` says which copy you have, and `CHANGES.md` says what changed in each
+version.
 
 ## Update from 4.x
 
 5.0 checks more before it writes, so a notebook that ran on 4.x may need these changes. The
-5.0 section of `composer_core/CHANGES.md` says more about each.
+5.0 section of `CHANGES.md` says more about each.
 
 1. **A write into a Saved table with a Key may be refused.** Before 5.0, two rows with the same
    Key were saved without a word, since Hive never checks a Key. Now an `INSERT_OVERWRITE` or
@@ -102,23 +103,22 @@ sqlglot Composer was named SQL Composer, in a folder named `sql_composer`. These
 same from 3.0, 3.1 or 3.2. To update from SQL Composer:
 
 1. Delete the `sql_composer` folder.
-2. From the new download, copy in the whole `composer_core` folder and the whole
-   `sqlglot_composer` folder.
+2. From the new download, copy in the whole `sqlglot_composer` folder.
 3. In your notebooks and scripts, change every `sql_composer` to `sqlglot_composer`: change
    `from sql_composer import` to `from sqlglot_composer import`, and `sql_composer.VERSION` to
    `sqlglot_composer.VERSION`. That includes each Table reference file `write_table_reference`
    wrote for you: each has the line `from sql_composer import Table` below its docstring.
 4. Restart the kernel.
 
-Import every name from `sqlglot_composer` itself, never from a file inside it: the files
-inside moved to `composer_core`, so `from sql_composer.refusals import GuardRefused` becomes
-`from sqlglot_composer import GuardRefused`.
+Import every name from `sqlglot_composer` itself, never from a file inside it, so
+`from sql_composer.refusals import GuardRefused` becomes `from sqlglot_composer import
+GuardRefused`.
 
 Two new refusals can stop code that ran on 3.x. `run` refuses a read whose `send` gives back
 something other than a pandas DataFrame: if yours gives back a list of rows, end it with
 `return pd.DataFrame(rows)`. And a comparison of two tables' days written different ways, such
-as 20260925 and 2026-09-25, is refused. The 4.0 section of `composer_core/CHANGES.md`, where
-the change notes now are, lists these and everything else that changed.
+as 20260925 and 2026-09-25, is refused. The 4.0 section of `CHANGES.md` lists these and
+everything else that changed.
 
 ## A first Statement
 
@@ -306,7 +306,7 @@ list. The how-to "Keep reads and joins fast" puts them beside the Session settin
 
 An Example project is a folder of scripts laid out the way a project at work should be: Table
 references, Building blocks, Statements, and a `run_pipeline.py` that runs them in order, all
-written for the Example database's tables. `example_projects/sqlglot_composer/` holds two:
+written for the Example database's tables. `example_projects/` holds two:
 
 - `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Examples 1 and 2 each save
   one day's numbers in a Saved table, and example 3 reads both to give each team's day.
@@ -319,19 +319,19 @@ written for the Example database's tables. `example_projects/sqlglot_composer/` 
 
 Each project's `README.md` says what each file is and how to run it. The Example database can
 be read but not written, so running a project's `run_pipeline.py` prints the Hive of every
-step, in order, without sending anything (a dry run). Python must find the Toolbox's two
-folders, three folders up from a project's folder, so in that folder run, in bash:
+step, in order, without sending anything (a dry run). Python must find the Toolbox's folder,
+two folders up from a project's folder, so in that folder run, in bash:
 
 ```
-PYTHONPATH=../../.. python run_pipeline.py
+PYTHONPATH=../.. python run_pipeline.py
 ```
 
-In PowerShell, run `$env:PYTHONPATH = "..\..\.."` first, and in the Windows command prompt
-`set PYTHONPATH=..\..\..`, then `python run_pipeline.py`.
+In PowerShell, run `$env:PYTHONPATH = "..\.."` first, and in the Windows command prompt
+`set PYTHONPATH=..\..`, then `python run_pipeline.py`.
 
-To start a project of your own, copy one out of the download, put `composer_core` and
-`sqlglot_composer` beside its `run_pipeline.py`, then replace its tables and Statements with
-yours, or write its scripts from the Templates below.
+To start a project of your own, copy one out of the download, put `sqlglot_composer` beside
+its `run_pipeline.py`, then replace its tables and Statements with yours, or write its scripts
+from the Templates below.
 
 ## Templates
 
@@ -342,8 +342,8 @@ half filled in. Each Template's docstring says where in your project to copy it,
 placeholders under "Fill in:", with an example of each, and names the Example project file it
 mirrors.
 
-`templates/sqlglot_composer/` holds a starter set and an intermediate set, and a `README.md` saying what each Template needs first. Below, the starter
-set is listed in the order to use it.
+`templates/` holds a starter set and an intermediate set, and a `README.md` saying what each
+Template needs first. Below, the starter set is listed in the order to use it.
 
 <!-- TEMPLATES -->
 
@@ -377,14 +377,13 @@ read, one with `transactional` set to `false`.
 
 The Toolbox, its Example projects and its Templates are under the MIT No Attribution license,
 in `LICENSE`: use them, change them, share them or sell them, at work or anywhere else, with
-no need to say where they came from, so you needn't copy `LICENSE` along with the two folders.
+no need to say where they came from, so you needn't copy `LICENSE` along with the folder.
 They come as they are, with no warranty.
 
 ## Cheat sheet
 
-Everything the Toolbox offers, one line each, grouped by the file it lives in: the two constants
-are in `sqlglot_composer`, and every other name in a file of `composer_core`. Import every name
-from `sqlglot_composer` itself: never from `composer_core`, or from a file inside either folder. Arithmetic isn't in it: a calculation uses
+Everything the Toolbox offers, one line each, grouped by the file of `sqlglot_composer` it
+lives in. Import every name from `sqlglot_composer` itself, never from a file inside it. Arithmetic isn't in it: a calculation uses
 Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`. The star import brings
 the 89 names listed here before the admin module. The admin module's
 functions, which change your own Saved tables, come last: the star import leaves them out, so

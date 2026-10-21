@@ -307,7 +307,7 @@ NULL, not even NULL, so it would keep no rows at all. The Toolbox stops it:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(job_runs.status, None) compares with None.
 ...
 

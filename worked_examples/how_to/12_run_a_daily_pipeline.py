@@ -284,7 +284,7 @@ Leave out the WHERE, and the team step is refused as you build it:
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  FROM(daily_job_runs) reads mart.daily_job_runs, but nothing bounds its Date partition dt at both ends.
 ...
 

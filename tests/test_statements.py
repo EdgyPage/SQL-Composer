@@ -47,8 +47,8 @@ from sqlglot_composer import (
     week_start,
 )
 from sqlglot_composer import writing
-from composer_core.trees import HIVE_FUNCTION_ARGUMENTS
-from composer_core.example_database import job_runs, jobs, run_alerts
+from sqlglot_composer.trees import HIVE_FUNCTION_ARGUMENTS
+from sqlglot_composer.example_database import job_runs, jobs, run_alerts
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 
@@ -177,7 +177,7 @@ def test_hive_function_counts_arguments_by_the_list_hive_and_spark_share(call, s
     for count in range(fewest, (fewest + 2 if most is None else most) + 1)])
 def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str,
                                                                        count: int) -> None:
-    """So a call one Edition writes, the other writes too."""
+    """So a call the Toolbox writes, Hive and Spark both run."""
     call = hive_function(name, *[job_runs.status] * count)
     to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
 

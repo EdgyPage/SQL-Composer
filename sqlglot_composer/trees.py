@@ -1,8 +1,8 @@
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
-its own, rather than in the objects of whatever package writes the Hive, so that every Edition can
-share the same tree.
+its own, rather than in sqlglot's objects, which writing.py builds from it only to write the
+Hive.
 
 A column's calculation or a condition is a small tree of Nodes, such as `EQ` holding a `Column`
 and a `Literal`, and to_hive builds a whole Statement as one, from `Select` or `Insert` down.
@@ -25,10 +25,10 @@ TOOLBOX_VERSION = "6.0"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
-# How each Edition writes a character of a string value between single quotes, escaped on its
+# How the Toolbox writes a character of a string value between single quotes, escaped on its
 # own so an escape's backslash is never escaped again; every other character is written as it
-# is. It is the Toolbox's own table, so both Editions write the same Hive whatever version of
-# its library sqlglot Composer runs on, whose own table changed within the supported range
+# is. It is the Toolbox's own table, so the Hive is the same whatever version of sqlglot it runs
+# on, whose own table changed within the supported range
 # (30.23.0 writes NUL as \0 and SUB as \Z, which Hive also reads; 30.19.0 wrote both as they
 # are): sqlglot Composer's writing.py hands this one to it. BEL, FF and VT are
 # written \a, \f and \v, which Hive reads back as the letters a, f and v, so the Toolbox refuses
@@ -99,7 +99,7 @@ WINDOW_FUNCTIONS = frozenset(
 # How many arguments a function hive_function may call takes: (fewest, most), with most None
 # when there is no upper limit. Where Hive and Spark both have the function, it is the count both
 # take; where only Spark has it, such as count_if, the count Spark takes at 3.5.0, 4.0.4 and 4.2.0.
-# hive_function counts a call's arguments by this list in both Editions; a function not listed
+# hive_function counts a call's arguments by this list; a function not listed
 # here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {
     # Text.
@@ -349,7 +349,7 @@ class Node:
     `meta` holds notes that aren't part of the Hive, such as the Toolbox call that made the
     Node. Two Nodes are equal when their kinds and parts are, whatever their notes, so a
     HiveFunction never equals a Coalesce, even when both write COALESCE. A Literal's is_float
-    isn't compared: 0.5 and Decimal("0.5") are the same number, however an Edition writes them.
+    isn't compared: 0.5 and Decimal("0.5") are the same number, however they are written.
     """
 
     # Equal Nodes may still be changed, so a Node can't be a dict key or go in a set.

@@ -37,25 +37,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "tools"), str(ROOT / "tests")]
 
-import editions  # noqa: E402
+import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import example_database  # noqa: E402
-from composer_core.clauses import Statement, derived_tables  # noqa: E402
-from composer_core.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
+from sqlglot_composer.clauses import Statement, derived_tables  # noqa: E402
+from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
-EDITION = editions.EDITIONS[sqlglot_composer.__name__]
-
-
-def golden_path(edition: editions.Edition) -> Path:
-    """Where an Edition's golden corpus is committed."""
-    return ROOT / "tests" / "hive_corpus" / f"{edition.folder}.txt"
-
-
-GOLDEN = golden_path(EDITION)
+# Where the golden corpus is committed.
+GOLDEN = ROOT / "tests" / "hive_corpus" / f"{toolbox_registry.FOLDER}.txt"
 # The command that writes the golden.
 COMMAND = "python tools/hive_corpus.py"
 
@@ -311,7 +304,7 @@ def tables() -> list:
 
 def corpus_text() -> str:
     """The whole golden corpus, as one string."""
-    header = (f"# What {EDITION.product} shows today, written by tools/hive_corpus.py. Don't "
+    header = (f"# What {toolbox_registry.PRODUCT} shows today, written by tools/hive_corpus.py. Don't "
               "edit it by hand.\n")
     blocks = [case_text(case_id, build) for case_id, build in cases()]
     blocks += [warehouse_text(t) for t in tables()]

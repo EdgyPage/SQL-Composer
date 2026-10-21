@@ -48,7 +48,7 @@ version are pinned, so the page comes out the same on every run.
 
 A how-to links only to how-tos and the Example gallery, and check_links refuses any other link.
 It names the Example projects and the Templates in prose, by their folders, which main holds
-beside the Editions' folders.
+beside the Toolbox's folder.
 """
 
 from __future__ import annotations
@@ -72,14 +72,13 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import editions  # noqa: E402
+import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
-from composer_core import example_database, lineage  # noqa: E402
-from composer_core.clauses import Statement  # noqa: E402
+from sqlglot_composer import example_database, lineage  # noqa: E402
+from sqlglot_composer.clauses import Statement  # noqa: E402
 from example_gallery import (  # noqa: E402
-    EDITION,
     FILTER_SCRIPT,
     PANDAS_LABEL,
     ROOT,
@@ -98,8 +97,8 @@ from example_gallery import (  # noqa: E402
 from sqlglot_composer import engine  # noqa: E402
 
 HOW_TOS = ROOT / "worked_examples" / "how_to"
-PAGE_PATH = ROOT / EDITION.folder / "how_to.html"
-GALLERY = ROOT / EDITION.folder / "examples.html"
+PAGE_PATH = ROOT / toolbox_registry.FOLDER / "how_to.html"
+GALLERY = ROOT / toolbox_registry.FOLDER / "examples.html"
 
 HEADINGS = ("Goal", "When you'd use it", "Steps", "Check it worked", "Common mistakes", "Next")
 
@@ -375,7 +374,7 @@ def value_html(source: str, value, in_pandas: bool) -> str:
 def toolbox_warnings(caught: list) -> list:
     """The Toolbox's own Warnings among those a step gave."""
     return [warning.message for warning in caught
-            if warning.category.__module__.startswith(editions.CORE)]
+            if warning.category.__module__.startswith(toolbox_registry.FOLDER)]
 
 
 def step_output_html(source: str, notebook: Notebook) -> str:
@@ -440,7 +439,7 @@ def lineage_pinned():
 
     Without a notebook's name in the environment, a lineage is named as from a notebook.
     """
-    version = f"{EDITION.product} {sqlglot_composer.TOOLBOX_VERSION}"
+    version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     with (mock.patch.object(lineage, "_now", lambda: LINEAGE_TIME),
           mock.patch.object(lineage, "scripts_commit", lambda folder: LINEAGE_COMMIT),
           mock.patch.object(lineage, "_version", lambda: version),
@@ -521,8 +520,8 @@ def how_to_page() -> str:
         groups.append(f'<h2 id="{group.id}">{group.name}</h2>\n' + "\n".join(entries))
     filled = {
         "STYLE": STYLE + HOW_TO_STYLE,
-        "PRODUCT": escape(EDITION.product),
-        "FOLDER": escape(EDITION.folder),
+        "PRODUCT": escape(toolbox_registry.PRODUCT),
+        "FOLDER": escape(toolbox_registry.FOLDER),
         "VERSION": escape(sqlglot_composer.TOOLBOX_VERSION),
         "CONTENTS": "\n".join(contents),
         "GROUPS": "\n".join(groups),

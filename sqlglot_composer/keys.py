@@ -35,7 +35,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from .conditions import combined_spans
-from .edition import hive_text
+from .writing import hive_text
 from .joins import ONLY_TESTS
 from .trees import has_aggregate, has_window
 

@@ -240,7 +240,7 @@ write no longer fills every column, so the Toolbox refuses it:
 >>> write_job_day("2026-09-24")
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day): it leaves out fails.
 ...
 
@@ -288,7 +288,7 @@ a week, the write is refused when it becomes Hive, before anything is sent:
 ... ))
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(team_week) covers 7 days.
 ...
 

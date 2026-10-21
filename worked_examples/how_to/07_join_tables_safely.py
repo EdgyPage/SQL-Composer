@@ -382,7 +382,7 @@ run's minutes, and nothing over it is added up. To add up, add up before you joi
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  JOIN(jobs) has no ON=.
 ...
 
@@ -403,7 +403,7 @@ repeated rows are meant, so that only the mistake shown here stops.)
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  WHERE has job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24', a condition on job_runs, which LEFT_JOIN brought in.
 ...
 
@@ -429,7 +429,7 @@ day.
 ... )
 Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  JOIN(run_alerts, ON=...) reads ops.run_alerts, but nothing bounds its Date partition dt at both ends.
 ...
 

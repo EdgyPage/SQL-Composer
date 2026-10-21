@@ -109,12 +109,12 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <h4>When you&#x27;d use it</h4>
 <p>At the top of every notebook, or script, that writes Hive with the Toolbox. Its first cell imports the Toolbox and writes <code>send</code>; every cell after it builds Statements and runs them.</p>
 <h4>Steps</h4>
-<h5>Put the two folders beside your notebook</h5>
-<p>The Toolbox is two folders: <code>composer_core</code>, the code every Toolbox function runs, and <code>sqlglot_composer</code>, the folder you import. Copy both from the Toolbox you downloaded, each whole, into the folder that holds your notebook, so they sit side by side. Keep your own files beside the two folders, never inside them: to update the Toolbox, you delete both folders and copy them in again.</p>
+<h5>Put the folder beside your notebook</h5>
+<p>The Toolbox is one folder, <code>sqlglot_composer</code>. Copy it whole from the Toolbox you downloaded into the folder that holds your notebook. Keep your own files beside it, never inside it: to update the Toolbox, you delete the folder and copy it in again.</p>
 <h5>Import the Toolbox</h5>
 <p>One line imports every Toolbox name: <code>statement</code>, the clause functions such as <code>SELECT</code>, <code>FROM</code> and <code>WHERE</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, and the rest.</p>
 <pre class="python">from sqlglot_composer import *</pre>
-<p>If the import stops instead, its message says what happened, why it matters and the usual fix. Most often a file or a folder is missing, or the two folders come from different downloads.</p>
+<p>If the import stops instead, its message says what happened, why it matters and the usual fix. Most often a file is missing, or files from different downloads were mixed in one folder.</p>
 <h5>Write your send</h5>
 <p>The Toolbox never connects to anything itself. It writes Hive as text, and <code>run</code> hands that text to a function of yours, <code>send</code>, which runs it and gives back a pandas DataFrame. How you connect, retry or save files stays in your <code>send</code>, so the Toolbox works with whatever your notebook uses to reach the warehouse.</p>
 <p><code>send</code> calls your query API, whatever your team uses to run a Hive string, and turns the rows that come back into a pandas DataFrame, each column named. Write it once, in your first cell:</p>

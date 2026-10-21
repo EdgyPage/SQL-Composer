@@ -2,7 +2,7 @@
 
 `tools/export_clean.py` builds the Clean tree in a folder. These tests build it into a
 temporary folder and check what `main` would hold: the allowlist, the stamp on line 1 of every
-Toolbox file, the file list in `__init__.py`, each Edition's copy of the Example projects and
+Toolbox file, the file list in `__init__.py`, the copy of the Example projects and
 the Templates, and the README with its lists of how-tos and Templates and its cheat sheet; and
 that a Clean tree failing one of the export's own checks is refused.
 """
@@ -23,7 +23,6 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
-import editions  # noqa: E402
 import export_clean  # noqa: E402
 from test_pointers import named_paths  # noqa: E402
 
@@ -71,8 +70,8 @@ def test_the_file_list_in_init_names_every_toolbox_file(clean: Path) -> None:
     assert "_FILES = None" not in init
 
 
-# Every Toolbox folder the export ships: the Composer core, then each Edition's.
-FOLDERS = [editions.CORE] + [edition.folder for edition in editions.EDITIONS.values()]
+# The Toolbox's folder, which the export ships.
+FOLDERS = ["sqlglot_composer"]
 
 
 @pytest.mark.parametrize("name", [
@@ -133,8 +132,7 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
     assert section.count("The Example database: seven made-up tables") == 1
 
 
-# The folders main holds a copy of for each Edition, to copy and edit: on dev they hold
-# sqlglot Composer's, and on main each Edition's sits in a folder named for it. Written out
+# The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
 # here, not taken from export_clean, so the tests say what main holds on their own.
 COPIED = ["example_projects", "templates"]
 
@@ -148,13 +146,13 @@ def copied_files(folder: str) -> list[str]:
 
 
 def exported_files() -> list[str]:
-    """Every file `main` holds, sorted: the README, each Toolbox folder's files, and each
-    Edition's copy of the Example projects and the Templates."""
+    """Every file `main` holds, sorted: the README, the change notes, the license,
+    requirements.txt, the Toolbox's files, and the Example projects and the Templates."""
     toolbox = [f"{folder}/{path.name}" for folder in FOLDERS
                for path in (ROOT / folder).iterdir() if path.name != "__pycache__"]
-    copies = [f"{folder}/{edition.folder}/{relative}" for folder in COPIED
-              for edition in editions.EXPORTED for relative in copied_files(folder)]
-    return sorted([".github/README.md", "LICENSE", "requirements.txt", *toolbox, *copies])
+    copies = [f"{folder}/{relative}" for folder in COPIED for relative in copied_files(folder)]
+    return sorted([".github/README.md", "CHANGES.md", "LICENSE", "requirements.txt", *toolbox,
+                   *copies])
 
 
 def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
@@ -172,18 +170,12 @@ def test_anything_outside_the_allowlist_is_named() -> None:
     ]
 
 
-def test_the_example_projects_and_templates_nest_only_under_a_shipped_edition() -> None:
-    paths = ["example_projects/spark_composer/starter/statements/example_1_daily_job_runs.py",
-             "templates/sqlglot_composer/README.md",
-             "templates/sqlglot_composer/starter/notebook_start.py",
-             "example_projects/starter/run_pipeline.py", "templates/README.md",
-             "templates/composer_core/starter/notebook_start.py",
+def test_the_example_projects_and_templates_may_hold_anything_below_them() -> None:
+    paths = ["example_projects/starter/run_pipeline.py", "templates/README.md",
+             "templates/starter/notebook_start.py", "example_projects", "templates.py",
              "worked_examples/how_to/01_start_a_notebook.py"]
     assert export_clean.outside_allowlist(paths) == [
-        "example_projects/spark_composer/starter/statements/example_1_daily_job_runs.py",
-        "example_projects/starter/run_pipeline.py", "templates/README.md",
-        "templates/composer_core/starter/notebook_start.py",
-        "worked_examples/how_to/01_start_a_notebook.py"]
+        "example_projects", "templates.py", "worked_examples/how_to/01_start_a_notebook.py"]
 
 
 def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> None:
@@ -293,8 +285,8 @@ def test_the_export_refuses_while_a_drift_item_is_open(repo: Path) -> None:
 
 
 def dev_copy(folder: Path) -> Path:
-    """A copy of what the build reads from `dev`, every Toolbox folder and every folder main
-    holds a copy of for each Edition, to spoil on purpose."""
+    """A copy of what the build reads from `dev`, the Toolbox's folder and every folder main
+    holds a copy of, to spoil on purpose."""
     for name in [*FOLDERS, *COPIED]:
         shutil.copytree(ROOT / name, folder / name,
                         ignore=shutil.ignore_patterns("__pycache__"))
@@ -307,7 +299,7 @@ def dev_copy(folder: Path) -> Path:
     return folder
 
 
-@pytest.mark.parametrize("name", ["LICENSE", "requirements.txt"])
+@pytest.mark.parametrize("name", ["CHANGES.md", "LICENSE", "requirements.txt"])
 def test_main_holds_devs_root_files_word_for_word(clean: Path, name: str) -> None:
     # Unstamped: GitHub reads the license as is, and pip reads requirements.txt as is.
     assert (clean / name).read_text(encoding="utf-8") == (ROOT / name).read_text(encoding="utf-8")
@@ -317,7 +309,7 @@ def test_main_holds_the_mit_no_attribution_license(clean: Path) -> None:
     assert (clean / "LICENSE").read_text(encoding="utf-8").startswith("MIT No Attribution\n")
 
 
-@pytest.mark.parametrize("name", ["LICENSE", "requirements.txt"])
+@pytest.mark.parametrize("name", ["CHANGES.md", "LICENSE", "requirements.txt"])
 def test_a_dev_without_a_root_file_is_refused(tmp_path: Path, name: str) -> None:
     source = dev_copy(tmp_path / "dev")
     (source / name).unlink()
@@ -331,14 +323,14 @@ def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    (source / "sqlglot_composer" / "old_module.py").write_text('TOOLBOX_VERSION = "1.9"\n')
+    (source / "sqlglot_composer" / "old_module.py").write_text("x = 1\n")
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     # The whole four-part stop, not only its last line.
     assert str(refused.value).startswith(
         "The stamped copy of sqlglot Composer doesn't import, so nothing was exported:\n"
         "ImportError: sqlglot_composer stopped on import:\n"
-        "  What happened:  old_module.py is from Toolbox version 1.9, and "
+        "  What happened:  old_module.py is from another Toolbox version, and "
         "sqlglot_composer/__init__.py is from "
         f"{VERSION}.\n"
         "  Why it matters: ")
@@ -431,91 +423,57 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
-        ".github", "LICENSE", "composer_core", "example_projects", "requirements.txt",
+        ".github", "CHANGES.md", "LICENSE", "example_projects", "requirements.txt",
         "sqlglot_composer", "templates"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
 
 
-# --- Each shipped Edition's copies ----------------------------------------------------------------
-
-SHIPPED_EDITIONS = tuple(editions.EDITIONS.values())
+# --- The Toolbox's folder and the copies --------------------------------------------------------
 
 
 def _files_of(folder: Path) -> list[str]:
     return sorted(path.name for path in folder.iterdir() if path.name != "__pycache__")
 
 
-@pytest.mark.parametrize("edition", SHIPPED_EDITIONS, ids=lambda edition: edition.folder)
-def test_each_edition_is_stamped_with_its_own_name_and_one_time(clean: Path, edition) -> None:
-    stamp = (f"{edition.product} {VERSION}, exported 2026-10-02 14:05 - generated from dev, do "
-             "not edit")
-    for name in _files_of(clean / edition.folder):
-        first = (clean / edition.folder / name).read_text(encoding="utf-8").split("\n")[0]
-        assert first in (f"# {stamp}", f"<!-- {stamp} -->"), name
+def test_the_folder_is_stamped_with_its_name_and_one_time(clean: Path) -> None:
+    for name in _files_of(clean / "sqlglot_composer"):
+        first = (clean / "sqlglot_composer" / name).read_text(encoding="utf-8").split("\n")[0]
+        assert first in (f"# {STAMP}", f"<!-- {STAMP} -->"), name
 
 
-@pytest.mark.parametrize("folder", FOLDERS)
-def test_each_folders_file_list_names_its_own_files(clean: Path, folder: str) -> None:
-    init = (clean / folder / "__init__.py").read_text(encoding="utf-8")
-    assert files_list_in(init) == _files_of(ROOT / folder)
+def test_the_folders_file_list_names_its_own_files(clean: Path) -> None:
+    init = (clean / "sqlglot_composer" / "__init__.py").read_text(encoding="utf-8")
+    assert files_list_in(init) == _files_of(ROOT / "sqlglot_composer")
 
 
-@pytest.mark.parametrize("edition", SHIPPED_EDITIONS, ids=lambda edition: edition.folder)
-def test_each_editions_example_projects_and_templates_are_stamped_to_copy(
-        clean: Path, edition) -> None:
-    stamp = (f"{edition.product} {VERSION}, exported 2026-10-02 14:05 - copy it, then edit your "
-             "copy")
+def test_the_example_projects_and_templates_are_stamped_to_copy(clean: Path) -> None:
+    stamp = f"{VERSION_TEXT} - copy it, then edit your copy"
     for folder in COPIED:
         for relative in copied_files(folder):
-            first = (clean / folder / edition.folder / relative).read_text(
-                encoding="utf-8").split("\n")[0]
+            first = (clean / folder / relative).read_text(encoding="utf-8").split("\n")[0]
             assert first in (f"# {stamp}", f"<!-- {stamp} -->"), f"{folder}/{relative}"
 
 
-# A path a copied file names, such as example_projects/starter/README.md on dev.
-NAMED_PATH = re.compile(r"\b(?:example_projects|templates)/[\w/]*\w(?:\.\w+)?")
-
-
-@pytest.mark.parametrize("edition", SHIPPED_EDITIONS, ids=lambda edition: edition.folder)
-def test_below_the_stamp_each_copy_is_devs_with_mains_paths(
-        clean: Path, edition) -> None:
+def test_below_the_stamp_each_copy_is_devs_own(clean: Path) -> None:
     for folder in COPIED:
         for relative in copied_files(folder):
-            exported = (clean / folder / edition.folder / relative).read_text(
-                encoding="utf-8").split("\n", 1)[1]
-            dev = (ROOT / folder / relative).read_text(encoding="utf-8")
-            # Only the lines naming a place, which sits one folder deeper on main, differ.
-            differ = [(ours, theirs) for ours, theirs in zip(exported.split("\n"),
-                                                             dev.split("\n"), strict=True)
-                      if ours != theirs]
-            assert all(NAMED_PATH.search(ours) or "PYTHONPATH" in ours for ours, _ in differ)
-            for named in NAMED_PATH.findall(exported):
-                assert (clean / named).exists(), f"{folder}/{relative} names {named}"
+            exported = (clean / folder / relative).read_text(encoding="utf-8").split("\n", 1)[1]
+            assert exported == (ROOT / folder / relative).read_text(encoding="utf-8"), relative
 
 
-@pytest.mark.parametrize("edition", SHIPPED_EDITIONS, ids=lambda edition: edition.folder)
-def test_each_example_projects_pythonpath_finds_the_toolbox_on_main(
-        clean: Path, edition) -> None:
-    for project in (clean / "example_projects" / edition.folder).iterdir():
+def test_each_example_projects_pythonpath_finds_the_toolbox_on_main(clean: Path) -> None:
+    for project in (clean / "example_projects").iterdir():
         readme_text = (project / "README.md").read_text(encoding="utf-8")
         given = re.findall(r"^(?:set )?PYTHONPATH=(\S+)", readme_text, re.MULTILINE)
         assert len(given) == 2, project.name
         for path in given:
             toolbox = (project / path.replace("\\", "/")).resolve()
-            assert (toolbox / "composer_core").is_dir() and (toolbox / edition.folder).is_dir()
-
-
-def test_the_composer_core_is_stamped_with_its_own_name_and_the_same_time(clean: Path) -> None:
-    stamp = (f"Composer core {VERSION}, exported 2026-10-02 14:05 - generated from dev, do not "
-             "edit")
-    for name in _files_of(clean / editions.CORE):
-        first = (clean / editions.CORE / name).read_text(encoding="utf-8").split("\n")[0]
-        assert first in (f"# {stamp}", f"<!-- {stamp} -->"), name
+            assert (toolbox / "sqlglot_composer").is_dir()
 
 
 def _range_of(folder: str) -> dict[str, str]:
-    """An Edition's engine.py's version constants, such as {"_LOWEST": "25.24.2"}."""
+    """A folder's engine.py's version constants, such as {"_LOWEST": "25.24.2"}."""
     text = (ROOT / folder / "engine.py").read_text(encoding="utf-8")
     return {name: ".".join(numbers.replace(" ", "").split(","))
             for name, numbers in re.findall(r"^(_\w+) = \(([\d, ]+)\)$", text, re.MULTILINE)}
@@ -533,7 +491,7 @@ def test_the_readme_says_what_the_toolbox_needs_as_its_engine_checks_it() -> Non
     template = " ".join((ROOT / export_clean.README_TEMPLATE).read_text(encoding="utf-8").split())
     sql = _range_of("sqlglot_composer")
     python = re.search(r"^_PYTHON_NEEDED = \((\d+), (\d+)\)$",
-                       (ROOT / "composer_core" / "checks.py").read_text(encoding="utf-8"),
+                       (ROOT / "sqlglot_composer" / "checks.py").read_text(encoding="utf-8"),
                        re.MULTILINE).groups()
     assert f"The Toolbox needs Python {'.'.join(python)} or newer" in template
     assert (f"any sqlglot from {sql['_LOWEST']} up to (not including) {_short(sql['_BELOW'])}, "
@@ -556,11 +514,11 @@ def without_sqlglot_composer(folder: Path) -> Path:
     return folder
 
 
-def test_an_edition_the_commit_lacks_is_refused(tmp_path: Path,
-                                                monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_commit_without_the_toolbox_is_refused(tmp_path: Path,
+                                                  monkeypatch: pytest.MonkeyPatch) -> None:
     repo = make_repo(tmp_path, monkeypatch, without_sqlglot_composer, autocrlf="false")
-    with pytest.raises(export_clean.ExportRefused, match="but this commit doesn't have "
-                       "sqlglot_composer. Commit the folder on dev, or take its Edition out"):
+    with pytest.raises(export_clean.ExportRefused, match="The export ships sqlglot_composer, "
+                       "but this commit doesn't have it. Commit the folder on dev."):
         export_clean.export(repo, WHEN)
 
 
@@ -572,35 +530,22 @@ def test_a_commit_without_the_templates_is_refused(tmp_path: Path) -> None:
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
-def test_folders_of_different_versions_are_refused(tmp_path: Path) -> None:
+def test_files_of_different_versions_are_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    init = source / "sqlglot_composer" / "__init__.py"
-    init.write_text(init.read_text(encoding="utf-8").replace(
+    writing = source / "sqlglot_composer" / "writing.py"
+    writing.write_text(writing.read_text(encoding="utf-8").replace(
         f'TOOLBOX_VERSION = "{VERSION}"', 'TOOLBOX_VERSION = "9.9"'), encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value) == (
-        f"The Toolbox's folders share one version, but composer_core is {VERSION} and "
-        "sqlglot_composer is 9.9. Set TOOLBOX_VERSION in every .py file of composer_core/, "
-        "sqlglot_composer/, and commit.")
+        f"The Toolbox's files share one version, but __init__.py is {VERSION} and writing.py "
+        "is 9.9. Set TOOLBOX_VERSION in every .py file of sqlglot_composer/, and commit.")
 
 
 def spoil(path: Path, old: str, new: str) -> None:
     text = path.read_text(encoding="utf-8")
     assert text.count(old) == 1, f"{path.name} no longer holds {old!r}"
     path.write_text(text.replace(old, new), encoding="utf-8")
-
-
-def test_an_edition_that_imports_without_composer_core_beside_it_is_refused(
-        tmp_path: Path) -> None:
-    source = dev_copy(tmp_path / "dev")
-    spoil(source / "sqlglot_composer" / "__init__.py", "if _CORE is None:", "if False:")
-    with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
-    assert str(refused.value).startswith(
-        "sqlglot_composer, copied without composer_core beside it, must stop on import and say "
-        "to copy composer_core, but it gave:\nImportError: sqlglot_composer stopped on import:\n"
-        "  What happened:  __init__.py, checks.py are missing from the composer_core folder.\n")
 
 
 def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> None:
@@ -610,7 +555,7 @@ def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> No
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(
-        "example_projects/sqlglot_composer/intermediate/run_pipeline.py doesn't run its dry run "
+        "example_projects/intermediate/run_pipeline.py doesn't run its dry run "
         "on main, so nothing was exported:\nValueError: ")
 
 
@@ -619,8 +564,8 @@ def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
     spoil(source / "example_projects" / "starter" / "run_pipeline.py",
           "    dry_run(DAY)\n", '    dry_run(DAY)\n    Path("left_behind.txt").write_text("x")\n')
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
-            "example_projects/sqlglot_composer/starter/run_pipeline.py's dry run left files "
-            "in the Clean tree: ['example_projects/sqlglot_composer/starter/left_behind.txt']")):
+            "example_projects/starter/run_pipeline.py's dry run left files "
+            "in the Clean tree: ['example_projects/starter/left_behind.txt']")):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
@@ -639,7 +584,7 @@ def test_a_template_that_imports_a_network_client_is_refused(tmp_path: Path) -> 
     # Line 2 on main: the export's stamp is line 1.
     assert str(refused.value).startswith(
         NETWORK_REFUSAL
-        + "  templates/sqlglot_composer/starter/daily_pipeline.py:2 network: import requests\n")
+        + "  templates/starter/daily_pipeline.py:2 network: import requests\n")
 
 
 def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path) -> None:
@@ -650,7 +595,7 @@ def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path)
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(
         NETWORK_REFUSAL
-        + "  example_projects/sqlglot_composer/starter/lineage/all_three.html:2 page reference: ")
+        + "  example_projects/starter/lineage/all_three.html:2 page reference: ")
     assert '<script src="https://example.com/x.js">' in str(refused.value)
 
 
@@ -676,11 +621,12 @@ def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(NETWORK_REFUSAL)
-    assert "example_projects/sqlglot_composer/starter/run_pipeline.py:" in str(refused.value)
+    assert "example_projects/starter/run_pipeline.py:" in str(refused.value)
     assert not list((tmp_path / "clean").rglob("left_behind.txt"))
 
 
 def test_the_allowlist_takes_only_the_exported_folders() -> None:
     paths = ["composer_core/tables.py", "sqlglot_composer/writing.py", "spark_composer/writing.py",
              ".github/README.md"]
-    assert export_clean.outside_allowlist(paths) == ["spark_composer/writing.py"]
+    assert export_clean.outside_allowlist(paths) == ["composer_core/tables.py",
+                                                     "spark_composer/writing.py"]

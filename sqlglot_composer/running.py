@@ -11,7 +11,7 @@ import inspect
 import textwrap
 from typing import NamedTuple
 
-from . import edition
+from . import _FOLDER, writing
 from .clauses import (
     FROM,
     WHERE,
@@ -401,11 +401,11 @@ def _statement_tree(s: Statement) -> Node:
 
 
 def _self_check(text: str) -> None:
-    """The Hive must read back as the same text (edition.read_back), or nothing is sent."""
-    again = edition.read_back(text)
+    """The Hive must read back as the same text (writing.read_back), or nothing is sent."""
+    again = writing.read_back(text)
     if again != text:
         raise RuntimeError(
-            f"{edition.FOLDER} wrote Hive that doesn't read back the same. This is a bug in the "
+            f"{_FOLDER} wrote Hive that doesn't read back the same. This is a bug in the "
             "Toolbox, not in your Statement: nothing was sent. Please report it with the "
             f"Statement that caused it.\n\nWritten:\n{text}\n\nRead back:\n{again}"
         )
@@ -440,12 +440,12 @@ def to_hive(s):
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
                     why="to_hive writes the Hive of one Statement made by statement(...).")
     if s._admin_hive is not None:
-        # An ALTER TABLE, which the admin module writes from pieces the Edition wrote and
-        # checked: not a tree the Edition reads back.
+        # An ALTER TABLE, which the admin module writes from pieces writing.py wrote and
+        # checked: not a tree writing.py reads back.
         return s._admin_hive
     if s._ddl is None:
         _check_dates_cap(s)
-    text = edition.hive_statement(_statement_tree(s))
+    text = writing.hive_statement(_statement_tree(s))
     _self_check(text)
     return text
 
