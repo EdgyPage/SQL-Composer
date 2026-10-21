@@ -625,12 +625,14 @@ def refresh_reference_sheet(name=None):
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
     Each row gives the table, the column, its type, "yes" when it is the Date partition or in
-    the Key, its column Aliases (each line below the Table(...) call that names one column
-    alone, such as minutes = job_runs.duration_mins), its description, and when the sheet was
-    written. The sheet is read from the files in references/, never from the warehouse. Given
-    a table's name, it replaces only that table's rows. A file that doesn't run yet, such as
-    one with a <...> still to fill in, is left out (or, given its name, keeps its rows from
-    before), and the report says so. It changes no other file, and isn't logged.
+    the Key, its Aliases (each line below the Table(...) call that reads that column alone,
+    such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, "FAILED"),
+    shown as "failed (a condition)"), its description, and when the sheet was written. The
+    sheet is read from the files in references/, never from the warehouse. Given a table's
+    name, it replaces only that table's rows. A file that doesn't run yet, such as one with a
+    <...> still to fill in, is left out (or, given its name, keeps its rows from before), and
+    the report says so. It changes no other file, and isn't logged: its exported_at column
+    says when it was written.
 
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
@@ -697,8 +699,8 @@ def _sheet(root: Path) -> list[dict]:
 
 def _reference_rows(path: Path, now: str) -> list[dict] | None:
     """The Reference sheet's rows for one Table reference file, read without running it: its
-    Table(...) call's name, columns, Date partition, Key and descriptions, and the column
-    Aliases below it. None for a file that doesn't parse or has no Table(...)."""
+    Table(...) call's name, columns, Date partition, Key and descriptions, and the Aliases below
+    it that read one column. None for a file that doesn't parse or has no Table(...)."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (SyntaxError, ValueError):
@@ -720,9 +722,11 @@ def _reference_rows(path: Path, now: str) -> list[dict] | None:
         return None
     aliases: dict[str, list[str]] = {}
     for target, value in assigned:
-        if (isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name)
-                and value.value.id == variable):
-            aliases.setdefault(value.attr, []).append(target)
+        read = {node.attr for node in ast.walk(value) if isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name) and node.value.id == variable}
+        if len(read) == 1:  # an Alias of one column, or a condition on it alone
+            shown = target if isinstance(value, ast.Attribute) else f"{target} (a condition)"
+            aliases.setdefault(read.pop(), []).append(shown)
     key = values.get("key") or []
     key = [key] if isinstance(key, str) else list(key)
     descriptions = values.get("descriptions") or {}

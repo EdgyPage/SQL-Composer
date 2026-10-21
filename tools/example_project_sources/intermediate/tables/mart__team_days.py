@@ -90,7 +90,7 @@ def write_days(first_day, last_day):
 
 def write_day(day):
     """Step 3, every run, once the two tables it reads have written the same days: the writes
-    of the last 3 days, ending on the day, oldest first."""
+    of the last 3 days, ending on the day, as a list, oldest first."""
     return write_days(first_day_written(day), day)
 
 

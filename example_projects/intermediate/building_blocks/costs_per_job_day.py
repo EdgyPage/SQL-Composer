@@ -16,7 +16,9 @@ regions has a row in each, which this adds up.
 
 import datetime
 
-from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, between, derived, statement, sum_of
+from sqlglot_composer import (
+    AS, FROM, GROUP_BY, SELECT, WHERE, between, derived, statement, sum_of,
+)
 from references.ops__region_costs import region_costs
 
 

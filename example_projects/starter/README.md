@@ -19,7 +19,7 @@ starter/
 ├── send.py                  your send: here, the Example database's
 ├── admin/                   one notebook per Project action, and the Templates
 │   ├── admin_log.md         every Project action, in the order it ran
-│   ├── registry.csv         every Table folder and Table reference a Project action made
+│   ├── registry.csv         every Table folder and Table reference made, and when
 │   └── templates/           the Templates new_table makes notebooks from
 ├── references/              a Table reference per table, and the Reference sheet
 │   ├── ops__jobs.py, ops__job_runs.py, ops__run_alerts.py   add_references wrote these

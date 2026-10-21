@@ -17,7 +17,7 @@ mart.team_day,high_alerts,bigint,,,,,2026-09-25 06:00:00
 mart.team_day,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
 ops.job_runs,run_id,bigint,,yes,,,2026-09-25 06:00:00
 ops.job_runs,job_id,bigint,,,,,2026-09-25 06:00:00
-ops.job_runs,status,string,,,,"SUCCESS / FAILED / TEST, NULL while running",2026-09-25 06:00:00
+ops.job_runs,status,string,,,failed (a condition),"SUCCESS / FAILED / TEST, NULL while running",2026-09-25 06:00:00
 ops.job_runs,duration_mins,int,,,minutes,,2026-09-25 06:00:00
 ops.job_runs,avg_retry_secs,double,,,,,2026-09-25 06:00:00
 ops.job_runs,dt,string,yes,,,,2026-09-25 06:00:00
@@ -27,5 +27,5 @@ ops.jobs,team,string,,,,,2026-09-25 06:00:00
 ops.jobs,region,string,,,,,2026-09-25 06:00:00
 ops.run_alerts,alert_id,bigint,,yes,,,2026-09-25 06:00:00
 ops.run_alerts,run_id,bigint,,,,,2026-09-25 06:00:00
-ops.run_alerts,severity,string,,,,low / high,2026-09-25 06:00:00
+ops.run_alerts,severity,string,,,high (a condition),low / high,2026-09-25 06:00:00
 ops.run_alerts,dt,string,yes,,,,2026-09-25 06:00:00

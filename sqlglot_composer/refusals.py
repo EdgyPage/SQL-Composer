@@ -173,7 +173,8 @@ def guard_date_formats_differ(call: str, first: str, first_format: str, first_da
             "table whose Table reference writes its days like the other table's: each write "
             "puts its day into the Saved table written the Saved table's way, so the days then "
             "match. The intermediate Example project, in the Toolbox download's "
-            "example_projects folder, does this in statements/example_1_job_day_costs.py.",
+            "example_projects folder, does this in mart.job_day_costs's Table notebook, "
+            "tables/mart__job_day_costs/mart__job_day_costs.ipynb.",
             opt_out=None,
         )
     )

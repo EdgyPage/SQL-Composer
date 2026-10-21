@@ -97,3 +97,33 @@ Built 2026-10-21 on branch `toolbox-6/09b-example-projects-as-projects`.
   sources, and F401 in `change_a_saved_table.ipynb`, whose examples are commented out.
 
 #### 09b's reviews
+
+- Spec (2026-10-21): `refusals.py`'s day-format fix pointed at the deleted
+  `statements/example_1_job_day_costs.py`, and now names mart.job_day_costs's Table notebook;
+  CONTEXT.md's Level and Example project entries still spoke of `run_pipeline.py` and a
+  settings.py, and now give a Project's Levels and call an Example project a Project; the
+  intermediate README and `days_rewritten.py` said every table writes its last 3 days, and now
+  say the counting tables do, and why the checks write only their day. Answered: 5.x's
+  settings-driven checks and lineage review aren't carried over (the how-tos keep them, and
+  ticket 10 moves the how-tos to Projects).
+- Standards (2026-10-21): lines over 96 wide wrapped; `write_here` split into its steps
+  (`_set_the_day`, `_add_references`, `_add_saved_tables`, `_export_lineage`, `_tidy`);
+  `table.replace(".", "__")` is now `project.table_stem`. Answered: the tool imports the
+  private `_template_cells` and `_write_notebook`, with a comment saying why: a user fills a
+  notebook in by hand in Jupyter, so a public way to write one over would be for this tool
+  alone; FILLED_IN, SAVED_TABLES and LINEAGE_ACROSS stay three tables of data, each read by
+  one step; the Example projects hold no `sqlglot_composer` folder, and their READMEs say to
+  copy it in; `import pathlib` and `import sys` are two lines, and `change_a_saved_table.ipynb`
+  has a per-file F401 ignore, since ruff lints notebooks.
+- Beginner reader (2026-10-21): the Reference sheet left out condition Aliases (`failed`,
+  `high`, `ends_a_run`), and now lists an Alias that reads one column alone in that column's
+  row, a condition shown as `failed (a condition)`; how the day reaches PARTITION(...) and
+  what `by_day` leaves of a joined table's bound are said plainly; `admin/run_tables.ipynb`'s
+  DAY is the Example database's last day; `write_day` says when it gives a list; the admin log
+  names commit `nogit`, what a folder outside git gives, rather than `pinned`; the starter's
+  logic cells number themselves 2 like the others; mart.team_day's lineage cell says what
+  `project.load` gives. Answered: the README's step 8 is ticket 10's to replace; the Reference
+  sheet isn't logged, and its `exported_at` says when it was written; `GROUP_BY("week", ...)`
+  and `column_name` say why where they are; ops.job_events' `minutes` stays out of
+  `does_not_add_up`, which is for averages, ratios and distinct counts (its comment says so),
+  and is added only at the events `ends_a_run` picks.

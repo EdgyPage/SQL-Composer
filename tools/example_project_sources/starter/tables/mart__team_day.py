@@ -33,6 +33,7 @@ DAY = "2026-09-24"  # the Example database's last day
 
 # %%
 # logic
+# 2. The logic: imports and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, LEFT_JOIN, SELECT, WHERE, all_of, between,
     by_day, create_table, equals, fill_null, statement, sum_of,
@@ -113,8 +114,9 @@ show_hive([create(), write_day(DAY)])
 run(team_runs_from_job_runs(DAY), send=send)
 
 # %%
-# 4. Lineage: the three tables together, through the other two notebooks' logic, in a new pair
-# in lineage/ named by the time and this table
+# 4. Lineage: the three tables together, in a new pair in lineage/ named by the time and this
+# table. project.load gives another notebook's logic cell, run, so its write_day can be
+# drawn here too.
 daily = project.load("mart.daily_job_runs")
 alerts = project.load("mart.alerts_per_job")
 export_lineage(daily.write_day(DAY), alerts.write_day(DAY), write_day(DAY))

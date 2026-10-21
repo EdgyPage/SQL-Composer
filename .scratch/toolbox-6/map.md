@@ -198,6 +198,12 @@ lands before 05.
   ADR 0010), re-reading references/ and building_blocks/ each time; `run_tables` prints a dry
   run without `send`, and with it prints each table as it works and stops at the first failure,
   logging nothing; one write's lineage goes in its Table folder when that folder exists.
+- [09 Templates and Example projects as Projects](issues/09-templates-and-example-projects-as-projects.md):
+  09a ships the Templates as text in `sqlglot_composer/project_templates.py`, so the Toolbox
+  stays one flat folder and `templates/` is gone; `weekly_rollup` saves days and `week_totals`
+  reads weeks; `incremental_load`'s `write_day` gives a list. 09b makes each Example project a
+  Project, written by `tools/example_project.py` through the Project actions with the time and
+  commit pinned; the Reference sheet now lists condition Aliases beside their column.
 
 ## Not yet specified
 

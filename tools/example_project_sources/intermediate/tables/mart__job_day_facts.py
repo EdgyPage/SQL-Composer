@@ -67,7 +67,8 @@ def write_days(first_day, last_day):
 
 
 def write_day(day):
-    """Step 3, every run: the writes of the last 3 days, ending on the day, oldest first."""
+    """Step 3, every run: the writes of the last 3 days, ending on the day, as a list, oldest
+    first, so cell 3 passes them on as *write_day(DAY). run_tables sends each in turn."""
     return write_days(first_day_written(day), day)
 
 # %%

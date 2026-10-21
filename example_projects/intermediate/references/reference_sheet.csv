@@ -18,7 +18,7 @@ mart.team_days,cost_cents,bigint,,,,NULL while none of the team's bills for the 
 mart.team_days,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
 ops.job_events,event_id,bigint,,yes,,,2026-09-25 06:00:00
 ops.job_events,job_id,bigint,,,,,2026-09-25 06:00:00
-ops.job_events,event_type,string,,,,start / finish / retry / fail,2026-09-25 06:00:00
+ops.job_events,event_type,string,,,ends_a_run (a condition),start / finish / retry / fail,2026-09-25 06:00:00
 ops.job_events,minutes,int,,,,minutes since the run started,2026-09-25 06:00:00
 ops.job_events,dt,string,yes,,,,2026-09-25 06:00:00
 ops.job_owners,job_id,bigint,,yes,,,2026-09-25 06:00:00

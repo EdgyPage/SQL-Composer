@@ -411,7 +411,9 @@ def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started) -> N
     reference = started / "references" / "ops__job_runs.py"
     text = reference.read_text(encoding="utf-8").replace("key=None,", 'key=["run_id"],')
     reference.write_text(text + "minutes = job_runs.duration_mins\n"
-                         "failed = job_runs.status == 'x'\n", encoding="utf-8")
+                         'failed = equals(job_runs.status, "FAILED")\n'
+                         "slow = job_runs.duration_mins > job_runs.avg_retry_secs\n",
+                         encoding="utf-8")
     report = project.refresh_reference_sheet()
     rows = {row["column"]: row for row in sheet(started)}
     assert list(rows) == ["run_id", "job_id", "status", "duration_mins", "avg_retry_secs", "dt"]
@@ -420,6 +422,8 @@ def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started) -> N
         "in_key": "yes", "aliases": "", "description": "", "exported_at": ""}
     assert rows["dt"]["date_partition"] == "yes"
     assert rows["duration_mins"]["aliases"] == "minutes"
+    assert rows["status"]["aliases"] == "failed (a condition)"
+    assert rows["avg_retry_secs"]["aliases"] == ""  # slow reads two columns
     assert rows["status"]["description"] == "SUCCESS / FAILED / TEST, NULL while running"
     assert {row["exported_at"] for row in rows.values()} == {"2026-10-21 09:30:00"}
     assert repr(report) == "Wrote references/reference_sheet.csv: 6 rows, 1 table."
@@ -606,7 +610,8 @@ def test_run_tables_with_no_send_prints_each_write_writers_first(two_tables, cap
     report = project.run_tables("2026-09-24", tables=["mart.team_runs", "mart.daily_runs"])
     printed = capsys.readouterr().out
     daily = printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs")
-    assert daily < printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs")
+    team = printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs")
+    assert daily < team
     assert repr(report) == ("Printed 2 writes in order, and sent nothing. Pass send= to run "
                             "them.")
 

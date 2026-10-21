@@ -79,10 +79,10 @@ _Avoid_: nickname, shortcut, synonym
 
 **Level**:
 One of three tiers of the user's own scripts. A script imports only from lower Levels and from the
-Toolbox, never from a higher or equal Level. A script that runs Statements in order, such as an
-Example project's run_pipeline.py, sits above the three Levels, so it may import from all of them.
-A settings.py beside them, which holds what Statements read about each table and imports none of
-the user's scripts, is Level 0, like the Table references.
+Toolbox, never from a higher or equal Level. In a Project, the Table references and the send are
+Level 0, the Building blocks Level 1, and each Table notebook's logic Level 2. What runs the
+Statements of many Table notebooks in order sits above the three Levels, so it may read all of
+them.
 _Avoid_: layer, tier, stage
 
 **Table reference**:
@@ -250,10 +250,10 @@ with the Python that builds it and the Hive it emits. It sits either in a Toolbo
 _Avoid_: case, sample, recipe, demo
 
 **Example project**:
-A folder of the user's own scripts laid out as a project at work should be - Table references,
-Building blocks, Statements and a script that runs them in order - written for the Example
-database's tables, to read and copy from. Where a Worked example shows one Statement and its
-Hive, an Example project shows the files around many; a Template is the empty shape to fill in.
+A Project made for the Example database's tables, as the user makes their own - its Table
+references, Building blocks and a Table notebook per Saved table, filled in - to read and copy
+from. Where a Worked example shows one Statement and its Hive, an Example project shows the files
+around many; a Template is the empty shape to fill in.
 _Avoid_: sample project, demo, template, starter kit
 
 **Template**:

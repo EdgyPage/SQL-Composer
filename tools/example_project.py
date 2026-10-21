@@ -23,8 +23,9 @@ For each project, in a Python of its own, started in an empty folder, it:
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does.
 
-The time, the commit and the calling script are pinned, as if a notebook ran everything on
-PINNED_TIME at a commit named "pinned", so the files are the same on every computer. The
+admin/run_tables.ipynb's DAY is set to the Example database's last day, as a user sets it. The
+time, the commit and the calling script are pinned, as if a notebook ran everything on
+PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
 version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
 until this is run again. It runs no SELECT, only DESCRIBE and SHOW PARTITIONS, which
 add_references sends.
@@ -47,7 +48,7 @@ SOURCES = ROOT / "tools" / "example_project_sources"
 # The time every Project action and lineage is made at, the commit it names, and the day each
 # lineage draws: the Example database's last day.
 PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
-PINNED_COMMIT = "pinned"
+PINNED_COMMIT = "nogit"  # what scripts_commit gives for a folder that isn't in git
 DAY = "2026-09-24"
 
 # What a user fills in by hand after add_references: each table's one-line description, its
@@ -165,8 +166,9 @@ def filled_in(text: str, table: str, filling: dict) -> str:
          _does_not_add_up_line(filling["does_not_add_up"])),
     ]
     if filling.get("calls"):
+        calls = ", ".join(filling["calls"])
         replacements.append(("from sqlglot_composer import Table",
-                             f"from sqlglot_composer import Table, {', '.join(filling['calls'])}"))
+                             f"from sqlglot_composer import Table, {calls}"))
     if partition:
         replacements.append((TODO_DATE_PARTITION, _date_partition_lines(partition)))
     lines = text.split("\n")
@@ -234,20 +236,53 @@ def write_here(name: str) -> None:
     folder = Path.cwd()
     sys.path[:0] = [str(folder), str(ROOT)]
     import sqlglot_composer
-    from sqlglot_composer import example_database, export_lineage, project
-    from sqlglot_composer.project import _template_cells, _write_notebook
+    from sqlglot_composer import project
 
     pin(sqlglot_composer)
-    source = SOURCES / name
     project.start()
+    _set_the_day(folder)
+    _add_references(name, folder)
+    _add_saved_tables(name, folder)
+    project.refresh_reference_sheet()
+    _export_lineage(name, folder)
+    _tidy(folder)
+
+
+def _set_the_day(folder: Path) -> None:
+    """Have admin/run_tables.ipynb write the Example database's last day, as a user sets DAY."""
+    path = folder / "admin" / "run_tables.ipynb"
+    text = path.read_text(encoding="utf-8")
+    written = '\\"2026-10-20\\"  # the day to write, as your tables write their days'
+    if text.count(written) != 1:
+        raise TodoMissing(f"admin/run_tables.ipynb has no {written!r} line to set: change "
+                          "_set_the_day in tools/example_project.py to match start's.")
+    path.write_text(text.replace(written, f'\\"{DAY}\\"  # the Example database\'s last day'),
+                    encoding="utf-8")
+
+
+def _add_references(name: str, folder: Path) -> None:
+    """Write the Example database's Table references, then fill in their TODO lines."""
+    from sqlglot_composer import example_database, project
+
     project.add_references(list(FILLED_IN[name]), send=example_database.send)
     for table, filling in FILLED_IN[name].items():
-        path = folder / "references" / f"{table.replace('.', '__')}.py"
+        path = folder / "references" / f"{project.table_stem(table)}.py"
         path.write_text(filled_in(path.read_text(encoding="utf-8"), table, filling),
                         encoding="utf-8")
+
+
+def _add_saved_tables(name: str, folder: Path) -> None:
+    """Make each Saved table's Table folder, then fill in its Table reference, its notebook and
+    the Building blocks from the project's hand-written sources."""
+    from sqlglot_composer import project
+    # Private, since a user fills a notebook in by hand in Jupyter, where this tool writes the
+    # source's cells over the Template's in one go.
+    from sqlglot_composer.project import _template_cells, _write_notebook
+
+    source = SOURCES / name
     for table, template in SAVED_TABLES[name]:
         project.new_table(table, template=template)
-        stem = table.replace(".", "__")
+        stem = project.table_stem(table)
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
         notebook = (source / "tables" / f"{stem}.py").read_text(encoding="utf-8")
@@ -255,16 +290,25 @@ def write_here(name: str) -> None:
     for block in sorted((source / "building_blocks").glob("*.py")):
         shutil.copyfile(block, folder / "building_blocks" / block.name)
     shutil.copyfile(source / "README.md", folder / "README.md")
-    project.refresh_reference_sheet()
+
+
+def _export_lineage(name: str, folder: Path) -> None:
+    """Export each Saved table's lineage from its Table folder, as its notebook's lineage cell
+    does, drawing the tables in LINEAGE_ACROSS first."""
+    from sqlglot_composer import export_lineage, project
+
     for table, _ in SAVED_TABLES[name]:
-        stem = table.replace(".", "__")
-        os.chdir(folder / "tables" / stem)  # as the notebook's lineage cell runs
+        os.chdir(folder / "tables" / project.table_stem(table))
         writes = []
         for drawn in [*LINEAGE_ACROSS.get(table, []), table]:
             written = project.load(drawn).write_day(DAY)
             writes += written if isinstance(written, list) else [written]
         export_lineage(*writes)
         os.chdir(folder)
+
+
+def _tidy(folder: Path) -> None:
+    """Give every file \\n line endings, and remove Python's caches."""
     for path in folder.rglob("*"):
         if path.is_file() and "__pycache__" not in path.parts:
             _write_with_unix_endings(path)

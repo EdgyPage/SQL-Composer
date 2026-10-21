@@ -128,8 +128,10 @@ def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
     assert sorted({row["table"] for row in rows}) == [
         "mart.alerts_per_job", "mart.daily_job_runs", "mart.team_day", "ops.job_runs",
         "ops.jobs", "ops.run_alerts"]
-    assert [row["aliases"] for row in rows
-            if (row["table"], row["column"]) == ("ops.job_runs", "duration_mins")] == ["minutes"]
+    aliases = {(row["table"], row["column"]): row["aliases"] for row in rows if row["aliases"]}
+    assert aliases == {("ops.job_runs", "duration_mins"): "minutes",
+                       ("ops.job_runs", "status"): "failed (a condition)",
+                       ("ops.run_alerts", "severity"): "high (a condition)"}
 
 
 # --- Each Table notebook's logic ------------------------------------------------------------
@@ -213,7 +215,8 @@ def alerts_on(day: str) -> pd.DataFrame:
     joined = alerts[alerts.dt == day].merge(runs[runs.dt.isin(days)][["run_id", "job_id"]],
                                             on="run_id")
     joined = joined.assign(high=lambda rows: rows.severity == "high")
-    return (joined.groupby("job_id").agg(alerts=("alert_id", "size"), high_alerts=("high", "sum"))
+    return (joined.groupby("job_id")
+            .agg(alerts=("alert_id", "size"), high_alerts=("high", "sum"))
             .reset_index())
 
 
@@ -225,7 +228,7 @@ def team_runs_on(day: str) -> pd.DataFrame:
 
 
 def costs_on(day: str) -> pd.DataFrame:
-    """Each job's cost on the day, every region added up, in pandas: NULL while no bill is in."""
+    """Each job's cost on the day, every region added up, in pandas: NULL with no bill in."""
     costs = example_rows("region_costs")
     costs = costs[costs.dt == day.replace("-", "")]
     return (costs.groupby("job_id")
@@ -241,7 +244,8 @@ def facts_on(day: str) -> pd.DataFrame:
     per_job = (events.assign(start=events.event_type == "start",
                              ended=events.minutes.where(ends, 0))
                .groupby("job_id")
-               .agg(events=("event_id", "size"), runs=("start", "sum"), minutes=("ended", "sum"))
+               .agg(events=("event_id", "size"), runs=("start", "sum"),
+                    minutes=("ended", "sum"))
                .reset_index())
     owners = example_rows("job_owners")
     owners = owners[owners.dt == day][["job_id", "team"]]
