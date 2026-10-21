@@ -65,10 +65,7 @@ FILLS = {
         "<KNOWN_QUERY>": "\"SELECT * FROM ops.job_runs WHERE dt = '2026-09-24' LIMIT 5\"",
         "<TABLE_NAME>": '"ops.job_runs"',
         "<TABLE>": "job_runs",
-        "<REFERENCE_FILE>": "ops__job_runs",
-        # The Example project's own Table references, which the filled Templates import, are
-        # named for their tables alone.
-        "<KEPT_REFERENCE_FILE>": "job_runs",
+        "<TABLE_FILE>": "ops__job_runs",
         "<DATE_PARTITION>": "dt",
         "<DAY>": '"2026-09-24"',
         "<SAVED_TABLE>": "job_day_minutes",
@@ -98,23 +95,28 @@ FILLS = {
         "<DAY>": '"2026-09-24"',
         "<DAYS_REWRITTEN>": "3",
         "<TABLE>": "job_events",
+        "<TABLE_FILE>": "ops__job_events",
         "<MATCH_COLUMN>": "job_id",
         "<DATE_PARTITION>": "dt",
         "<SNAPSHOT>": "job_owners",
+        "<SNAPSHOT_FILE>": "ops__job_owners",
         "<SNAPSHOT_MATCH_COLUMN>": "job_id",
         "<SNAPSHOT_DATE_PARTITION>": "dt",
         "<LOOKED_UP_COLUMN>": "team",
         "<SNAPSHOT_DAYS>": "7",
         "<EXPECTED_TABLE>": "job_owners",
+        "<EXPECTED_TABLE_FILE>": "ops__job_owners",
         "<EXPECTED_MATCH_COLUMN>": "job_id",
         "<EXPECTED_DATE_PARTITION>": "dt",
         "<KEY_COLUMN>": "event_id",
         "<FIRST_TABLE>": "region_costs",
+        "<FIRST_TABLE_FILE>": "ops__region_costs",
         "<FIRST_TABLE_NAME>": '"ops.region_costs"',
         "<FIRST_DATE_PARTITION>": '"dt"',
         "<FIRST_KEY>": '"job_id", "region", "dt"',
         "<FIRST_ADD_UP>": '"cost_cents"',
         "<SECOND_TABLE>": "job_events",
+        "<SECOND_TABLE_FILE>": "ops__job_events",
         "<SECOND_TABLE_NAME>": '"ops.job_events"',
         "<SECOND_DATE_PARTITION>": '"dt"',
         "<SECOND_KEY>": '"event_id"',
@@ -272,10 +274,15 @@ def filled_project(name: str, folder: Path):
     each Template became, by its name, such as "saved_table": the folder, the path it was
     written to and its module, imported while the project is on the path. notebook_start's
     isn't imported, since it runs as it is imported."""
+    (folder / "table_references").mkdir()
     for project in TABLE_REFERENCES_FROM[name]:
-        shutil.copytree(EXAMPLE_PROJECTS / project / "table_references",
-                        folder / "table_references", dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns("__pycache__"))
+        for path in (EXAMPLE_PROJECTS / project / "table_references").glob("*.py"):
+            # Named as write_table_reference names a file today too, such as
+            # ops__job_runs.py, which the filled Templates import.
+            text = path.read_text(encoding="utf-8")
+            table = re.search(r'Table\(\n    "(\w+)\.(\w+)",', text)
+            for file_name in {path.name, f"{table[1]}__{table[2]}.py" if table else path.name}:
+                (folder / "table_references" / file_name).write_text(text, encoding="utf-8")
     written = {stem: write_filled(template_text("starter", stem), FILLS["starter"], folder)
                for stem in BUILT_ON[name]}
     for path in sorted((TEMPLATES / name).glob("*.py")):

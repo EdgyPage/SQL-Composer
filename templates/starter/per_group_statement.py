@@ -22,8 +22,10 @@ this Fill in: block:
 Fill in:
     <STATEMENT>: what one row is, such as minutes_per_job: the function's name, and its file's
         name in statements/.
-    <TABLE>: the Table reference it reads, which is also its file's name in table_references/,
-        such as job_runs.
+    <TABLE>: the Table reference it reads, such as job_runs.
+    <TABLE_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_runs: the database and the table joined by two underscores, as
+        write_table_reference names it.
     <GROUP_COLUMN>: the column to make one row per value of, such as job_id.
     <NUMBER_COLUMN>: a column of numbers to add up, such as duration_mins.
     <TOTAL_NAME>: the name of what it adds up to, in quotes, such as "minutes".
@@ -35,7 +37,7 @@ Fill in:
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, between, count_rows, more_than, statement, sum_of,
 )
-from table_references.<TABLE> import <TABLE>  # the Table reference it reads
+from table_references.<TABLE_FILE> import <TABLE>  # the Table reference it reads
 
 
 def <STATEMENT>(first_day, last_day):  # named as its file is

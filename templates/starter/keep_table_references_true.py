@@ -46,14 +46,14 @@ Fill in:
         NEW_TABLES = [].
     <TABLE>: a Table reference you keep, such as job_runs; add an import and a list entry
         for each.
-    <KEPT_REFERENCE_FILE>: its file's name in table_references/, without .py, such as
+    <TABLE_FILE>: its file's name in table_references/, without .py, such as
         ops__job_runs, or job_runs for an older file named for its table alone.
 """
 
 from pathlib import Path
 
 from sqlglot_composer import check_key, check_table_reference, write_table_reference
-from table_references.<KEPT_REFERENCE_FILE> import <TABLE>  # one per Table reference kept
+from table_references.<TABLE_FILE> import <TABLE>  # one per Table reference kept
 
 TABLE_REFERENCES_FOLDER = Path(__file__).resolve().parent / "table_references"
 NEW_TABLES = [<NEW_TABLE_NAME>]  # each table to write a Table reference for, by its name

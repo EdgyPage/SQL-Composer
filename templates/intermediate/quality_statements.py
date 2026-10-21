@@ -28,8 +28,10 @@ Replace each placeholder, brackets and all, wherever it is written in the code, 
 this Fill in: block:
 
 Fill in:
-    <TABLE>: the Table reference to look at, which is also its file's name in
-        table_references/, such as job_events.
+    <TABLE>: the Table reference to look at, such as job_events.
+    <TABLE_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_events: the database and the table joined by two underscores, as
+        write_table_reference names it.
     <KEY_COLUMN>: the column that picks out one row, such as event_id; for a key of several
         columns, list each in KEY.
     <DATE_PARTITION>: its Date partition, such as dt.
@@ -41,7 +43,7 @@ from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, all_columns, between, count_rows, is_null,
     more_than, run, statement,
 )
-from table_references.<TABLE> import <TABLE>  # the Table reference to look at
+from table_references.<TABLE_FILE> import <TABLE>  # the Table reference to look at
 
 KEY = [<TABLE>.<KEY_COLUMN>]  # the columns that pick out one row, as the Table reference's key
 

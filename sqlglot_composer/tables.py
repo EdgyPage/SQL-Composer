@@ -1258,8 +1258,9 @@ def write_table_reference(name, send, folder=None):
     It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
     description, never its rows) and writes the file in `folder`, such as "references", or in
     the folder you're working in when folder is left out. The file is imported as
-    `from references.ops__run_alerts import run_alerts`: two underscores join the database and
-    the table, since a dot or a dash can't be in a name Python imports. The Table reference in
+    `from ops__run_alerts import run_alerts`, or `from references.ops__run_alerts import
+    run_alerts` from a folder "references": two underscores join the database and the table,
+    since a dot or a dash can't be in a name Python imports. The Table reference in
     it is named for the table alone, or t_<table> for a table named like a Python word, such
     as t_class. Each column's comment, which DESCRIBE prints, becomes its description. The
     newest day SHOW PARTITIONS lists gives the Date partition's date_format. The Date partition

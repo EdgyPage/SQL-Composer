@@ -18,7 +18,7 @@ The cells, in order:
    and gives back a pandas DataFrame. Try it on a query that reads no table, then on one you
    have run before on a table you know, to see its rows come back with their columns named.
 2. Write the table's Table reference: write_table_reference asks the table for its columns and
-   writes table_references/<REFERENCE_FILE>.py. Fill in each TODO line it leaves, such as the
+   writes table_references/<TABLE_FILE>.py. Fill in each TODO line it leaves, such as the
    key, before cell 3. It never writes over a file that is there, so running cell 2 again
    leaves your filled-in file as it is.
 3. Import the Table reference and run a first Statement: 20 rows of one day of the table.
@@ -42,7 +42,7 @@ Fill in:
         "ops.job_runs".
     <TABLE>: that name after the dot, such as job_runs: write_table_reference names the Table
         reference by it (with t_ in front of a word Python keeps for itself, such as t_class).
-    <REFERENCE_FILE>: the name of the file write_table_reference writes, without .py: the
+    <TABLE_FILE>: the name of the file write_table_reference writes, without .py: the
         database and the table joined by two underscores, such as ops__job_runs.
     <DATE_PARTITION>: the table's Date partition, the column holding each row's day, such as dt.
     <DAY>: a day the table holds, in quotes, written as the table writes its days, such as
@@ -81,7 +81,7 @@ except FileExistsError:
 
 # --- Cell 3: a first Statement, once each TODO line is filled in ---
 
-from table_references.<REFERENCE_FILE> import <TABLE>  # the Table reference cell 2 wrote
+from table_references.<TABLE_FILE> import <TABLE>  # the Table reference cell 2 wrote
 # To practise on the Example database without cell 2, its tables' Table references come with
 # the Toolbox: write <TABLE> = example_database.<TABLE> in place of the import above.
 

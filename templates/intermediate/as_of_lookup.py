@@ -26,13 +26,18 @@ Replace each placeholder, brackets and all, wherever it is written in the code, 
 this Fill in: block:
 
 Fill in:
-    <TABLE>: the Table reference of the rows to look up for, which is also its file's name in
-        table_references/, such as job_events.
+    <TABLE>: the Table reference of the rows to look up for, such as job_events.
+    <TABLE_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_events: the database and the table joined by two underscores, as
+        write_table_reference names it.
     <MATCH_COLUMN>: its column holding the key to look up, such as job_id.
     <DATE_PARTITION>: its Date partition, such as dt.
-    <SNAPSHOT>: the snapshot's Table reference, one row per key per day, which is also its
-        file's name in table_references/, such as job_owners. Its key is the key column and
-        its Date partition, such as key=["job_id", "dt"]: each join names both.
+    <SNAPSHOT>: the snapshot's Table reference, one row per key per day, such as job_owners.
+        Its key is the key column and its Date partition, such as key=["job_id", "dt"]: each
+        join names both.
+    <SNAPSHOT_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_owners: the database and the table joined by two underscores, as
+        write_table_reference names it.
     <SNAPSHOT_MATCH_COLUMN>: the snapshot's column holding the same key, such as job_id.
     <SNAPSHOT_DATE_PARTITION>: the snapshot's Date partition, such as dt.
     <LOOKED_UP_COLUMN>: the snapshot's column to look up, such as team.
@@ -46,8 +51,8 @@ from sqlglot_composer import (
     AS, FROM, GROUP_BY, JOIN, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, derived,
     descending, equals, max_of, row_number, statement,
 )
-from table_references.<SNAPSHOT> import <SNAPSHOT>  # the snapshot's Table reference
-from table_references.<TABLE> import <TABLE>  # the Table reference of the rows looked up for
+from table_references.<SNAPSHOT_FILE> import <SNAPSHOT>  # the snapshot's Table reference
+from table_references.<TABLE_FILE> import <TABLE>  # the Table reference of the rows looked up for
 
 SNAPSHOT_DAYS = <SNAPSHOT_DAYS>  # newest_per_key looks this many days back, the day included
 
