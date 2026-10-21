@@ -38,8 +38,10 @@ Replace each placeholder, brackets and all, wherever it is written in the code, 
 this Fill in: block:
 
 Fill in:
-    <FIRST_TABLE>: the first table's Table reference, which is also its file's name in
-        table_references/, such as region_costs.
+    <FIRST_TABLE>: the first table's Table reference, such as region_costs.
+    <FIRST_TABLE_FILE>: its file's name in table_references/, without .py, such as
+        ops__region_costs: the database and the table joined by two underscores, as
+        write_table_reference names it.
     <FIRST_TABLE_NAME>: its name in the warehouse, in quotes, as its Table reference names it,
         such as "ops.region_costs".
     <FIRST_DATE_PARTITION>: its Date partition's name, in quotes, such as "dt".
@@ -48,6 +50,8 @@ Fill in:
     <FIRST_ADD_UP>: the name of a column to add up each day, in quotes, such as "cost_cents".
     <SECOND_TABLE>: a second table's Table reference, such as job_events. Its dict adds
         nothing up, which leaves each day's rows.
+    <SECOND_TABLE_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_events.
     <SECOND_TABLE_NAME>: its name in the warehouse, in quotes, such as "ops.job_events".
     <SECOND_DATE_PARTITION>: its Date partition's name, in quotes, such as "dt".
     <SECOND_KEY>: the names of the columns that pick out one row, each in quotes, such as
@@ -60,8 +64,8 @@ from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, between, count_rows, more_than, run, statement,
     sum_of,
 )
-from table_references.<FIRST_TABLE> import <FIRST_TABLE>  # an import per table
-from table_references.<SECOND_TABLE> import <SECOND_TABLE>
+from table_references.<FIRST_TABLE_FILE> import <FIRST_TABLE>  # an import per table
+from table_references.<SECOND_TABLE_FILE> import <SECOND_TABLE>
 
 # One dict per table, all text. Add a dict per table, and its Table reference to
 # TABLE_REFERENCES below.

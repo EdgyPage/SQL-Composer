@@ -24,8 +24,10 @@ Fill in:
         minutes_per_job_day.
     <BLOCK_NAME>: the same name in quotes, such as "minutes_per_job_day": Python names the
         function by <BLOCK>, and the Hive names the Derived table by this text.
-    <TABLE>: the Table reference it reads, which is also its file's name in table_references/,
-        such as job_runs.
+    <TABLE>: the Table reference it reads, such as job_runs.
+    <TABLE_FILE>: its file's name in table_references/, without .py, such as
+        ops__job_runs: the database and the table joined by two underscores, as
+        write_table_reference names it.
     <GROUP_COLUMN>: the column each row is for, such as job_id.
     <DATE_PARTITION>: the table's Date partition, the column holding each row's day, such as dt.
     <NUMBER_COLUMN>: a column of numbers to add up, such as duration_mins.
@@ -35,7 +37,7 @@ Fill in:
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, statement, sum_of,
 )
-from table_references.<TABLE> import <TABLE>  # the Table reference it reads
+from table_references.<TABLE_FILE> import <TABLE>  # the Table reference it reads
 
 
 def <BLOCK>(first_day, last_day):  # named as its file is
