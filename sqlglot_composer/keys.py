@@ -39,7 +39,7 @@ from .writing import hive_text
 from .joins import ONLY_TESTS
 from .trees import has_aggregate, has_window
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 
 class Found(NamedTuple):

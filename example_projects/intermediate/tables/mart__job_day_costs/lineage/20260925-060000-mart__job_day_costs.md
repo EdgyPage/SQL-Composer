@@ -257,4 +257,4 @@ FROM costs_per_job_day
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 6.0.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 6.1.

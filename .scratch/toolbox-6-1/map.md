@@ -6,8 +6,9 @@ The user (2026-10-21) asked for type hints across every function, as version 6.1
 follow the code they didn't write. Asked where the hints go, they chose every function: the
 Toolbox's public functions as well as its internals, `tools/` and `.claude/hooks/`, `tests/`, and
 the teaching code (Worked examples, how-tos, Example project sources and Templates). They chose
-to make Statement, Column and Condition public names so teaching code can name them, and to add
-no check that holds the hints later. This map is the design, built out ticket by ticket.
+to make Statement, Column and Condition public names so teaching code can name them (and, after
+ticket 01's beginner read, SessionSettings and UncheckedStatement), and to add no check that
+holds the hints later. This map is the design, built out ticket by ticket.
 
 ## Notes
 
@@ -52,8 +53,9 @@ no check that holds the hints later. This map is the design, built out ticket by
 
 ## Records this changes
 
-- CONTEXT.md: Statement, Column and Condition as public names (ticket 01); the Toolbox version's
-  example becomes 6.1.
+- CONTEXT.md (ticket 01): Column and Condition are new words; Statement, Session setting and
+  Unchecked statement name their classes, `Statement`, `SessionSettings` and
+  `UncheckedStatement`, as a type hint uses them; the Toolbox version's example is 6.1.
 
 ## Decisions so far
 

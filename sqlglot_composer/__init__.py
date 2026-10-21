@@ -13,16 +13,16 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'6.0'
+'6.1'
 >>> VERSION
-'sqlglot Composer 6.0, ...'
+'sqlglot Composer 6.1, ...'
 """
 
 from __future__ import annotations
 
 import os
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 # The folder this file belongs in, and the name its export stamps on each of the folder's
 # files.

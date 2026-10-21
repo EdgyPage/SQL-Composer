@@ -39,10 +39,12 @@ from .clauses import (
     SEMI_JOIN,
     SELECT_DISTINCT,
     WHERE,
+    Statement,
     derived,
     statement,
 )
 from .conditions import (
+    Condition,
     all_of,
     any_of,
     at_least,
@@ -74,6 +76,7 @@ from .stacking import (
     rollup,
 )
 from .tables import (
+    Column,
     Table,
     all_columns,
     check_key,
@@ -82,7 +85,13 @@ from .tables import (
     first_look,
     write_table_reference,
 )
-from .unchecked import hive_settings, set_admin_log, unchecked_hive
+from .unchecked import (
+    SessionSettings,
+    UncheckedStatement,
+    hive_settings,
+    set_admin_log,
+    unchecked_hive,
+)
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
     dense_rank,
@@ -96,12 +105,13 @@ from .windows import (
     window,
 )
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 # Every public name, grouped by the file it lives in.
 __all__ = [
     # tables.py
     "Table",
+    "Column",
     "write_table_reference",
     "first_look",
     "check_key",
@@ -128,6 +138,7 @@ __all__ = [
     "INSERT_OVERWRITE",
     "INSERT_INTO",
     "statement",
+    "Statement",
     "derived",
     # stacking.py
     "UNION_ALL",
@@ -155,6 +166,7 @@ __all__ = [
     "starts_with",
     "any_of",
     "all_of",
+    "Condition",
     # calculations.py
     "count_rows",
     "count_distinct",
@@ -193,6 +205,8 @@ __all__ = [
     "hive_settings",
     "unchecked_hive",
     "set_admin_log",
+    "SessionSettings",
+    "UncheckedStatement",
     # upkeep.py
     "repair_partitions",
     "compute_statistics",

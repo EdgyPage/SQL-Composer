@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 6.0: Example gallery</title>
+<title>sqlglot Composer 6.1: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,9 +23,9 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 6.0: Example gallery</h1>
+<h1>sqlglot Composer 6.1: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
-104 examples from the Toolbox's docstrings. Each shows its Python and, for each
+109 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -74,7 +74,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -1345,10 +1345,10 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;6.0&#x27;</pre>
+<pre class="output">&#x27;6.1&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 6.0, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 6.1, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -1372,6 +1372,20 @@ WHERE
 AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;status&#x27;? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.</pre>
 <p class="names">Toolbox names used: <code>Table</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
+</section>
+<section class="entry" id="Column">
+<h3><code>Column</code></h3>
+<p class="why">One column of a table, or a calculation made from columns.</p>
+<p>A Table reference&#x27;s columns are its attributes, such as <code>job_runs.status</code>, and the calculation functions, such as sum_of(...), give back a Column too. Arithmetic works with Python&#x27;s + - * /, bracketed as Python groups it. Comparisons don&#x27;t: use the condition functions, such as equals(...), instead of ==. Write the name in a type hint, to say that a function of yours takes or gives back a Column:</p>
+<pre class="python">def hours(minutes: Column) -&gt; Column:
+    return minutes / 60</pre>
+<pre class="python">hours(job_runs.duration_mins)</pre>
+<p class="label">Hive</p>
+<pre class="output">job_runs.duration_mins / 60</pre>
+<pre class="python">(job_runs.duration_mins + 1) * 2</pre>
+<p class="label">Hive</p>
+<pre class="output">(job_runs.duration_mins + 1) * 2</pre>
+<p class="names">Toolbox names used: <code>Column</code></p>
 </section>
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
@@ -2114,6 +2128,32 @@ WHERE
 </table></div>
 <p class="names">Toolbox names used: <code>statement</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>last_n_days</code>, <code>to_hive</code></p>
 </section>
+<section class="entry" id="Statement">
+<h3><code>Statement</code></h3>
+<p class="why">A query, made by statement(...): to_hive(s) gives its Hive string.</p>
+<p>Make one with statement(...), never Statement(); a Stack, such as UNION_ALL(...), and explain(...) give back a Statement too. Write the name in a type hint, to say that a function of yours gives back a Statement:</p>
+<pre class="python">def failed_runs(first_day: str, last_day: str) -&gt; Statement:
+    return statement(
+        SELECT(job_runs.run_id, job_runs.status),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, first_day, last_day),
+              equals(job_runs.status, &quot;FAILED&quot;)),
+    )</pre>
+<pre class="python">print(to_hive(failed_runs(&quot;2026-09-23&quot;, &quot;2026-09-24&quot;)))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>status</th></tr>
+<tr><td>97</td><td>FAILED</td></tr>
+<tr><td>102</td><td>FAILED</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>Statement</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code></p>
+</section>
 <section class="entry" id="derived">
 <h3><code>derived</code></h3>
 <p class="why">Name a Statement so another Statement can read it like a table.</p>
@@ -2601,6 +2641,17 @@ GROUP BY
 <pre class="output">(jobs.team = &#x27;finance&#x27; AND jobs.region = &#x27;PAR&#x27;) OR jobs.team = &#x27;data&#x27;</pre>
 <p class="names">Toolbox names used: <code>all_of</code>, <code>equals</code>, <code>any_of</code></p>
 <p class="names">Worked examples that use it: <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a></p>
+</section>
+<section class="entry" id="Condition">
+<h3><code>Condition</code></h3>
+<p class="why">A test on rows, for WHERE, HAVING or ON=: the condition functions give one back.</p>
+<p>Combine several with all_of(...) or any_of(...). Write the name in a type hint, to say that a function of yours gives back a Condition:</p>
+<pre class="python">def failed(status: Column) -&gt; Condition:
+    return equals(status, &quot;FAILED&quot;)</pre>
+<pre class="python">failed(job_runs.status)</pre>
+<p class="label">Hive</p>
+<pre class="output">job_runs.status = &#x27;FAILED&#x27;</pre>
+<p class="names">Toolbox names used: <code>Condition</code>, <code>Column</code>, <code>equals</code></p>
 </section>
 <section class="entry" id="count_rows">
 <h3><code>count_rows</code></h3>
@@ -3189,6 +3240,28 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <pre class="output">&#x27;admin_log.md&#x27;</pre>
 <pre class="python">set_admin_log()  # back to the usual place</pre>
 <p class="names">Toolbox names used: <code>set_admin_log</code></p>
+</section>
+<section class="entry" id="SessionSettings">
+<h3><code>SessionSettings</code></h3>
+<p class="why">The SET lines of one or more named sets, made by hive_settings(...).</p>
+<p>It isn&#x27;t a Statement, but run sends it, one line at a time, and show_hive shows it. Make one with hive_settings(...). Write the name in a type hint, to say that a function of yours gives back Session settings:</p>
+<pre class="python">def settings_for_joins() -&gt; SessionSettings:
+    return hive_settings(&quot;map_joins&quot;)</pre>
+<pre class="python">settings_for_joins()</pre>
+<p class="label">Python shows</p>
+<pre class="output">&lt;Session settings map_joins - show_hive(...) shows their SET lines&gt;</pre>
+<p class="names">Toolbox names used: <code>SessionSettings</code>, <code>hive_settings</code></p>
+</section>
+<section class="entry" id="UncheckedStatement">
+<h3><code>UncheckedStatement</code></h3>
+<p class="why">Hive written by hand, made by unchecked_hive(...).</p>
+<p>It isn&#x27;t a Statement, but run sends it and show_hive shows it, marked as unchecked. Make one with unchecked_hive(...). Write the name in a type hint, to say that a function of yours gives back an Unchecked statement:</p>
+<pre class="python">def count_all_runs() -&gt; UncheckedStatement:
+    return unchecked_hive(&quot;SELECT COUNT(*) AS runs FROM ops.job_runs&quot;)</pre>
+<pre class="python">count_all_runs()</pre>
+<p class="label">Python shows</p>
+<pre class="output">&lt;Unchecked statement - show_hive(...) shows its Hive&gt;</pre>
+<p class="names">Toolbox names used: <code>UncheckedStatement</code>, <code>unchecked_hive</code></p>
 </section>
 <section class="entry" id="repair_partitions">
 <h3><code>repair_partitions</code></h3>

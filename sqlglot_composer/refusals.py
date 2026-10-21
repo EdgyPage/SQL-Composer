@@ -31,7 +31,7 @@ import pandas as pd
 from . import _FOLDER
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 
 class GuardRefused(Exception):

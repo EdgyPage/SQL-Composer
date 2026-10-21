@@ -16,7 +16,7 @@ from pathlib import Path
 
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "6.1"
 
 
 # --- Session settings ------------------------------------------------------------------------
@@ -51,7 +51,14 @@ _SETTING_NAME = re.compile(r"[A-Za-z0-9_.:\-]+")
 class SessionSettings:
     """The SET lines of one or more named sets, made by hive_settings(...).
 
-    It isn't a Statement, but run sends it, one line at a time, and show_hive shows it.
+    It isn't a Statement, but run sends it, one line at a time, and show_hive shows it. Make
+    one with hive_settings(...). Write the name in a type hint, to say that a function of
+    yours gives back Session settings:
+
+    >>> def settings_for_joins() -> SessionSettings:
+    ...     return hive_settings("map_joins")
+    >>> settings_for_joins()
+    <Session settings map_joins - show_hive(...) shows their SET lines>
     """
 
     def __init__(self, names: list[str], lines: list[str]):
@@ -260,7 +267,14 @@ def settings_text(settings: SessionSettings) -> str:
 class UncheckedStatement:
     """Hive written by hand, made by unchecked_hive(...).
 
-    It isn't a Statement, but run sends it and show_hive shows it, marked as unchecked.
+    It isn't a Statement, but run sends it and show_hive shows it, marked as unchecked. Make
+    one with unchecked_hive(...). Write the name in a type hint, to say that a function of
+    yours gives back an Unchecked statement:
+
+    >>> def count_all_runs() -> UncheckedStatement:
+    ...     return unchecked_hive("SELECT COUNT(*) AS runs FROM ops.job_runs")
+    >>> count_all_runs()
+    <Unchecked statement - show_hive(...) shows its Hive>
     """
 
     def __init__(self, text: str):
@@ -560,4 +574,5 @@ def tables_read_and_written(hive: str) -> list[tuple[str, str]]:
     return [(name.lower(), how) for _, name, how in sorted(found) if name not in derived]
 
 
-__all__ = ["hive_settings", "unchecked_hive", "set_admin_log"]
+__all__ = ["hive_settings", "unchecked_hive", "set_admin_log", "SessionSettings",
+           "UncheckedStatement"]

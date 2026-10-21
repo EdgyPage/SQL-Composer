@@ -15,7 +15,7 @@ folders, a shared core and an Edition's own.
 _Avoid_: library, package, framework, SQL module, Edition, Composer core
 
 **Toolbox version**:
-The feature number of the Toolbox (`6.0`), raised only when a big feature lands. Two copies of
+The feature number of the Toolbox (`6.1`), raised only when a big feature lands. Two copies of
 the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
@@ -105,15 +105,28 @@ _Avoid_: fragment, component, snippet, helper
 A Level 2 query, assembled from Table references and Building blocks, or written by the Toolbox
 for one of the user's Saved tables, that becomes one Hive SQL string. A Session setting's `SET`
 lines and an Unchecked statement aren't Statements, but are run, shown and listed in a pipeline
-the same way.
+the same way. In Python it is a `Statement`, what `statement(...)` gives back, and the name a
+type hint uses (`-> Statement`).
 _Avoid_: report, case, output script
 
 ### Writing a Statement
 
 **Clause function**:
 A Toolbox function named after one SQL clause - `SELECT`, `FROM`, `WHERE`, `GROUP_BY` - and
-written in SQL order. A Statement is a list of them.
+written in SQL order. A Statement is made of them, given in that order.
 _Avoid_: builder, chain, method
+
+**Column**:
+One column of a table, as a Table reference's attribute (`job_runs.status`), or a calculation
+made from columns, as `job_runs.duration_mins / 60` and `sum_of(...)` give back. `Column` is the
+name a type hint uses.
+_Avoid_: field
+
+**Condition**:
+A test on rows, for `WHERE`, `HAVING` or `ON=`, as `equals(...)` and the other condition
+functions give back, and `all_of(...)` and `any_of(...)` combine. `Condition` is the name a type
+hint uses.
+_Avoid_: predicate, criterion
 
 **Guard**:
 A check the Toolbox runs while a Statement is composed, which refuses a Statement that would
@@ -170,7 +183,8 @@ Hive text the user writes by hand and runs through the Toolbox, as a Statement i
 Clause function covers it yet. No Guard, Warning or Load limit looks inside it; text that drops,
 alters or truncates a table only gets a note naming the admin function that does the job, where
 one does. Lineage
-shows it as one opaque step. Each one marks something the Toolbox should learn to write.
+shows it as one opaque step. Each one marks something the Toolbox should learn to write. In
+Python, `unchecked_hive(...)` gives back an `UncheckedStatement`, the name a type hint uses.
 _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
@@ -228,7 +242,8 @@ _Avoid_: replicated join, small-table join
 
 **Session setting**:
 A Hive `SET` the user sends before a Statement, which holds for the rest of the session. A named
-set of them can be kept and sent again in one step.
+set of them can be kept and sent again in one step. In Python, `hive_settings(...)` gives back
+`SessionSettings`, the name a type hint uses.
 _Avoid_: config, option, parameter
 
 **Load limit**:
