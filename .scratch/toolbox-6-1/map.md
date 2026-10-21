@@ -73,6 +73,13 @@ holds the hints later. This map is the design, built out ticket by ticket.
   6.1 everywhere the current version is named; `Statement`, `Column`, `Condition`,
   `SessionSettings` and `UncheckedStatement` public (94 names), each docstring a hinted function
   of the user's; `Statement(...)` by hand stays Python's TypeError (the user's choice).
+- [02 Hints on the Toolbox's internals](issues/02-hints-on-the-toolbox-s-internals.md): every
+  private function hinted; raw values `object` until checked; 38 refusals `-> NoReturn`; untrue
+  hints in lineage, clauses and running fixed; a run-time check of every hint found no mismatch.
+- [04 Hints in tools](issues/04-hints-in-tools.md): tools/ and the hooks hinted; the generated
+  pages unchanged.
+- [05 Hints in tests](issues/05-hints-in-tests.md): 511 functions hinted; test_offline_hook
+  counts from `import inspect`, not a fixed line.
 
 ## Not yet specified
 

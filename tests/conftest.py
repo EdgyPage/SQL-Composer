@@ -39,6 +39,8 @@ import pytest
 import toolbox_registry as registry
 import offline_trap
 
+# Only the hints name these: the Toolbox is imported through toolbox_module(), after the
+# offline trap is in place, so its import self-check runs in its turn.
 if TYPE_CHECKING:
     from sqlglot_composer.clauses import Statement
     from sqlglot_composer.project import TableLogic
