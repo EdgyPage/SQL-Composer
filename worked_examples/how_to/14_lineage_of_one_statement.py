@@ -56,7 +56,9 @@ Nothing is sent to the warehouse: the Lineage is worked out from the Statement a
 works the same on the Example database and at work.
 
 The files go in a folder named lineage, beside your notebook or script; here, in the folder
-this how-to runs in. Each file's name says when it was written, from which commit of your
+this how-to runs in. A Table notebook's lineage goes in its own Table folder's lineage/, named
+by the time and its table alone, as [Lineage across your tables](#lineage_across_your_tables)
+shows. Each file's name says when it was written, from which commit of your
 scripts, by which notebook, and for which Statement:
 
 >>> markdown_file.name

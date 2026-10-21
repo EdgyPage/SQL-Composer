@@ -200,6 +200,23 @@ ops.jobs matches its Table reference.
 ops.job_runs matches its Table reference.
 ops.run_alerts matches its Table reference.
 
+In a Project, as [Start a Project](#start_a_project) makes one, the Table references are the
+files in references/, and the send is yours in send.py. Keep the loop in a notebook of its own
+in the Project's folder, such as weekly_checks.ipynb, and run it every Monday:
+
+    from sqlglot_composer import check_table_reference
+    from references.ops__jobs import jobs
+    from references.ops__job_runs import job_runs
+    from references.ops__run_alerts import run_alerts
+    from send import send
+
+    for table in [jobs, job_runs, run_alerts]:
+        print(check_table_reference(table, send=send))
+
+Add a line for each table the Project reads, as you add its Table reference. When a check
+finds a Problem, change the file, then refresh the table's rows in the Reference sheet, as
+[The Reference sheet](#the_reference_sheet) shows.
+
 ## Check it worked
 
 The updated Table reference matches the changed table, and its key still holds: no two rows
@@ -269,7 +286,7 @@ Nothing about the table is known from this: fix the send, or the table's name, a
   [`check_key`](examples.html#check_key).
 - After a Saved table's columns change, rebuild it: [Save a table](#save_a_table).
 - Write a table's Table reference in the first place:
-  [Import a table's column names programmatically](#import_column_names).
+  [Add your tables' references](#add_your_tables_references).
 - A table whose days are written like 20260924, or which is split by a second column too:
   [A day written another way, and a second partition](#a_day_written_another_way).
 - Build many Statements, or check many tables, in a loop:

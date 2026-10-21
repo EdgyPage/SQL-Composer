@@ -170,7 +170,7 @@ The column names are the Statement's: `"minutes"`, as `AS` named it. From here i
 90
 
 At work, pass your own send in place of `example_database.send`, as
-[Start a notebook](#start_a_notebook) shows.
+[Start a Project](#start_a_project) shows.
 
 ## Check it worked
 

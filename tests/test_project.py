@@ -368,6 +368,13 @@ def test_add_references_writes_each_table_and_registers_it(started) -> None:
                             "fill in their TODO lines.")
 
 
+def test_add_references_names_three_files_or_more_as_a_sentence_does(started) -> None:
+    report = project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
+                                    send=example_database.send)
+    assert repr(report) == ("Wrote references/ops__jobs.py, references/ops__job_runs.py and "
+                            "references/ops__run_alerts.py: fill in their TODO lines.")
+
+
 def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started) -> None:
     (started / "references" / "ops__jobs.py").write_text("# mine", encoding="utf-8")
     with pytest.raises(project.SkippedTables) as skipped:

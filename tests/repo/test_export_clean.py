@@ -379,11 +379,11 @@ def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) ->
     section = section_of(readme(clean), "The how-tos")
     numbered = re.findall(r"^(\d+)\. \[(.+)\]\(\.\./sqlglot_composer/how_to\.html#\w+\)$",
                           section, re.MULTILINE)
-    assert [int(number) for number, _ in numbered] == list(range(1, 38))
-    assert numbered[0] == ("1", "Start a notebook")
-    assert numbered[18] == ("19", "A day written another way, and a second partition")
-    assert section.index("Getting started, how-tos 1 to 18:\n\n1. [Start a notebook](") < (
-        section.index("Intermediate, how-tos 19 to 37:\n\n19. [A day written another way"))
+    assert [int(number) for number, _ in numbered] == list(range(1, 41))
+    assert numbered[0] == ("1", "Start a Project")
+    assert numbered[21] == ("22", "A day written another way, and a second partition")
+    assert section.index("Getting started, how-tos 1 to 21:\n\n1. [Start a Project](") < (
+        section.index("Intermediate, how-tos 22 to 40:\n\n22. [A day written another way"))
     assert "<!--" not in section
 
 

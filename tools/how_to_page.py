@@ -12,9 +12,9 @@ A how-to walks through one job from start to finish, as one fresh notebook. Each
 The file holds a docstring and any pandas stand-ins (below). The docstring is laid
 out like this:
 
-    Start a notebook                    <- the title, on line 1
+    Start a Project                     <- the title, on line 1
 
-    For: Getting started                <- Getting started (how-tos 1-18) or Intermediate (19-37)
+    For: Getting started                <- Getting started (how-tos 1-21) or Intermediate (22-40)
 
     ## Goal                             <- the six fixed headings, each once, in this order:
     ## When you'd use it                   Goal, When you'd use it, Steps, Check it worked,
@@ -43,12 +43,12 @@ can't run that Statement's Hive, the stand-in's DataFrame comes back instead, bo
 labelled as computed in pandas as the Example gallery labels it, and in the doctest.
 
 While the steps run, today is 2026-09-25, as on the Example gallery, and each how-to works in a
-folder of its own, deleted afterwards. A lineage's time, your scripts' commit and the Toolbox
-version are pinned, so the page comes out the same on every run.
+folder of its own, deleted afterwards. A lineage's or a Project action's time, your scripts'
+commit and the Toolbox version are pinned, so the page comes out the same on every run.
 
 A how-to links only to how-tos and the Example gallery, and check_links refuses any other link.
-It names the Example projects and the Templates in prose, by their folders, which main holds
-beside the Toolbox's folder.
+It names the Example projects in prose, by their folder, which main holds beside the Toolbox's
+folder.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
-from sqlglot_composer import example_database, lineage  # noqa: E402
+from sqlglot_composer import example_database, lineage, project, unchecked  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
 from example_gallery import (  # noqa: E402
     FILTER_SCRIPT,
@@ -116,9 +116,9 @@ class Group(NamedTuple):
 
 
 GROUPS = (
-    Group("Getting started", "getting-started", range(1, 19),
+    Group("Getting started", "getting-started", range(1, 22),
           "your first notebooks: from one Statement to a daily pipeline and its Lineage"),
-    Group("Intermediate", "intermediate", range(19, 38),
+    Group("Intermediate", "intermediate", range(22, 41),
           "work over many days and many tables: daily copies, rollups, pipelines of Saved "
           "tables and their Keys, quality checks and testing"),
 )
@@ -301,6 +301,9 @@ def pandas_standing_in(stand_ins: dict, scope: dict, answered: list):
 # A written file longer than this, in lines, is folded on the page, such as a Lineage file of
 # several Statements.
 FOLD_AFTER = 120
+# A step that writes more files than this, such as project.start(), names them all in one list
+# and shows none: later steps print the ones they need.
+LIST_AFTER = 8
 
 
 def files_in(folder: Path) -> dict[Path, bytes]:
@@ -308,7 +311,8 @@ def files_in(folder: Path) -> dict[Path, bytes]:
 
 
 def written_files_html(folder: Path, before: dict, after: dict, shown_before: dict) -> str:
-    """Each file a step writes in `folder`: a .py or .md file in full, any other by name.
+    """Each file a step writes in `folder`: a .py or .md file in full, any other by name, or
+    all of them in one list of names when there are more than LIST_AFTER.
 
     `before` and `after` are what files_in gave before and after the step. A file longer than
     FOLD_AFTER lines is folded, opened with a click. `shown_before` holds each .py or .md file
@@ -317,6 +321,10 @@ def written_files_html(folder: Path, before: dict, after: dict, shown_before: di
     """
     written = sorted((path for path, text in after.items() if before.get(path) != text),
                      key=lambda path: (path.suffix not in (".py", ".md"), path.as_posix()))
+    if len(written) > LIST_AFTER:
+        names = sorted(path.relative_to(folder).as_posix() for path in written)
+        return (label(f"It writes {len(names)} files") + "\n"
+                + code_html("\n".join(names), "file"))
     shown = []
     for path in written:
         name = path.relative_to(folder).as_posix()
@@ -435,12 +443,15 @@ def section_html(text: str, notebook: Notebook) -> str:
 
 @contextlib.contextmanager
 def lineage_pinned():
-    """A lineage's time, your scripts' commit and the Toolbox version, the same on every run.
+    """A lineage's or a Project action's time, your scripts' commit and the Toolbox version, the
+    same on every run.
 
     Without a notebook's name in the environment, a lineage is named as from a notebook.
     """
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     with (mock.patch.object(lineage, "_now", lambda: LINEAGE_TIME),
+          mock.patch.object(project, "_now", lambda: LINEAGE_TIME),
+          mock.patch.object(unchecked, "_now", lambda: LINEAGE_TIME),
           mock.patch.object(lineage, "scripts_commit", lambda folder: LINEAGE_COMMIT),
           mock.patch.object(lineage, "_version", lambda: version),
           mock.patch.dict(os.environ)):

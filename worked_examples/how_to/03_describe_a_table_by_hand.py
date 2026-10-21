@@ -16,7 +16,7 @@ days are written another way.
   `create_table` makes the table from the Table reference you write here.
 - When you know a table better than the warehouse does: its key and the columns that don't add
   up are never in its description, so even a generated Table reference needs your hand, as
-  [Import a table's column names programmatically](#import_column_names) shows.
+  [Add your tables' references](#add_your_tables_references) shows.
 
 ## Steps
 
@@ -80,8 +80,9 @@ What each argument says:
 
 ### Keep it in a file
 
-Save the Table reference as job_day.py, beside your notebook, so every notebook and script
-that reads the table imports the same one:
+Save the Table reference as mart__job_day.py in your Project's references/ folder, named
+after its database and table joined by two underscores, so every notebook of the Project that
+reads the table imports the same one:
 
     \"\"\"mart.job_day - one row per job and day: runs, failed runs, minutes and the average.\"\"\"
     from sqlglot_composer import Table
@@ -102,9 +103,14 @@ that reads the table imports the same one:
         location="/data/your_team/tables",
     )
 
-Then, in a notebook:
+Then, in a notebook of the Project:
 
-    from job_day import job_day
+    from references.mart__job_day import job_day
+
+A file you write by hand isn't in the Project's registry yet: `project.check()` lists it as
+made by hand, and `project.register("mart.job_day")` adds it. For a Saved table the Project
+makes, [Add a Saved table](#add_a_saved_table) writes this file for you to fill in, and
+registers it.
 
 ### Read it in a Statement
 

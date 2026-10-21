@@ -28,7 +28,7 @@ saves finding and fixing a short day by hand later. [Save a table](#save_a_table
 
 mart.job_day will hold one row per job per day: how many runs started and how many finished.
 It doesn't exist until you create it, so its Table reference is written by hand. At work it
-goes in a file of its own, table_references/job_day.py:
+goes in a file of its own in your Project, references/mart__job_day.py:
 
 >>> job_day = Table(
 ...     "mart.job_day",

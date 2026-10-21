@@ -14,7 +14,7 @@ reads only the days you ask for.
 When DESCRIBE lists more than one partition column, or SHOW PARTITIONS lists days written
 some other way, such as `dt=20260911` or `dt=2026/09/11`. Big tables are often split by
 country, region or source first, and by day inside each. If DESCRIBE and SHOW PARTITIONS are
-new to you, [Import a table's column names](#import_column_names) and [Describe a table by
+new to you, [Add your tables' references](#add_your_tables_references) and [Describe a table by
 hand](#describe_a_table_by_hand) start with them.
 
 ## Steps
@@ -278,8 +278,9 @@ sqlglot_composer.refusals.GuardRefused:
 
 Hive compares the days as text, so `'20260918'` never equals `'2026-09-18'`, and no row would
 match. Save region_costs' rows first in a Saved table that writes its days the usual way, then
-join that: a write writes its day the Saved table's way. The intermediate Example project's
-example 1, in the Toolbox download's example_projects folder, does just that.
+join that: a write writes its day the Saved table's way. The intermediate Example project, in
+the Toolbox download's example_projects folder, does just that in mart.job_day_costs's Table
+notebook.
 
 ## Next
 

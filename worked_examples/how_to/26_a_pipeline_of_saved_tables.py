@@ -32,7 +32,7 @@ runs did each day, and `ops.job_owners`, each job's team on each day.
 Each Saved table has a Table reference written by hand, since it doesn't exist until you create
 it, as in [Save a table](#save_a_table). mart.job_day holds each job's runs started and finished
 per day; mart.team_day adds them up per team, as of each day. At work each goes in a file of
-its own under table_references/.
+its own in your Project's references/ folder.
 
 >>> job_day = Table(
 ...     "mart.job_day",
@@ -176,7 +176,9 @@ sends them, in order:
             run(step, send=send)
 
 To fill several days, call it once per day, oldest first, so each day's Saved tables are written
-in order. Then read the week with `run(weekly, send=send)`, your own send in place of the
+in order. In a Project, where each Saved table's Statements sit in its own Table notebook,
+`project.run_tables(day, send=send)` is this runner for every table at once, each written after
+the tables it reads, as [Add a Saved table](#add_a_saved_table) shows. Then read the week with `run(weekly, send=send)`, your own send in place of the
 Example database's.
 
 ### Export one Lineage for the chain

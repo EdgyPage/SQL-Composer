@@ -31,7 +31,7 @@ limit stops one that would cost too much, and its answer would have been right.
 Two Load limits need no switching on:
 
 - Every table with a Date partition must have its days bounded at both ends, or the Statement
-  is refused as you build it, as [Start a notebook](#start_a_notebook) shows.
+  is refused as you build it, as [Start a Project](#start_a_project) shows.
 - `ORDER_BY` without a `LIMIT` is refused, since the warehouse would sort every row before
   sending any back: sort in pandas instead. Common mistakes, below, shows it.
 

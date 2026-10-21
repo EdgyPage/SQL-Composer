@@ -146,7 +146,7 @@ GROUP BY
 ### Send them in order
 
 From a notebook, send each write in turn with `run`, oldest first. At work, a loop does it,
-here a function that takes your own send, written as in [Start a notebook](#start_a_notebook).
+here a function that takes your own send, written as in [Start a Project](#start_a_project).
 It isn't called on this page, since the Example database's send would refuse the writes:
 
 >>> def send_backfill(writes, send):

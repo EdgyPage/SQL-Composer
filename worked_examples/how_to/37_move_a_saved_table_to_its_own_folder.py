@@ -190,8 +190,8 @@ never written to:
 ...         run(step, send=send)
 ...     return moves
 
-Each step that `run` sends adds an entry to the Admin log, admin_log.md beside your notebook
-unless `set_admin_log` moved it: when, the call, such as
+Each step that `run` sends adds an entry to the Admin log, admin/admin_log.md in your Project
+(or admin_log.md beside your notebook, outside a Project) unless `set_admin_log` moved it: when, the call, such as
 admin.move_to_own_folder(mart.job_day, send=...)[3] for the fourth step, the Hive, the script
 and its git commit, and whether it worked. `show_hive` adds nothing to it.
 

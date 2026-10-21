@@ -85,7 +85,7 @@ SEND_TEXT = '''"""send - runs a Hive string on your warehouse and gives back a p
 Why: every notebook in the Project sends its Statements through this one function, so a change
 to how you reach the warehouse is made here, once.
 
-Replace example_database.send(hive) with your warehouse's call: how-to 1, Start a notebook,
+Replace example_database.send(hive) with your warehouse's call: how-to 1, Start a Project,
 shows how to write it. It imports none of your own files, so any notebook or script of yours
 can import it.
 """
@@ -509,14 +509,14 @@ def add_references(names, send):
             + "; ".join(said) + ".",
             why="Each table is written or skipped on its own, so one name that is wrong or "
             "already there never stops the rest"
-            + (f": {', '.join(files)} {'was' if len(files) == 1 else 'were'} written."
+            + (f": {_and(files)} {'was' if len(files) == 1 else 'were'} written."
                if files else "."),
             fix="Fix each name skipped as wrong or whose DESCRIBE failed, then run "
             "add_references again with those names alone; a table whose file is there "
             "already needs nothing. Each is in admin/admin_log.md.",
             error=SkippedTables,
         )
-    return ProjectReport([f"Wrote {' and '.join(files)}: fill in their TODO lines."
+    return ProjectReport([f"Wrote {_and(files)}: fill in their TODO lines."
                           if len(files) > 1 else
                           f"Wrote {files[0]}: fill in its TODO lines."])
 
@@ -687,6 +687,11 @@ def refresh_reference_sheet(name=None):
                       + (", and its rows from before are kept until then." if name is not None
                          and had_rows else "."))
     return ProjectReport(report)
+
+
+def _and(items: list[str]) -> str:
+    """Items as a sentence lists them: "a", "a and b", or "a, b and c"."""
+    return " and ".join([", ".join(items[:-1]), items[-1]]) if len(items) > 1 else items[0]
 
 
 def _sheet(root: Path) -> list[dict]:

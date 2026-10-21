@@ -6,9 +6,10 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-This page is a tutorial: eight steps, from installing the Toolbox, through a Saved table written
-every day and the Lineage of each of its columns, to a project of your own. Most steps point to the how-to that walks
-through them in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your
+This page is a tutorial: eight steps, from installing the Toolbox and starting a Project, through
+your tables' references, a Saved table written every day and the Lineage of each of its
+columns, to keeping the Project in order. Most steps point to the how-to that walks through
+them in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your
 browser. What changed in each
 version, and how to update from it, is in `CHANGES.md`.
 
@@ -27,28 +28,39 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
      its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
      (not including) 31, whose Example database and a struct column in create_table need
      30.19.0 or newer.
-3. Copy the whole `sqlglot_composer` folder into the folder that holds your notebooks and
-   scripts. Keep your own scripts beside it, never inside it.
+3. Make a folder for your Project, and copy the whole `sqlglot_composer` folder into it. Keep
+   your own files beside it, never inside it.
 
 The download's other folder, `example_projects`, is for reading and copying from, and the
 Toolbox doesn't need it: see [Example projects](#example-projects). The
 [Templates](#templates) ship inside the Toolbox.
 
-## 2. Start a notebook
+## 2. Start a Project
 
-Import from `sqlglot_composer`, at its top level, never from a file inside it:
+A Project is the folder your work lives in: the Toolbox, your send, your tables' Table
+references, the Building blocks your notebooks share, and a folder per Saved table. Open a
+notebook in the Project's folder, and lay it out with one call:
 
 ```python
-from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
+>>> from sqlglot_composer import project
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.
 ```
 
-The Toolbox never connects to anything itself: it writes Hive as text, and `run` hands that text
-to a function of yours, `send`, which runs it and gives back a pandas DataFrame. For example,
-`send` can be `lambda hive: pd.DataFrame(my_api.query(hive))`, which runs the Hive through your
-team's query API.
+Import from `sqlglot_composer`, at its top level, never from a file inside it. The Toolbox
+never connects to anything itself: it writes Hive as text, and `run` hands that text to a
+function of yours, `send`, which runs it and gives back a pandas DataFrame. Write it once, in
+`send.py`: for example, `pd.DataFrame(my_api.query(hive))`, which runs the Hive through your
+team's query API. Every notebook imports it with `from send import send`.
 
-The how-to [Start a notebook](../sqlglot_composer/how_to.html#start_a_notebook) walks through the
-first cells, your send among them, and the mistakes people make first.
+`admin/` holds a notebook per Project action, such as `new_table.ipynb`: make and remove Table
+folders and Table references through them, never by hand, and each is logged in
+`admin/admin_log.md`.
+
+The how-to [Start a Project](../sqlglot_composer/how_to.html#start_a_project) walks through what
+each folder is for, your send, the two path lines a notebook deeper in the Project starts with,
+and the mistakes people make first.
 
 ## 3. A first Statement
 
@@ -106,12 +118,15 @@ How-to: [Build a first Statement and paste its Hive](../sqlglot_composer/how_to.
 
 A Statement reads your tables through their Table references: each table's columns, their
 types, its Date partition (the date column it is stored by, a day at a time) and its Key (the
-columns that name one row). `write_table_reference("your_db.your_table", send=...)`
-asks the table for its columns and writes the file for you; you fill in what it can't know.
+columns that name one row). `project.add_references(["your_db.your_table", ...], send=send)`
+asks each table for its columns and writes its file into `references/`; you fill in what it
+can't know, and add Aliases, your own names for its columns and conditions. A notebook then
+imports one as `from references.your_db__your_table import your_table`.
+`project.refresh_reference_sheet()` lists every column of every table in one CSV file.
 
-How-tos: [Import a table's column names programmatically](../sqlglot_composer/how_to.html#import_column_names),
-then [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand) for a
-table you can't read yet.
+How-tos: [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references),
+[Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand) for a
+table you can't read yet, and [The Reference sheet](../sqlglot_composer/how_to.html#the_reference_sheet).
 
 ## 5. Filter, count and join
 
@@ -129,31 +144,47 @@ out once a day is read by everyone after. Hive can't change single rows of such 
 Toolbox has no `UPDATE`, `DELETE`, `MERGE` or `TRUNCATE`: a day is written again, whole, with
 `INSERT_OVERWRITE`, which replaces it, and old days go with `admin.drop_days`.
 
+In a Project, `project.new_table("mart.your_table")` gives each Saved table a Table folder in
+`tables/`, holding its notebook, made from a Template, and writes its Table reference for you
+to fill in. `project.run_tables(day, send=send)` then writes a day of every table, each after
+the tables it reads.
+
 How-tos: [Save a table](../sqlglot_composer/how_to.html#save_a_table),
+[Add a Saved table](../sqlglot_composer/how_to.html#add_a_saved_table),
 [Backfill a range of days](../sqlglot_composer/how_to.html#backfill_a_range_of_days) and
 [Run a daily pipeline](../sqlglot_composer/how_to.html#run_a_daily_pipeline).
 
 ## 7. Where each column comes from
 
 `export_lineage(...)` writes an HTML page and a Markdown twin that follow each output column
-back to the table columns it reads, across the Saved tables of a whole pipeline.
+back to the table columns it reads, across the Saved tables of a whole pipeline. From a Table
+notebook, the files go in its Table folder's `lineage/`, named by the time and the table, so
+each export joins the table's history, and `project.load("mart.other_table")` gives another
+notebook's logic, to draw the tables it reads beside it.
 
-How-tos: [Lineage of one Statement](../sqlglot_composer/how_to.html#lineage_of_one_statement) and
-[Lineage of a pipeline across Saved tables](../sqlglot_composer/how_to.html#lineage_of_a_pipeline_across_saved_tables).
+How-tos: [Lineage of one Statement](../sqlglot_composer/how_to.html#lineage_of_one_statement),
+[Lineage of a pipeline across Saved tables](../sqlglot_composer/how_to.html#lineage_of_a_pipeline_across_saved_tables) and
+[Lineage across your tables](../sqlglot_composer/how_to.html#lineage_across_your_tables).
 
-## 8. Lay out a project
+## 8. Keep the Project in order
 
-Your own scripts sit in three Levels, each importing only from those below it: Table
-references, Building blocks (pieces several Statements share) and Statements, with a script
-that runs the Statements in order. The [Example projects](#example-projects) show the
-layout filled in, and the [Templates](#templates) are its empty shapes, to copy.
+Your files sit in three Levels, each importing only from those below it: the Table references
+and `send.py`, then the Building blocks, then each Table notebook's logic.
+`project.check()` reports any Table folder or Table reference the registry doesn't list, or
+lists but isn't there; `project.remove_table(...)` archives a Table folder in
+admin/removed/ rather than deleting it; and a notebook you run every week checks each Table
+reference against its table. The [Example projects](#example-projects) show a Project filled
+in, and the [Templates](#templates) are the shapes a new Table notebook is made from.
+
+How-tos: [Keep a Table reference true over time](../sqlglot_composer/how_to.html#keep_a_table_reference_true_over_time)
+and [Share Building blocks between Statements](../sqlglot_composer/how_to.html#share_building_blocks_between_statements).
 
 ## The how-tos
 
 Every how-to walks through one job from start to finish, in steps you paste into one notebook,
 in order: its goal, its steps, each run on the Example database with what it shows, how to check
-it worked, and the mistakes people make first. The Getting started how-tos take you from your
-first notebook to a daily pipeline and its Lineage; the Intermediate ones are for work over many
+it worked, and the mistakes people make first. The Getting started how-tos take you from
+starting a Project to its Saved tables, their Lineage and the Reference sheet; the Intermediate ones are for work over many
 days and many tables: days written another way, week and month totals, rows that come in late,
 pipelines of Saved tables, quality checks, testing, how a Saved table is stored and its Key,
 Session settings and the admin module, more joins, looking across rows, reconciling two tables,
@@ -182,7 +213,8 @@ everything in it was made by the `project` module's Project actions, then filled
   Aliases.
 - `intermediate/`, on `ops.job_events`, `ops.job_owners` and `ops.region_costs`, which builds
   on the starter project: four Saved tables, one from each of the other Table notebook
-  Templates, each writing its last 3 days again on every run, since rows can come in late.
+  Templates. The three that count or add up rows write their last 3 days again on every run,
+  since rows can come in late; the quality checks write only their day.
 
 Each project's `README.md` says what each folder holds and how to run it. Copy the
 `sqlglot_composer` folder into a project's folder first, as a Project holds it, then open its
