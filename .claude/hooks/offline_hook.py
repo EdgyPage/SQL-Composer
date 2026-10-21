@@ -125,14 +125,14 @@ def edited(text: str, old: str, new: str, every: bool) -> str | None:
     return text.replace(old, new) if every else text.replace(old, new, 1)
 
 
-def after_edit(tool_input: dict, file: Path) -> str:
+def after_edit(tool_input: dict[str, object], file: Path) -> str:
     new = tool_input.get("new_string", "")
     after = edited(text_on_disk(file), tool_input.get("old_string", ""), new,
                    bool(tool_input.get("replace_all")))
     return textwrap.dedent(new) if after is None else after
 
 
-def after_notebook_edit(tool_input: dict, file: Path) -> str:
+def after_notebook_edit(tool_input: dict[str, object], file: Path) -> str:
     """The notebook as the edit would leave it, or the new cell alone when the notebook or the
     cell can't be found."""
     source, kind = tool_input.get("new_source", ""), tool_input.get("cell_type")
@@ -154,7 +154,7 @@ def after_notebook_edit(tool_input: dict, file: Path) -> str:
     return json.dumps(notebook)
 
 
-def cell_index(cells: list, cell_id: str | None) -> int:
+def cell_index(cells: list[dict[str, object]], cell_id: str | None) -> int:
     """Where the cell is: by its id, or as `cell-N`; -1 for none given, so that an insert goes
     before the first."""
     if cell_id is None:
@@ -168,7 +168,7 @@ def cell_index(cells: list, cell_id: str | None) -> int:
     raise KeyError(cell_id)
 
 
-def text_after(tool: str, tool_input: dict, file: Path) -> str:
+def text_after(tool: str, tool_input: dict[str, object], file: Path) -> str:
     if tool == "NotebookEdit":
         return after_notebook_edit(tool_input, file)
     if tool == "Edit":
@@ -176,7 +176,7 @@ def text_after(tool: str, tool_input: dict, file: Path) -> str:
     return tool_input.get("content", "")
 
 
-def findings(tool: str, tool_input: dict, file: Path, root: Path) -> list[str]:
+def findings(tool: str, tool_input: dict[str, object], file: Path, root: Path) -> list[str]:
     """Each finding in the file as the edit would leave it, as `file:line kind: code`, judged
     by the project's own policy, whichever checkout `root` is."""
     sys.path.insert(0, str(project_folder() / "tools"))

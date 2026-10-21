@@ -13,7 +13,7 @@ import sys
 UNPRINTABLE = re.compile("[\x00-\x1f\x7f-\x9f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]+")
 
 
-def read_hook_input() -> dict:
+def read_hook_input() -> dict[str, object]:
     """The hook's call, read as the bytes Claude Code sends: a piped stdin on Windows would
     otherwise be decoded in the local code page, not UTF-8."""
     return json.loads(sys.stdin.buffer.read() or b"{}")

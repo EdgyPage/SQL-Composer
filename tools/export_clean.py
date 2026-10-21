@@ -137,14 +137,14 @@ def with_file_list(init_text: str, names: list[str], folder: str) -> str:
     return init_text.replace("\n_FILES = None\n", f"\n_FILES = [\n{listed}]\n")
 
 
-def describe_toolbox(folder: str) -> dict:
+def describe_toolbox(folder: str) -> dict[str, str | list[dict[str, str | list[list[str]]]]]:
     """Import the Toolbox's folder and describe it for the cheat sheet, grouped by file.
 
     This runs in a fresh Python started inside the Clean tree (see `import_stamped`), so the
     folder it imports is the stamped copy, and its import self-check runs on that copy.
     """
     toolbox = __import__(folder)
-    groups: dict[str, dict] = {}
+    groups: dict[str, dict[str, str | list[list[str]]]] = {}
     for name in toolbox.__all__:
         value = getattr(toolbox, name)
         if isinstance(value, str):
@@ -191,7 +191,8 @@ def last_error(stderr: str) -> str:
     return "\n".join(lines[start:])
 
 
-def fresh_python(folder: Path, code: str, path: str | None = None) -> subprocess.CompletedProcess:
+def fresh_python(folder: Path, code: str, path: str | None = None
+                 ) -> subprocess.CompletedProcess[str]:
     """Run `code` in a fresh Python started in `folder`, with `path`, if given, as its
     PYTHONPATH, and nothing else on it."""
     environment = {name: value for name, value in os.environ.items() if name != "PYTHONPATH"}
@@ -204,7 +205,7 @@ def fresh_python(folder: Path, code: str, path: str | None = None) -> subprocess
     )
 
 
-def import_stamped(into: Path) -> dict:
+def import_stamped(into: Path) -> dict[str, str | list[dict[str, str | list[list[str]]]]]:
     """Import the stamped folder in a fresh Python, and return `describe_toolbox()` of it."""
     folder = toolbox_registry.FOLDER
     done = fresh_python(
@@ -316,7 +317,7 @@ def outside_allowlist(paths: list[str]) -> list[str]:
     return [path for path in paths if not allowed(path)]
 
 
-def cheat_sheet(groups: list[dict]) -> str:
+def cheat_sheet(groups: list[dict[str, str | list[list[str]]]]) -> str:
     """One Markdown section per Toolbox file, with one line per public name in it."""
     sections = []
     for group in groups:
@@ -357,8 +358,8 @@ def how_tos_text(source: Path) -> str:
         for group, how_tos in groups.items())
 
 
-def readme_text(template: str, groups: list[dict], version: str, stamp: str,
-                source: Path) -> str:
+def readme_text(template: str, groups: list[dict[str, str | list[list[str]]]], version: str,
+                stamp: str, source: Path) -> str:
     """The Clean branch's README: the template, with the version, such as "3.0, exported
     2026-10-02 14:05", the how-tos and the cheat sheet put in, the how-tos read from
     `source`."""
@@ -498,7 +499,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     return f"{product} {version_text(version, when)}"
 
 
-def git(repo: Path, *args: str, **options) -> str:
+def git(repo: Path, *args: str, **options: dict[str, str]) -> str:
     """Run git in `repo` and return what it prints; a failure stops the export."""
     done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
                           encoding="utf-8", **options)

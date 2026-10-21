@@ -32,6 +32,7 @@ import io
 import re
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -45,6 +46,7 @@ import hive_corpus_cases  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement, derived_tables  # noqa: E402
+from sqlglot_composer.tables import Table  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
 # Where the golden corpus is committed.
@@ -67,7 +69,8 @@ PART_MARK = "-- "
 # --- The cases -------------------------------------------------------------------------------
 
 
-def docstring_cases() -> list[tuple[str, object]]:
+def docstring_cases(
+) -> list[tuple[str, Callable[..., list[Statement | SessionSettings | UncheckedStatement]]]]:
     """Each docstring example that hands a Statement on, as a function that replays it."""
     found = []
     for names, doc in gallery.docstrings():
@@ -77,8 +80,10 @@ def docstring_cases() -> list[tuple[str, object]]:
     return found
 
 
-def _replaying(parts: list):
-    def build() -> list:
+def _replaying(
+    parts: list[doctest.Example],
+) -> Callable[..., list[Statement | SessionSettings | UncheckedStatement]]:
+    def build() -> list[Statement | SessionSettings | UncheckedStatement]:
         handed = []
         scope = gallery.example_scope(handed)
         for part in parts:
@@ -87,7 +92,7 @@ def _replaying(parts: list):
     return build
 
 
-def worked_example_cases() -> list[tuple[str, object]]:
+def worked_example_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
     """Each Statement function of each Worked example script, careless() with its opt-out too."""
     found = []
     for module in gallery.statement_scripts():
@@ -102,20 +107,24 @@ def worked_example_cases() -> list[tuple[str, object]]:
     return found
 
 
-def _opted_out(function, keyword: str):
+def _opted_out(function: Callable[..., Statement | list[Statement]],
+               keyword: str) -> Callable[..., Statement | list[Statement]]:
     """`function` called with its Guard's opt-out keyword set."""
     return lambda: function(**{keyword: True})
 
 
-def _listed(function):
+def _listed(
+    function: Callable[..., Statement | list[Statement]],
+) -> Callable[..., list[Statement]]:
     """`function`'s Statements as a list: it returns one, or a list of them as by_day does."""
-    def build() -> list:
+    def build() -> list[Statement]:
         built = function()
         return list(built) if isinstance(built, list) else [built]
     return build
 
 
-def cases() -> list[tuple[str, object]]:
+def cases(
+) -> list[tuple[str, Callable[..., list[Statement | SessionSettings | UncheckedStatement]]]]:
     """Every case, in a fixed order: docstrings, Worked examples, edge cases, generated ones,
     then Session settings and Unchecked statements."""
     found = (docstring_cases() + worked_example_cases() + hive_corpus_cases.edge_cases()
@@ -127,7 +136,8 @@ def cases() -> list[tuple[str, object]]:
     return found
 
 
-def _unique(statements: list) -> list:
+def _unique(statements: list[Statement | SessionSettings | UncheckedStatement]
+            ) -> list[Statement | SessionSettings | UncheckedStatement]:
     found = []
     for s in statements:
         if not any(s is seen for seen in found):
@@ -161,7 +171,9 @@ def refusal_or_raise(error: Exception) -> str:
     return refused_text(error)
 
 
-def case_text(case_id: str, build) -> str:
+def case_text(
+    case_id: str, build: Callable[..., list[Statement | SessionSettings | UncheckedStatement]],
+) -> str:
     """One case: each of its Statements, then the lineage report of all of them."""
     lines = [CASE_MARK + case_id]
     with gallery.example_setting():
@@ -176,7 +188,8 @@ def case_text(case_id: str, build) -> str:
     return "\n".join(lines + [""])
 
 
-def statement_lines(number: int, s) -> list[str]:
+def statement_lines(number: int,
+                    s: Statement | SessionSettings | UncheckedStatement) -> list[str]:
     """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's.
 
     Session settings and an Unchecked statement aren't Statements: their Hive, and what
@@ -202,7 +215,7 @@ def statement_lines(number: int, s) -> list[str]:
     return lines
 
 
-def parts_shown(step) -> list[str]:
+def parts_shown(step: Statement) -> list[str]:
     """The repr of each output and condition of one step, as a notebook shows it."""
     shown = [f"output {name}: {column!r}" for column, name in step._outputs]
     shown += [f"read {number} ON: {read.on!r}"
@@ -212,7 +225,8 @@ def parts_shown(step) -> list[str]:
     return shown
 
 
-def lineage_lines(statements: list) -> list[str]:
+def lineage_lines(statements: list[Statement | SessionSettings | UncheckedStatement]
+                  ) -> list[str]:
     """export_lineage's Markdown report of the Statements, without its dated last line."""
     if all(isinstance(s, SessionSettings) for s in statements):
         return []  # none, or only Session settings, which it draws nothing for
@@ -246,7 +260,7 @@ class Recording:
     frame, so check_key finds no repeats.
     """
 
-    def __init__(self, t):
+    def __init__(self, t: Table) -> None:
         self.table = t
         self.sent = []
 
@@ -260,7 +274,7 @@ class Recording:
         return pd.DataFrame()
 
 
-def describe_frame(t) -> pd.DataFrame:
+def describe_frame(t: Table) -> pd.DataFrame:
     """What Hive's DESCRIBE lists for a Table reference: its columns, then its partition."""
     rows = [(name, kind, "") for name, kind in t._columns.items()]
     if t._date_partition is not None:
@@ -270,7 +284,7 @@ def describe_frame(t) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
 
 
-def warehouse_text(t) -> str:
+def warehouse_text(t: Table) -> str:
     """The commands write_table_reference, check_table_reference and check_key send for `t`."""
     lines = [CASE_MARK + f"warehouse:{t._name}"]
     helpers = [("write_table_reference", _write_table_reference),
@@ -287,13 +301,13 @@ def warehouse_text(t) -> str:
     return "\n".join(lines + [""])
 
 
-def _write_table_reference(t, send) -> None:
+def _write_table_reference(t: Table, send: Recording) -> None:
     """write_table_reference, in a folder of its own, so its file never meets another."""
     with tempfile.TemporaryDirectory() as folder, contextlib.chdir(folder):
         sqlglot_composer.write_table_reference(t._name, send=send)
 
 
-def tables() -> list:
+def tables() -> list[Table]:
     """The Example database's Table references, then the edge cases' own."""
     return [example_database.jobs, example_database.job_runs, example_database.run_alerts,
             *hive_corpus_cases.edge_tables()]

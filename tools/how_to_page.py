@@ -64,10 +64,11 @@ import re
 import sys
 import textwrap
 import warnings
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from html import escape, unescape
 from pathlib import Path
-from typing import Callable, NamedTuple
+from typing import NamedTuple
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -272,7 +273,8 @@ class Notebook:
 
 
 @contextlib.contextmanager
-def pandas_standing_in(stand_ins: dict, scope: dict, answered: list):
+def pandas_standing_in(stand_ins: dict[str, Callable[[], pd.DataFrame]],
+                       scope: dict[str, object], answered: list[str]) -> Iterator[None]:
     """While it lasts, a query the Example database can't run, from a Statement a pandas
     stand-in is for, gets the stand-in's DataFrame back.
 
@@ -281,7 +283,7 @@ def pandas_standing_in(stand_ins: dict, scope: dict, answered: list):
     """
     real_send = example_database.send
 
-    def send(hive):
+    def send(hive: str) -> pd.DataFrame:
         try:
             return real_send(hive)
         except RuntimeError as error:
@@ -310,7 +312,8 @@ def files_in(folder: Path) -> dict[Path, bytes]:
     return {path: path.read_bytes() for path in folder.rglob("*") if path.is_file()}
 
 
-def written_files_html(folder: Path, before: dict, after: dict, shown_before: dict) -> str:
+def written_files_html(folder: Path, before: dict[Path, bytes], after: dict[Path, bytes],
+                       shown_before: dict[str, str]) -> str:
     """Each file a step writes in `folder`: a .py or .md file in full, any other by name, or
     all of them in one list of names when there are more than LIST_AFTER.
 
@@ -361,7 +364,7 @@ def printed_html(source: str, printed: str) -> str:
     return label("Python prints") + code_html(printed, "output")
 
 
-def value_html(source: str, value, in_pandas: bool) -> str:
+def value_html(source: str, value: object, in_pandas: bool) -> str:
     """What a step gives: a result table, the message it stops with, or the value Python shows.
 
     `in_pandas` says a pandas stand-in gave its result, in place of the Example database.
@@ -379,7 +382,7 @@ def value_html(source: str, value, in_pandas: bool) -> str:
     return label("Python shows") + code_html(repr(value), "output")
 
 
-def toolbox_warnings(caught: list) -> list:
+def toolbox_warnings(caught: list[warnings.WarningMessage]) -> list[Warning]:
     """The Toolbox's own Warnings among those a step gave."""
     return [warning.message for warning in caught
             if warning.category.__module__.startswith(toolbox_registry.FOLDER)]
@@ -442,7 +445,7 @@ def section_html(text: str, notebook: Notebook) -> str:
 
 
 @contextlib.contextmanager
-def times_pinned():
+def times_pinned() -> Iterator[None]:
     """A lineage's or a Project action's time, your scripts' commit and the Toolbox version, the
     same on every run.
 
