@@ -13,12 +13,13 @@ cluster's time: a team that wants TEST runs left out says so in its own Statemen
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, statement,
+    sum_of,
 )
 from references.ops__job_runs import failed, job_runs, minutes  # failed, minutes: Aliases
 
 
-def runs_per_job_day(first_day, last_day):
+def runs_per_job_day(first_day: str, last_day: str) -> Table:
     """One row per job and day from first_day to last_day: its runs, failed runs and minutes.
 
     The Date partition, dt, is kept in GROUP_BY, so each day's counts stay apart when

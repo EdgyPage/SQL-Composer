@@ -1,7 +1,7 @@
 # Hints in the teaching code
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 Size: L
 

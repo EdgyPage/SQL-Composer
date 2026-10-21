@@ -10,7 +10,7 @@ notebook's logic cell, import it and read it like a table:
     from building_blocks.<BLOCK> import <BLOCK>
 
 
-    def preview(day):
+    def preview(day: str) -> Statement:
         per_group = <BLOCK>(day, day)
         return statement(SELECT(per_group.<GROUP_COLUMN>, per_group.row_count),
                          FROM(per_group))
@@ -27,12 +27,13 @@ Fill in every <...>:
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, statement,
+    sum_of,
 )
 from references.<SOURCE_NAME> import <SOURCE_TABLE>  # the Table reference it reads
 
 
-def <BLOCK>(first_day, last_day):  # named as its file is
+def <BLOCK>(first_day: str, last_day: str) -> Table:  # named as its file is
     """One row per group and day from first_day to last_day: its rows, and its total."""
     return derived(
         <BLOCK_NAME>,  # the name the Hive gives it

@@ -27,7 +27,15 @@ VALUE = "a value"  # first_value, last_value: ORDER_BY; rows= left out is the wh
 
 
 class Window:
-    """The rows a calculation looks across for each row. Made by window(...), passed as over=."""
+    """The rows a calculation looks across for each row, made by window(...) for over=.
+
+    Make one with window(...), never Window(). Write the name in a type hint, to say that a function of yours gives back a Window:
+
+    >>> def each_jobs_runs_in_order() -> Window:
+    ...     return window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])
+    >>> each_jobs_runs_in_order()
+    window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])
+    """
 
     def __init__(self, partition_by: list[Node], order: Node | None,
                  rows: tuple[int | None, int | None] | None, call: str) -> None:
@@ -104,7 +112,9 @@ def _checked_rows(rows: object) -> tuple[int | None, int | None]:
     return (start, end)
 
 
-def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
+def window(PARTITION_BY: Column | list[Column] | None = None,
+           ORDER_BY: Column | Ordering | list[Column | Ordering] | None = None,
+           rows: tuple[int | None, int | None] | None = None) -> Window:
     """The rows a calculation looks across for each row, passed to it as over=.
 
     - PARTITION_BY= makes the groups: each row looks only at the rows sharing its values. The
@@ -290,7 +300,9 @@ def _of_column(tree: Node, column: Column) -> Column:
                   not_adding_up_because=column._not_adding_up_because)
 
 
-def row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None):
+def row_number(*, PARTITION_BY: Column | list[Column] | None = None,
+               ORDER_BY: Column | Ordering | list[Column | Ordering] | None = None,
+               over: Window | None = None) -> Column:
     """Number the rows of each group from 1, in ORDER_BY's order.
 
     Give it PARTITION_BY= and ORDER_BY=, or over=window(...) as lag(...) and rank(...) take
@@ -362,7 +374,7 @@ def row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None):
     return Column(tree, type="int")
 
 
-def rank(*, over):
+def rank(*, over: Window) -> Column:
     """Rank each row in its group from 1; rows that tie share a rank.
 
     Two rows tied in ORDER_BY's order get the same rank, and the next row the rank after both:
@@ -379,7 +391,7 @@ def rank(*, over):
     return Column(made_by(tree, "rank", over=over), type="int")
 
 
-def dense_rank(*, over):
+def dense_rank(*, over: Window) -> Column:
     """Rank each row in its group from 1; ties share a rank, and the next follows on.
 
     Two rows tied in ORDER_BY's order get the same rank, and the next row the rank straight
@@ -394,7 +406,7 @@ def dense_rank(*, over):
     return Column(made_by(tree, "dense_rank", over=over), type="int")
 
 
-def ntile(parts, *, over):
+def ntile(parts: int, *, over: Window) -> Column:
     """Which of N nearly equal parts of its group each row falls in, 1 to N, in order.
 
     ntile(4, over=...) gives each row 1, 2, 3 or 4: its quarter of its group, from the first
@@ -425,7 +437,7 @@ def _shifted(name: str, column: object, over: object, keyword: str, by: object) 
     return _of_column(tree, column)
 
 
-def lag(column, *, over, back=1):
+def lag(column: Column, *, over: Window, back: int = 1) -> Column:
     """The column's value on the row before each row in its group, in ORDER_BY's order.
 
     back=2 looks 2 rows back; the Hive writes it after the column, 1 when you give none. The
@@ -440,7 +452,7 @@ def lag(column, *, over, back=1):
     return _shifted("lag", column, over, "back", back)
 
 
-def lead(column, *, over, ahead=1):
+def lead(column: Column, *, over: Window, ahead: int = 1) -> Column:
     """The column's value on the row after each row in its group, in ORDER_BY's order.
 
     ahead=2 looks 2 rows ahead; the Hive writes it after the column, 1 when you give none.
@@ -462,7 +474,7 @@ def _end_value(name: str, column: object, over: object) -> Column:
     return _of_column(made_by(tree, name, column, over=over), column)
 
 
-def first_value(column, *, over):
+def first_value(column: Column, *, over: Window) -> Column:
     """The column's value on the first row of each row's group, in ORDER_BY's order.
 
     With no rows= in the Window, it is the whole group's first row, which the Hive spells out
@@ -476,7 +488,7 @@ def first_value(column, *, over):
     return _end_value("first_value", column, over)
 
 
-def last_value(column, *, over):
+def last_value(column: Column, *, over: Window) -> Column:
     """The column's value on the last row of each row's group, in ORDER_BY's order.
 
     With no rows= in the Window, it is the whole group's last row, which the Hive spells out

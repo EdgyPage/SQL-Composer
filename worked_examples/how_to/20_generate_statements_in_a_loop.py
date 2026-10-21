@@ -58,7 +58,7 @@ table, or its own columns and conditions.
 Each team wants its own list of failed runs, in a file of its own. Write the Statement once, as
 a function of the team:
 
->>> def team_failures(team):
+>>> def team_failures(team: str) -> Statement:
 ...     return statement(
 ...         SELECT(job_runs.run_id, jobs.job_name, job_runs.dt),
 ...         FROM(job_runs),
@@ -142,7 +142,7 @@ How many rows does each table hold per day? The question is the same for every t
 Date partition is dt, so the function takes the table itself, a Table reference, as an
 argument:
 
->>> def rows_per_day(table, first_day, last_day):
+>>> def rows_per_day(table: Table, first_day: str, last_day: str) -> Statement:
 ...     return statement(
 ...         SELECT(table.dt, AS(count_rows(), "row_count")),
 ...         FROM(table),
@@ -188,7 +188,7 @@ its column and its value.
 The function names the column as text, so it reads it from the Table reference with Python's
 `getattr`: `getattr(job_runs, "status")` is `job_runs.status`.
 
->>> def matching_rows(table, column, value, day):
+>>> def matching_rows(table: Table, column: str, value: str, day: str) -> Statement:
 ...     return statement(
 ...         SELECT(AS(count_rows(), "matching")),
 ...         FROM(table),

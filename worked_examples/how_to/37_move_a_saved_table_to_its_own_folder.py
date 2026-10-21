@@ -48,7 +48,7 @@ answers DESCRIBE FORMATTED and SHOW PARTITIONS for a mart.job_day that was made 
 /data/your_team/tables itself, a folder other tables share:
 
 >>> import pandas as pd
->>> def send_at_work(hive):
+>>> def send_at_work(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
 ...     return pd.DataFrame([
@@ -184,7 +184,8 @@ anything is dropped. Here it is a function that takes your own send and gives ba
 so that one can be sent again; it isn't called on this page, since the Example database is
 never written to:
 
->>> def move(t, send):
+>>> from collections.abc import Callable
+>>> def move(t: Table, send: Callable[[str], pd.DataFrame]) -> list[Statement]:
 ...     moves = admin.move_to_own_folder(t, send=send)
 ...     for step in moves:
 ...         run(step, send=send)
@@ -213,7 +214,7 @@ the folder before deleting any, since other teams' tables may read it too.
 Once the steps have run, the table is at its own folder. A stand-in send plays the warehouse
 again, now describing the moved table:
 
->>> def send_after_the_move(hive):
+>>> def send_after_the_move(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
 ...     return pd.DataFrame([

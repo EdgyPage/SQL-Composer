@@ -40,7 +40,8 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/ and send.py. Next: write your send in send.py.
 >>> project.add_references(["ops.job_runs"], send=example_database.send)
 Wrote references/ops__job_runs.py: fill in its TODO lines.
->>> def add_table(name, columns, key, filled_in):
+>>> def add_table(name: str, columns: dict[str, str], key: list[str],
+...               filled_in: dict[str, str]) -> None:
 ...     project.new_table(name)
 ...     stem = name.replace(".", "__")
 ...     variable = name.split(".")[1]

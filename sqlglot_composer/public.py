@@ -23,6 +23,7 @@ from .calculations import (
 from .clauses import (
     ANTI_JOIN,
     AS,
+    Clause,
     CROSS_JOIN,
     FROM,
     FULL_JOIN,
@@ -94,6 +95,7 @@ from .unchecked import (
 )
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
+    Window,
     dense_rank,
     first_value,
     lag,
@@ -139,6 +141,7 @@ __all__ = [
     "INSERT_INTO",
     "statement",
     "Statement",
+    "Clause",
     "derived",
     # stacking.py
     "UNION_ALL",
@@ -182,6 +185,7 @@ __all__ = [
     "hive_function",
     # windows.py
     "window",
+    "Window",
     "row_number",
     "rank",
     "dense_rank",

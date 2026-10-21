@@ -63,7 +63,7 @@ so one short function writes a NULL count for each column of any table. A column
 of its own to ask for, but `str(column)` gives it as the Hive names it, such as
 `job_owners.owner`, and the part after the dot is its name, which names each count:
 
->>> def null_counts(t, first_day, last_day):
+>>> def null_counts(t: Table, first_day: str, last_day: str) -> Statement:
 ...     counts = [AS(count_rows(where=is_null(column)), "null_" + str(column).split(".")[1])
 ...               for column in all_columns(t)]
 ...     return statement(

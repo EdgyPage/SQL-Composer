@@ -64,7 +64,10 @@ after an empty row, so stop at the first such row:
 table here keeps its days in a column named dt; if yours don't, add the name to each setting
 too:
 
->>> def table_reference(setting, send):
+>>> from collections.abc import Callable
+>>> import pandas as pd
+>>> def table_reference(setting: dict[str, str | list[str]],
+...                     send: Callable[[str], pd.DataFrame]) -> Table:
 ...     described = send("DESCRIBE " + setting["table"])
 ...     columns = {}
 ...     for name, data_type in zip(described["col_name"], described["data_type"]):
@@ -106,7 +109,8 @@ the total of each column it adds up. `getattr(t, "duration_mins")` is `t.duratio
 column whose name you hold as text, so a column the table doesn't have stops here, naming the
 real ones.
 
->>> def daily_totals(t, setting, first_day, last_day):
+>>> def daily_totals(t: Table, setting: dict[str, str | list[str]],
+...                  first_day: datetime.date, last_day: datetime.date) -> Statement:
 ...     totals = [AS(sum_of(getattr(t, name)), "total_" + name)
 ...               for name in setting["add_up"]]
 ...     return statement(

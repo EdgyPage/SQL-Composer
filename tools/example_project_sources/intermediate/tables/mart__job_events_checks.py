@@ -29,19 +29,19 @@ DAY = "2026-09-24"  # the Example database's last day
 # logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, all_columns, between,
-    count_rows, create_table, is_null, more_than, statement,
+    AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, Clause, Column,
+    Statement, all_columns, between, count_rows, create_table, is_null, more_than, statement,
 )
 from references.mart__job_events_checks import job_events_checks
 from references.ops__job_events import job_events
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.job_events_checks from its Table reference, if it isn't there yet."""
     return create_table(job_events_checks, may_exist=True)
 
 
-def rows(day):
+def rows(day: str) -> list[Clause]:
     """The day's row count: the clauses preview and write_day share. The day isn't selected:
     INSERT_OVERWRITE writes it as this table's Date partition."""
     return [
@@ -52,17 +52,17 @@ def rows(day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the row write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's row count, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(job_events_checks), *rows(day))
 
 
-def repeated_keys(first_day, last_day):
+def repeated_keys(first_day: str, last_day: str) -> Statement:
     """Each event_id that picks out more than one row on the days: it should find no rows."""
     return statement(
         SELECT(job_events.event_id, AS(count_rows(), "times_seen")),
@@ -73,13 +73,13 @@ def repeated_keys(first_day, last_day):
     )
 
 
-def column_name(column):
+def column_name(column: Column) -> str:
     """A column's own name: a column prints as its table and its name, such as
     job_events.minutes, and this keeps the part after the dot."""
     return str(column).split(".")[-1]
 
 
-def null_counts(first_day, last_day):
+def null_counts(first_day: str, last_day: str) -> Statement:
     """How many rows on the days hold NULL in each column, as one row: null_minutes counts
     the rows whose minutes is NULL, and so on."""
     counts = [AS(count_rows(where=is_null(column)), f"null_{column_name(column)}")

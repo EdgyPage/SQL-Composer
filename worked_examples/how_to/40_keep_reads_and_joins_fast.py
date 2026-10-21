@@ -78,7 +78,10 @@ It counts one day, as each write fills one. At work, a function counts the days 
 before, one by one, through your own send; sending a day again counts it again, which does no
 harm:
 
-    def count_days(send):
+    from collections.abc import Callable
+    import pandas as pd
+
+    def count_days(send: Callable[[str], pd.DataFrame]) -> None:
         for day in ["2026-09-22", "2026-09-23", "2026-09-24"]:
             run(compute_statistics(daily_runs, day), send=send)
 
@@ -140,7 +143,7 @@ GROUP BY
 
 At work, print the plan your own send gives back:
 
-    def show_plan(send):
+    def show_plan(send: Callable[[str], pd.DataFrame]) -> None:
         print(run(explain(runs_per_team), send=send))
 
 Hive's plan is a tree of steps, each reading what the steps below it give. Look for:

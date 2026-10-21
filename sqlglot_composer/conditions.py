@@ -108,7 +108,9 @@ class Condition:
     job_runs.status = 'FAILED'
     """
 
-    def __init__(self, tree, *, spans=None, only_bounds=None, keeps_unmatched=frozenset()):
+    def __init__(self, tree: Node, *, spans: dict[tuple[str, str], Span] | None = None,
+                 only_bounds: tuple[str, str] | None = None,
+                 keeps_unmatched: frozenset[str] = frozenset()) -> None:
         self._tree = tree
         # {(table alias, column): Span} for each Date partition this condition bounds.
         self._spans = spans or {}
@@ -125,20 +127,20 @@ class Condition:
     def _tables(self) -> set[str]:
         return {column.table for column in self._tree.find_all("Column") if column.table}
 
-    def __and__(self, other):
+    def __and__(self, other: object) -> NoReturn:
         _no_combining("&", "all_of(...), or separate conditions in WHERE(...)")
 
     __rand__ = __and__
 
-    def __or__(self, other):
+    def __or__(self, other: object) -> NoReturn:
         _no_combining("|", "any_of(...)")
 
     __ror__ = __or__
 
-    def __invert__(self):
+    def __invert__(self) -> NoReturn:
         _no_combining("~", "the opposite condition, such as not_equals(...)")
 
-    def __bool__(self):
+    def __bool__(self) -> NoReturn:
         _no_combining("if, and, or or not", "all_of(...) or any_of(...)")
 
 
@@ -199,7 +201,8 @@ def _compare(name: str, kind: str, column: object, value: object,
     return Condition(tree, spans={key: span}, only_bounds=key)
 
 
-def equals(column, value):
+def equals(column: Column,
+           value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column equals the value.
 
     To find missing values use is_null(column): equals(column, None) is refused, because in
@@ -214,7 +217,8 @@ def equals(column, value):
     return _compare("equals", "EQ", column, value, lambda day: Span(day, day, frozenset([day])))
 
 
-def not_equals(column, value):
+def not_equals(column: Column,
+               value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column differs from the value; rows where it is NULL drop out.
 
     Unlike pandas' !=, SQL's <> leaves out rows where the column is NULL. To keep them, use
@@ -227,7 +231,8 @@ def not_equals(column, value):
                     lambda day: Span(left_out=frozenset([day])))
 
 
-def at_least(column, value):
+def at_least(column: Column,
+             value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is greater than or equal to the value (>=).
 
     >>> at_least(job_runs.duration_mins, 30)
@@ -236,7 +241,8 @@ def at_least(column, value):
     return _compare("at_least", "GTE", column, value, lambda day: Span(low=day))
 
 
-def at_most(column, value):
+def at_most(column: Column,
+            value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is less than or equal to the value (<=).
 
     >>> at_most(job_runs.duration_mins, 30)
@@ -245,7 +251,8 @@ def at_most(column, value):
     return _compare("at_most", "LTE", column, value, lambda day: Span(high=day))
 
 
-def more_than(column, value):
+def more_than(column: Column,
+              value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is strictly greater than the value (>).
 
     >>> more_than(job_runs.duration_mins, 30)
@@ -255,7 +262,8 @@ def more_than(column, value):
                     lambda day: Span(low=day + datetime.timedelta(days=1)))
 
 
-def less_than(column, value):
+def less_than(column: Column,
+              value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is strictly less than the value (<).
 
     >>> less_than(job_runs.duration_mins, 30)
@@ -265,7 +273,8 @@ def less_than(column, value):
                     lambda day: Span(high=day - datetime.timedelta(days=1)))
 
 
-def between(column, low, high):
+def between(column: Column, low: str | int | float | bool | datetime.date | Column,
+            high: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is from low to high, both ends included.
 
     On a Date partition this is the usual way to bound the days a Statement reads.
@@ -299,7 +308,7 @@ def between(column, low, high):
     return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
 
 
-def last_n_days(column, n):
+def last_n_days(column: Column, n: int) -> Condition:
     """Rows from the n days before today; today itself isn't included.
 
     The dates are worked out when the condition is made, and written into the Hive, so the
@@ -383,7 +392,7 @@ def _in(name: str, column: object, values: object, negated: bool) -> Condition:
     return Condition(tree, spans={key: span}, only_bounds=key)
 
 
-def is_in(column, values):
+def is_in(column: Column, values: list[str | int | float | bool | datetime.date]) -> Condition:
     """Rows where the column is one of the values in a list.
 
     >>> is_in(job_runs.status, ["FAILED", "TEST"])
@@ -392,7 +401,8 @@ def is_in(column, values):
     return _in("is_in", column, values, negated=False)
 
 
-def is_not_in(column, values):
+def is_not_in(column: Column,
+              values: list[str | int | float | bool | datetime.date]) -> Condition:
     """Rows where the column is none of the values; rows where it is NULL drop out.
 
     A None in the list is refused: in SQL it would make the whole test match nothing.
@@ -403,7 +413,7 @@ def is_not_in(column, values):
     return _in("is_not_in", column, values, negated=True)
 
 
-def is_null(column):
+def is_null(column: Column) -> Condition:
     """Rows where the column has no value (NULL).
 
     >>> is_null(job_runs.status)
@@ -416,7 +426,7 @@ def is_null(column):
     return Condition(made_by(tree, "is_null", column), keeps_unmatched=keeps)
 
 
-def is_not_null(column):
+def is_not_null(column: Column) -> Condition:
     """Rows where the column has a value (is not NULL).
 
     >>> is_not_null(job_runs.status)
@@ -443,7 +453,7 @@ def _like(name: str, column: object, text: object,
     return Condition(made_by(tree, name, column, text))
 
 
-def contains(column, text):
+def contains(column: Column, text: str) -> Condition:
     """Rows where the column contains your text, a % or _ in it matched as % or _.
 
     It writes SQL's LIKE, which reads % as any run of characters and _ as any one character.
@@ -458,7 +468,7 @@ def contains(column, text):
     return _like("contains", column, text, lambda escaped: f"%{escaped}%")
 
 
-def starts_with(column, text):
+def starts_with(column: Column, text: str) -> Condition:
     """Rows where the column starts with your text, a % or _ in it matched as % or _.
 
     As in contains(...), a backslash before your own % or _ makes LIKE match it as itself.
@@ -492,7 +502,7 @@ def _conditions(items: list[object] | tuple[object, ...], call: str) -> list[Con
     return found
 
 
-def any_of(*conditions):
+def any_of(*conditions: Condition | list[Condition]) -> Condition:
     """Rows where at least one of the conditions holds (OR); takes a list too.
 
     >>> any_of(equals(job_runs.status, "FAILED"), is_null(job_runs.status))
@@ -509,7 +519,7 @@ def any_of(*conditions):
     return Condition(made_by(tree, "any_of", *found), spans=spans, keeps_unmatched=keeps)
 
 
-def all_of(*conditions):
+def all_of(*conditions: Condition | list[Condition]) -> Condition:
     """Rows where every one of the conditions holds (AND), for use inside any_of.
 
     WHERE(...) already joins its conditions with AND, so all_of is needed only inside

@@ -9,13 +9,13 @@ NULL.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, fill_null,
-    statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, equals,
+    fill_null, statement, sum_of,
 )
 from references.ops__job_events import ends_a_run, job_events  # ends_a_run: an Alias
 
 
-def events_per_job_day(first_day, last_day):
+def events_per_job_day(first_day: str, last_day: str) -> Table:
     """One row per job and day from first_day to last_day: its events, runs and minutes.
 
     The Date partition, dt, is kept in GROUP_BY, so each day's numbers stay apart when

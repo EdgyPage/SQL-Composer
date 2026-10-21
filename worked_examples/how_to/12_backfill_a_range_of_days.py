@@ -47,7 +47,7 @@ ran, and how many of those runs failed. Its Table reference is written by hand, 
 Write the Statement once, as a function of the first and the last day. It reads every day from
 `first_day` to `last_day`, and counts per job and per day:
 
->>> def daily_counts(first_day, last_day):
+>>> def daily_counts(first_day: str, last_day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(daily_job_runs),
 ...         SELECT(
@@ -149,7 +149,9 @@ From a notebook, send each write in turn with `run`, oldest first. At work, a lo
 here a function that takes your own send, written as in [Start a Project](#start_a_project).
 It isn't called on this page, since the Example database's send would refuse the writes:
 
->>> def send_backfill(writes, send):
+>>> from collections.abc import Callable
+>>> import pandas as pd
+>>> def send_backfill(writes: list[Statement], send: Callable[[str], pd.DataFrame]) -> None:
 ...     for write in writes:
 ...         run(write, send=send)
 

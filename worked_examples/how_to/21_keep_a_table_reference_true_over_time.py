@@ -99,7 +99,7 @@ Example database's send.
 ...      ("dt", "string", "")],
 ...     columns=["col_name", "data_type", "comment"],
 ... )
->>> def send_after_the_change(hive):
+>>> def send_after_the_change(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("DESCRIBE"):
 ...         return after_the_change
 ...     return example_database.send(hive)
@@ -174,7 +174,7 @@ every Table reference so far, it is `"%Y-%m-%d"`, as in 2026-09-25. The check al
 newest day SHOW PARTITIONS lists, and checks it is written that way. Say the team starts
 writing new days as 20260925 rather than 2026-09-25. Another stand-in send plays that, answering SHOW PARTITIONS with the new day:
 
->>> def send_with_a_new_day(hive):
+>>> def send_with_a_new_day(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24", "dt=20260925"]})
 ...     return example_database.send(hive)
@@ -269,7 +269,7 @@ ValueError:
 When the send itself fails, say the warehouse can't be reached, the check doesn't stop with
 an error: it says so, and compares nothing. A stand-in send that fails plays that here:
 
->>> def send_that_fails(hive):
+>>> def send_that_fails(hive: str) -> pd.DataFrame:
 ...     raise ConnectionError("the warehouse can't be reached")
 >>> check_table_reference(job_runs, send=send_that_fails)
 ops.job_runs: DESCRIBE failed, so nothing was compared. Check the table's name, and that send works. It said:

@@ -7,8 +7,8 @@ import pandas as pd
 
 from building_blocks.jobs_per_day import jobs_per_day
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, between, count_distinct, example_database,
-    run, statement, sum_of, week_start,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, between, count_distinct,
+    example_database, run, statement, sum_of, week_start,
 )
 
 job_runs = example_database.job_runs
@@ -17,7 +17,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def careless(adds_up=False):
+def careless(adds_up: bool = False) -> Statement:
     """What most people write first: add up each day's count. The Guard refuses it.
 
     careless(adds_up=True) pastes the Guard's opt-out and shows the wrong number: 6 jobs,
@@ -32,7 +32,7 @@ def careless(adds_up=False):
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Count the different jobs over the whole week, straight from job_runs."""
     return statement(
         SELECT(AS(week_start(job_runs.dt), "week"),
@@ -43,7 +43,7 @@ def fixed():
     )
 
 
-def every_run():
+def every_run() -> pd.DataFrame:
     """Every run on both days, read with a Statement the Example database can run."""
     return run(
         statement(SELECT(all_columns(job_runs)), FROM(job_runs),
@@ -52,14 +52,14 @@ def every_run():
     )
 
 
-def with_week(runs):
+def with_week(runs: pd.DataFrame) -> pd.DataFrame:
     """The runs with a week column: the Monday that starts each day's week, as week_start."""
     days = pd.to_datetime(runs.dt)
     monday = days - pd.to_timedelta(days.dt.weekday, unit="D")
     return runs.assign(week=monday.dt.strftime("%Y-%m-%d"))
 
 
-def careless_in_pandas():
+def careless_in_pandas() -> pd.DataFrame:
     """careless(adds_up=True)'s result, computed in pandas, not by running this Hive."""
     runs = with_week(every_run())
     daily = runs.groupby(["week", "dt"], as_index=False).job_id.nunique()
@@ -67,7 +67,7 @@ def careless_in_pandas():
     return weekly.rename(columns={"job_id": "jobs_that_ran"})
 
 
-def fixed_in_pandas():
+def fixed_in_pandas() -> pd.DataFrame:
     """fixed()'s result, computed in pandas, not by running this Hive."""
     runs = with_week(every_run())
     weekly = runs.groupby("week", as_index=False).job_id.nunique()

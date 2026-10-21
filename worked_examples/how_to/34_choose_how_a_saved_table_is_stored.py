@@ -91,7 +91,7 @@ still fills one day, named in its first line, and fills each region from its row
 SELECT lists region too; the Toolbox puts it last, where the warehouse reads it from. Here
 ops.region_costs, whose days are written like 20260921, fills a day of mart.job_costs:
 
->>> def write_job_costs(day):
+>>> def write_job_costs(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(job_costs),
 ...         SELECT(region_costs.job_id, region_costs.region,
@@ -202,7 +202,7 @@ table made by hand at a folder it shares with other tables, /data/your_team/tabl
 as the warehouse would describe it:
 
 >>> import pandas as pd
->>> def send_at_work(hive):
+>>> def send_at_work(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-21/region=eu"]})
 ...     return pd.DataFrame([

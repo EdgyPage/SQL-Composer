@@ -5,8 +5,8 @@ then throws that row away again.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, equals,
-    example_database, is_not_null, statement,
+    AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, Statement, all_of, between, count_rows,
+    equals, example_database, is_not_null, statement,
 )
 
 jobs = example_database.jobs
@@ -16,7 +16,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def careless(keeps_only_matches=False):
+def careless(keeps_only_matches: bool = False) -> Statement:
     """What most people write first: the days go in WHERE. The Guard refuses it.
 
     careless(keeps_only_matches=True) pastes the Guard's opt-out and shows what goes wrong:
@@ -33,7 +33,7 @@ def careless(keeps_only_matches=False):
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Put the days in LEFT_JOIN's ON=, so they only decide which runs match."""
     return statement(
         SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), "runs")),

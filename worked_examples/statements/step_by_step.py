@@ -8,7 +8,7 @@ WITH ... AS (...) part (a CTE). Run a step on its own to check it before buildin
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, at_least, between, count_rows, derived,
+    AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, Statement, at_least, between, count_rows, derived,
     equals, example_database, statement, sum_of,
 )
 
@@ -19,7 +19,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def minutes_per_job():
+def minutes_per_job() -> Statement:
     """Step 1: each job's runs and minutes over the two days."""
     return statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs"),
@@ -30,7 +30,7 @@ def minutes_per_job():
     )
 
 
-def minutes_per_team():
+def minutes_per_team() -> Statement:
     """Step 2: add each job's team from jobs, then total the minutes per team.
 
     Summing step 1's minutes again is safe, since a sum of sums is still the right sum. The
@@ -46,7 +46,7 @@ def minutes_per_team():
     )
 
 
-def busy_teams():
+def busy_teams() -> Statement:
     """Step 3: keep the teams with 100 minutes of runs or more, reading step 2."""
     per_team = derived("per_team", minutes_per_team())
     return statement(

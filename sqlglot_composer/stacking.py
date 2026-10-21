@@ -43,7 +43,8 @@ def nth(position: int) -> str:
 # --- Stacks ----------------------------------------------------------------------------------
 
 
-def UNION_ALL(*statements, returns_all_rows=False):
+def UNION_ALL(*statements: Statement | list[Statement],
+              returns_all_rows: bool = False) -> Statement:
     """Stack the rows of Statements one after another, keeping every row.
 
     Each Statement must return the same columns. Hive lines columns up by their place in
@@ -88,7 +89,8 @@ def UNION_ALL(*statements, returns_all_rows=False):
     return stacked("UNION_ALL", statements, returns_all_rows)
 
 
-def UNION(*statements, returns_all_rows=False):
+def UNION(*statements: Statement | list[Statement],
+          returns_all_rows: bool = False) -> Statement:
     """Stack the rows of Statements, each different row once.
 
     It stacks as UNION_ALL does, with the same checks, then drops repeated rows, so each
@@ -114,7 +116,8 @@ def UNION(*statements, returns_all_rows=False):
     return stacked("UNION", statements, returns_all_rows)
 
 
-def INTERSECT(*statements, returns_all_rows=False):
+def INTERSECT(*statements: Statement | list[Statement],
+              returns_all_rows: bool = False) -> Statement:
     """Keep the rows every Statement returns, each different row once.
 
     A row counts as in every Statement when each returns a row alike in every column, the
@@ -143,7 +146,8 @@ def INTERSECT(*statements, returns_all_rows=False):
     return stacked("INTERSECT", statements, returns_all_rows)
 
 
-def EXCEPT(*statements, returns_all_rows=False):
+def EXCEPT(*statements: Statement | list[Statement],
+           returns_all_rows: bool = False) -> Statement:
     """Keep the first Statement's rows that no other Statement returns, each once.
 
     A row is left out when another Statement returns a row alike in every column, the
@@ -388,7 +392,7 @@ def _same(one: Column | str, other: Column | str) -> bool:
     return one._tree == other._tree
 
 
-def rollup(*columns):
+def rollup(*columns: Column | str | list[Column | str]) -> Subtotals:
     """Subtotals for GROUP_BY: dropping its columns from the right, to a grand total.
 
     GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as
@@ -437,7 +441,7 @@ def rollup(*columns):
     return Subtotals(call, items, sets)
 
 
-def cube(*columns):
+def cube(*columns: Column | str | list[Column | str]) -> Subtotals:
     """Subtotals for GROUP_BY over every mix of the columns, and a grand total.
 
     GROUP_BY(cube(jobs.team, jobs.region)) gives a row for each team and region, a subtotal
@@ -473,7 +477,7 @@ def cube(*columns):
     return Subtotals(call, items, sets)
 
 
-def grouping_sets(*sets):
+def grouping_sets(*sets: list[Column | str] | Column | str) -> Subtotals:
     """Subtotals for GROUP_BY: the groups of each listed set of columns, in one result.
 
     Each set is a list of columns, or one column, and [] is the grand total, one row over all
@@ -527,7 +531,7 @@ def _need_some(call: str, items: list[Column | str] | tuple[object, ...],
                fix=f"Pass columns or output names, such as {example}.", error=ValueError)
 
 
-def is_total(column):
+def is_total(column: Column) -> Condition:
     """A condition true on a subtotal row that totals over every value of the column.
 
     A subtotal row of GROUP_BY(rollup(...)), cube(...) or grouping_sets(...) has NULL in each

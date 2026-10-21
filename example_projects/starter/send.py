@@ -8,9 +8,11 @@ shows how to write it. It imports none of your own files, so any notebook or scr
 can import it.
 """
 
+import pandas as pd
+
 from sqlglot_composer import example_database
 
 
-def send(hive):
+def send(hive: str) -> pd.DataFrame:
     """Run a Hive string and give back a pandas DataFrame."""
     return example_database.send(hive)  # at work: your warehouse's call

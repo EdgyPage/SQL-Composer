@@ -61,7 +61,14 @@ class Clause:
     """One clause of a Statement, made by a clause function such as SELECT(...).
 
     Each clause function fills in only the parts its clause has; the rest keep their
-    defaults. statement(...) reads them back to build the Statement.
+    defaults. statement(...) reads them back to build the Statement. Make one with its clause
+    function, never Clause(). Write the name in a type hint, to say that a function of yours
+    gives back a clause, as a Building block that joins a table does:
+
+    >>> def with_their_jobs() -> Clause:
+    ...     return JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id))
+    >>> with_their_jobs()
+    <JOIN clause - put it in statement(...)>
     """
 
     def __init__(self, name: str, *, outputs: list[tuple[Column, str]] | None = None,
@@ -144,7 +151,7 @@ class Statement:
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED'
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Filled in by statement(...), from the clauses it was given:
         self._clauses = ()  # the clauses, in the order written
         self._returns_all_rows = False  # the opt-out of the automatic LIMIT
@@ -197,7 +204,7 @@ class Statement:
 # --- Naming things -------------------------------------------------------------------------
 
 
-def AS(expression, name):
+def AS(expression: Column | Table, name: str) -> Named | Table:
     """Name a calculation, as AS(count_rows(), "runs"), or give a table a second name.
 
     Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
@@ -286,7 +293,7 @@ def _refuse_output(item: object, call: str) -> NoReturn:
            fix=fix)
 
 
-def SELECT(*columns):
+def SELECT(*columns: Column | Named | list[Column | Named]) -> Clause:
     """The columns and named calculations a Statement returns; takes a list too.
 
     >>> print(to_hive(statement(
@@ -307,7 +314,7 @@ def SELECT(*columns):
     return Clause("SELECT", outputs=_outputs(columns, "SELECT(...)"), distinct=False)
 
 
-def SELECT_DISTINCT(*columns):
+def SELECT_DISTINCT(*columns: Column | Named | list[Column | Named]) -> Clause:
     """Like SELECT, but each different row comes back once.
 
     >>> print(to_hive(statement(
@@ -333,7 +340,7 @@ def _need_table(table: object, call: str) -> Table:
     )
 
 
-def FROM(table, reads_all_partitions=False):
+def FROM(table: Table, reads_all_partitions: bool = False) -> Clause:
     """The table a Statement reads; WHERE must bound its Date partition at both ends.
 
     >>> print(to_hive(statement(
@@ -458,7 +465,8 @@ def _join(call: str, table: object, on: object, many_matches: bool,
                   many_matches=many_matches, broadcast=broadcast, **more)
 
 
-def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False, broadcast=False):
+def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
+         reads_all_partitions: bool = False, broadcast: bool = False) -> Clause:
     """Add a second table's columns to the rows its ON= condition matches.
 
     When ON= doesn't pin down the joined table's whole Key, one row can match several, and
@@ -510,8 +518,9 @@ def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False, broadca
     return _join("JOIN", table, ON, many_matches, reads_all_partitions, broadcast)
 
 
-def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
-              reads_all_partitions=False, broadcast=False):
+def LEFT_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: bool = False,
+              many_matches: bool = False, reads_all_partitions: bool = False,
+              broadcast: bool = False) -> Clause:
     """Like JOIN, but rows with no match are kept, with NULL in the joined columns.
 
     A condition on the joined table in WHERE would throw those rows away again, so it is
@@ -542,7 +551,7 @@ def LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
                  keeps_only_matches=keeps_only_matches)
 
 
-def CROSS_JOIN(table, reads_all_partitions=False):
+def CROSS_JOIN(table: Table, reads_all_partitions: bool = False) -> Clause:
     """Pair every row with every row of another table, with no ON=.
 
     JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row
@@ -567,7 +576,8 @@ def CROSS_JOIN(table, reads_all_partitions=False):
                   reads_all_partitions=reads_all_partitions)
 
 
-def SEMI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False):
+def SEMI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: bool = False,
+              broadcast: bool = False) -> Clause:
     """Keep each row another table matches, once, adding none of that table's columns.
 
     Where JOIN gives a row for each match, so a run with three alerts comes out three times,
@@ -601,7 +611,8 @@ def SEMI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False):
     return _join("SEMI_JOIN", table, ON, False, reads_all_partitions, broadcast)
 
 
-def ANTI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False):
+def ANTI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: bool = False,
+              broadcast: bool = False) -> Clause:
     """Keep each row with no match in another table, such as the jobs that never ran.
 
     Hive 3 has no anti join of its own, so it is written as a LEFT JOIN, which gives a row with
@@ -636,8 +647,8 @@ def ANTI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False):
     return clause
 
 
-def FULL_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
-              reads_all_partitions=False):
+def FULL_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: bool = False,
+              many_matches: bool = False, reads_all_partitions: bool = False) -> Clause:
     """Pair two tables' matching rows, and keep each table's rows with no match.
 
     Use it to compare two records of the same things, such as the runs job_runs holds and the
@@ -693,7 +704,7 @@ def FULL_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False,
                  keeps_only_matches=keeps_only_matches)
 
 
-def RIGHT_JOIN(table, ON=None, **anything):
+def RIGHT_JOIN(table: Table, ON: Condition | None = None, **anything: object) -> NoReturn:
     """Refused: write LEFT_JOIN with the two tables swapped, which keeps the same rows.
 
     A RIGHT JOIN keeps every row of the table it joins, and only the matching rows of the
@@ -711,7 +722,7 @@ def RIGHT_JOIN(table, ON=None, **anything):
     refuse_right_join(table)
 
 
-def WHERE(*conditions):
+def WHERE(*conditions: Condition | list[Condition]) -> Clause:
     """Keep only the rows where every condition holds (they are joined with AND).
 
     >>> print(to_hive(statement(
@@ -744,7 +755,7 @@ def _conditions(items: tuple[object, ...], call: str) -> list[Condition]:
     return found
 
 
-def GROUP_BY(*columns):
+def GROUP_BY(*columns: Column | str | Subtotals | list[Column | str | Subtotals]) -> Clause:
     """Group rows that share these values, one output row per group.
 
     A calculation may be named by its output name, such as GROUP_BY("week"), and the
@@ -784,7 +795,7 @@ def GROUP_BY(*columns):
     return Clause("GROUP_BY", group_columns=items)
 
 
-def HAVING(*conditions):
+def HAVING(*conditions: Condition | list[Condition]) -> Clause:
     """Keep only the groups where every condition holds, tested after GROUP_BY.
 
     >>> print(to_hive(statement(
@@ -808,7 +819,8 @@ def HAVING(*conditions):
     return Clause("HAVING", conditions=_conditions(conditions, "HAVING(...)"))
 
 
-def ORDER_BY(*columns, sorts_everything=False):
+def ORDER_BY(*columns: Column | str | Ordering | list[Column | str | Ordering],
+             sorts_everything: bool = False) -> Clause:
     """Sort the result; it needs a LIMIT, as sorting every row is slow, or use pandas.
 
     Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
@@ -852,7 +864,7 @@ def ORDER_BY(*columns, sorts_everything=False):
     return Clause("ORDER_BY", sort_keys=trees, sorts_everything=sorts_everything)
 
 
-def LIMIT(n):
+def LIMIT(n: int) -> Clause:
     """Return at most n rows.
 
     >>> print(to_hive(statement(SELECT(jobs.job_name), FROM(jobs), LIMIT(2))))
@@ -894,7 +906,7 @@ def _write_clause(call: str, table: object, unproven_key: object) -> Clause:
     return Clause(call, table=table, unproven_key=unproven_key)
 
 
-def INSERT_OVERWRITE(table, unproven_key=False):
+def INSERT_OVERWRITE(table: Table, unproven_key: bool = False) -> Clause:
     """Write rows into a Saved table, replacing one day, or the whole table.
 
     It goes first, before SELECT. Into a Saved table with a Date partition, it writes one day:
@@ -983,7 +995,7 @@ def INSERT_OVERWRITE(table, unproven_key=False):
     return _write_clause("INSERT_OVERWRITE", table, unproven_key)
 
 
-def INSERT_INTO(table, unproven_key=False):
+def INSERT_INTO(table: Table, unproven_key: bool = False) -> Clause:
     """Add rows to a Saved table's day, or to the table; sent twice, it adds twice.
 
     It follows every rule of INSERT_OVERWRITE: it goes first, it writes the one day the
@@ -1062,7 +1074,7 @@ def _check_order(clauses: tuple[object, ...]) -> None:
                    error=ValueError)
 
 
-def statement(*clauses, returns_all_rows=False):
+def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     """Assemble clause functions, in SQL order, into a Statement.
 
     It runs the Guards and Load limits that need the whole Statement. to_hive(s) gives the
@@ -1324,7 +1336,7 @@ def _run_load_limits(s: Statement, order: Clause | None) -> None:
 # --- derived(...) --------------------------------------------------------------------------
 
 
-def derived(name, statement):
+def derived(name: str, statement: Statement) -> Table:
     """Name a Statement so another Statement can read it like a table.
 
     You then use its output columns like a Table reference's, as runs_per_job.runs, and a typo

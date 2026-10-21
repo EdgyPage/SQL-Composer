@@ -7,7 +7,7 @@ docstring says so instead.
 """
 
 from sqlglot_composer import (
-    AS, FROM, SELECT, WHERE, any_of, count_rows, equals, example_database, is_null,
+    AS, FROM, SELECT, WHERE, Statement, any_of, count_rows, equals, example_database, is_null,
     not_equals, statement,
 )
 
@@ -16,7 +16,7 @@ job_runs = example_database.job_runs
 DAY = "2026-09-23"
 
 
-def careless():
+def careless() -> Statement:
     """What most people write first, expecting pandas' !=: it counts 3 runs, not 4.
 
     Run 98 is still running, so its status is NULL, and `status <> 'TEST'` drops it.
@@ -28,7 +28,7 @@ def careless():
     )
 
 
-def fixed():
+def fixed() -> Statement:
     """Keep the NULL rows by asking for them too: the 4 runs pandas' != would give."""
     return statement(
         SELECT(AS(count_rows(), "runs")),

@@ -13,7 +13,7 @@ import datetime
 DAYS_REWRITTEN = 3  # each run writes its own day and the 2 days before it
 
 
-def first_day_written(day):
+def first_day_written(day: str) -> str:
     """The first day a run for `day` writes: first_day_written("2026-09-24") is
     "2026-09-22"."""
     first_day = datetime.date.fromisoformat(day) - datetime.timedelta(days=DAYS_REWRITTEN - 1)

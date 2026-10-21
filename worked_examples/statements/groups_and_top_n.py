@@ -5,8 +5,9 @@ shapes that answer them.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, at_least,
-    between, count_distinct, count_rows, descending, example_database, statement, sum_of,
+    AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, Statement,
+    at_least, between, count_distinct, count_rows, descending, example_database, statement,
+    sum_of,
 )
 
 jobs = example_database.jobs
@@ -16,7 +17,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def teams():
+def teams() -> Statement:
     """Each team once (SELECT DISTINCT), to see which values a column holds."""
     return statement(
         SELECT_DISTINCT(jobs.team),
@@ -24,7 +25,7 @@ def teams():
     )
 
 
-def runs_and_days_per_job():
+def runs_and_days_per_job() -> Statement:
     """How many runs each job had, and on how many different days (COUNT DISTINCT).
 
     count_rows counts every run; count_distinct counts each day once, however many runs
@@ -42,7 +43,7 @@ def runs_and_days_per_job():
     )
 
 
-def busy_jobs():
+def busy_jobs() -> Statement:
     """Only the jobs with 3 runs or more (HAVING).
 
     WHERE picks rows before they are counted, so it can't test a count. HAVING tests each
@@ -57,7 +58,7 @@ def busy_jobs():
     )
 
 
-def two_longest_running_jobs():
+def two_longest_running_jobs() -> Statement:
     """The 2 jobs with the most minutes in total (ORDER BY with LIMIT).
 
     A sort needs a LIMIT: without one, the warehouse puts every row in order before any comes

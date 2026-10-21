@@ -190,7 +190,7 @@ def test_a_statement_given_to_run_shows_its_hive() -> None:
                         "last_n_days", "row_number", "window", "descending", "to_hive"]),
         ("repeated_rows", ["SELECT", "AS", "FROM", "JOIN", "LEFT_JOIN", "WHERE", "GROUP_BY",
                            "statement", "derived", "equals", "between", "count_rows",
-                           "sum_of", "example_database"]),
+                           "sum_of", "example_database", "Statement", "Table"]),
     ],
 )
 def test_each_entry_lists_the_toolbox_names_its_python_uses(

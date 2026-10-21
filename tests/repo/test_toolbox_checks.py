@@ -60,6 +60,8 @@ PUBLIC_NAMES = [
     "example_database",
     # Toolbox 6.1, ticket 01: the types a hint names.
     "Statement", "Column", "Condition", "SessionSettings", "UncheckedStatement",
+    # Toolbox 6.1, ticket 03: the types the public signatures name.
+    "Clause", "Window",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
 # ticket 04: drop_table moved here from the names above.
@@ -80,8 +82,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 94
-    assert len(set(PUBLIC_NAMES)) == 94
+    assert len(PUBLIC_NAMES) == 96
+    assert len(set(PUBLIC_NAMES)) == 96
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

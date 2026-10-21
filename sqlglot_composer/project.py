@@ -52,6 +52,8 @@ from collections.abc import Callable
 from pathlib import Path
 from types import FrameType
 
+import pandas as pd
+
 from .project_templates import TEMPLATES
 from .refusals import callers_frame, refuse
 from .tables import TABLE_NAME, write_table_reference
@@ -92,10 +94,12 @@ shows how to write it. It imports none of your own files, so any notebook or scr
 can import it.
 """
 
+import pandas as pd
+
 from sqlglot_composer import example_database
 
 
-def send(hive):
+def send(hive: str) -> pd.DataFrame:
     """Run a Hive string and give back a pandas DataFrame."""
     return example_database.send(hive)  # at work: your warehouse's call
 '''
@@ -190,7 +194,7 @@ class ProjectReport:
 # --- start ------------------------------------------------------------------------------------
 
 
-def start():
+def start() -> ProjectReport:
     """Make a Project in the folder you're working in, once, from a notebook there.
 
     The folder holds the Toolbox's folder, sqlglot_composer, and the notebook you run this
@@ -256,7 +260,7 @@ def start():
 # --- new_table --------------------------------------------------------------------------------
 
 
-def new_table(name, template="daily_table"):
+def new_table(name: str, template: str = "daily_table") -> ProjectReport:
     """Make a Table folder for a Saved table: its notebook, lineage/ and reference.
 
     `name` is the table's name in the warehouse, such as "mart.daily_job_runs". It makes
@@ -354,7 +358,7 @@ def new_table(name, template="daily_table"):
 # --- remove_table and remove_reference --------------------------------------------------------
 
 
-def remove_table(name):
+def remove_table(name: str) -> ProjectReport:
     """Move a Table folder into admin/removed/, named by the time, deleting nothing.
 
     tables/mart__daily_job_runs/ moves, whole, to a folder such as
@@ -381,7 +385,7 @@ def remove_table(name):
     return _remove(root, TABLE_FOLDER, name, call, frame)
 
 
-def remove_reference(name):
+def remove_reference(name: str) -> ProjectReport:
     """Move a Table reference into admin/removed/, named by the time, deleting nothing.
 
     references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py,
@@ -456,7 +460,8 @@ class SkippedTables(Exception):
     it skipped, and why."""
 
 
-def add_references(names, send):
+def add_references(names: list[str],
+                   send: Callable[[str], pd.DataFrame]) -> ProjectReport:
     """Write a Table reference for each table into references/, skipping any it can't.
 
     `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
@@ -542,7 +547,7 @@ def _quoted_list(names: object) -> str:
 # --- register and check -----------------------------------------------------------------------
 
 
-def register(name):
+def register(name: str) -> ProjectReport:
     """Adopt a Table folder or Table reference made by hand into the registry.
 
     check() then stops reporting it.
@@ -580,7 +585,7 @@ def register(name):
     return ProjectReport([f"Registered {' and '.join(path for _, path in adopted)}."])
 
 
-def check():
+def check() -> ProjectReport:
     """Report each Table folder or Table reference that the registry gets wrong.
 
     It reports any the registry doesn't list, and any it lists that isn't there, and changes
@@ -624,7 +629,7 @@ def check():
 # --- The Reference sheet ----------------------------------------------------------------------
 
 
-def refresh_reference_sheet(name=None):
+def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
     Each row gives the table, the column, its type, "yes" when it is the Date partition or in
@@ -781,7 +786,7 @@ class TableLogic:
         return f"The logic of {self._name}: {', '.join(self._functions)}."
 
 
-def load(name):
+def load(name: str) -> TableLogic:
     r"""A Table notebook's logic, its functions by name, from anywhere in the Project.
 
     It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
@@ -888,7 +893,8 @@ def _logic_cell(notebook: Path) -> str | None:
     return None
 
 
-def run_tables(day, send=None, tables=None):
+def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
+               tables: list[str] | str | None = None) -> ProjectReport:
     """Write a day of every table, each before the tables that read it.
 
     Each table's write_day(day) comes from its notebook's logic cell, through load; one that

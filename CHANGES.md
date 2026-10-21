@@ -6,12 +6,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder in over 6.0's.
 
-- **`Statement`, `Column`, `Condition`, `SessionSettings` and `UncheckedStatement` are public
-  names**, so a function of yours can say in a type hint what it takes and gives back: `def
-  failed_runs(first_day: str, last_day: str) -> Statement:`. Import them as any other name,
-  `from sqlglot_composer import Statement`. Make each as before, with `statement(...)`, a
-  Table reference's columns, the condition functions, `hive_settings(...)` and
-  `unchecked_hive(...)`, never by calling the name itself.
+- **`Statement`, `Clause`, `Column`, `Condition`, `Window`, `SessionSettings` and
+  `UncheckedStatement` are public names**, so a function of yours can say in a type hint what it
+  takes and gives back: `def failed_runs(first_day: str, last_day: str) -> Statement:`. Import
+  them as any other name, `from sqlglot_composer import Statement`. Make each as before, with
+  `statement(...)`, a clause function, a Table reference's columns, the condition functions,
+  `window(...)`, `hive_settings(...)` and `unchecked_hive(...)`, never by calling the name
+  itself.
 
 ## 6.0
 

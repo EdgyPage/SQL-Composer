@@ -35,7 +35,7 @@ names. The Toolbox matches the two Statements' columns by name, not by their pla
 ...     SELECT(jobs.job_id, jobs.team),
 ...     FROM(jobs),
 ... )
->>> def teams_on(day):
+>>> def teams_on(day: str) -> Statement:
 ...     return statement(
 ...         SELECT(job_owners.job_id, job_owners.team),
 ...         FROM(job_owners),
@@ -84,7 +84,8 @@ only half of that.
 `EXCEPT` ignores how many times a row appears: a row held twice in one table and once in the
 other counts as matching. So count each Statement's rows too:
 
->>> def rows_of(s):
+>>> import pandas as pd
+>>> def rows_of(s: Statement) -> pd.DataFrame:
 ...     counted = derived("counted", s)
 ...     return run(statement(SELECT(AS(count_rows(), "rows")), FROM(counted)),
 ...                send=example_database.send)

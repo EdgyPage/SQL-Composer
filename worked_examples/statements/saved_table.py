@@ -10,7 +10,7 @@ and loop over the ones that return a list.
 """
 
 from sqlglot_composer import (
-    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, admin,
+    FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, Statement, admin,
     create_table, equals, example_database, statement,
 )
 from references.mart__runs_to_review import runs_to_review
@@ -22,7 +22,7 @@ FIRST_DAY = "2026-09-23"
 LAST_DAY = "2026-09-24"
 
 
-def create():
+def create() -> Statement:
     """Step 1, once: create the table from its Table reference.
 
     The warehouse refuses if the table already exists. That is on purpose: after you edit the Table
@@ -31,7 +31,7 @@ def create():
     return create_table(runs_to_review)
 
 
-def create_if_missing():
+def create_if_missing() -> Statement:
     """Step 1, in a notebook you run from the top every day: create the table only if missing.
 
     may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so the second day's run skips it
@@ -40,7 +40,7 @@ def create_if_missing():
     return create_table(runs_to_review, may_exist=True)
 
 
-def failed_runs(day=LAST_DAY):
+def failed_runs(day: str = LAST_DAY) -> Statement:
     """Step 2: fill one day with that day's failed runs, replacing whatever the day held.
 
     Because INSERT_OVERWRITE replaces the day, sending it twice leaves the same rows, not
@@ -55,7 +55,7 @@ def failed_runs(day=LAST_DAY):
     )
 
 
-def alerted_runs(day=LAST_DAY):
+def alerted_runs(day: str = LAST_DAY) -> Statement:
     """Step 3: add that day's runs that succeeded but raised a high alert.
 
     INSERT_INTO keeps the failed runs step 2 wrote, and adds these beside them. They come
@@ -78,7 +78,7 @@ def alerted_runs(day=LAST_DAY):
     )
 
 
-def backfill(days=(FIRST_DAY, LAST_DAY)):
+def backfill(days: tuple[str, ...] = (FIRST_DAY, LAST_DAY)) -> list[Statement]:
     """Step 4: write past days, oldest first, each the way steps 2 and 3 write one.
 
     To backfill is to write days that have already happened: a new table's past days, every
@@ -92,7 +92,7 @@ def backfill(days=(FIRST_DAY, LAST_DAY)):
     return [s for day in days for s in (failed_runs(day), alerted_runs(day))]
 
 
-def rebuild():
+def rebuild() -> list[Statement]:
     """Step 5, rarely: after changing the table's columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.

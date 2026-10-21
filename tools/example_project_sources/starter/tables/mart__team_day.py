@@ -35,8 +35,8 @@ DAY = "2026-09-24"  # the Example database's last day
 # logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, LEFT_JOIN, SELECT, WHERE, all_of, between,
-    by_day, create_table, equals, fill_null, statement, sum_of,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
+    all_of, between, by_day, create_table, equals, fill_null, statement, sum_of,
 )
 from building_blocks.runs_per_job_day import runs_per_job_day
 from references.mart__alerts_per_job import alerts_per_job
@@ -45,12 +45,12 @@ from references.mart__team_day import team_day
 from references.ops__jobs import jobs
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.team_day from its Table reference, if it isn't there yet."""
     return create_table(team_day, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each team's numbers per day of daily_job_runs,
     the table in FROM, whose day INSERT_OVERWRITE writes as this table's Date partition. The
     alerts are joined on their day as well as their job, so each day's runs meet only that
@@ -76,22 +76,22 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day, once the two tables it reads have written the day."""
     return statement(INSERT_OVERWRITE(team_day), *rows(day, day))
 
 
-def backfill(first_day, last_day):
+def backfill(first_day: str, last_day: str) -> list[Statement]:
     """Step 4, when needed, once the two tables it reads have backfilled the same days."""
     return by_day(statement(INSERT_OVERWRITE(team_day), *rows(first_day, last_day)))
 
 
-def team_runs_from_job_runs(day):
+def team_runs_from_job_runs(day: str) -> Statement:
     """Each team's runs, failed runs and minutes for a day, from ops.job_runs itself, through
     the Building block mart.daily_job_runs saves: so it runs on the Example database, and at
     work checks a day mart.daily_job_runs hasn't saved yet."""

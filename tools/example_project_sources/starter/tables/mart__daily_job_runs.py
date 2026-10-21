@@ -29,19 +29,21 @@ DAY = "2026-09-24"  # the Example database's last day
 # %%
 # logic
 # 2. The logic: imports and functions only
-from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, by_day, create_table, statement
+from sqlglot_composer import (
+    FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, by_day, create_table, statement,
+)
 from building_blocks.runs_per_job_day import runs_per_job_day
 from references.mart__daily_job_runs import daily_job_runs
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.daily_job_runs from its Table reference, if it isn't there yet.
     may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so it never changes a table
     that is there."""
     return create_table(daily_job_runs, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's numbers per day, from the Building
     block. The day, dt, isn't selected: INSERT_OVERWRITE(daily_job_runs) writes it in
     PARTITION(dt = '...') itself, reading it from the Building block's
@@ -54,18 +56,18 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's rows, replacing whatever the day held, so sending it
     twice leaves the same rows, not twice as many."""
     return statement(INSERT_OVERWRITE(daily_job_runs), *rows(day, day))
 
 
-def backfill(first_day, last_day):
+def backfill(first_day: str, last_day: str) -> list[Statement]:
     """Step 4, when needed: one write per day from first_day to last_day, oldest first. The
     Building block keeps the day in its GROUP_BY, so no day's counts mix with another's."""
     return by_day(statement(INSERT_OVERWRITE(daily_job_runs), *rows(first_day, last_day)))

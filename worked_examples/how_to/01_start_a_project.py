@@ -99,7 +99,7 @@ replace:
 >>> print(Path("send.py").read_text(encoding="utf-8"))
 \"\"\"send - runs a Hive string on your warehouse and gives back a pandas DataFrame.
 ...
-def send(hive):
+def send(hive: str) -> pd.DataFrame:
     \"\"\"Run a Hive string and give back a pandas DataFrame.\"\"\"
     return example_database.send(hive)  # at work: your warehouse's call
 <BLANKLINE>
@@ -110,7 +110,7 @@ each column named:
 
     import pandas as pd
 
-    def send(hive):
+    def send(hive: str) -> pd.DataFrame:
         rows = my_api.query(hive)  # your team's own call that runs Hive text goes here
         return pd.DataFrame(rows)
 
@@ -119,7 +119,7 @@ This works when your API gives each row as a dict, such as `{"run_id": 97, "job_
 gives the column names apart too, as a database cursor does in `cursor.description`. Pass those
 names on; don't type them yourself, since each Statement has its own columns:
 
-    def send(hive):
+    def send(hive: str) -> pd.DataFrame:
         cursor.execute(hive)  # your team's own cursor, from its database library
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
@@ -277,7 +277,7 @@ Many query APIs give each row as a tuple, without the column names. A send that 
 rows to `pd.DataFrame` without the names gives back a DataFrame whose columns are numbered 0, 1
 and 2. This page has no query API, so a stand-in plays yours here, giving each row as a tuple:
 
->>> def query_api(hive):
+>>> def query_api(hive: str) -> list[tuple[object, ...]]:
 ...     answer = example_database.send(hive)
 ...     return [tuple(row) for row in answer.itertuples(index=False)]
 >>> send_without_column_names = lambda hive: pd.DataFrame(query_api(hive))

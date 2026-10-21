@@ -17,12 +17,12 @@ regions has a row in each, which this adds up.
 import datetime
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, derived, statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, derived, statement, sum_of,
 )
 from references.ops__region_costs import region_costs
 
 
-def costs_per_job_day(first_day, last_day):
+def costs_per_job_day(first_day: str, last_day: str) -> Table:
     """One row per job and day it was billed from first_day to last_day: its cost in cents.
 
     first_day and last_day are written like "2026-09-24", as everywhere else in the project.

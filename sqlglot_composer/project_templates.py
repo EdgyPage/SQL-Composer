@@ -100,20 +100,20 @@ DAILY_TABLE = _notebook(
     logic=f'''# logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, by_day, count_rows,
-    create_table, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
+    by_day, count_rows, create_table, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
 from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares, so preview, write_day and backfill can never
     disagree. {_NO_DAY}"""
     return [
@@ -124,17 +124,17 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's rows, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day, day))
 
 
-def backfill(first_day, last_day):
+def backfill(first_day: str, last_day: str) -> list[Statement]:
     """Step 4, when needed: one write per day from first_day to last_day, oldest first."""
     return by_day(statement(INSERT_OVERWRITE(<TABLE>), *rows(first_day, last_day)))
 ''',
@@ -162,8 +162,8 @@ INCREMENTAL_LOAD = _notebook(
 import datetime
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, by_day, count_rows,
-    create_table, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
+    by_day, count_rows, create_table, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
@@ -172,19 +172,19 @@ from references.<SOURCE_NAME> import <SOURCE_TABLE>
 DAYS_REWRITTEN = <DAYS_REWRITTEN>  # each run writes its own day and the days just before it
 
 
-def first_day_written(day):
+def first_day_written(day: str) -> str:
     """The first day a run for `day` writes: with 3 days rewritten,
     first_day_written("2026-09-24") is "2026-09-22"."""
     first_day = datetime.date.fromisoformat(day) - datetime.timedelta(days=DAYS_REWRITTEN - 1)
     return first_day.isoformat()
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares. {_NO_DAY}"""
     return [
         SELECT(<SOURCE_TABLE>.<KEY_COLUMN>, AS(count_rows(), <COUNT_NAME>)),
@@ -194,18 +194,18 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows a write of the day would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_days(first_day, last_day):
+def write_days(first_day: str, last_day: str) -> list[Statement]:
     """One write per day from first_day to last_day, oldest first: also a backfill, given an
     earlier first_day."""
     return by_day(statement(INSERT_OVERWRITE(<TABLE>), *rows(first_day, last_day)))
 
 
-def write_day(day):
+def write_day(day: str) -> list[Statement]:
     """Step 3, every run: the writes of the last DAYS_REWRITTEN days, ending on the day, as a
     list, oldest first. run_tables sends each in turn."""
     return write_days(first_day_written(day), day)
@@ -236,20 +236,20 @@ WEEKLY_ROLLUP = _notebook(
     logic=f'''# logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, between, create_table, statement,
-    sum_of, week_start,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
+    create_table, statement, sum_of, week_start,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
 from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day):
+def rows(day: str) -> list[Clause]:
     """The day's totals per group: the clauses preview and write_day share. {_NO_DAY}"""
     return [
         SELECT(<SOURCE_TABLE>.<GROUP_COLUMN>,
@@ -260,17 +260,17 @@ def rows(day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's totals, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
 
 
-def week_totals(first_day, last_day):
+def week_totals(first_day: str, last_day: str) -> Statement:
     """Each group's totals per week, read from the days this table saved, first_day to
     last_day: the week is the Monday it starts on. dt is this table's Date partition, as its
     Table reference names it."""
@@ -311,8 +311,8 @@ AS_OF_LOOKUP = _notebook(
     logic=f'''# logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, all_of, between,
-    count_rows, create_table, equals, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
+    all_of, between, count_rows, create_table, equals, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # the rows looked up for, such as: from references.ops__job_runs import job_runs
@@ -321,12 +321,12 @@ from references.<SOURCE_NAME> import <SOURCE_TABLE>
 from references.<SNAPSHOT_NAME> import <SNAPSHOT>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day):
+def rows(day: str) -> list[Clause]:
     """The day's rows per value looked up as of the day: the clauses preview and write_day
     share. A row with no snapshot that day is counted under NULL. {_NO_DAY}"""
     return [
@@ -345,12 +345,12 @@ def rows(day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's rows, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
 ''',
@@ -376,20 +376,20 @@ QUALITY_CHECKS = _notebook(
     logic=f'''# logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, all_columns, between,
-    count_rows, create_table, is_null, more_than, statement,
+    AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, Clause, Column,
+    Statement, all_columns, between, count_rows, create_table, is_null, more_than, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference, of row counts
 # the table checked, such as: from references.ops__job_events import job_events
 from references.<CHECKED_NAME> import <CHECKED>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day):
+def rows(day: str) -> list[Clause]:
     """The day's row count: the clauses preview and write_day share. {_NO_DAY}"""
     return [
         SELECT(AS(count_rows(), "row_count")),
@@ -399,17 +399,17 @@ def rows(day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the row write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's row count, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
 
 
-def repeated_keys(first_day, last_day):
+def repeated_keys(first_day: str, last_day: str) -> Statement:
     """Each key that picks out more than one row on the days: it should find no rows."""
     return statement(
         SELECT(<CHECKED>.<KEY_COLUMN>, AS(count_rows(), "times_seen")),
@@ -420,13 +420,13 @@ def repeated_keys(first_day, last_day):
     )
 
 
-def column_name(column):
+def column_name(column: Column) -> str:
     """A column's own name: a column prints as its table and its name, such as
     job_events.minutes, and this keeps the part after the dot."""
     return str(column).split(".")[-1]
 
 
-def null_counts(first_day, last_day):
+def null_counts(first_day: str, last_day: str) -> Statement:
     """How many rows on the days hold NULL in each column, as one row: null_minutes counts
     the rows whose minutes is NULL, and so on."""
     counts = [AS(count_rows(where=is_null(column)), f"null_{{column_name(column)}}")
@@ -491,7 +491,7 @@ notebook's logic cell, import it and read it like a table:
     from building_blocks.<BLOCK> import <BLOCK>
 
 
-    def preview(day):
+    def preview(day: str) -> Statement:
         per_group = <BLOCK>(day, day)
         return statement(SELECT(per_group.<GROUP_COLUMN>, per_group.row_count),
                          FROM(per_group))
@@ -508,12 +508,13 @@ Fill in every <...>:
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, statement,
+    sum_of,
 )
 from references.<SOURCE_NAME> import <SOURCE_TABLE>  # the Table reference it reads
 
 
-def <BLOCK>(first_day, last_day):  # named as its file is
+def <BLOCK>(first_day: str, last_day: str) -> Table:  # named as its file is
     """One row per group and day from first_day to last_day: its rows, and its total."""
     return derived(
         <BLOCK_NAME>,  # the name the Hive gives it

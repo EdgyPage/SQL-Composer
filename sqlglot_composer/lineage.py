@@ -1178,7 +1178,8 @@ def _html_path(to: str | os.PathLike[str]) -> Path:
     return path
 
 
-def export_lineage(*statements, to=None):
+def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement,
+                   to: str | Path | None = None) -> tuple[Path, Path]:
     """Write where each column comes from, as an HTML page and a Markdown twin.
 
     The HTML draws every step: the table columns, each Derived table and the outputs, with

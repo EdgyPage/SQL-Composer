@@ -51,8 +51,8 @@ DAY = <DAY>  # a day to try the cells on, in quotes, such as "2026-09-24"
 # logic
 # 2. The logic: imports and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, all_of, between,
-    count_rows, create_table, equals, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
+    all_of, between, count_rows, create_table, equals, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # the rows looked up for, such as: from references.ops__job_runs import job_runs
@@ -61,12 +61,12 @@ from references.<SOURCE_NAME> import <SOURCE_TABLE>
 from references.<SNAPSHOT_NAME> import <SNAPSHOT>
 
 
-def create():
+def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day):
+def rows(day: str) -> list[Clause]:
     """The day's rows per value looked up as of the day: the clauses preview and write_day
     share. A row with no snapshot that day is counted under NULL. The day stays in GROUP_BY, so the days stay apart, and out of SELECT: INSERT_OVERWRITE
     writes it as this table's Date partition, the day the table read is bounded to."""
@@ -86,12 +86,12 @@ def rows(day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's rows, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
 

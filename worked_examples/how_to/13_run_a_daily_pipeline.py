@@ -47,7 +47,7 @@ and runs the list with a stand-in send that only shows what it would send.
 Each step takes the day it writes, so the same lines write any day: yesterday's every
 morning, or a day from last week when it has to be written again.
 
->>> def write_job_day(day):
+>>> def write_job_day(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(daily_job_runs),
 ...         SELECT(
@@ -66,7 +66,7 @@ with `by_day` must, as [Backfill a range of days](#backfill_a_range_of_days) sho
 The team step reads the Saved table the job step writes, through its Table reference, like
 any other table, and reads the same day of it:
 
->>> def write_team_day(day):
+>>> def write_team_day(day: str) -> Statement:
 ...     return statement(
 ...         INSERT_OVERWRITE(team_day),
 ...         SELECT(
@@ -86,7 +86,7 @@ Adding up the job counts per team is safe: a sum of counts is the count of all o
 
 One function gives the day's steps as a list, in the order they are sent:
 
->>> def day_steps(day):
+>>> def day_steps(day: str) -> list[Statement]:
 ...     return [
 ...         create_table(daily_job_runs, may_exist=True),
 ...         create_table(team_day, may_exist=True),
@@ -167,7 +167,9 @@ Pasted into Hue or Beeline, this runs the whole day by hand, in the same order.
 `run` sends one Statement, so a short function sends the day's steps one after another, with
 whichever send it is given:
 
->>> def run_day(day, send):
+>>> from collections.abc import Callable
+>>> import pandas as pd
+>>> def run_day(day: str, send: Callable[[str], pd.DataFrame]) -> None:
 ...     for step in day_steps(day):
 ...         run(step, send=send)
 
@@ -175,8 +177,7 @@ Here no warehouse can be written to, so a stand-in send shows what `run_day` sen
 the first line of each step's Hive and gives back an empty DataFrame, as a send usually does
 for a write.
 
->>> import pandas as pd
->>> def print_first_line(hive):
+>>> def print_first_line(hive: str) -> pd.DataFrame:
 ...     print(hive.splitlines()[0])
 ...     return pd.DataFrame()
 >>> run_day("2026-09-24", send=print_first_line)
@@ -194,7 +195,7 @@ job counts that weren't.
 The day to write each morning is yesterday's, worked out from today's date:
 
 >>> import datetime
->>> def run_yesterday(send):
+>>> def run_yesterday(send: Callable[[str], pd.DataFrame]) -> None:
 ...     yesterday = datetime.date.today() - datetime.timedelta(days=1)
 ...     run_day(str(yesterday), send=send)
 

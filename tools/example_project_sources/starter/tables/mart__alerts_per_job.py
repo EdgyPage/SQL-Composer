@@ -32,25 +32,25 @@ DAY = "2026-09-24"  # the Example database's last day
 import datetime
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, between, by_day, count_rows,
-    create_table, equals, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, Clause, Statement, between,
+    by_day, count_rows, create_table, equals, statement,
 )
 from references.mart__alerts_per_job import alerts_per_job
 from references.ops__job_runs import job_runs
 from references.ops__run_alerts import high, run_alerts  # high: an Alias, severity is "high"
 
 
-def day_before(day):
+def day_before(day: str) -> str:
     """The day before `day`, written the same way: day_before("2026-09-24") is "2026-09-23"."""
     return (datetime.date.fromisoformat(day) - datetime.timedelta(days=1)).isoformat()
 
 
-def create():
+def create() -> Statement:
     """Step 1: create mart.alerts_per_job from its Table reference, if it isn't there yet."""
     return create_table(alerts_per_job, may_exist=True)
 
 
-def rows(first_day, last_day):
+def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's alerts per day. INSERT_OVERWRITE
     writes the partition's day from the bound on run_alerts, the table in FROM. job_runs is
     joined from the day before first_day too, since an alert can come the day after its run;
@@ -66,17 +66,17 @@ def rows(first_day, last_day):
     ]
 
 
-def preview(day):
+def preview(day: str) -> Statement:
     """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
     return statement(*rows(day, day))
 
 
-def write_day(day):
+def write_day(day: str) -> Statement:
     """Step 3, every day: save the day's rows, replacing whatever the day held."""
     return statement(INSERT_OVERWRITE(alerts_per_job), *rows(day, day))
 
 
-def backfill(first_day, last_day):
+def backfill(first_day: str, last_day: str) -> list[Statement]:
     """Step 4, when needed: one write per day from first_day to last_day, oldest first."""
     return by_day(statement(INSERT_OVERWRITE(alerts_per_job), *rows(first_day, last_day)))
 
