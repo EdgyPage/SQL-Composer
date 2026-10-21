@@ -33,7 +33,7 @@ FILES = PYTHON_FILES + PAGES
 SHARED_IMPORTS = frozenset({"pandas", "numpy"})
 
 
-def may_import(file_name: str) -> frozenset:
+def may_import(file_name: str) -> frozenset[str]:
     """What a Toolbox file may import besides the standard library and its own folder."""
     if file_name in LIBRARY_FILES:
         return SHARED_IMPORTS | {LIBRARY}

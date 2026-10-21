@@ -39,8 +39,11 @@ import sys
 import tempfile
 import textwrap
 import warnings
+from collections.abc import Callable, Iterator
 from html import escape
 from pathlib import Path
+from types import ModuleType
+from typing import NoReturn
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,6 +56,7 @@ import pandas as pd  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import conditions, example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
+from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 from sqlglot_composer import engine  # noqa: E402
 
 GALLERY = ROOT / toolbox_registry.FOLDER / "examples.html"
@@ -73,7 +77,7 @@ REFUSALS = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused)
 # --- Reading the Worked examples ------------------------------------------------------------
 
 
-def statement_scripts() -> list:
+def statement_scripts() -> list[ModuleType]:
     """Every Statement script in worked_examples/statements/, imported, in file-name order."""
     return [
         importlib.import_module(f"statements.{path.stem}")
@@ -81,7 +85,7 @@ def statement_scripts() -> list:
     ]
 
 
-def toolbox_modules() -> list:
+def toolbox_modules() -> list[ModuleType]:
     """The Toolbox's folder, then every other Toolbox file by name."""
     stems = {path.stem for path in (ROOT / toolbox_registry.FOLDER).glob("*.py")}
     return [sqlglot_composer] + [importlib.import_module(f"sqlglot_composer.{stem}")
@@ -122,7 +126,7 @@ def names_in(code: str) -> list[str]:
 
 
 @contextlib.contextmanager
-def example_setting():
+def example_setting() -> Iterator[None]:
     """Today is 2026-09-25, and a file an example writes goes to a folder deleted afterwards."""
     real_today, here = conditions.today, os.getcwd()
     with tempfile.TemporaryDirectory() as folder, warnings.catch_warnings():
@@ -146,7 +150,9 @@ def what_happened(error: Exception) -> str:
     return found.group(1).strip() if found else str(error).strip().splitlines()[0]
 
 
-def result_html(s, pandas_result=None, which: str = "") -> str:
+def result_html(s: Statement | SessionSettings | UncheckedStatement,
+                pandas_result: Callable[..., pd.DataFrame] | None = None,
+                which: str = "") -> str:
     """The result of running `s` on the Example database, or why the Example database can't.
 
     `pandas_result`, a function computing the same result in pandas, stands in when the
@@ -181,7 +187,7 @@ def table_html(frame: pd.DataFrame) -> str:
     return f'<div class="scroll"><table class="result">\n<tr>{head}</tr>\n{rows}</table></div>'
 
 
-def cell(value) -> str:
+def cell(value: object) -> str:
     return "<i>NULL</i>" if pd.isna(value) else escape(str(value))
 
 
@@ -241,7 +247,8 @@ def entry_html(entry_id: str, title: str, body: str) -> str:
 # --- A docstring's example --------------------------------------------------------------------
 
 
-def run_step(source: str, scope: dict, printed: io.StringIO | None = None):
+def run_step(source: str, scope: dict[str, object],
+             printed: io.StringIO | None = None) -> object:
     """Run one step of an example as a doctest would; return its value, or the error it raised.
 
     What the step prints goes to `printed`, when given, and is otherwise dropped.
@@ -261,7 +268,7 @@ def run_step(source: str, scope: dict, printed: io.StringIO | None = None):
             return error
 
 
-def output_label(source: str, value) -> str:
+def output_label(source: str, value: object) -> str:
     """What a step's output is, said plainly above it."""
     if isinstance(value, REFUSALS):
         return "Refused"
@@ -276,14 +283,17 @@ def output_label(source: str, value) -> str:
 HANDED_TO = ("to_hive", "run", "export_lineage")
 
 
-def example_scope(handed: list) -> dict:
+def example_scope(
+    handed: list[tuple[str, Statement | SessionSettings | UncheckedStatement]],
+) -> dict[str, object]:
     """What the doctests have in scope; to_hive, run and export_lineage note each Statement.
 
     `handed` gets one (function name, Statement) pair per Statement handed to them.
     """
 
-    def noting(name: str):
-        def call(*statements, **options):
+    def noting(name: str) -> Callable[..., object]:
+        def call(*statements: Statement | SessionSettings | UncheckedStatement,
+                 **options: object) -> object:
             handed.extend((name, s) for s in statements)
             if name == "export_lineage":
                 # It would write beside its caller, this script; keep to the temporary folder.
@@ -297,7 +307,8 @@ def example_scope(handed: list) -> dict:
     return scope
 
 
-def steps_html(parts: list, scope: dict) -> tuple[list[str], list[str]]:
+def steps_html(parts: list[str | doctest.Example], scope: dict[str, object]
+               ) -> tuple[list[str], list[str]]:
     """A docstring's example, step by step: each step's Python and what the docstring shows."""
     body, sources = [], []
     for part in parts:
@@ -313,7 +324,8 @@ def steps_html(parts: list, scope: dict) -> tuple[list[str], list[str]]:
     return body, sources
 
 
-def handed_html(handed: list, pandas_results: dict) -> list[str]:
+def handed_html(handed: list[tuple[str, Statement | SessionSettings | UncheckedStatement]],
+                pandas_results: dict[str, Callable[..., pd.DataFrame]]) -> list[str]:
     """Each Statement's Hive, unless the docstring prints it, and its result."""
     body = []
     for number, (name, s) in enumerate(handed, 1):
@@ -326,7 +338,9 @@ def handed_html(handed: list, pandas_results: dict) -> list[str]:
     return body
 
 
-def docstring_entry(names: list[str], doc: str, pandas_results: dict, used_by: dict) -> str:
+def docstring_entry(names: list[str], doc: str,
+                    pandas_results: dict[str, Callable[..., pd.DataFrame]],
+                    used_by: dict[str, list[tuple[str, str]]]) -> str:
     first, _, rest = doc.partition("\n")
     handed = []
     scope = example_scope(handed)
@@ -378,7 +392,7 @@ def used_by_html(found: list[list[tuple[str, str]]]) -> str:
 # --- A Statement script's entry ---------------------------------------------------------------
 
 
-def script_parts(module) -> tuple[str, str, list[str]]:
+def script_parts(module: ModuleType) -> tuple[str, str, list[str]]:
     """A Statement script's title, its why, and the other paragraphs of its docstring."""
     paragraphs = inspect.cleandoc(module.__doc__).split("\n\n")
     title = paragraphs[0]
@@ -386,7 +400,7 @@ def script_parts(module) -> tuple[str, str, list[str]]:
     return title, why, [p for p in paragraphs[1:] if p is not why]
 
 
-def script_top(module) -> str:
+def script_top(module: ModuleType) -> str:
     """The top of a script: its imports and settings, between its docstring and first function."""
     source = Path(module.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -399,7 +413,7 @@ def script_top(module) -> str:
 LOWER_LEVELS = {"references": "The Table reference", "building_blocks": "The Building block"}
 
 
-def lower_levels_of(module) -> list[tuple[str, Path]]:
+def lower_levels_of(module: ModuleType) -> list[tuple[str, Path]]:
     """The Table references and Building blocks a script imports: how each is named, its file."""
     tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
     found = []
@@ -413,7 +427,8 @@ def lower_levels_of(module) -> list[tuple[str, Path]]:
     return found
 
 
-def built_by(function, **options):
+def built_by(function: Callable[..., Statement | list[Statement]],
+             **options: bool) -> tuple[Statement | list[Statement] | None, str, str]:
     """What calling `function` gives: the Statement (None if refused), and what it said.
 
     What it said is a heading and the message, both empty when it built quietly.
@@ -431,19 +446,19 @@ def built_by(function, **options):
     return s, "", ""
 
 
-def message_text(message) -> str:
+def message_text(message: Exception) -> str:
     """A refusal or Warning as Python prints it: its kind, then its four lines."""
     return f"{type(message).__name__}:\n" + str(message).strip("\n")
 
 
-def opt_out_of(function) -> str | None:
+def opt_out_of(function: Callable[..., Statement | list[Statement]]) -> str | None:
     """The Guard's opt-out keyword a careless() takes, if it takes one."""
     keywords = [name for name, p in inspect.signature(function).parameters.items()
                 if p.default is False]
     return keywords[0] if keywords else None
 
 
-def statement_html(built, module, name: str) -> str:
+def statement_html(built: Statement | list[Statement], module: ModuleType, name: str) -> str:
     """The Hive and result of what a function built: one Statement, or a list of them."""
     if isinstance(built, Statement):
         return (label("Hive") + hive_html(sqlglot_composer.to_hive(built))
@@ -456,7 +471,7 @@ def statement_html(built, module, name: str) -> str:
     return "".join(parts)
 
 
-def careless_html(module) -> str:
+def careless_html(module: ModuleType) -> str:
     s, heading, message = built_by(module.careless)
     body = ['<h4>Careless: what most people write first</h4>',
             source_html(inspect.getsource(module.careless))]
@@ -473,7 +488,7 @@ def careless_html(module) -> str:
     return "\n".join(body) + statement_html(s, module, "careless")
 
 
-def builds_statements(value) -> bool:
+def builds_statements(value: object) -> bool:
     """Whether a function's value is a Statement, or a list of them such as by_day(...) gives."""
     if isinstance(value, list):
         return bool(value) and all(isinstance(item, Statement) for item in value)
@@ -484,11 +499,13 @@ class _SentAQuery(Exception):
     """What the Example database's send raises while other_statements looks at a function."""
 
 
-def _refuse_to_send(text: str):
+def _refuse_to_send(text: str) -> NoReturn:
     raise _SentAQuery(text)
 
 
-def other_statements(module) -> list[tuple[str, object]]:
+def other_statements(
+    module: ModuleType,
+) -> list[tuple[str, Callable[..., Statement | list[Statement]]]]:
     """The script's other Statement functions besides careless() and fixed(), in file order.
 
     A function that sends a query, such as the every_run() a pandas twin reads, isn't one. Its
@@ -511,18 +528,19 @@ def other_statements(module) -> list[tuple[str, object]]:
     return sorted(found, key=lambda pair: pair[1].__code__.co_firstlineno)
 
 
-def is_demonstration(module) -> bool:
+def is_demonstration(module: ModuleType) -> bool:
     """Whether a script shows a wrong number and its fix, with careless() and fixed()."""
     return hasattr(module, "careless") and hasattr(module, "fixed")
 
 
-def function_html(heading: str, function, module, name: str) -> str:
+def function_html(heading: str, function: Callable[..., Statement | list[Statement]],
+                  module: ModuleType, name: str) -> str:
     """One Statement function of a script: a heading, its source, then its Hive and result."""
     return (f"<h4>{heading}<code>{name}()</code></h4>" + source_html(inspect.getsource(function))
             + statement_html(function(), module, name))
 
 
-def script_entry(module) -> tuple[str, str, list[str], str]:
+def script_entry(module: ModuleType) -> tuple[str, str, list[str], str]:
     """A Statement script's entry: its id, title, the names it uses, and its HTML."""
     title, why, notes = script_parts(module)
     entry_id = module.__name__.split(".")[-1]
@@ -556,7 +574,7 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
 # --- The page ---------------------------------------------------------------------------------
 
 
-def pandas_results_by_hive(scripts: list) -> dict:
+def pandas_results_by_hive(scripts: list[ModuleType]) -> dict[str, Callable[..., pd.DataFrame]]:
     """The pandas result of each Worked example Statement that has one, by the Statement's Hive.
 
     A docstring's Statement with the same Hive, which the Example database can't run, shows

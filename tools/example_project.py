@@ -40,7 +40,9 @@ import shutil
 import subprocess
 import sys
 import textwrap
+from collections.abc import Iterable
 from pathlib import Path
+from types import ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_PROJECTS = ROOT / "example_projects"
@@ -152,7 +154,8 @@ def project_files(folder: Path) -> list[str]:
                   if path.is_file() and "__pycache__" not in path.parts)
 
 
-def filled_in(text: str, table: str, filling: dict) -> str:
+def filled_in(text: str, table: str,
+              filling: dict[str, str | list[str] | dict[str, str]]) -> str:
     """A Table reference with its TODO lines replaced by what a user writes there, and the
     Aliases a user adds below it."""
     partition = filling.get("date_partition")
@@ -191,11 +194,11 @@ def _wrapped(text: str) -> str:
     return textwrap.fill(text, width=96)
 
 
-def _python_list(names) -> str:
+def _python_list(names: Iterable[str]) -> str:
     return "[" + ", ".join(f'"{name}"' for name in names) + "]"
 
 
-def _does_not_add_up_line(columns: dict) -> str:
+def _does_not_add_up_line(columns: dict[str, str]) -> str:
     """The does_not_add_up line, under a comment saying why it holds what it holds."""
     if not columns:
         why = "none of the columns is an average, a ratio or a distinct count"
@@ -205,7 +208,7 @@ def _does_not_add_up_line(columns: dict) -> str:
     return f"    {BY_HAND}: {why}\n    does_not_add_up={_python_list(columns)},"
 
 
-def _date_partition_lines(partition: dict) -> str:
+def _date_partition_lines(partition: dict[str, str]) -> str:
     """The date_partition and date_format lines, under a comment saying why they hold what they
     hold."""
     return (f"    {BY_HAND}: {partition['first']}, the first partition, holds no day; the Date "
@@ -219,7 +222,7 @@ def _date_partition_lines(partition: dict) -> str:
 # --- In the second Python, whose folder is the new project's ----------------------------------
 
 
-def pin(sqlglot_composer) -> None:
+def pin(sqlglot_composer: ModuleType) -> None:
     """Pin what would differ between computers: the time, the commit, the calling script (a
     notebook, as a user runs it) and the version the lineage names."""
     from sqlglot_composer import lineage, project, unchecked

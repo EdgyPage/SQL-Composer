@@ -45,7 +45,7 @@ def branch_at(path: Path) -> str:
     return git(folder, "rev-parse", "--abbrev-ref", "HEAD")
 
 
-def refusal(tool: str, tool_input: dict, cwd: str) -> str | None:
+def refusal(tool: str, tool_input: dict[str, object], cwd: str) -> str | None:
     """Why this call is refused, or None to let it through."""
     if tool in FILE_TOOLS:
         target = Path(tool_input.get("file_path") or tool_input.get("notebook_path") or cwd)
