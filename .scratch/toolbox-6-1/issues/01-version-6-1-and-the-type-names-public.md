@@ -1,7 +1,7 @@
 # Version 6.1 and the type names public
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: -
 Size: M
 
@@ -59,3 +59,9 @@ Built 2026-10-21 on dev.
   two classes `hive_settings` and `unchecked_hive` give back became public. Left: lower-case
   "condition functions" and "columns" stay the plain words they are; `statement`'s own hints
   are ticket 03's.
+- Spec (2026-10-21): nothing missing, nothing wrong; every remaining "6.0" outside history is an
+  example or data. Answered: the README's "From 4.x to 6.0" stays, as a path through the "To
+  update" parts, which 6.1 has none of.
+- Standards (2026-10-21): no breach. Answered: the five docstrings share one sentence on type
+  hints, kept, since each docstring stands alone for a beginner; the classes' own constructors
+  stay as they are, the user's choice.
