@@ -22,8 +22,9 @@ it whenever you change one.
 ### Start a Project with three tables' references
 
 These steps run in a Project, as [Start a Project](#start_a_project) makes one, with the Table
-references [Add your tables' references](#add_your_tables_references) writes. This page starts
-a new one, writes three, and gives `ops.job_runs` two Aliases, as you would in your editor:
+references [Add your tables' references](#add_your_tables_references) writes. In your own Project, which is started already, leave out `project.start()`: it refuses a
+folder that is a Project. This page has none, so it starts one,
+writes three, and gives `ops.job_runs` two Aliases, as you would in your editor:
 
 >>> from pathlib import Path
 >>> from sqlglot_composer import *
@@ -58,8 +59,9 @@ It has a row per column of each table, and these columns:
 
 ### Read it in pandas
 
-Python's own `csv` module reads it, and pandas makes a DataFrame of it. Open it in a
-spreadsheet program just as well: it is plain CSV.
+Python's own `csv` module reads it, and pandas makes a DataFrame of it. `csv` keeps an empty
+cell as empty text, `""`, so a test such as `sheet.aliases != ""` picks the filled ones.
+Open it in a spreadsheet program just as well: it is plain CSV.
 
 >>> import csv
 >>> import pandas as pd

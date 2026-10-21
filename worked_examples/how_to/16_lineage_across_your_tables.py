@@ -25,7 +25,11 @@ These steps need a Project with two filled-in Table notebooks: mart.daily_job_ru
 runs a day, read from `ops.job_runs`, and mart.jobs_by_runs, read from it, how many jobs ran
 once, twice and so on each day. [Add a Saved table](#add_a_saved_table) makes one, step by
 step; this page does its steps for both in one function, `add_table`, so the steps below start
-from two notebooks ready to run:
+from two notebooks ready to run. In your own Project, which is started already, leave out
+`project.start()`: it refuses a folder that is a Project.
+
+mart.jobs_by_runs fills the Template's `<KEY_COLUMN>` with runs and its `<COUNT_NAME>` with
+`"jobs"`: one row per number of runs a day, counting the jobs that ran that many times.
 
 >>> import json
 >>> from pathlib import Path
@@ -97,7 +101,11 @@ moves there first, as opening the notebook would:
 '20260925-090000-mart__jobs_by_runs.md'
 
 The files go in this Table folder's lineage/, named for its own table, mart.jobs_by_runs: one
-of the writes fills it, and the notebook works in its folder. The Markdown file, shown above,
+of the writes fills it, and the notebook works in its folder. The rule, whole: writes that
+all fill one table with a Table folder go in its lineage/, wherever you run them; writes of
+several tables go in the lineage/ of the Table folder you run them from, when one of them
+fills its table; any others go in a lineage/ folder where you are, named with your scripts'
+commit, as Common mistakes shows. The Markdown file, shown above,
 has a section for each write. The second's first line says it reads mart.daily_job_runs,
 written by write_daily_job_runs above, so the tree of its `"jobs"` count goes on through the
 Saved table, back to `ops.job_runs`.
@@ -161,7 +169,8 @@ the Project only reads has no write to draw: its columns show as the start of ea
 
 ## Next
 
-- Each section of a Lineage, step by step: [Lineage of one Statement](#lineage_of_one_statement).
+- Each section of a Lineage, step by step:
+  [Lineage of one Statement](#lineage_of_one_statement).
 - Draw several writes made in one notebook:
   [Lineage of a pipeline across Saved tables](#lineage_of_a_pipeline_across_saved_tables).
 - Compare a table's Lineage before and after a change:

@@ -23,8 +23,9 @@ written in the right order.
 
 These steps run in a Project, as [Start a Project](#start_a_project) makes one, holding the
 Table reference of each table the Saved table reads, as
-[Add your tables' references](#add_your_tables_references) writes them. This page starts a new
-one, and writes the one it reads, `ops.job_runs`:
+[Add your tables' references](#add_your_tables_references) writes them. In your own Project, which is started already, leave out `project.start()`: it refuses a
+folder that is a Project. This page has none, so it starts one,
+and writes the one table it reads, `ops.job_runs`:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -36,8 +37,8 @@ Wrote references/ops__job_runs.py: fill in its TODO lines.
 
 ### Make its Table folder
 
-`project.new_table` takes the Saved table's name. At work, run it from the admin notebook
-admin/new_table.ipynb, where the Project keeps its one-time actions:
+`project.new_table` takes the Saved table's name. The admin notebook admin/new_table.ipynb
+holds this call, ready to fill in; calling it from any notebook of the Project does the same:
 
 >>> project.new_table("mart.daily_job_runs")
 Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -61,8 +62,9 @@ The notebook has five code cells, run top to bottom:
 
 1. the path lines and imports from [Start a Project](#start_a_project), your send, and DAY, a
    day to try things on;
-2. the logic, whose first line is `# logic`: only imports and functions, such as create,
-   preview and write_day, each giving a Statement and running nothing;
+2. the logic, whose first line is `# logic`: only imports and functions, each giving a
+   Statement and running nothing: create, preview, write_day, and backfill, which writes a
+   range of past days, as [Backfill a range of days](#backfill_a_range_of_days) shows;
 3. try it: each step's Hive, then the day's rows;
 4. its Lineage, as [Lineage across your tables](#lineage_across_your_tables) shows;
 5. its rows in the Reference sheet, as [The Reference sheet](#the_reference_sheet) shows.
@@ -71,8 +73,9 @@ The notebook has five code cells, run top to bottom:
 
 Open references/mart__daily_job_runs.py in your editor and fill it in: what one row is, the
 columns write_day saves with their types, then the day, the key, and the folder your Saved
-tables go in, as [Describe a table by hand](#describe_a_table_by_hand) explains. This page has
-no editor, so this step writes the file filled in:
+tables go in, as [Describe a table by hand](#describe_a_table_by_hand) explains. Its key is
+`["job_id", "dt"]`: the table has a row per job every day, so a job's rows are told apart by
+the day. This page has no editor, so this step writes the file filled in:
 
 >>> from pathlib import Path
 >>> size = Path("references/mart__daily_job_runs.py").write_text('''\"\"\"mart.daily_job_runs - one row per job and day: its runs.\"\"\"
@@ -96,8 +99,10 @@ no editor, so this step writes the file filled in:
 
 Open the notebook in Jupyter and type over each `<...>` in its code cells: the table it reads,
 by its file in references/ and its variable, its Date partition, the column each row is for,
-the name of the count, and a day to try. This page has no Jupyter, so these lines do the same.
-A notebook is a JSON file, and each cell keeps its lines in its `"source"`:
+the name of the count, and a day to try. A name Python reads, such as the table's variable,
+goes in bare; a value, such as the count's name or the day, goes in quotes, as the notebook's
+text cell says. This page has no Jupyter, so these lines do the same. A notebook is a JSON
+file, and each cell keeps its lines in its `"source"`:
 
 >>> import json
 >>> path = Path("tables/mart__daily_job_runs/mart__daily_job_runs.ipynb")
@@ -117,6 +122,9 @@ Its logic cell now imports `ops.job_runs`' Table reference, and counts each job'
 
 
     def rows(first_day, last_day):
+        \"\"\"The clauses every step below shares. The day stays in GROUP_BY, so the days
+        stay apart, and out of SELECT: INSERT_OVERWRITE writes it as this table's Date
+        partition, the day the table read is bounded to.\"\"\"
         return [
             SELECT(job_runs.job_id, AS(count_rows(), "runs")),
             FROM(job_runs),
@@ -166,13 +174,18 @@ GROUP BY
 1       2     1
 2       3     1
 
-At work, send the create step once, `run(logic.create(), send=...)` with your send, before the first write.
-The Example database can be read but not written, so this page sends neither.
+The CREATE writes the Key, `PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE`, for whoever reads the
+table's description: Hive keeps it but never checks it, and the Toolbox checks it as you build
+each Statement instead. dt is in it though it sits under `PARTITIONED BY`: a partition column
+is a column of every row all the same.
+
+At work, send the create step once, `run(logic.create(), send=...)` with your send, before the
+first write. The Example database can be read but not written, so this page sends neither.
 
 ### Write it every day, with the Project's other tables
 
 `project.run_tables` loads every Table notebook's logic and writes each table's day, a
-table before any table that reads it. With no send, it prints each write's Hive in that order
+table before any table that reads it: it finds which tables each write reads from its Hive. With no send, it prints each write's Hive in that order
 and sends nothing, a dry run to read first:
 
 >>> project.run_tables("2026-09-24")
@@ -189,8 +202,9 @@ GROUP BY
   job_runs.job_id;
 Printed 1 write in order, and sent nothing. Pass send= to run them.
 
-At work, the admin notebook admin/run_tables.ipynb does this each day, then sends them with your
-send, project.run_tables(DAY, send=send), printing a line as each table is written.
+At work, you run the admin notebook admin/run_tables.ipynb each day, or your team's scheduler
+does: it does this, then sends them with your send, project.run_tables(DAY, send=send),
+printing a line as each table is written.
 
 ## Check it worked
 
@@ -202,8 +216,7 @@ Table references:
 >>> project.check()
 Every Table folder and Table reference is registered, and each one registered is there.
 
-`project.load` runs the notebook's logic without a `<...>` left, and its write_day writes the
-day:
+With no `<...>` left in it, the notebook's logic runs, and its write_day writes the day:
 
 >>> to_hive(logic.write_day("2026-09-24")).splitlines()[0]
 "INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')"

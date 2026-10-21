@@ -175,10 +175,10 @@ def test_anything_outside_the_allowlist_is_named() -> None:
 def test_the_example_projects_may_hold_anything_below_them() -> None:
     paths = ["example_projects/starter/run_pipeline.py", "example_projects/starter/a/b.py",
              "example_projects", "templates/starter/notebook_start.py",
-             "worked_examples/how_to/01_start_a_notebook.py"]
+             "worked_examples/how_to/01_start_a_project.py"]
     assert export_clean.outside_allowlist(paths) == [
         "example_projects", "templates/starter/notebook_start.py",
-        "worked_examples/how_to/01_start_a_notebook.py"]
+        "worked_examples/how_to/01_start_a_project.py"]
 
 
 def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> None:

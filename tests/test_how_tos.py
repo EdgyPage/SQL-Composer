@@ -78,7 +78,7 @@ def test_each_how_to_runs_as_a_doctest(path: Path, tmp_path, monkeypatch) -> Non
     report = []
     # A Warning is shown on the page; here it may not stop the step it comes from. A pandas
     # stand-in answers as on the page.
-    with (warnings.catch_warnings(record=True), how_to_page.lineage_pinned(),
+    with (warnings.catch_warnings(record=True), how_to_page.times_pinned(),
           how_to_page.pandas_standing_in(how_to_page.stand_ins_of(path), test.globs, [])):
         warnings.simplefilter("always")
         runner.run(test, out=report.append)
@@ -140,8 +140,8 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
             if isinstance(node, ast.ImportFrom) and node.module == FOLDER:
                 # The admin and project modules are imported by name: the star
                 # import leaves them out.
-                assert {alias.name for alias in node.names} - {"*"} <= PUBLIC | {"admin", "project"}, (
-                    ast.unparse(node))
+                imported = {alias.name for alias in node.names} - {"*"}
+                assert imported <= PUBLIC | {"admin", "project"}, ast.unparse(node)
             if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
                     and node.value.id == "example_database"):
                 assert hasattr(sqlglot_composer.example_database, node.attr), ast.unparse(node)

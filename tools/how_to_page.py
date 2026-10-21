@@ -442,7 +442,7 @@ def section_html(text: str, notebook: Notebook) -> str:
 
 
 @contextlib.contextmanager
-def lineage_pinned():
+def times_pinned():
     """A lineage's or a Project action's time, your scripts' commit and the Toolbox version, the
     same on every run.
 
@@ -462,7 +462,7 @@ def lineage_pinned():
 def how_to_html(how_to: HowTo) -> str:
     """A how-to's entry on the page, its steps run in a fresh notebook's scope."""
     shown = []
-    with example_setting(), lineage_pinned():
+    with example_setting(), times_pinned():
         # A notebook's own scope is named __main__.
         notebook = Notebook(scope={"__name__": "__main__"}, folder=Path.cwd())
         with pandas_standing_in(how_to.stand_ins, notebook.scope, notebook.answered):

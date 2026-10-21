@@ -33,7 +33,8 @@ folder it is in, so the notebook finds `sqlglot_composer` beside it.
 One line imports every Toolbox name: `statement`, the clause functions such as `SELECT`,
 `FROM` and `WHERE`, `to_hive`, `show_hive`, `run`, `example_database`, and the rest. A second
 imports the `project` module, which makes and keeps the Project's folders: like the admin
-module, it is imported by its name, since the first line leaves it out.
+module, which later how-tos use, it is imported by its name, since the first line leaves it
+out.
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -64,9 +65,12 @@ This is the Project, beside the Toolbox you copied in, and what each part is for
 `references/`, `building_blocks/` and `tables/` are empty for now:
 [Add your tables' references](#add_your_tables_references) fills the first, and
 [Add a Saved table](#add_a_saved_table) the last. Make and remove Table folders and Table
-references through the admin notebooks, never by hand: each Project action refuses a folder or
-file that is already there, so nothing of yours is written over, and the Admin log keeps what
-each one did. `Path`, from Python's own `pathlib`, reads a file:
+references with the `project` module's calls, such as `project.new_table(...)`, never by hand
+in your file explorer. Each admin notebook holds one such call, ready to fill in, and calling
+it from any notebook of the Project does just the same: it refuses a folder or file that is
+already there, so nothing of yours is written over, lists what it made in the registry, and
+logs what it did in the Admin log. `Path`, from Python's own `pathlib`, reads a file; the
+log's first entry is the one after its heading:
 
 >>> from pathlib import Path
 >>> print(Path("admin/admin_log.md").read_text(encoding="utf-8").split("## ")[1])
@@ -78,6 +82,9 @@ each one did. `Path`, from Python's own `pathlib`, reads a file:
 - Result: worked
 <BLANKLINE>
 <BLANKLINE>
+
+The Script line names the git commit your Project's folder is at, when you keep it in git,
+and nogit when you don't; this page shows a made-up one, 1a2b3c4.
 
 ### Write your send
 
@@ -126,8 +133,8 @@ you give `run` your own `send` in its place.
 
 Python looks for what a notebook imports in the folder the notebook runs in. A notebook in the
 Project's folder finds `sqlglot_composer` and `send.py` there. A Table notebook sits two folders
-down, in `tables/<db>__<table>/`, so its first cell starts with two path lines, which put the
-Project's folder on Python's list of places to look:
+down, in `tables/<db>__<table>/`, so its first cell starts with three lines: two imports, and
+one that puts the Project's folder on Python's list of places to look:
 
     import pathlib
     import sys
@@ -222,6 +229,10 @@ list.
 
 >>> sorted(path.name for path in Path(".").iterdir() if path.is_dir())
 ['admin', 'building_blocks', 'references', 'tables']
+
+In your own Project the list holds `sqlglot_composer` too, the Toolbox you copied in; this
+page's folder has none.
+
 >>> project.check()
 Every Table folder and Table reference is registered, and each one registered is there.
 

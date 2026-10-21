@@ -8,9 +8,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### To update from 5.x
 
-- **The README is a tutorial**: eight steps, from installing the Toolbox and starting a
-  Project to keeping it in order, each pointing to the how-tos that walk through it. What it said about one version,
-  such as updating from 4.x or 3.x, is in these notes, under that version's "To update".
+- **The README is a tutorial**: eight steps, from installing the Toolbox and starting a Project
+  to keeping it in order, each pointing to the how-tos that walk through it. What it said about
+  one version, such as updating from 4.x or 3.x, is in these notes, under that version's "To
+  update".
 - **The Toolbox is one folder, `sqlglot_composer`.** Delete both old folders, `composer_core`
   and `sqlglot_composer`, copy in the new `sqlglot_composer`, and restart the kernel. Imports
   `from sqlglot_composer import ...` stay as they are; one that named `composer_core`, such as
@@ -92,8 +93,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `admin/admin_log.md` too, wherever the notebook that runs them is, and `export_lineage` of
   writes that all fill one Saved table with a Table folder, or, run from a Table folder's
   notebook, of writes that fill its table among others, puts its files in that folder's
-  `lineage/`, named by the time and the table, so each run adds to the table's past Lineage. Nothing to change
-  in your notebooks: a folder that isn't a Project works as before.
+  `lineage/`, named by the time and the table, so each run adds to the table's past Lineage.
+  Nothing to change in your notebooks: a folder that isn't a Project works as before.
 
 ## 5.1
 

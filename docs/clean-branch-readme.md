@@ -6,12 +6,11 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-This page is a tutorial: eight steps, from installing the Toolbox and starting a Project, through
-your tables' references, a Saved table written every day and the Lineage of each of its
-columns, to keeping the Project in order. Most steps point to the how-to that walks through
-them in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your
-browser. What changed in each
-version, and how to update from it, is in `CHANGES.md`.
+This page is a tutorial: eight steps, from installing the Toolbox and starting a Project,
+through your tables' references, a Saved table written every day and the Lineage of each of its
+columns, to keeping the Project in order. Most steps point to the how-to that walks through them
+in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. What
+changed in each version, and how to update from it, is in `CHANGES.md`.
 
 ## 1. Install
 
@@ -51,16 +50,20 @@ tables/ and send.py. Next: write your send in send.py.
 Import from `sqlglot_composer`, at its top level, never from a file inside it. The Toolbox
 never connects to anything itself: it writes Hive as text, and `run` hands that text to a
 function of yours, `send`, which runs it and gives back a pandas DataFrame. Write it once, in
-`send.py`: for example, `pd.DataFrame(my_api.query(hive))`, which runs the Hive through your
-team's query API. Every notebook imports it with `from send import send`.
+`send.py`: for example, `def send(hive): return pd.DataFrame(my_api.query(hive))`, which runs
+the Hive through your team's query API. Every notebook imports it with
+`from send import send`.
 
-`admin/` holds a notebook per Project action, such as `new_table.ipynb`: make and remove Table
-folders and Table references through them, never by hand, and each is logged in
-`admin/admin_log.md`.
+Make and remove Table folders and Table references with the `project` module's Project
+actions, such as `project.new_table(...)`, never by hand in your file explorer: each is
+logged in `admin/admin_log.md`, and listed in the registry, `admin/registry.csv`. `admin/`
+holds a notebook per Project action, such as `new_table.ipynb`, ready to fill in; calling one
+from any notebook of the Project does just the same.
 
 The how-to [Start a Project](../sqlglot_composer/how_to.html#start_a_project) walks through what
-each folder is for, your send, the two path lines a notebook deeper in the Project starts with,
-and the mistakes people make first.
+each folder is for, your send, the lines a notebook deeper in the Project starts with, and the
+mistakes people make first. Each how-to after it starts a Project of its own, since its page
+has none: in yours, leave that line out.
 
 ## 3. A first Statement
 
@@ -173,7 +176,7 @@ and `send.py`, then the Building blocks, then each Table notebook's logic.
 `project.check()` reports any Table folder or Table reference the registry doesn't list, or
 lists but isn't there; `project.remove_table(...)` archives a Table folder in
 admin/removed/ rather than deleting it; and a notebook you run every week checks each Table
-reference against its table. The [Example projects](#example-projects) show a Project filled
+reference against its table, as how-to 21 shows. The [Example projects](#example-projects) show a Project filled
 in, and the [Templates](#templates) are the shapes a new Table notebook is made from.
 
 How-tos: [Keep a Table reference true over time](../sqlglot_composer/how_to.html#keep_a_table_reference_true_over_time)
@@ -184,11 +187,11 @@ and [Share Building blocks between Statements](../sqlglot_composer/how_to.html#s
 Every how-to walks through one job from start to finish, in steps you paste into one notebook,
 in order: its goal, its steps, each run on the Example database with what it shows, how to check
 it worked, and the mistakes people make first. The Getting started how-tos take you from
-starting a Project to its Saved tables, their Lineage and the Reference sheet; the Intermediate ones are for work over many
-days and many tables: days written another way, week and month totals, rows that come in late,
-pipelines of Saved tables, quality checks, testing, how a Saved table is stored and its Key,
-Session settings and the admin module, more joins, looking across rows, reconciling two tables,
-subtotals, and keeping reads fast.
+starting a Project to its Saved tables, their Lineage and the Reference sheet; the Intermediate
+ones are for work over many days and many tables: days written another way, week and month
+totals, rows that come in late, pipelines of Saved tables, quality checks, testing, how a Saved
+table is stored and its Key, Session settings and the admin module, more joins, looking across
+rows, reconciling two tables, subtotals, and keeping reads fast.
 
 <!-- HOW-TOS -->
 
