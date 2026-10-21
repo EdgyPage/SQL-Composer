@@ -1,7 +1,7 @@
 # README as a tutorial
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 03
 Size: M
 
@@ -20,3 +20,29 @@ standing-docs line.
 - The pytest runs pass, the code-review skill has run with this ticket as its spec, its drift
   items are closed, and the beginner reader has run on what a beginner sees (CLAUDE.md's
   Definition of done).
+
+## Answer
+
+Built on the branch `toolbox-6/04-readme-tutorial`.
+
+- `docs/clean-branch-readme.md` is a tutorial: eight numbered steps (install, start a notebook, a
+  first Statement, your own tables, filter count and join, save a table every day, Lineage, lay
+  out a project), most linking the how-tos that walk through them on
+  `../sqlglot_composer/how_to.html#<slug>` (the README is `.github/README.md` on main, so its
+  links go up one folder). Then the how-tos, listed by the export as links, the Example gallery,
+  Example projects, Templates, the Spark notes, a short Update, the license and the cheat sheet.
+- Gone from it: "Update from 4.x" and "Update from 3.x", which CHANGES.md already holds under
+  5.0's and 4.0's "To update", and the feature sections written for 5.0 (Keys and storage,
+  Session settings and the admin module, joins and windows, keeping reads fast), which the
+  how-tos cover and the how-to list now links. CHANGES.md's 6.0 notes say so.
+- `tests/repo/test_readme_shape.py` holds it: no heading about one version, numbered steps first
+  and in order, each step after Install pointing to a how-to or a section, every linked how-to
+  real, and a pointer to CHANGES.md. The drift reviewer's standing-docs kind says the same.
+
+### Reviews
+
+- Beginner reader (2026-10-20): the links resolved inside `.github/` (fixed with `../`); Update
+  read `VERSION` after deleting the folder and pointed into CHANGES.md the wrong way round (now
+  five steps, with a 4.x example and a line for Spark Composer users); CHANGES.md's 5.0 section
+  said the README's Update covers two folders (now "said then"); the how-to list wasn't links
+  (the export now writes links); Date partition, Key, Guard and the Levels are glossed in place.

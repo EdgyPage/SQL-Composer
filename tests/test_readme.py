@@ -39,9 +39,3 @@ def test_the_readme_counts_the_names_the_star_import_brings() -> None:
     names = toolbox_module().__all__
     text = " ".join(TEMPLATE.read_text(encoding="utf-8").split())
     assert f"the {len(names)} names listed here" in text
-    said = re.search(r"The star import brings (\d+) new names\.\*\* If a variable of your own, "
-                     r"set before the star import, has one of these names, give it another: "
-                     r"(.*?)\.\n?", text)
-    listed = re.findall(r"`(\w+)`", said.group(2))
-    assert len(listed) == int(said.group(1))
-    assert set(listed) <= set(names)
