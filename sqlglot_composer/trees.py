@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from collections import deque
+from collections.abc import Callable, Iterator
 
 TOOLBOX_VERSION = "6.1"
 
@@ -354,7 +355,7 @@ class Node:
     # Equal Nodes may still be changed, so a Node can't be a dict key or go in a set.
     __hash__ = None
 
-    def __init__(self, kind: str, **parts):
+    def __init__(self, kind: str, **parts: object) -> None:
         if kind not in KINDS:
             raise ValueError(f"trees: there is no kind of Node called {kind!r}.")
         unknown = set(parts) - set(KINDS[kind])
@@ -373,7 +374,7 @@ class Node:
     def __repr__(self) -> str:
         return f"Node({self.kind!r}, {self.parts!r})"
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (isinstance(other, Node) and self.kind == other.kind
                 and _compared(self.parts) == _compared(other.parts))
 
@@ -381,13 +382,13 @@ class Node:
         """A copy of the whole tree, notes included, that can be changed on its own."""
         return self._with_stand_ins(lambda node: None, top=True)
 
-    def set(self, part: str, value) -> None:
+    def set(self, part: str, value: object) -> None:
         """Set one part, which must be one this kind of Node has."""
         if part not in KINDS[self.kind]:
             raise ValueError(f"trees: a {self.kind} has no part {part!r}.")
         self.parts[part] = value
 
-    def children(self):
+    def children(self) -> Iterator[Node]:
         """The Nodes this Node holds, in the order of its parts."""
         for value in self.parts.values():
             if isinstance(value, Node):
@@ -395,7 +396,7 @@ class Node:
             elif isinstance(value, list):
                 yield from (item for item in value if isinstance(item, Node))
 
-    def walk(self):
+    def walk(self) -> Iterator[Node]:
         """This Node and every Node under it, breadth first: level by level, in order."""
         waiting = deque([self])
         while waiting:
@@ -403,7 +404,7 @@ class Node:
             yield node
             waiting.extend(node.children())
 
-    def find_all(self, *kinds: str):
+    def find_all(self, *kinds: str) -> Iterator[Node]:
         """Every Node of these kinds in the tree, in the order walk() finds them."""
         unknown = set(kinds) - set(KINDS)
         if unknown:
@@ -417,7 +418,7 @@ class Node:
             node = node.parts["this"]
         return node
 
-    def flatten(self):
+    def flatten(self) -> Iterator[Node]:
         """The conditions an AND or OR joins, however they were nested, round brackets taken
         off; an AND inside brackets comes back whole."""
         for side in (self.parts["this"], self.parts["expression"]):
@@ -426,7 +427,7 @@ class Node:
             else:
                 yield side.unnest()
 
-    def replaced(self, stand_in) -> Node:
+    def replaced(self, stand_in: Callable[[Node], Node | None]) -> Node:
         """A copy of the tree in which stand_in(node) may swap any Node below the top.
 
         When stand_in gives a Node, that Node takes the old one's place, and the old one's own
@@ -435,7 +436,7 @@ class Node:
         """
         return self._with_stand_ins(stand_in, top=True)
 
-    def _with_stand_ins(self, stand_in, top: bool) -> Node:
+    def _with_stand_ins(self, stand_in: Callable[[Node], Node | None], top: bool) -> Node:
         if not top:
             found = stand_in(self)
             if found is not None:
@@ -463,7 +464,7 @@ class Node:
         return self.parts.get("table") or ""
 
 
-def _compared(parts: dict) -> dict:
+def _compared(parts: dict[str, object]) -> dict[str, object]:
     """The parts that make two Nodes equal: those holding something.
 
     None, False and an empty list count as left out, so an Ordered with desc=False equals one
@@ -518,7 +519,7 @@ def has_window(node: Node) -> bool:
     return node.kind == "Window" or any(has_window(child) for child in node.children())
 
 
-def rows_text(rows: tuple) -> str:
+def rows_text(rows: tuple[int | None, int | None]) -> str:
     """A Window's rows=(start, end) as Hive writes it: ROWS BETWEEN 6 PRECEDING AND CURRENT ROW.
 
     Each end is a count of rows from the row itself, negative before it and positive after

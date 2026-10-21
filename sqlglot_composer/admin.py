@@ -17,6 +17,9 @@ from __future__ import annotations
 import copy
 import json
 import urllib.parse
+from collections.abc import Callable
+
+import pandas as pd
 
 from .clauses import Statement
 from .writing import hive_text
@@ -25,6 +28,7 @@ from .tables import (
     FILE_FORMATS,
     PURGE,
     ROWS_WITH_NO_DAY,
+    Described,
     Table,
     _ask,
     _column_definition,
@@ -46,7 +50,7 @@ TOOLBOX_VERSION = "6.1"
 
 
 def _admin_statement(call: str, about: list[str], ddl: Node, hive: str | None = None,
-                     check=None) -> Statement:
+                     check: Callable[[object], pd.DataFrame] | None = None) -> Statement:
     """An Admin statement: `ddl` is its tree, or, for an ALTER TABLE, the table it changes,
     whose Hive is `hive`. `about` is what show_hive prints first, an item to a sentence or
     two; `check`, given the result of a check, refuses it when the check fails."""
@@ -268,7 +272,7 @@ def add_columns(t, send):
     return _admin_statement(call, about, table_node(t._name), hive)
 
 
-def _new_columns(t: Table, columns: dict, call: str) -> list[str]:
+def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
     """The Table reference's columns the table doesn't have, refused where they can't be
     added: none, a Partition, one without a type, or one before a column the table has."""
     if not columns:
@@ -474,7 +478,7 @@ def move_to_own_folder(t, send):
     return steps
 
 
-def _check_movable(t: Table, described, call: str) -> bool:
+def _check_movable(t: Table, described: Described, call: str) -> bool:
     """Refuse a table the move can't, or needn't, move; True for a managed table."""
     location = described.details.get("location")
     if not location:
@@ -524,7 +528,7 @@ def _inside(folder: str, other: str) -> bool:
     return path.startswith(urllib.parse.urlsplit(other).path.rstrip("/") + "/")
 
 
-def _days(t: Table, send) -> tuple[list[str], bool]:
+def _days(t: Table, send: Callable[[str], object]) -> tuple[list[str], bool]:
     """The days SHOW PARTITIONS lists, each once, oldest first, and whether it lists rows with
     no day, which aren't among them."""
     frame = _ask(send, f"SHOW PARTITIONS {_name(t)}", "admin.move_to_own_folder(...)")
@@ -630,9 +634,9 @@ def _count_step(t: Table, copy_of: Table) -> Statement:
     return _admin_statement("", about, tree, check=_counts_match(t, copy_of))
 
 
-def _counts_match(t: Table, copy_of: Table):
+def _counts_match(t: Table, copy_of: Table) -> Callable[[object], pd.DataFrame]:
     """The check run hands the count step's result to: it refuses any day that differs."""
-    def check(result):
+    def check(result: object) -> pd.DataFrame:
         refuse_what_isnt_a_dataframe(result)
         if len(result) == 0:
             return result

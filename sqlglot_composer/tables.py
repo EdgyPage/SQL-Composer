@@ -19,7 +19,9 @@ import json
 import keyword
 import re
 import urllib.parse
+from collections.abc import Callable
 from pathlib import Path
+from typing import NoReturn
 
 import numpy as np
 import pandas as pd
@@ -70,7 +72,7 @@ STRING_TYPES = ("string", "varchar", "char")
 # --- The call that made a calculation or condition, for the lineage -------------------------
 
 
-def made_by(tree: Node, name: str, *args, **keywords) -> Node:
+def made_by(tree: Node, name: str, *args: object, **keywords: object) -> Node:
     """Note on `tree` the Toolbox call that made it, such as week_start(job_runs.dt).
 
     The note leaves the Hive unchanged. The lineage shows it, since it reads the way the
@@ -83,7 +85,7 @@ def made_by(tree: Node, name: str, *args, **keywords) -> Node:
     return tree
 
 
-def python_text(value) -> str:
+def python_text(value: object) -> str:
     """One argument of a Toolbox call, written back as Python, for the lineage and refusals."""
     # A column, condition or descending(...) is spotted by what it holds, not by its class:
     # a condition's class and descending's live in files that import this one.
@@ -115,7 +117,7 @@ def _call_shown(node: Node) -> Node | None:
 # --- Columns and calculations --------------------------------------------------------------
 
 
-def _no_operator(symbol: str, instead: str) -> None:
+def _no_operator(symbol: str, instead: str) -> NoReturn:
     refuse(
         what=f"A column was used with Python's {symbol}.",
         why="Python would compare the Python objects, not the values in the table, and "
@@ -230,7 +232,7 @@ def _bracketed(tree: Node) -> Node:
     return tree
 
 
-def arithmetic(left, right, kind: str, symbol: str) -> Column:
+def arithmetic(left: object, right: object, kind: str, symbol: str) -> Column:
     """Build `left <symbol> right`, bracketing each side that is itself arithmetic."""
     sides = []
     for side in (left, right):
@@ -276,7 +278,7 @@ def type_family(hive_type: str | None) -> str | None:
     return None
 
 
-def _python_family(value) -> str:
+def _python_family(value: bool | int | float | decimal.Decimal | str | datetime.date) -> str:
     if isinstance(value, bool):
         return "boolean"
     if isinstance(value, (int, float, decimal.Decimal)):
@@ -298,7 +300,8 @@ COMPARABLE_VALUES = {
 }
 
 
-def _check_type(value, column: Column | None, call: str) -> None:
+def _check_type(value: bool | int | float | decimal.Decimal | str | datetime.date,
+                column: Column | None, call: str) -> None:
     family = type_family(column._type) if column is not None else None
     if family is None or _python_family(value) in COMPARABLE_VALUES[family]:
         return
@@ -367,7 +370,7 @@ def day_text(day: datetime.date, pattern: str) -> str:
     return day.strftime(pattern.replace("%Y", f"{day.year:04d}"))
 
 
-def as_date(value, column: Column, call: str, compared: bool = True) -> datetime.date:
+def as_date(value: object, column: Column, call: str, compared: bool = True) -> datetime.date:
     """A value compared with a Date partition, as a Python date. Refuses what isn't a day.
 
     compared=False is for a day given on its own, such as compute_statistics's, which the
@@ -393,7 +396,8 @@ def as_date(value, column: Column, call: str, compared: bool = True) -> datetime
     _refuse_day(value, column, call, day, other, compared)
 
 
-def _refuse_day(value, column: Column, call: str, day, other, compared: bool) -> None:
+def _refuse_day(value: object, column: Column, call: str, day: datetime.date | None,
+                other: str | None, compared: bool) -> NoReturn:
     """Refuse a day not written as the Date partition's days are: `day` is the day it seems
     to mean, or None, and `other` the date_format it is written in, or None."""
     pattern = column._table._date_format
@@ -419,7 +423,7 @@ def _refuse_day(value, column: Column, call: str, day, other, compared: bool) ->
     )
 
 
-def _number_text(value) -> str | None:
+def _number_text(value: int | float | decimal.Decimal) -> str | None:
     """A number's Hive text, written by the Toolbox rather than by the value's own str()."""
     # int.__repr__(value), not repr(value): a subclass of int could change its own repr,
     # and so change the Hive. The same goes for float, Decimal and, in literal(), str.
@@ -436,7 +440,7 @@ def _number_text(value) -> str | None:
 SINGLE_VALUES = (bool, int, float, decimal.Decimal, str, datetime.date)
 
 
-def _python_value(value):
+def _python_value(value: object) -> object:
     """A numpy or pandas value as the plain Python value it stands for."""
     if isinstance(value, np.datetime64):
         return pd.Timestamp(value)
@@ -447,8 +451,8 @@ def _python_value(value):
     return value
 
 
-def literal(value, *, call: str, column: Column | None = None, position: str = "the value",
-            in_condition: bool = True) -> Node:
+def literal(value: object, *, call: str, column: Column | None = None,
+            position: str = "the value", in_condition: bool = True) -> Node:
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
         if column is not None:
@@ -556,7 +560,7 @@ def hive_date_pattern(date_format: str) -> str:
     return date_format.replace("%Y", "yyyy").replace("%m", "MM").replace("%d", "dd")
 
 
-def _names(value, argument: str) -> list[str]:
+def _names(value: object, argument: str) -> list[str]:
     if value is None:
         return []
     if isinstance(value, str):
@@ -571,7 +575,7 @@ def _names(value, argument: str) -> list[str]:
     return list(value)
 
 
-def _descriptions(name: str, value) -> dict[str, str]:
+def _descriptions(name: str, value: object) -> dict[str, str]:
     """A Table reference's descriptions=, each column's description in words."""
     if value is None:
         return {}
@@ -710,7 +714,7 @@ class Table:
         self._check_own_columns(date_format)
         _set_storage(self, location, purge, properties, stored_as, compression, buckets)
 
-    def _check_own_columns(self, date_format) -> None:
+    def _check_own_columns(self, date_format: str | None) -> None:
         named = {"date_partition": [] if self._date_partition is None else [
             self._date_partition]}
         named["key"] = self._key or []
@@ -812,8 +816,8 @@ def own_folder(name: str) -> str:
     return "/".join(part.lower() for part in name.split("."))
 
 
-def _set_storage(t: Table, location, purge, properties, stored_as, compression,
-                 buckets) -> None:
+def _set_storage(t: Table, location: object, purge: object, properties: object,
+                 stored_as: object, compression: object, buckets: object) -> None:
     """Check a Table reference's storage, and keep it. Only a Saved table has any."""
     t._purge = purge
     t._properties = {}
@@ -856,7 +860,8 @@ def _set_storage(t: Table, location, purge, properties, stored_as, compression,
     _check_partitions_and_buckets(t)
 
 
-def _one_of(name: str, option: str, value, allowed: list[str], which: str = "") -> str:
+def _one_of(name: str, option: str, value: object, allowed: list[str],
+            which: str = "") -> str:
     """A value that must be one of a few words, in capitals, whatever its case was."""
     if isinstance(value, str) and value.upper() in allowed:
         return value.upper()
@@ -868,7 +873,7 @@ def _one_of(name: str, option: str, value, allowed: list[str], which: str = "") 
     )
 
 
-def _checked_folder(name: str, location) -> str:
+def _checked_folder(name: str, location: object) -> str:
     """The Saved table's own folder: its location, then its database and name, refused where
     it is not a folder or would share one with another Saved table."""
     if not isinstance(location, str) or not location.strip() or any(
@@ -923,7 +928,8 @@ def _checked_folder(name: str, location) -> str:
     return folder
 
 
-def _checked_properties(name: str, properties, compression_property: str) -> dict:
+def _checked_properties(name: str, properties: object,
+                        compression_property: str) -> dict[str, str]:
     """The table properties given, each a name and a value written as text."""
     if properties is None:
         return {}
@@ -1031,7 +1037,7 @@ def column_example(t: Table) -> str:
     return next(c for c in t._columns if c not in (t._date_partition, *t._partitioned_by))
 
 
-def aliased(table: Table, name: str) -> Table:
+def aliased(table: Table, name: object) -> Table:
     """A copy of a table called `name` in the SQL, for AS(table, name)."""
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
         refuse(
@@ -1045,7 +1051,7 @@ def aliased(table: Table, name: str) -> Table:
     return copied
 
 
-def table_node(name: str, **parts) -> Node:
+def table_node(name: str, **parts: object) -> Node:
     """A table as a Node, "ops.job_runs" split into its database and its name."""
     database, _, table = name.rpartition(".")
     return Node("Table", db=database or None, name=table, **parts)
@@ -1075,7 +1081,7 @@ def all_columns(t):
     return _columns_of(t, "all_columns(...)")
 
 
-def _columns_of(t, call: str) -> list[Column]:
+def _columns_of(t: object, call: str) -> list[Column]:
     """Every column of a Table reference, refusing what isn't one."""
     if not isinstance(t, Table):
         refuse(
@@ -1121,7 +1127,7 @@ def first_look(t):
 class Verdict:
     """What a check found, ready to print."""
 
-    def __init__(self, ok: bool, lines: list[str]):
+    def __init__(self, ok: bool, lines: list[str]) -> None:
         self.ok = ok
         self.lines = lines
 
@@ -1131,7 +1137,7 @@ class Verdict:
     __str__ = __repr__
 
 
-def _ask(send, hive: str, call: str) -> pd.DataFrame:
+def _ask(send: object, hive: str, call: str) -> pd.DataFrame:
     """Send DESCRIBE or SHOW PARTITIONS, and refuse an answer that can't be read."""
     if not callable(send):
         refuse(
@@ -1167,19 +1173,19 @@ class Described:
     lists a line each, and other warehouses may list on one line, as [name=value, ...].
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.columns, self.comments, self.partitions = {}, {}, []
         self.details, self.properties = {}, {}
 
 
-def _cell(row, at: int) -> str:
+def _cell(row: tuple[object, ...], at: int) -> str:
     """One cell of what the warehouse printed, as text, "" where it is empty."""
     value = row[at] if len(row) > at else None
     text = "" if value is None else str(value).strip()
     return "" if text in ("None", "nan") else text
 
 
-def _describe(name: str, send, call: str, formatted: bool = False) -> Described:
+def _describe(name: str, send: object, call: str, formatted: bool = False) -> Described:
     """Send DESCRIBE, or DESCRIBE FORMATTED: the columns with types, their comments, the
     partition columns, and, formatted, the table's details and properties."""
     command = "DESCRIBE FORMATTED" if formatted else "DESCRIBE"
@@ -1235,7 +1241,7 @@ def _read_detail(found: Described, label: str, column: str, kind: str, comment: 
         found.properties[kind] = comment
 
 
-def _newest_partition_value(name: str, column: str, send, call: str) -> str | None:
+def _newest_partition_value(name: str, column: str, send: object, call: str) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
     frame = _ask(send, f"SHOW PARTITIONS {hive_text(table_node(name))}", call)
     values = []
@@ -1372,12 +1378,13 @@ def write_table_reference(name, send, folder=None):
     return path
 
 
-def _folder_name(folder) -> str:
+def _folder_name(folder: str | Path | None) -> str:
     """The folder write_table_reference writes into, as its refusals name it."""
     return "the folder you're working in" if folder is None else f"the folder {str(folder)!r}"
 
 
-def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> list[str]:
+def _date_partition_lines(name: str, partitions: list[str], send: Callable[[str], object],
+                          call: str) -> list[str]:
     if not partitions:
         return ["    date_partition=None,"]
     first = partitions[0]
@@ -1403,7 +1410,8 @@ def _date_partition_lines(name: str, partitions: list[str], send, call: str) -> 
 ALIASES_HEADING = "# --- Aliases " + "-" * 78
 
 
-def _reference_text(name, variable, columns, comments, date_lines, module) -> str:
+def _reference_text(name: str, variable: str, columns: dict[str, str],
+                    comments: dict[str, str], date_lines: list[str], module: str) -> str:
     """A Table reference file's text. `module` is the name the file is imported by, such as
     references.ops__job_runs, which its Aliases heading shows."""
     lines = [
@@ -1462,7 +1470,7 @@ def _date_format_text(t: Table) -> str:
     return f"date_format={t._date_format!r}{usual}"
 
 
-def _real_table(t, call: str) -> Table:
+def _real_table(t: object, call: str) -> Table:
     if not isinstance(t, Table) or t._statement is not None:
         refuse(
             what=f"{call} was given {t!r}.",
@@ -1474,7 +1482,7 @@ def _real_table(t, call: str) -> Table:
     return t
 
 
-def need_saved_table(t, what: str) -> Table:
+def need_saved_table(t: object, what: str) -> Table:
     """The Table reference of one of the user's own Saved tables, which a call that changes a
     table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)" or
     "repair_partitions(...)".
@@ -1637,7 +1645,7 @@ def check_table_reference(t, send):
     return Verdict(not problems, lines)
 
 
-def _column_differences(t: Table, columns: dict) -> tuple[list[str], list[str]]:
+def _column_differences(t: Table, columns: dict[str, str]) -> tuple[list[str], list[str]]:
     """The problems and notes from comparing the columns and their types."""
     problems, notes = [], []
     for column, kind in t._columns.items():
@@ -1654,7 +1662,7 @@ def _column_differences(t: Table, columns: dict) -> tuple[list[str], list[str]]:
 
 
 def _date_partition_problems(t: Table, partitions: list[str],
-                             send) -> tuple[list[str], list[str]]:
+                             send: Callable[[str], object]) -> tuple[list[str], list[str]]:
     """The problems, and the notes, from checking the Date partition and its newest day."""
     if t._date_partition is None:
         return [], []
@@ -1742,7 +1750,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
     return problems, []
 
 
-def _property_problems(t: Table, properties: dict) -> list[str]:
+def _property_problems(t: Table, properties: dict[str, str]) -> list[str]:
     """The problems from comparing purge, compression and the other table properties."""
     problems = []
     if t._purge is not None:

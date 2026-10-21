@@ -11,8 +11,10 @@ another Statement can read it like a table.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, NoReturn
+
 from .calculations import Ordering, ordered
-from .conditions import Condition, combined_spans
+from .conditions import Condition, Span, combined_spans
 from .joins import (
     BOUNDED_IN_ON,
     ONLY_TESTS,
@@ -44,6 +46,9 @@ from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .writing import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
+if TYPE_CHECKING:
+    from .stacking import Subtotals  # only for a hint: stacking.py imports this file
+
 TOOLBOX_VERSION = "6.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
@@ -59,10 +64,15 @@ class Clause:
     defaults. statement(...) reads them back to build the Statement.
     """
 
-    def __init__(self, name: str, *, outputs=None, distinct=False, table=None, on=None,
-                 reads_all_partitions=False, many_matches=False, keeps_only_matches=False,
-                 conditions=None, group_columns=None, sort_keys=None, sorts_everything=False,
-                 n=None, unproven_key=False, broadcast=False):
+    def __init__(self, name: str, *, outputs: list[tuple[Column, str]] | None = None,
+                 distinct: bool = False, table: Table | None = None,
+                 on: Condition | None = None, reads_all_partitions: bool = False,
+                 many_matches: bool = False, keeps_only_matches: bool = False,
+                 conditions: list[Condition] | None = None,
+                 group_columns: list[Column | str | Subtotals] | None = None,
+                 sort_keys: list[Node] | None = None, sorts_everything: bool = False,
+                 n: int | None = None, unproven_key: bool = False,
+                 broadcast: bool = False) -> None:
         self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
         # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
         self.outputs = outputs
@@ -103,7 +113,7 @@ class Clause:
 class Named:
     """A column or calculation with the name it gets in the result. Made by AS(...)."""
 
-    def __init__(self, column: Column, name: str):
+    def __init__(self, column: Column, name: str) -> None:
         self._column = column
         self._name = name
 
@@ -225,7 +235,7 @@ def AS(expression, name):
 # --- Clause functions ----------------------------------------------------------------------
 
 
-def _flatten(items) -> list:
+def _flatten(items: list[object] | tuple[object, ...]) -> list[object]:
     found = []
     for item in items:
         if isinstance(item, (list, tuple)):
@@ -235,7 +245,7 @@ def _flatten(items) -> list:
     return found
 
 
-def _outputs(items, call: str) -> list[tuple[Column, str]]:
+def _outputs(items: tuple[object, ...], call: str) -> list[tuple[Column, str]]:
     outputs = []
     for item in _flatten(items):
         if isinstance(item, Named):
@@ -261,7 +271,7 @@ def _outputs(items, call: str) -> list[tuple[Column, str]]:
     return outputs
 
 
-def _refuse_output(item, call: str) -> None:
+def _refuse_output(item: object, call: str) -> NoReturn:
     refuse_what_another_folder_made(item, call)
     if isinstance(item, Table):
         fix = f"Name its columns, or use all_columns({item._alias})."
@@ -312,7 +322,7 @@ def SELECT_DISTINCT(*columns):
                   distinct=True)
 
 
-def _need_table(table, call: str) -> Table:
+def _need_table(table: object, call: str) -> Table:
     if isinstance(table, Table):
         return table
     refuse(
@@ -344,7 +354,7 @@ def FROM(table, reads_all_partitions=False):
                   reads_all_partitions=reads_all_partitions)
 
 
-def _need_on(on, call: str, table: Table):
+def _need_on(on: object, call: str, table: Table) -> Condition:
     if on is None and call in ONLY_TESTS:
         refuse_only_tests_with_no_on(call, table._alias)
     if on is None:
@@ -431,8 +441,8 @@ def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition
             )
 
 
-def _join(call: str, table, on, many_matches, reads_all_partitions, broadcast=False,
-          **more) -> Clause:
+def _join(call: str, table: object, on: object, many_matches: bool,
+          reads_all_partitions: bool, broadcast: object = False, **more: bool) -> Clause:
     table = _need_table(table, f"{call}(...)")
     on = _need_on(on, call, table)
     need_broadcast_true_or_false(call, table, broadcast)
@@ -718,7 +728,7 @@ def WHERE(*conditions):
     return Clause("WHERE", conditions=_conditions(conditions, "WHERE(...)"))
 
 
-def _conditions(items, call: str) -> list[Condition]:
+def _conditions(items: tuple[object, ...], call: str) -> list[Condition]:
     found = _flatten(items)
     for item in found:
         if not isinstance(item, Condition):
@@ -858,7 +868,7 @@ def LIMIT(n):
     return Clause("LIMIT", n=n)
 
 
-def _write_clause(call: str, table, unproven_key) -> Clause:
+def _write_clause(call: str, table: object, unproven_key: object) -> Clause:
     """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
     table = _need_table(table, f"{call}(...)")
     if not isinstance(unproven_key, bool):
@@ -1010,7 +1020,7 @@ def INSERT_INTO(table, unproven_key=False):
 # --- statement(...) ------------------------------------------------------------------------
 
 
-def _check_order(clauses) -> None:
+def _check_order(clauses: tuple[object, ...]) -> None:
     for clause in clauses:
         if not isinstance(clause, Clause):
             refuse(
@@ -1103,7 +1113,7 @@ def statement(*clauses, returns_all_rows=False):
     return s
 
 
-def _resolve_group_by(s: Statement, items: list) -> list[Column]:
+def _resolve_group_by(s: Statement, items: list[Column | str]) -> list[Column]:
     by_name = {name: column for column, name in s._outputs}
     resolved = []
     for item in items:
@@ -1281,7 +1291,7 @@ def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:
     return [column for child in children for column in _ungrouped(child, groups)]
 
 
-def read_spans(s: Statement) -> list[tuple[Clause, object]]:
+def read_spans(s: Statement) -> list[tuple[Clause, Span | None]]:
     """Each read of a partitioned table in `s`, with the days its bounds let through."""
     inner = [read.on for read in s._reads if read._name == "JOIN"]
     everywhere = combined_spans(s._where + inner)

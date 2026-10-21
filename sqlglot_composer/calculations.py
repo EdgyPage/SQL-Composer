@@ -41,7 +41,7 @@ TOOLBOX_VERSION = "6.1"
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 
 
-def _need_column(column, call: str) -> Column:
+def _need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
         return column
     refuse(
@@ -52,7 +52,7 @@ def _need_column(column, call: str) -> Column:
     )
 
 
-def _only_where(tree: Node, where, call: str, then=None) -> Node:
+def _only_where(tree: Node, where: object, call: str, then: Node | None = None) -> Node:
     """`tree`, or CASE WHEN where THEN tree END when only some rows count."""
     if where is None:
         return tree
@@ -67,7 +67,7 @@ def _only_where(tree: Node, where, call: str, then=None) -> Node:
     return Node("Case", ifs=[Node("If", this=where._tree.copy(), true=then or tree)])
 
 
-def _not_inside(call: str, inner) -> None:
+def _not_inside(call: str, inner: Column | Condition) -> None:
     """Refuse a count, a sum or a calculation over a Window inside a function that works over
     many rows."""
     window = has_window(inner._tree)
@@ -87,8 +87,9 @@ def _not_inside(call: str, inner) -> None:
         )
 
 
-def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
-               distinct=False, over=None) -> Column:
+def _aggregate(name: str, kind: str, column: object, where: object, *, adds_up: bool = True,
+               because: str | None = None, distinct: bool = False,
+               over: object = None) -> Column:
     call = f"{name}({python_text(column)})"
     column = _need_column(column, call)
     _not_inside(call, column)
@@ -104,7 +105,8 @@ def _aggregate(name, kind, column, where, *, adds_up=True, because=None,
 OVER_A_WINDOW = "worked out over a Window"
 
 
-def _over(tree: Node, over, call: str, adds_up: bool, because):
+def _over(tree: Node, over: object, call: str, adds_up: bool,
+          because: str | None) -> tuple[Node, bool, str | None]:
     """A count's or a sum's tree worked out over the Window `over`, if one is given, with
     whether it adds up: rows share the rows their Windows cover, so it doesn't."""
     if over is None:
@@ -218,7 +220,7 @@ def max_of(column, where=None, over=None):
     return _aggregate("max_of", "Max", column, where, over=over)
 
 
-def _as_column(value, call: str) -> Column:
+def _as_column(value: object, call: str) -> Column:
     if isinstance(value, Column):
         return value
     return Column(literal(value, call=call, in_condition=False))
@@ -321,7 +323,7 @@ def month_start(column):
 class Ordering:
     """A column to sort by, and which way. Made by descending(...)."""
 
-    def __init__(self, target):
+    def __init__(self, target: Column | str) -> None:
         self._target = target
 
     def __repr__(self) -> str:
@@ -342,7 +344,7 @@ def descending(column):
     return Ordering(column)
 
 
-def ordered(item, call: str) -> Node:
+def ordered(item: object, call: str) -> Node:
     """The ORDER BY entry for a column, an output name or descending(...)."""
     descending_order = isinstance(item, Ordering)
     target = item._target if descending_order else item

@@ -89,7 +89,7 @@ def _home_of(name: str, stamp: str | None, folder: str) -> str | None:
     return _STAMP.match(stamp).group(1).lower().replace(" ", "_")
 
 
-def _check_home(here: str, folder: str, stamps: dict, importing: str) -> None:
+def _check_home(here: str, folder: str, stamps: dict[str, str | None], importing: str) -> None:
     """Stop if a file came from another Toolbox folder than the one it sits in."""
     on_disk = os.path.basename(here)
     homes = {name: _home_of(name, stamp, folder) for name, stamp in stamps.items()}
@@ -122,7 +122,7 @@ def _check_home(here: str, folder: str, stamps: dict, importing: str) -> None:
         )
 
 
-def check_folder(here: str, folder: str, product: str, files, version: str,
+def check_folder(here: str, folder: str, product: str, files: list[str] | None, version: str,
                  importing: str) -> None:
     """Stop if a pasted Toolbox folder is missing a file, has an extra one, or mixes versions,
     exports or Toolbox folders.

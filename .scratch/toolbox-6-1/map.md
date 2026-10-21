@@ -36,6 +36,14 @@ holds the hints later. This map is the design, built out ticket by ticket.
   already require, and has no `__future__` import: Python 3.11 reads `X | None` as it is.
 - **Precise over loose.** `object` only where any value is truly fine. A bare `dict`, `list`,
   `tuple` or `frozenset` gains its element types when its function is touched.
+- **Raw values are `object` until checked** (ticket 02). A private helper that takes the user's
+  value as given and checks or refuses it itself hints `object`; once checked, the code hints
+  the checked type. A public function hints what the user should pass (ticket 03), since its
+  signature is what `help()` shows.
+- **A function that never returns is `-> NoReturn`**: every refusal and Guard function, and any
+  function that ends by calling one.
+- **`engine.py` imports sqlglot's types under `TYPE_CHECKING`**, not for a cycle: it imports
+  sqlglot only inside its functions, so it can check sqlglot is there before trusting it.
 - **Nothing holds the hints.** No type checker and no ruff ANN rules (the user's choice). The
   ruff run in pytest still refuses a hint that names something undefined (F821). Each ticket's
   "every function" is checked once with an `ast` count, printed, not committed.
@@ -48,8 +56,10 @@ holds the hints later. This map is the design, built out ticket by ticket.
 - [04 Hints in tools](issues/04-hints-in-tools.md)
 - [05 Hints in tests](issues/05-hints-in-tests.md)
 - [06 Hints in the teaching code](issues/06-hints-in-the-teaching-code.md)
+- [07 run_tables refuses what write_day gives](issues/07-run-tables-refuses-what-write-day-gives.md)
 
 01 lands first. 02 and 03 touch the same files, in that order; 04, 05 and 06 don't wait for them.
+07 came out of 02's hints: a bug the map's Out of scope sends to a ticket of its own.
 
 ## Records this changes
 

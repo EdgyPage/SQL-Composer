@@ -32,12 +32,16 @@ keeps a Derived table's Keys for the joins that read it, and Lineage shows them.
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 from .conditions import combined_spans
 from .writing import hive_text
 from .joins import ONLY_TESTS
-from .trees import has_aggregate, has_window
+from .tables import Table
+from .trees import Node, has_aggregate, has_window
+
+if TYPE_CHECKING:
+    from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
 
 TOOLBOX_VERSION = "6.1"
 
@@ -63,7 +67,7 @@ class Keys(NamedTuple):
 # --- A table's Keys --------------------------------------------------------------------------
 
 
-def keys_of(table) -> list[list[str]]:
+def keys_of(table: Table) -> list[list[str]]:
     """Every Key a table's rows are told apart by: a Table reference's own, or the ones
     derived(...) worked out for a Derived table. [] is a Key with no columns: one row."""
     if table._statement is not None:
@@ -71,7 +75,7 @@ def keys_of(table) -> list[list[str]]:
     return [table._key] if table._key else []
 
 
-def why_no_key(table) -> str:
+def why_no_key(table: Table) -> str:
     """Why a table has no Key, for a message: it declares none, or where its Statement lost it."""
     if table._statement is None:
         return f"{table._alias} declares no Key"
@@ -86,20 +90,20 @@ def possessive(name: str) -> str:
 # --- What a Statement holds to one value, and which columns it sets equal --------------------
 
 
-def _and_parts(tree) -> list:
+def _and_parts(tree: Node) -> list[Node]:
     if tree.kind != "And":
         return [tree]
     return [part for side in tree.flatten() for part in _and_parts(side)]
 
 
-def _plain(tree) -> tuple[str, str] | None:
+def _plain(tree: Node) -> tuple[str, str] | None:
     """(table alias, column) for a column of a table, or None for anything else."""
     if tree.kind == "Column" and tree.table:
         return (tree.table, tree.name)
     return None
 
 
-def _columns(tree) -> list[tuple[str, str]]:
+def _columns(tree: Node) -> list[tuple[str, str]]:
     return [(column.table, column.name) for column in tree.find_all("Column")]
 
 
@@ -113,7 +117,7 @@ class _Facts:
     reads, so for it `one_day` is False.
     """
 
-    def __init__(self, s, one_day: bool = False):
+    def __init__(self, s: Statement, one_day: bool = False) -> None:
         self.s, self.one_day = s, one_day
         self.tables = {read.table._alias: read.table for read in s._reads}
         conditions = s._where + [read.on for read in s._reads if read._name == "JOIN"]
@@ -129,7 +133,7 @@ class _Facts:
         self.left_joins = self._left_joins()
         self.fixed = self.decided(set())
 
-    def _day_columns(self) -> set:
+    def _day_columns(self) -> set[tuple[str, str]]:
         """The columns of the FROM table that hold the day a write writes."""
         first = self.s._reads[0].table
         if first._statement is None:
@@ -143,13 +147,13 @@ class _Facts:
                 if _plain(column._tree) in days | {other for day in days
                                                    for other in self.same.get(day, set())}]
 
-    def keys(self, table) -> list[list[str]]:
+    def keys(self, table: Table) -> list[list[str]]:
         """keys_of(table), for a write's FROM table worked out again with its day held."""
         if self.one_day and table._statement is not None and table is self.s._reads[0].table:
             return [found.names for found in statement_keys(table._statement, True).found]
         return keys_of(table)
 
-    def _read_equals(self, part) -> None:
+    def _read_equals(self, part: Node) -> None:
         if part.kind != "EQ":
             return
         sides = (part.parts["this"], part.parts["expression"])
@@ -162,7 +166,7 @@ class _Facts:
             if column and not _columns(other) and not has_window(other):
                 self.one_value.add(column)
 
-    def decided(self, seed: set) -> set:
+    def decided(self, seed: set[tuple[str, str]]) -> set[tuple[str, str]]:
         """Every column whose value the columns in `seed` decide, with those held to one
         value: through equals(...) between two columns, and through a table's whole Key."""
         known = set(seed) | self.one_value
@@ -180,7 +184,7 @@ class _Facts:
             grown = len(known) > before
         return known
 
-    def _left_joins(self) -> list[tuple[str, set]]:
+    def _left_joins(self) -> list[tuple[str, set[tuple[str, str]]]]:
         """Each LEFT_JOIN whose ON= matches its table's whole Key, with the other tables'
         columns it matches them with: those decide the row it adds, or that it adds none."""
         found = []
@@ -192,7 +196,7 @@ class _Facts:
                     found.append((read.table._alias, needed))
         return found
 
-    def tree_decided(self, tree, known: set) -> bool:
+    def tree_decided(self, tree: Node, known: set[tuple[str, str]]) -> bool:
         if has_aggregate(tree) or has_window(tree):
             return False
         return all(column in known for column in _columns(tree))
@@ -206,7 +210,7 @@ class _Facts:
         return None
 
 
-def _left_join_match(read) -> tuple[set | None, set]:
+def _left_join_match(read: Clause) -> tuple[set[tuple[str, str]] | None, set[str]]:
     """What a LEFT_JOIN's ON= matches: the other tables' columns it needs, and its own
     table's columns it pins, to another table's column or to one value. The columns needed are
     None when ON= tests other tables in any other way, since then they alone don't decide it."""
@@ -230,7 +234,7 @@ def _left_join_match(read) -> tuple[set | None, set]:
     return needed, matched
 
 
-def _reduced(entries: list[tuple[str, object]], facts: _Facts) -> list[str]:
+def _reduced(entries: list[tuple[str, Node]], facts: _Facts) -> list[str]:
     """The names of `entries`, (output name, tree), less each one the others decide."""
     kept = list(entries)
     for entry in reversed(entries):
@@ -244,7 +248,7 @@ def _reduced(entries: list[tuple[str, object]], facts: _Facts) -> list[str]:
 # --- A Statement's Keys ----------------------------------------------------------------------
 
 
-def statement_keys(s, one_day: bool = False) -> Keys:
+def statement_keys(s: Statement, one_day: bool = False) -> Keys:
     """Every Key the Toolbox can see for a Statement's rows, as output names."""
     if s._stack is not None:
         return _stack_keys(s, one_day)
@@ -267,7 +271,7 @@ def _listed(names: list[str]) -> str:
     return ", ".join(names) or "nothing"
 
 
-def _stack_keys(s, one_day: bool) -> Keys:
+def _stack_keys(s: Statement, one_day: bool) -> Keys:
     """A Stack's Keys. UNION, INTERSECT and EXCEPT keep each different row once, so every
     column is a Key; EXCEPT keeps some of its first Statement's rows, and INTERSECT some of
     each one's, so their Keys hold too. UNION_ALL keeps every row of each, and two may share a
@@ -286,7 +290,7 @@ def _stack_keys(s, one_day: bool) -> Keys:
     return Keys(_once(found), None)
 
 
-def day_outputs(s) -> list[str]:
+def day_outputs(s: Statement) -> list[str]:
     """The output names of a write's Statement, or of the Derived table it reads, that hold the
     day it writes; for a Stack, those that hold it in every Statement it stacks."""
     if s._stack is None:
@@ -295,7 +299,7 @@ def day_outputs(s) -> list[str]:
     return [name for _, name in s._outputs if all(name in found for found in each)]
 
 
-def _grouped_keys(s, facts: _Facts) -> Keys:
+def _grouped_keys(s: Statement, facts: _Facts) -> Keys:
     entries, left_out = [], []
     for group in s._group_by:
         match = [name for column, name in s._outputs if column._tree == group._tree]
@@ -321,7 +325,7 @@ def _held(columns: list[str]) -> str:
     return f", with {_listed(columns)} held to one value"
 
 
-def _keeps(read, facts: _Facts) -> str | None:
+def _keeps(read: Clause, facts: _Facts) -> str | None:
     """None when a join adds at most one of its table's rows to each row; otherwise why not."""
     if read._name in ONLY_TESTS:
         return None  # each row once at most, with none of its table's columns
@@ -339,7 +343,7 @@ def _keeps(read, facts: _Facts) -> str | None:
     return f"{read._call()} can match several {alias} rows to one row"
 
 
-def _row_keys(s, facts: _Facts) -> Keys:
+def _row_keys(s: Statement, facts: _Facts) -> Keys:
     """The Keys of a Statement that neither groups nor adds up: its FROM table's, widened by
     each join that can repeat rows, and any row_number's."""
     first = s._reads[0].table
@@ -377,7 +381,7 @@ def _row_keys(s, facts: _Facts) -> Keys:
     return Keys(_once(found), None if found else lost)
 
 
-def _less_decided(columns: list, facts: _Facts) -> list:
+def _less_decided(columns: list[tuple[str, str]], facts: _Facts) -> list[tuple[str, str]]:
     """The columns, each (table alias, column), less each one the others decide, as a joined
     run's run_id decides the job_id it was joined on."""
     kept = list(columns)
@@ -388,7 +392,7 @@ def _less_decided(columns: list, facts: _Facts) -> list:
     return kept
 
 
-def _row_number_keys(s, facts: _Facts) -> list[Found]:
+def _row_number_keys(s: Statement, facts: _Facts) -> list[Found]:
     """A Key for each row_number SELECT returns: its PARTITION_BY columns and the number."""
     found = []
     for column, name in s._outputs:
@@ -405,7 +409,8 @@ def _row_number_keys(s, facts: _Facts) -> list[Found]:
     return found
 
 
-def _named(columns: list, more: list[str], facts: _Facts):
+def _named(columns: list[tuple[str, str]], more: list[str],
+           facts: _Facts) -> tuple[list[str] | None, tuple[str, str] | None]:
     """The output names of `columns`, each (table alias, column), then `more`, leaving out a
     column held to one value; or (None, the first column SELECT doesn't return)."""
     names = []
@@ -431,19 +436,19 @@ def _once(found: list[Found]) -> list[Found]:
 # --- A write's Key ---------------------------------------------------------------------------
 
 
-def wanted_key(table) -> list[str]:
+def wanted_key(table: Table) -> list[str]:
     """The columns a write into a Saved table must show its rows are one per: its Key, less
     its Date partition, since a write fills one day."""
     return [column for column in table._key or [] if column != table._date_partition]
 
 
-def writes_one_day(s) -> bool:
+def writes_one_day(s: Statement) -> bool:
     """Whether a Statement writes one day of a Saved table: a write into a table with no Date
     partition writes the whole table, from every day it reads."""
     return s._write is not None and s._write._date_partition is not None
 
 
-def unproven(s) -> str | None:
+def unproven(s: Statement) -> str | None:
     """Why the Toolbox can't see that a write's rows each have a Key of their own, or None
     when it can, or when its Saved table declares no Key."""
     table = s._write

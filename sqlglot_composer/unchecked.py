@@ -12,7 +12,9 @@ from __future__ import annotations
 import datetime
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
+from types import FrameType
 
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
@@ -143,18 +145,18 @@ def hive_settings(*names, sets=None):
     return SessionSettings(list(names), lines)
 
 
-def _call(names) -> str:
+def _call(names: tuple[object, ...]) -> str:
     """How hive_settings was called, for a message: ("a", "b") is ("a", "b")."""
     return "(" + ", ".join(_quoted(name) for name in names) + ")"
 
 
-def _quoted(name) -> str:
+def _quoted(name: object) -> str:
     """A set's name as a message writes it: text in double quotes, anything else as Python
     shows it."""
     return f'"{name}"' if isinstance(name, str) else repr(name)
 
 
-def _own_sets(sets) -> dict:
+def _own_sets(sets: object) -> dict[object, dict[object, object]]:
     """The user's own sets, as given to sets=, each checked to be a dict of settings."""
     if sets is None:
         return {}
@@ -194,7 +196,8 @@ def _own_sets(sets) -> dict:
     return sets
 
 
-def _named_set(name, names, own: dict) -> dict:
+def _named_set(name: object, names: tuple[object, ...],
+               own: dict[object, dict[object, object]]) -> dict[object, object]:
     """The settings of one set, the user's own or the Toolbox's, or a refusal naming them all."""
     if isinstance(name, str) and name in own:
         return own[name]
@@ -220,7 +223,7 @@ def _named_set(name, names, own: dict) -> dict:
     )
 
 
-def _value(name: str, setting, value) -> str:
+def _value(name: str, setting: object, value: object) -> str:
     """A setting's value as a SET line writes it, or a refusal of what can't be one."""
     where = f'hive_settings(...): the set "{name}"'
     if not isinstance(setting, str) or not _SETTING_NAME.fullmatch(setting):
@@ -355,7 +358,7 @@ _SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n
 def _what_it_does(text: str) -> str:
     """The text in capitals with its strings and comments blanked out, and names in backticks
     kept without them, so a keyword is found only where it is one."""
-    def blank(found):
+    def blank(found: re.Match[str]) -> str:
         said = found.group()
         if said.startswith("`"):
             return said[1:-1].replace("``", "`")
@@ -481,7 +484,7 @@ def unchecked_call(unchecked: UncheckedStatement) -> str:
     return f"unchecked_hive({quoted}{' ...' if first != whole else ''})"
 
 
-def logged_run(kind: str, call: str, hive: str, send):
+def logged_run(kind: str, call: str, hive: str, send: Callable[[str], object]) -> object:
     """Send `hive`, then add its entry to the Admin log: worked, or failed with its error,
     which is raised again once the entry is written. `kind` is "Unchecked statement" or
     "Admin statement"."""
@@ -496,7 +499,7 @@ def logged_run(kind: str, call: str, hive: str, send):
     return result
 
 
-def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
+def _append(kind: str, call: str, hive: str, frame: FrameType, result: str) -> None:
     """Add one entry to the end of the Admin log, writing its heading first if it is new."""
     from .lineage import caller_folder, calling_file  # it imports this file
     from .project import project_folder, project_log  # it imports this file
