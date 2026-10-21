@@ -39,13 +39,16 @@ to get the results shown. <code>first_look(t)</code> reads your own yesterday to
 shows no rows here.</p>
 <p>To paste a docstring's example, first run <code>from sqlglot_composer import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
-examples on their own are scripts kept with the Toolbox's own source, not in the
-<code>sqlglot_composer</code> folder. Each entry shows the Python that builds its Statements, but not
-the pandas that computes a result the Example database can't run.
-To try one, paste the top of
-its script, with the Table reference or Building block it imports pasted in place of its
-<code>from references ...</code> or <code>from building_blocks ...</code> line, then the
-functions.</p>
+examples on their own are scripts the Toolbox's makers keep, which the download doesn't hold, so
+each entry shows the Python that builds its Statements, but not
+the pandas that computes a result the Example database can't run. A script plays a Table
+notebook's logic cell: in a Project, its lines would go in a Table notebook, the Table reference
+it imports in <code>references/</code> and the Building block in <code>building_blocks/</code>,
+and its
+<code>from references ...</code> or <code>from building_blocks ...</code> line then imports it
+from there. To try one in a plain notebook, paste the top of its script, with the whole file
+that line imports pasted in place of the line, then the functions. The ops tables it reads come
+from <code>example_database</code>, whose Table references ship inside the Toolbox.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>
@@ -76,7 +79,7 @@ number beside its fix:</p>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
 <p class="why">Why: most questions about a table are &quot;how many per something&quot;, and these are the four shapes that answer them.</p>
-<p class="label">The top of its script, groups_and_top_n.py</p>
+<p class="label">The top of its script, groups_and_top_n.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, LIMIT, ORDER_BY, SELECT, SELECT_DISTINCT, WHERE, at_least,
     between, count_distinct, count_rows, descending, example_database, statement, sum_of,
@@ -185,7 +188,7 @@ LIMIT 2</pre><p class="label">Result on the Example database</p><div class="scro
 <section class="entry" id="jobs_that_never_ran">
 <h3>Jobs with no runs, and jobs with at least one: anti-join and semi-join.</h3>
 <p class="why">Why: a job missing from the runs is often the very problem you&#x27;re looking for, and a plain JOIN can&#x27;t show it, since JOIN keeps only the rows that match.</p>
-<p class="label">The top of its script, jobs_that_never_ran.py</p>
+<p class="label">The top of its script, jobs_that_never_ran.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     FROM, JOIN, LEFT_JOIN, SELECT, SELECT_DISTINCT, WHERE, all_of, between, derived, equals,
     example_database, is_null, statement,
@@ -263,7 +266,7 @@ JOIN ran
 <section class="entry" id="labels_and_counts">
 <h3>Label with if_else, fill NULL with fill_null, count by condition, and divide.</h3>
 <p class="why">Why: codes and NULLs make a result hard to read, and a count of each kind side by side gives one row per job instead of one row per job and status.</p>
-<p class="label">The top of its script, labels_and_counts.py</p>
+<p class="label">The top of its script, labels_and_counts.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, equals, example_database,
     fill_null, if_else, is_null, more_than, statement,
@@ -372,7 +375,7 @@ GROUP BY
 <section class="entry" id="lists_and_text">
 <h3>Keep rows by a list of values, by either of two conditions, or by text.</h3>
 <p class="why">Why: filters like &quot;these two jobs&quot;, &quot;failed or still running&quot; and &quot;names starting with&quot; come up in almost every Statement, and each has one trap worth knowing.</p>
-<p class="label">The top of its script, lists_and_text.py</p>
+<p class="label">The top of its script, lists_and_text.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     FROM, SELECT, WHERE, any_of, between, contains, equals, example_database, is_in,
     is_not_in, is_null, starts_with, statement,
@@ -473,7 +476,7 @@ WHERE
 <h3>Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</h3>
 <p class="why">Why: a result that is slow to work out, or read by many notebooks, is cheaper to work out once a day and save than to work out again every time someone reads it.</p>
 <p>A Saved table is written one day at a time, and each function below is one step. The Example database can&#x27;t be written to, so the steps show their Hive but no result. At work, send each one with run(step(), send=run_query), run_query being your own send function, and loop over the ones that return a list.</p>
-<p class="label">The top of its script, saved_table.py</p>
+<p class="label">The top of its script, saved_table.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     FROM, INSERT_INTO, INSERT_OVERWRITE, JOIN, SELECT, SELECT_DISTINCT, WHERE, admin,
     create_table, equals, example_database, statement,
@@ -488,10 +491,12 @@ LAST_DAY = &quot;2026-09-24&quot;</pre>
 <p class="label">The Table reference it imports, references/mart__runs_to_review.py</p>
 <pre class="python">&quot;&quot;&quot;The Table reference of mart.runs_to_review, a Saved table the Worked examples write.
 
-A Saved table&#x27;s Table reference is written by hand, since the table doesn&#x27;t exist until
-create_table makes it from this. Each day holds the runs someone should look at that day.
-It lives in a folder of its own under location=, the folder your Saved tables go in, and
-purge=True makes dropping it delete its files too.
+A Saved table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until
+create_table makes it from this: in a Project, project.new_table writes the file, and you fill
+it in. Each day holds the runs someone should look at that day. It lives in a folder of its
+own under location=, the folder in the warehouse your Saved tables go in, not one in your
+Project: the Hive names it by the database and the table, mart/runs_to_review. purge=True
+makes dropping it delete its files too.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
@@ -668,7 +673,7 @@ TBLPROPERTIES (
 <h3>Build a long Statement from named steps, each one reading the step before it.</h3>
 <p class="why">Why: a query in named steps can be read, and checked, one step at a time, where the same query written as one block has to be understood all at once.</p>
 <p>Each step is a Derived table, which the Toolbox writes at the top of the Hive as a WITH ... AS (...) part (a CTE). Run a step on its own to check it before building on it.</p>
-<p class="label">The top of its script, step_by_step.py</p>
+<p class="label">The top of its script, step_by_step.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, GROUP_BY, JOIN, SELECT, WHERE, at_least, between, count_rows, derived,
     equals, example_database, statement, sum_of,
@@ -780,7 +785,7 @@ WHERE
 <section class="entry" id="latest_and_top_n">
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
-<p class="label">The top of its script, latest_and_top_n.py</p>
+<p class="label">The top of its script, latest_and_top_n.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, all_columns, at_most, between, derived, descending,
     equals, example_database, max_of, row_number, run, statement,
@@ -897,7 +902,7 @@ WHERE
 <section class="entry" id="left_join_then_where">
 <h3>LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</h3>
 <p class="why">Why: LEFT_JOIN keeps cache_warm with NULL in every job_runs column, and a WHERE on job_runs then throws that row away again.</p>
-<p class="label">The top of its script, left_join_then_where.py</p>
+<p class="label">The top of its script, left_join_then_where.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, WHERE, all_of, between, count_rows, equals,
     example_database, is_not_null, statement,
@@ -976,7 +981,7 @@ GROUP BY
 <section class="entry" id="nan_in_a_list">
 <h3>NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</h3>
 <p class="why">Why: pandas writes a blank cell as NaN, Hive can only read it as NULL, and a NULL in <code>NOT IN (...)</code> makes it match no rows at all.</p>
-<p class="label">The top of its script, nan_in_a_list.py</p>
+<p class="label">The top of its script, nan_in_a_list.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">import pandas as pd
 
 from sqlglot_composer import (
@@ -1030,7 +1035,7 @@ WHERE
 <section class="entry" id="none_in_equals">
 <h3>None in equals: a search for a missing status finds nothing.</h3>
 <p class="why">Why: in SQL nothing equals NULL, not even NULL, so <code>status = NULL</code> matches no rows at all.</p>
-<p class="label">The top of its script, none_in_equals.py</p>
+<p class="label">The top of its script, none_in_equals.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, SELECT, WHERE, count_rows, equals, example_database, is_null, statement,
 )
@@ -1078,7 +1083,7 @@ WHERE
 <h3>not_equals: leaving out TEST runs also leaves out the run still going.</h3>
 <p class="why">Why: SQL&#x27;s <code>&lt;&gt;</code> drops the rows where the column is NULL, while pandas&#x27; <code>!=</code> keeps them.</p>
 <p>No Guard catches this, since the Toolbox can&#x27;t know which columns may be NULL; not_equals&#x27; docstring says so instead.</p>
-<p class="label">The top of its script, not_equals_drops_null.py</p>
+<p class="label">The top of its script, not_equals_drops_null.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from sqlglot_composer import (
     AS, FROM, SELECT, WHERE, any_of, count_rows, equals, example_database, is_null,
     not_equals, statement,
@@ -1130,7 +1135,7 @@ WHERE
 <section class="entry" id="regrouping">
 <h3>Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</h3>
 <p class="why">Why: a job that ran on two days is in both days&#x27; counts, so adding them up counts it twice.</p>
-<p class="label">The top of its script, regrouping.py</p>
+<p class="label">The top of its script, regrouping.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">import pandas as pd
 
 from building_blocks.jobs_per_day import jobs_per_day
@@ -1230,7 +1235,7 @@ GROUP BY
 <section class="entry" id="repeated_rows">
 <h3>Repeated rows: joining alerts onto runs makes the minutes come out too big.</h3>
 <p class="why">Why: a run that raised three alerts is joined to three rows, so its minutes are added three times.</p>
-<p class="label">The top of its script, repeated_rows.py</p>
+<p class="label">The top of its script, repeated_rows.py, a Table notebook&#x27;s logic cell in a Project</p>
 <pre class="python">from building_blocks.alerts_per_run import alerts_per_run
 from sqlglot_composer import (
     AS, FROM, JOIN, LEFT_JOIN, SELECT, WHERE, between, count_rows, equals, example_database,

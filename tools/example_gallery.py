@@ -546,7 +546,7 @@ def script_entry(module) -> tuple[str, str, list[str], str]:
     names = names_in("\n".join([top] + [text for *_, text in lower]
                                + [inspect.getsource(function) for function in functions]))
     body = [f'<p class="why">{inline(why)}</p>', *(f"<p>{inline(note)}</p>" for note in notes),
-            label(f"The top of its script, {entry_id}.py"), source_html(top)]
+            label(f"The top of its script, {entry_id}.py, a Table notebook's logic cell in a Project"), source_html(top)]
     for kind, name, folder, text in lower:
         body += [label(f"{kind} it imports, {folder}/{name}"), source_html(text)]
     body += [steps, names_html(names)]
@@ -671,12 +671,15 @@ to get the results shown. <code>first_look(t)</code> reads your own yesterday to
 shows no rows here.</p>
 <p>To paste a docstring's example, first run <code>from {folder} import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
-examples on their own are scripts kept with the Toolbox's own source, not in the
-<code>{folder}</code> folder. Each entry shows the Python that builds its Statements{but_not_pandas}.
-To try one, paste the top of
-its script, with the Table reference or Building block it imports pasted in place of its
-<code>from references ...</code> or <code>from building_blocks ...</code> line, then the
-functions.</p>
+examples on their own are scripts the Toolbox's makers keep, which the download doesn't hold, so
+each entry shows the Python that builds its Statements{but_not_pandas}. A script plays a Table
+notebook's logic cell: in a Project, its lines would go in a Table notebook, the Table reference
+it imports in <code>references/</code> and the Building block in <code>building_blocks/</code>,
+and its
+<code>from references ...</code> or <code>from building_blocks ...</code> line then imports it
+from there. To try one in a plain notebook, paste the top of its script, with the whole file
+that line imports pasted in place of the line, then the functions. The ops tables it reads come
+from <code>example_database</code>, whose Table references ship inside the Toolbox.</p>
 </header>
 <p id="filter" hidden><label>Show only the entries holding every word:
 <input type="search" placeholder="for example: row_number or LEFT_JOIN"></label>
