@@ -103,8 +103,6 @@ def python_text(value) -> str:
 def readable(tree: Node) -> str:
     """A calculation or condition as it was written: its Toolbox calls, else its Hive.
 
-    It reads the same in both Editions: writing.readable_text leaves out anything one Edition
-    adds to its Hive that the other doesn't.
     """
     if "call" in tree.meta:
         return tree.meta["call"]
@@ -722,8 +720,9 @@ class Table:
             return self._column(attribute)
         close = difflib.get_close_matches(attribute, list(columns), n=1)
         hint = f" Did you mean {close[0]!r}?" if close else ""
-        # obj= marks the error as one that already says where it came from, so Python 3.12 and
-        # newer don't add a "Did you mean" of their own after the hint.
+        # Python 3.12 adds its own "Did you mean ...?" to an AttributeError raised here, after
+        # the hint below, unless the error's obj is already set; obj=None sets it.
+        # tests/test_docstrings.py runs Table's docstring example, which holds the one hint.
         raise AttributeError(
             f"{self._alias} has no column {attribute!r}.{hint} Its columns are: "
             f"{', '.join(columns)}.",

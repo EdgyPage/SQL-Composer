@@ -57,10 +57,10 @@ GROUP BY
   );
 >>> run(runs_per_job, send=example_database.send)
       team      job_name  runs  minutes
-0     None          None     4      100
-1     data          None     2       50
+0      NaN           NaN     4      100
+1     data           NaN     2       50
 2     data  nightly_load     2       50
-3  finance          None     2       50
+3  finance           NaN     2       50
 4  finance  invoice_sync     1       20
 5  finance  report_build     1       30
 
@@ -72,13 +72,13 @@ is, and Check it worked below runs on the Example database too.
 
 The Hive spells out each set of rows in `GROUPING SETS`: each team and job, each team,
 and `()`, nothing, for one row over all of them. In a subtotal row the columns it totals over
-are empty, NULL, which pandas shows as `None` and the tables on this page as NULL:
+are empty, NULL, which pandas 3 shows as NaN and the tables on this page as NULL:
 `"job_name"` in a team's subtotal, and `"team"` too in the grand total.
 
 ### Tell a subtotal row from a real NULL
 
 A column can be empty in a real row too. On 2026-09-23 one run was still going, with no
-`job_runs.status` yet, so a rollup of `job_runs.status` has two rows with `None`:
+`job_runs.status` yet, so a rollup of `job_runs.status` has two rows with NaN:
 
 >>> runs_per_status = statement(
 ...     SELECT(job_runs.status, AS(if_else(is_total(job_runs.status), 1, 0), "subtotal"),
@@ -89,8 +89,8 @@ A column can be empty in a real row too. On 2026-09-23 one run was still going, 
 ... )
 >>> run(runs_per_status, send=example_database.send)
     status  subtotal  runs
-0     None         0     1
-1     None         1     5
+0      NaN         0     1
+1      NaN         1     5
 2   FAILED         0     1
 3  SUCCESS         0     2
 4     TEST         0     1
@@ -141,9 +141,9 @@ refuse it otherwise, so the Toolbox does too.
 ... )
 >>> run(team_totals, send=example_database.send)
       team job_name  runs
-0     None     None     4
-1     data     None     2
-2  finance     None     2
+0      NaN      NaN     4
+1     data      NaN     2
+2  finance      NaN     2
 
 ### Other sets of subtotals
 
@@ -262,7 +262,8 @@ def runs_on(day):
 
 def _rollup(rows, columns, totals):
     """The rows of a rollup over `columns`: each set, from all of them down to none, with the
-    columns a set totals over as None, and a 1 in "subtotal" where there are any."""
+    columns a set totals over missing, as pandas 3 shows NULL text (NaN), and a 1 in "subtotal"
+    where there are any."""
     found = []
     for size in range(len(columns), -1, -1):
         # One more column, the same on every row, so the grand total is a group too.
@@ -274,12 +275,12 @@ def _rollup(rows, columns, totals):
         found.append(grouped.drop(columns="every"))
     found = pd.concat(found, ignore_index=True)
     for column in columns:
-        found[column] = found[column].astype(object).where(found[column].notna(), None)
+        found[column] = found[column].astype("str")
     return found
 
 
 def _sorted(frame, columns):
-    """The rows as the Example database gives them: sorted by every column, None first."""
+    """The rows as the Example database gives them: sorted by every column, NULL first."""
     keys = [frame[column].map(lambda value: (value is not None and value == value, value))
             for column in columns]
     order = sorted(range(len(frame)), key=lambda i: tuple(key.iloc[i] for key in keys))
@@ -297,7 +298,6 @@ def runs_per_job_in_pandas():
 def runs_per_status_in_pandas():
     """runs_per_status's result, computed in pandas, not by running this Hive."""
     rows = runs_on("2026-09-23")
-    rows["status"] = rows["status"].astype(object).where(rows["status"].notna(), None)
     found = _rollup(rows, ["status"], {"runs": ("run_id", "count")})
     return _sorted(found, ["status", "subtotal", "runs"])
 

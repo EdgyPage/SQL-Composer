@@ -4,8 +4,7 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 6.0
 
-6.0 is sqlglot Composer alone, on Python 3.12, pandas 3 and numpy 2.5. More of it comes as
-6.0's work lands: these notes grow with it.
+6.0 is sqlglot Composer alone, tested on Python 3.12, pandas 3 and numpy 2.5.
 
 ### To update from 5.x
 
@@ -16,9 +15,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `send=lambda hive: spark.sql(hive).toPandas()` still works; the README's "If your send runs the
   Hive on Spark" says where Spark reads Hive its own way.
 - **`requirements.txt` is one list, pinned for Python 3.12**: pandas 3.0.6, numpy 2.5.4 and
-  sqlglot 30.23.0, with what they need in turn, and pytz. numpy 2.5 has no builds for Python
-  3.11; there, install the pandas and numpy your Python has, as the README's Install says. The
-  Toolbox itself still runs on Python 3.11 or newer.
+  sqlglot 30.23.0, with what they need in turn, and pytz, which pandas 3 no longer needs but is
+  kept for code of yours that imports it. On Python 3.11, change numpy's line to
+  `numpy==2.4.6`, as the README's Install says. The Toolbox itself still runs on Python 3.11 or
+  newer.
 - **pandas 3 shows a missing text value as NaN**, where pandas 2 showed None: a run's result
   with a NULL in a text column reads NaN there. Test for it with `isna()`, never `== None`.
 

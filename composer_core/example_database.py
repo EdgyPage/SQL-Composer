@@ -22,7 +22,7 @@ DataFrame, just like your own send at work. It never reaches your warehouse, so 
 try anything here. Where it can't run a query, it says why.
 
 Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
-ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first.
+ORDER_BY, its rows are sorted by its first column, then its second, and so on, with NULL first.
 At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.
 
 >>> runs = example_database.job_runs

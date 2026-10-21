@@ -15,15 +15,15 @@ Your notebook sends that Hive to the warehouse through a `send` of its own: a qu
 
 ## Install
 
-The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot.
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot. It is tested on Python 3.12,
+which `requirements.txt`'s pins are for.
 
 1. Download this branch as a zip and extract it.
 2. Install what the Toolbox needs, at the versions it is tested on: run
    `pip install -r requirements.txt` in the download's top folder, or, from a notebook,
    `%pip install -r` followed by the path to that file.
-   - The pins are for Python 3.12. numpy 2.5.4 has no builds for Python 3.11, so there pip
-     can't install it: delete the pandas and numpy lines and the four under them, and install the
-     pandas and numpy your Python has builds of.
+   - On Python 3.11, numpy 2.5.4 can't install: change its line in `requirements.txt` to
+     `numpy==2.4.6`, which pandas 3.0.6 runs on there, before you run pip.
    - A package your notebook already has, such as pandas, needn't be installed again: delete
      its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
      (not including) 31, whose Example database and a struct column in create_table need
@@ -45,7 +45,9 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 ## Update
 
 Updating from 4.x? Copy the folders in as below, then see [Update from 4.x](#update-from-4x).
-Updating from 3.x or SQL Composer, with no `composer_core` folder? See
+Updating from 5.x? Copy the folders in as below, then read the 6.0 section of
+`composer_core/CHANGES.md`: pandas 3 shows a missing text value as NaN. Updating from 3.x or SQL
+Composer, with no `composer_core` folder? See
 [Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x) too.
 Using Spark Composer? It was dropped in 6.0. Install sqlglot, as Install says, delete
 `spark_composer` and `composer_core`, copy in the new `composer_core` and `sqlglot_composer`,

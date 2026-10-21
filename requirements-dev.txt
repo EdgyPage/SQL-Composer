@@ -14,7 +14,8 @@ pandas==3.0.6
 numpy==2.5.4
 
 # What pandas needs in turn, pinned as requirements.txt pins them (a test holds the two files
-# to the same versions), and pytz, which pandas 3 no longer needs but the user keeps pinned.
+# to the same versions), and pytz, which pandas 3 no longer needs but the user keeps pinned for
+# code that still imports it.
 python-dateutil==2.9.0.post0
 tzdata==2026.5
 six==1.17.0
