@@ -3104,7 +3104,7 @@ sqlglot_composer.refusals.LoadRefused:
 <h3><code>export_lineage</code></h3>
 <p class="why">Write where each column comes from, as an HTML page and a Markdown twin.</p>
 <p>The HTML draws every step: the table columns, each Derived table and the outputs, with the conditions (WHERE, JOIN&#x27;s ON=, HAVING, LIMIT) as dashed boxes. Click a box to light up its whole path; controls expand, collapse or hide each table, and switch to a grouped flowchart. The Markdown file needs no script: a Mermaid chart, a report on each calculated column, and the Hive. Pass several Statements and the drawing follows each Saved table from the Statement that writes it to the ones that read it.</p>
-<p>The files go in a lineage/ folder beside your script or notebook, named by the time, your scripts&#x27; git commit, the file and the Statement&#x27;s variable, such as lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a Project, one Statement that writes a Saved table with a Table folder goes in that folder&#x27;s lineage/, named by the time and the table, such as tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds to the table&#x27;s history; the commit is in the footer. to= names the HTML file instead. It returns the two paths, HTML first.</p>
+<p>The files go in a lineage/ folder beside your script or notebook, named by the time, your scripts&#x27; git commit, the file and the Statement&#x27;s variable, such as lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a Project, when you pass exactly one Statement and it writes a Saved table that has a Table folder, the files go in that folder&#x27;s lineage/, named by the time and the table, such as tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds to the table&#x27;s past Lineage; the commit is in the footer. Several Statements go beside your script or notebook, as above. to= names the HTML file instead. It returns the two paths, HTML first.</p>
 <pre class="python">runs_per_team = statement(
     SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -3467,7 +3467,8 @@ project.register(...).</pre>
 <section class="entry" id="project.load">
 <h3><code>project.load</code></h3>
 <p class="why">A Table notebook&#x27;s logic, its functions by name, from anywhere in the Project.</p>
-<p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs its logic cell alone, the cell whose first line is # logic, which only imports and defines: create, rows, preview, write_day and backfill, in a notebook made from the daily_table Template. So another table&#x27;s notebook can use this table&#x27;s write_day, for lineage across your tables, and run_tables can write every table in order. It reads the notebook and your references/ and building_blocks/ as they are on disk now, saved or not run. It refuses a notebook with no logic cell, one whose logic cell calls run, which would send Hive just by loading, and one with a &lt;...&gt; still to fill in.</p>
+<p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs only its logic cell, the cell whose first line is # logic. That cell only imports and defines; in a notebook made from the daily_table Template, it defines create, rows, preview, write_day and backfill, and load gives each of them (the functions only, not other names the cell sets). So another table&#x27;s notebook can use this table&#x27;s write_day, for lineage across your tables, and run_tables can write every table in order. It reads the notebook file as last saved, and your references/ and building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run, which would send Hive just by loading, and one with a &lt;...&gt; still to fill in.</p>
+<p>In the example, a one-line Template stands in for a notebook of yours:</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3579,8 +3580,8 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 </section>
 <section class="entry" id="project.run_tables">
 <h3><code>project.run_tables</code></h3>
-<p class="why">Write a day of every table, with each notebook&#x27;s write_day(day), writers first.</p>
-<p>Each table&#x27;s write_day comes from its notebook&#x27;s logic cell, through load. They run in the order lineage draws them: a table is written before any table that reads it, and a loop, two tables each reading the other, is refused. <code>tables</code> names some, such as [&quot;mart.team_day&quot;]; left out, it is every Table folder the registry lists. With no <code>send</code> it prints each Hive in that order and sends nothing: a dry run to read first. With your send, it runs each, says it worked, and stops at the first that fails.</p>
+<p class="why">Write a day of every table, each before the tables that read it.</p>
+<p>Each table&#x27;s write_day(day) comes from its notebook&#x27;s logic cell, through load. They run in the order lineage draws them: a table is written before any table that reads it, and a loop, two tables each reading the other, is refused. <code>tables</code> names some, such as [&quot;mart.team_day&quot;]; left out, it is every Table folder the registry lists. With no <code>send</code> it prints each one&#x27;s Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you send. With your send, it sends each in turn, printing a line as each one works, and stops at the first that fails: the tables after it aren&#x27;t written. It logs nothing: what it writes is in the warehouse, not your files.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>

@@ -573,18 +573,22 @@ def test_load_reads_the_references_as_they_are_now(two_tables) -> None:
     reference = two_tables / "references" / "mart__daily_runs.py"
     reference.write_text(DAILY_RUNS.replace('"mart.daily_runs"', '"mart.daily_runs_v2"'),
                          encoding="utf-8")
-    assert "mart.daily_runs_v2" in to_hive(project.load("mart.daily_runs").write_day("2026-09-24"))
+    write = project.load("mart.daily_runs").write_day("2026-09-24")
+    assert "mart.daily_runs_v2" in to_hive(write)
 
 
 def test_load_refuses_a_notebook_it_cant_find(two_tables) -> None:
-    with pytest.raises(FileNotFoundError, match="there is no tables/mart__nope/mart__nope.ipynb"):
+    with pytest.raises(FileNotFoundError,
+                       match="there is no tables/mart__nope/mart__nope.ipynb"):
         project.load("mart.nope")
 
 
 @pytest.mark.parametrize(("logic", "said"), [
     ("x = 1\n", "has no cell whose first line is # logic"),
-    ("# logic\nfrom references.<SOURCE> import x\n", "isn't Python yet, at its line 1"),
+    ("# logic\nfrom references.<SOURCE> import x\n", "isn't Python yet, at its line 2"),
     ("# logic\nfrom sqlglot_composer import run\nrun(1, send=print)\n", "calls run"),
+    ("# logic\nfrom sqlglot_composer import run as go\ngo(1, send=print)\n", "calls run"),
+    ("# logical next steps\nx = 1\n", "has no cell whose first line is # logic"),
 ])
 def test_load_refuses_a_logic_cell_it_cant_run_safely(two_tables, logic, said) -> None:
     (two_tables / "admin" / "templates" / "odd.py").write_text(f"# %%\n{logic}",
@@ -597,9 +601,10 @@ def test_load_refuses_a_logic_cell_it_cant_run_safely(two_tables, logic, said) -
 def test_run_tables_with_no_send_prints_each_write_writers_first(two_tables, capsys) -> None:
     report = project.run_tables("2026-09-24", tables=["mart.team_runs", "mart.daily_runs"])
     printed = capsys.readouterr().out
-    assert printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs") < (
-        printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs"))
-    assert repr(report) == "Printed 2 writes in order, and sent nothing. Pass send= to run them."
+    daily = printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs")
+    assert daily < printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs")
+    assert repr(report) == ("Printed 2 writes in order, and sent nothing. Pass send= to run "
+                            "them.")
 
 
 def test_run_tables_sends_every_registered_table_in_order(two_tables) -> None:
@@ -608,17 +613,19 @@ def test_run_tables_sends_every_registered_table_in_order(two_tables) -> None:
     assert [hive.split("\n")[0] for hive in sent] == [
         "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')",
         "INSERT OVERWRITE TABLE mart.team_runs PARTITION(dt = '2026-09-24')"]
-    assert repr(report) == ("1 of 2: mart.daily_runs  worked\n"
-                            "2 of 2: mart.team_runs   worked")
+    assert repr(report) == "Wrote 2026-09-24 of 2 tables, in order."
 
 
 def test_run_tables_stops_at_the_first_that_fails(two_tables, capsys) -> None:
     def send(hive):
-        raise RuntimeError("the warehouse said no")
+        if "mart.team_runs" in hive.split("\n")[0]:
+            raise RuntimeError("the warehouse said no")
 
     with pytest.raises(RuntimeError, match="the warehouse said no"):
         project.run_tables("2026-09-24", send=send)
-    assert "1 of 2: mart.daily_runs  failed: see below" in capsys.readouterr().out
+    assert capsys.readouterr().out == (
+        "1 of 2: mart.daily_runs  worked\n"
+        "2 of 2: mart.team_runs   failed: see below. The tables after it weren't written.\n")
 
 
 LOOP_REFERENCE = """from sqlglot_composer import Table
@@ -659,7 +666,8 @@ def test_run_tables_refuses_a_loop(started) -> None:
         project.new_table(f"mart.{table}", template=table)
         (started / "references" / f"mart__{table}.py").write_text(
             LOOP_REFERENCE.replace("<DB>", "mart").replace("<TABLE>", table), encoding="utf-8")
-    with pytest.raises(ValueError, match="loop"):
+    with pytest.raises(ValueError, match="project.run_tables.*can't order these tables, "
+                       "because they go round in a loop"):
         project.run_tables("2026-09-24")
 
 
