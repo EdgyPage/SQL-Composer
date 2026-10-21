@@ -1,7 +1,7 @@
 # Hints in tools
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 Size: S
 

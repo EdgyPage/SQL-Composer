@@ -48,7 +48,9 @@ import keyword
 import re
 import shutil
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from types import FrameType
 
 from .project_templates import TEMPLATES
 from .refusals import callers_frame, refuse
@@ -178,7 +180,7 @@ ADMIN_NOTEBOOKS = {
 class ProjectReport:
     """What a Project action did, or what check() found: a line each, printed as it reads."""
 
-    def __init__(self, lines: list[str]):
+    def __init__(self, lines: list[str]) -> None:
         self.lines = lines
 
     def __repr__(self) -> str:
@@ -416,7 +418,8 @@ def remove_reference(name):
     return _remove(root, REFERENCE, name, call, frame)
 
 
-def _remove(root: Path, kind: str, name: str, call: str, frame) -> ProjectReport:
+def _remove(root: Path, kind: str, name: str, call: str,
+            frame: FrameType) -> ProjectReport:
     """Archive a Table folder or Table reference, mark its registry row removed, and log it.
     One the registry lists that was deleted by hand has only its row marked; one neither
     there nor listed is refused."""
@@ -529,7 +532,7 @@ def _first(error: Exception) -> str:
     return happened.group(1).strip() if happened else " ".join(text.split())
 
 
-def _quoted_list(names) -> str:
+def _quoted_list(names: object) -> str:
     """The list of names as the call is written in a notebook, each in double quotes."""
     if isinstance(names, (list, tuple)):
         return "[" + ", ".join(_quoted(name) for name in names) + "]"
@@ -694,7 +697,7 @@ def _as_a_sentence(items: list[str]) -> str:
     return " and ".join([", ".join(items[:-1]), items[-1]]) if len(items) > 1 else items[0]
 
 
-def _sheet(root: Path) -> list[dict]:
+def _sheet(root: Path) -> list[dict[str, str]]:
     """The Reference sheet's rows, or none when it hasn't been written yet."""
     if not (root / REFERENCE_SHEET).is_file():
         return []
@@ -702,7 +705,7 @@ def _sheet(root: Path) -> list[dict]:
         return list(csv.DictReader(sheet))
 
 
-def _reference_rows(path: Path, now: str) -> list[dict] | None:
+def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
     """The Reference sheet's rows for one Table reference file, read without running it: its
     Table(...) call's name, columns, Date partition, Key and descriptions, and the Aliases below
     it that read one column. None for a file that doesn't parse or has no Table(...)."""
@@ -768,7 +771,7 @@ class TableLogic:
     """A Table notebook's logic, as load gives it: each function its logic cell defines, by
     its name, such as write_day."""
 
-    def __init__(self, name: str, functions: dict):
+    def __init__(self, name: str, functions: dict[str, Callable[..., object]]) -> None:
         self._name = name
         self._functions = functions
         for function_name, function in functions.items():
@@ -976,7 +979,7 @@ def project_log(project: Path) -> Path:
     return project / "admin" / "admin_log.md"
 
 
-def _log(project: Path, call: str, tables: list[str], files: list[str], frame,
+def _log(project: Path, call: str, tables: list[str], files: list[str], frame: FrameType,
          skipped: tuple[str, ...] | list[str] = (), result: str = "worked") -> None:
     """Add a Project action's entry to the Project's Admin log: when, the call, the tables it
     names, what it did to which files, what it skipped and why, the script and its commit, and
@@ -994,12 +997,12 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame,
     _write_entry(project_log(project), lines)
 
 
-def _quoted(value) -> str:
+def _quoted(value: object) -> str:
     """A value as the call is written in a notebook: text in double quotes."""
     return f'"{value}"' if isinstance(value, str) and '"' not in value else repr(value)
 
 
-def _call(function: str, name, more: str = "") -> str:
+def _call(function: str, name: object, more: str = "") -> str:
     """A Project action's call, as its notebook writes it, such as
     project.remove_table("mart.daily_job_runs")."""
     return f"project.{function}({_quoted(name)}{more})"
@@ -1032,7 +1035,7 @@ def table_stem(name: str) -> str:
     return name.replace(".", "__", 1)
 
 
-def _table_name(name, call: str) -> tuple[str, str, str]:
+def _table_name(name: object, call: str) -> tuple[str, str, str]:
     """The database, the table, and the two as one name for files, such as mart__daily_runs."""
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name) or "." not in name:
         refuse(
@@ -1076,7 +1079,7 @@ def _template_cells(text: str) -> list[tuple[str, str]]:
 
 def _write_notebook(path: Path, cells: list[tuple[str, str]]) -> None:
     """Write a Jupyter notebook as the plain JSON Jupyter reads, its cells not yet run."""
-    def cell(kind: str, text: str) -> dict:
+    def cell(kind: str, text: str) -> dict[str, object]:
         lines = text.splitlines(keepends=True)
         if kind == "markdown":
             return {"cell_type": "markdown", "metadata": {}, "source": lines}
@@ -1103,13 +1106,13 @@ def _archive(root: Path, path: Path, stem: str) -> Path:
     return target
 
 
-def _registry(root: Path) -> list[dict]:
+def _registry(root: Path) -> list[dict[str, str]]:
     """The registry's rows, oldest first."""
     with open(root / REGISTRY, encoding="utf-8", newline="") as registry:
         return list(csv.DictReader(registry))
 
 
-def _write_registry(root: Path, rows: list[dict]) -> None:
+def _write_registry(root: Path, rows: list[dict[str, str]]) -> None:
     with open(root / REGISTRY, "w", encoding="utf-8", newline="") as registry:
         writer = csv.DictWriter(registry, REGISTRY_COLUMNS, lineterminator="\n")
         writer.writeheader()

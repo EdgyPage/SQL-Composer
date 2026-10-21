@@ -185,7 +185,8 @@ def EXCEPT(*statements, returns_all_rows=False):
     return stacked("EXCEPT", statements, returns_all_rows)
 
 
-def stacked(call: str, statements, returns_all_rows: bool) -> Statement:
+def stacked(call: str, statements: list[object] | tuple[object, ...],
+            returns_all_rows: bool) -> Statement:
     """A Stack of `statements`, by `call`, checked: the Statement the four functions return."""
     branches = _branches(call, statements)
     _check_names(call, branches)
@@ -198,7 +199,7 @@ def stacked(call: str, statements, returns_all_rows: bool) -> Statement:
     return s
 
 
-def _branches(call: str, statements) -> list[Statement]:
+def _branches(call: str, statements: list[object] | tuple[object, ...]) -> list[Statement]:
     found = _flatten(statements)
     for position, s in enumerate(found, start=1):
         _check_branch(call, position, s)
@@ -212,7 +213,7 @@ def _branches(call: str, statements) -> list[Statement]:
     return found
 
 
-def _check_branch(call: str, position: int, s) -> None:
+def _check_branch(call: str, position: int, s: object) -> None:
     which = f"{call}(...)'s {nth(position)} Statement"
     if isinstance(s, Table) and s._statement is not None:
         refuse(
@@ -351,7 +352,7 @@ def stack_steps(s: Statement) -> list[Statement]:
 class Subtotals:
     """Subtotals for GROUP_BY, made by rollup(...), cube(...) or grouping_sets(...)."""
 
-    def __init__(self, call: str, columns: list, sets: list[list[int]]):
+    def __init__(self, call: str, columns: list[Column | str], sets: list[list[int]]) -> None:
         self._call = call  # how it was written, such as rollup(jobs.team, jobs.job_name)
         self._columns = columns  # each column, or output name, once, in order
         self._sets = sets  # each set of columns to group by, by its place in _columns
@@ -360,7 +361,7 @@ class Subtotals:
         return f"<{self._call} - put it in GROUP_BY(...)>"
 
 
-def _subtotal_columns(call: str, items) -> list:
+def _subtotal_columns(call: str, items: list[object]) -> list[Column | str]:
     for item in items:
         if not isinstance(item, (Column, str)):
             refuse(
@@ -372,7 +373,7 @@ def _subtotal_columns(call: str, items) -> list:
     return items
 
 
-def _once(items: list) -> list:
+def _once(items: list[Column | str]) -> list[Column | str]:
     """The columns, each once: two are the same when their Hive is."""
     kept = []
     for item in items:
@@ -381,7 +382,7 @@ def _once(items: list) -> list:
     return kept
 
 
-def _same(one, other) -> bool:
+def _same(one: Column | str, other: Column | str) -> bool:
     if isinstance(one, str) or isinstance(other, str):
         return isinstance(one, str) and isinstance(other, str) and one == other
     return one._tree == other._tree
@@ -519,7 +520,8 @@ def grouping_sets(*sets):
     return Subtotals(call, items, found)
 
 
-def _need_some(call: str, items: list, example: str) -> None:
+def _need_some(call: str, items: list[Column | str] | tuple[object, ...],
+               example: str) -> None:
     if not items:
         refuse(what=f"{call} was given nothing to group by.", why="It needs a column.",
                fix=f"Pass columns or output names, such as {example}.", error=ValueError)
@@ -554,7 +556,8 @@ def is_total(column):
     return Condition(made_by(tree, "is_total", column))
 
 
-def grouped(s: Statement, items: list) -> tuple:
+def grouped(s: Statement, items: list[Column | str | Subtotals]
+            ) -> tuple[list[Column], list[list[Column]] | None, str | None]:
     """GROUP_BY's columns, names looked up; the sets of columns its subtotals group by, each
     with GROUP_BY's other columns; and how the subtotals were written. The last two are None
     when it has no subtotals."""

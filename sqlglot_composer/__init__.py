@@ -21,6 +21,7 @@ full text, which also says when this copy was exported.
 from __future__ import annotations
 
 import os
+from typing import NoReturn
 
 TOOLBOX_VERSION = "6.1"
 
@@ -54,7 +55,7 @@ def _four_part_message(what: str, why: str, fix: str, opt_out: str | None) -> st
     )
 
 
-def _stop(what, why, fix, folder):
+def _stop(what: str, why: str, fix: str, folder: str) -> NoReturn:
     """Stop the import of `folder`, the one you imported, with the four-part message. No import
     stop can be switched off."""
     raise ImportError(f"{folder} stopped on import:"

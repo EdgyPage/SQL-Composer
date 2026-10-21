@@ -10,7 +10,10 @@ in a derived(...) table, and test it in the Statement that reads it.
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 from .calculations import Ordering, _need_column, ordered
+from .conditions import Condition
 from .refusals import refuse
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
@@ -26,7 +29,8 @@ VALUE = "a value"  # first_value, last_value: ORDER_BY; rows= left out is the wh
 class Window:
     """The rows a calculation looks across for each row. Made by window(...), passed as over=."""
 
-    def __init__(self, partition_by: list[Node], order: Node | None, rows, call: str):
+    def __init__(self, partition_by: list[Node], order: Node | None,
+                 rows: tuple[int | None, int | None] | None, call: str) -> None:
         self._partition_by = partition_by  # each PARTITION_BY column's tree
         self._order = order  # an Order of ORDER_BY's Ordered trees, or None
         self._rows = rows  # (start, end), or None
@@ -36,13 +40,13 @@ class Window:
         return self._call
 
 
-def _listed(items) -> list:
+def _listed(items: object) -> list[object]:
     if items is None:
         return []
     return list(items) if isinstance(items, (list, tuple)) else [items]
 
 
-def _no_name(call: str, keyword: str, given) -> None:
+def _no_name(call: str, keyword: str, given: object) -> NoReturn:
     """Refuse text where a Window needs a column, such as the name given in SELECT."""
     example = "job_runs.job_id" if keyword == "PARTITION_BY" else "descending(job_runs.run_id)"
     refuse(
@@ -66,7 +70,7 @@ def no_window_inside(call: str, column: Column) -> None:
         )
 
 
-def _checked_rows(rows):
+def _checked_rows(rows: object) -> tuple[int | None, int | None]:
     """rows= as (start, end), once checked: whole numbers of rows, or None, start first."""
     if not isinstance(rows, (tuple, list)) or len(rows) != 2:
         refuse(
@@ -192,7 +196,7 @@ def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
     return _made_window(PARTITION_BY, ORDER_BY, rows, "window(...)")
 
 
-def _columns_of(items, keyword: str, call: str) -> list:
+def _columns_of(items: object, keyword: str, call: str) -> list[Column | Ordering]:
     """PARTITION_BY's or ORDER_BY's items, once each is a column, or descending(column)."""
     found = _listed(items)
     for item in found:
@@ -204,7 +208,7 @@ def _columns_of(items, keyword: str, call: str) -> list:
     return found
 
 
-def _made_window(PARTITION_BY, ORDER_BY, rows, call: str) -> Window:
+def _made_window(PARTITION_BY: object, ORDER_BY: object, rows: object, call: str) -> Window:
     groups = [column._tree.copy() for column in _columns_of(PARTITION_BY, "PARTITION_BY", call)]
     sorts = _columns_of(ORDER_BY, "ORDER_BY", call)
     order = Node("Order", expressions=[ordered(item, call) for item in sorts]) if sorts else None
@@ -224,7 +228,7 @@ def _made_window(PARTITION_BY, ORDER_BY, rows, call: str) -> Window:
     return Window(groups, order, rows, f"window({', '.join(written)})")
 
 
-def windowed(tree: Node, over, call: str, needs: str) -> Node:
+def windowed(tree: Node, over: object, call: str, needs: str) -> Node:
     """`tree` worked out over the window `over`, once the window suits it: `needs` says what
     the function needs of its window (TOTAL, PLACE or VALUE)."""
     if not isinstance(over, Window):
@@ -269,7 +273,7 @@ def windowed(tree: Node, over, call: str, needs: str) -> Node:
                 order=None if over._order is None else over._order.copy(), rows=rows)
 
 
-def _whole_number(value, given: str, call: str, what_it_is: str, example: str) -> None:
+def _whole_number(value: object, given: str, call: str, what_it_is: str, example: str) -> None:
     """Refuse `value` unless it is a whole number, 1 or more."""
     if isinstance(value, bool) or not isinstance(value, int) or value < 1:
         refuse(
@@ -407,7 +411,7 @@ def ntile(parts, *, over):
     return Column(made_by(tree, "ntile", parts, over=over), type="int")
 
 
-def _shifted(name: str, column, over, keyword: str, by: int) -> Column:
+def _shifted(name: str, column: object, over: object, keyword: str, by: object) -> Column:
     """lag's or lead's Column: the value `by` rows back or ahead of each row in its group;
     `keyword` is back or ahead."""
     call = f"{name}({python_text(column)}, ...)"
@@ -449,7 +453,7 @@ def lead(column, *, over, ahead=1):
     return _shifted("lead", column, over, "ahead", ahead)
 
 
-def _end_value(name: str, column, over) -> Column:
+def _end_value(name: str, column: object, over: object) -> Column:
     call = f"{name}({python_text(column)}, ...)"
     column = _need_column(column, call)
     no_window_inside(call, column)
@@ -487,7 +491,7 @@ def last_value(column, *, over):
     return _end_value("last_value", column, over)
 
 
-def refuse_a_window_in(place: str, part) -> None:
+def refuse_a_window_in(place: str, part: Column | Condition) -> NoReturn:
     """Refuse a Window in WHERE, HAVING, ON= or GROUP_BY of the Statement that works it out."""
     if numbers_rows(part._tree):
         made, worked_out, fix_it = "numbers rows", "Rows are numbered", "Number the rows"

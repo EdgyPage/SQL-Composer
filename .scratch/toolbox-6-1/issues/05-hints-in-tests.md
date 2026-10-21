@@ -1,7 +1,7 @@
 # Hints in tests
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: -
 Size: L
 

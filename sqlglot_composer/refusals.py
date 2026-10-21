@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 import sys
 import warnings
+from types import FrameType
 from typing import NoReturn
 
 import pandas as pd
@@ -78,7 +79,7 @@ class RepeatedRowsWarning(UserWarning):
 # --- Guards: each refuses a wrong answer --------------------------------------------------
 
 
-def guard_unnamed_calculation(calculation: str) -> None:
+def guard_unnamed_calculation(calculation: str) -> NoReturn:
     """A calculation in SELECT needs a name. No opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -91,7 +92,7 @@ def guard_unnamed_calculation(calculation: str) -> None:
     )
 
 
-def guard_none_in_condition(call: str) -> None:
+def guard_none_in_condition(call: str) -> NoReturn:
     """None in a comparison matches nothing. No opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -104,7 +105,7 @@ def guard_none_in_condition(call: str) -> None:
     )
 
 
-def guard_not_a_number(call: str, position: str, value: object) -> None:
+def guard_not_a_number(call: str, position: str, value: object) -> NoReturn:
     """NaN and infinity can't be written as numbers in the Hive. No opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -122,7 +123,7 @@ CONTROL_CHARACTERS = {"\x07": ("a bell", "a"), "\x0c": ("a form feed", "f"),
                       "\x0b": ("a vertical tab", "v")}
 
 
-def guard_control_character(call: str, position: str, character: str) -> None:
+def guard_control_character(call: str, position: str, character: str) -> NoReturn:
     """A value holding a control character Hive would read as a letter. No opt-out."""
     name, letter = CONTROL_CHARACTERS[character]
     raise GuardRefused(
@@ -139,7 +140,7 @@ def guard_control_character(call: str, position: str, character: str) -> None:
     )
 
 
-def guard_time_of_day(call: str, value: object) -> None:
+def guard_time_of_day(call: str, value: object) -> NoReturn:
     """A time of day, compared with a column that isn't a timestamp. No opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -154,7 +155,7 @@ def guard_time_of_day(call: str, value: object) -> None:
 
 
 def guard_date_formats_differ(call: str, first: str, first_format: str, first_day: str,
-                              second: str, second_format: str, second_day: str) -> None:
+                              second: str, second_format: str, second_day: str) -> NoReturn:
     """Two columns of days compared, each written its own way. No opt-out.
 
     `first` and `second` name the two columns, each with its date_format and a day written
@@ -231,7 +232,7 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
 
 
 def guard_missing_group_by(place: str, columns: list[str], grouped: bool,
-                           calculations: list[tuple[str, list[str]]] | None = None) -> None:
+                           calculations: list[tuple[str, list[str]]] | None = None) -> NoReturn:
     """A column shown, tested or sorted by must be grouped when the Statement aggregates.
     No opt-out.
 
@@ -308,7 +309,7 @@ def guard_full_join_then_where(joined: str, table: str, condition: str,
     )
 
 
-def guard_cross_join(call: str, table: str) -> None:
+def guard_cross_join(call: str, table: str) -> NoReturn:
     """A join without ON pairs every row with every row. CROSS_JOIN is the opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -321,7 +322,7 @@ def guard_cross_join(call: str, table: str) -> None:
     )
 
 
-def guard_order_by_in_derived_table(name: str) -> None:
+def guard_order_by_in_derived_table(name: str) -> NoReturn:
     """ORDER_BY without LIMIT inside a Derived table may not be kept. No opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -336,7 +337,7 @@ def guard_order_by_in_derived_table(name: str) -> None:
 
 
 def guard_write_lines_up(call: str, table: str, missing: list[str],
-                         extra: list[str]) -> None:
+                         extra: list[str]) -> NoReturn:
     """A write must select exactly the Saved table's columns. No opt-out."""
     problems = []
     if missing:
@@ -355,7 +356,7 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
     )
 
 
-def guard_unproven_key(call: str, key: list[str], why: str) -> None:
+def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
     """A write into a Saved table with a Key must show each row has one of its own."""
     raise GuardRefused(
         four_part_message(
@@ -372,7 +373,8 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> None:
     )
 
 
-def guard_kept_day_without_window(call: str, days: int, kept_by: str, date_column: str) -> None:
+def guard_kept_day_without_window(call: str, days: int, kept_by: str,
+                                  date_column: str) -> NoReturn:
     """A write with no Window may not read several days and keep one above. No opt-out.
 
     `kept_by` is the column the step above holds to one day with equals(...), and
@@ -394,7 +396,7 @@ def guard_kept_day_without_window(call: str, days: int, kept_by: str, date_colum
     )
 
 
-def guard_kept_day_in_a_whole_table_write(call: str, table: str, kept_by: str) -> None:
+def guard_kept_day_in_a_whole_table_write(call: str, table: str, kept_by: str) -> NoReturn:
     """A write into a table with no days may not keep one day in a step above. No opt-out.
 
     `kept_by` is the column that step holds to one day with equals(...).
@@ -413,7 +415,7 @@ def guard_kept_day_in_a_whole_table_write(call: str, table: str, kept_by: str) -
     )
 
 
-def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> None:
+def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> NoReturn:
     """A write fills one day. No opt-out.
 
     `windowed` is True when the Statement works out a Window, which may read earlier days on
@@ -436,7 +438,7 @@ def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> Non
     )
 
 
-def guard_by_day_limit(step: str, limit: int) -> None:
+def guard_by_day_limit(step: str, limit: int) -> NoReturn:
     """by_day can't split a Statement whose LIMIT picks rows across days. No opt-out."""
     raise GuardRefused(
         four_part_message(
@@ -450,7 +452,7 @@ def guard_by_day_limit(step: str, limit: int) -> None:
     )
 
 
-def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
+def guard_by_day_grouping(step: str, keeping: str, add: str) -> NoReturn:
     """by_day can't split a Statement that groups across days. No opt-out.
 
     `keeping` names the Date partition as the step sees it, and `add` says where it goes.
@@ -467,7 +469,7 @@ def guard_by_day_grouping(step: str, keeping: str, add: str) -> None:
     )
 
 
-def guard_by_day_stack(step: str, call: str) -> None:
+def guard_by_day_stack(step: str, call: str) -> NoReturn:
     """by_day can't split a UNION, INTERSECT or EXCEPT that compares rows across days.
 
     No opt-out.
@@ -488,7 +490,7 @@ def guard_by_day_stack(step: str, call: str) -> None:
     )
 
 
-def guard_by_day_window(call: str, step: str, keeping: str, add: str) -> None:
+def guard_by_day_window(call: str, step: str, keeping: str, add: str) -> NoReturn:
     """by_day can't split a Statement whose Window looks across days. No opt-out.
 
     `call` is the Window's calculation, such as lag(...); `keeping` names the Date partition
@@ -580,7 +582,7 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     )
 
 
-def callers_frame():
+def callers_frame() -> FrameType:
     """The frame of the first call outside the Toolbox: the user's own line."""
     toolbox = {os.path.dirname(os.path.abspath(__file__))}
     frame = sys._getframe(1)
@@ -599,7 +601,7 @@ _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column name
            "Statement": "Statement", "Window": "window(...)"}
 
 
-def refuse_what_another_folder_made(value, call: str) -> None:
+def refuse_what_another_folder_made(value: object, call: str) -> None:
     """Refuse an object another Toolbox folder made, before it is called the wrong kind of thing.
 
     What is left to refuse is an object from a Toolbox folder of an earlier version, such as a
@@ -626,8 +628,8 @@ def refuse_what_another_folder_made(value, call: str) -> None:
     ))
 
 
-def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
-           call: str = "") -> NoReturn:
+def refuse(what: str, why: str, fix: str, *, error: type[Exception] = TypeError,
+           given: object = None, call: str = "") -> NoReturn:
     """Refuse what can't go on, such as a call given the wrong argument. It has no opt-out.
 
     Pass the wrong argument as `given`, and the call as `call`: if another Toolbox folder made
@@ -639,7 +641,7 @@ def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
     raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
-def kind_name(value) -> str:
+def kind_name(value: object) -> str:
     """What kind of thing a value is, named with its library when it isn't Python's own, such
     as "a list" or "a polars DataFrame", so it is never mistaken for a pandas DataFrame."""
     kind = type(value)
@@ -648,7 +650,7 @@ def kind_name(value) -> str:
     return f"{'an' if name[0] in 'aeiou' else 'a'} {name}"
 
 
-def refuse_what_isnt_a_dataframe(result) -> None:
+def refuse_what_isnt_a_dataframe(result: object) -> None:
     """Refuse what a send gave back for a read when it isn't a pandas DataFrame, such as the
     plain list of rows a query API gives."""
     if isinstance(result, pd.DataFrame):

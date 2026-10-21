@@ -356,7 +356,7 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "job_owners": (job_owners, _JOB_OWNERS),
           "region_costs": (region_costs, _REGION_COSTS)}
 
-def _table(name: str) -> tuple[Table, list]:
+def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
     # Hive reads a table's name whatever its case.
     *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
     if short not in _TABLES or database not in ([], ["ops"]):
@@ -460,7 +460,7 @@ def _sorts_itself(text: str) -> bool:
     return re.search(r"\bORDER\s+BY\b", _outside_brackets(text), re.IGNORECASE) is not None
 
 
-def _in_order(row: tuple) -> tuple:
+def _in_order(row: tuple[object, ...]) -> tuple[tuple[bool, object], ...]:
     """A row's place when the rows are sorted by every column, with NULL first."""
     return tuple((value is not None, value) for value in row)
 
@@ -474,7 +474,7 @@ def _set(text: str) -> pd.DataFrame:
     return pd.DataFrame({"key": [setting.strip()], "value": [value.strip()]})
 
 
-def send(hive):
+def send(hive: str) -> pd.DataFrame:
     """Run Hive on the Example database and return a DataFrame, like your send at work.
 
     >>> example_database.send("DESCRIBE ops.jobs")

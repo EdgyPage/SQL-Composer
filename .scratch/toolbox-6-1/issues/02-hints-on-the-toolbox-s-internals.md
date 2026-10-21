@@ -1,7 +1,7 @@
 # Hints on the Toolbox's internals
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 Size: L
 

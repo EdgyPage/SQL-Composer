@@ -9,6 +9,7 @@ fourth Statement of this kind.
 from __future__ import annotations
 
 import inspect
+from types import FrameType
 
 from .clauses import Statement
 from .refusals import refuse
@@ -117,7 +118,7 @@ def compute_statistics(t, day=None, columns=False):
     return _upkeep(Node("Analyze", target=target, columns=_columns_counted(t, columns)))
 
 
-def _day_counted(t: Table, day) -> str:
+def _day_counted(t: Table, day: object) -> str:
     """The day compute_statistics counts, as the table writes its days."""
     if day is None:
         refuse(
@@ -138,7 +139,7 @@ def _day_counted(t: Table, day) -> str:
     return day_text(found, t._date_format)
 
 
-def _columns_counted(t: Table, columns) -> list[str]:
+def _columns_counted(t: Table, columns: object) -> list[str]:
     """The columns FOR COLUMNS names: none, every column but the Partitions, or those named."""
     counted = [column for column in t._columns if column not in partition_columns(t)]
     if columns is False or columns is None:
@@ -169,7 +170,7 @@ def _columns_counted(t: Table, columns) -> list[str]:
     return names
 
 
-def _column_name(t: Table, column) -> str:
+def _column_name(t: Table, column: object) -> str:
     """The name of a column given to columns=: one of t's, as t.job_id or as "job_id"."""
     if isinstance(column, Column) and column._table is t and column._name in t._columns:
         return column._name
@@ -230,7 +231,7 @@ _MADE_BY = {"Create": "create_table", "Repair": "repair_partitions",
             "Analyze": "compute_statistics", "Explain": "explain"}
 
 
-def _need_explainable(s, frame) -> None:
+def _need_explainable(s: object, frame: FrameType | None) -> None:
     """Refuse what explain can't explain: Hive written by hand, Session settings, what isn't a
     Statement, and a Statement that creates, drops or keeps up a table."""
     if isinstance(s, UncheckedStatement):

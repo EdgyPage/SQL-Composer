@@ -7,21 +7,24 @@ CSVs stay in it. The Toolbox never imports it.
 
 from __future__ import annotations
 
+import datetime
 import inspect
 import textwrap
-from typing import NamedTuple
+from types import FrameType
+from typing import NamedTuple, NoReturn
 
 from . import _FOLDER, writing
 from .clauses import (
     FROM,
     WHERE,
+    Clause,
     Statement,
     derived,
     derived_tables,
     read_spans,
     statement,
 )
-from .conditions import equals
+from .conditions import Condition, Span, equals
 from .joins import HOW, anti_join_tests, broadcast
 from .keys import writes_one_day
 from .refusals import (
@@ -38,7 +41,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .stacking import STACK_HOW, nth, stack_steps, stacked
-from .tables import Table, aliased, as_date, day_text, source, table_node
+from .tables import Column, Table, aliased, as_date, day_text, source, table_node
 from .trees import Node, combined, has_window
 from .unchecked import (
     SHIPPED,
@@ -88,20 +91,20 @@ def set_load_limits(rows=None, dates=None):
 # --- Building the Hive -----------------------------------------------------------------------
 
 
-def _output(column, name: str) -> Node:
+def _output(column: Column, name: str) -> Node:
     """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
         return column._tree.copy()
     return Node("Alias", this=column._tree.copy(), alias=name)
 
 
-def _join_tree(read) -> Node:
+def _join_tree(read: Clause) -> Node:
     """One join clause, as Hive writes it: an ANTI_JOIN as a LEFT JOIN."""
     return Node("Join", how=HOW[read._name], this=source(read.table),
                 on=None if read.on is None else read.on._tree.copy())
 
 
-def _all_of(conditions: list, more: list | None = None) -> Node | None:
+def _all_of(conditions: list[Condition], more: list[Node] | None = None) -> Node | None:
     """The conditions of WHERE or HAVING, then any `more` trees, joined with AND, or None when
     there are none."""
     trees = [c._tree.copy() for c in conditions] + (more or [])
@@ -171,7 +174,7 @@ def statements_within(s: Statement) -> list[Statement]:
             for part in stack_steps(step)]
 
 
-def _days_read(s: Statement) -> list:
+def _days_read(s: Statement) -> list[tuple[Clause, Span | None]]:
     """Each read of a partitioned table, at every step, with the days it reads."""
     return [found for step in statements_within(s) for found in read_spans(step)]
 
@@ -209,7 +212,7 @@ def bottom_steps(s: Statement) -> list[Statement]:
     return [step]
 
 
-def bottom_reads(s: Statement) -> list:
+def bottom_reads(s: Statement) -> list[tuple[Clause, Span | None]]:
     """Each FROM read at the bottom of `s`, following Derived tables down, with the days its
     bound reads: a Span, or None. There is one, or one for each Statement a Stack stacks."""
     found = []
@@ -219,12 +222,12 @@ def bottom_reads(s: Statement) -> list:
     return found
 
 
-def bottom_read(s: Statement):
+def bottom_read(s: Statement) -> tuple[Clause, Span | None]:
     """The first of bottom_reads(s): the FROM read the days come from."""
     return bottom_reads(s)[0]
 
 
-def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
+def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str) -> tuple[Table, Span]:
     """The real table at the bottom of FROM and the days its bound reads, or a refusal. Below
     a Stack, each of its Statements must read the same days."""
     found = []
@@ -256,7 +259,7 @@ def _bottom_days(s: Statement, who: str, why: str, no_days_fix: str):
     return found[0]
 
 
-def _days_text(table: Table, span) -> str:
+def _days_text(table: Table, span: Span) -> str:
     """The days a span lets through, for a message: each, or the first to the last."""
     days = [day_text(day, table._date_format) for day in span.dates()]
     if len(days) <= 3:
@@ -264,7 +267,7 @@ def _days_text(table: Table, span) -> str:
     return f"{days[0]} to {days[-1]}"
 
 
-def _written_day(s: Statement):
+def _written_day(s: Statement) -> datetime.date:
     """The one day a write covers, from the date bound of the table it reads from, or, when
     it reads several days, as a Window that looks back does, the one a step above keeps."""
     table, span = _bottom_days(
@@ -300,8 +303,8 @@ class KeptDay(NamedTuple):
     and the column of that step that equals(...) holds to it."""
 
     step: Statement
-    condition: object
-    day: object  # a datetime.date
+    condition: Condition
+    day: datetime.date
     column: Node
 
 
@@ -341,7 +344,8 @@ def _day_kept_above(s: Statement) -> KeptDay | None:
     return None
 
 
-def _day_of(tree: Node, dates: list, partition):
+def _day_of(tree: Node, dates: list[Node],
+            partition: Column) -> tuple[Node, datetime.date] | None:
     """The column of `dates` an equals(...) holds to a day, and that day as a Python date, or
     None. `partition` is the Date partition they carry up, whose Table reference says how its
     days are written."""
@@ -450,7 +454,8 @@ def to_hive(s):
     return text
 
 
-def _need_statement(s, call: str, frame, why: str, more: str = "") -> None:
+def _need_statement(s: object, call: str, frame: FrameType | None, why: str,
+                    more: str = "") -> None:
     """Refuse what isn't a Statement, in the name of `call`, the function it was given to.
 
     `frame` is the caller's, so the usual fix can name their own variable: a Derived table is
@@ -477,7 +482,7 @@ def _need_statement(s, call: str, frame, why: str, more: str = "") -> None:
            given=s, call=call)
 
 
-def name_in(frame, value) -> str | None:
+def name_in(frame: FrameType, value: object) -> str | None:
     """The caller's variable name for `value`, found by identity, or None if it has none."""
     return next((name for scope in (frame.f_locals, frame.f_globals)
                  for name, held in scope.items()
@@ -525,7 +530,7 @@ class HivePlan(str):
         print(self)
 
 
-def _plan(result) -> HivePlan:
+def _plan(result: object) -> HivePlan:
     """The plan an EXPLAIN's send gave back, as one text: Hive gives each line of it as a row,
     in the DataFrame's only column."""
     refuse_what_isnt_a_dataframe(result)
@@ -679,8 +684,8 @@ def run(s, send):
 # --- by_day ----------------------------------------------------------------------------------
 
 
-def _check_splittable(s: Statement, step: str, dates: list, partition: str,
-                      lost_in: list) -> None:
+def _check_splittable(s: Statement, step: str, dates: list[Node], partition: str,
+                      lost_in: list[str]) -> None:
     """A step may group or pick rows only if it keeps the Date partition, and may have no
     LIMIT.
 
@@ -713,8 +718,8 @@ def _check_splittable(s: Statement, step: str, dates: list, partition: str,
                                  f"PARTITION_BY= of {call}", window=call)
 
 
-def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clause: str,
-                     window: str | None = None):
+def _refuse_grouping(step: str, dates: list[Node], partition: str, lost_in: list[str],
+                     clause: str, window: str | None = None) -> NoReturn:
     """Refuse a step for leaving the Date partition out of `clause`, naming it as the step
     sees it, or saying where to keep it when a step below dropped it. `window` is the call of
     a Window that looks across days, such as lag(...), when that is what leaves it out."""
@@ -736,14 +741,14 @@ def _refuse_grouping(step: str, dates: list, partition: str, lost_in: list, clau
     guard_by_day_grouping(step, keeping, add)
 
 
-def _dates_above(below: Statement, table, dates: list) -> list:
+def _dates_above(below: Statement, table: Table, dates: list[Node]) -> list[Node]:
     """The Date partition as the step that reads `below` as `table` sees it: each output of
     `below` whose calculation is the Date partition, under that output's name."""
     return [Node("Column", name=name, table=table._alias)
             for column, name in below._outputs if column._tree in dates]
 
 
-def _reading(step: Statement, new_from) -> Statement:
+def _reading(step: Statement, new_from: Table) -> Statement:
     """A copy of `step` that reads `new_from` in place of its FROM table."""
     clauses = list(step._clauses)
     first = step._reads[0]
@@ -752,7 +757,7 @@ def _reading(step: Statement, new_from) -> Statement:
     return statement(*clauses, returns_all_rows=step._returns_all_rows)
 
 
-def _one_day(step: Statement, day) -> Statement:
+def _one_day(step: Statement, day: datetime.date) -> Statement:
     """A copy of `step` whose WHERE bounds its FROM table's Date partition to one day."""
     clauses = list(step._clauses)
     first = step._reads[0]
@@ -890,7 +895,7 @@ def _stack_day_names(stack: Statement, described: str) -> list[str]:
     return names
 
 
-def _split(s: Statement, day) -> Statement:
+def _split(s: Statement, day: datetime.date) -> Statement:
     """The Statement for one day: the bottom step bounded to it, or each Statement of a Stack
     at the bottom, and each step above reading it."""
     found = steps(s)

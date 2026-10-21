@@ -8,6 +8,8 @@ is no `not_(...)`. Values are escaped by the Toolbox, so any string is safe to p
 from __future__ import annotations
 
 import datetime
+from collections.abc import Callable
+from typing import NoReturn
 
 from .refusals import (
     guard_none_in_condition,
@@ -41,8 +43,10 @@ class Span:
     from, so a day is let through exactly when the conditions would let it through.
     """
 
-    def __init__(self, low=None, high=None, days=None, left_out=frozenset(), *, both=(),
-                 either=()):
+    def __init__(self, low: datetime.date | None = None, high: datetime.date | None = None,
+                 days: frozenset[datetime.date] | None = None,
+                 left_out: frozenset[datetime.date] = frozenset(), *,
+                 both: tuple[Span, ...] = (), either: tuple[Span, ...] = ()) -> None:
         self.low = low
         self.high = high
         self.days = days
@@ -54,7 +58,7 @@ class Span:
     def is_bounded(self) -> bool:
         return self.days is not None or (self.low is not None and self.high is not None)
 
-    def lets_through(self, day) -> bool:
+    def lets_through(self, day: datetime.date) -> bool:
         if self.low is not None and day < self.low:
             return False
         if self.high is not None and day > self.high:
@@ -138,7 +142,7 @@ class Condition:
         _no_combining("if, and, or or not", "all_of(...) or any_of(...)")
 
 
-def _no_combining(symbol: str, instead: str) -> None:
+def _no_combining(symbol: str, instead: str) -> NoReturn:
     refuse(
         what=f"A condition was used with Python's {symbol}.",
         why="Python would combine the Python objects, not the conditions, and the result "
@@ -147,7 +151,7 @@ def _no_combining(symbol: str, instead: str) -> None:
     )
 
 
-def _need_column(column, call: str) -> Column:
+def _need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
         return column
     fix = ("Pass the column as an attribute of its Table reference, such as "
@@ -178,7 +182,8 @@ def _spans_key(column: Column) -> tuple[str, str]:
     return (column._table._alias, column._name)
 
 
-def _compare(name: str, kind: str, column, value, span_of) -> Condition:
+def _compare(name: str, kind: str, column: object, value: object,
+             span_of: Callable[[datetime.date], Span]) -> Condition:
     """A comparison of a column with one value, noting any Date partition bound."""
     call = f"{name}({python_text(column)}, ...)"
     column = _need_column(column, call)
@@ -336,7 +341,7 @@ def last_n_days(column, n):
     return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
 
 
-def _values(values, call: str) -> list:
+def _values(values: object, call: str) -> list[object]:
     if isinstance(values, (str, bytes, dict)) or not hasattr(values, "__iter__"):
         refuse(
             what=f"{call} was given {values!r} where a list of values goes.",
@@ -356,7 +361,7 @@ def _values(values, call: str) -> list:
     return values
 
 
-def _in(name: str, column, values, negated: bool) -> Condition:
+def _in(name: str, column: object, values: object, negated: bool) -> Condition:
     call = f"{name}({python_text(column)}, ...)"
     column = _need_column(column, call)
     values = _values(values, call)
@@ -422,7 +427,8 @@ def is_not_null(column):
     return Condition(made_by(tree, "is_not_null", column))
 
 
-def _like(name: str, column, text: str, pattern) -> Condition:
+def _like(name: str, column: object, text: object,
+          pattern: Callable[[str], str]) -> Condition:
     call = f"{name}({python_text(column)}, {text!r})"
     column = _need_column(column, call)
     if not isinstance(text, str):
@@ -463,7 +469,7 @@ def starts_with(column, text):
     return _like("starts_with", column, text, lambda escaped: f"{escaped}%")
 
 
-def _conditions(items, call: str) -> list[Condition]:
+def _conditions(items: list[object] | tuple[object, ...], call: str) -> list[Condition]:
     found = []
     for item in items:
         if isinstance(item, (list, tuple)):
@@ -518,7 +524,7 @@ def all_of(*conditions):
     return Condition(tree, spans=combined_spans(found), keeps_unmatched=_kept_by_all(found))
 
 
-def _kept_by_all(found: list[Condition]) -> frozenset:
+def _kept_by_all(found: list[Condition]) -> frozenset[str]:
     """The tables whose rows with no match conditions joined with AND keep: those that every
     condition mentioning the table keeps."""
     kept = set()
@@ -530,7 +536,7 @@ def _kept_by_all(found: list[Condition]) -> frozenset:
     return frozenset(kept)
 
 
-def combined_spans(conditions: list[Condition]) -> dict:
+def combined_spans(conditions: list[Condition]) -> dict[tuple[str, str], Span]:
     """The Date partition bounds of several conditions joined with AND."""
     spans = {}
     for condition in conditions:
