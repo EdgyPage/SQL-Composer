@@ -57,15 +57,15 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `project.refresh_reference_sheet()` writes `references/reference_sheet.csv`, a row per
   column of every Table reference, with its Aliases and description;
   `project.load("mart.daily_job_runs")` gives a Table notebook's logic, its functions such as
-  `write_day`, from anywhere in the Project, and `project.run_tables(day, send=send)` writes a
-  day of every table, writers before the tables that read them (with no `send`, it prints each
-  Hive and sends nothing); `remove_table` and `remove_reference` move what they remove into
-  `admin/removed/`, deleting nothing; `register` adopts what you made by hand, and `check()` reports what the registry
-  doesn't know. Inside a Project, Admin statements log to `admin/admin_log.md` too, wherever
-  the notebook that runs them is, and `export_lineage` of one write of a Saved table with a
-  Table folder puts its files in that folder's `lineage/`, named by the time and the table, so
-  each run adds to its history. Nothing to change in your notebooks: a folder that isn't a
-  Project works as before.
+  `write_day`, from anywhere in the Project. `project.run_tables(day, send=send)` writes a day
+  of every table, each before the tables that read it; with no `send`, it prints each Hive and
+  sends nothing. `remove_table` and `remove_reference` move what they remove into
+  `admin/removed/`, deleting nothing; `register` adopts what you made by hand, and `check()`
+  reports what the registry doesn't know. Inside a Project, Admin statements log to
+  `admin/admin_log.md` too, wherever the notebook that runs them is, and `export_lineage` of one
+  write of a Saved table with a Table folder puts its files in that folder's `lineage/`, named
+  by the time and the table, so each run adds to the table's past Lineage. Nothing to change
+  in your notebooks: a folder that isn't a Project works as before.
 
 ## 5.1
 

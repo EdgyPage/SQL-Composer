@@ -40,3 +40,22 @@ Built 2026-10-21 on branch `toolbox-6/07-load-run-tables-lineage`.
 - `start()` writes `admin/run_tables.ipynb`. ADR 0010 records loading the logic cell.
 
 ## Reviews
+
+- Spec (2026-10-21): the module docstring said only add_references touches the warehouse and
+  every action logs (now it names the Project actions that log, and says run_tables writes
+  through your send); `# logical ...` passed for the logic cell (now the first line must be
+  `# logic` exactly); `run` imported under another name slipped through (now caught).
+  Answered: load gives the functions only, and says so; run_tables stops at the first failure,
+  takes a bare name in `tables`, and returns a report, recorded in the map; the Table folder
+  must exist for its lineage naming, recorded too.
+- Standards (2026-10-21): widths fixed; "history" is the Admin log's avoid-word, so lineage
+  says "past Lineage"; the stem rule is `project.table_stem`, which lineage shares; load's
+  reading and refusing is `_checked_logic`. Left: `TableLogic` stays a small class, for its
+  repr naming the functions it holds.
+- Beginner reader (2026-10-21): a loop refused by run_tables named export_lineage and its fix
+  (now `in_order` takes the call, and run_tables' refusal says to change one table's logic or
+  leave it out); load's fix pointed at check_project, which doesn't list Table folders (now
+  "the Table folders are in tables/"); the line number in "isn't Python yet" was one short; a
+  failed run hid the tables already written (now each prints as it works); "writers first"
+  (now "each before the tables that read it"); "one Statement" in export_lineage (now
+  "exactly one"); the run_tables notebook's text and CHANGES.md's long sentence reworded.

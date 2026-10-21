@@ -527,9 +527,11 @@ def _derived_tables_of(s) -> list:
     return [] if isinstance(s, UncheckedStatement) else derived_tables(s)
 
 
-def in_order(named: list[tuple[Statement, str]]) -> list[tuple[Statement, str]]:
+def in_order(named: list[tuple[Statement, str]],
+             call: str | None = None) -> list[tuple[Statement, str]]:
     """The Statements with every writer before the Statements that read what it writes. An
-    Unchecked statement that reads a table it changes, as many do, waits only on others."""
+    Unchecked statement that reads a table it changes, as many do, waits only on others.
+    `call`, given by project.run_tables, names it in the refusal of a loop."""
     reads = [_tables_read(s) for s, _ in named]
     needs = [{j for j, (w, _) in enumerate(named) if set(_tables_written(w)) & reads[i]
               and not (j == i and isinstance(w, UncheckedStatement))}
@@ -538,7 +540,7 @@ def in_order(named: list[tuple[Statement, str]]) -> list[tuple[Statement, str]]:
     while len(placed) < len(named):
         ready = [i for i in range(len(named)) if i not in placed and needs[i] <= set(placed)]
         if not ready:
-            _refuse_loop(named, reads, _in_the_loop(needs, placed))
+            _refuse_loop(named, reads, _in_the_loop(needs, placed), call)
         placed.append(ready[0])
     return [named[i] for i in placed]
 
@@ -554,8 +556,9 @@ def _in_the_loop(needs: list[set], placed: list[int]) -> list[int]:
         stuck = kept
 
 
-def _refuse_loop(named, reads, stuck: list[int]) -> None:
-    """Refuse Statements that go round in a loop, naming each write and who reads it."""
+def _refuse_loop(named, reads, stuck: list[int], call: str | None = None) -> None:
+    """Refuse Statements that go round in a loop, naming each write and who reads it: to
+    export_lineage, or, with `call`, to project.run_tables."""
     links = []
     for i in stuck:
         s, name = named[i]
@@ -563,6 +566,15 @@ def _refuse_loop(named, reads, stuck: list[int]) -> None:
         readers = [named[j][1] for j in stuck if set(_tables_written(s)) & reads[j]]
         verb = "reads" if len(readers) == 1 else "read"
         links.append(f"{name} writes {written}, which {' and '.join(readers)} {verb}")
+    if call is not None:
+        refuse(
+            what=f"{call} can't order these tables, because they go round in a loop: "
+            + "; ".join(links) + ".",
+            why="Each would have to be written before the other, so none can be first.",
+            fix="Change one table's logic so it no longer reads the other, or leave one out "
+            "with tables=[...].",
+            error=ValueError,
+        )
     refuse(
         what="export_lineage can't draw these Statements, because they go round in a "
         "loop: " + "; ".join(links) + ".",
@@ -1057,15 +1069,15 @@ def _table_folder_path(statements, caller: Path | None,
                        when: datetime.datetime) -> Path | None:
     """Inside a Project, for one Statement writing a Saved table with a Table folder, that
     folder's lineage/{time}-{db}__{table}.html; otherwise None."""
-    from .project import project_folder  # it imports what imports this
+    from .project import project_folder, table_stem  # it imports what imports this
 
-    if len(statements) != 1 or not _tables_written(statements[0]):
+    written = _tables_written(statements[0]) if len(statements) == 1 else []
+    if not written or "." not in written[0]:
         return None
     project = project_folder(caller_folder(caller)) or project_folder(Path.cwd())
-    written = _tables_written(statements[0])[0]
-    if project is None or "." not in written:
+    if project is None:
         return None
-    stem = written.replace(".", "__", 1)
+    stem = table_stem(written[0])
     folder = project / "tables" / stem
     if not folder.is_dir():
         return None
@@ -1156,10 +1168,11 @@ def export_lineage(*statements, to=None):
     The files go in a lineage/ folder beside your script or notebook, named by the time,
     your scripts' git commit, the file and the Statement's variable, such as
     lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a
-    Project, one Statement that writes a Saved table with a Table folder goes in that folder's
-    lineage/, named by the time and the table, such as
+    Project, when you pass exactly one Statement and it writes a Saved table that has a Table
+    folder, the files go in that folder's lineage/, named by the time and the table, such as
     tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds
-    to the table's history; the commit is in the footer. to= names the HTML file instead. It
+    to the table's past Lineage; the commit is in the footer. Several Statements go beside your
+    script or notebook, as above. to= names the HTML file instead. It
     returns the two paths, HTML first.
 
     >>> runs_per_team = statement(

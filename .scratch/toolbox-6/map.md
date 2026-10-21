@@ -189,6 +189,15 @@ lands before 05.
   `sqlglot_composer/project_templates.py` (the Toolbox stays one flat folder), written into
   `admin/templates/` by `start()`; a Project is found from the folder Python is working in;
   Registry and Table notebook joined the glossary. 07 and 08 add their admin notebooks.
+- [08 References in bulk and the Reference sheet](issues/08-references-in-bulk-and-the-reference-sheet.md):
+  `add_references` skips, logs in one entry, finishes, then raises `SkippedTables`;
+  `refresh_reference_sheet` reads the reference files with `ast`, never runs them, and isn't
+  logged; a file that can't be read yet is left out (with a name, its old rows kept).
+- [07 Load, run_tables and lineage history](issues/07-load-run-tables-and-lineage-history.md):
+  `load` runs the `# logic` cell with `exec`, the one ALLOWED site the user OK'd (2026-10-21,
+  ADR 0010), re-reading references/ and building_blocks/ each time; `run_tables` prints a dry
+  run without `send`, and with it prints each table as it works and stops at the first failure,
+  logging nothing; one write's lineage goes in its Table folder when that folder exists.
 
 ## Not yet specified
 

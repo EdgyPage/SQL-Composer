@@ -9,8 +9,8 @@ both; `project.run_tables`, to write every table in order; the tests, to run the
 projects. `project.load("db.table")` reads the notebook as the JSON it is, takes the logic
 cell alone, and runs it, giving back the functions it defines.
 
-Running a cell's text means `exec`, which the offline policy refuses in the Toolbox as dynamic
-code (ADR 0004): it could reach the network unseen. The user allowed one reviewed site
+Running a cell's text means `exec`, which the offline policy refuses in the Toolbox as
+dynamic code (ADR 0004): it could reach the network unseen. The user allowed one reviewed site
 (2026-10-21), `project.load`, since the cell is the user's own code, in their own Project. `load`
 keeps to the cell's purpose: it refuses a cell that calls `run`, which would send Hive just by
 loading, and runs nothing else from the notebook.
@@ -18,8 +18,9 @@ loading, and runs nothing else from the notebook.
 ## Considered options
 
 - **The logic in a `.py` file in each Table folder, imported by name.** Rejected: the notebook
-  is where the user reads and edits the table, and a second file would split it in two; an
-  import by a name not written out is dynamic code to the policy too.
+  is where the user reads and edits the table, and a second file would split it in two;
+  importing a file by a name the code works out, rather than one written in it, is dynamic
+  code to the policy too.
 - **No `load`: each notebook repeats the logic it reads.** Rejected: lineage across tables and
   `run_tables` need the same Statements the notebook writes with, not copies that drift.
 
