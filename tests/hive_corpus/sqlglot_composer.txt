@@ -1824,6 +1824,84 @@ WHERE
 ---
 
 
+== doc:Statement
+-- Statement 1: to_hive
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED'
+-- Statement 1: the Statement
+output run_id: job_runs.run_id
+output status: job_runs.status
+WHERE: job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+WHERE: job_runs.status = 'FAILED'
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.job_runs"]
+    n0["ops.job_runs.run_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n2["ops.job_runs.status<br/><small>string</small>"]
+    n5["ops.job_runs.dt<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["run_id<br/><small>job_runs.run_id</small><br/><small>in the Key</small>"]
+    n3["status<br/><small>job_runs.status</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n4{{"WHERE in statement<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+    n6{{"WHERE in statement<br/><small>equals(job_runs.status, #quot;FAILED#quot;)</small>"}}
+  end
+  n0 --> n1
+  n2 --> n3
+  n5 -.-> n4
+  n2 -.-> n6
+  n4 -.->|filters| g1
+  n6 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | ops.job_runs.run_id |
+| `status` | ops.job_runs.status |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: Key (run_id), since job_runs' rows are told apart by run_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  job_runs.run_id,
+  job_runs.status
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED'
+```
+
+---
+
+
 == doc:derived
 -- Statement 1: to_hive
 WITH runs_per_job AS (
