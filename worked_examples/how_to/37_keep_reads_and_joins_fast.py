@@ -83,9 +83,7 @@ harm:
             run(compute_statistics(daily_runs, day), send=send)
 
 `columns=[daily_runs.job_id]` counts only the columns you name, such as those you join or
-filter on, which reads less. Where
-your send runs on Spark rather than Hive, Spark counts columns over the whole table, whatever
-the day, so name only those few.
+filter on, which reads less.
 
 ### Let Hive copy a small table to every worker
 
@@ -224,8 +222,8 @@ Pass the day, or loop over the days, as above.
 
 A Session setting holds for the rest of a session. If your send opens a new session for each
 call, each SET is gone before your Statement runs, and the plan shows no change. Send the
-settings and the Statements through one send that keeps its session, as `spark.sql` does in
-one notebook.
+settings and the Statements through one send that keeps its session, such as one that
+uses the same connection for every call.
 
 ## Next
 

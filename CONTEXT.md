@@ -10,8 +10,8 @@ accepts only strings - and traced back to the table columns they read.
 
 **Toolbox**:
 The set of Python functions that compose Hive SQL - the only thing copied to work, as one
-folder, sqlglot Composer's. Before 6.0 it came in two Editions, sqlglot Composer and Spark
-Composer, and was copied as two folders, a shared core and an Edition's own.
+folder, sqlglot Composer's. Before 6.0 it came in two Editions, and was copied as two
+folders, a shared core and an Edition's own.
 _Avoid_: library, package, framework, SQL module, Edition, Composer core
 
 **Toolbox version**:

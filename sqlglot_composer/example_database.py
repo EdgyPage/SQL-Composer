@@ -357,7 +357,7 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "region_costs": (region_costs, _REGION_COSTS)}
 
 def _table(name: str) -> tuple[Table, list]:
-    # Hive and Spark read a table's name whatever its case.
+    # Hive reads a table's name whatever its case.
     *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
     if short not in _TABLES or database not in ([], ["ops"]):
         names = [f"ops.{table}" for table in _TABLES]
@@ -466,7 +466,7 @@ def _in_order(row: tuple) -> tuple:
 
 
 def _set(text: str) -> pd.DataFrame:
-    """A Session setting's SET line, answered as Spark answers it: the setting and its value.
+    """A Session setting's SET line, answered with the setting and its value.
 
     The Example database keeps no setting: its answers are the same whatever is set.
     """

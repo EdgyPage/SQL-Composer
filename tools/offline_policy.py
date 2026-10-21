@@ -15,9 +15,7 @@ What it looks for, in a Python file, by walking its syntax tree:
   `getattr`, `vars(module)[...]` or `module.__dict__[...]` on a module with a name that isn't
   written out, or `from module import *`, which could reach any of the above unseen;
 - **library fetcher:** a library function that downloads when given a URL or told to:
-  `pd.read_*`, `np.loadtxt` / `genfromtxt` / `DataSource`, `pyspark.install`,
-  `SparkSession.builder.remote`, and the Spark settings `spark.jars.packages`,
-  `spark.jars.repositories` and `spark.remote` written in a string;
+  `pd.read_*` and `np.loadtxt` / `genfromtxt` / `DataSource`;
 - **URL:** `http(s)://`, `ftp://` or `ws(s)://` in a string the code uses. A docstring, or any
   string that stands as a statement of its own, is prose, so only the `>>>` examples in it are
   read, as code.
@@ -46,8 +44,8 @@ What is allowed depends on the folder, strictest first:
   since users copy these files into their own work;
 - **the Toolbox** (`sqlglot_composer/`): nothing, apart from the sites
   `ALLOWED` lists;
-- **everything else** (`tools/`, `tests/`, `.claude/hooks/`): the same, apart from URLs and
-  Spark settings in strings, which tests and tools hold as text to check pages against.
+- **everything else** (`tools/`, `tests/`, `.claude/hooks/`): the same, apart from URLs in
+  strings, which tests and tools hold as text to check pages against.
 
 The tracker, `.scratch/`, holds notes and reports, not code, and isn't read, nor are caches and
 Python environments; but inside the Toolbox and user-copied code, every folder is read.
@@ -87,7 +85,6 @@ NETWORK_MODULES = (
     "httpx", "aiohttp", "websocket", "websockets", "ftplib", "smtplib", "poplib", "imaplib",
     "nntplib", "telnetlib", "xmlrpc", "socketserver", "webbrowser", "grpc", "paramiko",
     "boto3", "botocore", "fsspec", "multiprocessing.connection", "multiprocessing.managers",
-    "pyspark.sql.connect",
 )
 NETWORK_FUNCTIONS = ("asyncio.open_connection", "asyncio.start_server")
 # multiprocessing's connection and managers are network modules (above); the rest of it
@@ -106,7 +103,7 @@ DYNAMIC_FUNCTIONS = ("eval", "exec", "compile", "__import__", "importlib.__impor
 IMPORTERS = ("importlib.import_module", "__import__", "importlib.__import__")
 # runpy runs a module or a file by its name.
 DYNAMIC_MODULES = ("runpy",)
-FETCHER_MODULES = ("pyspark.install", "numpy.lib._datasource")
+FETCHER_MODULES = ("numpy.lib._datasource",)
 # numpy's functions that read a URL, wherever in numpy they are reached from.
 NUMPY_FETCHERS = ("loadtxt", "genfromtxt", "DataSource")
 # What a network finding gives as its address when no host is written out: a call given its
@@ -114,10 +111,9 @@ NUMPY_FETCHERS = ("loadtxt", "genfromtxt", "DataSource")
 # any host.
 PASSED_IN = "<passed in>"
 NOT_CALLED = "<not called>"
-# A string that names a URL, or a Spark setting that downloads or connects elsewhere.
+# A string that names a URL.
 URL_START = r"\b(?:https?|ftp|wss?)://"
 URL = re.compile(URL_START, re.IGNORECASE)
-SPARK_SETTING = re.compile(r"\bspark\.(?:jars\.packages|jars\.repositories|remote)\b")
 # What a page may not hold: anything that loads or sends something outside the page.
 PAGE_REFERENCE = re.compile(
     r"\bsrc\s*=|<link\b|@import\b|\burl\s*\(|\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon"
@@ -129,7 +125,7 @@ PAGE_REFERENCE = re.compile(
 BUILTIN_NAMES = frozenset(dir(builtins))
 # The libraries a module may come from that the repo doesn't write, besides the standard
 # library: getattr on one of them with a name that isn't written out could reach anything.
-LIBRARIES = ("pandas", "numpy", "pyspark", "py4j", "sqlglot")
+LIBRARIES = ("pandas", "numpy", "sqlglot")
 # A template's placeholder, such as <TABLE>, which stops it parsing until it is filled in.
 PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 
@@ -138,7 +134,7 @@ USER_COPIED = ("templates", "example_projects", "worked_examples")
 # Folders never read: the tracker's notes, and what tools and Pythons leave behind, the dev
 # virtual environment's installed libraries among them.
 NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff_cache",
-                      ".mypy_cache", ".venv", "node_modules", "spark-warehouse", "metastore_db"})
+                      ".mypy_cache", ".venv", "node_modules"})
 # A `.pyw` is a Python file that Windows runs without a console, and imports like a `.py`.
 PYTHON_FILES = (".py", ".pyw")
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")
@@ -561,7 +557,6 @@ class _Reader(ast.NodeVisitor):
         self.read_strings = read_strings
         self.offset = offset
         self.functions = functions
-        self.uses_pyspark = any(_under(name, ("pyspark",)) for name in aliases.values())
         self.found: list[Finding] = []
 
     def add(self, node: ast.AST, kind: str, name: str, address: str | None = None) -> None:
@@ -706,8 +701,6 @@ class _Reader(ast.NodeVisitor):
         elif name and kind_of(name):
             self.add(node, kind_of(name), name,
                      _address(node) if kind_of(name) == "network" else None)
-        elif self.connects_spark_elsewhere(node):
-            self.add(node, "library fetcher", "SparkSession.builder.remote")
         else:
             self.visit(node.func)
         for argument in [*node.args, *node.keywords]:
@@ -727,13 +720,6 @@ class _Reader(ast.NodeVisitor):
             return False
         module = self.full_name(node.args[0])
         return module is not None and (_from_outside(module) or kind_of(module) is not None)
-
-    def connects_spark_elsewhere(self, node: ast.Call) -> bool:
-        """A .remote(...) call on a Spark session's builder, however it was reached."""
-        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "remote"):
-            return False
-        return self.uses_pyspark or any(isinstance(part, ast.Attribute) and part.attr == "builder"
-                                        for part in ast.walk(node.func.value))
 
     # Strings: prose is not read, apart from its >>> examples; a used string is.
 
@@ -759,10 +745,9 @@ class _Reader(ast.NodeVisitor):
     def read_string(self, node: ast.AST, text: str) -> None:
         if not self.read_strings:
             return
-        for pattern, kind in ((URL, "URL"), (SPARK_SETTING, "library fetcher")):
-            match = pattern.search(text)
-            if match:
-                self.add(node, kind, match.group())
+        match = URL.search(text)
+        if match:
+            self.add(node, "URL", match.group())
 
     def read_examples(self, node: ast.Constant, prose: str) -> None:
         """Read a docstring's >>> examples as code, each at its own line of the file."""

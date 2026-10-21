@@ -5,7 +5,7 @@ For: Getting started
 ## Goal
 
 Build a Statement a clause at a time, reading its Hive after each change, then run it, and
-copy the finished Hive into another program, such as Hue, Beeline, DBeaver or spark-sql,
+copy the finished Hive into another program, such as Hue, Beeline or DBeaver,
 exactly as `run` sends it. Three functions do the work: `to_hive` gives the Hive as text,
 `show_hive` prints it ready to paste, and `run` runs it through a send and gives back a pandas
 DataFrame.
@@ -98,8 +98,8 @@ table.
 
 ### Print it ready to paste
 
-`show_hive` prints the same Hive as `to_hive` with a `;` at the end, which Hue, Beeline,
-DBeaver and spark-sql need to tell one query from the next:
+`show_hive` prints the same Hive as `to_hive` with a `;` at the end, which Hue, Beeline and
+DBeaver need to tell one query from the next:
 
 >>> text = show_hive(long_runs)
 SELECT

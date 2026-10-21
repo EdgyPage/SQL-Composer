@@ -527,7 +527,7 @@ class HivePlan(str):
 
 def _plan(result) -> HivePlan:
     """The plan an EXPLAIN's send gave back, as one text: Hive gives each line of it as a row,
-    and Spark the whole plan in one row, in the DataFrame's only column."""
+    in the DataFrame's only column."""
     refuse_what_isnt_a_dataframe(result)
     lines = [str(line) for line in result.iloc[:, 0]] if len(result.columns) else []
     return HivePlan("\n".join(lines).rstrip())
@@ -537,7 +537,7 @@ def show_hive(*statements):
     """Print the Hive that runs, ready to paste into another program, and return it.
 
     Each Statement's Hive is exactly what to_hive gives and run sends, with a ; added at the
-    end, which a program such as Hue, DBeaver or spark-sql needs between Statements; run sends
+    end, which a program such as Hue, Beeline or DBeaver needs between Statements; run sends
     it without one. Pass several Statements, or a list such as by_day(...) gives, and each is
     headed by a comment: its number, and the name of the variable it is in, such as
     -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would.
@@ -628,9 +628,7 @@ def run(s, send):
     """Send a Statement's Hive through your `send` function and return what comes back.
 
     `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
-    the query API, or, where your notebook runs Spark, is
-    lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database
-    instead. A write into a table with partitioned_by= needs the Session setting
+    the query API; example_database.send runs the Example database instead. A write into a table with partitioned_by= needs the Session setting
     "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"), send=...),
     as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For
     explain(s), run gives back Hive's plan as text, rather than a DataFrame.

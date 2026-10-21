@@ -276,8 +276,8 @@ def test_run_gives_back_the_plan_as_text() -> None:
     assert sent == [to_hive(explain(one_day()))]
     assert plan == "STAGE DEPENDENCIES:\n  Stage-0 is a root stage"
     assert isinstance(plan, str)
-    spark_plan = pd.DataFrame({"plan": ["== Physical Plan ==\n*(1) Project [a]\n\n"]})
-    assert run(explain(one_day()), send=recording(spark_plan)[0]) == (
+    one_row_plan = pd.DataFrame({"plan": ["== Physical Plan ==\n*(1) Project [a]\n\n"]})
+    assert run(explain(one_day()), send=recording(one_row_plan)[0]) == (
         "== Physical Plan ==\n*(1) Project [a]")
 
 

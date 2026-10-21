@@ -15,8 +15,8 @@ them, so the two sets are filled in as one, as a user would fill them in.
 
 Every Statement a Template's functions give is built; a write is checked only through to_hive,
 and each SELECT runs on the Example database, giving rows unless it looks for repeated keys. A
-SELECT sqlglot's executor can't run, with row_number or week_start, runs only in Spark
-Composer's run, and is skipped in sqlglot Composer's with the reason. One that reads a Saved
+SELECT sqlglot's executor can't run, with row_number or week_start, is skipped with the
+reason. One that reads a Saved
 table, which only a warehouse holds, runs with the Saved table stood in for by the rows the
 Template that writes it previews. notebook_start and keep_table_references_true also run from
 an empty folder, as a user's first files.

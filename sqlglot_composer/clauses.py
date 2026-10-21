@@ -459,8 +459,7 @@ def JOIN(table, ON=None, many_matches=False, reads_all_partitions=False, broadca
     comment, /*+ ... */, that Hive reads as a request. Send the Session setting "map_joins"
     first, with run(hive_settings("map_joins"), send=...): Hive ignores the hint without it.
     You rarely need the hint, though: with "map_joins" sent, Hive makes map joins by itself,
-    from the tables' sizes and statistics. Where your send runs the Hive on Spark, as
-    spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small:
+    from the tables' sizes and statistics. Ask for it only for a table you know is small:
     copied to every worker, a big one can run them out of memory.
 
     >>> print(to_hive(statement(

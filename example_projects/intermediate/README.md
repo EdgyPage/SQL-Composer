@@ -218,7 +218,7 @@ of example 1's writes, without sending anything (a dry run).
 The scripts import the Toolbox as `from sqlglot_composer import ...`.
 
 Each step that runs takes `send=`: a function that takes a Hive string and returns a pandas
-DataFrame, such as `lambda hive: spark.sql(hive).toPandas()` at work. Here it is
+DataFrame, which at work calls your team's query API. Here it is
 `example_database.send`. The Example database can be read but not written, so try the
 `preview` steps and the quality checks there, in Python started in this folder:
 

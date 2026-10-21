@@ -117,13 +117,13 @@ def guard_not_a_number(call: str, position: str, value: object) -> None:
     )
 
 
-# The control characters Hive and Spark would read back as letters: each one's name and letter.
+# The control characters Hive would read back as letters: each one's name and letter.
 CONTROL_CHARACTERS = {"\x07": ("a bell", "a"), "\x0c": ("a form feed", "f"),
                       "\x0b": ("a vertical tab", "v")}
 
 
 def guard_control_character(call: str, position: str, character: str) -> None:
-    """A value holding a control character Hive and Spark would read as a letter. No opt-out."""
+    """A value holding a control character Hive would read as a letter. No opt-out."""
     name, letter = CONTROL_CHARACTERS[character]
     raise GuardRefused(
         four_part_message(
@@ -638,24 +638,9 @@ def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
     raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
-def refuse_a_spark_dataframe(result) -> None:
-    """Refuse what a send gave back when it is Spark's own DataFrame, where pandas' goes."""
-    # Asked of the class, since a pandas DataFrame gives any column as an attribute.
-    if not hasattr(type(result), "toPandas"):
-        return
-    raise TypeError(four_part_message(
-        what="Your send gave back a Spark DataFrame, where a pandas DataFrame goes.",
-        why="A Spark DataFrame hasn't fetched its rows yet, so there are none to count or to "
-        "read.",
-        fix="Make your send give back pandas: send=lambda hive: spark.sql(hive).toPandas().",
-        opt_out=None,
-    ))
-
-
 def refuse_what_isnt_a_dataframe(result) -> None:
     """Refuse what a send gave back for a read when it isn't a pandas DataFrame, such as the
     plain list of rows a query API gives."""
-    refuse_a_spark_dataframe(result)
     if isinstance(result, pd.DataFrame):
         return
     if result is None:
@@ -668,11 +653,10 @@ def refuse_what_isnt_a_dataframe(result) -> None:
         what=f"Your send gave back {given}, where a pandas DataFrame goes.",
         why="run hands you back what your send gives back, and you read the rows from it as "
         "from a pandas DataFrame, each column by its name.",
-        fix=f"{start}. On Spark, that is spark.sql(hive).toPandas(). From a query API, it is "
-        "pd.DataFrame(rows), which takes the column names from each row's keys when the API "
-        "gives each row as a dict; when it gives each row as a tuple, pass the column names it "
-        "gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows how to "
-        "write your send.",
+        fix=f"{start}. From a query API, it is pd.DataFrame(rows), which takes the column "
+        "names from each row's keys when the API gives each row as a dict; when it gives each "
+        "row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). "
+        "How-to 1, Start a notebook, shows how to write your send.",
         opt_out=None,
     ))
 

@@ -167,7 +167,7 @@ def test_hive_function_refuses_a_name_that_isnt_a_plain_name() -> None:
     (lambda: hive_function("concat_ws", "-"), "gives concat_ws 1 argument, and concat_ws takes "
      "2 or more arguments."),
 ])
-def test_hive_function_counts_arguments_by_the_list_hive_and_spark_share(call, said) -> None:
+def test_hive_function_counts_arguments_by_the_list_in_trees(call, said) -> None:
     with pytest.raises(TypeError, match=re.escape(said)):
         call()
 
@@ -177,7 +177,7 @@ def test_hive_function_counts_arguments_by_the_list_hive_and_spark_share(call, s
     for count in range(fewest, (fewest + 2 if most is None else most) + 1)])
 def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str,
                                                                        count: int) -> None:
-    """So a call the Toolbox writes, Hive and Spark both run."""
+    """So a call the Toolbox writes, Hive runs."""
     call = hive_function(name, *[job_runs.status] * count)
     to_hive(statement(SELECT(AS(call, "x")), FROM(job_runs), WHERE(DAYS)))
 

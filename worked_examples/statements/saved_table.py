@@ -99,8 +99,8 @@ def rebuild():
     admin.drop_table deletes every day of the table, since its Table reference had purge=True
     when create_table made it, so write them all again with backfill(). A column only added
     after the others can instead be added in place with admin.add_columns, without dropping
-    anything; on a table with a Date partition it writes CASCADE, which Spark refuses, so if
-    Spark rather than Hive runs your tables, ask whoever looks after them first.
+    anything; on a table with a Date partition it writes CASCADE, so the days already there
+    get the column too.
     IF EXISTS means the drop does nothing, rather than failing, if the table isn't there.
     """
     return [admin.drop_table(runs_to_review), create_table(runs_to_review)]

@@ -5,8 +5,7 @@ out) gives drop_table, drop_days, add_columns, set_properties and move_to_own_fo
 an ordinary Statement, or for the move a list of them, which run sends like any other and logs
 in the Admin log; show_hive prints what it changes, what can't be undone and what to check
 first, ahead of its Hive; and each refuses a table that isn't one of the user's Saved tables. The
-golden corpus pins every one's Hive and notes (the `edge:admin:*` cases); the move runs on a real
-Spark in tests/spark_edition/test_spark_hive_tables.py.
+golden corpus pins every one's Hive and notes (the `edge:admin:*` cases).
 """
 
 from __future__ import annotations

@@ -10,7 +10,7 @@ is sent, and Lineage shows which columns are in each step's Key and where one wa
 
 ## When you'd use it
 
-Every time you make a Saved table. Hive never checks a Key, nor does Spark: a table declared
+Every time you make a Saved table. Hive never checks a Key: a table declared
 with one takes two rows with the same Key without a word. Then every join on that Key repeats
 rows, and every sum over the join comes out too big, far from the write that caused it. The
 Toolbox checks the Key while the write is built, where the mistake is.

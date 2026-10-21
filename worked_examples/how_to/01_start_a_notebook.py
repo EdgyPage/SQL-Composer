@@ -58,11 +58,6 @@ names on; don't type them yourself, since each Statement has its own columns:
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
 
-If your notebook has a Spark session, `spark`, that reads the warehouse's tables, your send
-can be `send = lambda hive: spark.sql(hive).toPandas()`. Spark reads a few pieces of Hive its own
-way, such as a division by 0, which stops a whole query under its ANSI mode where Hive gives
-NULL: check a Statement's numbers on Spark before you rely on them.
-
 There is no warehouse on this page, so the next steps use the Example database's own send,
 `example_database.send`, which runs Hive on the Example database's seven made-up tables. At work
 you give `run` your own `send` in its place.
@@ -110,7 +105,7 @@ WHERE
   job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 
 `show_hive` prints the same Hive with a `;` at the end, ready to paste into another program,
-such as Hue, DBeaver or spark-sql. It gives the text back too, so `text` keeps it to save or
+such as Hue, Beeline or DBeaver. It gives the text back too, so `text` keeps it to save or
 use again:
 
 >>> text = show_hive(failed)

@@ -36,7 +36,6 @@ from .refusals import (
     guard_not_a_number,
     guard_time_of_day,
     refuse,
-    refuse_a_spark_dataframe,
 )
 from .trees import (
     ARITHMETIC,
@@ -56,10 +55,10 @@ DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 EXAMPLE_DAY = datetime.date(2026, 9, 25)
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
-# The partition Hive and Spark list for the rows with no day: their partition column is NULL.
+# The partition Hive lists for the rows with no day: their partition column is NULL.
 ROWS_WITH_NO_DAY = "__HIVE_DEFAULT_PARTITION__"
-# DESCRIBE's headers: the partition list and its own column header, and the partitioning Spark
-# lists for a newer kind of table, one row per column or function of a column.
+# DESCRIBE's headers: the partition list and its own column header, and the partitioning a
+# newer kind of table lists, one row per column or function of a column.
 PARTITION_INFORMATION = "# partition information"
 COLUMN_HEADER = "# col_name"
 PARTITIONING = "# partitioning"
@@ -522,7 +521,7 @@ def _check_date_format(date_format: str) -> None:
         refuse(
             what=f"date_format={date_format!r} holds a character that isn't printed, such as "
             "the bell \\a gives in a Python string.",
-            why="Hive and Spark would read it back as a plain letter, so the days would be "
+            why="Hive would read it back as a plain letter, so the days would be "
             "written wrong.",
             fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
             "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
@@ -616,7 +615,7 @@ class Table:
       columns: changing them means writing the table again.
 
     A column whose name is a Python word, such as `from`, is reached with getattr(t, "from").
-    You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such
+    You never type backticks: the Hive puts a name in them where it needs them, such
     as `from`, `any` or `two words`, and leaves a plain name, such as dt, as it is.
 
     >>> job_runs
@@ -770,8 +769,6 @@ WRITE_IT_AGAIN = ("it is at its own folder already, so write it again there: giv
                   "reference purge=True and send admin.set_properties(t), drop it with "
                   "admin.drop_table(t), create it with create_table(t), and write its days "
                   "again from their source")
-# The table properties Spark keeps for itself, and refuses in a CREATE TABLE.
-SPARK_RESERVES = ("comment", "owner", "provider", "location", "is_managed_location")
 # An absolute location: one starting with /, or with a scheme such as hdfs:// or s3a://.
 _ABSOLUTE = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*:)?/")
 # Each Saved table's own folder, by its name in lower case, so that two can't share one.
@@ -837,7 +834,7 @@ def _one_of(name: str, option: str, value, allowed: list[str], which: str = "") 
         return value.upper()
     refuse(
         what=f"Table({name!r}): {option}={value!r} isn't one the Toolbox writes.",
-        why=f"{option}= takes one of a few names Hive and Spark both know{which}.",
+        why=f"{option}= takes one of a few names Hive knows{which}.",
         fix="Use one of: " + ", ".join(f'"{word}"' for word in allowed) + ".",
         error=ValueError,
     )
@@ -920,15 +917,6 @@ def _checked_properties(name: str, properties, compression_property: str) -> dic
                 why="The Toolbox writes that property itself, from its own argument of "
                 "Table(...), so it is checked like the rest of the table's storage.",
                 fix=f"Remove it from properties=, and write {written}.",
-                error=ValueError,
-            )
-        if str(key).lower() in SPARK_RESERVES:
-            refuse(
-                what=f"Table({name!r}): properties= sets {key!r}.",
-                why="Spark keeps that property for itself, and refuses a CREATE TABLE that "
-                "sets it, so the table couldn't be made where Spark runs it.",
-                fix=f"Remove it from properties=, or give it another name, such as "
-                f'"{key}_note".',
                 error=ValueError,
             )
         if not isinstance(key, str) or not isinstance(value, str) or any(
@@ -1126,7 +1114,6 @@ def _ask(send, hive: str, call: str) -> pd.DataFrame:
             "such as send=example_database.send.",
         )
     frame = send(hive)
-    refuse_a_spark_dataframe(frame)
     if not isinstance(frame, pd.DataFrame):
         refuse(
             what=f"{call}: send gave back "
@@ -1149,7 +1136,7 @@ class Described:
 
     `details` holds DESCRIBE FORMATTED's lines about the table, such as its Location, by their
     labels in lower case without a colon, and `properties` its table properties, which Hive
-    lists a line each and Spark on one line.
+    lists a line each, and some warehouses on one line.
     """
 
     def __init__(self):
@@ -1199,7 +1186,7 @@ def _describe(name: str, send, call: str, formatted: bool = False) -> Described:
     return found
 
 
-# DESCRIBE FORMATTED's sections about the table itself, in Hive's words and Spark's.
+# DESCRIBE FORMATTED's sections about the table itself.
 DETAILS = ("# detailed table information", "# storage information")
 
 
@@ -1208,7 +1195,7 @@ def _read_detail(found: Described, label: str, column: str, kind: str, comment: 
     "Table Parameters:", a table property on a line of its own."""
     if column:
         found.details[label] = kind
-        if label == "table properties":  # Spark's: [name=value, name=value]
+        if label == "table properties":  # all on one line: [name=value, name=value]
             pieces = []
             for piece in kind.strip().removeprefix("[").removesuffix("]").split(", "):
                 if "=" in piece or not pieces:
@@ -1742,7 +1729,7 @@ def _stored_as(input_format: str) -> str | None:
 
 def _listed_names(text: str) -> list[str]:
     """The columns of DESCRIBE FORMATTED's Bucket Columns or Sort Columns: Hive's [a, b] or
-    [Order(col:a, order:1)], or Spark's [`a`, `b`]."""
+    [Order(col:a, order:1)], or [`a`, `b`]."""
     if "col:" in text:
         return [name.lower() for name in re.findall(r"col:\s*([^,)\s]+)", text)]
     inner = text.strip().removeprefix("[").removesuffix("]")
@@ -1795,9 +1782,9 @@ def create_table(t, may_exist=False):
     run(create_table(t), send=...). The table is external: its files are yours, in its own
     folder under the Table reference's location=, and the warehouse only keeps a record of
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
-    reference with no location= is refused. Every column needs a type Hive and
-    Spark both have, spelled as DESCRIBE prints it, such as int, string, double or
-    decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and
+    reference with no location= is refused. Every column needs a type Hive has, spelled as
+    DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
+    and a struct whose names Hive reserves, and
     says what to write. If the table already exists, the warehouse refuses to create it
     again. Without that refusal, you could edit the Table reference, send this again, and
     think the table had changed when it hadn't. Compare the two with
@@ -1813,7 +1800,6 @@ def create_table(t, may_exist=False):
     A Table reference with a Key, such as key=["job_id", "dt"], gets
     PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
     reads the table and never checks: the Toolbox checks the Key itself, before each write.
-    Spark refuses a PRIMARY KEY, so create a Saved table with a Key where Hive runs.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
@@ -1917,7 +1903,7 @@ def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
         length = "its length, such as " if written in _NEEDS_LENGTH else ""
         refuse(
             what=f"{call}: {column}'s type {kind!r} isn't one create_table can use.",
-            why="create_table takes only the types Hive and Spark both have, spelled as "
+            why="create_table takes only the types Hive has, spelled as "
             "DESCRIBE prints them, such as int rather than integer, and with their sizes "
             "written out, such as decimal(10,2), so the table it makes matches its Table "
             "reference.",
@@ -1927,8 +1913,8 @@ def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
             "decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and "
             "char(255); or an array, map or struct holding them, such as array<string>, "
             "map<string,int> or struct<name:string,runs:int>. A map's key is a single value, "
-            "such as string, and a struct's names are plain words, not ones Hive or Spark "
-            "reserve, such as date or user.",
+            "such as string, and a struct's names are plain words, not ones Hive reserves, "
+            "such as date or user.",
             error=ValueError,
         )
     check_writable_type(kind, f"{call}: {column}'s type {kind!r}")

@@ -36,10 +36,9 @@ PAGE = toolbox_folder() / "how_to.html"
 HOW_TOS = how_to_page.how_to_paths()
 SLUGS = [how_to_page.slug_of(path) for path in HOW_TOS]
 PUBLIC = set(sqlglot_composer.__all__)
-# Names a how-to may use without defining them: what a notebook at work has (its `spark`
-# session, the query API or database cursor a send calls), the Example database's database, and
-# the Toolbox's folders.
-OUTSIDE_NAMES = {"spark", "my_api", "cursor", "ops", FOLDER}
+# Names a how-to may use without defining them: what a notebook at work has (the query API or
+# database cursor a send calls), the Example database's database, and the Toolbox's folders.
+OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER}
 
 
 def page() -> str:

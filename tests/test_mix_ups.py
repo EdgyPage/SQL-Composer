@@ -1,29 +1,20 @@
-"""Two mix-ups that are easy to make, each refused saying what went wrong.
+"""A mix-up that is easy to make, refused saying what went wrong.
 
-- An object made by another Toolbox folder, such as a Table reference whose file still imports a
-  folder left over from an earlier version, given to the Toolbox's functions. Each function
-  that checks what it was given names that folder, where it would otherwise call the object the
-  wrong kind of thing.
-- A send that gives back Spark's own DataFrame, as `send=spark.sql` does without
-  `.toPandas()`. Whatever reads what came back says how to make the send give back pandas,
-  where it would otherwise skip the row limit or fail with Python's own error. A write isn't
-  refused: Spark has carried it out by the time its send returns.
-
-Both are faked, so they are tested without an old folder or a Spark.
+An object made by another Toolbox folder, such as a Table reference whose file still imports a
+folder left over from an earlier version, given to the Toolbox's functions. Each function that
+checks what it was given names that folder, where it would otherwise call the object the wrong
+kind of thing. The folder is faked, so it is tested without an old copy.
 """
 
 from __future__ import annotations
 
-import pandas as pd
 import pytest
 
 from conftest import FOLDER
 from sqlglot_composer import (
     AS,
-    admin,
     FROM,
     GROUP_BY,
-    INSERT_OVERWRITE,
     JOIN,
     ORDER_BY,
     SELECT,
@@ -31,20 +22,16 @@ from sqlglot_composer import (
     all_columns,
     by_day,
     check_key,
-    check_table_reference,
     count_rows,
     derived,
     equals,
     example_database,
     export_lineage,
     if_else,
-    run,
     statement,
     sum_of,
     to_hive,
-    write_table_reference,
 )
-from table_references.runs_to_review import runs_to_review
 
 job_runs = example_database.job_runs
 
@@ -113,44 +100,3 @@ def test_an_object_no_toolbox_folder_made_gets_the_message_it_got_before() -> No
     with pytest.raises(TypeError, match="isn't a table") as refused:
         FROM(_made_by("elsewhere", "Table"))
     assert "import" not in str(refused.value)
-
-
-class _SparksDataFrame:
-    """What spark.sql(hive) gives back: rows not yet read, and a way to read them."""
-
-    def toPandas(self):  # noqa: N802 - Spark's own name
-        raise AssertionError("the Toolbox shouldn't read the rows itself")
-
-
-def _spark_sql(hive):
-    return _SparksDataFrame()
-
-
-@pytest.mark.parametrize("call", [
-    lambda: run(_one_day(), send=_spark_sql),
-    lambda: check_key(job_runs, send=_spark_sql),
-    lambda: write_table_reference("ops.job_runs", send=_spark_sql),
-], ids=["run", "check_key", "write_table_reference"])
-def test_a_send_that_gives_back_sparks_dataframe_says_to_give_back_pandas(call) -> None:
-    with pytest.raises(TypeError, match=r"send=lambda hive: spark\.sql\(hive\)\.toPandas\(\)"):
-        call()
-
-
-def test_check_table_reference_reports_a_send_that_gives_back_sparks_dataframe() -> None:
-    assert "Make your send give back pandas" in str(check_table_reference(job_runs,
-                                                                          send=_spark_sql))
-
-
-@pytest.mark.parametrize("write", [
-    lambda: statement(INSERT_OVERWRITE(runs_to_review), SELECT(job_runs.run_id, job_runs.job_id),
-                      FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24"))),
-    lambda: admin.drop_table(runs_to_review),
-], ids=["INSERT_OVERWRITE", "admin.drop_table"])
-def test_a_write_isnt_refused_once_spark_has_carried_it_out(write) -> None:
-    # Refused, it would be sent again, and INSERT_INTO would add its rows twice.
-    assert isinstance(run(write(), send=_spark_sql), _SparksDataFrame)
-
-
-def test_a_pandas_dataframe_with_a_column_named_to_pandas_is_taken() -> None:
-    frame = pd.DataFrame({"toPandas": [1]})
-    assert run(_one_day(), send=lambda hive: frame) is frame

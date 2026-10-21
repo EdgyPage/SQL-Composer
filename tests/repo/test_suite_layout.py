@@ -30,4 +30,4 @@ def test_a_shared_test_imports_no_library_of_its_own(path: Path) -> None:
             imported |= {alias.name.split(".")[0] for alias in node.names}
         elif isinstance(node, ast.ImportFrom) and node.module:
             imported.add(node.module.split(".")[0])
-    assert imported & {"sqlglot", "pyspark"} == set()
+    assert imported & {"sqlglot"} == set()

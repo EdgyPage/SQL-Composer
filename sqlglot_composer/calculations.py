@@ -288,12 +288,10 @@ def _call(name: str, *args: Node) -> Node:
 def week_start(column):
     """The Monday that starts each date's week, to group days into weeks.
 
-    Hive and Spark have no week function that works the same on both, so this takes the first
-    Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is
-    the day seven days before. The result is text, a day like "2026-09-21", whether your
-    warehouse runs the query on Hive or on Spark: Hive's NEXT_DAY gives text already, and
-    Spark's gives a date, so CAST(... AS STRING) makes it text there too. A Saved table's column
-    for it is typed "string".
+    Hive has no week function, so this takes the first Monday after the day a week earlier: in
+    the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result
+    is text, a day like "2026-09-21": CAST(... AS STRING) keeps it text whatever NEXT_DAY gives
+    back. A Saved table's column for it is typed "string".
 
     >>> week_start(job_runs.dt)
     CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
@@ -307,9 +305,8 @@ def week_start(column):
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
-    The result is text, a day like "2026-09-01", whether your warehouse runs the query on Hive
-    or on Spark: Hive's TRUNC gives text already, and Spark's gives a date, so CAST(... AS
-    STRING) makes it text there too. A Saved table's column for it is typed "string".
+    The result is text, a day like "2026-09-01": CAST(... AS STRING) keeps it text whatever
+    TRUNC gives back. A Saved table's column for it is typed "string".
 
     >>> month_start(job_runs.dt)
     CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
@@ -361,8 +358,8 @@ def hive_function(name, *args):
     sometimes by another name that does the same, as COALESCE for nvl, or without an
     argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1
     is what the warehouse takes when none is given. Either way it does the same. In a date_format
-    pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark
-    refuses in a pattern.
+    pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which differs
+    from the year in the last days of December and the first of January.
 
     It checks the call before writing it:
 
@@ -407,13 +404,13 @@ def hive_function(name, *args):
 
 
 def _check_function(name: str, count: int, call: str) -> None:
-    """Refuse a call Hive and Spark would stop on: a window function, or a count of arguments
+    """Refuse a call Hive would stop on: a window function, or a count of arguments
     HIVE_FUNCTION_ARGUMENTS in trees.py says the function doesn't take."""
     if name.lower() in WINDOW_FUNCTIONS:
         refuse(
             what=f"{call} calls {name}, which works only over a window of rows, written "
             f"{name.upper()}(...) OVER (...).",
-            why="hive_function can't write OVER, and without it Hive and Spark stop the whole "
+            why="hive_function can't write OVER, and without it Hive stops the whole "
             "Statement with an error.",
             fix=_WINDOW_FIXES.get(name.lower(), "SELECT the columns it needs, and work it out "
                                   "in pandas on the DataFrame run(...) gives back."),

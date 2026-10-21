@@ -56,7 +56,7 @@ def failed_share_per_job():
     """Each job's failed runs as a percent of its runs: one count divided by another.
 
     Divide after GROUP_BY, as one count by another, not an average of per-row values. Times
-    100.0 for a percent; / keeps the decimals even between two counts, in Hive and Spark alike
+    100.0 for a percent; / keeps the decimals even between two counts, in Hive
     (DIV is the one that drops them). A division by 0 gives NULL, which pandas shows as NaN;
     COUNT(*) of a group is never 0, so it can't happen here.
     """

@@ -136,9 +136,11 @@ settled the design below; this map is the design document, built out ticket by t
 - [09 Templates and Example projects as Projects](issues/09-templates-and-example-projects-as-projects.md)
 - [10 How-tos and the README tutorial](issues/10-how-tos-and-the-readme-tutorial.md)
 - [11 Python 3.12, pandas 3, numpy 2.5, and a venv](issues/11-python-3-12-pandas-3-numpy-2-5-and-a-venv.md)
+- [12 No Spark left in the code](issues/12-no-spark-left.md)
 
 Tickets 02-04 don't wait for the user's review of 01; 05-10 do. Ticket 11, asked for on
-2026-10-20 while ticket 02 closed, lands before 03.
+2026-10-20 while ticket 02 closed, lands before 03. Ticket 12, asked for as 05 started,
+lands before 05.
 
 ## Records this changes
 
@@ -173,11 +175,14 @@ Tickets 02-04 don't wait for the user's review of 01; 05-10 do. Ticket 11, asked
   the how-tos with `../sqlglot_composer/how_to.html#<slug>` (the README is `.github/README.md`
   on main); the version-by-version sections were already in CHANGES.md; CONTEXT.md defines
   README; `tests/repo/test_readme_shape.py` holds the shape. Step 8 is ticket 10's to replace.
+- [12 No Spark left in the code](issues/12-no-spark-left.md): the user asked for no Spark in
+  the code; only history keeps it. The refusals of a Spark DataFrame and of Spark's reserved
+  table properties, the README's Spark section and the offline policy's pyspark guards are gone
+  (reversing 02's keep); the lists in `trees.py` stay, so the Hive is unchanged.
 
 ## Not yet specified
 
-- Whether "If your send runs the Hive on Spark" stays in the README: kept for now (it is
-  about a user's own send, not Spark Composer), for the user to confirm.
+- Nothing.
 
 ## Out of scope
 

@@ -98,8 +98,7 @@ from sqlglot_composer import admin
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
-# The folder the corpus's Saved tables go in. The tests that make them on a real Spark make
-# them in pytest's own folder instead.
+# The folder the corpus's Saved tables go in.
 BASE = "/data/your_team/tables"
 
 # --- Table references of the edge cases ---------------------------------------------------
@@ -112,13 +111,13 @@ odd = Table(
 )
 """A table whose name and columns all need backticks: a reserved word, a digit first, a space."""
 
-spark_words = Table(
+standard_words = Table(
     "ops.semi",
     columns={"any": "string", "minus": "bigint", "current_user": "string", "dt": "string"},
     date_partition="dt",
     location=BASE,
 )
-"""A table whose name and columns are words Spark reserves and Hive doesn't."""
+"""A table whose name and columns are words the SQL standard reserves and Hive doesn't."""
 
 compact = Table(
     "ops.compact_runs",
@@ -164,7 +163,7 @@ TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "
          "struct<a:int,b:string>", "bigint unsigned", "json", "uuid", "interval", "nonsense")
 
 
-EDGE_TABLES = {"odd": odd, "spark_words": spark_words, "compact": compact, "events": events,
+EDGE_TABLES = {"odd": odd, "standard_words": standard_words, "compact": compact, "events": events,
                "daily_runs": daily_runs, "region_runs": region_runs}
 
 
@@ -363,10 +362,10 @@ def _read_cases() -> dict:
         "reads:odd_names": lambda: [statement(
             SELECT(odd.select, getattr(odd, "1st"), AS(getattr(odd, "two words"), "order")),
             FROM(odd), WHERE(one_day(odd), equals(odd.select, "x")))],
-        "reads:spark_reserved_names": lambda: [statement(
-            SELECT(spark_words.any, spark_words.minus,
-                   AS(spark_words.current_user, "within")),
-            FROM(spark_words), WHERE(one_day(spark_words), equals(spark_words.any, "x")))],
+        "reads:standard_reserved_names": lambda: [statement(
+            SELECT(standard_words.any, standard_words.minus,
+                   AS(standard_words.current_user, "within")),
+            FROM(standard_words), WHERE(one_day(standard_words), equals(standard_words.any, "x")))],
         "reads:compact_day": lambda: [statement(
             SELECT(compact.run_id, AS(week_start(compact.day), "week"),
                    AS(month_start(compact.day), "month")),
@@ -733,8 +732,8 @@ def _upkeep_cases() -> dict:
             compute_statistics(compact, "20260924", columns=True)],
         "upkeep:compute_statistics:odd_names": lambda: [
             compute_statistics(odd, DAY, columns=True)],
-        "upkeep:compute_statistics:spark_words": lambda: [
-            compute_statistics(spark_words, DAY, columns=True)],
+        "upkeep:compute_statistics:standard_words": lambda: [
+            compute_statistics(standard_words, DAY, columns=True)],
         "upkeep:compute_statistics:no_date_partition": lambda: [compute_statistics(Table(
             "mart.job_names", columns={"job_id": "bigint", "job_name": "string"},
             date_partition=None, location=BASE), columns=True)],

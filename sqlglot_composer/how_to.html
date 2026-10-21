@@ -128,7 +128,6 @@ def send(hive):
     cursor.execute(hive)  # your team&#x27;s own cursor, from its database library
     names = [column[0] for column in cursor.description]
     return pd.DataFrame(cursor.fetchall(), columns=names)</pre>
-<p>If your notebook has a Spark session, <code>spark</code>, that reads the warehouse&#x27;s tables, your send can be <code>send = lambda hive: spark.sql(hive).toPandas()</code>. Spark reads a few pieces of Hive its own way, such as a division by 0, which stops a whole query under its ANSI mode where Hive gives NULL: check a Statement&#x27;s numbers on Spark before you rely on them.</p>
 <p>There is no warehouse on this page, so the next steps use the Example database&#x27;s own send, <code>example_database.send</code>, which runs Hive on the Example database&#x27;s seven made-up tables. At work you give <code>run</code> your own <code>send</code> in its place.</p>
 <h5>Build a first Statement on the Example database</h5>
 <p>The Example database&#x27;s first three tables are <code>ops.jobs</code>, one row per job; <code>ops.job_runs</code>, one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and <code>ops.run_alerts</code>, the alerts a run raised. A fourth, <code>ops.scheduler_runs</code>, is the scheduler&#x27;s own record of the two days&#x27; runs, and three more, which the Intermediate how-tos use, hold 14 days each. Each table&#x27;s Table reference, which says what columns it has, comes with the Toolbox. Give the one you need a short name:</p>
@@ -152,7 +151,7 @@ def send(hive):
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;</pre>
-<p><code>show_hive</code> prints the same Hive with a <code>;</code> at the end, ready to paste into another program, such as Hue, DBeaver or spark-sql. It gives the text back too, so <code>text</code> keeps it to save or use again:</p>
+<p><code>show_hive</code> prints the same Hive with a <code>;</code> at the end, ready to paste into another program, such as Hue, Beeline or DBeaver. It gives the text back too, so <code>text</code> keeps it to save or use again:</p>
 <pre class="python">text = show_hive(failed)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">SELECT
   job_runs.run_id,
@@ -205,7 +204,7 @@ run(failed, send=send_without_a_dataframe)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  Your send gave back a list, where a pandas DataFrame goes.
   Why it matters: run hands you back what your send gives back, and you read the rows from it as from a pandas DataFrame, each column by its name.
-  Usual fix:      Turn the rows into a DataFrame at the end of your send. On Spark, that is spark.sql(hive).toPandas(). From a query API, it is pd.DataFrame(rows), which takes the column names from each row&#x27;s keys when the API gives each row as a dict; when it gives each row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows how to write your send.
+  Usual fix:      Turn the rows into a DataFrame at the end of your send. From a query API, it is pd.DataFrame(rows), which takes the column names from each row&#x27;s keys when the API gives each row as a dict; when it gives each row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows how to write your send.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>The fix is the message&#x27;s: end your send with <code>return pd.DataFrame(rows)</code>, with the column names when each row is a tuple, as the step Write your send shows.</p>
 <h5>A Statement that doesn&#x27;t give the days it reads</h5>
@@ -688,7 +687,7 @@ Table.__init__() missing 1 required positional argument: &#x27;date_partition&#x
 <section class="entry" id="build_a_first_statement">
 <h3>4. Build a first Statement and paste its Hive <span class="badge getting-started">Getting started</span></h3>
 <h4>Goal</h4>
-<p>Build a Statement a clause at a time, reading its Hive after each change, then run it, and copy the finished Hive into another program, such as Hue, Beeline, DBeaver or spark-sql, exactly as <code>run</code> sends it. Three functions do the work: <code>to_hive</code> gives the Hive as text, <code>show_hive</code> prints it ready to paste, and <code>run</code> runs it through a send and gives back a pandas DataFrame.</p>
+<p>Build a Statement a clause at a time, reading its Hive after each change, then run it, and copy the finished Hive into another program, such as Hue, Beeline or DBeaver, exactly as <code>run</code> sends it. Three functions do the work: <code>to_hive</code> gives the Hive as text, <code>show_hive</code> prints it ready to paste, and <code>run</code> runs it through a send and gives back a pandas DataFrame.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>Every time you write a new Statement: read its Hive before you run it.</li><li>When someone who doesn&#x27;t use Python needs the query: a colleague, a dashboard, a scheduled job, or your warehouse&#x27;s own editor, where you can run it again by hand.</li><li>When a result looks wrong: the Hive shows exactly what the warehouse was asked.</li></ul>
 <h4>Steps</h4>
@@ -742,7 +741,7 @@ WHERE
 )</pre>
 <p><code>WHERE</code> still uses <code>job_runs.duration_mins</code>: the new name is the result&#x27;s, and WHERE reads the table.</p>
 <h5>Print it ready to paste</h5>
-<p><code>show_hive</code> prints the same Hive as <code>to_hive</code> with a <code>;</code> at the end, which Hue, Beeline, DBeaver and spark-sql need to tell one query from the next:</p>
+<p><code>show_hive</code> prints the same Hive as <code>to_hive</code> with a <code>;</code> at the end, which Hue, Beeline and DBeaver need to tell one query from the next:</p>
 <pre class="python">text = show_hive(long_runs)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">SELECT
   job_runs.run_id,
@@ -2580,7 +2579,7 @@ TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
 );</pre>
 <p><code>IF EXISTS</code> means the drop does nothing, rather than failing, when the table isn&#x27;t there. Each run of an admin Statement adds an entry to the Admin log, admin_log.md beside your notebook, so you can see later what was dropped, when and by which script.</p>
-<p>A rebuild suits any change to the columns: one removed, renamed or given another type, as well as one added. A column only added after the others can instead be added in place, keeping the days already written, which read NULL in it until they are written again: <code>admin.add_columns(runs_to_review, send=...)</code>, as <a href="#a_pipeline_of_saved_tables">A pipeline of Saved tables</a> shows. For a table with a Date partition it writes CASCADE, so the days already there get the column too; Spark refuses CASCADE, so if Spark rather than Hive runs your tables, ask whoever looks after them first. Here the table is young and its days are written again from their sources anyway, so the rebuild is the simpler choice.</p>
+<p>A rebuild suits any change to the columns: one removed, renamed or given another type, as well as one added. A column only added after the others can instead be added in place, keeping the days already written, which read NULL in it until they are written again: <code>admin.add_columns(runs_to_review, send=...)</code>, as <a href="#a_pipeline_of_saved_tables">A pipeline of Saved tables</a> shows. For a table with a Date partition it writes CASCADE, so the days already there get the column too. Here the table is young and its days are written again from their sources anyway, so the rebuild is the simpler choice.</p>
 <p>The writes must change too. The old <code>failed_runs</code> still selects two columns where the table now has three, and the warehouse fills a table&#x27;s columns by position, so values would land in the wrong columns. The Toolbox refuses it as it is built:</p>
 <pre class="python">failed_runs(&quot;2026-09-24&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
@@ -2720,8 +2719,8 @@ text = show_hive(two_days)</pre>
     date_partition=&quot;dt&quot;))</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  create_table(runs_to_review): run_id&#x27;s type &#x27;integer&#x27; isn&#x27;t one create_table can use.
-  Why it matters: create_table takes only the types Hive and Spark both have, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      For &#x27;integer&#x27;, write &#x27;int&#x27;. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array&lt;string&gt;, map&lt;string,int&gt; or struct&lt;name:string,runs:int&gt;. A map&#x27;s key is a single value, such as string, and a struct&#x27;s names are plain words, not ones Hive or Spark reserve, such as date or user.
+  Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
+  Usual fix:      For &#x27;integer&#x27;, write &#x27;int&#x27;. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array&lt;string&gt;, map&lt;string,int&gt; or struct&lt;name:string,runs:int&gt;. A map&#x27;s key is a single value, such as string, and a struct&#x27;s names are plain words, not ones Hive reserves, such as date or user.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h5>Leaving out location=</h5>
 <p>Every Saved table is made in a folder of its own, so <code>create_table</code> refuses a Table reference that doesn&#x27;t say where your Saved tables go:</p>
@@ -2809,7 +2808,7 @@ run(preview, send=example_database.send)</pre>
 len(days)</pre>
 <p class="label">Python shows</p><pre class="output">2</pre>
 <h5>Print them all, ready to paste</h5>
-<p><code>show_hive</code> takes the whole list. It prints each write&#x27;s Hive, headed by its place in the list and its name, <code>days[0]</code> then <code>days[1]</code>, each ending with a <code>;</code>, so a program such as Hue, Beeline or spark-sql runs them one after another, in this order:</p>
+<p><code>show_hive</code> takes the whole list. It prints each write&#x27;s Hive, headed by its place in the list and its name, <code>days[0]</code> then <code>days[1]</code>, each ending with a <code>;</code>, so a program such as Hue, Beeline or DBeaver runs them one after another, in this order:</p>
 <pre class="python">text = show_hive(days)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2: days[0]
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = &#x27;2026-09-23&#x27;)
@@ -3067,7 +3066,7 @@ WHERE
   daily_job_runs.dt = &#x27;2026-09-24&#x27;
 GROUP BY
   jobs.team;</pre>
-<p>Pasted into Hue or spark-sql, this runs the whole day by hand, in the same order.</p>
+<p>Pasted into Hue or Beeline, this runs the whole day by hand, in the same order.</p>
 <h5>Run the list</h5>
 <p><code>run</code> sends one Statement, so a short function sends the day&#x27;s steps one after another, with whichever send it is given:</p>
 <pre class="python">def run_day(day, send):
@@ -5875,7 +5874,7 @@ write_job_day(&quot;2026-09-24&quot;)</pre>
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Add <code>AS(count_rows(where=equals(job_events.event_type, &quot;fail&quot;)), &quot;fails&quot;)</code> to its <code>SELECT</code>. The table itself must change too. <code>create_table(job_day, may_exist=True)</code> does nothing while the old table exists, and without <code>may_exist=True</code> the warehouse refuses to create it. The admin module, which the star import leaves out, adds the column in place:</p>
 <pre class="python">from sqlglot_composer import admin</pre>
-<p><code>run(admin.add_columns(job_day, send=send), send=send)</code> adds each column the Table reference lists and the table lacks, here the column <code>&quot;fails&quot;</code>, and the days already written read NULL in it until they are written again. <code>send</code> goes in twice: <code>admin.add_columns</code> sends DESCRIBE as it is made, to find the new columns, and <code>run</code> sends the change. It writes CASCADE, since <code>job_day</code> has a Date partition, so the days already there get the column too; Spark refuses CASCADE, so if Spark rather than Hive runs your tables, ask whoever looks after them first. To start the table again instead, give <code>job_day</code>&#x27;s Table reference <code>purge=True</code>, set it in the table with <code>admin.set_properties(job_day)</code>, then drop it with <code>admin.drop_table(job_day)</code>, create it again and write its days again, as the gallery&#x27;s <a href="examples.html#saved_table">Saved table Worked example</a> shows in its rebuild step. Without purge, the old days&#x27; files stay, and the table created again gets them back once <code>repair_partitions</code> lists their days.</p>
+<p><code>run(admin.add_columns(job_day, send=send), send=send)</code> adds each column the Table reference lists and the table lacks, here the column <code>&quot;fails&quot;</code>, and the days already written read NULL in it until they are written again. <code>send</code> goes in twice: <code>admin.add_columns</code> sends DESCRIBE as it is made, to find the new columns, and <code>run</code> sends the change. It writes CASCADE, since <code>job_day</code> has a Date partition, so the days already there get the column too. To start the table again instead, give <code>job_day</code>&#x27;s Table reference <code>purge=True</code>, set it in the table with <code>admin.set_properties(job_day)</code>, then drop it with <code>admin.drop_table(job_day)</code>, create it again and write its days again, as the gallery&#x27;s <a href="examples.html#saved_table">Saved table Worked example</a> shows in its rebuild step. Without purge, the old days&#x27; files stay, and the table created again gets them back once <code>repair_partitions</code> lists their days.</p>
 <h5>Saving the weekly rollup</h5>
 <p>A Saved table of weeks looks tidy, but a write fills one day, and a week is seven. Written over a week, the write is refused when it becomes Hive, before anything is sent:</p>
 <pre class="python">team_week = Table(
@@ -6888,7 +6887,7 @@ run(no_fill, send=example_database.send)</pre>
 <tr><td>4</td><td><i>NULL</i></td></tr>
 </table></div>
 <h5>YYYY for the year in date_format</h5>
-<p>In a date_format pattern, write yyyy for the year. YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
+<p>In a date_format pattern, write yyyy for the year. YYYY is the year a week belongs to, which differs from the year in the last days of December and the first of January.</p>
 <pre class="python">by_month = statement(
     SELECT(job_events.event_id,
            AS(hive_function(&quot;date_format&quot;, job_events.dt, &quot;YYYY-MM&quot;), &quot;month&quot;)),
@@ -8060,7 +8059,7 @@ GROUP BY
 <p>The day is written the Saved table&#x27;s way, 2026-09-21, though the table it reads writes it 20260921.</p>
 <p>INSERT OVERWRITE replaces only the regions its rows hold: a region with no rows that day keeps whatever it held before. So if a region drops out of the table you read, its old rows for the day stay in the Saved table until you drop that day.</p>
 <h5>Add Buckets only to a big table</h5>
-<p><code>bucketed_by=</code> with <code>buckets=</code> spreads each day&#x27;s rows into that many files by the values of some columns, and <code>sorted_by=</code> sorts the rows in each. A join on those columns can then pair file with file instead of reading everything. It pays off only on big tables, tens of millions of rows a day, joined on those columns; and changing it means writing the whole table again. Where Spark writes the table, rather than Hive, ask whoever looks after it first: Spark may refuse to write a table with Buckets, or write it without them. Most Saved tables need none:</p>
+<p><code>bucketed_by=</code> with <code>buckets=</code> spreads each day&#x27;s rows into that many files by the values of some columns, and <code>sorted_by=</code> sorts the rows in each. A join on those columns can then pair file with file instead of reading everything. It pays off only on big tables, tens of millions of rows a day, joined on those columns; and changing it means writing the whole table again. Most Saved tables need none:</p>
 <pre class="python">run_facts = Table(
     &quot;mart.run_facts&quot;,
     columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;minutes&quot;: &quot;int&quot;, &quot;dt&quot;: &quot;string&quot;},
@@ -8085,7 +8084,7 @@ CLUSTERED BY (run_id) SORTED BY (run_id) INTO 16 BUCKETS
 STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/run_facts&#x27;</pre>
 <h5>Why there are no indexes</h5>
-<p>Hive removed indexes in its version 3, and Spark never had them, so the Toolbox writes none. What makes a read fast instead:</p>
+<p>Hive removed indexes in its version 3, so the Toolbox writes none. What makes a read fast instead:</p>
 <ul><li>Partitions: a Statement that bounds the Date partition, as every Load limit insists, opens only those days&#x27; folders, and one that bounds a Partition inside them, such as region, opens fewer still.</li><li>Fewer, larger files: a write per day makes one set of files per day, rather than many small ones; ORC and Parquet files keep each column&#x27;s smallest and largest values, so the warehouse skips the parts of a file a condition rules out.</li><li>Buckets, for big tables joined on the same columns, as above.</li><li>Statistics: once the warehouse has counted a table&#x27;s rows and values, it picks how to join it, such as sending a small table to every machine instead of sorting both.</li></ul>
 <h4>Check it worked</h4>
 <p>The write&#x27;s rows come from its SELECT, which the Example database can run on its own: on 2026-09-21, two jobs billed in eu and one in us.</p>
@@ -8168,7 +8167,7 @@ Problems:
 <h4>Goal</h4>
 <p>Give each Saved table a Key, the columns that tell one row from another, and let the Toolbox check it: a write whose rows the Toolbox can&#x27;t see are one per Key is refused before anything is sent, and Lineage shows which columns are in each step&#x27;s Key and where one was lost.</p>
 <h4>When you&#x27;d use it</h4>
-<p>Every time you make a Saved table. Hive never checks a Key, nor does Spark: a table declared with one takes two rows with the same Key without a word. Then every join on that Key repeats rows, and every sum over the join comes out too big, far from the write that caused it. The Toolbox checks the Key while the write is built, where the mistake is.</p>
+<p>Every time you make a Saved table. Hive never checks a Key: a table declared with one takes two rows with the same Key without a word. Then every join on that Key repeats rows, and every sum over the join comes out too big, far from the write that caused it. The Toolbox checks the Key while the write is built, where the mistake is.</p>
 <h4>Steps</h4>
 <h5>Import the Toolbox and name the tables</h5>
 <pre class="python">from sqlglot_composer import *
@@ -8691,7 +8690,7 @@ GROUP BY
 <tr><td>data</td><td>4</td></tr>
 <tr><td>finance</td><td>5</td></tr>
 </table></div>
-<p>The rows are the same with it or without it: it only changes how the work is done. Usually you don&#x27;t need the hint, though: with &quot;map_joins&quot; sent, Hive makes map joins by itself, from the tables&#x27; sizes and statistics. Where your send runs the Hive on Spark, as spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small: copied to every worker, a big table can run them out of memory.</p>
+<p>The rows are the same with it or without it: it only changes how the work is done. Usually you don&#x27;t need the hint, though: with &quot;map_joins&quot; sent, Hive makes map joins by itself, from the tables&#x27; sizes and statistics. Ask for it only for a table you know is small: copied to every worker, a big table can run them out of memory.</p>
 <h4>Check it worked</h4>
 <p>Every run either has an alert or hasn&#x27;t, so the runs <code>SEMI_JOIN</code> keeps and the runs <code>ANTI_JOIN</code> keeps add up to all the runs of the two days:</p>
 <pre class="python">every_run = statement(
@@ -8951,7 +8950,7 @@ run(statement(
   Usual fix:      Leave it where it is; check_table_reference(t, send=...) says whether anything else differs.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h5>Sending the steps out of order</h5>
-<p>Send the steps in their order, each once the one before has worked: the drop is sent only after the compare step gave back no rows. Running only some of them, or the drop on its own, can lose days the copy doesn&#x27;t hold. If Spark rather than Hive runs your tables, ask whoever looks after them first: Spark runs each of these steps, but may keep a managed table its own way.</p>
+<p>Send the steps in their order, each once the one before has worked: the drop is sent only after the compare step gave back no rows. Running only some of them, or the drop on its own, can lose days the copy doesn&#x27;t hold.</p>
 <h4>Next</h4>
 <ul><li>How a Saved table is stored, and why it needs a folder of its own: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Check a Table reference against its table again after the table changes: <a href="#keep_a_table_reference_true_over_time">Keep a Table reference true over time</a>.</li><li>Write a table&#x27;s days again from their source: <a href="#backfill_a_range_of_days">Backfill a range of days</a>.</li><li>The admin module&#x27;s other changes, each with its own entry in the gallery: <a href="examples.html#admin.drop_table"><code>admin.drop_table</code></a>, <a href="examples.html#admin.drop_days"><code>admin.drop_days</code></a>, <a href="examples.html#admin.add_columns"><code>admin.add_columns</code></a>, <a href="examples.html#admin.set_properties"><code>admin.set_properties</code></a> and <a href="examples.html#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, <code>admin.move_to_own_folder</code></p>
@@ -9147,7 +9146,7 @@ run(labelled, send=example_database.send)</pre>
 </table></div>
 <p>The rows come sorted by their first column, as the Example database sorts them, which puts &quot;every team&quot; between &quot;data&quot; and &quot;finance&quot;. At work rows come in no fixed order: sort them with <code>ORDER_BY</code>, or in pandas.</p>
 <h5>Keep only the subtotals</h5>
-<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses, Spark among them, refuse it otherwise, so the Toolbox does too.</p>
+<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses refuse it otherwise, so the Toolbox does too.</p>
 <pre class="python">team_totals = statement(
     SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -9269,7 +9268,7 @@ SET hive.stats.column.autogather=true</pre>
 <pre class="python">def count_days(send):
     for day in [&quot;2026-09-22&quot;, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;]:
         run(compute_statistics(daily_runs, day), send=send)</pre>
-<p><code>columns=[daily_runs.job_id]</code> counts only the columns you name, such as those you join or filter on, which reads less. Where your send runs on Spark rather than Hive, Spark counts columns over the whole table, whatever the day, so name only those few.</p>
+<p><code>columns=[daily_runs.job_id]</code> counts only the columns you name, such as those you join or filter on, which reads less.</p>
 <h5>Let Hive copy a small table to every worker</h5>
 <p>Joining a big table to a small one, such as job_runs to jobs, is fastest when Hive copies the small table to every worker, which then joins its share of the big one without sorting it: a map join, or broadcast join. The Session setting &quot;map_joins&quot; lets Hive choose one by itself, from the tables&#x27; statistics, so it works best once both tables have them. Send it before your Statements, as the settings above:</p>
 <pre class="python">print(to_hive(hive_settings(&quot;map_joins&quot;)))</pre>
@@ -9344,7 +9343,7 @@ GROUP BY
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Pass the day, or loop over the days, as above.</p>
 <h5>Sending Session settings to a send that forgets them</h5>
-<p>A Session setting holds for the rest of a session. If your send opens a new session for each call, each SET is gone before your Statement runs, and the plan shows no change. Send the settings and the Statements through one send that keeps its session, as <code>spark.sql</code> does in one notebook.</p>
+<p>A Session setting holds for the rest of a session. If your send opens a new session for each call, each SET is gone before your Statement runs, and the plan shows no change. Send the settings and the Statements through one send that keeps its session, such as one that uses the same connection for every call.</p>
 <h4>Next</h4>
 <ul><li>Give a big table Partitions inside each day, or Buckets: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Ask for a map join on one join, with <code>broadcast=True</code>: <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>.</li><li>Keep each Statement&#x27;s reads bounded: <a href="#keep_queries_small_with_load_limits">Keep queries small with load limits</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#explain"><code>explain</code></a>, <a href="examples.html#compute_statistics"><code>compute_statistics</code></a> and <a href="examples.html#repair_partitions"><code>repair_partitions</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code>, <code>run</code>, <code>hive_settings</code>, <code>repair_partitions</code>, <code>compute_statistics</code>, <code>explain</code>, <code>example_database</code></p>

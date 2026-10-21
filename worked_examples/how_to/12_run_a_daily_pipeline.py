@@ -160,7 +160,7 @@ WHERE
 GROUP BY
   jobs.team;
 
-Pasted into Hue or spark-sql, this runs the whole day by hand, in the same order.
+Pasted into Hue or Beeline, this runs the whole day by hand, in the same order.
 
 ### Run the list
 

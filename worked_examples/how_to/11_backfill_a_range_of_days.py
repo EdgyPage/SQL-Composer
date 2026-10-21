@@ -112,7 +112,7 @@ same write with its WHERE bounded to its one day.
 
 `show_hive` takes the whole list. It prints each write's Hive, headed by its place in the list
 and its name, `days[0]` then `days[1]`, each ending with a `;`, so a program such as Hue,
-Beeline or spark-sql runs them one after another, in this order:
+Beeline or DBeaver runs them one after another, in this order:
 
 >>> text = show_hive(days)
 -- 1 of 2: days[0]
