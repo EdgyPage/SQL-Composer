@@ -48,6 +48,18 @@ notebook whose Statements create and write it, and its past Lineage. Only a Proj
 creates or removes one.
 _Avoid_: table directory, table project, model folder
 
+**Table notebook**:
+The notebook in a Table folder whose cells create, preview and write its Saved table, made from
+a Template when the Table folder is made. One of its cells holds the table's logic alone, so
+other notebooks can use that logic without running the rest.
+_Avoid_: table script, pipeline notebook, job
+
+**Registry**:
+The Project's list of every Table folder and Table reference a Project action made, and when
+each was removed. What is in the Project but not in the Registry was made by hand; what is in
+the Registry but not in the Project was moved or deleted by hand.
+_Avoid_: manifest, inventory, index
+
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
 folder, adding Table references - run from the admin folder and recorded in the Admin log.

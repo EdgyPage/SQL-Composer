@@ -406,8 +406,8 @@ def set_admin_log(path=None):
     Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and
     its git commit, and whether it worked. It only ever adds to the file.
 
-    Left unset, the log is admin_log.md beside the script or notebook that calls run, or,
-    inside a Project, the Project's admin/admin_log.md (help(project)). A path you give that
+    Left unset, the log is admin_log.md beside the script or notebook that calls run, or
+    inside a Project the Project's admin/admin_log.md (help(project)). A path you give that
     isn't absolute, such as "logs/admin_log.md", starts from the folder of the
     script or notebook that calls set_admin_log. Call it at the top of each notebook or
     pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the
@@ -452,21 +452,7 @@ HEADER = (
     "first. The Toolbox only ever adds to this file. Its Unchecked statements are the list of "
     "what the Toolbox should learn to write next.\n"
 )
-# The file a folder is a Project by: project.start() writes it, and only a Project has it.
-REGISTRY = Path("admin") / "registry.csv"
 
-
-def project_folder(folder: Path) -> Path | None:
-    """The Project `folder` is in, or is: the nearest folder up holding admin/registry.csv."""
-    for place in [folder, *folder.parents]:
-        if (place / REGISTRY).is_file():
-            return place
-    return None
-
-
-def project_log(project: Path) -> Path:
-    """A Project's Admin log."""
-    return project / "admin" / "admin_log.md"
 # How much of an Unchecked statement's first line an entry's call shows.
 _CALL_LENGTH = 65
 
@@ -497,6 +483,7 @@ def logged_run(kind: str, call: str, hive: str, send):
 def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
     """Add one entry to the end of the Admin log, writing its heading first if it is new."""
     from .lineage import caller_folder, calling_file  # it imports this file
+    from .project import project_folder, project_log  # it imports this file
 
     caller = calling_file(frame)
     # The Project the script is in, or else the one Python is working in.
@@ -510,20 +497,6 @@ def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines += [_script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
     _write_entry(path, lines)
-
-
-def log_project_action(project: Path, call: str, tables: list[str], files: list[str],
-                       result: str, frame) -> None:
-    """Add a Project action's entry to the Project's Admin log: when, the call, the tables it
-    names, what it did to which files, the script and its commit, and whether it worked."""
-    from .lineage import calling_file  # it imports this file
-
-    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {_code(call)}"]
-    if tables:
-        lines.append(f"- Tables named: {', '.join(tables)}")
-    lines += [f"- Files: {'; '.join(files)}", _script_line(calling_file(frame)),
-              f"- Result: {result}", ""]
-    _write_entry(project_log(project), lines)
 
 
 def _script_line(caller: Path | None) -> str:

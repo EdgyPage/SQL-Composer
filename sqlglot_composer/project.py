@@ -40,12 +40,14 @@ from pathlib import Path
 from .project_templates import TEMPLATES
 from .refusals import callers_frame, refuse
 from .tables import TABLE_NAME
-from .unchecked import REGISTRY, log_project_action, project_folder
+from .unchecked import _code, _script_line, _write_entry
 
 TOOLBOX_VERSION = "6.0"
 
 __all__ = ["start", "new_table", "remove_table", "remove_reference", "register", "check"]
 
+# The file a folder is a Project by: start() writes it, and only a Project has it.
+REGISTRY = Path("admin") / "registry.csv"
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
 FOLDERS = ("admin", "references", "building_blocks", "tables")
@@ -64,7 +66,8 @@ Why: every notebook in the Project sends its Statements through this one functio
 to how you reach the warehouse is made here, once.
 
 Replace example_database.send(hive) with your warehouse's call: how-to 1, Start a notebook,
-shows how to write it. It imports none of your scripts, so it is Level 0, like references/.
+shows how to write it. It imports none of your own files, so any notebook or script of yours
+can import it.
 """
 
 from sqlglot_composer import example_database
@@ -78,7 +81,7 @@ def send(hive):
 # The first code cell of every admin notebook: the Project folder, one up, on Python's path.
 ADMIN_PATH_LINES = [
     "import sys, pathlib",
-    "sys.path.insert(0, str(pathlib.Path.cwd().parent))  # the Project folder: one up from admin/",
+    "sys.path.insert(0, str(pathlib.Path.cwd().parent))  # the Project: one up from admin/",
     "",
     "from sqlglot_composer import project",
 ]
@@ -97,7 +100,7 @@ ADMIN_NOTEBOOKS = {
         "# Remove a table\n\nMoves a Table folder into `admin/removed/`, named by the time, "
         "and logs it. Nothing is deleted, and the table stays in the warehouse: drop it with "
         "`admin.drop_table` in `change_a_saved_table.ipynb`. Its Table reference stays in "
-        "`references/` until you archive it too, with the second cell.",
+        "`references/` until you archive it too, with the last cell.",
         ['project.remove_table("mart.your_table")',
          '# project.remove_reference("mart.your_table")'],
     ),
@@ -113,6 +116,7 @@ ADMIN_NOTEBOOKS = {
         "and what can't be undone, before its Hive. Uncomment one, check its `show_hive`, then "
         "`run` it.",
         ["from sqlglot_composer import admin, run, show_hive\nfrom send import send",
+         "# your table's file and its name, as in references/:\n"
          "# from references.mart__your_table import your_table\n"
          "# drop = admin.drop_table(your_table)\n# show_hive(drop)\n# run(drop, send=send)",
          '# old_days = admin.drop_days(your_table, before="2025-10-01")\n'
@@ -158,7 +162,8 @@ def start():
         refuse(
             what="project.start() was run inside a Project: "
             + ("this folder is one." if inside == here else
-               f"the folder {inside.name!r}, {len(here.relative_to(inside).parts)} up, is one."),
+               f"the folder {inside.name!r}, {len(here.relative_to(inside).parts)} up, "
+               "is one."),
             why="A Project is made once, and one inside another would split its tables "
             "between two registries and two Admin logs.",
             fix="Use the Project there is. To start another, run project.start() from a "
@@ -187,12 +192,10 @@ def start():
         _write_notebook(here / "admin" / f"{name}.ipynb",
                         [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
                          *[("code", cell) for cell in cells]])
-    with open(here / REGISTRY, "w", encoding="utf-8", newline="") as registry:
-        csv.writer(registry, lineterminator="\n").writerow(REGISTRY_COLUMNS)
+    _write_registry(here, [])
     (here / SEND).write_text(SEND_TEXT, encoding="utf-8")
-    log_project_action(here, "project.start()", [],
-                       [f"created {', '.join(f'{name}/' for name in FOLDERS)}, {SEND}"],
-                       "worked", frame)
+    _log(here, "project.start()", [],
+         [f"created {', '.join(f'{name}/' for name in FOLDERS)}, {SEND}"], frame)
     return ProjectReport([
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
@@ -225,8 +228,8 @@ def new_table(name, template="daily_table"):
     Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
     """
     frame = callers_frame()
-    call = f"project.new_table({name!r}" + (f", template={template!r})"
-                                             if template != "daily_table" else ")")
+    call = _call("new_table", name, f", template={_quoted(template)}"
+                 if template != "daily_table" else "")
     root = _project(call)
     database, table, stem = _table_name(name, call)
     if keyword.iskeyword(table):
@@ -275,7 +278,7 @@ def new_table(name, template="daily_table"):
     folder.mkdir(parents=True)
     (folder / "lineage").mkdir()
     _write_notebook(folder / f"{stem}.ipynb",
-                    template_cells(_filled(template_path.read_text(encoding="utf-8"), fills)))
+                    _template_cells(_filled(template_path.read_text(encoding="utf-8"), fills)))
     made = [f"created tables/{stem}/ ({stem}.ipynb, lineage/)"]
     rows = [TABLE_FOLDER]
     report = [f"Made tables/{stem}/: {stem}.ipynb and lineage/, from",
@@ -288,10 +291,11 @@ def new_table(name, template="daily_table"):
         reference.write_text(_filled(reference_template.read_text(encoding="utf-8"), fills),
                              encoding="utf-8")
         made.append(f"created references/{stem}.py")
-        rows.append(REFERENCE)
+        if not _in_use(root, REFERENCE, name):
+            rows.append(REFERENCE)
         report.append(f"Wrote references/{stem}.py: fill in its <...> and TODO lines.")
     _add_rows(root, rows, name)
-    log_project_action(root, call, [name], made, "worked", frame)
+    _log(root, call, [name], made, frame)
     return ProjectReport(report)
 
 
@@ -318,23 +322,10 @@ def remove_table(name):
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
     """
     frame = callers_frame()
-    call = f"project.remove_table({name!r})"
+    call = _call("remove_table", name)
     root = _project(call)
     _, _, stem = _table_name(name, call)
-    folder = root / "tables" / stem
-    if not folder.is_dir():
-        refuse(
-            what=f"{call}: there is no tables/{stem}/ to remove.",
-            why="remove_table archives a Table folder that is there.",
-            fix="Check the name: admin/check_project.ipynb lists the Table folders the "
-            "registry knows.",
-            error=FileNotFoundError,
-        )
-    archived = _archive(root, folder, stem)
-    _mark_removed(root, TABLE_FOLDER, name)
-    moved = f"moved tables/{stem}/ to admin/removed/{archived.name}/"
-    log_project_action(root, call, [name], [moved], "worked", frame)
-    return ProjectReport([f"Moved tables/{stem}/ to admin/removed/{archived.name}/."])
+    return _remove(root, TABLE_FOLDER, name, call, frame)
 
 
 def remove_reference(name):
@@ -358,17 +349,9 @@ def remove_reference(name):
     Moved references/mart__daily_job_runs.py to admin/removed/...-mart__daily_job_runs.py.
     """
     frame = callers_frame()
-    call = f"project.remove_reference({name!r})"
+    call = _call("remove_reference", name)
     root = _project(call)
     _, _, stem = _table_name(name, call)
-    reference = root / "references" / f"{stem}.py"
-    if not reference.is_file():
-        refuse(
-            what=f"{call}: there is no references/{stem}.py to remove.",
-            why="remove_reference archives a Table reference that is there.",
-            fix="Check the name: the files in references/ are named <db>__<table>.py.",
-            error=FileNotFoundError,
-        )
     if (root / "tables" / stem).exists():
         refuse(
             what=f"{call}: tables/{stem}/ is still there, and its notebook imports "
@@ -378,11 +361,36 @@ def remove_reference(name):
             fix=f'Archive the Table folder first, with project.remove_table("{name}").',
             error=ValueError,
         )
-    archived = _archive(root, reference, stem)
-    _mark_removed(root, REFERENCE, name)
-    moved = f"moved references/{stem}.py to admin/removed/{archived.name}"
-    log_project_action(root, call, [name], [moved], "worked", frame)
-    return ProjectReport([f"Moved references/{stem}.py to admin/removed/{archived.name}."])
+    return _remove(root, REFERENCE, name, call, frame)
+
+
+def _remove(root: Path, kind: str, name: str, call: str, frame) -> ProjectReport:
+    """Archive a Table folder or Table reference, mark its registry row removed, and log it.
+    One the registry lists that was deleted by hand has only its row marked; one neither
+    there nor listed is refused."""
+    stem = name.replace(".", "__", 1)
+    shown = _shown(kind, stem)
+    path = root / shown.rstrip("/")
+    if not path.exists():
+        if not _in_use(root, kind, name):
+            refuse(
+                what=f"{call}: there is no {shown} to remove, and the registry lists none.",
+                why=f"It archives a {_KINDS[kind]} that is there, or marks one the registry "
+                "lists removed.",
+                fix="Check the name: admin/check_project.ipynb lists what the registry knows, "
+                "and the files in references/ are named <db>__<table>.py.",
+                error=FileNotFoundError,
+            )
+        _mark_removed(root, kind, name)
+        _log(root, call, [name], [f"{shown} wasn't there: marked its registry row removed"],
+             frame)
+        return ProjectReport([f"{shown} wasn't there, so only its registry row is marked "
+                              "removed."])
+    archived = _archive(root, path, stem)
+    _mark_removed(root, kind, name)
+    moved = f"admin/removed/{archived.name}{'/' if kind == TABLE_FOLDER else ''}"
+    _log(root, call, [name], [f"moved {shown} to {moved}"], frame)
+    return ProjectReport([f"Moved {shown} to {moved}."])
 
 
 # --- register and check -----------------------------------------------------------------------
@@ -407,13 +415,12 @@ def register(name):
     Registered references/ops__jobs.py.
     """
     frame = callers_frame()
-    call = f"project.register({name!r})"
+    call = _call("register", name)
     root = _project(call)
     _, _, stem = _table_name(name, call)
-    found = [(TABLE_FOLDER, f"tables/{stem}/", (root / "tables" / stem).is_dir()),
-             (REFERENCE, f"references/{stem}.py", (root / "references" / f"{stem}.py").is_file())]
-    adopted = [(kind, path) for kind, path, there in found
-               if there and not _in_use(root, kind, name)]
+    adopted = [(kind, _shown(kind, stem)) for kind in (TABLE_FOLDER, REFERENCE)
+               if (root / _shown(kind, stem).rstrip("/")).exists()
+               and not _in_use(root, kind, name)]
     if not adopted:
         refuse(
             what=f"{call}: nothing to register: tables/{stem}/ and references/{stem}.py are "
@@ -423,8 +430,7 @@ def register(name):
             error=ValueError,
         )
     _add_rows(root, [kind for kind, _ in adopted], name)
-    log_project_action(root, call, [name], [f"registered {path}" for _, path in adopted],
-                       "worked", frame)
+    _log(root, call, [name], [f"registered {path}" for _, path in adopted], frame)
     return ProjectReport([f"Registered {' and '.join(path for _, path in adopted)}."])
 
 
@@ -444,7 +450,8 @@ def check():
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.check()
-    Not registered, made by hand: references/ops__jobs.py. Adopt each with project.register(...).
+    Not registered, made by hand: references/ops__jobs.py. Adopt each with
+    project.register(...).
     """
     root = _project("project.check()")
     rows = _registry(root)
@@ -457,11 +464,12 @@ def check():
     missing = sorted(_shown(kind, stem) for kind, stem in set(named) - on_disk)
     lines = []
     if unlisted:
-        lines.append(f"Not registered, made by hand: {', '.join(unlisted)}. Adopt each with "
-                     "project.register(...).")
+        lines.append(f"Not registered, made by hand: {', '.join(unlisted)}. Adopt each with")
+        lines.append("project.register(...).")
     if missing:
-        lines.append(f"Registered, but not there: {', '.join(missing)}. Put each back, or "
-                     "archive it with remove_table or remove_reference.")
+        lines.append(f"Registered, but not there: {', '.join(missing)}. Put each back, or")
+        lines.append("mark it removed with project.remove_table(...) or "
+                     "project.remove_reference(...).")
     return ProjectReport(lines or ["Every Table folder and Table reference is registered, "
                                    "and each one registered is there."])
 
@@ -472,6 +480,44 @@ def check():
 def _now() -> datetime.datetime:
     """The time a Project action is made at."""
     return datetime.datetime.now()
+
+
+def project_folder(folder: Path) -> Path | None:
+    """The Project `folder` is in, or is: the nearest folder up holding admin/registry.csv."""
+    for place in [folder, *folder.parents]:
+        if (place / REGISTRY).is_file():
+            return place
+    return None
+
+
+def project_log(project: Path) -> Path:
+    """A Project's Admin log, where its Project actions and Admin statements are logged."""
+    return project / "admin" / "admin_log.md"
+
+
+def _log(project: Path, call: str, tables: list[str], files: list[str], frame) -> None:
+    """Add a Project action's entry to the Project's Admin log: when, the call, the tables it
+    names, what it did to which files, the script and its commit. A refused one changed
+    nothing, and isn't logged."""
+    from .lineage import calling_file  # lineage imports what imports this
+
+    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {_code(call)}"]
+    if tables:
+        lines.append(f"- Tables named: {', '.join(tables)}")
+    lines += [f"- Files: {'; '.join(files)}", _script_line(calling_file(frame)),
+              "- Result: worked", ""]
+    _write_entry(project_log(project), lines)
+
+
+def _quoted(value) -> str:
+    """A value as the call is written in a notebook: text in double quotes."""
+    return f'"{value}"' if isinstance(value, str) and '"' not in value else repr(value)
+
+
+def _call(function: str, name, more: str = "") -> str:
+    """A Project action's call, as its notebook writes it, such as
+    project.remove_table("mart.daily_job_runs")."""
+    return f"project.{function}({_quoted(name)}{more})"
 
 
 def _working_folder() -> Path:
@@ -510,12 +556,13 @@ def _table_name(name, call: str) -> tuple[str, str, str]:
 
 
 def _filled(text: str, fills: dict[str, str]) -> str:
+    """A Template's text with each placeholder `fills` names replaced."""
     for placeholder, value in fills.items():
         text = text.replace(placeholder, value)
     return text
 
 
-def template_cells(text: str) -> list[tuple[str, str]]:
+def _template_cells(text: str) -> list[tuple[str, str]]:
     """A Template's cells, as (kind, text): each starts at a "# %%" line, and a
     "# %% [markdown]" cell's lines lose their "# "."""
     cells: list[tuple[str, list[str]]] = []
@@ -560,6 +607,7 @@ def _archive(root: Path, path: Path, stem: str) -> Path:
 
 
 def _registry(root: Path) -> list[dict]:
+    """The registry's rows, oldest first."""
     with open(root / REGISTRY, encoding="utf-8", newline="") as registry:
         return list(csv.DictReader(registry))
 
@@ -593,5 +641,10 @@ def _mark_removed(root: Path, kind: str, name: str) -> None:
     _write_registry(root, rows)
 
 
+# What each kind of registry row is called in a message.
+_KINDS = {TABLE_FOLDER: "Table folder", REFERENCE: "Table reference"}
+
+
 def _shown(kind: str, stem: str) -> str:
+    """A Table folder or Table reference's path in the Project, as messages show it."""
     return f"tables/{stem}/" if kind == TABLE_FOLDER else f"references/{stem}.py"
