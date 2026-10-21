@@ -93,6 +93,11 @@ The user (2026-10-21) asked for 07 in 6.1, and for 08, after both beginner reads
 - [06 Hints in the teaching code](issues/06-hints-in-the-teaching-code.md): Worked examples,
   how-tos, Templates and Example projects hinted with public names; a send passed in is
   `Callable[[str], pd.DataFrame]`, explained in how-to 01.
+- [07 run_tables refuses what write_day gives](issues/07-run-tables-refuses-what-write-day-gives.md):
+  each write is checked before any is ordered or sent; an empty list, None, a string or
+  Session settings are refused, naming the table.
+- [08 Named, Ordering, Subtotals and Verdict public](issues/08-named-ordering-subtotals-and-verdict-public.md):
+  100 public names; `help()` names only ProjectReport and TableLogic among non-public classes.
 
 ## Not yet specified
 
