@@ -426,8 +426,8 @@ def rollup(*columns):
       )
 
     Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each
-    job, jobs.team each team's subtotal, and (), no column, the grand total. Hive takes this
-    form for every kind of subtotal, so the Toolbox writes it rather than ROLLUP.
+    job, jobs.team each team's subtotal, and (), no column, the grand total. The Toolbox writes
+    this form rather than ROLLUP, so the Hive names each set of rows it makes.
     """
     call = f"rollup({', '.join(python_text(column) for column in columns)})"
     items = _once(_subtotal_columns(call, _flatten(columns)))
@@ -631,9 +631,8 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
                                                    for output, _ in s._outputs):
         refuse(
             what=f"{place} has {call}, but SELECT doesn't return {readable(column)}.",
-            why=f"Some warehouses refuse an is_total in {place} of a column "
-            "SELECT doesn't return, so the Toolbox refuses it too, for your Statement to run "
-            "wherever it is sent.",
+            why=f"Without {readable(column)} in the rows, a subtotal row looks like the "
+            "rows it totals, so nothing in the result says which rows are totals.",
             fix=f"Add {readable(column)} to SELECT.",
             error=ValueError,
         )

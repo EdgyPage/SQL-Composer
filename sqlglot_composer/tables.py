@@ -35,6 +35,7 @@ from .refusals import (
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
+    kind_name,
     refuse,
 )
 from .trees import (
@@ -1117,7 +1118,7 @@ def _ask(send, hive: str, call: str) -> pd.DataFrame:
     if not isinstance(frame, pd.DataFrame):
         refuse(
             what=f"{call}: send gave back "
-            f"{'None' if frame is None else type(frame).__name__} for {hive}.",
+            f"{'None' if frame is None else kind_name(frame)} for {hive}.",
             why="It reads what the warehouse prints, as a pandas DataFrame.",
             fix="Make send return the warehouse's answer as a DataFrame, as run(...) needs too.",
         )
@@ -1136,7 +1137,7 @@ class Described:
 
     `details` holds DESCRIBE FORMATTED's lines about the table, such as its Location, by their
     labels in lower case without a colon, and `properties` its table properties, which Hive
-    lists a line each, and some warehouses on one line.
+    lists a line each, and other warehouses may list on one line, as [name=value, ...].
     """
 
     def __init__(self):
@@ -1784,8 +1785,7 @@ def create_table(t, may_exist=False):
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
     reference with no location= is refused. Every column needs a type Hive has, spelled as
     DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
-    and a struct whose names Hive reserves, and
-    says what to write. If the table already exists, the warehouse refuses to create it
+    and a struct whose names are reserved words, and says what to write. If the table already exists, the warehouse refuses to create it
     again. Without that refusal, you could edit the Table reference, send this again, and
     think the table had changed when it hadn't. Compare the two with
     check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
@@ -1913,7 +1913,7 @@ def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
             "decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and "
             "char(255); or an array, map or struct holding them, such as array<string>, "
             "map<string,int> or struct<name:string,runs:int>. A map's key is a single value, "
-            "such as string, and a struct's names are plain words, not ones Hive reserves, "
+            "such as string, and a struct's names are plain words, not reserved words, "
             "such as date or user.",
             error=ValueError,
         )

@@ -2720,7 +2720,7 @@ text = show_hive(two_days)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  create_table(runs_to_review): run_id&#x27;s type &#x27;integer&#x27; isn&#x27;t one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      For &#x27;integer&#x27;, write &#x27;int&#x27;. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array&lt;string&gt;, map&lt;string,int&gt; or struct&lt;name:string,runs:int&gt;. A map&#x27;s key is a single value, such as string, and a struct&#x27;s names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      For &#x27;integer&#x27;, write &#x27;int&#x27;. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array&lt;string&gt;, map&lt;string,int&gt; or struct&lt;name:string,runs:int&gt;. A map&#x27;s key is a single value, such as string, and a struct&#x27;s names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h5>Leaving out location=</h5>
 <p>Every Saved table is made in a folder of its own, so <code>create_table</code> refuses a Table reference that doesn&#x27;t say where your Saved tables go:</p>
@@ -9146,7 +9146,7 @@ run(labelled, send=example_database.send)</pre>
 </table></div>
 <p>The rows come sorted by their first column, as the Example database sorts them, which puts &quot;every team&quot; between &quot;data&quot; and &quot;finance&quot;. At work rows come in no fixed order: sort them with <code>ORDER_BY</code>, or in pandas.</p>
 <h5>Keep only the subtotals</h5>
-<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses refuse it otherwise, so the Toolbox does too.</p>
+<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: without it, a subtotal row looks like the rows it totals, so the Toolbox refuses it.</p>
 <pre class="python">team_totals = statement(
     SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),

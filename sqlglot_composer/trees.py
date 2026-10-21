@@ -45,9 +45,9 @@ HIVE_ESCAPES = {
     "\x08": "\\b",
 }
 
-# Hive's reserved words, and words the SQL standard reserves: a name that is one of these is
-# written in backticks, which Hive always takes. The last four lines are the standard's words
-# Hive doesn't reserve itself, kept in backticks so a name means the same wherever it is sent.
+# Reserved words: a name that is one of these is written in backticks, which Hive always
+# takes. The last four lines are words other SQL warehouses reserve and Hive doesn't, kept in
+# backticks so a name means the same wherever its Hive is pasted.
 HIVE_RESERVED = frozenset(
     """ALL ALTER AND ARRAY AS AUTHORIZATION BETWEEN BIGINT BINARY BOOLEAN BOTH BY CACHE CASE
     CAST CHAR COLUMN COMMIT CONF CONSTRAINT CREATE CROSS CUBE CURRENT CURRENT_DATE
@@ -68,8 +68,8 @@ HIVE_RESERVED = frozenset(
 )
 
 # The functions hive_function may be given by name that turn many rows into one, as SUM and
-# COUNT do: Hive's, and those of the wider SQL some warehouses run beside it (the last five
-# lines, the newest).
+# COUNT do: Hive's, and those other SQL warehouses have, most of which are Hive's too (the last
+# five lines, the newest).
 HIVE_AGGREGATES = frozenset(
     """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
     bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set context_ngrams
@@ -97,7 +97,7 @@ WINDOW_FUNCTIONS = frozenset(
 
 # How many arguments a function hive_function may call takes: (fewest, most), with most None
 # when there is no upper limit. Where Hive has the function, it is the count Hive takes; for
-# one of the wider SQL's, such as count_if, the count it takes there.
+# one only other SQL warehouses have, such as count_if, the count they take.
 # hive_function counts a call's arguments by this list; a function not listed
 # here isn't counted.
 HIVE_FUNCTION_ARGUMENTS = {
@@ -151,7 +151,7 @@ def arguments_text(fewest: int, most: int | None) -> str:
 # prints them. decimal takes (precision,scale), such as decimal(10,2), varchar and char take
 # (length), and array, map and struct hold other types, as in array<string>, map<string,int>
 # and struct<name:string,runs:int>: a map's key is a single value, and a struct's names are
-# plain words, not ones Hive reserves.
+# plain words, not reserved words.
 HIVE_TYPES = frozenset(
     """tinyint smallint int bigint float double decimal string varchar char boolean date
     timestamp binary array map struct""".split()

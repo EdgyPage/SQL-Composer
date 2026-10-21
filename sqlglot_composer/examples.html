@@ -1459,7 +1459,7 @@ Notes:
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.</p>
-<p>A Saved table is one your Statements write into. Send it once with run(create_table(t), send=...). The table is external: its files are yours, in its own folder under the Table reference&#x27;s location=, and the warehouse only keeps a record of where. It is stored as the Table reference says (help(Table) lists how), and a Table reference with no location= is refused. Every column needs a type Hive has, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names Hive reserves, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...), or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer import admin). may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table alone, so it is safe to send again, as at the top of a pipeline that runs every day. It doesn&#x27;t check that the table there matches its Table reference: check_table_reference does. Where a table is made again at a folder whose files stayed, repair_partitions(t) finds their days.</p>
+<p>A Saved table is one your Statements write into. Send it once with run(create_table(t), send=...). The table is external: its files are yours, in its own folder under the Table reference&#x27;s location=, and the warehouse only keeps a record of where. It is stored as the Table reference says (help(Table) lists how), and a Table reference with no location= is refused. Every column needs a type Hive has, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names are reserved words, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...), or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer import admin). may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table alone, so it is safe to send again, as at the top of a pipeline that runs every day. It doesn&#x27;t check that the table there matches its Table reference: check_table_reference does. Where a table is made again at a folder whose files stayed, repair_partitions(t) finds their days.</p>
 <p>A Table reference with a Key, such as key=[&quot;job_id&quot;, &quot;dt&quot;], gets PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever reads the table and never checks: the Toolbox checks the Key itself, before each write.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
@@ -2354,7 +2354,7 @@ GROUP BY
     jobs.team,
     ()
   )</pre>
-<p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. Hive takes this form for every kind of subtotal, so the Toolbox writes it rather than ROLLUP.</p>
+<p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. The Toolbox writes this form rather than ROLLUP, so the Hive names each set of rows it makes.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
 <p class="names">Toolbox names used: <code>rollup</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
@@ -2675,7 +2675,7 @@ GROUP BY
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>
 <p class="why">The Monday that starts each date&#x27;s week, to group days into weeks.</p>
-<p>Hive has no week function, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;: CAST(... AS STRING) keeps it text whatever NEXT_DAY gives back. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
+<p>Hive has no function for the Monday of a week, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;: CAST(... AS STRING) makes it text wherever the query runs, even on a warehouse whose NEXT_DAY gives a date, so a Saved table&#x27;s column for it is always typed &quot;string&quot;.</p>
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
@@ -2690,7 +2690,7 @@ GROUP BY
 <section class="entry" id="month_start">
 <h3><code>month_start</code></h3>
 <p class="why">The first day of each date&#x27;s month, to group days into months.</p>
-<p>The result is text, a day like &quot;2026-09-01&quot;: CAST(... AS STRING) keeps it text whatever TRUNC gives back. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
+<p>The result is text, a day like &quot;2026-09-01&quot;: CAST(... AS STRING) makes it text wherever the query runs, even on a warehouse whose TRUNC gives a date, so a Saved table&#x27;s column for it is always typed &quot;string&quot;.</p>
 <pre class="python">month_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">CAST(TRUNC(job_runs.dt, &#x27;MM&#x27;) AS STRING)</pre>
