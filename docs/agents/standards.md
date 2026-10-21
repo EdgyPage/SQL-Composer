@@ -21,6 +21,30 @@ No class hierarchy, decorator, metaclass, registry or other machinery the user h
 before they can use a function. A plain function with plain arguments wins over a cleverer
 shape, even at the cost of some repetition.
 
+## Type hints
+
+Every function hints each argument (but `self` and `cls`) and its return, `-> None` included:
+in the Toolbox first, and in its tools, hooks and tests, and in the code a user reads and copies
+(the Worked examples, the how-tos, the Templates and the Example projects' sources). The hints
+are there to explain the code, so each one is true and as precise as the code allows. No test
+or type checker holds them: the reviewer does.
+
+- Modern built-ins: `list[str]`, `dict[str, int]`, `X | None`, never `Optional`, `List` or
+  `Union`. A container names what it holds: `list[Column]`, not `list`.
+- Plain types only: no TypeVar, Protocol, overload, Generic, ParamSpec or type alias, which are
+  machinery to study first. `Callable`, `Iterator` and their like come from `collections.abc`.
+- `*args` and `**kwargs` hint the type of one item: `*columns: Column | str`.
+- A function that never returns, as a refusal doesn't, is `-> NoReturn`.
+- `object` only where any value is fine, or for the user's value as given, which a private
+  helper checks itself; once it is checked, the code hints the checked type.
+- A public function hints what the user should pass, by its public name where it has one:
+  `help()` shows the signature to the beginner.
+- Code a user copies names only public names, imported from `sqlglot_composer` itself, and has no
+  `from __future__ import annotations`.
+- An import used only by a hint goes under `if TYPE_CHECKING:` only to break an import cycle or
+  to keep the Toolbox's import order, with a comment saying which. sqlglot's types are named
+  only in `writing.py` and `engine.py`, the two files that may import it.
+
 ## No new public name without a ticket
 
 The Toolbox's public names are decided in the tracker. A change that adds, removes or renames

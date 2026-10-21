@@ -44,9 +44,12 @@ holds the hints later. This map is the design, built out ticket by ticket.
   function that ends by calling one.
 - **`engine.py` imports sqlglot's types under `TYPE_CHECKING`**, not for a cycle: it imports
   sqlglot only inside its functions, so it can check sqlglot is there before trusting it.
-- **Nothing holds the hints.** No type checker and no ruff ANN rules (the user's choice). The
-  ruff run in pytest still refuses a hint that names something undefined (F821). Each ticket's
-  "every function" is checked once with an `ast` count, printed, not committed.
+- **The reviewer holds the hints, no test.** No type checker and no ruff ANN rules (the user's
+  choice). The user (2026-10-21) asked that the rules for writing the Toolbox include type
+  hints: `docs/agents/standards.md`'s "Type hints" says every function is hinted, and how, so
+  the code reviewer judges each change by it. The ruff run in pytest still refuses a hint that
+  names something undefined (F821). Each ticket's "every function" is checked once with an
+  `ast` count, printed, not committed.
 
 ## Tickets
 
@@ -66,6 +69,8 @@ holds the hints later. This map is the design, built out ticket by ticket.
 - CONTEXT.md (ticket 01): Column and Condition are new words; Statement, Session setting and
   Unchecked statement name their classes, `Statement`, `SessionSettings` and
   `UncheckedStatement`, as a type hint uses them; the Toolbox version's example is 6.1.
+- `docs/agents/standards.md` (2026-10-21): a "Type hints" section, the hint style above made a
+  standing rule for every change.
 
 ## Decisions so far
 
