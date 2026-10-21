@@ -104,7 +104,9 @@ def test_an_alias_under_the_aliases_heading_imports_beside_its_table(tmp_path,
     (tmp_path / "references").mkdir()
     path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
     text = path.read_text(encoding="utf-8")
-    assert "# --- Aliases " in text and "#     <alias> = job_runs.run_id" in text
+    assert "# --- Aliases " in text and "#     <alias> = job_runs.status" in text
+    # The heading's import names the folder the file was written into.
+    assert "from references.ops__job_runs import job_runs, <alias>" in text
     # The user's Aliases, as the heading's examples show them.
     aliases = 'minutes = job_runs.duration_mins\nfailed = equals(job_runs.status, "FAILED")\n'
     path.write_text(text.replace("import Table", "import Table, equals") + aliases,

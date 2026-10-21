@@ -67,10 +67,10 @@ table:
 
 - `columns` holds every column and its type;
 - `date_partition="dt"` comes from `SHOW PARTITIONS`;
-- three lines say TODO: the description on the first line, `key=None` and
+- three lines say TODO: the line at the top that says what one row is, `key=None` and
   `does_not_add_up=[]`. The table can't tell anyone those, so the file leaves them to you;
-- `descriptions=` holds each column's comment in the warehouse, such as status's
-  `SUCCESS / FAILED / TEST, NULL while running`;
+- `descriptions=` holds what each column holds, in words, from its comment in the warehouse,
+  such as status's `SUCCESS / FAILED / TEST, NULL while running`;
 - under the Aliases heading at the end, commented-out examples show how to add your own names
   for the table's columns and conditions, as Fill in the TODOs, below, does.
 
@@ -132,9 +132,9 @@ left out here:
   `job_runs.avg_retry_secs` is each run's average wait between retries: adding up two runs'
   averages gives a number that means nothing, so the Toolbox refuses to add it up once it is
   listed here.
-- An Alias is your own name, written by hand. `minutes` is a plainer name for
-  `job_runs.duration_mins`: only a shorter name, since the Hive, the output and the lineage
-  still say duration_mins. `failed` names a condition on this table alone, for `WHERE` or
+- An Alias is your own name, written by hand. `minutes` is a shorter name for
+  `job_runs.duration_mins`, for you: the Hive, and the DataFrame `run` gives back, still call
+  the column duration_mins. `failed` names a condition on this table alone, for `WHERE` or
   `count_rows(where=...)`; `equals` joins `Table` in the import at the top, since it calls it.
 
 Then import the file in your notebook, as you import any of your own .py files, with the

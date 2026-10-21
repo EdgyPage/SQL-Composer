@@ -145,19 +145,16 @@ def reference_text(name: str, columns: list[str], date_lines: list[str], first_k
         "    },",
         ")",
         "",
-        "# --- Aliases " + "-" * 82,
-        "# Your own names for this table's columns and conditions, written by hand below this "
-        "heading.",
-        f"# Import one beside the table: from references.ops__{name} import {name}, <alias>",
+        "# --- Aliases " + "-" * 78,
+        "# Your own names for this table's columns and conditions, written by hand below.",
+        f"# Import one beside the table: from ops__{name} import {name}, <alias>",
         "#",
-        "# A column Alias is a plainer name for one column. It is only a shorter name: the Hive, "
-        "the",
-        "# output and the lineage still say the column's own name. To name an output, use "
-        "AS(...).",
+        "# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame "
+        "run",
+        "# gives back, still call the column by its own name. To rename an output, use AS(...).",
         f"#     <alias> = {name}.{example}",
-        "# A condition Alias names a condition on this table alone, for WHERE or "
-        "count_rows(where=...).",
-        "# Add what it calls, such as equals, to the import from sqlglot_composer above.",
+        "# A condition Alias names a condition on this table alone, for WHERE or",
+        "# count_rows(where=...). Add what it calls, such as equals, to the import at the top.",
         f"#     <alias> = equals({name}.{example}, <value>)",
         "",
     ])
@@ -188,7 +185,7 @@ def test_write_table_reference_on_job_owners(tmp_path, monkeypatch) -> None:
         '"owner": "string",',
         '"dt": "string",',
     ], ['    date_partition="dt",'], "job_id", ['"owner": "NULL when nobody owns the job",'],
-        "job_id")
+        "team")
 
 
 def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatch) -> None:
@@ -203,7 +200,7 @@ def test_write_table_reference_on_region_costs_points_at_dt(tmp_path, monkeypatc
     ], ["    date_partition=None,  # TODO: partitioned by region, dt; its last region value, "
         "'us', isn't a day the Toolbox can bound; if dt holds the days, name it in "
         "date_partition="], "job_id", ['"cost_cents": "NULL until the bill comes in",'],
-        "job_id")
+        "cost_cents")
 
 
 @pytest.mark.parametrize("t", [events, owners])
