@@ -638,6 +638,15 @@ def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
     raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
+def kind_name(value) -> str:
+    """What kind of thing a value is, named with its library when it isn't Python's own, such
+    as "a list" or "a polars DataFrame", so it is never mistaken for a pandas DataFrame."""
+    kind = type(value)
+    library = kind.__module__.split(".")[0]
+    name = kind.__name__ if library == "builtins" else f"{library} {kind.__name__}"
+    return f"{'an' if name[0] in 'aeiou' else 'a'} {name}"
+
+
 def refuse_what_isnt_a_dataframe(result) -> None:
     """Refuse what a send gave back for a read when it isn't a pandas DataFrame, such as the
     plain list of rows a query API gives."""
@@ -646,8 +655,7 @@ def refuse_what_isnt_a_dataframe(result) -> None:
     if result is None:
         given, start = "None", "End your send with return, giving back a DataFrame"
     else:
-        name = type(result).__name__
-        given = f"{'an' if name[0] in 'aeiou' else 'a'} {name}"
+        given = kind_name(result)
         start = "Turn the rows into a DataFrame at the end of your send"
     raise TypeError(four_part_message(
         what=f"Your send gave back {given}, where a pandas DataFrame goes.",

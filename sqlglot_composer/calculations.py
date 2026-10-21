@@ -288,10 +288,11 @@ def _call(name: str, *args: Node) -> Node:
 def week_start(column):
     """The Monday that starts each date's week, to group days into weeks.
 
-    Hive has no week function, so this takes the first Monday after the day a week earlier: in
-    the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result
-    is text, a day like "2026-09-21": CAST(... AS STRING) keeps it text whatever NEXT_DAY gives
-    back. A Saved table's column for it is typed "string".
+    Hive has no function for the Monday of a week, so this takes the first Monday after the
+    day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven
+    days before. The result is text, a day like "2026-09-21": CAST(... AS STRING) makes it
+    text wherever the query runs, even on a warehouse whose NEXT_DAY gives a date, so a Saved
+    table's column for it is always typed "string".
 
     >>> week_start(job_runs.dt)
     CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
@@ -305,8 +306,9 @@ def week_start(column):
 def month_start(column):
     """The first day of each date's month, to group days into months.
 
-    The result is text, a day like "2026-09-01": CAST(... AS STRING) keeps it text whatever
-    TRUNC gives back. A Saved table's column for it is typed "string".
+    The result is text, a day like "2026-09-01": CAST(... AS STRING) makes it text wherever
+    the query runs, even on a warehouse whose TRUNC gives a date, so a Saved table's column for
+    it is always typed "string".
 
     >>> month_start(job_runs.dt)
     CAST(TRUNC(job_runs.dt, 'MM') AS STRING)

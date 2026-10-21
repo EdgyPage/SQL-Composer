@@ -82,8 +82,8 @@ harm:
         for day in ["2026-09-22", "2026-09-23", "2026-09-24"]:
             run(compute_statistics(daily_runs, day), send=send)
 
-`columns=[daily_runs.job_id]` counts only the columns you name, such as those you join or
-filter on, which reads less.
+`columns=[daily_runs.job_id]` counts only the columns you name, such as those you join or filter
+on, which reads less.
 
 ### Let Hive copy a small table to every worker
 

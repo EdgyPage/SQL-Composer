@@ -50,3 +50,20 @@ Built 2026-10-20 on branch `toolbox-6/12-no-spark`.
   `COMPACT_DESCRIBE`, `other_composer`).
 
 ## Reviews
+
+- Beginner reader (2026-10-20): the refusal of a send's answer read "gave back a DataFrame,
+  where a pandas DataFrame goes" for another library's DataFrame (now `kind_name` names the
+  library, "a polars DataFrame", in `run` and in `write_table_reference`'s DESCRIBE, with a
+  test); the ROLLUP reason, the CAST in `week_start` and `month_start`, and the is_total in
+  HAVING refusal had lost their reasons (each now says its own); two long lines and a dangling
+  "too" in how-tos 10 and 36 rewrapped; the README's send line reads "For example".
+- Spec (2026-10-20): the grep is clean outside history. Made-up reasons fixed: "Hive has no week
+  function" (Hive has weekofyear: now "no function for the Monday of a week"); the reserved
+  words' last lines are other warehouses' words, not the SQL standard's; "names Hive reserves"
+  became "reserved words", since the list is wider than Hive's. The is_total refusal stays: it
+  serves Hive too, since without the column a subtotal row can't be told from the rows it totals.
+- Standards (2026-10-20): long and orphaned lines rewrapped (`run`, `create_table`, how-tos 10
+  and 37). Answered: `trees.py` loses the Spark versions its lists were checked against, as the
+  user asked; the lists themselves are unchanged. The offline policy's smaller surface is the
+  user's ask ("Remove all mentions of spark in the code"); pyspark isn't in requirements.txt, so
+  no file of the repo can import it.

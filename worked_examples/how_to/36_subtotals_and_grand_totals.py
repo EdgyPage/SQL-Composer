@@ -128,8 +128,8 @@ The rows come sorted by their first column, as the Example database sorts them, 
 
 `is_total` in `HAVING` keeps or leaves out subtotal rows, since `HAVING` tests the rows
 `GROUP_BY` made, subtotals included. Here only each team's total and the grand total. The
-column it tests, `jobs.job_name`, must be in `SELECT` too: some warehouses
-refuse it otherwise, so the Toolbox does too.
+column it tests, `jobs.job_name`, must be in `SELECT` too: without it, a subtotal row looks
+like the rows it totals, so the Toolbox refuses it.
 
 >>> team_totals = statement(
 ...     SELECT(jobs.team, jobs.job_name, AS(count_rows(), "runs")),

@@ -340,8 +340,9 @@ as one added. A column only added after the others can instead be added in place
 days already written, which read NULL in it until they are written again:
 `admin.add_columns(runs_to_review, send=...)`, as
 [A pipeline of Saved tables](#a_pipeline_of_saved_tables) shows. For a table with a Date
-partition it writes CASCADE, so the days already there get the column too. Here the table is young and its days are written again from their sources anyway, so the
-rebuild is the simpler choice.
+partition it writes CASCADE, so the days already there get the column too. Here the table is
+young and its days are written again from their sources anyway, so the rebuild is the simpler
+choice.
 
 The writes must change too. The old `failed_runs` still selects two columns where the table now
 has three, and the warehouse fills a table's columns by position, so values would land in the

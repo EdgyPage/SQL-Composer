@@ -43,8 +43,9 @@ from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, ru
 ```
 
 The Toolbox never connects to anything itself: it writes Hive as text, and `run` hands that text
-to a function of yours, `send`, which runs it and gives back a pandas DataFrame. From a query
-API, `send` is such as `lambda hive: pd.DataFrame(my_api.query(hive))`.
+to a function of yours, `send`, which runs it and gives back a pandas DataFrame. For example,
+`send` can be `lambda hive: pd.DataFrame(my_api.query(hive))`, which runs the Hive through your
+team's query API.
 
 The how-to [Start a notebook](../sqlglot_composer/how_to.html#start_a_notebook) walks through the
 first cells, your send among them, and the mistakes people make first.

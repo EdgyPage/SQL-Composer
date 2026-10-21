@@ -628,8 +628,8 @@ def run(s, send):
     """Send a Statement's Hive through your `send` function and return what comes back.
 
     `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
-    the query API; example_database.send runs the Example database instead. A write into a table with partitioned_by= needs the Session setting
-    "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"), send=...),
+    the query API; example_database.send runs the Example database instead. A write into a
+    table with partitioned_by= needs the Session setting "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"), send=...),
     as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For
     explain(s), run gives back Hive's plan as text, rather than a DataFrame.
 

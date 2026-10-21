@@ -216,10 +216,19 @@ def test_run_given_a_list_says_to_send_each_in_turn() -> None:
 # --- what a send gives back ------------------------------------------------------------------
 
 
+class _OtherLibrarysDataFrame:
+    """A DataFrame of a library other than pandas, such as polars'."""
+
+
+_OtherLibrarysDataFrame.__name__ = "DataFrame"
+_OtherLibrarysDataFrame.__module__ = "polars.dataframe.frame"
+
+
 @pytest.mark.parametrize(("answer", "said"), [
     pytest.param([("data",), ("finance",)], "a list", id="a_list"),
     pytest.param(None, "None", id="none"),
     pytest.param({"team": ["data"]}, "a dict", id="a_dict"),
+    pytest.param(_OtherLibrarysDataFrame(), "a polars DataFrame", id="another_librarys_dataframe"),
 ])
 def test_a_send_that_doesnt_give_back_a_dataframe_is_refused(answer, said) -> None:
     with pytest.raises(TypeError) as refused:

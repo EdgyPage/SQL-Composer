@@ -15568,7 +15568,7 @@ LOCATION '/data/your_team/tables/mart/typed'
 ValueError:
   What happened:  create_table(typed): c's type 'integer' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      For 'integer', write 'int'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      For 'integer', write 'int'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:bigint
@@ -15609,7 +15609,7 @@ LOCATION '/data/your_team/tables/mart/typed'
 ValueError:
   What happened:  create_table(typed): c's type 'real' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      For 'real', write 'float'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      For 'real', write 'float'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:double precision
@@ -15617,7 +15617,7 @@ ValueError:
 ValueError:
   What happened:  create_table(typed): c's type 'double precision' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      For 'double precision', write 'double'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      For 'double precision', write 'double'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:decimal
@@ -15625,7 +15625,7 @@ ValueError:
 ValueError:
   What happened:  create_table(typed): c's type 'decimal' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      For 'decimal', write 'decimal(10,0)'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      For 'decimal', write 'decimal(10,0)'. Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:decimal(10,2)
@@ -15655,7 +15655,7 @@ LOCATION '/data/your_team/tables/mart/typed'
 ValueError:
   What happened:  create_table(typed): c's type 'numeric(5,1)' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:string
@@ -15773,7 +15773,7 @@ LOCATION '/data/your_team/tables/mart/typed'
 ValueError:
   What happened:  create_table(typed): c's type 'bigint unsigned' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:json
@@ -15781,7 +15781,7 @@ ValueError:
 ValueError:
   What happened:  create_table(typed): c's type 'json' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:uuid
@@ -15789,7 +15789,7 @@ ValueError:
 ValueError:
   What happened:  create_table(typed): c's type 'uuid' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:interval
@@ -15797,7 +15797,7 @@ ValueError:
 ValueError:
   What happened:  create_table(typed): c's type 'interval' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:nonsense
@@ -15805,7 +15805,7 @@ ValueError:
 ValueError:
   What happened:  create_table(typed): c's type 'nonsense' isn't one create_table can use.
   Why it matters: create_table takes only the types Hive has, spelled as DESCRIBE prints them, such as int rather than integer, and with their sizes written out, such as decimal(10,2), so the table it makes matches its Table reference.
-  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not ones Hive reserves, such as date or user.
+  Usual fix:      Use string, bigint, int, smallint, tinyint, double, float, boolean, date, timestamp or binary; decimal, varchar or char with its sizes, such as decimal(10,2), varchar(50) or char(3), up to decimal(38,s), varchar(65535) and char(255); or an array, map or struct holding them, such as array<string>, map<string,int> or struct<name:string,runs:int>. A map's key is a single value, such as string, and a struct's names are plain words, not reserved words, such as date or user.
   Opt-out:        none - this one can't be switched off.
 
 == edge:create_table:may_exist
