@@ -56,6 +56,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `per_group_statement` to the Table notebook Templates; `settings_driven` and the
   intermediate `building_blocks` and `quality_statements` to `quality_checks` and
   `building_block`.
+- **The Example projects are Projects**: `admin/`, `references/`, `building_blocks/`, a
+  Table folder per Saved table with its notebook and its lineage, and `send.py`, made by the
+  `project` module's Project actions and filled in by hand. The starter project builds three
+  Saved tables; the intermediate one four, one from each of the other Table notebook
+  Templates. Their `table_references/`, `statements/` and `run_pipeline.py` are gone: a
+  Table notebook holds its table's Statements, and `admin/run_tables.ipynb` runs them in
+  order. Copy `sqlglot_composer` into a project's folder to open its notebooks.
 - **New: the `project` module**, imported by name, as `from sqlglot_composer import project`.
   `project.start()`, run once from a notebook in a folder beside `sqlglot_composer`, lays out a
   Project: `admin/` (a notebook per Project action, the Templates, a registry and the Admin

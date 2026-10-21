@@ -1,26 +1,24 @@
-"""A join to the team each job had on each row's day: an as-of lookup.
+"""owner_on_day - the team that owned each job on each day, joined as of that day.
 
-Why: a job can move team, as report_build moves from data to finance on 2026-09-18, so a
-Statement that counts per team must look each job's team up as of each row's day.
+Why: mart.job_day_facts saves each job's day beside its team then, and mart.team_days'
+notebook checks a day the same way, so both look the team up alike.
 
-ops.job_owners holds a snapshot of every job's team and owner each day, so a job's team on a
-day is in that day's snapshot: the join matches the job and the day. A Building block can be a
-join as well as a Derived table: this one returns the LEFT_JOIN(...) to put in a Statement,
-after its FROM(...).
+ops.job_owners holds a snapshot a day: each job's team and owner that day. A job can change
+teams, so a row is joined to the snapshot of its own day, not the newest.
 """
 
 from sqlglot_composer import LEFT_JOIN, all_of, between, equals
-from table_references.job_owners import job_owners
+from references.ops__job_owners import job_owners
 
 
 def owner_on_day(job_id_column, day_column, first_day, last_day):
     """LEFT_JOIN ops.job_owners on the job and the day, so job_owners.team is the team then.
 
-    job_id_column and day_column are the reading Statement's columns, such as events.job_id and
-    events.dt; first_day and last_day are the days it reads, written like "2026-09-24". Every read of a table must bound its Date partition at
-    both ends, a joined table's too, so they bound job_owners here, in ON=. by_day leaves a
-    joined table's bound as written, and the match on the day keeps each row to its own day's
-    snapshot.
+    job_id_column and day_column are the reading Statement's columns, such as events.job_id
+    and events.dt; first_day and last_day are the days it reads, written like "2026-09-24".
+    Every read of a table must bound its Date partition at both ends, a joined table's too, so
+    they bound job_owners here, in ON=. by_day leaves a joined table's bound as written, and
+    the match on the day keeps each row to its own day's snapshot.
 
     It is a LEFT_JOIN, so a row whose day has no snapshot yet keeps its numbers, with a NULL
     team, rather than being dropped. ON= names job_owners' whole key, the job and the day, so

@@ -1,33 +1,33 @@
-"""Write an Example project's generated files: its Table references and its lineage.
+"""Write an Example project: a Project made for the Example database, as a user makes one.
 
 An Example project, such as `example_projects/starter/` or `example_projects/intermediate/`, is
-a folder laid out as a project at work is: Table references, Building blocks, Statements and a
-script that runs them in order. Most of its files are written by hand. This writes the rest, so
-they stay what the Toolbox writes today:
+a Project: admin/, references/, building_blocks/, a Table folder per Saved table it builds, and
+send.py. Every file of it is written by this tool, the way a user makes their own:
 
     python tools/example_project.py --project intermediate
     python tools/example_project.py --project starter --into <folder>
 
-The first rewrites the generated files of `example_projects/intermediate/` itself (the starter
-project when --project is left out). The second writes the whole project into a folder that is
-new or empty, and refuses one that holds anything. A test fails while a committed generated
-file differs from what this writes.
+The first writes `example_projects/intermediate/` again, whole (the starter project when
+--project is left out). The second writes the project into a folder that is new or empty, and
+refuses one that holds anything. A test fails while a committed file differs from what this
+writes.
 
-For each project it:
+For each project, in a Python of its own, started in an empty folder, it:
 
-- writes the Table reference of each table the project reads with write_table_reference, on
-  the Example database, then fills in its TODO lines (the one-line description, the key, the
-  columns that don't add up, and the Date partition where the table's first partition holds no
-  day) from FILLED_IN, as a user fills them in by hand;
-- exports the lineage of each example and of the whole project with its run_pipeline.py's
-  write_lineage_files(DAY), with the time and the commit pinned, so the files are the same on
-  every computer. The version is the Toolbox's own, so raising TOOLBOX_VERSION makes the
-  committed lineage stale until this is run again;
-- for a project in REVIEWED_EDIT, first exports its lineage review's "before" file, from a copy
-  of the project with one Building block edit undone, as the user wrote it before the edit.
+- runs project.start(), and project.add_references(...) on the Example database, then fills in
+  each Table reference's TODO lines, and any Aliases, from FILLED_IN, as a user fills them in;
+- runs project.new_table(...) for each Saved table the project builds, then fills in its Table
+  reference and its notebook from the hand-written sources in
+  `tools/example_project_sources/<project>/`: `references/`, `tables/<db>__<table>.py`, a
+  notebook as its Template is written, in `# %%` cells, and `building_blocks/`;
+- copies the source's README.md, refreshes the Reference sheet, and exports each table's
+  lineage from its Table folder, as the notebook's lineage cell does.
 
-It runs no SELECT. The writing happens in a second Python whose folder is the project's: the project's folder names, such as table_references/, are the
-Worked examples' too, and its scripts import them as the user's notebook would.
+The time, the commit and the calling script are pinned, as if a notebook ran everything on
+PINNED_TIME at a commit named "pinned", so the files are the same on every computer. The
+version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
+until this is run again. It runs no SELECT, only DESCRIBE and SHOW PARTITIONS, which
+add_references sends.
 """
 
 from __future__ import annotations
@@ -38,22 +38,21 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import textwrap
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_PROJECTS = ROOT / "example_projects"
-LINEAGE = "lineage"
-TABLE_REFERENCES = "table_references"
-# The lineage's footer names the time, the commit and the version. The time and the commit are
-# pinned, so the files don't change with the day or the commit they were made at; the version
-# is the Toolbox's own, so the files say which Toolbox wrote them.
+SOURCES = ROOT / "tools" / "example_project_sources"
+# The time every Project action and lineage is made at, the commit it names, and the day each
+# lineage draws: the Example database's last day.
 PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
 PINNED_COMMIT = "pinned"
+DAY = "2026-09-24"
 
-# What a user fills in by hand after write_table_reference: each table's one-line description,
-# its key, and the columns that don't add up, with what each is, for each Example project.
+# What a user fills in by hand after add_references: each table's one-line description, its
+# key, the columns that don't add up, with what each is, and the Aliases written below it,
+# with what they call, for each Example project.
 FILLED_IN = {
     "starter": {
         "ops.jobs": {
@@ -65,11 +64,16 @@ FILLED_IN = {
             "one_row": "one row per run of a job, on the day it ran.",
             "key": ["run_id"],
             "does_not_add_up": {"avg_retry_secs": "an average"},
+            "aliases": ["minutes = job_runs.duration_mins",
+                        'failed = equals(job_runs.status, "FAILED")'],
+            "calls": ["equals"],
         },
         "ops.run_alerts": {
             "one_row": "one row per alert a run raised.",
             "key": ["alert_id"],
             "does_not_add_up": {},
+            "aliases": ['high = equals(run_alerts.severity, "high")'],
+            "calls": ["equals"],
         },
     },
     "intermediate": {
@@ -77,6 +81,8 @@ FILLED_IN = {
             "one_row": "one row per event of a run: start, retry, finish or fail.",
             "key": ["event_id"],
             "does_not_add_up": {},
+            "aliases": ['ends_a_run = is_in(job_events.event_type, ["finish", "fail"])'],
+            "calls": ["is_in"],
         },
         "ops.job_owners": {
             "one_row": "one row per job per day: the team and owner it had that day.",
@@ -96,34 +102,36 @@ FILLED_IN = {
 }
 # The Example projects, by the name of their folder in example_projects/.
 PROJECTS = tuple(FILLED_IN)
-
-# The Building block edit an Example project's lineage review shows, by project: the file, and
-# its line after the edit and before it. The project's run_pipeline.py writes the review's
-# "after" file with write_lineage_review(day, to=...); its "before" file is written the same
-# way, from a copy of the project with the edit undone, as a user writes it before editing.
-REVIEWED_EDIT = {
-    "intermediate": {
-        "file": "building_blocks/events_per_job_day.py",
-        "after": '    ends_a_run = is_in(job_events.event_type, ["finish", "fail"])',
-        "before": '    ends_a_run = equals(job_events.event_type, "finish")',
-    },
+# Each project's Saved tables, in the order a user makes them, each with its Template.
+SAVED_TABLES = {
+    "starter": [("mart.daily_job_runs", "daily_table"), ("mart.alerts_per_job", "daily_table"),
+                ("mart.team_day", "daily_table")],
+    "intermediate": [("mart.job_day_costs", "incremental_load"),
+                     ("mart.job_day_facts", "as_of_lookup"),
+                     ("mart.team_days", "weekly_rollup"),
+                     ("mart.job_events_checks", "quality_checks")],
 }
-REVIEW_BEFORE = "review_before_edit.html"
+# The tables whose lineage cell draws other tables too, through their notebooks' logic: each
+# table's lineage reads these tables' writes, then its own.
+LINEAGE_ACROSS = {
+    "mart.team_day": ["mart.daily_job_runs", "mart.alerts_per_job"],
+    "mart.team_days": ["mart.job_day_costs", "mart.job_day_facts"],
+}
 
 # The docstring every generated Table reference is given, after its first line.
 WHY = (
-    "Why: the project's Statements read the table through this file, so each column they name, "
+    "Why: the project's notebooks read the table through this file, so each column they name, "
     "and the key each join and count relies on, is checked as the Statement is built."
 )
 HOW = (
-    "write_table_reference wrote this file from the table's DESCRIBE and SHOW PARTITIONS. Its "
+    "project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. Its "
     "three TODO lines were then filled in by hand: this docstring's first line, the key, and "
     "does_not_add_up."
 )
-# The same, for a table whose first partition holds no day, so write_table_reference left its
-# Date partition as a TODO too.
+# The same, for a table whose first partition holds no day, so add_references left its Date
+# partition as a TODO too.
 HOW_WITH_THE_DATE_PARTITION = (
-    "write_table_reference wrote this file from the table's DESCRIBE and SHOW PARTITIONS. The "
+    "project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. The "
     "table's first partition, {first}, holds no day, so it left the Date partition as a TODO "
     "too. Its four TODO lines were then filled in by hand: this docstring's first line, the "
     "Date partition, {column}, with the way it writes its days, the key, and does_not_add_up."
@@ -134,34 +142,7 @@ BY_HAND = "# filled in by hand"
 
 
 class TodoMissing(RuntimeError):
-    """A TODO line FILLED_IN fills in isn't in the file write_table_reference wrote."""
-
-
-class EditMissing(RuntimeError):
-    """The line REVIEWED_EDIT undoes isn't in the Building block it names."""
-
-
-def table_reference_name(table: str) -> str:
-    """The file write_table_reference writes for a table, such as job_runs.py."""
-    return f"{table.split('.')[-1]}.py"
-
-
-def written_as_imported(text: str, written: str, imported: str) -> str:
-    """A Table reference's text with its Aliases heading's import naming the file it was
-    renamed to: table_references.job_runs, where it was written as table_references.ops__job_runs.
-    """
-    return text.replace(f"from {TABLE_REFERENCES}.{written} import",
-                        f"from {TABLE_REFERENCES}.{imported} import")
-
-
-def generated(project: str) -> list[str]:
-    """The project's generated Table references, as paths inside its folder."""
-    return [f"{TABLE_REFERENCES}/{table_reference_name(table)}" for table in FILLED_IN[project]]
-
-
-def is_generated(relative: str, project: str) -> bool:
-    """Whether a file of the project, by its path inside the folder, is generated."""
-    return relative in generated(project) or relative.startswith(f"{LINEAGE}/")
+    """A TODO line FILLED_IN fills in isn't in the file add_references wrote."""
 
 
 def project_files(folder: Path) -> list[str]:
@@ -171,7 +152,8 @@ def project_files(folder: Path) -> list[str]:
 
 
 def filled_in(text: str, table: str, filling: dict) -> str:
-    """A Table reference with its TODO lines replaced by what a user writes there."""
+    """A Table reference with its TODO lines replaced by what a user writes there, and the
+    Aliases a user adds below it."""
     partition = filling.get("date_partition")
     how = HOW_WITH_THE_DATE_PARTITION.format(**partition) if partition else HOW
     replacements = [
@@ -182,6 +164,9 @@ def filled_in(text: str, table: str, filling: dict) -> str:
         ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
          _does_not_add_up_line(filling["does_not_add_up"])),
     ]
+    if filling.get("calls"):
+        replacements.append(("from sqlglot_composer import Table",
+                             f"from sqlglot_composer import Table, {', '.join(filling['calls'])}"))
     if partition:
         replacements.append((TODO_DATE_PARTITION, _date_partition_lines(partition)))
     lines = text.split("\n")
@@ -194,7 +179,10 @@ def filled_in(text: str, table: str, filling: dict) -> str:
                 "writes: change FILLED_IN's replacements in tools/example_project.py to match."
             )
         lines[found[0]] = written
-    return "\n".join(lines)
+    text = "\n".join(lines)
+    if filling.get("aliases"):
+        text += "\n" + "\n".join(filling["aliases"]) + "\n"
+    return text
 
 
 def _wrapped(text: str) -> str:
@@ -226,106 +214,76 @@ def _date_partition_lines(partition: dict) -> str:
             f'    date_format="{partition["date_format"]}",')
 
 
+# --- In the second Python, whose folder is the new project's ----------------------------------
+
+
+def pin(sqlglot_composer) -> None:
+    """Pin what would differ between computers: the time, the commit, the calling script (a
+    notebook, as a user runs it) and the version the lineage names."""
+    from sqlglot_composer import lineage, project, unchecked
+
+    for module in (lineage, project, unchecked):
+        module._now = lambda: PINNED_TIME
+    lineage.scripts_commit = lambda _folder: PINNED_COMMIT
+    lineage.calling_file = lambda _frame: None
+    lineage._version = lambda: f"sqlglot Composer {sqlglot_composer.TOOLBOX_VERSION}"
+
+
+def write_here(name: str) -> None:
+    """Make the project in the empty folder this Python runs in, as a user makes it."""
+    folder = Path.cwd()
+    sys.path[:0] = [str(folder), str(ROOT)]
+    import sqlglot_composer
+    from sqlglot_composer import example_database, export_lineage, project
+    from sqlglot_composer.project import _template_cells, _write_notebook
+
+    pin(sqlglot_composer)
+    source = SOURCES / name
+    project.start()
+    project.add_references(list(FILLED_IN[name]), send=example_database.send)
+    for table, filling in FILLED_IN[name].items():
+        path = folder / "references" / f"{table.replace('.', '__')}.py"
+        path.write_text(filled_in(path.read_text(encoding="utf-8"), table, filling),
+                        encoding="utf-8")
+    for table, template in SAVED_TABLES[name]:
+        project.new_table(table, template=template)
+        stem = table.replace(".", "__")
+        shutil.copyfile(source / "references" / f"{stem}.py",
+                        folder / "references" / f"{stem}.py")
+        notebook = (source / "tables" / f"{stem}.py").read_text(encoding="utf-8")
+        _write_notebook(folder / "tables" / stem / f"{stem}.ipynb", _template_cells(notebook))
+    for block in sorted((source / "building_blocks").glob("*.py")):
+        shutil.copyfile(block, folder / "building_blocks" / block.name)
+    shutil.copyfile(source / "README.md", folder / "README.md")
+    project.refresh_reference_sheet()
+    for table, _ in SAVED_TABLES[name]:
+        stem = table.replace(".", "__")
+        os.chdir(folder / "tables" / stem)  # as the notebook's lineage cell runs
+        writes = []
+        for drawn in [*LINEAGE_ACROSS.get(table, []), table]:
+            written = project.load(drawn).write_day(DAY)
+            writes += written if isinstance(written, list) else [written]
+        export_lineage(*writes)
+        os.chdir(folder)
+    for path in folder.rglob("*"):
+        if path.is_file() and "__pycache__" not in path.parts:
+            _write_with_unix_endings(path)
+    for cache in folder.rglob("__pycache__"):
+        shutil.rmtree(cache, ignore_errors=True)
+
+
 def _write_with_unix_endings(path: Path) -> None:
     """Rewrite a file with \\n line endings, the same on every computer."""
     text = path.read_text(encoding="utf-8")
     path.write_text(text, encoding="utf-8", newline="\n")
 
 
-# --- In the second Python, whose folder is the project's -----------------------------------
-
-
-def write_here(project: str) -> None:
-    """Write the generated files into the project in the folder this Python runs in."""
-    folder = Path.cwd()
-    # The project's folders first, as in a notebook started in the project's folder, then the
-    # Toolbox's.
-    sys.path[:0] = [str(folder), str(ROOT)]
-    import sqlglot_composer
-    from sqlglot_composer import lineage
-
-    for table, filling in FILLED_IN[project].items():
-        written = sqlglot_composer.write_table_reference(
-            table, send=sqlglot_composer.example_database.send, folder=TABLE_REFERENCES)
-        # Its file is named for the table alone, as the project's scripts import it, until
-        # the Example projects are laid out as Projects, with a references/ folder.
-        path = written.rename(written.parent / table_reference_name(table)).resolve()
-        text = written_as_imported(path.read_text(encoding="utf-8"), written.stem, path.stem)
-        path.write_text(filled_in(text, table, filling), encoding="utf-8", newline="\n")
-
-    lineage._now = lambda: PINNED_TIME
-    lineage.scripts_commit = lambda _scripts_folder: PINNED_COMMIT
-    lineage._version = lambda: f"sqlglot Composer {sqlglot_composer.TOOLBOX_VERSION}"
-    if project in REVIEWED_EDIT:
-        write_review_before_the_edit(folder, REVIEWED_EDIT[project])
-    import run_pipeline
-
-    run_pipeline.write_lineage_files(run_pipeline.DAY)
-    for path in (folder / LINEAGE).iterdir():
-        _write_with_unix_endings(path)
-
-
-def write_review_before_the_edit(folder: Path, edit: dict) -> None:
-    """Write the lineage review's "before" file, from a copy of the project with the edit undone.
-
-    The copy's scripts are imported first, then put away, so the project's own are imported
-    afresh after.
-    """
-    names = {relative.split("/")[0].removesuffix(".py") for relative in project_files(folder)
-             if relative.endswith(".py")}
-    with tempfile.TemporaryDirectory() as temporary:
-        copy = Path(temporary) / folder.name
-        shutil.copytree(folder, copy, ignore=shutil.ignore_patterns(LINEAGE, "__pycache__"))
-        edited = copy / edit["file"]
-        text = edited.read_text(encoding="utf-8")
-        if text.count(edit["after"]) != 1:
-            raise EditMissing(
-                f"{edit['file']} has {text.count(edit['after'])} lines {edit['after']!r}, where "
-                "the lineage review undoes one. Change REVIEWED_EDIT in "
-                "tools/example_project.py, and the README's review section, to match the file."
-            )
-        edited.write_text(text.replace(edit["after"], edit["before"]), encoding="utf-8")
-        sys.path.insert(0, str(copy))
-        try:
-            import run_pipeline
-
-            run_pipeline.write_lineage_review(run_pipeline.DAY,
-                                              to=folder / LINEAGE / REVIEW_BEFORE)
-        finally:
-            sys.path.remove(str(copy))
-            for name in [name for name in sys.modules if name.split(".")[0] in names]:
-                del sys.modules[name]
-
-
 # --- In the Python you run -------------------------------------------------------------------
 
 
-def copy_project(source: Path, into: Path, project: str) -> None:
-    """Copy the project's hand-written files into `into`."""
-    for relative in project_files(source):
-        if is_generated(relative, project):
-            continue
-        text = (source / relative).read_text(encoding="utf-8")
-        target = into / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8", newline="\n")
-
-
-def remove_generated(into: Path, project: str) -> None:
-    for relative in generated(project):
-        (into / relative).unlink(missing_ok=True)
-    shutil.rmtree(into / LINEAGE, ignore_errors=True)
-    for cache in into.rglob("__pycache__"):
-        shutil.rmtree(cache, ignore_errors=True)
-
-
 def make(project: str, into: Path) -> int:
-    """Write the project into `into`, its generated files and all."""
-    source = EXAMPLE_PROJECTS / project
-    if into.resolve() != source.resolve():
-        copy_project(source, into, project)
-    remove_generated(into, project)
-    (into / TABLE_REFERENCES).mkdir(parents=True, exist_ok=True)
+    """Write the whole project into `into`, an empty folder."""
+    into.mkdir(parents=True, exist_ok=True)
     environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     return subprocess.run(
         [sys.executable, str(Path(__file__).resolve()), "--write-here", "--project", project],
@@ -334,11 +292,11 @@ def make(project: str, into: Path) -> int:
 
 
 def arguments(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Write an Example project's generated files.")
+    parser = argparse.ArgumentParser(description="Write an Example project.")
     parser.add_argument("--project", choices=PROJECTS, default=PROJECTS[0])
     parser.add_argument("--into", type=Path,
                         help="a new or empty folder to write the whole project into; leave it "
-                        "out to rewrite example_projects/<project>/ itself")
+                        "out to write example_projects/<project>/ again")
     parser.add_argument("--write-here", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args(argv)
 
@@ -351,15 +309,16 @@ def main(argv: list[str]) -> int:
     into = given.into
     if into is None:
         into = EXAMPLE_PROJECTS / given.project
+        shutil.rmtree(into, ignore_errors=True)
     elif into.exists() and (not into.is_dir() or any(into.iterdir())):
         print(f"{into} isn't an empty folder: name a new or empty one with --into, so no "
               "file of yours is written over.", file=sys.stderr)
         return 2
     if make(given.project, into) != 0:
-        print(f"The {given.project} Example project's generated files weren't all written: "
-              "see the error above.", file=sys.stderr)
+        print(f"The {given.project} Example project wasn't all written: see the error above.",
+              file=sys.stderr)
         return 1
-    print(f"Wrote the {given.project} Example project's generated files in {into}.")
+    print(f"Wrote the {given.project} Example project in {into}.")
     return 0
 
 

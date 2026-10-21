@@ -25,9 +25,9 @@ It then checks what it built:
 - each Toolbox file imports only what work has (the standard library, pandas, numpy, and sqlglot
   where `tools/toolbox_registry.py` allows it);
 - the stamped folder imports in a fresh Python, in the Clean tree and copied on its own;
-- each Example project's `run_pipeline.py` runs its dry run, in a fresh Python, finding the
-  Toolbox as its README says, and leaves no file behind; a dry run prints every step's Hive and
-  sends nothing;
+- each Example project's `run_tables` dry run runs, in a fresh Python started in its
+  `admin/` folder, finding the Toolbox at main's top, and leaves no file behind; a dry run
+  prints every table's write and sends nothing;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
   is imported or run: the Toolbox, the Example projects and the Templates, and the README,
   pages included and Markdown read as pages, so that none of it can reach the network;
@@ -81,6 +81,9 @@ CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
 # The folders main holds a copy of, for the user to copy and edit, at the paths dev has them.
 EXAMPLE_PROJECTS = "example_projects"
 COPIED = (EXAMPLE_PROJECTS,)
+# The files of an Example project with no comment syntax for a stamp: a Project's notebooks,
+# its registry and its Reference sheet.
+UNSTAMPED = (".ipynb", ".csv")
 # The how-tos, which how_to.html is written from, and which the README lists.
 HOW_TOS = "worked_examples/how_to"
 HOW_TOS_MARKER = "<!-- HOW-TOS -->"
@@ -231,20 +234,21 @@ def check_imports_alone(into: Path) -> None:
                             f"exported:\n{last_error(done.stderr)}")
 
 
-# Where an Example project on main finds the Toolbox: the Clean tree's top folder, two up.
-TOOLBOX_FROM_A_PROJECT = os.path.join(os.pardir, os.pardir)
+# Where an Example project's admin notebooks on main find the Toolbox: the Clean tree's top
+# folder, three up.
+TOOLBOX_FROM_ADMIN = os.path.join(os.pardir, os.pardir, os.pardir)
+# What each Example project's dry run runs, as admin/run_tables.ipynb's first cells do.
+DRY_RUN = 'from sqlglot_composer import project; project.run_tables("2026-09-24")'
 
 
 def check_dry_runs(into: Path) -> None:
-    """Run each Example project's run_pipeline.py, as its README says, in a fresh Python, and
-    refuse one that stops or prints no Hive. Its dry run prints the Hive of every step and
-    sends nothing."""
-    for script in sorted((into / EXAMPLE_PROJECTS).glob("*/run_pipeline.py")):
+    """Run each Example project's run_tables with no send, as its admin/run_tables.ipynb does,
+    in a fresh Python started in its admin/ folder, and refuse one that stops or prints no
+    Hive. The dry run prints each table's write and sends nothing."""
+    for admin in sorted((into / EXAMPLE_PROJECTS).glob("*/admin")):
         before = files_in(into)
-        done = fresh_python(
-            script.parent, "import runpy; runpy.run_path('run_pipeline.py', run_name='__main__')",
-            path=TOOLBOX_FROM_A_PROJECT)
-        where = script.relative_to(into).as_posix()
+        done = fresh_python(admin, DRY_RUN, path=TOOLBOX_FROM_ADMIN)
+        where = f"{admin.parent.relative_to(into).as_posix()}'s run_tables"
         # It runs inside the Clean tree, so anything it writes would ship unstamped.
         left = [path for path in files_in(into) if path not in before]
         if left:
@@ -254,7 +258,7 @@ def check_dry_runs(into: Path) -> None:
             raise ExportRefused(f"{where} doesn't run its dry run on main, so nothing was "
                                 f"exported:\n{last_error(done.stderr)}")
         if "-- 1 of " not in done.stdout:
-            raise ExportRefused(f"{where}'s dry run printed no step's Hive, which show_hive "
+            raise ExportRefused(f"{where}'s dry run printed no table's write, which it "
                                 f"heads with `-- 1 of `. It printed:\n{done.stdout[:500]}")
 
 
@@ -403,14 +407,17 @@ def copied_files(folder: Path) -> list[str]:
 
 
 def build_copies(source: Path, into: Path, stamp: str) -> None:
-    """Write the Example projects and the Templates into `into`, at dev's paths, stamped."""
+    """Write the Example projects into `into`, at dev's paths, stamped. A notebook or a CSV
+    file has no comment to hold a stamp, so it is copied as it is."""
     for folder in COPIED:
         for relative in copied_files(source / folder):
             where = f"{folder}/{relative}"
             text = (source / folder / relative).read_text(encoding="utf-8")
             target = into / folder / relative
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(stamped(where, text, stamp), encoding="utf-8", newline="\n")
+            if not relative.endswith(UNSTAMPED):
+                text = stamped(where, text, stamp)
+            target.write_text(text, encoding="utf-8", newline="\n")
 
 
 def build_folder(source: Path, into: Path, folder: str, stamp: str) -> None:

@@ -20,12 +20,17 @@ filterwarnings = [
 [tool.ruff]
 line-length = 96
 target-version = "py311"
-# A template's placeholders, such as <TABLE>, stop it parsing until it is filled in, on
-# purpose: tests/test_templates.py fills each one in and checks that it parses and runs.
-extend-exclude = ["templates"]
+# A Template's placeholders, such as <TABLE>, stop it parsing until it is filled in, on
+# purpose: tests/test_project_templates.py fills each one in and checks that it runs. The
+# Example projects' notebook sources are cells, whose imports sit at each cell's top.
+extend-exclude = ["example_projects/*/admin/templates", "tools/example_project_sources"]
 
 [tool.ruff.lint]
 extend-select = ["C901"]
+
+[tool.ruff.lint.per-file-ignores]
+# Its examples are commented out until you choose one, so its imports stand unused till then.
+"**/admin/change_a_saved_table.ipynb" = ["F401"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

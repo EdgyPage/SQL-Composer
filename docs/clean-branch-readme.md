@@ -173,34 +173,26 @@ Each result comes from the Example database or, where that can't run it, is comp
 
 ## Example projects
 
-An Example project is a folder of scripts laid out the way a project at work should be: Table
-references, Building blocks, Statements, and a `run_pipeline.py` that runs them in order, all
-written for the Example database's tables. `example_projects/` holds two:
+An Example project is a Project made for the Example database's tables, laid out as yours is:
+everything in it was made by the `project` module's Project actions, then filled in by hand.
+`example_projects/` holds two:
 
-- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Examples 1 and 2 each save
-  one day's numbers in a Saved table, and example 3 reads both to give each team's day.
-- `intermediate/`, which builds on the starter project, on `ops.job_events`, `ops.job_owners`
-  and `ops.region_costs`. Each run writes the last 3 days again, since rows can come in late.
-  Example 1 saves each job's cost per day; example 2 saves each job's daily row beside the team
-  that owned the job on that day; example 3 combines them into each team's days and weeks. It
-  also has quality checks made from a few settings, and compares the Lineage before and after
-  editing a Building block.
+- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: two Saved tables written a
+  day at a time, and a third, each team's day, read from both, through a Building block and
+  Aliases.
+- `intermediate/`, on `ops.job_events`, `ops.job_owners` and `ops.region_costs`, which builds
+  on the starter project: four Saved tables, one from each of the other Table notebook
+  Templates, each writing its last 3 days again on every run, since rows can come in late.
 
-Each project's `README.md` says what each file is and how to run it. The Example database can
-be read but not written, so running a project's `run_pipeline.py` prints the Hive of every
-step, in order, without sending anything (a dry run). Python must find the Toolbox's folder,
-two folders up from a project's folder, so in that folder run, in bash:
+Each project's `README.md` says what each folder holds and how to run it. Copy the
+`sqlglot_composer` folder into a project's folder first, as a Project holds it, then open its
+notebooks. The Example database can be read but not written, so a Table notebook's cell 3
+prints each write's Hive and runs only what reads the ops tables, and
+`admin/run_tables.ipynb`, with no send, prints every write in order, writers first, and sends
+nothing (a dry run).
 
-```
-PYTHONPATH=../.. python run_pipeline.py
-```
-
-In PowerShell, run `$env:PYTHONPATH = "..\.."` first, and in the Windows command prompt
-`set PYTHONPATH=..\..`, then `python run_pipeline.py`.
-
-To start a project of your own, copy one out of the download, put `sqlglot_composer` beside
-its `run_pipeline.py`, then replace its tables and Statements with yours, or write its scripts
-from the Templates below.
+To start a Project of your own, start it with `project.start()` rather than copying one: an
+Example project is for reading, and copying it would bring its tables and its Admin log.
 
 ## Templates
 

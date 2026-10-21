@@ -1,24 +1,20 @@
-"""The Example projects in `example_projects/`: generated files that are current, Statements
-that build, SELECTs that run, and a README that names every file.
+"""The Example projects in `example_projects/`: Projects that are current, whose Table
+notebooks' logic loads and writes each table's day, and whose previews give the numbers pandas
+gives for the same rows.
 
 Each project is written again by `tools/example_project.py` into a temporary folder and
-compared with the committed one, file by file, line endings aside.
-
-The project's scripts import their own folders, such as `table_references`, as a notebook
-started in the project's folder does. The Worked examples have folders of the same names, so
-the project's modules are imported with its folder first on the path, then put away again.
-
-The starter project's tests come first, then the intermediate project's. A SELECT that reads a
-Saved table, which only a warehouse holds, runs with the Saved table stood in for by the rows
-the Statement that writes it previews. One that sqlglot's executor can't run, such as one with
-row_number or week_start, isn't run.
+compared with the committed one, file by file, line endings aside. The rest runs on a copy of
+each project, as a notebook in it runs: `project.load` reads each Table notebook's logic cell,
+and `project.run_tables` orders and prints the writes. A preview that reads a Saved table,
+which only a warehouse holds, runs with the Saved table stood in for by the rows the notebook
+that writes it previews.
 """
 
 from __future__ import annotations
 
+import csv
 import datetime
-import importlib
-import inspect
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -27,184 +23,175 @@ import pandas as pd
 import pytest
 
 import example_project
-from conftest import (
-    INSERT, ROOT, example_rows, functions_given,
-    is_a_select_on_the_example_database, previewed_days, project_on_the_path, standing_in,
-    without_the_write,
-)
-from sqlglot_composer import example_database, run, to_hive
+from conftest import ROOT, example_rows, previewed_days, standing_in, without_the_write
+from sqlglot_composer import example_database, project, run, set_admin_log, to_hive
 
-STARTER = ROOT / "example_projects" / "starter"
-INTERMEDIATE = ROOT / "example_projects" / "intermediate"
-FOLDERS = {"starter": STARTER, "intermediate": INTERMEDIATE}
-EXAMPLES = ("example_1_daily_job_runs", "example_2_alerts_per_job", "example_3_team_day")
-# The steps each example offers, in the order they are sent.
-STEPS = ("create", "preview", "write_day", "backfill")
+DAY = "2026-09-24"
 DAYS = ("2026-09-23", "2026-09-24")
-# What each step's day parameters are given, by name.
-ARGUMENTS = {"day": DAYS[-1], "first_day": DAYS[0], "last_day": DAYS[-1]}
-TOP_NAMES = ("table_references", "building_blocks", "statements", "run_pipeline", "settings")
+I_DAYS = ("2026-09-14", "2026-09-18", "2026-09-24")
 
 
-def _module_names(folder: Path) -> list[str]:
-    """Each script of the project, as the module a notebook in its folder imports."""
-    return [relative.removesuffix(".py").replace("/", ".")
-            for relative in example_project.project_files(folder) if relative.endswith(".py")]
-
-
-def _imported(folder: Path):
-    """The project's modules by name, imported with its folder first on the path, then put
-    away again, and whatever modules of those names were there before put back."""
-    with project_on_the_path(folder, TOP_NAMES):
-        yield {name: importlib.import_module(name) for name in _module_names(folder)}
-
-
-@pytest.fixture(scope="module")
-def starter() -> dict:
-    """The starter project's modules by name, such as "statements.example_1_daily_job_runs"."""
-    yield from _imported(STARTER)
-
-
-@pytest.fixture(scope="module")
-def intermediate() -> dict:
-    """The intermediate project's modules by name, such as "statements.quality_checks"."""
-    yield from _imported(INTERMEDIATE)
-
-
-def example(project: dict, name: str):
-    return project[f"statements.{name}"]
-
-
-# --- The generated files ---------------------------------------------------------------------
-
-
-def write_project(into: Path, project: str = "starter") -> subprocess.CompletedProcess:
+def write_project(into: Path, name: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "example_project.py"), "--project", project,
-         "--into", str(into)],
-        capture_output=True, text=True, check=False,
-    )
+        [sys.executable, str(ROOT / "tools" / "example_project.py"), "--project", name,
+         "--into", str(into)], capture_output=True, text=True, check=False)
+
+
+@pytest.fixture(scope="module")
+def projects(tmp_path_factory) -> dict[str, Path]:
+    """A copy of each Example project, so loading its notebooks writes nothing in the repo."""
+    folder = tmp_path_factory.mktemp("example_projects")
+    for name in example_project.PROJECTS:
+        shutil.copytree(ROOT / "example_projects" / name, folder / name)
+    return {name: folder / name for name in example_project.PROJECTS}
+
+
+@pytest.fixture
+def inside(projects, monkeypatch):
+    """Work in a project's admin/ folder, as its admin notebooks do."""
+    set_admin_log()
+
+    def go(name: str) -> Path:
+        monkeypatch.chdir(projects[name] / "admin")
+        return projects[name]
+
+    return go
+
+
+def logic(inside, name: str, table: str):
+    inside(name)
+    return project.load(table)
+
+
+# --- The committed projects -------------------------------------------------------------------
 
 
 def test_every_example_project_has_a_folder() -> None:
-    assert set(example_project.PROJECTS) == set(FOLDERS)
+    assert sorted(path.name for path in (ROOT / "example_projects").iterdir()) == sorted(
+        example_project.PROJECTS)
 
 
-@pytest.mark.parametrize("project", example_project.PROJECTS)
-def test_the_committed_project_is_what_the_generator_writes(tmp_path: Path, project: str) -> None:
-    folder = FOLDERS[project]
-    into = tmp_path / project
-    written = write_project(into, project)
-    assert written.returncode == 0, written.stderr
-    committed = example_project.project_files(folder)
-    assert example_project.project_files(into) == committed
-    stale = [relative for relative in committed
-             if (into / relative).read_text(encoding="utf-8")
-             != (folder / relative).read_text(encoding="utf-8")]
-    assert stale == [], (
-        f"{stale} differ from what the generator writes: run "
-        f"python tools/example_project.py --project {project}"
-    )
+@pytest.mark.parametrize("name", example_project.PROJECTS)
+def test_the_committed_project_is_what_the_generator_writes(tmp_path: Path, name: str) -> None:
+    done = write_project(tmp_path / name, name)
+    assert done.returncode == 0, done.stderr
+    committed = ROOT / "example_projects" / name
+    assert example_project.project_files(tmp_path / name) == example_project.project_files(
+        committed)
+    for relative in example_project.project_files(committed):
+        written = (tmp_path / name / relative).read_text(encoding="utf-8")
+        assert written == (committed / relative).read_text(encoding="utf-8"), relative
 
 
 def test_the_generator_refuses_a_folder_that_holds_anything(tmp_path: Path) -> None:
-    (tmp_path / "notes.txt").write_text("mine", encoding="utf-8")
-    written = write_project(tmp_path)
-    assert written.returncode == 2
-    assert "isn't an empty folder" in written.stderr
-    assert [path.name for path in tmp_path.iterdir()] == ["notes.txt"]
-
-
-@pytest.mark.parametrize("project", example_project.PROJECTS)
-def test_the_generated_table_references_have_no_todo_left(project: str) -> None:
-    fillings = example_project.FILLED_IN[project].values()
-    for relative, filling in zip(example_project.generated(project), fillings, strict=True):
-        text = (FOLDERS[project] / relative).read_text(encoding="utf-8")
-        assert "TODO:" not in text and "TODO check" not in text, relative
-        # the key and does_not_add_up, and the Date partition where it was a TODO too
-        filled = 3 if "date_partition" in filling else 2
-        assert text.count(example_project.BY_HAND) == filled, relative
+    (tmp_path / "mine.txt").write_text("mine", encoding="utf-8")
+    done = write_project(tmp_path, "starter")
+    assert done.returncode == 2
+    assert "isn't an empty folder" in done.stderr
+    assert [path.name for path in tmp_path.iterdir()] == ["mine.txt"]
 
 
 def test_filling_in_refuses_a_table_reference_without_its_todo_line() -> None:
     filling = example_project.FILLED_IN["starter"]["ops.jobs"]
-    with pytest.raises(example_project.TodoMissing, match="has 0 lines starting"):
-        example_project.filled_in('"""ops.jobs - the jobs."""\n', "ops.jobs", filling)
+    with pytest.raises(example_project.TodoMissing, match="0 lines starting"):
+        example_project.filled_in('"""ops.jobs - mine."""\n', "ops.jobs", filling)
 
 
-def matches_the_example_databases(project: dict, tables: tuple[str, ...]) -> None:
-    for table in tables:
-        written = getattr(project[f"table_references.{table}"], table)
-        held = getattr(example_database, table)
-        assert written._columns == held._columns, table
-        assert written._key == held._key, table
-        assert written._date_partition == held._date_partition, table
-        assert written._date_format == held._date_format, table
-        assert written._does_not_add_up == held._does_not_add_up, table
+@pytest.mark.parametrize("name", example_project.PROJECTS)
+def test_a_project_has_no_todo_left_and_nothing_unregistered(inside, name: str) -> None:
+    root = inside(name)
+    for path in (root / "references").glob("ops__*.py"):
+        assert "# TODO" not in path.read_text(encoding="utf-8"), path.name
+    assert repr(project.check()) == ("Every Table folder and Table reference is registered, "
+                                     "and each one registered is there.")
 
 
-def test_the_generated_table_references_match_the_example_database(starter: dict) -> None:
-    matches_the_example_databases(starter, ("jobs", "job_runs", "run_alerts"))
+@pytest.mark.parametrize("name", example_project.PROJECTS)
+def test_each_table_has_its_lineage_named_by_the_time(name: str) -> None:
+    for table, _ in example_project.SAVED_TABLES[name]:
+        stem = table.replace(".", "__")
+        folder = ROOT / "example_projects" / name / "tables" / stem / "lineage"
+        assert sorted(path.name for path in folder.iterdir()) == [
+            f"20260925-060000-{stem}.html", f"20260925-060000-{stem}.md"]
 
 
-# --- The Statements ----------------------------------------------------------------------------
+def test_a_tables_lineage_across_tables_draws_the_tables_it_reads() -> None:
+    lineage = (ROOT / "example_projects" / "starter" / "tables" / "mart__team_day" / "lineage" /
+               "20260925-060000-mart__team_day.md").read_text(encoding="utf-8")
+    assert "ops.job_runs" in lineage and "ops.run_alerts" in lineage
 
 
-def test_each_example_has_every_step(starter: dict) -> None:
-    for name in EXAMPLES:
-        missing = [step for step in STEPS if not callable(getattr(example(starter, name), step,
-                                                                  None))]
-        assert missing == [], f"{name} has no {missing}"
+def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
+    path = ROOT / "example_projects" / "starter" / "references" / "reference_sheet.csv"
+    with open(path, encoding="utf-8", newline="") as sheet:
+        rows = list(csv.DictReader(sheet))
+    assert sorted({row["table"] for row in rows}) == [
+        "mart.alerts_per_job", "mart.daily_job_runs", "mart.team_day", "ops.job_runs",
+        "ops.jobs", "ops.run_alerts"]
+    assert [row["aliases"] for row in rows
+            if (row["table"], row["column"]) == ("ops.job_runs", "duration_mins")] == ["minutes"]
 
 
-def test_only_a_preview_has_a_day_already_filled_in(starter: dict) -> None:
-    """A write is never sent for a day nobody chose; a preview of the Example database's last
-    day may be."""
-    for name in EXAMPLES:
-        module = example(starter, name)
-        for step in ("write_day", "backfill"):
-            parameters = inspect.signature(getattr(module, step)).parameters.values()
-            assert all(p.default is inspect.Parameter.empty for p in parameters), f"{name}.{step}"
-        assert inspect.signature(module.preview).parameters["day"].default == DAYS[-1]
+# --- Each Table notebook's logic ------------------------------------------------------------
 
 
-def test_every_statement_function_builds(starter: dict) -> None:
-    built = {name: functions_given(example(starter, name), ARGUMENTS) for name in EXAMPLES}
-    for name, functions in built.items():
-        assert set(STEPS) <= set(functions), name
-        for function, statements in functions.items():
-            assert all(to_hive(s) for s in statements), f"{name}.{function}"
+@pytest.mark.parametrize(("name", "table"), [
+    (name, table) for name in example_project.PROJECTS
+    for table, _ in example_project.SAVED_TABLES[name]])
+def test_each_notebooks_logic_writes_its_tables_day(inside, name: str, table: str) -> None:
+    logic_of = logic(inside, name, table)
+    written = logic_of.write_day(DAY)
+    writes = written if isinstance(written, list) else [written]
+    assert f"INSERT OVERWRITE TABLE {table} PARTITION(dt = '{DAY}')\n" in to_hive(writes[-1])
+    if not isinstance(written, list):
+        # The preview is the SELECT the day's write sends. An incremental load's writes come
+        # from by_day, which writes each day's bound as one day, = rather than BETWEEN.
+        assert without_the_write(to_hive(written)) == to_hive(logic_of.preview(DAY))
 
 
-@pytest.mark.parametrize("name", EXAMPLES)
-@pytest.mark.parametrize("day", DAYS)
-def test_preview_is_the_select_write_day_sends(starter: dict, name: str, day: str) -> None:
-    module = example(starter, name)
-    assert without_the_write(to_hive(module.write_day(day))) == to_hive(module.preview(day))
+def test_an_incremental_table_writes_its_last_3_days(inside) -> None:
+    writes = logic(inside, "intermediate", "mart.job_day_costs").write_day(DAY)
+    inserts = [next(line for line in to_hive(write).splitlines() if line.startswith("INSERT"))
+               for write in writes]
+    assert [line[-13:] for line in inserts] == [
+        "'2026-09-22')", "'2026-09-23')", "'2026-09-24')"]
 
 
-@pytest.mark.parametrize("name", EXAMPLES)
-def test_backfill_writes_each_day_as_write_day_does(starter: dict, name: str) -> None:
-    module = example(starter, name)
-    firsts = [line for s in module.backfill(*DAYS) for line in to_hive(s).splitlines()
-              if line.startswith(INSERT)]
-    assert firsts == [next(line for line in to_hive(module.write_day(day)).splitlines()
-                           if line.startswith(INSERT)) for day in DAYS]
+@pytest.mark.needs_example_database
+def test_a_backfill_writes_each_day_what_write_day_writes(inside) -> None:
+    """by_day bounds each day's write with =, where write_day says BETWEEN the day and itself:
+    the same rows, which the Example database shows."""
+    logic_of = logic(inside, "starter", "mart.daily_job_runs")
+    for day, write in zip(DAYS, logic_of.backfill(*DAYS), strict=True):
+        assert f"PARTITION(dt = '{day}')" in to_hive(write)
+        same(example_database.send(without_the_write(to_hive(write))),
+             example_database.send(without_the_write(to_hive(logic_of.write_day(day)))))
 
 
-def test_example_2_reads_job_runs_from_the_day_before_in_both_writes(starter: dict) -> None:
-    module = example(starter, EXAMPLES[1])
-    assert "job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'" in to_hive(
-        module.write_day("2026-09-24"))
-    for s in module.backfill(*DAYS):
-        assert "job_runs.dt BETWEEN '2026-09-22' AND '2026-09-24'" in to_hive(s)
+@pytest.mark.parametrize(("name", "reader", "read"), [
+    ("starter", "mart.team_day", ["mart.daily_job_runs", "mart.alerts_per_job"]),
+    ("intermediate", "mart.team_days", ["mart.job_day_costs", "mart.job_day_facts"]),
+])
+def test_run_tables_prints_each_write_writers_first(inside, capsys, name, reader, read) -> None:
+    inside(name)
+    report = project.run_tables(DAY)
+    headings = [line.split(": ", 1)[1] for line in capsys.readouterr().out.splitlines()
+                if line.startswith("-- ")]
+    tables = [table for table, _ in example_project.SAVED_TABLES[name]]
+    assert sorted(set(headings)) == sorted(tables)
+    assert headings.index(reader) > max(len(headings) - 1 - headings[::-1].index(table)
+                                        for table in read)
+    assert "sent nothing" in repr(report)
 
 
-def test_example_3_reads_both_saved_tables_and_the_jobs(starter: dict) -> None:
-    hive = to_hive(example(starter, EXAMPLES[2]).preview())
-    assert "FROM mart.daily_job_runs AS daily_job_runs" in hive
-    assert "LEFT JOIN mart.alerts_per_job AS alerts_per_job" in hive
-    assert "JOIN ops.jobs AS jobs" in hive
+# --- The numbers each preview gives, against pandas ------------------------------------------
+
+
+def same(got: pd.DataFrame, expected: pd.DataFrame) -> None:
+    pd.testing.assert_frame_equal(got.reset_index(drop=True).astype("int64", errors="ignore"),
+                                  expected.reset_index(drop=True).astype("int64",
+                                                                          errors="ignore"),
+                                  check_dtype=False)
 
 
 def runs_on(day: str) -> pd.DataFrame:
@@ -230,275 +217,11 @@ def alerts_on(day: str) -> pd.DataFrame:
             .reset_index())
 
 
-def team_totals(daily: pd.DataFrame, alerts: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Each team's sums of the jobs' rows, in pandas, with 0 alerts for a job with none."""
+def team_runs_on(day: str) -> pd.DataFrame:
+    """Each team's runs, failed runs and minutes on the day, in pandas."""
     teams = example_rows("jobs")[["job_id", "team"]]
-    rows = daily.merge(teams, on="job_id")
-    columns = ["runs", "failed_runs", "minutes"]
-    if alerts is not None:
-        rows = rows.merge(alerts, on="job_id", how="left")
-        columns += ["alerts", "high_alerts"]
-    return rows.groupby("team")[columns].sum().reset_index()
-
-
-def same(got: pd.DataFrame, expected: pd.DataFrame) -> None:
-    pd.testing.assert_frame_equal(got.reset_index(drop=True).astype("int64", errors="ignore"),
-                                  expected.reset_index(drop=True).astype("int64",
-                                                                          errors="ignore"),
-                                  check_dtype=False)
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", DAYS)
-def test_example_1_previews_each_jobs_runs(starter: dict, day: str) -> None:
-    got = run(example(starter, EXAMPLES[0]).preview(day), send=example_database.send)
-    same(got, runs_on(day))
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", DAYS)
-def test_example_2_previews_each_jobs_alerts(starter: dict, day: str) -> None:
-    got = run(example(starter, EXAMPLES[1]).preview(day), send=example_database.send)
-    same(got, alerts_on(day))
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("name", EXAMPLES[:2])
-def test_each_day_of_a_backfill_saves_what_its_preview_shows(starter: dict, name: str) -> None:
-    module = example(starter, name)
-    for day, write in zip(DAYS, module.backfill(*DAYS)):
-        saved = example_database.send(without_the_write(to_hive(write)))
-        same(saved, run(module.preview(day), send=example_database.send))
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", DAYS)
-def test_example_3_groups_each_teams_runs_from_job_runs(starter: dict, day: str) -> None:
-    got = run(example(starter, EXAMPLES[2]).team_runs_from_job_runs(day),
-              send=example_database.send)
-    same(got, team_totals(runs_on(day)))
-
-
-def rows_as_select(rows: pd.DataFrame, day: str) -> str:
-    """Hive that gives the rows, and the day as dt, standing in for a Saved table's day."""
-    def value(x) -> str:
-        return f"'{x}'" if isinstance(x, str) else str(int(x))
-
-    selects = [", ".join(f"{value(x)} AS {column}" for column, x in
-                         [*zip(rows.columns, row), ("dt", day)])
-               for row in rows.itertuples(index=False)]
-    assert selects, "a Saved table standing in with no rows"
-    return " UNION ALL ".join(f"SELECT {select}" for select in selects)
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", DAYS)
-def test_example_3_previews_each_teams_day_from_what_examples_1_and_2_save(
-        starter: dict, day: str) -> None:
-    """The Saved tables only a warehouse holds are stood in for by the rows examples 1 and 2
-    preview for the day, as written into example 3's Hive."""
-    daily = run(example(starter, EXAMPLES[0]).preview(day), send=example_database.send)
-    alerts = run(example(starter, EXAMPLES[1]).preview(day), send=example_database.send)
-    hive = to_hive(example(starter, EXAMPLES[2]).preview(day))
-    for table, rows in (("daily_job_runs", daily), ("alerts_per_job", alerts)):
-        saved = f"mart.{table} AS {table}"
-        assert hive.count(saved) == 1, table
-        hive = hive.replace(saved, f"({rows_as_select(rows, day)}) AS {table}")
-    same(example_database.send(hive), team_totals(daily, alerts))
-
-
-@pytest.mark.needs_example_database
-def test_every_select_on_the_example_databases_tables_runs(starter: dict) -> None:
-    """Each SELECT a step returns runs, unless it reads a Saved table, which only a warehouse
-    holds."""
-    ran = []
-    for name in EXAMPLES:
-        for function, statements in functions_given(example(starter, name), ARGUMENTS).items():
-            for s in statements:
-                if is_a_select_on_the_example_database(s):
-                    run(s, send=example_database.send)
-                    ran.append(f"{name}.{function}")
-    assert ran == [f"{EXAMPLES[0]}.preview", f"{EXAMPLES[1]}.preview",
-                   f"{EXAMPLES[2]}.team_runs_from_job_runs"]
-
-
-# --- run_pipeline.py ---------------------------------------------------------------------------
-
-
-def test_the_steps_put_each_writer_before_its_readers(starter: dict) -> None:
-    hive = [to_hive(s) for s in starter["run_pipeline"].steps(DAYS[-1])]
-    writes = [i for i, text in enumerate(hive) if INSERT in text]
-    creates = [i for i, text in enumerate(hive) if text.startswith("CREATE EXTERNAL TABLE")]
-    assert max(creates) < min(writes)
-    written = {i: text.split(f"{INSERT} ")[1].split()[0] for i, text in
-               enumerate(hive) if i in writes}
-    for i, table in written.items():
-        readers = [j for j in writes
-                   if j != i and (f"FROM {table} " in hive[j] or f"JOIN {table} " in hive[j])]
-        assert readers or table == "mart.team_day", f"nothing reads {table}"
-        assert all(j > i for j in readers), f"{table} is read before it is written"
-
-
-def test_the_dry_run_prints_every_steps_hive_under_its_name(starter: dict, capsys) -> None:
-    pipeline = starter["run_pipeline"]
-    pipeline.dry_run(DAYS[-1])
-    printed = capsys.readouterr().out
-    steps = pipeline.steps(DAYS[-1])
-    names = ["create_daily_job_runs", "create_alerts_per_job", "create_team_day",
-             "write_daily_job_runs", "write_alerts_per_job", "write_team_day"]
-    assert len(steps) == len(names)
-    for position, (name, s) in enumerate(zip(names, steps), start=1):
-        assert f"-- {position} of {len(steps)}: {name}\n{to_hive(s)};" in printed
-
-
-def test_send_all_sends_every_step_in_order(starter: dict) -> None:
-    pipeline = starter["run_pipeline"]
-    sent = []
-    pipeline.send_all(sent.append, DAYS[-1])
-    assert sent == [to_hive(s) for s in pipeline.steps(DAYS[-1])]
-
-
-# --- The README --------------------------------------------------------------------------------
-
-
-def test_the_readme_names_every_file_and_step() -> None:
-    readme = (STARTER / "README.md").read_text(encoding="utf-8")
-    unnamed = [relative for relative in example_project.project_files(STARTER)
-               if f"`{relative}`" not in readme]
-    unnamed += [step for step in STEPS if f"`{step}(" not in readme]
-    assert unnamed == []
-
-
-# === The intermediate project ===================================================================
-
-I_EXAMPLES = ("example_1_job_day_costs", "example_2_owner_as_of", "example_3_team_week")
-# The steps each intermediate example offers, in the order they are sent.
-I_STEPS = ("create", "preview", "write_days")
-# Days to check: a team change (2026-09-18, report_build moves and fails), a retry (09-14), a
-# run still going and a bill not yet in (09-24).
-I_DAYS = ("2026-09-14", "2026-09-18", "2026-09-24")
-WINDOW = ("2026-09-22", "2026-09-24")  # the last 3 days, as each run writes them
-ALL_DAYS = ("2026-09-11", "2026-09-24")  # every day the Example database holds
-
-
-def i_arguments(intermediate: dict) -> dict:
-    """What each intermediate step's parameters are given, by name."""
-    return {"day": DAYS[-1], "first_day": WINDOW[0], "last_day": WINDOW[-1],
-            "table": intermediate["settings"].REGION_COSTS}
-
-
-# --- The generated files and settings.py ---------------------------------------------------------
-
-
-def test_the_intermediate_table_references_match_the_example_database(
-        intermediate: dict) -> None:
-    matches_the_example_databases(intermediate, ("job_events", "job_owners", "region_costs"))
-
-
-def test_region_costs_names_its_date_partition_and_how_it_writes_days() -> None:
-    text = (INTERMEDIATE / "table_references" / "region_costs.py").read_text(encoding="utf-8")
-    assert '    date_partition="dt",\n    date_format="%Y%m%d",\n' in text
-    assert "region, the first partition, holds no day" in text
-
-
-def test_settings_name_each_tables_key_as_its_table_reference_does(intermediate: dict) -> None:
-    checks = intermediate["statements.quality_checks"]
-    tables = intermediate["settings"].TABLES_READ
-    assert [table["name"] for table in tables] == list(checks.TABLE_REFERENCES)
-    for table in tables:
-        t = checks.TABLE_REFERENCES[table["name"]]
-        assert t._name == table["name"]
-        assert t._key == table["key"], table["name"]
-        assert t._date_partition == table["date_partition"], table["name"]
-        assert set(table["add_up"]) <= set(t._columns), table["name"]
-
-
-def test_the_review_edit_is_refused_where_its_line_isnt(tmp_path: Path) -> None:
-    edit = example_project.REVIEWED_EDIT["intermediate"]
-    edited = tmp_path / edit["file"]
-    edited.parent.mkdir(parents=True)
-    edited.write_text('"""A Building block."""\n', encoding="utf-8")
-    with pytest.raises(example_project.EditMissing, match="has 0 lines"):
-        example_project.write_review_before_the_edit(tmp_path, edit)
-
-
-def test_the_review_edit_is_the_one_the_readme_shows() -> None:
-    edit = example_project.REVIEWED_EDIT["intermediate"]
-    readme = (INTERMEDIATE / "README.md").read_text(encoding="utf-8")
-    assert f"-{edit['before']}\n+{edit['after']}\n" in readme
-    block = (INTERMEDIATE / edit["file"]).read_text(encoding="utf-8")
-    assert block.count(edit["after"]) == 1
-
-
-def test_the_lineage_review_differs_only_by_the_edit() -> None:
-    """Spaces aside, the "after" file is the "before" file with the edited condition changed,
-    in the Python and in the Hive."""
-    before = (INTERMEDIATE / "lineage" / "review_before_edit.md").read_text(encoding="utf-8")
-    after = (INTERMEDIATE / "lineage" / "review_after_edit.md").read_text(encoding="utf-8")
-    edited = "".join(before.split())
-    assert edited != "".join(after.split())
-    for old, new in (('equals(job_events.event_type,"finish")',
-                      'is_in(job_events.event_type,["finish","fail"])'),
-                     ("job_events.event_type='finish'", "job_events.event_type IN('finish','fail')")):
-        assert old in edited
-        edited = edited.replace(old, "".join(new.split()))
-    assert edited == "".join(after.split())
-    team_days = after[after.index("## write_team_days"):]
-    minutes = team_days[team_days.index("#### `minutes`"):].split("####")[1]
-    assert 'where=is_in(job_events.event_type, ["finish", "fail"])' in minutes
-
-
-# --- The Statements ----------------------------------------------------------------------------
-
-
-def test_each_intermediate_example_has_every_step(intermediate: dict) -> None:
-    for name in I_EXAMPLES:
-        module = example(intermediate, name)
-        missing = [step for step in I_STEPS if not callable(getattr(module, step, None))]
-        assert missing == [], f"{name} has no {missing}"
-
-
-def test_only_a_select_has_a_day_already_filled_in(intermediate: dict) -> None:
-    """A write is never sent for a day nobody chose; a SELECT of the Example database's last
-    day may be."""
-    for name in I_EXAMPLES:
-        module = example(intermediate, name)
-        parameters = inspect.signature(module.write_days).parameters.values()
-        assert all(p.default is inspect.Parameter.empty for p in parameters), name
-        assert inspect.signature(module.preview).parameters["day"].default == DAYS[-1]
-
-
-def test_every_intermediate_statement_function_builds(intermediate: dict) -> None:
-    arguments = i_arguments(intermediate)
-    for name in (*I_EXAMPLES, "quality_checks"):
-        functions = functions_given(example(intermediate, name), arguments)
-        if name in I_EXAMPLES:
-            assert set(I_STEPS) <= set(functions), name
-        for function, statements in functions.items():
-            assert all(to_hive(s) for s in statements), f"{name}.{function}"
-
-
-@pytest.mark.parametrize("name", I_EXAMPLES)
-def test_write_days_writes_each_day_once_oldest_first(intermediate: dict, name: str) -> None:
-    writes = example(intermediate, name).write_days(*WINDOW)
-    firsts = [to_hive(write).split(INSERT)[1].splitlines()[0] for write in writes]
-    target = {"example_1_job_day_costs": "mart.job_day_costs",
-              "example_2_owner_as_of": "mart.job_day_facts",
-              "example_3_team_week": "mart.team_days"}[name]
-    assert firsts == [f" {target} PARTITION(dt = '{day}')"
-                      for day in ("2026-09-22", "2026-09-23", "2026-09-24")]
-
-
-def test_example_1_reads_region_costs_days_its_own_way(intermediate: dict) -> None:
-    hive = to_hive(example(intermediate, I_EXAMPLES[0]).write_days(*WINDOW)[0])
-    assert "region_costs.dt = '20260922'" in hive
-    assert "PARTITION(dt = '2026-09-22')" in hive
-
-
-def test_example_3_reads_both_saved_tables(intermediate: dict) -> None:
-    hive = to_hive(example(intermediate, I_EXAMPLES[2]).preview())
-    assert "FROM mart.job_day_facts AS job_day_facts" in hive
-    assert "LEFT JOIN mart.job_day_costs AS job_day_costs" in hive
+    return (runs_on(day).merge(teams, on="job_id")
+            .groupby("team")[["runs", "failed_runs", "minutes"]].sum().reset_index())
 
 
 def costs_on(day: str) -> pd.DataFrame:
@@ -537,249 +260,74 @@ def team_day_on(day: str, with_costs: bool = True) -> pd.DataFrame:
             .agg(lambda numbers: numbers.sum(min_count=1)).reset_index())
 
 
-def newest_owners_on(day: str) -> pd.DataFrame:
-    """Each job's team and owner in its newest snapshot from the 7 days up to the day."""
-    owners = example_rows("job_owners")
-    first_day = (datetime.date.fromisoformat(day) - datetime.timedelta(days=6)).isoformat()
-    owners = owners[(owners.dt >= first_day) & (owners.dt <= day)]
-    newest = owners.sort_values("dt").groupby("job_id").tail(1).sort_values("job_id")
-    return newest[["job_id", "team", "owner", "dt"]]
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("day", DAYS)
+def test_daily_job_runs_previews_each_jobs_runs(inside, day: str) -> None:
+    preview = logic(inside, "starter", "mart.daily_job_runs").preview(day)
+    same(run(preview, send=example_database.send), runs_on(day))
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("day", DAYS)
+def test_alerts_per_job_previews_each_jobs_alerts(inside, day: str) -> None:
+    preview = logic(inside, "starter", "mart.alerts_per_job").preview(day)
+    same(run(preview, send=example_database.send), alerts_on(day))
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("day", DAYS)
+def test_team_day_groups_each_teams_runs_from_job_runs(inside, day: str) -> None:
+    check = logic(inside, "starter", "mart.team_day").team_runs_from_job_runs(day)
+    same(run(check, send=example_database.send), team_runs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_intermediate_example_1_previews_each_jobs_cost(intermediate: dict, day: str) -> None:
-    got = run(example(intermediate, I_EXAMPLES[0]).preview(day), send=example_database.send)
-    same(got, costs_on(day))
+def test_job_day_costs_previews_each_jobs_cost(inside, day: str) -> None:
+    preview = logic(inside, "intermediate", "mart.job_day_costs").preview(day)
+    same(run(preview, send=example_database.send), costs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_intermediate_example_2_previews_each_jobs_day_with_its_team_then(
-        intermediate: dict, day: str) -> None:
-    got = run(example(intermediate, I_EXAMPLES[1]).preview(day), send=example_database.send)
-    same(got, facts_on(day))
+def test_job_day_facts_previews_each_jobs_day_with_its_team_then(inside, day: str) -> None:
+    preview = logic(inside, "intermediate", "mart.job_day_facts").preview(day)
+    same(run(preview, send=example_database.send), facts_on(day))
 
 
 @pytest.mark.needs_example_database
-def test_example_2_counts_report_builds_days_for_the_team_it_had_then(
-        intermediate: dict) -> None:
-    module = example(intermediate, I_EXAMPLES[1])
-    teams = {day: run(module.preview(day), send=example_database.send).set_index("job_id")
+def test_job_day_facts_counts_a_job_for_the_team_it_had_then(inside) -> None:
+    logic_of = logic(inside, "intermediate", "mart.job_day_facts")
+    teams = {day: run(logic_of.preview(day), send=example_database.send).set_index("job_id")
              .team.get(3) for day in ("2026-09-14", "2026-09-18")}
     assert teams == {"2026-09-14": "data", "2026-09-18": "finance"}
 
 
 @pytest.mark.needs_example_database
-@pytest.mark.parametrize("name", I_EXAMPLES[:2])
-def test_each_day_of_write_days_saves_what_its_preview_shows(
-        intermediate: dict, name: str) -> None:
-    module = example(intermediate, name)
-    days = ("2026-09-22", "2026-09-23", "2026-09-24")
-    for day, write in zip(days, module.write_days(*WINDOW), strict=True):
-        saved = example_database.send(without_the_write(to_hive(write)))
-        same(saved, run(module.preview(day), send=example_database.send))
-
-
-@pytest.mark.needs_example_database
-def test_each_day_of_example_3s_write_days_saves_what_its_preview_shows(
-        intermediate: dict) -> None:
-    """The Saved tables only a warehouse holds are stood in for, in both, by the rows examples
-    1 and 2 preview for each day."""
-    days = ("2026-09-22", "2026-09-23", "2026-09-24")
-    saved = {"job_day_facts": previewed_days(example(intermediate, I_EXAMPLES[1]), days),
-             "job_day_costs": previewed_days(example(intermediate, I_EXAMPLES[0]), days)}
-    module = example(intermediate, I_EXAMPLES[2])
-    for day, write in zip(days, module.write_days(*WINDOW), strict=True):
-        written = example_database.send(standing_in(without_the_write(to_hive(write)), saved))
-        previewed = example_database.send(standing_in(to_hive(module.preview(day)), saved))
-        same(written, previewed)
-        same(written, team_day_on(day))
+@pytest.mark.parametrize("day", I_DAYS)
+def test_team_days_groups_each_teams_day_from_job_events(inside, day: str) -> None:
+    check = logic(inside, "intermediate", "mart.team_days").team_day_from_job_events(day)
+    same(run(check, send=example_database.send), team_day_on(day, with_costs=False))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_example_2_finds_each_jobs_newest_owner_without_row_number(
-        intermediate: dict, day: str) -> None:
-    module = example(intermediate, I_EXAMPLES[1])
-    got = run(module.newest_owners_by_newest_day(day), send=example_database.send)
-    same(got, newest_owners_on(day))
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", I_DAYS)
-def test_example_3_groups_each_teams_day_from_job_events(intermediate: dict, day: str) -> None:
-    got = run(example(intermediate, I_EXAMPLES[2]).team_day_from_job_events(day),
-              send=example_database.send)
-    same(got, team_day_on(day, with_costs=False))
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", I_DAYS)
-def test_intermediate_example_3_previews_each_teams_day_from_both_saved_tables(
-        intermediate: dict, day: str) -> None:
-    """The Saved tables only a warehouse holds are stood in for by the rows examples 1 and 2
+def test_team_days_previews_each_teams_day_from_both_saved_tables(inside, day: str) -> None:
+    """The Saved tables only a warehouse holds are stood in for by the rows their notebooks
     preview for the day."""
-    saved = {"job_day_facts": previewed_days(example(intermediate, I_EXAMPLES[1]), [day]),
-             "job_day_costs": previewed_days(example(intermediate, I_EXAMPLES[0]), [day])}
-    hive = standing_in(to_hive(example(intermediate, I_EXAMPLES[2]).preview(day)), saved)
+    saved = {"job_day_facts": previewed_days(logic(inside, "intermediate",
+                                                   "mart.job_day_facts"), [day]),
+             "job_day_costs": previewed_days(logic(inside, "intermediate",
+                                                   "mart.job_day_costs"), [day])}
+    preview = logic(inside, "intermediate", "mart.team_days").preview(day)
+    hive = standing_in(to_hive(preview), saved)
     same(example_database.send(hive), team_day_on(day))
 
 
-# --- The quality checks --------------------------------------------------------------------------
-
-
-def window_rows(table: str, day_column_compact: bool = False) -> pd.DataFrame:
-    rows = example_rows(table)
-    first, last = WINDOW
-    if day_column_compact:
-        first, last = first.replace("-", ""), last.replace("-", "")
-    return rows[(rows.dt >= first) & (rows.dt <= last)]
-
-
 @pytest.mark.needs_example_database
-def test_the_quality_checks_find_what_pandas_finds(intermediate: dict) -> None:
-    checks = intermediate["statements.quality_checks"].every_check(*WINDOW)
-    for table in intermediate["settings"].TABLES_READ:
-        name = table["name"]
-        rows = window_rows(name.split(".")[1], day_column_compact=name == "ops.region_costs")
-        repeated = run(checks[f"repeated_keys {name}"], send=example_database.send)
-        assert list(repeated.columns) == [*table["key"], "times_seen"]
-        assert len(repeated) == rows.duplicated(table["key"]).sum() == 0
-        nulls = run(checks[f"null_counts {name}"], send=example_database.send)
-        expected = rows.drop(columns="dt").isna().sum().add_prefix("null_").to_frame().T
-        same(nulls, expected)
-        per_day = run(checks[f"rows_per_day {name}"], send=example_database.send)
-        expected = rows.groupby("dt").agg(row_count=("dt", "size"),
-                                          **{c: (c, "sum") for c in table["add_up"]})
-        same(per_day, expected.reset_index())
-
-
-@pytest.mark.needs_example_database
-def test_the_check_of_jobs_not_run_finds_what_pandas_finds(intermediate: dict) -> None:
-    checks = intermediate["statements.quality_checks"]
-    got = run(checks.jobs_not_run(*WINDOW), send=example_database.send)
-    owners = window_rows("job_owners")
-    ran = window_rows("job_events")[["job_id", "dt"]].drop_duplicates().assign(ran=True)
-    expected = owners.merge(ran, on=["job_id", "dt"], how="left")
-    expected = expected[expected.ran.isna()][["job_id", "team", "owner", "dt"]]
-    same(got, expected.sort_values(["job_id", "dt"]))
-    assert set(got.job_id) == {3, 4}  # report_build, on days it didn't run, and cache_warm
-
-
-@pytest.mark.needs_example_database
-def test_the_costs_saved_match_the_costs_billed(intermediate: dict) -> None:
-    """mart.job_day_costs, which only a warehouse holds, is stood in for by what example 1
-    previews for each day."""
-    days = ("2026-09-22", "2026-09-23", "2026-09-24")
-    saved = previewed_days(example(intermediate, I_EXAMPLES[0]), days)
-    hive = to_hive(intermediate["statements.quality_checks"].costs_billed_and_saved(*WINDOW))
-    got = example_database.send(standing_in(hive, {"job_day_costs": saved}))
-    billed = window_rows("region_costs", day_column_compact=True).cost_cents.sum()
-    same(got, pd.DataFrame({"cents_billed": [billed], "cents_saved": [billed]}))
-
-
-@pytest.mark.needs_example_database
-def test_every_intermediate_select_on_the_example_databases_tables_runs(
-        intermediate: dict) -> None:
-    """Each SELECT runs, unless it reads a Saved table, which only a warehouse holds, or holds
-    what sqlglot's executor can't run."""
-    ran = []
-    arguments = i_arguments(intermediate)
-    for name in (*I_EXAMPLES, "quality_checks"):
-        for function, statements in functions_given(example(intermediate, name),
-                                                    arguments).items():
-            for s in statements:
-                if not is_a_select_on_the_example_database(s):
-                    continue
-                if "ROW_NUMBER" in to_hive(s):
-                    continue  # sqlglot's executor has no window functions
-                run(s, send=example_database.send)
-                ran.append(f"{name}.{function}")
-    expected = [f"{I_EXAMPLES[0]}.preview", f"{I_EXAMPLES[1]}.preview",
-                f"{I_EXAMPLES[1]}.newest_owners", f"{I_EXAMPLES[1]}.newest_owners_by_newest_day",
-                f"{I_EXAMPLES[2]}.team_day_from_job_events",
-                *[f"quality_checks.{check}" for check in
-                  ("repeated_keys", "null_counts", "rows_per_day")],
-                # every check but costs_billed_and_saved, which reads a Saved table
-                *["quality_checks.every_check"] * (3 * len(intermediate["settings"].TABLES_READ)
-                                                   + 1),
-                "quality_checks.jobs_not_run"]
-    expected.remove(f"{I_EXAMPLES[1]}.newest_owners")
-    assert sorted(ran) == sorted(expected)
-
-
-# --- run_pipeline.py ---------------------------------------------------------------------------
-
-
-def test_the_intermediate_steps_put_each_writer_before_its_readers(intermediate: dict) -> None:
-    pipeline = intermediate["run_pipeline"]
-    hive = [to_hive(s) for s in pipeline.in_order(pipeline.steps(DAYS[-1]))]
-    writes = [i for i, text in enumerate(hive) if INSERT in text]
-    creates = [i for i, text in enumerate(hive) if text.startswith("CREATE EXTERNAL TABLE")]
-    assert max(creates) < min(writes)
-    written = {i: (hive[i].split(f"{INSERT} ")[1].split()[0],
-                   hive[i].split("PARTITION(dt = ")[1][:12]) for i in writes}
-    for i, (table, day) in written.items():
-        readers = [j for j in writes if j != i and written[j][1] == day
-                   and (f"FROM {table} " in hive[j] or f"JOIN {table} " in hive[j])]
-        assert readers or table == "mart.team_days", f"nothing reads {table} on {day}"
-        assert all(j > i for j in readers), f"{table} on {day} is read before it is written"
-
-
-def test_each_run_writes_the_last_3_days_and_a_backfill_every_day_asked(
-        intermediate: dict) -> None:
-    pipeline = intermediate["run_pipeline"]
-    daily = [s for s in pipeline.in_order(pipeline.steps(DAYS[-1])) if INSERT in to_hive(s)]
-    assert len(daily) == 3 * 3
-    backfill = [s for s in pipeline.in_order(pipeline.steps(DAYS[-1], backfill_from=ALL_DAYS[0]))
-                if INSERT in to_hive(s)]
-    assert len(backfill) == 3 * 14
-    assert "PARTITION(dt = '2026-09-11')" in to_hive(backfill[0])
-
-
-def test_the_intermediate_dry_run_prints_every_steps_hive_under_its_name(
-        intermediate: dict, capsys) -> None:
-    pipeline = intermediate["run_pipeline"]
-    pipeline.dry_run(DAYS[-1])
-    printed = capsys.readouterr().out
-    statements = pipeline.in_order(pipeline.steps(DAYS[-1]))
-    names = ["create_job_day_costs", "create_job_day_facts", "create_team_days",
-             *[f"{write}[{n}]" for write in
-               ("write_job_day_costs", "write_job_day_facts", "write_team_days")
-               for n in range(3)]]
-    assert len(statements) == len(names)
-    for position, (name, s) in enumerate(zip(names, statements), start=1):
-        assert f"-- {position} of {len(statements)}: {name}\n{to_hive(s)};" in printed
-
-
-def test_the_intermediate_send_all_sends_every_step_in_order(intermediate: dict) -> None:
-    pipeline = intermediate["run_pipeline"]
-    sent = []
-    pipeline.send_all(sent.append, DAYS[-1])
-    assert sent == [to_hive(s) for s in pipeline.in_order(pipeline.steps(DAYS[-1]))]
-
-
-def test_check_all_runs_every_check_and_gathers_the_results(intermediate: dict) -> None:
-    pipeline = intermediate["run_pipeline"]
-    sent = []
-
-    def send(hive: str) -> pd.DataFrame:
-        sent.append(hive)
-        return pd.DataFrame({"rows": [len(sent)]})
-
-    results = pipeline.check_all(send, DAYS[-1])
-    checks = intermediate["statements.quality_checks"].every_check(*WINDOW)
-    assert list(results) == list(checks)
-    assert sent == [to_hive(check) for check in checks.values()]
-
-
-# --- The README --------------------------------------------------------------------------------
-
-
-def test_the_intermediate_readme_names_every_file_and_step() -> None:
-    readme = (INTERMEDIATE / "README.md").read_text(encoding="utf-8")
-    unnamed = [relative for relative in example_project.project_files(INTERMEDIATE)
-               if f"`{relative}`" not in readme]
-    unnamed += [step for step in I_STEPS if f"`{step}(" not in readme]
-    assert unnamed == []
+def test_the_quality_checks_find_no_repeated_event(inside) -> None:
+    checks = logic(inside, "intermediate", "mart.job_events_checks")
+    assert len(run(checks.repeated_keys("2026-09-11", DAY), send=example_database.send)) == 0
+    events = example_rows("job_events")
+    counted = run(checks.preview(DAY), send=example_database.send)
+    assert list(counted.row_count) == [len(events[events.dt == DAY])]

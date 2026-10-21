@@ -135,6 +135,8 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 # The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
 # here, not taken from export_clean, so the tests say what main holds on their own.
 COPIED = ["example_projects"]
+# The copies with no comment syntax for a stamp, which main holds as dev does.
+UNSTAMPED = (".ipynb", ".csv")
 
 
 def copied_files(folder: str) -> list[str]:
@@ -438,6 +440,8 @@ def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
     stamp = f"{VERSION_TEXT} - copy it, then edit your copy"
     for folder in COPIED:
         for relative in copied_files(folder):
+            if relative.endswith(UNSTAMPED):
+                continue
             first = (clean / folder / relative).read_text(encoding="utf-8").split("\n")[0]
             assert first in (f"# {stamp}", f"<!-- {stamp} -->"), f"{folder}/{relative}"
 
@@ -445,18 +449,16 @@ def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
 def test_below_the_stamp_each_copy_is_devs_own(clean: Path) -> None:
     for folder in COPIED:
         for relative in copied_files(folder):
-            exported = (clean / folder / relative).read_text(encoding="utf-8").split("\n", 1)[1]
+            exported = (clean / folder / relative).read_text(encoding="utf-8")
+            if not relative.endswith(UNSTAMPED):
+                exported = exported.split("\n", 1)[1]
             assert exported == (ROOT / folder / relative).read_text(encoding="utf-8"), relative
 
 
-def test_each_example_projects_pythonpath_finds_the_toolbox_on_main(clean: Path) -> None:
+def test_each_example_projects_readme_says_to_copy_the_toolbox_in(clean: Path) -> None:
     for project in (clean / "example_projects").iterdir():
         readme_text = (project / "README.md").read_text(encoding="utf-8")
-        given = re.findall(r"^(?:set )?PYTHONPATH=(\S+)", readme_text, re.MULTILINE)
-        assert len(given) == 2, project.name
-        for path in given:
-            toolbox = (project / path.replace("\\", "/")).resolve()
-            assert (toolbox / "sqlglot_composer").is_dir()
+        assert "Copy the `sqlglot_composer` folder into this folder first" in readme_text
 
 
 def _range_of(folder: str) -> dict[str, str]:
@@ -549,22 +551,23 @@ def test_a_folder_that_imports_only_beside_something_else_is_refused(tmp_path: P
 
 def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "intermediate" / "run_pipeline.py",
-          "    dry_run(DAY)\n", '    dry_run("2026-09-31")\n')
+    spoil(source / "example_projects" / "intermediate" / "references" / "mart__team_days.py",
+          'key=["team", "dt"],', 'key=["team", "day"],')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(
-        "example_projects/intermediate/run_pipeline.py doesn't run its dry run "
+        "example_projects/intermediate's run_tables doesn't run its dry run "
         "on main, so nothing was exported:\nValueError: ")
 
 
 def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
-          "    dry_run(DAY)\n", '    dry_run(DAY)\n    Path("left_behind.txt").write_text("x")\n')
+    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job_day.py",
+          "\nfrom sqlglot_composer import", 'import pathlib\n'
+          'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
-            "example_projects/starter/run_pipeline.py's dry run left files "
-            "in the Clean tree: ['example_projects/starter/left_behind.txt']")):
+            "example_projects/starter's run_tables's dry run left files "
+            "in the Clean tree: ['example_projects/starter/admin/left_behind.txt']")):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
@@ -576,25 +579,24 @@ NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network,
 
 def test_an_example_project_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
-          '"""Run every step', 'import requests\n"""Run every step')
+    spoil(source / "example_projects" / "starter" / "send.py",
+          '"""send - runs', 'import requests\n"""send - runs')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     # Line 2 on main: the export's stamp is line 1.
     assert str(refused.value).startswith(
-        NETWORK_REFUSAL
-        + "  example_projects/starter/run_pipeline.py:2 network: import requests\n")
+        NETWORK_REFUSAL + "  example_projects/starter/send.py:2 network: import requests\n")
 
 
 def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "lineage" / "all_three.html",
+    page = "tables/mart__team_day/lineage/20260925-060000-mart__team_day.html"
+    spoil(source / "example_projects" / "starter" / page,
           "<!doctype html>", '<!doctype html><script src="https://example.com/x.js"></script>')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(
-        NETWORK_REFUSAL
-        + "  example_projects/starter/lineage/all_three.html:2 page reference: ")
+        NETWORK_REFUSAL + f"  example_projects/starter/{page}:2 page reference: ")
     assert '<script src="https://example.com/x.js">' in str(refused.value)
 
 
@@ -614,13 +616,13 @@ def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
     source = dev_copy(tmp_path / "dev")
     # Run, it would leave a file behind, which the dry run's own check refuses: read first, the
     # socket stops it before anything runs.
-    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
-          "    dry_run(DAY)\n",
-          '    dry_run(DAY)\n    import socket\n    Path("left_behind.txt").write_text("x")\n')
+    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job_day.py",
+          "\nfrom sqlglot_composer import", 'import pathlib\nimport socket\n'
+          'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(NETWORK_REFUSAL)
-    assert "example_projects/starter/run_pipeline.py:" in str(refused.value)
+    assert "example_projects/starter/building_blocks/runs_per_job_day.py:" in str(refused.value)
     assert not list((tmp_path / "clean").rglob("left_behind.txt"))
 
 
