@@ -8,6 +8,8 @@ kind of thing. The folder is faked, so it is tested without an old copy.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from conftest import FOLDER
@@ -19,6 +21,7 @@ from sqlglot_composer import (
     ORDER_BY,
     SELECT,
     WHERE,
+    Statement,
     all_columns,
     by_day,
     check_key,
@@ -32,11 +35,12 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
+from sqlglot_composer.clauses import Clause
 
 job_runs = example_database.job_runs
 
 
-def _made_by(folder: str, kind: str):
+def _made_by(folder: str, kind: str) -> object:
     """An object whose class a folder named `folder` made, as an old Toolbox folder's are."""
     return type(kind, (), {"__module__": f"{folder}.tables",
                            "__repr__": lambda self: f"<{kind} from {folder}>"})()
@@ -51,7 +55,7 @@ OTHERS_DERIVED_TABLE = _made_by(OTHER, "Table")
 OTHERS_DERIVED_TABLE._statement = OTHERS_STATEMENT
 
 
-def _one_day(*clauses):
+def _one_day(*clauses: Clause) -> Statement:
     return statement(SELECT(job_runs.run_id), FROM(job_runs),
                      WHERE(equals(job_runs.dt, "2026-09-24")), *clauses)
 
@@ -84,7 +88,7 @@ def _one_day(*clauses):
         "ORDER_BY", "equals column", "equals value", "arithmetic", "sum_of",
         "count_rows where", "if_else", "statement", "derived", "to_hive", "by_day",
         "export_lineage", "check_key"])
-def test_an_object_another_folder_made_is_named_so(call, given: str,
+def test_an_object_another_folder_made_is_named_so(call: Callable[[], object], given: str,
                                                               called: str) -> None:
     with pytest.raises(TypeError) as refused:
         call()

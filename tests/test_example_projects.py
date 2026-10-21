@@ -17,6 +17,7 @@ import datetime
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -25,20 +26,21 @@ import pytest
 import example_project
 from conftest import ROOT, example_rows, previewed_days, standing_in, without_the_write
 from sqlglot_composer import example_database, project, run, set_admin_log, to_hive
+from sqlglot_composer.project import TableLogic
 
 DAY = "2026-09-24"
 DAYS = ("2026-09-23", "2026-09-24")
 I_DAYS = ("2026-09-14", "2026-09-18", "2026-09-24")
 
 
-def write_project(into: Path, name: str) -> subprocess.CompletedProcess:
+def write_project(into: Path, name: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(ROOT / "tools" / "example_project.py"), "--project", name,
          "--into", str(into)], capture_output=True, text=True, check=False)
 
 
 @pytest.fixture(scope="module")
-def projects(tmp_path_factory) -> dict[str, Path]:
+def projects(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     """A copy of each Example project, so loading its notebooks writes nothing in the repo."""
     folder = tmp_path_factory.mktemp("example_projects")
     for name in example_project.PROJECTS:
@@ -47,7 +49,7 @@ def projects(tmp_path_factory) -> dict[str, Path]:
 
 
 @pytest.fixture
-def inside(projects, monkeypatch):
+def inside(projects: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> Callable[..., Path]:
     """Work in a project's admin/ folder, as its admin notebooks do."""
     set_admin_log()
 
@@ -58,7 +60,7 @@ def inside(projects, monkeypatch):
     return go
 
 
-def logic(inside, name: str, table: str):
+def logic(inside: Callable[..., Path], name: str, table: str) -> TableLogic:
     inside(name)
     return project.load(table)
 
@@ -98,7 +100,8 @@ def test_filling_in_refuses_a_table_reference_without_its_todo_line() -> None:
 
 
 @pytest.mark.parametrize("name", example_project.PROJECTS)
-def test_a_project_has_no_todo_left_and_nothing_unregistered(inside, name: str) -> None:
+def test_a_project_has_no_todo_left_and_nothing_unregistered(
+        inside: Callable[..., Path], name: str) -> None:
     root = inside(name)
     for path in (root / "references").glob("ops__*.py"):
         assert "# TODO" not in path.read_text(encoding="utf-8"), path.name
@@ -140,7 +143,8 @@ def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
 @pytest.mark.parametrize(("name", "table"), [
     (name, table) for name in example_project.PROJECTS
     for table, _ in example_project.SAVED_TABLES[name]])
-def test_each_notebooks_logic_writes_its_tables_day(inside, name: str, table: str) -> None:
+def test_each_notebooks_logic_writes_its_tables_day(
+        inside: Callable[..., Path], name: str, table: str) -> None:
     logic_of = logic(inside, name, table)
     written = logic_of.write_day(DAY)
     writes = written if isinstance(written, list) else [written]
@@ -151,7 +155,7 @@ def test_each_notebooks_logic_writes_its_tables_day(inside, name: str, table: st
         assert without_the_write(to_hive(written)) == to_hive(logic_of.preview(DAY))
 
 
-def test_an_incremental_table_writes_its_last_3_days(inside) -> None:
+def test_an_incremental_table_writes_its_last_3_days(inside: Callable[..., Path]) -> None:
     writes = logic(inside, "intermediate", "mart.job_day_costs").write_day(DAY)
     inserts = [next(line for line in to_hive(write).splitlines() if line.startswith("INSERT"))
                for write in writes]
@@ -160,7 +164,7 @@ def test_an_incremental_table_writes_its_last_3_days(inside) -> None:
 
 
 @pytest.mark.needs_example_database
-def test_a_backfill_writes_each_day_what_write_day_writes(inside) -> None:
+def test_a_backfill_writes_each_day_what_write_day_writes(inside: Callable[..., Path]) -> None:
     """by_day bounds each day's write with =, where write_day says BETWEEN the day and itself:
     the same rows, which the Example database shows."""
     logic_of = logic(inside, "starter", "mart.daily_job_runs")
@@ -174,7 +178,9 @@ def test_a_backfill_writes_each_day_what_write_day_writes(inside) -> None:
     ("starter", "mart.team_day", ["mart.daily_job_runs", "mart.alerts_per_job"]),
     ("intermediate", "mart.team_days", ["mart.job_day_costs", "mart.job_day_facts"]),
 ])
-def test_run_tables_prints_each_write_writers_first(inside, capsys, name, reader, read) -> None:
+def test_run_tables_prints_each_write_writers_first(
+        inside: Callable[..., Path], capsys: pytest.CaptureFixture[str], name: str, reader: str,
+        read: list[str]) -> None:
     inside(name)
     report = project.run_tables(DAY)
     headings = [line.split(": ", 1)[1] for line in capsys.readouterr().out.splitlines()
@@ -266,41 +272,45 @@ def team_day_on(day: str, with_costs: bool = True) -> pd.DataFrame:
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
-def test_daily_job_runs_previews_each_jobs_runs(inside, day: str) -> None:
+def test_daily_job_runs_previews_each_jobs_runs(inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "starter", "mart.daily_job_runs").preview(day)
     same(run(preview, send=example_database.send), runs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
-def test_alerts_per_job_previews_each_jobs_alerts(inside, day: str) -> None:
+def test_alerts_per_job_previews_each_jobs_alerts(
+        inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "starter", "mart.alerts_per_job").preview(day)
     same(run(preview, send=example_database.send), alerts_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
-def test_team_day_groups_each_teams_runs_from_job_runs(inside, day: str) -> None:
+def test_team_day_groups_each_teams_runs_from_job_runs(
+        inside: Callable[..., Path], day: str) -> None:
     check = logic(inside, "starter", "mart.team_day").team_runs_from_job_runs(day)
     same(run(check, send=example_database.send), team_runs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_job_day_costs_previews_each_jobs_cost(inside, day: str) -> None:
+def test_job_day_costs_previews_each_jobs_cost(inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "intermediate", "mart.job_day_costs").preview(day)
     same(run(preview, send=example_database.send), costs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_job_day_facts_previews_each_jobs_day_with_its_team_then(inside, day: str) -> None:
+def test_job_day_facts_previews_each_jobs_day_with_its_team_then(
+        inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "intermediate", "mart.job_day_facts").preview(day)
     same(run(preview, send=example_database.send), facts_on(day))
 
 
 @pytest.mark.needs_example_database
-def test_job_day_facts_counts_a_job_for_the_team_it_had_then(inside) -> None:
+def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
+        inside: Callable[..., Path]) -> None:
     logic_of = logic(inside, "intermediate", "mart.job_day_facts")
     teams = {day: run(logic_of.preview(day), send=example_database.send).set_index("job_id")
              .team.get(3) for day in ("2026-09-14", "2026-09-18")}
@@ -309,14 +319,16 @@ def test_job_day_facts_counts_a_job_for_the_team_it_had_then(inside) -> None:
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_team_days_groups_each_teams_day_from_job_events(inside, day: str) -> None:
+def test_team_days_groups_each_teams_day_from_job_events(
+        inside: Callable[..., Path], day: str) -> None:
     check = logic(inside, "intermediate", "mart.team_days").team_day_from_job_events(day)
     same(run(check, send=example_database.send), team_day_on(day, with_costs=False))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_team_days_previews_each_teams_day_from_both_saved_tables(inside, day: str) -> None:
+def test_team_days_previews_each_teams_day_from_both_saved_tables(
+        inside: Callable[..., Path], day: str) -> None:
     """The Saved tables only a warehouse holds are stood in for by the rows their notebooks
     preview for the day."""
     saved = {"job_day_facts": previewed_days(logic(inside, "intermediate",
@@ -329,7 +341,7 @@ def test_team_days_previews_each_teams_day_from_both_saved_tables(inside, day: s
 
 
 @pytest.mark.needs_example_database
-def test_the_quality_checks_find_no_repeated_event(inside) -> None:
+def test_the_quality_checks_find_no_repeated_event(inside: Callable[..., Path]) -> None:
     checks = logic(inside, "intermediate", "mart.job_events_checks")
     assert len(run(checks.repeated_keys("2026-09-11", DAY), send=example_database.send)) == 0
     events = example_rows("job_events")

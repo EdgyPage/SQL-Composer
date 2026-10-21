@@ -28,7 +28,7 @@ SITE_ALLOWED = (
 )
 
 
-def kinds(text: str, path: str = TOOLBOX_FILE, **options) -> list[str]:
+def kinds(text: str, path: str = TOOLBOX_FILE, **options: tuple[Allowed, ...]) -> list[str]:
     return [finding.kind for finding in findings_in(text, path, **options)]
 
 
@@ -149,7 +149,7 @@ def test_a_windows_script_is_read_as_python() -> None:
     assert kinds("import requests\n", "sqlglot_composer/x.pyw") == ["network"]
 
 
-def test_no_folder_inside_the_toolbox_or_user_copied_code_is_skipped(tmp_path) -> None:
+def test_no_folder_inside_the_toolbox_or_user_copied_code_is_skipped(tmp_path: Path) -> None:
     # A `.venv`-like folder, or one named like a cache, could otherwise hold code a Toolbox
     # file imports unread.
     for folder in ("sqlglot_composer/a", "example_projects/node_modules",
@@ -293,11 +293,12 @@ def test_a_notebook_s_code_cells_and_shell_lines_are_read() -> None:
     assert kinds(notebook, "example_projects/starter/start.ipynb") == ["process", "network"]
 
 
-def test_a_path_that_isnt_there_is_said_so(tmp_path) -> None:
+def test_a_path_that_isnt_there_is_said_so(tmp_path: Path) -> None:
     assert [finding.kind for finding in scan(tmp_path, ["nowhere.py"])] == ["unreadable"]
 
 
-def test_the_command_line_prints_each_finding_and_fails(tmp_path, capsys) -> None:
+def test_the_command_line_prints_each_finding_and_fails(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     spoiled = tmp_path / "spoiled.py"
     spoiled.write_text("import json\nimport requests\n", encoding="utf-8")
     assert offline_policy.main(["offline_policy.py", str(spoiled)]) == 1

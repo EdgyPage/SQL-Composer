@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 
 from sqlglot_composer import (
@@ -29,12 +31,13 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
+from sqlglot_composer.clauses import Clause
 from sqlglot_composer.example_database import job_runs, jobs, run_alerts
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 
 
-def per_day(*clauses):
+def per_day(*clauses: Clause) -> Table:
     """A Derived table over job_runs' two days, from its clauses after FROM and WHERE."""
     select, *rest = clauses
     return derived("per_day", statement(select, FROM(job_runs), WHERE(DAYS), *rest))
@@ -89,7 +92,8 @@ def test_by_day_refuses_an_output_only_named_like_the_date() -> None:
                                                      date_partition="dt")),
                               SELECT(jobs.team), FROM(jobs))),
 ])
-def test_a_from_table_with_no_date_partition_is_named_plainly(call) -> None:
+def test_a_from_table_with_no_date_partition_is_named_plainly(
+        call: Callable[[], object]) -> None:
     with pytest.raises(ValueError) as refused:
         call()
     message = str(refused.value)

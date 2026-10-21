@@ -7,6 +7,8 @@ what only makes sense one day at a time refuses such a table, saying what to do 
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from sqlglot_composer import (
@@ -22,6 +24,7 @@ from sqlglot_composer import (
     WHERE,
     GuardRefused,
     LoadRefused,
+    Statement,
     Table,
     between,
     by_day,
@@ -51,7 +54,7 @@ team_runs = Table("mart.team_runs", columns={"team": "string", "runs": "bigint"}
 """Each team's runs over the days read, with no days."""
 
 
-def teams() -> object:
+def teams() -> Statement:
     return statement(INSERT_OVERWRITE(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team),
                      FROM(jobs))
 
@@ -182,7 +185,7 @@ def test_by_day_refuses_a_write_with_no_days() -> None:
 # --- Lineage ---------------------------------------------------------------------------------
 
 
-def test_lineage_draws_a_write_with_no_days(tmp_path) -> None:
+def test_lineage_draws_a_write_with_no_days(tmp_path: Path) -> None:
     html_file, markdown_file = export_lineage(teams(), to=tmp_path / "l.html")
     text = markdown_file.read_text(encoding="utf-8")
     assert "mart.job_teams" in text and "one day at a time" not in text
@@ -190,7 +193,7 @@ def test_lineage_draws_a_write_with_no_days(tmp_path) -> None:
     assert "day written" not in text.split("```mermaid", 1)[1].split("```", 1)[0]
 
 
-def test_lineage_of_a_write_with_no_days_refused_by_the_dates_cap(tmp_path) -> None:
+def test_lineage_of_a_write_with_no_days_refused_by_the_dates_cap(tmp_path: Path) -> None:
     # by_day can't help a write with no days, so lineage doesn't suggest it.
     set_load_limits(dates=1)
     try:

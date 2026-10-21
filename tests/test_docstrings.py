@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import doctest
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -61,7 +62,8 @@ def test_a_first_line_is_one_short_sentence(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", sorted(set(PUBLIC) - CONSTANTS) + ["TOOLBOX_VERSION"] + ADMIN)
-def test_the_worked_example_runs(name: str, tmp_path, monkeypatch) -> None:
+def test_the_worked_example_runs(
+        name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     doc = docstring_of(name)
     if any(call in doc for call in RUNS_A_QUERY):
         skip_unless_the_example_database_runs()

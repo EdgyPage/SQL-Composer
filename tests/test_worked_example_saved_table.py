@@ -10,11 +10,11 @@ from __future__ import annotations
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import example_database, to_hive
+from sqlglot_composer import Statement, example_database, to_hive
 from statements import saved_table as example
 
 
-def select_part(s) -> str:
+def select_part(s: Statement) -> str:
     """A write's Hive without its first line, INSERT ...: the SELECT that makes its rows."""
     return "\n".join(to_hive(s).splitlines()[1:])
 

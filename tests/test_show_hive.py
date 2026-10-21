@@ -14,6 +14,7 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     LoadRefused,
+    Statement,
     between,
     by_day,
     equals,
@@ -27,18 +28,20 @@ from sqlglot_composer import (
 job_runs = example_database.job_runs
 
 
-def _one_day(day: str = "2026-09-24"):
+def _one_day(day: str = "2026-09-24") -> Statement:
     return statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, day)))
 
 
-def test_one_statement_is_its_hive_with_a_semicolon_printed_and_returned(capsys) -> None:
+def test_one_statement_is_its_hive_with_a_semicolon_printed_and_returned(
+        capsys: pytest.CaptureFixture[str]) -> None:
     failed_runs = _one_day()
     text = show_hive(failed_runs)
     assert text == to_hive(failed_runs) + ";"
     assert capsys.readouterr().out == text + "\n"
 
 
-def test_several_statements_are_each_headed_by_their_names(capsys) -> None:
+def test_several_statements_are_each_headed_by_their_names(
+        capsys: pytest.CaptureFixture[str]) -> None:
     first_day, second_day = _one_day("2026-09-23"), _one_day("2026-09-24")
     text = show_hive(first_day, second_day)
     assert text == (f"-- 1 of 2: first_day\n{to_hive(first_day)};\n\n"
@@ -46,7 +49,7 @@ def test_several_statements_are_each_headed_by_their_names(capsys) -> None:
     assert capsys.readouterr().out == text + "\n"
 
 
-def test_a_by_day_list_is_shown_day_by_day(capsys) -> None:
+def test_a_by_day_list_is_shown_day_by_day(capsys: pytest.CaptureFixture[str]) -> None:
     both_days = statement(SELECT(job_runs.run_id), FROM(job_runs),
                           WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")))
     days = by_day(both_days)
@@ -56,13 +59,14 @@ def test_a_by_day_list_is_shown_day_by_day(capsys) -> None:
     capsys.readouterr()
 
 
-def test_a_statement_in_no_variable_is_headed_by_its_number_only(capsys) -> None:
+def test_a_statement_in_no_variable_is_headed_by_its_number_only(
+        capsys: pytest.CaptureFixture[str]) -> None:
     text = show_hive(_one_day(), _one_day("2026-09-23"))
     assert text.splitlines()[0] == "-- 1 of 2"
     capsys.readouterr()
 
 
-def test_statements_in_a_list_keep_their_own_names(capsys) -> None:
+def test_statements_in_a_list_keep_their_own_names(capsys: pytest.CaptureFixture[str]) -> None:
     first_day, second_day = _one_day("2026-09-23"), _one_day("2026-09-24")
     text = show_hive([first_day, second_day])
     assert [line for line in text.splitlines() if line.startswith("--")] == [
@@ -70,7 +74,7 @@ def test_statements_in_a_list_keep_their_own_names(capsys) -> None:
     capsys.readouterr()
 
 
-def test_a_by_day_list_made_in_the_call_is_numbered(capsys) -> None:
+def test_a_by_day_list_made_in_the_call_is_numbered(capsys: pytest.CaptureFixture[str]) -> None:
     both_days = statement(SELECT(job_runs.run_id), FROM(job_runs),
                           WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")))
     text = show_hive(by_day(both_days))
@@ -99,7 +103,8 @@ def test_what_to_hive_refuses_it_refuses_too() -> None:
     assert str(from_show_hive.value) == str(from_to_hive.value)
 
 
-def test_a_notebook_shows_the_returned_text_only_once(capsys) -> None:
+def test_a_notebook_shows_the_returned_text_only_once(
+        capsys: pytest.CaptureFixture[str]) -> None:
     text = show_hive(_one_day())
     capsys.readouterr()
     text._ipython_display_()  # what a notebook calls to show the value of the last line

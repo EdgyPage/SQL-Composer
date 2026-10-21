@@ -18,6 +18,7 @@ import ipaddress
 import os
 import socket
 import sys
+from collections.abc import Callable
 
 # The hosts the trap's own tests try, which no test may reach.
 TRIED_HOSTS = ("example.com", "192.0.2.1")
@@ -38,7 +39,7 @@ def install() -> None:
     sys.addaudithook(backstop)
 
 
-def backstop(event: str, args: tuple) -> None:
+def backstop(event: str, args: tuple[object, ...]) -> None:
     """Stop a network event that names a host the trap's tests try: the trap let it through."""
     if (event.split(".")[0] in NETWORK_EVENT_MODULES
             and any(host in repr(args) for host in TRIED_HOSTS)):
@@ -56,8 +57,8 @@ def _backstop_the_socket_methods() -> None:
         socket.socket.sendmsg = _backstopped("socket.sendmsg", socket.socket.sendmsg)
 
 
-def _backstopped(event: str, method):
-    def backstopped(self, *args):
+def _backstopped(event: str, method: Callable[..., int | None]) -> Callable[..., int | None]:
+    def backstopped(self, *args: object) -> int | None:
         backstop(event, (self, *args))
         return method(self, *args)
 
@@ -97,10 +98,10 @@ def _refuse_the_network() -> None:
         socket.socket.sendmsg = _judged_first("socket.sendmsg", socket.socket.sendmsg)
 
 
-def _judged_first(event: str, method):
+def _judged_first(event: str, method: Callable[..., int | None]) -> Callable[..., int | None]:
     """A socket method that refuses an address off this computer before Python looks it up."""
 
-    def judged_first(self, *args):
+    def judged_first(self, *args: object) -> int | None:
         # The address is the last argument, and sendmsg is given one only with all four.
         if args and (event != "socket.sendmsg" or len(args) == 4):
             _refuse_off_the_machine(event, (self, args[-1]))
@@ -109,7 +110,7 @@ def _judged_first(event: str, method):
     return judged_first
 
 
-def _refuse_off_the_machine(event: str, args: tuple) -> None:
+def _refuse_off_the_machine(event: str, args: tuple[object, ...]) -> None:
     """Raise RuntimeError for an audit event that would reach off this computer."""
     if event in _REACHING:
         off = _off_the_machine(event, args)
@@ -118,7 +119,7 @@ def _refuse_off_the_machine(event: str, args: tuple) -> None:
                                "computer, only 127.0.0.1, ::1 and localhost.")
 
 
-def _off_the_machine(event: str, args: tuple) -> str | None:
+def _off_the_machine(event: str, args: tuple[object, ...]) -> str | None:
     """What an audit event would reach off this computer, as "socket.connect to '192.0.2.1'",
     or None when it stays on it.
 

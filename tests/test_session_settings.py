@@ -9,12 +9,15 @@ footers.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
+    Statement,
     equals,
     example_database,
     export_lineage,
@@ -33,7 +36,7 @@ HIVE_SETTINGS = {
 }
 
 
-def one_day():
+def one_day() -> Statement:
     return statement(SELECT(job_runs.run_id), FROM(job_runs),
                      WHERE(equals(job_runs.dt, "2026-09-24")))
 
@@ -127,7 +130,9 @@ def test_no_name_is_refused() -> None:
     (["nightly"], "a dict"),
 ], ids=["a space in a name", "a semicolon", "a line break", "None", "empty", "a list as a set",
         "a list as sets"])
-def test_a_set_that_cant_be_written_as_set_lines_is_refused(sets, said) -> None:
+def test_a_set_that_cant_be_written_as_set_lines_is_refused(
+        sets: dict[str, dict[str, int | str | None] | list[str]] | list[str],
+        said: str) -> None:
     with pytest.raises((TypeError, ValueError)) as refused:
         hive_settings("nightly", sets=sets)
     assert said in str(refused.value)
@@ -142,7 +147,8 @@ def test_two_sets_giving_one_setting_different_values_are_refused() -> None:
 # --- Shown and run as a Statement is ---------------------------------------------------------
 
 
-def test_show_hive_prints_each_line_ending_in_a_semicolon_under_its_names(capsys) -> None:
+def test_show_hive_prints_each_line_ending_in_a_semicolon_under_its_names(
+        capsys: pytest.CaptureFixture[str]) -> None:
     show_hive(hive_settings("dynamic_partitions"))
     assert capsys.readouterr().out == (
         "-- Session settings: dynamic_partitions, sent one line at a time\n"
@@ -150,7 +156,8 @@ def test_show_hive_prints_each_line_ending_in_a_semicolon_under_its_names(capsys
         "SET hive.exec.dynamic.partition.mode=nonstrict;\n")
 
 
-def test_show_hive_lists_the_settings_first_in_a_pipeline_as_given(capsys) -> None:
+def test_show_hive_lists_the_settings_first_in_a_pipeline_as_given(
+        capsys: pytest.CaptureFixture[str]) -> None:
     settings = hive_settings("statistics_on_write")
     write_day = one_day()
     show_hive(settings, write_day)
@@ -166,7 +173,7 @@ def test_run_sends_each_line_as_a_call_of_its_own() -> None:
                     "SET hive.exec.dynamic.partition.mode=nonstrict"]
 
 
-def test_the_example_database_takes_set_lines(tmp_path) -> None:
+def test_the_example_database_takes_set_lines(tmp_path: Path) -> None:
     run(hive_settings("merge_small_files"), send=example_database.send)
     answer = example_database.send("SET hive.merge.tezfiles=true")
     assert list(answer.columns) == ["key", "value"]
@@ -181,7 +188,7 @@ def test_session_settings_say_how_to_see_them() -> None:
 # --- Named in Lineage's footers --------------------------------------------------------------
 
 
-def test_lineage_footers_name_the_settings_passed_with_the_statements(tmp_path) -> None:
+def test_lineage_footers_name_the_settings_passed_with_the_statements(tmp_path: Path) -> None:
     settings = hive_settings("map_joins", "statistics_on_write")
     html_file, markdown_file = export_lineage(settings, one_day(), to=tmp_path / "l.html")
     for text in (markdown_file.read_text(encoding="utf-8"),

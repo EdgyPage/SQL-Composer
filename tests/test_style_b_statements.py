@@ -17,6 +17,7 @@ from sqlglot_composer import (
     JOIN,
     SELECT,
     WHERE,
+    Condition,
     GuardRefused,
     Table,
     count_rows,
@@ -36,12 +37,12 @@ from sqlglot_composer.example_database import jobs
 # --- Level 1: the Building blocks (blocks.py) ------------------------------------------------
 
 
-def failed_runs():
+def failed_runs() -> Condition:
     """Filter: only runs that ended in failure."""
     return equals(runs.status, "FAILED")
 
 
-def active_jobs():
+def active_jobs() -> list[Condition]:
     """Filter: jobs outside the web team and NYC.
 
     The Example database has no boolean column, so this stands in for the prototype's
@@ -50,12 +51,12 @@ def active_jobs():
     return [not_equals(jobs.team, "web"), not_equals(jobs.region, "NYC")]
 
 
-def run_to_job():
+def run_to_job() -> Condition:
     """Join: how a run finds its job."""
     return equals(runs.job_id, jobs.job_id)
 
 
-def latest_run_per_job(days):
+def latest_run_per_job(days: int) -> Table:
     """Sub-query: each job's most recent run in the last `days` days."""
     ranked = derived("ranked", statement(
         SELECT(runs.job_id, runs.status, runs.run_id,

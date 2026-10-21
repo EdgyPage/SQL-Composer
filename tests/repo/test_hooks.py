@@ -212,7 +212,7 @@ def review_hook(clone: Path, command: str) -> str:
     return json.loads(done.stdout)["hookSpecificOutput"]["additionalContext"]
 
 
-def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path) -> None:
+def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     first = commit(clone, "sqlglot_composer/a.py", "a")
     commit(clone, ".scratch/notes.md", "not watched")
@@ -224,7 +224,7 @@ def test_every_new_commit_of_a_rebase_is_asked_about(tmp_path) -> None:
     assert review_hook(clone, "git commit -m nothing") == ""
 
 
-def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path) -> None:
+def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     run(clone, "checkout", "-q", "-b", "work")
     commit(clone, "sqlglot_composer/c.py", "c")
@@ -235,14 +235,14 @@ def test_a_merge_is_asked_about_for_what_it_brings_in(tmp_path) -> None:
     assert f"Commit {merge[:7]} touches sqlglot_composer/c.py" in asked
 
 
-def test_nothing_new_on_top_of_the_upstream_asks_for_nothing(tmp_path) -> None:
+def test_nothing_new_on_top_of_the_upstream_asks_for_nothing(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     commit(clone, "sqlglot_composer/a.py", "a")
     run(clone, "push", "-q")
     assert review_hook(clone, "git pull") == ""
 
 
-def test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo(tmp_path) -> None:
+def test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     reviewed = commit(clone, "sqlglot_composer/a.py", "a")
     commit(clone, ".scratch/drift.md", f"## Reviewed commits\n\n- {reviewed[:7]}: clean\n")
@@ -255,7 +255,7 @@ def test_the_hook_finds_the_drift_list_from_a_folder_inside_the_repo(tmp_path) -
     assert done.stdout.strip() == ""
 
 
-def test_the_stop_hook_waits_for_a_review_and_not_for_a_dropped_commit(tmp_path) -> None:
+def test_the_stop_hook_waits_for_a_review_and_not_for_a_dropped_commit(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     kept = commit(clone, "sqlglot_composer/a.py", "a")
     dropped = commit(clone, "sqlglot_composer/b.py", "b")
@@ -270,7 +270,7 @@ def test_the_stop_hook_waits_for_a_review_and_not_for_a_dropped_commit(tmp_path)
     assert dropped[:7] not in said
 
 
-def test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook(tmp_path) -> None:
+def test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     run(clone, "checkout", "-q", "-b", "main")
     hook = ROOT / ".claude" / "hooks" / "protect_main.py"
@@ -281,7 +281,7 @@ def test_protect_main_refuses_a_commit_on_main_when_run_as_a_hook(tmp_path) -> N
     assert json.loads(done.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
-def test_a_command_that_makes_no_commit_asks_for_nothing(tmp_path) -> None:
+def test_a_command_that_makes_no_commit_asks_for_nothing(tmp_path: Path) -> None:
     clone = a_clone_on_dev(tmp_path)
     commit(clone, "sqlglot_composer/a.py", "a")
     assert review_hook(clone, "git log --grep=revert") == ""

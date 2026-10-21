@@ -11,7 +11,7 @@ import sqlglot_composer
 from conftest import import_stop
 
 
-def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
+def test_a_python_without_sqlglot_stops_the_import(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "sqlglot", None)  # makes `import sqlglot` fail
     with pytest.raises(ImportError) as error:
         sqlglot_composer.engine.check_installed()
@@ -26,7 +26,8 @@ def test_a_python_without_sqlglot_stops_the_import(monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("version", ["25.24.1", "31.0.0", "unknown"])
-def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch, version) -> None:
+def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch: pytest.MonkeyPatch,
+                                                       version: str) -> None:
     monkeypatch.setattr(sqlglot, "__version__", version)
     with pytest.raises(ImportError) as error:
         sqlglot_composer.engine.check_installed()
@@ -42,7 +43,8 @@ def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch, version) -> N
     )
 
 
-def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> None:
+def test_a_sqlglot_that_behaves_differently_stops_the_import(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     from sqlglot import exp
 
     real = exp.convert
@@ -63,7 +65,8 @@ def test_a_sqlglot_that_behaves_differently_stops_the_import(monkeypatch) -> Non
     )
 
 
-def test_a_newer_sqlglot_in_range_prints_a_note(monkeypatch, capsys) -> None:
+def test_a_newer_sqlglot_in_range_prints_a_note(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr(sqlglot, "__version__", "30.24.1")
     sqlglot_composer.engine.check_installed()
     assert capsys.readouterr().out == (

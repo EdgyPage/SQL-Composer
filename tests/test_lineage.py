@@ -15,6 +15,7 @@ import runpy
 import shutil
 import subprocess
 import textwrap
+from pathlib import Path
 
 import pytest
 from offline_policy import external_references
@@ -33,6 +34,7 @@ from sqlglot_composer import (
     SELECT,
     WHERE,
     LoadRefused,
+    Statement,
     Table,
     all_of,
     at_least,
@@ -68,7 +70,7 @@ daily_runs = Table("mart.daily_runs", date_partition="dt",
                    location="/data/your_team/tables")
 
 
-def runs_per_team():
+def runs_per_team() -> Statement:
     return statement(
         SELECT(jobs.team, AS(count_rows(), "runs")),
         FROM(job_runs),
@@ -78,7 +80,7 @@ def runs_per_team():
     )
 
 
-def fill_daily_runs(first="2026-09-24", last="2026-09-24"):
+def fill_daily_runs(first: str = "2026-09-24", last: str = "2026-09-24") -> Statement:
     return statement(
         INSERT_OVERWRITE(daily_runs),
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -88,7 +90,7 @@ def fill_daily_runs(first="2026-09-24", last="2026-09-24"):
     )
 
 
-def runs_by_team():
+def runs_by_team() -> Statement:
     return statement(
         SELECT(jobs.team, AS(sum_of(daily_runs.runs), "runs")),
         FROM(daily_runs),
@@ -98,7 +100,7 @@ def runs_by_team():
     )
 
 
-def read(files) -> tuple[str, str]:
+def read(files: tuple[Path, Path]) -> tuple[str, str]:
     """The Markdown and the HTML export_lineage wrote, as text.
 
     Each test calls export_lineage itself, since the Statements are named after the
@@ -108,7 +110,7 @@ def read(files) -> tuple[str, str]:
     return markdown_file.read_text(encoding="utf-8"), html_file.read_text(encoding="utf-8")
 
 
-def page_data(page: str) -> dict:
+def page_data(page: str) -> dict[str, list[dict[str, object]] | list[list[str]]]:
     """The boxes, arrows and groups the HTML page's script draws from.
 
     The page writes them as JSON on the one line after `const graph = `.
@@ -116,7 +118,7 @@ def page_data(page: str) -> dict:
     return json.loads(re.search(r"const graph = (\{.*\});\n", page).group(1))
 
 
-def chart(markdown: str) -> dict:
+def chart(markdown: str) -> dict[str, dict[str, str | None] | set[tuple[str, str, str]]]:
     """The Mermaid chart as {"boxes": {label: group}, "arrows": {(from, to, label)}}.
 
     A box's label is its first line; a group's label is its title. An arrow's label is
@@ -149,7 +151,7 @@ def section(markdown: str, heading: str) -> str:
 # --- The two files ------------------------------------------------------------------------------
 
 
-def test_it_writes_the_html_and_its_markdown_twin_side_by_side(tmp_path) -> None:
+def test_it_writes_the_html_and_its_markdown_twin_side_by_side(tmp_path: Path) -> None:
     html_file, markdown_file = export_lineage(runs_per_team(), to=tmp_path / "team.html")
     assert html_file == tmp_path / "team.html"
     assert markdown_file == tmp_path / "team.md"
@@ -157,17 +159,17 @@ def test_it_writes_the_html_and_its_markdown_twin_side_by_side(tmp_path) -> None
     assert markdown_file.read_text(encoding="utf-8").startswith("# Lineage: ")
 
 
-def test_to_creates_missing_folders(tmp_path) -> None:
+def test_to_creates_missing_folders(tmp_path: Path) -> None:
     html_file, _ = export_lineage(runs_per_team(), to=str(tmp_path / "a" / "b" / "team.html"))
     assert html_file.exists()
 
 
-def test_to_must_name_an_html_file(tmp_path) -> None:
+def test_to_must_name_an_html_file(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match=r"to= must name an \.html file"):
         export_lineage(runs_per_team(), to=tmp_path / "team.md")
 
 
-def test_both_footers_show_the_toolbox_version_and_the_scripts_commit(tmp_path) -> None:
+def test_both_footers_show_the_toolbox_version_and_the_scripts_commit(tmp_path: Path) -> None:
     markdown, page = read(export_lineage(runs_per_team(), to=tmp_path / "lineage.html"))
     for text in (markdown, page):
         assert sqlglot_composer.VERSION in text
@@ -178,7 +180,7 @@ def test_both_footers_show_the_toolbox_version_and_the_scripts_commit(tmp_path) 
 # --- The default name and place ---------------------------------------------------------------
 
 
-def run_script(folder, text: str) -> tuple:
+def run_script(folder: Path, text: str) -> tuple[Path, Path]:
     """Run a script saved in `folder` that calls export_lineage, and return what it returned."""
     script = folder / "weekly_report.py"
     script.write_text(textwrap.dedent(text), encoding="utf-8")
@@ -200,7 +202,8 @@ SCRIPT = """
 """
 
 
-def test_the_default_name_goes_in_a_lineage_folder_beside_the_calling_script(tmp_path) -> None:
+def test_the_default_name_goes_in_a_lineage_folder_beside_the_calling_script(
+        tmp_path: Path) -> None:
     html_file, markdown_file = run_script(tmp_path, SCRIPT)
     assert html_file.parent == tmp_path / "lineage"
     assert re.fullmatch(r"\d{8}-\d{6}_nogit_lineage_weekly_report_runs_per_team\.html",
@@ -209,12 +212,12 @@ def test_the_default_name_goes_in_a_lineage_folder_beside_the_calling_script(tmp
     assert markdown_file.exists()
 
 
-def git(folder, *args) -> str:
+def git(folder: Path, *args: str) -> str:
     done = subprocess.run(["git", *args], cwd=folder, capture_output=True, text=True, check=True)
     return done.stdout.strip()
 
 
-def git_repository(folder):
+def git_repository(folder: Path) -> str:
     git(folder, "init", "-q", "-b", "work")
     git(folder, "config", "user.email", "test@example.com")
     git(folder, "config", "user.name", "test")
@@ -228,7 +231,7 @@ needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="needs the gi
 
 
 @needs_git
-def test_the_name_carries_the_commit_of_the_scripts_repository(tmp_path) -> None:
+def test_the_name_carries_the_commit_of_the_scripts_repository(tmp_path: Path) -> None:
     commit = git_repository(tmp_path)
     html_file, _ = run_script(tmp_path, SCRIPT)
     assert f"_{commit}_lineage_weekly_report_" in html_file.name
@@ -236,7 +239,7 @@ def test_the_name_carries_the_commit_of_the_scripts_repository(tmp_path) -> None
 
 
 @needs_git
-def test_the_commit_is_read_from_packed_refs_too(tmp_path) -> None:
+def test_the_commit_is_read_from_packed_refs_too(tmp_path: Path) -> None:
     commit = git_repository(tmp_path)
     git(tmp_path, "pack-refs", "--all")
     assert not (tmp_path / ".git" / "refs" / "heads" / "work").exists()
@@ -245,7 +248,7 @@ def test_the_commit_is_read_from_packed_refs_too(tmp_path) -> None:
 
 
 @needs_git
-def test_the_commit_is_read_in_a_worktree_and_on_a_detached_head(tmp_path) -> None:
+def test_the_commit_is_read_in_a_worktree_and_on_a_detached_head(tmp_path: Path) -> None:
     main = tmp_path / "main"
     main.mkdir()
     commit = git_repository(main)
@@ -257,7 +260,8 @@ def test_the_commit_is_read_in_a_worktree_and_on_a_detached_head(tmp_path) -> No
     assert f"_{commit}_lineage_" in html_file.name
 
 
-def test_in_a_notebook_the_name_and_folder_come_from_the_notebook(tmp_path, monkeypatch) -> None:
+def test_in_a_notebook_the_name_and_folder_come_from_the_notebook(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("JPY_SESSION_NAME", str(tmp_path / "Weekly report.ipynb"))
     cell = compile(textwrap.dedent(SCRIPT), "/tmp/ipykernel_4242/2718281828.py", "exec")
     scope = {}
@@ -268,7 +272,7 @@ def test_in_a_notebook_the_name_and_folder_come_from_the_notebook(tmp_path, monk
 
 
 def test_several_statements_are_named_by_their_variables_in_the_order_passed(
-        tmp_path, monkeypatch) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     scope = {"export_lineage": export_lineage, "fill": fill_daily_runs(),
              "weekly": runs_by_team(), "runs_per_team": runs_per_team}
@@ -283,7 +287,7 @@ def test_several_statements_are_named_by_their_variables_in_the_order_passed(
 # --- What the drawing holds -------------------------------------------------------------------
 
 
-def test_every_table_and_statement_is_its_own_group(tmp_path) -> None:
+def test_every_table_and_statement_is_its_own_group(tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, _ = read(export_lineage(team, to=tmp_path / "lineage.html"))
     boxes = chart(markdown)["boxes"]
@@ -295,7 +299,8 @@ def test_every_table_and_statement_is_its_own_group(tmp_path) -> None:
     assert boxes["JOIN ON in team"] == "filters on team"
 
 
-def test_a_solid_arrow_carries_a_value_and_a_dotted_one_decides_the_rows(tmp_path) -> None:
+def test_a_solid_arrow_carries_a_value_and_a_dotted_one_decides_the_rows(
+        tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, _ = read(export_lineage(team, to=tmp_path / "lineage.html"))
     arrows = chart(markdown)["arrows"]
@@ -306,7 +311,7 @@ def test_a_solid_arrow_carries_a_value_and_a_dotted_one_decides_the_rows(tmp_pat
     assert ("WHERE in team", "team", "filters") in arrows
 
 
-def test_a_box_shows_the_call_it_was_written_with(tmp_path) -> None:
+def test_a_box_shows_the_call_it_was_written_with(tmp_path: Path) -> None:
     weekly = statement(
         SELECT(AS(week_start(job_runs.dt), "week"), AS(count_rows(), "runs")),
         FROM(job_runs),
@@ -325,7 +330,7 @@ def test_a_box_shows_the_call_it_was_written_with(tmp_path) -> None:
     assert "One value for each different `week_start(job_runs.dt)`." in runs
 
 
-def test_arithmetic_between_calls_reads_as_written(tmp_path) -> None:
+def test_arithmetic_between_calls_reads_as_written(tmp_path: Path) -> None:
     average = statement(
         SELECT(job_runs.job_id,
                AS(sum_of(job_runs.duration_mins) / count_rows(), "average_minutes")),
@@ -338,7 +343,7 @@ def test_arithmetic_between_calls_reads_as_written(tmp_path) -> None:
     assert f"as `sum_of(job_runs.duration_mins) / count_rows()`, which is `{hive}`" in markdown
 
 
-def test_a_condition_reads_as_written_beside_its_hive(tmp_path) -> None:
+def test_a_condition_reads_as_written_beside_its_hive(tmp_path: Path) -> None:
     slow = statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs),
@@ -352,7 +357,7 @@ def test_a_condition_reads_as_written_beside_its_hive(tmp_path) -> None:
             f"which is `{hive}`") in markdown
 
 
-def test_the_report_traces_each_calculated_column_back_to_the_tables(tmp_path) -> None:
+def test_the_report_traces_each_calculated_column_back_to_the_tables(tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, _ = read(export_lineage(team, to=tmp_path / "lineage.html"))
     runs = section(markdown, "#### `runs`")
@@ -367,14 +372,14 @@ def test_the_report_traces_each_calculated_column_back_to_the_tables(tmp_path) -
     assert "| `team` | ops.jobs.team |" in copied
 
 
-def test_the_hive_is_the_one_to_hive_gives(tmp_path) -> None:
+def test_the_hive_is_the_one_to_hive_gives(tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, page = read(export_lineage(team, to=tmp_path / "lineage.html"))
     assert f"### Hive as submitted\n\n```sql\n{to_hive(team)}\n```" in markdown
     assert "<h3>Hive as submitted</h3>\n<pre>SELECT\n  jobs.team," in page
 
 
-def latest_runs():
+def latest_runs() -> Statement:
     numbered = derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.status,
                AS(row_number(PARTITION_BY=job_runs.job_id,
@@ -389,7 +394,7 @@ def latest_runs():
     )
 
 
-def test_a_derived_table_stays_on_screen_as_its_own_group(tmp_path) -> None:
+def test_a_derived_table_stays_on_screen_as_its_own_group(tmp_path: Path) -> None:
     latest = latest_runs()
     markdown, _ = read(export_lineage(latest, to=tmp_path / "lineage.html"))
     got = chart(markdown)
@@ -406,7 +411,7 @@ def test_a_derived_table_stays_on_screen_as_its_own_group(tmp_path) -> None:
     assert "WITH numbered AS (" in markdown
 
 
-def test_a_windows_partition_by_and_order_by_are_rows_that_count(tmp_path) -> None:
+def test_a_windows_partition_by_and_order_by_are_rows_that_count(tmp_path: Path) -> None:
     so_far = statement(
         SELECT(job_runs.run_id,
                AS(sum_of(job_runs.duration_mins, over=window(
@@ -431,7 +436,8 @@ def test_a_windows_partition_by_and_order_by_are_rows_that_count(tmp_path) -> No
             in page)
 
 
-def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(tmp_path) -> None:
+def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(
+        tmp_path: Path) -> None:
     events = example_database.job_events
     with_before = derived("with_before", statement(
         SELECT(events.event_id, events.dt,
@@ -449,7 +455,7 @@ def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(tmp
         markdown)["arrows"]
 
 
-def test_having_and_limit_are_drawn_as_conditions(tmp_path) -> None:
+def test_having_and_limit_are_drawn_as_conditions(tmp_path: Path) -> None:
     busy = statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs),
@@ -467,7 +473,7 @@ def test_having_and_limit_are_drawn_as_conditions(tmp_path) -> None:
     assert "- LIMIT in busy: `ORDER BY runs DESC LIMIT 3`" in markdown
 
 
-def test_a_statement_named_like_a_derived_table_keeps_its_own_group(tmp_path) -> None:
+def test_a_statement_named_like_a_derived_table_keeps_its_own_group(tmp_path: Path) -> None:
     recent = derived("recent", statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs),
@@ -486,24 +492,25 @@ def test_a_statement_named_like_a_derived_table_keeps_its_own_group(tmp_path) ->
     assert kinds["recent in recent"] == "derived"
 
 
-def test_several_statements_group_the_same_table_once(tmp_path) -> None:
+def test_several_statements_group_the_same_table_once(tmp_path: Path) -> None:
     team, weekly = runs_per_team(), runs_by_team()
     markdown, _ = read(export_lineage(team, weekly, to=tmp_path / "lineage.html"))
     assert markdown.count('["ops.jobs"]') == 1
 
 
-def test_a_column_nothing_uses_is_left_out(tmp_path) -> None:
+def test_a_column_nothing_uses_is_left_out(tmp_path: Path) -> None:
     latest = latest_runs()
     markdown, _ = read(export_lineage(latest, to=tmp_path / "lineage.html"))
     assert "ops.job_runs.duration_mins" not in markdown
 
 
-def test_box_lines_decides_what_every_view_shows(tmp_path, monkeypatch) -> None:
+def test_box_lines_decides_what_every_view_shows(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from sqlglot_composer import lineage
 
     shown = lineage.box_lines
 
-    def with_kind_line(box):
+    def with_kind_line(box: dict[str, object]) -> list[str]:
         return [*shown(box), f"kind: {box['kind']}"]
 
     monkeypatch.setattr(lineage, "box_lines", with_kind_line)
@@ -514,7 +521,7 @@ def test_box_lines_decides_what_every_view_shows(tmp_path, monkeypatch) -> None:
     assert ["ops.jobs.team", "string", "kind: table"] in [b["lines"] for b in data["boxes"]]
 
 
-def test_the_mermaid_labels_spell_out_what_mermaid_would_misread(tmp_path) -> None:
+def test_the_mermaid_labels_spell_out_what_mermaid_would_misread(tmp_path: Path) -> None:
     odd = statement(
         SELECT(jobs.job_id),
         FROM(jobs),
@@ -528,7 +535,7 @@ def test_the_mermaid_labels_spell_out_what_mermaid_would_misread(tmp_path) -> No
 # --- Joined across Saved tables ---------------------------------------------------------------
 
 
-def test_writers_come_first_whatever_order_they_are_passed_in(tmp_path) -> None:
+def test_writers_come_first_whatever_order_they_are_passed_in(tmp_path: Path) -> None:
     fill, weekly = fill_daily_runs(), runs_by_team()
     markdown, _ = read(export_lineage(weekly, fill, to=tmp_path / "lineage.html"))
     assert markdown.startswith("# Lineage: fill, weekly\n")
@@ -537,7 +544,7 @@ def test_writers_come_first_whatever_order_they_are_passed_in(tmp_path) -> None:
     assert "It reads the Saved table mart.daily_runs, written by fill above." in markdown
 
 
-def test_the_drawing_continues_through_a_saved_table(tmp_path) -> None:
+def test_the_drawing_continues_through_a_saved_table(tmp_path: Path) -> None:
     fill, weekly = fill_daily_runs(), runs_by_team()
     markdown, _ = read(export_lineage(fill, weekly, to=tmp_path / "lineage.html"))
     got = chart(markdown)
@@ -550,7 +557,7 @@ def test_the_drawing_continues_through_a_saved_table(tmp_path) -> None:
     assert ("mart.daily_runs.dt", "WHERE in weekly", "rows") in got["arrows"]
 
 
-def test_the_report_continues_through_a_saved_table(tmp_path) -> None:
+def test_the_report_continues_through_a_saved_table(tmp_path: Path) -> None:
     fill, weekly = fill_daily_runs(), runs_by_team()
     markdown, _ = read(export_lineage(fill, weekly, to=tmp_path / "lineage.html"))
     runs = section(section(markdown, "## weekly"), "#### `runs`")
@@ -561,7 +568,8 @@ def test_the_report_continues_through_a_saved_table(tmp_path) -> None:
             ) in runs
 
 
-def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(tmp_path) -> None:
+def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(
+        tmp_path: Path) -> None:
     fill = statement(
         INSERT_OVERWRITE(daily_runs),
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -579,7 +587,7 @@ def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(tmp
 
 
 def test_a_write_over_more_days_than_the_dates_cap_shows_its_first_days_hive(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     set_load_limits(dates=1)
     fill = fill_daily_runs("2026-09-23", "2026-09-24")
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
@@ -589,7 +597,7 @@ def test_a_write_over_more_days_than_the_dates_cap_shows_its_first_days_hive(
 
 
 def test_a_one_day_write_over_the_dates_cap_is_refused_as_to_hive_refuses_it(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     set_load_limits(dates=1)
     alerts = statement(
         INSERT_OVERWRITE(daily_runs),
@@ -605,7 +613,7 @@ def test_a_one_day_write_over_the_dates_cap_is_refused_as_to_hive_refuses_it(
         export_lineage(alerts, to=tmp_path / "lineage.html")
 
 
-def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path) -> None:
+def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path: Path) -> None:
     fill = fill_daily_runs("2026-09-23", "2026-09-24")
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     hive = section(markdown, "### Hive as submitted")
@@ -615,7 +623,7 @@ def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path) -> None:
     assert "PARTITION(dt = '2026-09-23')" in hive
 
 
-def test_two_writers_into_one_saved_table_both_draw_into_it(tmp_path) -> None:
+def test_two_writers_into_one_saved_table_both_draw_into_it(tmp_path: Path) -> None:
     yesterday = fill_daily_runs()
     before = fill_daily_runs("2026-09-23", "2026-09-23")
     weekly = runs_by_team()
@@ -626,7 +634,7 @@ def test_two_writers_into_one_saved_table_both_draw_into_it(tmp_path) -> None:
     assert "written by yesterday and before above" in markdown
 
 
-def test_a_saved_table_no_statement_writes_is_an_ordinary_table(tmp_path) -> None:
+def test_a_saved_table_no_statement_writes_is_an_ordinary_table(tmp_path: Path) -> None:
     weekly = runs_by_team()
     markdown, _ = read(export_lineage(weekly, to=tmp_path / "lineage.html"))
     got = chart(markdown)
@@ -647,7 +655,7 @@ def html_entry(page: str, name: str, group: str) -> str:
 
 @pytest.mark.parametrize("many_matches", [False, True], ids=["one match", "many matches"])
 def test_a_left_joined_saved_tables_conditions_decide_only_its_own_columns(
-        tmp_path, many_matches) -> None:
+        tmp_path: Path, many_matches: bool) -> None:
     run_alerts = example_database.run_alerts
     fill = fill_daily_runs()
     alerts = statement(
@@ -694,7 +702,7 @@ job_day_facts = Table("mart.job_day_facts", date_partition="dt", key=["job_id", 
                                "dt": "string"})
 
 
-def write_job_day_facts():
+def write_job_day_facts() -> Statement:
     """Each job's events on 2026-09-24, with the team that owned it that day: a LEFT_JOIN to
     that day's snapshot, as the intermediate Example project's example 2 does."""
     return statement(
@@ -710,7 +718,7 @@ def write_job_day_facts():
 
 
 def test_a_writers_left_join_decides_only_the_columns_read_from_its_table_downstream(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     facts = write_job_day_facts()
     per_team = statement(
         SELECT(job_day_facts.team, AS(sum_of(job_day_facts.events), "events"),
@@ -735,7 +743,7 @@ def test_a_writers_left_join_decides_only_the_columns_read_from_its_table_downst
 
 
 def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_in_its_section(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     """How-to 26's team write reads each job's team from the snapshot of the day it writes:
     the bound on job_owners.dt follows the day written, so a later reader of many days doesn't
     list it, as it doesn't list the day written."""
@@ -766,7 +774,7 @@ def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_
 
 
 def test_a_left_join_read_only_by_a_second_left_join_decides_only_what_that_one_brings(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     """The second LEFT_JOIN matches on jobs' columns, so the first decides the owner's team,
     but neither drops a run, so neither decides the count of runs."""
     chained = statement(
@@ -788,7 +796,8 @@ def test_a_left_join_read_only_by_a_second_left_join_decides_only_what_that_one_
     assert "`all_of(equals(job_owners.job_id, jobs.job_id)" in teams
 
 
-def test_a_left_join_decides_every_column_when_a_condition_reads_its_table(tmp_path) -> None:
+def test_a_left_join_decides_every_column_when_a_condition_reads_its_table(
+        tmp_path: Path) -> None:
     """An anti-join: WHERE keeps the rows the LEFT JOIN found no match for."""
     no_snapshot = statement(
         SELECT(job_events.job_id, AS(count_rows(), "events")),
@@ -852,7 +861,7 @@ BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
 
 
 def test_an_unchecked_statement_is_one_opaque_step_linked_to_the_tables_it_names(
-        tmp_path) -> None:
+        tmp_path: Path) -> None:
     fill = unchecked_hive(BY_HAND)
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     got = chart(markdown)
@@ -864,7 +873,8 @@ def test_an_unchecked_statement_is_one_opaque_step_linked_to_the_tables_it_names
     assert "ops.job_runs.job_id" not in got["boxes"]
 
 
-def test_its_report_says_nothing_inside_it_was_checked_and_shows_its_hive(tmp_path) -> None:
+def test_its_report_says_nothing_inside_it_was_checked_and_shows_its_hive(
+        tmp_path: Path) -> None:
     fill = unchecked_hive(BY_HAND)
     markdown, page = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     about = section(markdown, "## fill")
@@ -877,7 +887,7 @@ def test_its_report_says_nothing_inside_it_was_checked_and_shows_its_hive(tmp_pa
     assert html.escape(said) in page
 
 
-def test_it_is_ordered_before_the_statements_that_read_what_it_writes(tmp_path) -> None:
+def test_it_is_ordered_before_the_statements_that_read_what_it_writes(tmp_path: Path) -> None:
     fill, weekly = unchecked_hive(BY_HAND), runs_by_team()
     markdown, _ = read(export_lineage(weekly, fill, to=tmp_path / "lineage.html"))
     assert markdown.startswith("# Lineage: fill, weekly\n")
@@ -886,7 +896,7 @@ def test_it_is_ordered_before_the_statements_that_read_what_it_writes(tmp_path) 
     assert ("mart.daily_runs.runs", "runs", "value") in got["arrows"]
 
 
-def test_the_page_draws_it_as_an_output_marked_unchecked(tmp_path) -> None:
+def test_the_page_draws_it_as_an_output_marked_unchecked(tmp_path: Path) -> None:
     fill = unchecked_hive(BY_HAND)
     _, page = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     data = page_data(page)
@@ -908,12 +918,13 @@ def test_no_statement_is_refused() -> None:
 
 @pytest.mark.parametrize("thing", ["SELECT 1", job_runs, create_table(daily_runs)],
                          ids=["a string", "a table", "create_table"])
-def test_what_isnt_a_statement_reading_a_table_is_refused(thing) -> None:
+def test_what_isnt_a_statement_reading_a_table_is_refused(
+        thing: str | Table | Statement) -> None:
     with pytest.raises(TypeError, match="isn't a Statement that reads a table"):
         export_lineage(thing)
 
 
-def test_the_same_statement_twice_is_drawn_once(tmp_path) -> None:
+def test_the_same_statement_twice_is_drawn_once(tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, _ = read(export_lineage(team, team, to=tmp_path / "lineage.html"))
     assert markdown.count("\n## team\n") == 1
@@ -922,12 +933,13 @@ def test_the_same_statement_twice_is_drawn_once(tmp_path) -> None:
 # --- The HTML page ------------------------------------------------------------------------------
 
 
-def test_the_page_needs_nothing_beyond_itself(tmp_path) -> None:
+def test_the_page_needs_nothing_beyond_itself(tmp_path: Path) -> None:
     _, page = read(export_lineage(runs_per_team(), to=tmp_path / "lineage.html"))
     assert external_references(page) == []
 
 
-def test_without_scripts_the_page_shows_the_report_and_points_at_the_markdown(tmp_path) -> None:
+def test_without_scripts_the_page_shows_the_report_and_points_at_the_markdown(
+        tmp_path: Path) -> None:
     team = runs_per_team()
     html_file, markdown_file = export_lineage(team, to=tmp_path / "team.html")
     page = html_file.read_text(encoding="utf-8")
@@ -938,7 +950,7 @@ def test_without_scripts_the_page_shows_the_report_and_points_at_the_markdown(tm
     assert "team.runs = count_rows()" in report
 
 
-def test_the_page_draws_from_the_same_boxes_and_arrows(tmp_path) -> None:
+def test_the_page_draws_from_the_same_boxes_and_arrows(tmp_path: Path) -> None:
     fill, weekly = fill_daily_runs(), runs_by_team()
     _, page = read(export_lineage(fill, weekly, to=tmp_path / "lineage.html"))
     data = page_data(page)
@@ -951,7 +963,7 @@ def test_the_page_draws_from_the_same_boxes_and_arrows(tmp_path) -> None:
                      "ops.jobs": "table", "weekly": "output"}
 
 
-def test_text_that_looks_like_the_pages_own_markers_stays_as_written(tmp_path) -> None:
+def test_text_that_looks_like_the_pages_own_markers_stays_as_written(tmp_path: Path) -> None:
     odd = statement(
         SELECT(jobs.job_id),
         FROM(jobs),
@@ -963,7 +975,7 @@ def test_text_that_looks_like_the_pages_own_markers_stays_as_written(tmp_path) -
     assert "<code>__MD__.md</code>" in page
 
 
-def test_text_in_the_graph_data_cant_end_the_script(tmp_path) -> None:
+def test_text_in_the_graph_data_cant_end_the_script(tmp_path: Path) -> None:
     odd = statement(
         SELECT(jobs.job_id),
         FROM(jobs),
@@ -976,7 +988,7 @@ def test_text_in_the_graph_data_cant_end_the_script(tmp_path) -> None:
 
 @pytest.mark.skipif(shutil.which("node") is None,
                     reason="Node isn't installed to read the page's script")
-def test_the_pages_script_is_javascript_a_browser_can_read(tmp_path) -> None:
+def test_the_pages_script_is_javascript_a_browser_can_read(tmp_path: Path) -> None:
     """The page's drawing is about 760 lines of JavaScript inside a Python string, which no
     other test runs: Node reads it as a browser would, and stops on a syntax error."""
     _, page = read(export_lineage(runs_per_team(), to=tmp_path / "lineage.html"))
@@ -990,7 +1002,7 @@ def test_the_pages_script_is_javascript_a_browser_can_read(tmp_path) -> None:
 # --- Keys -------------------------------------------------------------------------------------
 
 
-def test_each_column_in_a_key_is_marked_in_the_chart_and_on_the_page(tmp_path) -> None:
+def test_each_column_in_a_key_is_marked_in_the_chart_and_on_the_page(tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, page = read(export_lineage(team, to=tmp_path / "team.html"))
     lines = {box["lines"][0]: box["lines"] for box in page_data(page)["boxes"]}
@@ -1001,7 +1013,7 @@ def test_each_column_in_a_key_is_marked_in_the_chart_and_on_the_page(tmp_path) -
     assert '["team<br/><small>jobs.team</small><br/><small>in the Key</small>"]' in markdown
 
 
-def test_the_report_says_where_a_step_lost_its_key(tmp_path) -> None:
+def test_the_report_says_where_a_step_lost_its_key(tmp_path: Path) -> None:
     run_alerts = example_database.run_alerts
     with_alerts = derived("with_alerts", statement(
         SELECT(job_runs.run_id, AS(run_alerts.severity, "severity")), FROM(job_runs),
@@ -1018,7 +1030,7 @@ def test_the_report_says_where_a_step_lost_its_key(tmp_path) -> None:
     assert "<h3>Keys</h3>" in page and "can match several run_alerts rows to one row" in page
 
 
-def test_the_report_says_whether_a_writes_key_holds(tmp_path) -> None:
+def test_the_report_says_whether_a_writes_key_holds(tmp_path: Path) -> None:
     daily = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
     fill = statement(INSERT_OVERWRITE(daily), SELECT(job_runs.job_id, AS(count_rows(), "runs")),

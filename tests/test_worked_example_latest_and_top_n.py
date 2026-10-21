@@ -7,6 +7,7 @@ statuses come from the wrong runs.
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from conftest import example_rows
@@ -14,12 +15,12 @@ from sqlglot_composer import example_database, run
 from statements import latest_and_top_n as example
 
 
-def runs_on_both_days():
+def runs_on_both_days() -> pd.DataFrame:
     runs = example_rows("job_runs")
     return runs[runs.dt.between(example.FIRST_DAY, example.LAST_DAY)]
 
 
-def latest_check() -> list[dict]:
+def latest_check() -> list[dict[str, int | str]]:
     """Each job's newest run and its status, in pandas."""
     runs = runs_on_both_days()
     latest = runs.loc[runs.groupby("job_id").run_id.idxmax()]

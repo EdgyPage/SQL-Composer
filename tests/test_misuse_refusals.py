@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Callable
 from pathlib import Path
 
 import pandas as pd
@@ -19,6 +20,7 @@ from sqlglot_composer import (
     ORDER_BY,
     SELECT,
     WHERE,
+    Statement,
     Table,
     all_columns,
     any_of,
@@ -135,12 +137,13 @@ MISUSES = [
 ]
 
 
-def teams():
+def teams() -> Statement:
     return statement(SELECT(jobs.team), FROM(jobs))
 
 
 @pytest.mark.parametrize(("make", "error", "said"), MISUSES)
-def test_a_misuse_is_refused_in_four_parts(make, error, said) -> None:
+def test_a_misuse_is_refused_in_four_parts(make: Callable[[], object], error: type[Exception],
+                                           said: str) -> None:
     with pytest.raises(error) as refused:
         make()
     message = str(refused.value)
@@ -230,7 +233,7 @@ _OtherLibrarysDataFrame.__module__ = "polars.dataframe.frame"
     pytest.param({"team": ["data"]}, "a dict", id="a_dict"),
     pytest.param(_OtherLibrarysDataFrame(), "a polars DataFrame", id="another_librarys_dataframe"),
 ])
-def test_a_send_that_doesnt_give_back_a_dataframe_is_refused(answer, said) -> None:
+def test_a_send_that_doesnt_give_back_a_dataframe_is_refused(answer: object, said: str) -> None:
     with pytest.raises(TypeError) as refused:
         run(teams(), send=lambda hive: answer)
     message = str(refused.value)

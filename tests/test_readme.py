@@ -21,7 +21,8 @@ BLOCKS = python_blocks(TEMPLATE.read_text(encoding="utf-8"))
 
 
 @pytest.mark.parametrize("number", range(len(BLOCKS)))
-def test_the_readme_examples_run(number: int, tmp_path, monkeypatch) -> None:
+def test_the_readme_examples_run(
+        number: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # The examples run as from a notebook in a new folder: project.start() makes a Project there.
     monkeypatch.chdir(tmp_path)
     shared: dict = {}

@@ -26,14 +26,15 @@ sys.path.insert(0, str(HOOK.parent))
 import offline_hook  # noqa: E402
 
 
-def judge(tool: str, tool_input: dict, project: Path = ROOT) -> subprocess.CompletedProcess:
+def judge(tool: str, tool_input: dict[str, str | bool], project: Path = ROOT
+          ) -> subprocess.CompletedProcess[bytes]:
     """Run the hook on one call, sent as Claude Code sends it: JSON in UTF-8, in a session
     whose project is `project`."""
     given = {"tool_name": tool, "tool_input": tool_input, "cwd": str(project)}
     return run_hook(json.dumps(given, ensure_ascii=False).encode("utf-8"), project)
 
 
-def run_hook(sent: bytes, project: Path = ROOT) -> subprocess.CompletedProcess:
+def run_hook(sent: bytes, project: Path = ROOT) -> subprocess.CompletedProcess[bytes]:
     """This same Python on the hook, told nothing of its encoding, with `sent` on stdin."""
     plain = {name: value for name, value in os.environ.items()
              if name not in ("PYTHONIOENCODING", "PYTHONUTF8")}
@@ -42,7 +43,7 @@ def run_hook(sent: bytes, project: Path = ROOT) -> subprocess.CompletedProcess:
                           env=plain)
 
 
-def refusal(tool: str, tool_input: dict, project: Path = ROOT) -> str | None:
+def refusal(tool: str, tool_input: dict[str, str | bool], project: Path = ROOT) -> str | None:
     """The hook's reason for a deny, or None when it lets the call through."""
     done = judge(tool, tool_input, project)
     if not done.stdout.strip():
@@ -57,7 +58,7 @@ def write(path: Path, content: str, project: Path = ROOT) -> str | None:
     return refusal("Write", {"file_path": str(path), "content": content}, project)
 
 
-def edit(path: Path, old: str, new: str, project: Path = ROOT, **options) -> str | None:
+def edit(path: Path, old: str, new: str, project: Path = ROOT, **options: bool) -> str | None:
     return refusal("Edit", {"file_path": str(path), "old_string": old, "new_string": new,
                             **options}, project)
 
@@ -100,16 +101,18 @@ def test_an_edit_that_adds_a_connection_is_refused() -> None:
     dial = 'import inspect\nimport socket\n\nsocket.create_connection(("example.com", 80))'
     why = edit(RUNNING, "import inspect", dial)
     assert why is not None
-    assert "sqlglot_composer/running.py:11 network: import socket" in why
-    assert 'sqlglot_composer/running.py:13 network: socket.create_connection(("example.com", 80))' \
-        in why
+    # The line numbers follow `import inspect`, wherever running.py's imports leave it.
+    line = RUNNING.read_text(encoding="utf-8").splitlines().index("import inspect") + 1
+    assert f"sqlglot_composer/running.py:{line + 1} network: import socket" in why
+    assert (f"sqlglot_composer/running.py:{line + 3} network: "
+            'socket.create_connection(("example.com", 80))') in why
 
 
 def test_an_edit_that_keeps_the_file_clean_passes() -> None:
     assert edit(RUNNING, "import inspect", "import inspect\nimport textwrap") is None
 
 
-def test_an_edit_is_judged_on_the_whole_file_it_leaves(tmp_path) -> None:
+def test_an_edit_is_judged_on_the_whole_file_it_leaves(tmp_path: Path) -> None:
     # The new text alone is clean: it is the alias already in the file that reaches out.
     checkout = a_checkout(tmp_path, {"sqlglot_composer/x.py": "import socket as wire\nwire = None\n"})
     why = edit(checkout / "sqlglot_composer" / "x.py", "wire = None\n", "wire.create_connection(a)\n",
@@ -117,7 +120,7 @@ def test_an_edit_is_judged_on_the_whole_file_it_leaves(tmp_path) -> None:
     assert why is not None and "x.py:2 network: wire.create_connection(a)" in why
 
 
-def test_replace_all_is_judged_at_every_place_it_changes(tmp_path) -> None:
+def test_replace_all_is_judged_at_every_place_it_changes(tmp_path: Path) -> None:
     checkout = a_checkout(tmp_path, {"sqlglot_composer/x.py": "a = 1\nb = 2\na = 1\n"})
     file = checkout / "sqlglot_composer" / "x.py"
     once = edit(file, "a = 1", "import requests", checkout)
@@ -126,7 +129,7 @@ def test_replace_all_is_judged_at_every_place_it_changes(tmp_path) -> None:
     assert every is not None and "x.py:1 " in every and "x.py:3 " in every
 
 
-def test_an_edit_matches_a_windows_file_as_claude_code_does(tmp_path) -> None:
+def test_an_edit_matches_a_windows_file_as_claude_code_does(tmp_path: Path) -> None:
     # Claude Code reads a CRLF file with LF line ends, matches straight quotes to curly ones,
     # and sends its call in UTF-8, so an Edit that only matches that way still changes the
     # file. Each new text is clean alone: only the file's own alias makes it reach out.
@@ -142,7 +145,7 @@ def test_an_edit_matches_a_windows_file_as_claude_code_does(tmp_path) -> None:
         assert why is not None and f"{name}:2 network: wire.create_connection(a)" in why, name
 
 
-def test_an_edit_whose_text_is_not_found_is_judged_on_its_new_text(tmp_path) -> None:
+def test_an_edit_whose_text_is_not_found_is_judged_on_its_new_text(tmp_path: Path) -> None:
     # Claude Code would refuse the Edit, but the hook doesn't count on matching it exactly.
     checkout = a_checkout(tmp_path, {"sqlglot_composer/x.py": "a = 1\n"})
     file = checkout / "sqlglot_composer" / "x.py"
@@ -170,7 +173,7 @@ def test_a_file_that_declares_another_encoding_is_refused() -> None:
     assert why is not None and "unreadable" in why
 
 
-def test_a_notebook_with_a_broken_cell_hides_no_other_cell(tmp_path) -> None:
+def test_a_notebook_with_a_broken_cell_hides_no_other_cell(tmp_path: Path) -> None:
     checkout = a_checkout(tmp_path, {"worked_examples/x.ipynb": notebook(
         ("a", "code", "def f(:"), ("b", "code", "x = 1"))})
     file = checkout / "worked_examples" / "x.ipynb"
@@ -209,21 +212,21 @@ def test_each_finding_reaches_the_session_as_one_plain_line() -> None:
     assert "... and 10 more" in why
 
 
-def test_a_file_outside_the_project_passes(tmp_path) -> None:
+def test_a_file_outside_the_project_passes(tmp_path: Path) -> None:
     assert write(tmp_path / "sqlglot_composer" / "x.py", "import requests\n") is None
     # Another checkout of the repo, outside the session's project, isn't the project.
     other = a_checkout(tmp_path / "other", {})
     assert write(other / "sqlglot_composer" / "x.py", "import requests\n") is None
 
 
-def test_a_worktree_in_the_project_is_judged_at_its_own_paths(tmp_path) -> None:
+def test_a_worktree_in_the_project_is_judged_at_its_own_paths(tmp_path: Path) -> None:
     project = a_checkout(tmp_path, {})
     worktree = a_checkout(project / ".claude" / "worktrees" / "agent-1", {})
     why = write(worktree / "sqlglot_composer" / "x.py", "import requests\n", project)
     assert why is not None and "\nsqlglot_composer/x.py:1 network: import requests" in why
 
 
-def test_a_worktree_is_judged_by_the_project_s_policy_not_its_own(tmp_path) -> None:
+def test_a_worktree_is_judged_by_the_project_s_policy_not_its_own(tmp_path: Path) -> None:
     # A worktree's own tools/offline_policy.py could say anything; the hook runs the project's.
     project = a_checkout(tmp_path, {})
     worktree = a_checkout(project / ".claude" / "worktrees" / "agent-1", {})
@@ -235,7 +238,7 @@ def test_a_worktree_is_judged_by_the_project_s_policy_not_its_own(tmp_path) -> N
     assert why is not None and "\nsqlglot_composer/x.py:1 network: import requests" in why
 
 
-def test_a_worktree_without_its_own_policy_is_still_judged(tmp_path) -> None:
+def test_a_worktree_without_its_own_policy_is_still_judged(tmp_path: Path) -> None:
     project = a_checkout(tmp_path, {})
     worktree = a_checkout(project / ".claude" / "worktrees" / "agent-1", {})
     (worktree / "tools" / "offline_policy.py").unlink()
@@ -243,7 +246,7 @@ def test_a_worktree_without_its_own_policy_is_still_judged(tmp_path) -> None:
     assert why is not None and "\nsqlglot_composer/x.py:1 network: import requests" in why
 
 
-def test_a_planted_checkout_inside_the_toolbox_is_still_the_toolbox(tmp_path) -> None:
+def test_a_planted_checkout_inside_the_toolbox_is_still_the_toolbox(tmp_path: Path) -> None:
     project = a_checkout(tmp_path, {"sqlglot_composer/a/.git": "gitdir: nowhere\n",
                                     "sqlglot_composer/b/pyvenv.cfg": "home = x\n"})
     for folder in ("a", "b"):
@@ -280,7 +283,8 @@ def notebook(*cells: tuple[str, str, str]) -> str:
                        "metadata": {}, "nbformat": 4, "nbformat_minor": 5})
 
 
-def notebook_edit(path: Path, source: str, project: Path = ROOT, **options) -> str | None:
+def notebook_edit(path: Path, source: str, project: Path = ROOT, **options: str
+                  ) -> str | None:
     return refusal("NotebookEdit", {"notebook_path": str(path), "new_source": source,
                                     **options}, project)
 
@@ -291,7 +295,7 @@ def test_a_notebook_cell_that_imports_a_network_module_is_refused() -> None:
     assert why is not None and "example_projects/x.ipynb:1 network: import requests" in why
 
 
-def test_a_notebook_cell_is_judged_with_the_notebook_it_joins(tmp_path) -> None:
+def test_a_notebook_cell_is_judged_with_the_notebook_it_joins(tmp_path: Path) -> None:
     checkout = a_checkout(tmp_path, {"worked_examples/x.ipynb": notebook(
         ("a", "code", "import socket as wire"), ("b", "code", "x = 1"))})
     file = checkout / "worked_examples" / "x.ipynb"
@@ -316,14 +320,15 @@ def test_input_that_isnt_a_call_is_let_through_and_said() -> None:
     assert b"offline hook" in done.stderr
 
 
-def test_a_toolbox_file_the_hook_cant_judge_is_refused(tmp_path) -> None:
+def test_a_toolbox_file_the_hook_cant_judge_is_refused(tmp_path: Path) -> None:
     checkout = a_checkout(tmp_path, {})
     (checkout / "sqlglot_composer" / "x.py").mkdir(parents=True)
     why = edit(checkout / "sqlglot_composer" / "x.py", "a", "b", checkout)
     assert why is not None and "couldn't judge" in why
 
 
-def test_a_broken_policy_refuses_the_toolbox_but_lets_its_own_fix_through(tmp_path) -> None:
+def test_a_broken_policy_refuses_the_toolbox_but_lets_its_own_fix_through(
+        tmp_path: Path) -> None:
     checkout = a_checkout(tmp_path, {})
     (checkout / "tools" / "offline_policy.py").write_text("raise RuntimeError('broken')\n",
                                                          encoding="utf-8")

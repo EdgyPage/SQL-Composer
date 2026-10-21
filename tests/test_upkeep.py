@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import datetime
 import re
+from collections.abc import Callable
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -26,6 +28,8 @@ from sqlglot_composer import (
     SELECT,
     UNION_ALL,
     WHERE,
+    Column,
+    Statement,
     Table,
     admin,
     between,
@@ -61,16 +65,17 @@ UNDATED = Table("mart.job_names", columns={"job_id": "bigint", "job_name": "stri
                 date_partition=None, location=BASE)
 
 
-def one_day():
+def one_day() -> Statement:
     return statement(SELECT(job_runs.run_id), FROM(job_runs),
                      WHERE(equals(job_runs.dt, "2026-09-24")))
 
 
-def recording(answer=None):
+def recording(
+        answer: pd.DataFrame | None = None) -> tuple[Callable[[str], pd.DataFrame], list[str]]:
     """A send that keeps each Hive it is given, and answers with `answer`."""
     sent = []
 
-    def send(hive):
+    def send(hive: str) -> pd.DataFrame:
         sent.append(hive)
         return pd.DataFrame() if answer is None else answer
     return send, sent
@@ -151,7 +156,7 @@ def test_compute_statistics_needs_the_day() -> None:
 
 
 @pytest.mark.parametrize("day", [["2026-09-23", "2026-09-24"], ("2026-09-24",)])
-def test_compute_statistics_takes_one_day(day) -> None:
+def test_compute_statistics_takes_one_day(day: list[str] | tuple[str, ...]) -> None:
     with pytest.raises(TypeError, match="one day at a time") as refused:
         compute_statistics(DAILY_RUNS, day)
     assert "for day in" in str(refused.value)
@@ -176,7 +181,8 @@ def test_compute_statistics_refuses_a_day_for_a_table_with_no_date_partition() -
     (1, "columns=1) isn't True or a list"),
     ([], "columns=[]) isn't True or a list"),
 ])
-def test_compute_statistics_refuses_columns_it_cant_count(columns, says) -> None:
+def test_compute_statistics_refuses_columns_it_cant_count(
+        columns: list[str] | list[Column] | str | int, says: str) -> None:
     with pytest.raises((TypeError, ValueError), match=re.escape(says)):
         compute_statistics(DAILY_RUNS, "2026-09-24", columns=columns)
 
@@ -186,7 +192,8 @@ def test_compute_statistics_refuses_columns_it_cant_count(columns, says) -> None
 
 @pytest.mark.parametrize("make", [repair_partitions,
                                   lambda t: compute_statistics(t, "2026-09-24")])
-def test_upkeep_refuses_a_table_that_isnt_one_of_your_saved_tables(make) -> None:
+def test_upkeep_refuses_a_table_that_isnt_one_of_your_saved_tables(
+        make: Callable[[Table], Statement]) -> None:
     with pytest.raises(ValueError, match="was given ops.job_runs, which isn't one of your "
                                          "Saved tables") as refused:
         make(job_runs)
@@ -195,7 +202,8 @@ def test_upkeep_refuses_a_table_that_isnt_one_of_your_saved_tables(make) -> None
 
 @pytest.mark.parametrize("make", [repair_partitions,
                                   lambda t: compute_statistics(t, "2026-09-24")])
-def test_upkeep_refuses_what_isnt_a_table_reference(make) -> None:
+def test_upkeep_refuses_what_isnt_a_table_reference(
+        make: Callable[[object], Statement]) -> None:
     runs = derived("runs", one_day())
     for given in ("mart.daily_runs", runs):
         with pytest.raises(TypeError, match="Pass a Table reference"):
@@ -239,7 +247,8 @@ def test_explain_explains_a_stack() -> None:
     assert to_hive(explain(stack)) == "EXPLAIN " + to_hive(stack)
 
 
-def test_show_hive_prints_an_explain_with_its_semicolon(capsys) -> None:
+def test_show_hive_prints_an_explain_with_its_semicolon(
+        capsys: pytest.CaptureFixture[str]) -> None:
     show_hive(explain(one_day()))
     assert capsys.readouterr().out.startswith("EXPLAIN SELECT\n")
 
@@ -263,7 +272,8 @@ def test_explain_refuses_what_to_hive_refuses() -> None:
     (lambda: repair_partitions(DAILY_RUNS), "isn't a query or a write"),
     (lambda: explain(one_day()), "isn't a query or a write"),
 ])
-def test_explain_refuses_what_has_no_plan_to_show(given, says) -> None:
+def test_explain_refuses_what_has_no_plan_to_show(
+        given: Callable[[], object], says: str) -> None:
     with pytest.raises((TypeError, ValueError), match=re.escape(says)):
         explain(given())
 
@@ -286,7 +296,7 @@ def test_run_refuses_a_plan_that_isnt_a_dataframe() -> None:
         run(explain(one_day()), send=lambda hive: ["STAGE DEPENDENCIES:"])
 
 
-def test_export_lineage_draws_no_upkeep(tmp_path) -> None:
+def test_export_lineage_draws_no_upkeep(tmp_path: Path) -> None:
     for s in (explain(one_day()), repair_partitions(DAILY_RUNS),
               compute_statistics(DAILY_RUNS, "2026-09-24")):
         with pytest.raises(TypeError, match="isn't a Statement that reads a table"):
@@ -301,7 +311,7 @@ def test_export_lineage_draws_no_upkeep(tmp_path) -> None:
     lambda: compute_statistics(REGION_RUNS, "2026-09-24", columns=True),
     lambda: explain(one_day()),
 ])
-def test_each_reads_back_as_itself(make) -> None:
+def test_each_reads_back_as_itself(make: Callable[[], Statement]) -> None:
     text = to_hive(make())
     assert toolbox_module("writing").read_back(text) == text
 

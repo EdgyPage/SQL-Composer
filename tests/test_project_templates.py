@@ -18,6 +18,7 @@ import pandas as pd
 import pytest
 
 from sqlglot_composer import example_database, project, run, set_admin_log, to_hive
+from sqlglot_composer.project import TableLogic
 from sqlglot_composer.project_templates import (
     BUILDING_BLOCK,
     NOTEBOOK_TEMPLATES,
@@ -57,7 +58,7 @@ FILLS = {
 
 
 @pytest.fixture
-def started(tmp_path, monkeypatch) -> Path:
+def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A Project with the Table references of the Example database's tables the fills read."""
     set_admin_log()
     monkeypatch.chdir(tmp_path)
@@ -71,7 +72,7 @@ def started(tmp_path, monkeypatch) -> Path:
     return tmp_path
 
 
-def saved_reference(name: str, columns: dict, key: list) -> str:
+def saved_reference(name: str, columns: dict[str, str], key: list[str]) -> str:
     """A Saved table's Table reference, as a user fills in the one new_table wrote."""
     table = name.split(".")[1]
     return (f"from sqlglot_composer import Table\n\n{table} = Table(\n    {name!r},\n"
@@ -110,7 +111,7 @@ def test_a_template_lists_every_placeholder_it_holds(template: str) -> None:
 
 
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
-def test_a_filled_notebook_has_five_code_cells_that_parse(started, template: str) -> None:
+def test_a_filled_notebook_has_five_code_cells_that_parse(started: Path, template: str) -> None:
     _, code = filled_notebook(started, template)
     assert len(code) == 5
     assert code[1].startswith("# logic\n")
@@ -121,7 +122,7 @@ def test_a_filled_notebook_has_five_code_cells_that_parse(started, template: str
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
-def test_a_filled_notebooks_logic_writes_its_day(started, template: str) -> None:
+def test_a_filled_notebooks_logic_writes_its_day(started: Path, template: str) -> None:
     name, _ = filled_notebook(started, template)
     logic = project.load(name)
     written = logic.write_day(DAY)
@@ -132,21 +133,21 @@ def test_a_filled_notebooks_logic_writes_its_day(started, template: str) -> None
     assert isinstance(preview, pd.DataFrame) and len(preview) > 0
 
 
-def test_an_incremental_load_writes_its_last_days(started) -> None:
+def test_an_incremental_load_writes_its_last_days(started: Path) -> None:
     name, _ = filled_notebook(started, "incremental_load")
     writes = project.load(name).write_day(DAY)
     assert [to_hive(write).split("\n")[0][-13:] for write in writes] == [
         "'2026-09-22')", "'2026-09-23')", "'2026-09-24')"]
 
 
-def test_a_weekly_rollup_reads_its_saved_days_a_week_at_a_time(started) -> None:
+def test_a_weekly_rollup_reads_its_saved_days_a_week_at_a_time(started: Path) -> None:
     name, _ = filled_notebook(started, "weekly_rollup")
     hive = to_hive(project.load(name).week_totals("2026-09-21", DAY))
     assert "AS week" in hive and "FROM mart.made_from_weekly_rollup" in hive
 
 
 @pytest.mark.needs_example_database
-def test_quality_checks_find_no_repeated_keys_on_the_example_database(started) -> None:
+def test_quality_checks_find_no_repeated_keys_on_the_example_database(started: Path) -> None:
     name, _ = filled_notebook(started, "quality_checks")
     logic = project.load(name)
     assert len(run(logic.repeated_keys(DAY, DAY), send=example_database.send)) == 0
@@ -154,7 +155,7 @@ def test_quality_checks_find_no_repeated_keys_on_the_example_database(started) -
     assert list(nulls.columns)[0] == "null_event_id"
 
 
-def logic_reading(root: Path, name: str, lines: str):
+def logic_reading(root: Path, name: str, lines: str) -> TableLogic:
     """The logic of a table made from a one-cell Template of `lines`, which reads what a
     Template under test was filled in to make."""
     (root / "admin" / "templates" / "reader.py").write_text(f"# %%\n# logic\n{lines}",
@@ -163,7 +164,7 @@ def logic_reading(root: Path, name: str, lines: str):
     return project.load(name)
 
 
-def test_the_saved_table_reference_template_filled_in_is_a_table(started) -> None:
+def test_the_saved_table_reference_template_filled_in_is_a_table(started: Path) -> None:
     text = SAVED_TABLE_REFERENCE
     for placeholder, value in {"<DB>": "mart", "<TABLE>": "daily_runs",
                                "<NAME>": "mart__daily_runs", "<COLUMN>": '"job_id"',
@@ -176,7 +177,7 @@ def test_the_saved_table_reference_template_filled_in_is_a_table(started) -> Non
     assert repr(logic.table()) == "Table('mart.daily_runs', columns: job_id, dt)"
 
 
-def test_the_building_block_template_filled_in_is_a_derived_table(started) -> None:
+def test_the_building_block_template_filled_in_is_a_derived_table(started: Path) -> None:
     text = BUILDING_BLOCK
     for placeholder, value in {"<BLOCK>": "minutes_per_job_day",
                                "<BLOCK_NAME>": '"minutes_per_job_day"', **SOURCE,

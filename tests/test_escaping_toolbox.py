@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 import decimal
 import re
+from collections.abc import Callable
 
 import pytest
 
@@ -34,6 +35,7 @@ from sqlglot_composer import (
     INSERT_OVERWRITE,
     SELECT,
     WHERE,
+    Condition,
     GuardRefused,
     Table,
     at_least,
@@ -72,25 +74,26 @@ COMPARISONS = [
 @pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
 @pytest.mark.parametrize(("function", "operator"), COMPARISONS,
                          ids=[f.__name__ for f, _ in COMPARISONS])
-def test_each_comparison_writes_the_literal_exactly(function, operator, _label, value,
-                                                    expected) -> None:
+def test_each_comparison_writes_the_literal_exactly(function: Callable[..., Condition],
+                                                    operator: str, _label: str, value: str,
+                                                    expected: str) -> None:
     assert repr(function(job_runs.status, value)) == f"job_runs.status {operator} {expected}"
 
 
 @pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
-def test_both_ends_of_a_range(_label, value, expected) -> None:
+def test_both_ends_of_a_range(_label: str, value: str, expected: str) -> None:
     condition = between(job_runs.status, value, value)
     assert repr(condition) == f"job_runs.status BETWEEN {expected} AND {expected}"
 
 
 @pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
-def test_each_item_of_a_list(_label, value, expected) -> None:
+def test_each_item_of_a_list(_label: str, value: str, expected: str) -> None:
     assert repr(is_in(job_runs.status, ["a", value])) == f"job_runs.status IN ('a', {expected})"
     assert repr(is_not_in(job_runs.status, [value])) == f"NOT job_runs.status IN ({expected})"
 
 
 @pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
-def test_calculations_escape_their_values(_label, value, expected) -> None:
+def test_calculations_escape_their_values(_label: str, value: str, expected: str) -> None:
     assert repr(fill_null(job_runs.status, value)) == f"COALESCE(job_runs.status, {expected})"
     assert expected in repr(if_else(equals(job_runs.status, "x"), value, "y"))
     assert repr(hive_function("upper", value)) == f"UPPER({expected})"
@@ -98,8 +101,8 @@ def test_calculations_escape_their_values(_label, value, expected) -> None:
 
 @pytest.mark.parametrize(("_label", "value", "_expected"), REFUSED,
                          ids=[label for label, _value, _expected in REFUSED])
-def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(_label, value,
-                                                                           _expected) -> None:
+def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(
+        _label: str, value: str, _expected: str) -> None:
     for make in (lambda: equals(job_runs.status, value),
                  lambda: not_equals(job_runs.status, value),
                  lambda: between(job_runs.status, "a", value),
@@ -120,7 +123,8 @@ def test_a_date_format_holding_a_control_character_is_refused() -> None:
 
 
 @pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
-def test_a_date_partition_bound_refuses_anything_but_a_day(_label, value, _expected) -> None:
+def test_a_date_partition_bound_refuses_anything_but_a_day(_label: str, value: str,
+                                                           _expected: str) -> None:
     with pytest.raises(ValueError, match="its Table reference writes days like"):
         equals(job_runs.dt, value)
     with pytest.raises(ValueError, match="its Table reference writes days like"):
@@ -128,14 +132,15 @@ def test_a_date_partition_bound_refuses_anything_but_a_day(_label, value, _expec
 
 
 @pytest.mark.parametrize("pattern", ["%Y%m%d'", "%Y-%m-%d %H", "%Y%m"])
-def test_a_date_format_that_could_carry_sql_is_refused(pattern) -> None:
+def test_a_date_format_that_could_carry_sql_is_refused(pattern: str) -> None:
     with pytest.raises(ValueError):
         Table("mart.odd", columns={"dt": "string"}, date_partition="dt", date_format=pattern)
 
 
 @pytest.mark.parametrize(("label", "name", "expected"), IDENTIFIER_CASES,
                          ids=[label for label, _n, _e in IDENTIFIER_CASES])
-def test_a_column_name_is_quoted_exactly_like_this(label, name, expected) -> None:
+def test_a_column_name_is_quoted_exactly_like_this(
+        label: str, name: str, expected: str) -> None:
     odd = Table("ops.odd", columns={name: "string"}, date_partition=None)
     assert repr(getattr(odd, name)) == f"odd.{expected}"
 
@@ -151,7 +156,8 @@ COLUMN_OF = {"BIGINT": numbers.b, "DECIMAL(18,2)": numbers.d, "DOUBLE": numbers.
 
 
 @pytest.mark.parametrize(("hive_type", "value", "expected"), NUMBER_CASES)
-def test_a_number_is_written_like_this(hive_type, value, expected) -> None:
+def test_a_number_is_written_like_this(hive_type: str, value: int | float | decimal.Decimal,
+                                       expected: str) -> None:
     column = COLUMN_OF[hive_type]
     written = repr(equals(column, value)).split(" = ")[1]
     assert written == expected
@@ -159,13 +165,14 @@ def test_a_number_is_written_like_this(hive_type, value, expected) -> None:
 
 
 @pytest.mark.parametrize(("value", "expected"), SNEAKY_NUMBERS, ids=["int", "decimal"])
-def test_a_number_is_written_by_the_toolbox_not_by_its_own_str(value, expected) -> None:
+def test_a_number_is_written_by_the_toolbox_not_by_its_own_str(value: int | decimal.Decimal,
+                                                               expected: str) -> None:
     assert repr(equals(numbers.d, value)) == f"numbers.d = {expected}"
     assert repr(numbers.b + value) == f"numbers.b + {expected}"
 
 
 @pytest.mark.parametrize("value", NON_FINITE_NUMBERS, ids=repr)
-def test_a_non_finite_number_is_refused(value) -> None:
+def test_a_non_finite_number_is_refused(value: float | decimal.Decimal) -> None:
     with pytest.raises(GuardRefused):
         equals(numbers.x, value)
     with pytest.raises(GuardRefused, match="item 2"):
@@ -179,7 +186,7 @@ def test_a_decimal_that_python_would_write_as_an_exponent_is_written_whole() -> 
 # --- A value stays one value in a whole Statement, read back by its characters -------------
 
 
-def _statement_with(condition) -> str:
+def _statement_with(condition: Condition) -> str:
     return to_hive(statement(
         SELECT(job_runs.run_id),
         FROM(job_runs),
@@ -189,7 +196,8 @@ def _statement_with(condition) -> str:
 
 @pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
 @pytest.mark.parametrize("function", [contains, starts_with])
-def test_a_like_pattern_keeps_the_value_whole(function, _label, value, _expected) -> None:
+def test_a_like_pattern_keeps_the_value_whole(function: Callable[..., Condition], _label: str,
+                                              value: str, _expected: str) -> None:
     hive = _statement_with(function(job_runs.status, value))
     patterns = [found for found in hive_literals.values(hive) if found != "2026-09-24"]
     escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -199,8 +207,8 @@ def test_a_like_pattern_keeps_the_value_whole(function, _label, value, _expected
 @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
 @pytest.mark.parametrize(("function", "_operator"), COMPARISONS,
                          ids=[f.__name__ for f, _ in COMPARISONS])
-def test_an_injection_payload_stays_one_value_in_a_whole_statement(function, _operator,
-                                                                    payload) -> None:
+def test_an_injection_payload_stays_one_value_in_a_whole_statement(
+        function: Callable[..., Condition], _operator: str, payload: str) -> None:
     hive = _statement_with(function(job_runs.status, payload))
     assert payload in hive_literals.values(hive)
     assert " OR " not in hive_literals.outside_values(hive), "the payload became an OR"

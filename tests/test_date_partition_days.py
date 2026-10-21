@@ -7,10 +7,12 @@ import re
 import pytest
 
 from sqlglot_composer import (
+    Condition,
     FROM,
     INSERT_OVERWRITE,
     LoadRefused,
     SELECT,
+    Statement,
     Table,
     WHERE,
     any_of,
@@ -33,23 +35,23 @@ from sqlglot_composer.example_database import job_runs
 dt = job_runs.dt
 
 
-def reading(*conditions):
+def reading(*conditions: Condition) -> Statement:
     return statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(*conditions))
 
 
-def days_of(s) -> list[str]:
+def days_of(s: Statement) -> list[str]:
     """The day each of by_day's Statements reads, from the bound by_day writes last."""
     return [re.findall(r"job_runs\.dt = ('[^']*')", to_hive(day))[-1] for day in by_day(s)]
 
 
 @pytest.mark.parametrize("day", ["2026-9-24", "2026-09-4", "26-09-24", " 2026-09-24"])
-def test_a_day_must_be_written_exactly_like_the_date_format(day) -> None:
+def test_a_day_must_be_written_exactly_like_the_date_format(day: str) -> None:
     with pytest.raises(ValueError, match="writes days like '2026-09-"):
         statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, day)))
 
 
 @pytest.mark.parametrize("pattern", ["%d-%m-%Y", "%m/%d/%Y", "%Y%d%m", "%Y%m%dT", "%Ya%mb%d"])
-def test_a_date_format_must_sort_as_text_year_first(pattern) -> None:
+def test_a_date_format_must_sort_as_text_year_first(pattern: str) -> None:
     with pytest.raises(ValueError, match="date_partition=None"):
         Table("ops.odd_days", columns={"dt": "string"}, date_partition="dt",
               date_format=pattern)
@@ -92,7 +94,8 @@ def test_a_day_written_another_tables_way_is_shown_its_own_day_and_date_format()
 
 @pytest.mark.parametrize(("day", "own"), [("2026-09-18", "20260918"),
                                           ("2026-9-18", "20260918")])
-def test_a_compact_tables_day_written_with_dashes_is_shown_its_own_day(day, own) -> None:
+def test_a_compact_tables_day_written_with_dashes_is_shown_its_own_day(day: str,
+                                                                       own: str) -> None:
     compact = Table("ops.compact", columns={"dt": "string"}, date_partition="dt",
                     date_format="%Y%m%d")
     with pytest.raises(ValueError) as refused:
@@ -101,7 +104,7 @@ def test_a_compact_tables_day_written_with_dashes_is_shown_its_own_day(day, own)
 
 
 @pytest.mark.parametrize("pattern", ["%Y-%m-%d", "%Y%m%d", "%Y/%m/%d", "%Y_%m_%d", "%Y.%m.%d"])
-def test_a_year_first_date_format_is_taken(pattern) -> None:
+def test_a_year_first_date_format_is_taken(pattern: str) -> None:
     Table("ops.days", columns={"dt": "string"}, date_partition="dt", date_format=pattern)
 
 
@@ -135,12 +138,14 @@ TWO_BOUNDS = [
 
 
 @pytest.mark.parametrize(("conditions", "days"), TWO_BOUNDS)
-def test_by_day_reads_exactly_the_days_the_bounds_let_through(conditions, days) -> None:
+def test_by_day_reads_exactly_the_days_the_bounds_let_through(conditions: list[Condition],
+                                                              days: list[str]) -> None:
     assert days_of(reading(*conditions)) == days
 
 
 @pytest.mark.parametrize(("conditions", "days"), TWO_BOUNDS)
-def test_the_dates_load_limit_counts_only_those_days(conditions, days) -> None:
+def test_the_dates_load_limit_counts_only_those_days(conditions: list[Condition],
+                                                     days: list[str]) -> None:
     set_load_limits(dates=len(days))
     to_hive(reading(*conditions))
     if len(days) > 1:

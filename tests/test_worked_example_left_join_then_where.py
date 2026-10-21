@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from conftest import example_rows
@@ -18,7 +19,7 @@ def pandas_check() -> dict[str, int]:
     return joined.groupby("job_name").run_id.count().to_dict()
 
 
-def runs_by_job(result) -> dict[str, int]:
+def runs_by_job(result: pd.DataFrame) -> dict[str, int]:
     return dict(zip(result.job_name, result.runs))
 
 

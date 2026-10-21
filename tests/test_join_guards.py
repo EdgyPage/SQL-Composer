@@ -10,7 +10,9 @@ from sqlglot_composer import (
     LEFT_JOIN,
     SELECT,
     WHERE,
+    Condition,
     GuardRefused,
+    Statement,
     all_of,
     any_of,
     equals,
@@ -22,7 +24,7 @@ from sqlglot_composer.example_database import job_runs, jobs
 DAY = equals(job_runs.dt, "2026-09-24")
 
 
-def with_runs(*conditions):
+def with_runs(*conditions: Condition) -> Statement:
     """Jobs, each with its runs on one day where it has some, kept by the conditions given."""
     return statement(SELECT(jobs.job_name, job_runs.status), FROM(jobs),
                      LEFT_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id), DAY),
@@ -43,7 +45,7 @@ def with_runs(*conditions):
                         equals(job_runs.status, "FAILED")),
                  id="all_of_inside_any_of"),
 ])
-def test_a_condition_that_keeps_the_unmatched_rows_is_let_through(condition) -> None:
+def test_a_condition_that_keeps_the_unmatched_rows_is_let_through(condition: Condition) -> None:
     with_runs(condition)
 
 
@@ -54,7 +56,7 @@ def test_a_condition_that_keeps_the_unmatched_rows_is_let_through(condition) -> 
     pytest.param(any_of(is_null(jobs.team), equals(job_runs.status, "FAILED")),
                  id="a_null_test_on_the_other_table"),
 ])
-def test_a_condition_that_drops_the_unmatched_rows_is_refused(condition) -> None:
+def test_a_condition_that_drops_the_unmatched_rows_is_refused(condition: Condition) -> None:
     with pytest.raises(GuardRefused, match="a condition on job_runs, which LEFT_JOIN brought in"):
         with_runs(condition)
 

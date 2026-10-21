@@ -23,18 +23,19 @@ def test_the_example_database_cant_run_week_start() -> None:
         run(regrouping.fixed(), send=example_database.send)
 
 
-def _date_add(day, days, *_):
+def _date_add(day: str, days: int, *_: object) -> str:
     return (datetime.date.fromisoformat(day) + datetime.timedelta(days=int(days))).isoformat()
 
 
-def _next_day(day, weekday):
+def _next_day(day: str, weekday: str) -> str:
     assert weekday == "MO"
     start = datetime.date.fromisoformat(day)
     return (start + datetime.timedelta(days=7 - start.weekday())).isoformat()
 
 
 @pytest.mark.needs_example_database
-def test_the_regrouping_hive_gives_the_same_numbers_as_pandas(monkeypatch) -> None:
+def test_the_regrouping_hive_gives_the_same_numbers_as_pandas(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sqlglot.executor.python.ENV, "TSORDSADD", _date_add)
     monkeypatch.setitem(sqlglot.executor.python.ENV, "NEXTDAY", _next_day)
     careless = run(regrouping.careless(adds_up=True), send=example_database.send)

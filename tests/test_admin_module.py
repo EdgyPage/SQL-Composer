@@ -13,6 +13,8 @@ from __future__ import annotations
 import datetime
 import inspect
 import re
+from collections.abc import Callable
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -23,6 +25,7 @@ import sqlglot_composer
 from sqlglot_composer import (
     FROM,
     SELECT,
+    Statement,
     Table,
     admin,
     create_table,
@@ -39,7 +42,8 @@ from sqlglot_composer import (
 job_runs = example_database.job_runs
 
 
-def saved(name="mart.daily_runs", columns=None, date_partition="dt", **storage) -> Table:
+def saved(name: str = "mart.daily_runs", columns: dict[str, str | None] | None = None,
+          date_partition: str | None = "dt", **storage: object) -> Table:
     """One of the user's Saved tables."""
     columns = columns or {"job_id": "bigint", "runs": "bigint", "dt": "string"}
     return Table(name, columns=columns, date_partition=date_partition, location=BASE,
@@ -60,7 +64,7 @@ def test_admin_is_imported_by_name_and_the_star_import_leaves_it_out() -> None:
 # --- Each refuses a table that isn't one of the user's Saved tables ------------------------
 
 
-def _refusing(call):
+def _refusing(call: str) -> Callable[[object], Statement | list[Statement]]:
     return {
         "drop_table": lambda t: admin.drop_table(t),
         "drop_days": lambda t: admin.drop_days(t, before="2025-01-01"),
@@ -71,14 +75,14 @@ def _refusing(call):
 
 
 @pytest.mark.parametrize("call", admin.__all__)
-def test_a_table_someone_else_owns_is_refused(call) -> None:
+def test_a_table_someone_else_owns_is_refused(call: str) -> None:
     with pytest.raises(ValueError, match=rf"admin\.{call}\(\.\.\.\) was given ops\.job_runs, "
                                          "which isn't one of your Saved tables"):
         _refusing(call)(job_runs)
 
 
 @pytest.mark.parametrize("call", admin.__all__)
-def test_a_name_or_a_derived_table_is_refused(call) -> None:
+def test_a_name_or_a_derived_table_is_refused(call: str) -> None:
     with pytest.raises(TypeError, match="not on a table.s name as text"):
         _refusing(call)("mart.daily_runs")
     runs = derived("runs", statement(SELECT(job_runs.run_id),
@@ -102,7 +106,8 @@ def test_drop_table_drops_only_if_it_exists() -> None:
     assert to_hive(admin.drop_table(saved())) == "DROP TABLE IF EXISTS mart.daily_runs"
 
 
-def test_show_hive_prints_what_it_changes_and_what_cant_be_undone_first(capsys) -> None:
+def test_show_hive_prints_what_it_changes_and_what_cant_be_undone_first(
+        capsys: pytest.CaptureFixture[str]) -> None:
     text = show_hive(admin.drop_table(saved(purge=True)))
     lines = text.splitlines()
     assert lines[-1] == "DROP TABLE IF EXISTS mart.daily_runs;"
@@ -119,7 +124,7 @@ def test_without_purge_the_notes_say_the_files_stay() -> None:
 
 
 @pytest.mark.parametrize("before", ["2025-01-01", datetime.date(2025, 1, 1)])
-def test_drop_days_drops_every_day_before_one(before) -> None:
+def test_drop_days_drops_every_day_before_one(before: str | datetime.date) -> None:
     assert to_hive(admin.drop_days(saved(), before=before)) == (
         "ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')")
 
@@ -165,7 +170,7 @@ def test_add_columns_sends_describe_and_writes_no_cascade_without_days() -> None
     ((), "has every column of its Table reference already"),
     (("fails",), "lists fails before note, which the table has already"),
 ])
-def test_add_columns_refuses_what_it_cant_add(lacking, refusal) -> None:
+def test_add_columns_refuses_what_it_cant_add(lacking: tuple[str, ...], refusal: str) -> None:
     t = saved(columns=WIDER)
     with pytest.raises(ValueError, match=refusal):
         admin.add_columns(t, send=warehouse(t, lacking=lacking))
@@ -244,13 +249,14 @@ def test_rows_with_no_day_are_said_not_to_be_copied() -> None:
     ({"location": f"{BASE}/mart/daily_runs"}, "is at its own folder already"),
     ({"lacking": ("runs",)}, "has no column runs, which its Table reference lists"),
 ])
-def test_the_move_refuses_a_table_it_cant_or_neednt_move(answer, refusal) -> None:
+def test_the_move_refuses_a_table_it_cant_or_neednt_move(
+        answer: dict[str, str | tuple[str, ...]], refusal: str) -> None:
     t = saved()
     with pytest.raises(ValueError, match=refusal):
         admin.move_to_own_folder(t, send=warehouse(t, **answer))
 
 
-def test_the_comparison_stops_the_move_and_logs_it_when_a_day_differs(tmp_path) -> None:
+def test_the_comparison_stops_the_move_and_logs_it_when_a_day_differs(tmp_path: Path) -> None:
     log = set_admin_log(tmp_path / "admin_log.md")
     t = saved()
     moves = admin.move_to_own_folder(t, send=warehouse(t))
@@ -268,7 +274,7 @@ def test_the_comparison_stops_the_move_and_logs_it_when_a_day_differs(tmp_path) 
 # --- Each is an ordinary Statement, logged when run --------------------------------------------
 
 
-def test_each_run_is_logged_in_the_admin_log_and_show_hive_logs_nothing(tmp_path) -> None:
+def test_each_run_is_logged_in_the_admin_log_and_show_hive_logs_nothing(tmp_path: Path) -> None:
     log = set_admin_log(tmp_path / "admin_log.md")
     t = saved()
     show_hive(admin.drop_days(t, before="2025-01-01"))
@@ -311,7 +317,7 @@ def test_a_table_with_no_days_isnt_moved_into_a_folder_inside_its_own() -> None:
                                  "  daily_runs.job_id\nFROM mart.daily_runs AS daily_runs")
 
 
-def test_lineage_leaves_admin_statements_out(tmp_path) -> None:
+def test_lineage_leaves_admin_statements_out(tmp_path: Path) -> None:
     read = statement(SELECT(job_runs.run_id), FROM(job_runs, reads_all_partitions=True))
     export_lineage(read, admin.drop_table(saved()), to=tmp_path / "pipeline.html")
     with pytest.raises(ValueError, match="only Admin statements"):

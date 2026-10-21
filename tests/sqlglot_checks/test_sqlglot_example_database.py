@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 import sqlglot
 
@@ -14,6 +16,8 @@ from sqlglot_composer import (
     SELECT,
     SELECT_DISTINCT,
     WHERE,
+    Column,
+    Table,
     all_of,
     between,
     count_rows,
@@ -32,7 +36,7 @@ from sqlglot_composer import (
 from sqlglot_composer.example_database import job_runs, jobs
 
 
-def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch) -> None:
+def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sqlglot, "__version__", "25.24.2")
     with pytest.raises(RuntimeError, match="30.19.0 or newer.*This Python has sqlglot 25.24.2"):
         example_database.send("SELECT 1 FROM ops.jobs")
@@ -48,7 +52,7 @@ def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch) -> None:
         (month_start(job_runs.dt), "TRUNC"),
     ],
 )
-def test_it_says_plainly_what_its_executor_cant_run(calculation, missing) -> None:
+def test_it_says_plainly_what_its_executor_cant_run(calculation: Column, missing: str) -> None:
     s = statement(SELECT(job_runs.run_id, AS(calculation, "x")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
     with pytest.raises(RuntimeError) as refused:
@@ -71,7 +75,7 @@ def test_a_cast_to_anything_but_text_is_one_its_executor_cant_run() -> None:
     "SELECT EXTRACT(year FROM r.dt) AS y FROM ops.job_runs AS r",
     "SELECT job_id FROM ops.jobs /* FROM mart.x */",
 ])
-def test_a_from_that_names_no_table_is_answered(hive) -> None:
+def test_a_from_that_names_no_table_is_answered(hive: str) -> None:
     assert len(example_database.send(hive)) > 0
 
 
@@ -82,19 +86,21 @@ def test_where_sqlglot_stopped_is_left_out_of_the_sentence() -> None:
     assert "Col:" not in str(refused.value)
 
 
-def test_too_old_a_sqlglot_is_told_which_to_install(monkeypatch) -> None:
+def test_too_old_a_sqlglot_is_told_which_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sqlglot, "__version__", "25.24.2")
     with pytest.raises(RuntimeError, match=r"Usual fix: +Install a newer sqlglot"):
         example_database.send("SELECT 1 FROM ops.jobs")
 
 
 @pytest.mark.needs_example_database
-def test_an_executor_error_that_names_no_function_is_refused_plainly(monkeypatch) -> None:
+def test_an_executor_error_that_names_no_function_is_refused_plainly(
+        monkeypatch: pytest.MonkeyPatch) -> None:
     import sqlglot.executor
 
     real = sqlglot.executor.execute
 
-    def fails(query, *args, **kwargs):
+    def fails(query: str | sqlglot.exp.Expression, *args: object,
+              **kwargs: object) -> sqlglot.executor.table.Table:
         if isinstance(query, str):  # the check of the executor itself, before each query
             return real(query, *args, **kwargs)
         raise sqlglot.errors.ExecuteError("unsupported operand type(s) for +: 'int' and 'str'")
@@ -114,7 +120,8 @@ def test_an_executor_error_that_names_no_function_is_refused_plainly(monkeypatch
     ("job_events", lambda t: week_start(t.dt), "NEXT_DAY"),
     ("job_events", lambda t: month_start(t.dt), "TRUNC"),
 ])
-def test_the_intermediate_tables_meet_the_same_limits(table, calculation, missing) -> None:
+def test_the_intermediate_tables_meet_the_same_limits(
+        table: str, calculation: Callable[[Table], Column], missing: str) -> None:
     """The newest snapshot per key and week and month rollups, which the intermediate how-tos
     show, which the gallery shows as a pandas result."""
     t = getattr(example_database, table)
@@ -124,7 +131,7 @@ def test_the_intermediate_tables_meet_the_same_limits(table, calculation, missin
         run(s, send=example_database.send)
 
 
-def _events_of(event_type: str, name: str):
+def _events_of(event_type: str, name: str) -> Table:
     """Each job's days with an event of one type, over the 14 days: how-to 27's blocks."""
     events = example_database.job_events
     return derived(name, statement(

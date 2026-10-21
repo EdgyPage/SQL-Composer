@@ -13,6 +13,7 @@ import inspect
 import subprocess
 import sys
 import warnings
+from collections.abc import Callable
 
 import pandas as pd
 import pytest
@@ -31,8 +32,10 @@ from sqlglot_composer import (
     ORDER_BY,
     SELECT,
     WHERE,
+    Column,
     GuardRefused,
     LoadRefused,
+    Statement,
     Table,
     all_of,
     at_least,
@@ -74,7 +77,7 @@ daily_runs = Table(
 )
 
 
-def rows_of(n: int):
+def rows_of(n: int) -> Callable[[str], pd.DataFrame]:
     """A stand-in for `send` that returns n rows, whatever it is sent."""
     return lambda hive: pd.DataFrame({"job_name": ["a"] * n})
 
@@ -112,7 +115,7 @@ def test_guard_unsafe_regrouping_refuses() -> None:
         sum_of(job_runs.avg_retry_secs)
 
 
-def daily(calculation) -> Table:
+def daily(calculation: Column) -> Table:
     """A Derived table with one row per day, holding `calculation` as `per_day`."""
     return derived("daily", statement(
         SELECT(job_runs.dt, AS(calculation, "per_day")),
@@ -240,7 +243,7 @@ def test_guard_left_join_then_where_refuses() -> None:
         )
 
 
-def _full_join_then_where(**opt_out):
+def _full_join_then_where(**opt_out: bool) -> Statement:
     """The runs each record holds, side by side, with a WHERE on one side's column."""
     per_job = derived("per_job", statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs), WHERE(DAYS),
@@ -302,7 +305,7 @@ def test_guard_date_formats_differ_refuses() -> None:
     lambda: between(job_events.dt, region_costs.dt, region_costs.dt),
     lambda: is_in(job_events.dt, [region_costs.dt]),
 ], ids=["join_on", "at_least", "between", "is_in"])
-def test_guard_date_formats_differ_refuses_every_comparison(make) -> None:
+def test_guard_date_formats_differ_refuses_every_comparison(make: Callable[[], object]) -> None:
     with pytest.raises(GuardRefused, match="written like '20260925'"):
         make()
 
@@ -335,7 +338,7 @@ daily_runs_by_job = Table("mart.daily_runs", date_partition="dt", key=["job_id",
                           columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
 
 
-def runs_written(**opt_out):
+def runs_written(**opt_out: bool) -> Statement:
     """A write of each run's job and duration, where the Saved table wants one row per job."""
     return statement(
         INSERT_OVERWRITE(daily_runs_by_job, **opt_out),
@@ -486,7 +489,7 @@ def test_a_repeated_rows_warning_shows_under_python_dash_c() -> None:
     assert "RepeatedRowsWarning" in joined.stderr and "many_matches=True" in joined.stderr
 
 
-def _runs_per_job(day: str, name: str = "runs_per_job"):
+def _runs_per_job(day: str, name: str = "runs_per_job") -> Table:
     """A Building block: each job's runs on one day."""
     return derived(name, statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
@@ -659,7 +662,7 @@ def test_refusals_are_found() -> None:
 
 
 @pytest.mark.parametrize(("name", "function"), REFUSALS, ids=[n for n, _ in REFUSALS])
-def test_every_refusal_has_its_tests(name: str, function) -> None:
+def test_every_refusal_has_its_tests(name: str, function: Callable[..., None]) -> None:
     tests = set(dir(sys.modules[__name__]))
     shown = "warns" if name.startswith("warning_") else "refuses"
     assert f"test_{name}_{shown}" in tests
