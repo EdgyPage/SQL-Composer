@@ -1,25 +1,17 @@
-# What the Toolbox needs beyond Python 3.11's standard library, every package pinned to the
-# version it is tested on, the packages those need in turn included.
+# What the Toolbox needs beyond Python's standard library, every package pinned to the version it
+# is tested on, the packages those need in turn included.
 # Install with: pip install -r requirements.txt
-# The pins are for Python 3.11: pandas 2.0.3 and numpy 1.25.2 have no builds for 3.12 or newer.
-#
-# You use one Edition: keep its section and delete the other Edition's section before you
-# install. pyspark is a large download, so a sqlglot Composer user saves the most.
+# The pins are for Python 3.12. On Python 3.11, numpy 2.5.4 can't install: change its line to
+# numpy==2.4.6, which pandas 3.0.6 runs on there.
 
-# ---- Both Editions: keep these ----
-pandas==2.0.3
-numpy==1.25.2
+pandas==3.0.6
+numpy==2.5.4
 # what pandas needs in turn
 python-dateutil==2.9.0.post0
-pytz==2026.5
 tzdata==2026.5
 six==1.17.0
+# pytz, time zones: pandas 2 needed it and pandas 3 doesn't. It is kept for code of your own that
+# still imports it; delete its line if nothing of yours does.
+pytz==2026.5
 
-# ---- sqlglot Composer only: delete this section if you use Spark Composer ----
 sqlglot==30.23.0
-
-# ---- Spark Composer only: delete this section if you use sqlglot Composer ----
-# Its Example database also needs Java 17 to 21, which pip can't install.
-pyspark==4.2.0
-# what pyspark needs in turn
-py4j==0.10.9.9

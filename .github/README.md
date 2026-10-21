@@ -1,146 +1,72 @@
-<!-- sqlglot Composer and Spark Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit -->
-# sqlglot Composer and Spark Composer
+<!-- sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit -->
+# sqlglot Composer
 
-This is version 5.1, exported 2026-10-19 16:34.
+This is version 6.0, exported 2026-10-21 07:05.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-## Which folders to copy
+This page is a tutorial: eight steps, from installing the Toolbox and starting a Project,
+through your tables' references, a Saved table written every day and the Lineage of each of its
+columns, to keeping the Project in order. Most steps point to the how-to that walks through them
+in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. What
+changed in each version, and how to update from it, is in `CHANGES.md`.
 
-The Toolbox comes in two Editions, with the same functions and the same version. Whichever
-you use, copy two folders, each whole: `composer_core`, the code both Editions share, and the
-one Edition's own folder:
+## 1. Install
 
-- **`sqlglot_composer`, sqlglot Composer**, writes its Hive with the sqlglot package. Copy it
-  when your notebook sends Hive to the warehouse through a query API of its own.
-- **`spark_composer`, Spark Composer**, writes the same Hive itself and needs no sqlglot. Copy it
-  when your notebook runs Spark, with a `spark` session that reads the warehouse's tables.
-
-Both write the same Hive, except in the few places listed under [Where the two Editions' Hive
-differs](#where-the-two-editions-hive-differs). Three of them, dividing, a Python float and a
-Saved table's Key in CREATE TABLE, are for Spark. So if your query API runs Hive, sqlglot
-Composer's Hive is right for it. If it runs Spark, and you can install pyspark, Spark Composer's
-Hive fits it better, and works with any `send`. The fourth, a hive_function call, comes from the
-sqlglot library, which only sqlglot Composer uses. Use one Edition per notebook: importing both in one Python stops.
-
-This page writes `sqlglot_composer`. With Spark Composer, write `spark_composer` wherever this
-page writes `sqlglot_composer`: in your imports, and in `sqlglot_composer.VERSION`.
-
-## Install
-
-Each Edition needs Python 3.11 or newer, pandas and numpy, and its own library: sqlglot for
-sqlglot Composer, pyspark for Spark Composer. Spark Composer's Example database starts a Spark
-of its own, in a second Python in the background, so your `spark` is never touched; that Spark
-needs Java 17 to 21: set JAVA_HOME to it, or have `java` on the PATH.
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot, and is tested on Python 3.12,
+which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
 
 1. Download this branch as a zip and extract it.
-2. Install what the Toolbox needs, at the versions it is tested on. Open `requirements.txt`, at
-   the top of the download, and delete the section for the Edition you don't use: each
-   section's heading says which. Then run `pip install -r requirements.txt` in the download's
-   top folder, or, from a notebook, `%pip install -r` followed by the path to that file.
-   - The pins are for Python 3.11. pandas 2.0.3 and numpy 1.25.2 have no builds for Python 3.12
-     or newer, so there pip can't install them: delete the pandas and numpy lines and the four
-     under them, and install the pandas and numpy your Python has builds of.
-   - A package your notebook already has, as a notebook that runs Spark at work has pyspark and
-     pandas, needn't be installed again: delete its line, so pip doesn't replace it. The
-     Toolbox works with any sqlglot from 25.24.2 up to (not including) 31, whose Example
-     database and a struct column in create_table need 30.19.0 or newer, and with any pyspark
-     from 3.5.0 up to (not including) 4.3.
-3. Copy the whole `composer_core` folder, and the whole `sqlglot_composer` folder or the whole
-   `spark_composer` folder, side by side into the folder that holds your notebooks and scripts.
+2. Install what the Toolbox needs, at the versions it is tested on: run
+   `pip install -r requirements.txt` in the download's top folder, or, from a notebook,
+   `%pip install -r` followed by the path to that file.
+   - On Python 3.11, numpy 2.5.4 can't install: change its line in `requirements.txt` to
+     `numpy==2.4.6`, which pandas 3.0.6 runs on there, before you run pip.
+   - A package your notebook already has, such as pandas, needn't be installed again: delete
+     its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
+     (not including) 31, whose Example database and a struct column in create_table need
+     30.19.0 or newer.
+3. Make a folder for your Project, and copy the whole `sqlglot_composer` folder into it. Keep
+   your own files beside it, never inside it.
 
-The download's two other folders, `example_projects` and `templates`, are for reading and
-copying from, and the Toolbox doesn't need them: see [Example projects](#example-projects) and
-[Templates](#templates).
+The download's other folder, `example_projects`, is for reading and copying from, and the
+Toolbox doesn't need it: see [Example projects](#example-projects). The
+[Templates](#templates) ship inside the Toolbox.
 
-Keep your own scripts beside the two folders, never inside them, and import from the
-Edition's folder, at its top level:
+## 2. Start a Project
+
+A Project is the folder your work lives in: the Toolbox, your send, your tables' Table
+references, the Building blocks your notebooks share, and a folder per Saved table. Open a
+notebook in the Project's folder, and lay it out with one call:
 
 ```python
-from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, run
+>>> from sqlglot_composer import project
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.
 ```
 
-## Update
+Import from `sqlglot_composer`, at its top level, never from a file inside it. The Toolbox
+never connects to anything itself: it writes Hive as text, and `run` hands that text to a
+function of yours, `send`, which runs it and gives back a pandas DataFrame. Write it once, in
+`send.py`: for example, `def send(hive): return pd.DataFrame(my_api.query(hive))`, which runs
+the Hive through your team's query API. Every notebook imports it with
+`from send import send`.
 
-Updating from 4.x? Copy the folders in as below, then see [Update from 4.x](#update-from-4x).
-Updating from 3.x, SQL Composer or Spark Composer, with no `composer_core` folder? See
-[Update from 3.x](#update-from-3x) instead, then [Update from 4.x](#update-from-4x) too.
+Make and remove Table folders and Table references with the `project` module's Project
+actions, such as `project.new_table(...)`, never by hand in your file explorer: each is
+logged in `admin/admin_log.md`, and listed in the registry, `admin/registry.csv`. `admin/`
+holds a notebook per Project action, such as `new_table.ipynb`, ready to fill in; calling one
+from any notebook of the Project does just the same.
 
-1. Delete both folders: `composer_core` and your Edition's.
-2. From the new download, copy in both whole folders of the same names.
-3. Restart the kernel, which still holds the old code.
+The how-to [Start a Project](../sqlglot_composer/how_to.html#start_a_project) walks through what
+each folder is for, your send, the lines a notebook deeper in the Project starts with, and the
+mistakes people make first. A later how-to that starts a Project of its own, since its page
+has none, says so: in yours, leave `project.start()` out.
 
-Keep your own files beside the folders, never inside them, so deleting them is safe. When they
-are imported, the two folders check themselves. If a file is missing, extra, from another
-version or another download, or from another Toolbox folder (`composer_core` or the other
-Edition's), or if this Python or the library it needs won't work with it, the import stops and
-says what happened, why it matters and the usual fix. `sqlglot_composer.VERSION` says which
-copy you have, and `composer_core/CHANGES.md` says what changed in each version.
-
-## Update from 4.x
-
-5.0 checks more before it writes, so a notebook that ran on 4.x may need these changes. The
-5.0 section of `composer_core/CHANGES.md` says more about each.
-
-1. **A write into a Saved table with a Key may be refused.** Before 5.0, two rows with the same
-   Key were saved without a word, since Hive never checks a Key. Now an `INSERT_OVERWRITE` or
-   `INSERT_INTO` into a Saved table whose Table reference has `key=[...]` is refused unless
-   the Toolbox can see that each row it writes has a Key of its own. The message says why its
-   rows may repeat a Key, such as which join repeats them. Fix the write, or, if the rows are
-   one per Key for a reason the Toolbox can't see, write
-   `INSERT_OVERWRITE(t, unproven_key=True)` or `INSERT_INTO(t, unproven_key=True)`.
-2. **Give each of your Saved tables' Table references a `location=`**: the folder your Saved
-   tables go in, such as `location="/data/your_team/tables"`. create_table and the admin
-   module refuse a Table reference without one. create_table now writes `CREATE EXTERNAL
-   TABLE` with a `LOCATION` of `location=` followed by the table's own folder, such as
-   `/data/your_team/tables/mart/daily_runs`. Writes don't need `location=`, so your writes
-   work as before. A table made before 5.0 may be in a folder the warehouse chose, or share a
-   folder with another table: once its reference has `location=`,
-   `check_table_reference(t, send=...)` says so, and `admin.move_to_own_folder(t, send=...)`
-   moves it when you choose to. A table you only read needs no `location=`.
-3. **`drop_table` is now `admin.drop_table`.** Add `from sqlglot_composer import admin` below
-   your star import, and write `admin.drop_table(t)` where you wrote `drop_table(t)`. Like the
-   rest of the admin module, it needs the `location=` of step 2.
-4. **The star import brings 26 new names.** If a variable of your own, set before the star
-   import, has one of these names, give it another: `ANTI_JOIN`, `EXCEPT`, `FULL_JOIN`,
-   `INTERSECT`, `RIGHT_JOIN`, `SEMI_JOIN`, `UNION`, `UNION_ALL`, `compute_statistics`, `cube`,
-   `dense_rank`, `explain`, `first_value`, `grouping_sets`, `hive_settings`, `is_total`, `lag`,
-   `last_value`, `lead`, `ntile`, `rank`, `repair_partitions`, `rollup`, `set_admin_log`,
-   `unchecked_hive` and `window`.
-
-## Update from 3.x
-
-Before 4.0, each Edition was one folder you copied on its own, with no `composer_core`, and
-sqlglot Composer was named SQL Composer, in a folder named `sql_composer`. These steps are the
-same from 3.0, 3.1 or 3.2. To update from SQL Composer:
-
-1. Delete the `sql_composer` folder.
-2. From the new download, copy in the whole `composer_core` folder and the whole
-   `sqlglot_composer` folder.
-3. In your notebooks and scripts, change every `sql_composer` to `sqlglot_composer`: change
-   `from sql_composer import` to `from sqlglot_composer import`, and `sql_composer.VERSION` to
-   `sqlglot_composer.VERSION`. That includes each Table reference file `write_table_reference`
-   wrote for you: each has the line `from sql_composer import Table` below its docstring.
-4. Restart the kernel.
-
-With Spark Composer, delete your `spark_composer` folder, then copy in the new one and the
-`composer_core` folder beside it, and restart the kernel. Your `from spark_composer import`
-lines stay as they are.
-
-With either Edition, import every name from the Edition's folder itself, never from a file
-inside it: the files inside moved to `composer_core`, so `from sql_composer.refusals import
-GuardRefused` becomes `from sqlglot_composer import GuardRefused`. Importing both Editions in
-one Python, which 3.x advised against, now stops: use one per notebook.
-
-Two new refusals can stop code that ran on 3.x. `run` refuses a read whose `send` gives back
-something other than a pandas DataFrame: if yours gives back a list of rows, end it with
-`return pd.DataFrame(rows)`. And a comparison of two tables' days written different ways, such
-as 20260925 and 2026-09-25, is refused. The 4.0 section of `composer_core/CHANGES.md`, where
-the change notes now are, lists these and everything else that changed.
-
-## A first Statement
+## 3. A first Statement
 
 The Example database ships inside the Toolbox: seven made-up tables, and a `send` that runs
 Statements on them, so you can practise without touching the warehouse.
@@ -162,8 +88,8 @@ WHERE
   job_runs.dt = '2026-09-24'
 ```
 
-`run(first, send=...)` sends the Hive through a `send`: a function that takes a Hive string and
-returns a pandas DataFrame. On the Example database, its own `send` runs it:
+`run(first, send=...)` sends the Hive through a `send`. On the Example database, its own `send`
+runs it:
 
 ```python
 >>> from sqlglot_composer import run
@@ -173,16 +99,6 @@ returns a pandas DataFrame. On the Example database, its own `send` runs it:
 1     102   FAILED
 2     103  SUCCESS
 3     104  SUCCESS
-```
-
-At work, `send` is your own, and a Statement reads your own tables: `write_table_reference`
-writes the Table reference for one. With sqlglot Composer, `send` is whatever sends a Hive
-string to your query API and gives back a pandas DataFrame, such as
-`send=lambda hive: pd.DataFrame(my_api.query(hive))`. With Spark Composer, it is usually this,
-with your notebook's own `spark` session:
-
-```python
-result = run(first, send=lambda hive: spark.sql(hive).toPandas())
 ```
 
 Every function and class in the cheat sheet has a Worked example like this in its docstring:
@@ -200,308 +116,240 @@ The examples take today as 2026-09-25, the day after the Example database's last
 `between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows. `first_look(...)`
 reads your own yesterday too, so pasted, its Hive shows another day, and no rows.
 
+How-to: [Build a first Statement and paste its Hive](../sqlglot_composer/how_to.html#build_a_first_statement).
+
+## 4. Your own tables
+
+A Statement reads your tables through their Table references: each table's columns, their
+types, its Date partition (the date column it is stored by, a day at a time) and its Key (the
+columns that name one row). `project.add_references(["your_db.your_table", ...], send=send)`
+asks each table for its columns and writes its file into `references/`; you fill in what it
+can't know, and add Aliases, your own names for its columns and conditions. A notebook then
+imports one as `from references.your_db__your_table import your_table`.
+`project.refresh_reference_sheet()` lists every column of every table in one CSV file.
+
+How-tos: [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references),
+[Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand) for a
+table you can't read yet, and [The Reference sheet](../sqlglot_composer/how_to.html#the_reference_sheet).
+
+## 5. Filter, count and join
+
+How-tos: [Filter rows](../sqlglot_composer/how_to.html#filter_rows),
+[Count and add up per group](../sqlglot_composer/how_to.html#count_and_add_up_per_group) and
+[Join tables safely](../sqlglot_composer/how_to.html#join_tables_safely). Each shows the Guard
+(a refusal) or Warning that stops or flags a Statement that would give a wrong number, and why;
+[Guards, Warnings and opt-outs](../sqlglot_composer/how_to.html#guards_warnings_and_opt_outs)
+covers them all.
+
+## 6. Save a table, every day
+
+A Saved table is a table of yours that a Statement writes, a day at a time, so a number worked
+out once a day is read by everyone after. Hive can't change single rows of such a table, so the
+Toolbox has no `UPDATE`, `DELETE`, `MERGE` or `TRUNCATE`: a day is written again, whole, with
+`INSERT_OVERWRITE`, which replaces it, and old days go with `admin.drop_days`.
+
+In a Project, `project.new_table("mart.your_table")` gives each Saved table a Table folder in
+`tables/`, holding its notebook, made from a Template, and writes its Table reference for you
+to fill in. `project.run_tables(day, send=send)` then writes a day of every table, each after
+the tables it reads.
+
+How-tos: [Save a table](../sqlglot_composer/how_to.html#save_a_table),
+[Add a Saved table](../sqlglot_composer/how_to.html#add_a_saved_table),
+[Backfill a range of days](../sqlglot_composer/how_to.html#backfill_a_range_of_days) and
+[Run a daily pipeline](../sqlglot_composer/how_to.html#run_a_daily_pipeline).
+
+## 7. Where each column comes from
+
+`export_lineage(...)` writes an HTML page and a Markdown twin that follow each output column
+back to the table columns it reads, across the Saved tables of a whole pipeline. From a Table
+notebook, the files go in its Table folder's `lineage/`, named by the time and the table, so
+each export joins the table's history, and `project.load("mart.other_table")` gives another
+notebook's logic, to draw the tables it reads beside it.
+
+How-tos: [Lineage of one Statement](../sqlglot_composer/how_to.html#lineage_of_one_statement),
+[Lineage of a pipeline across Saved tables](../sqlglot_composer/how_to.html#lineage_of_a_pipeline_across_saved_tables) and
+[Lineage across your tables](../sqlglot_composer/how_to.html#lineage_across_your_tables).
+
+## 8. Keep the Project in order
+
+Your files sit in three Levels, each importing only from those below it: the Table references
+and `send.py`, then the Building blocks, then each Table notebook's logic.
+`project.check()` reports any Table folder or Table reference the registry doesn't list, or
+lists but isn't there; `project.remove_table(...)` archives a Table folder in
+admin/removed/ rather than deleting it; and a notebook you run every week checks each Table
+reference against its table, as how-to 21 shows. The [Example projects](#example-projects) show a Project filled
+in, and the [Templates](#templates) are the shapes a new Table notebook is made from.
+
+How-tos: [Keep a Table reference true over time](../sqlglot_composer/how_to.html#keep_a_table_reference_true_over_time)
+and [Share Building blocks between Statements](../sqlglot_composer/how_to.html#share_building_blocks_between_statements).
+
+## The how-tos
+
+Every how-to walks through one job from start to finish, in steps you paste into one notebook,
+in order: its goal, its steps, each run on the Example database with what it shows, how to check
+it worked, and the mistakes people make first. The Getting started how-tos take you from
+starting a Project to its Saved tables, their Lineage and the Reference sheet; the Intermediate
+ones are for work over many days and many tables: days written another way, week and month
+totals, rows that come in late, pipelines of Saved tables, quality checks, testing, how a Saved
+table is stored and its Key, Session settings and the admin module, more joins, looking across
+rows, reconciling two tables, subtotals, and keeping reads fast.
+
+Getting started, how-tos 1 to 21:
+
+1. [Start a Project](../sqlglot_composer/how_to.html#start_a_project)
+2. [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references)
+3. [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand)
+4. [Build a first Statement and paste its Hive](../sqlglot_composer/how_to.html#build_a_first_statement)
+5. [Filter rows](../sqlglot_composer/how_to.html#filter_rows)
+6. [Count and add up per group](../sqlglot_composer/how_to.html#count_and_add_up_per_group)
+7. [Join tables safely](../sqlglot_composer/how_to.html#join_tables_safely)
+8. [Reusable Derived tables (WITH ... AS in the Hive)](../sqlglot_composer/how_to.html#reusable_derived_tables)
+9. [The latest row per key, and the top N per group](../sqlglot_composer/how_to.html#latest_row_per_key)
+10. [Save a table](../sqlglot_composer/how_to.html#save_a_table)
+11. [Add a Saved table](../sqlglot_composer/how_to.html#add_a_saved_table)
+12. [Backfill a range of days](../sqlglot_composer/how_to.html#backfill_a_range_of_days)
+13. [Run a daily pipeline](../sqlglot_composer/how_to.html#run_a_daily_pipeline)
+14. [Lineage of one Statement](../sqlglot_composer/how_to.html#lineage_of_one_statement)
+15. [Lineage of a pipeline across Saved tables](../sqlglot_composer/how_to.html#lineage_of_a_pipeline_across_saved_tables)
+16. [Lineage across your tables](../sqlglot_composer/how_to.html#lineage_across_your_tables)
+17. [The Reference sheet](../sqlglot_composer/how_to.html#the_reference_sheet)
+18. [Keep queries small with Load limits](../sqlglot_composer/how_to.html#keep_queries_small_with_load_limits)
+19. [Guards, Warnings and opt-outs](../sqlglot_composer/how_to.html#guards_warnings_and_opt_outs)
+20. [Generate Statements in a loop](../sqlglot_composer/how_to.html#generate_statements_in_a_loop)
+21. [Keep a Table reference true over time](../sqlglot_composer/how_to.html#keep_a_table_reference_true_over_time)
+
+Intermediate, how-tos 22 to 40:
+
+22. [A day written another way, and a second partition](../sqlglot_composer/how_to.html#a_day_written_another_way)
+23. [Look things up as of a day](../sqlglot_composer/how_to.html#look_things_up_as_of_a_day)
+24. [Week and month rollups](../sqlglot_composer/how_to.html#week_and_month_rollups)
+25. [Incremental loads and late data](../sqlglot_composer/how_to.html#incremental_loads_and_late_data)
+26. [A pipeline of Saved tables](../sqlglot_composer/how_to.html#a_pipeline_of_saved_tables)
+27. [Share Building blocks between Statements](../sqlglot_composer/how_to.html#share_building_blocks_between_statements)
+28. [Check data quality with Statements](../sqlglot_composer/how_to.html#check_data_quality)
+29. [Generate Table references and Statements from settings](../sqlglot_composer/how_to.html#generate_from_settings)
+30. [Call other Hive functions](../sqlglot_composer/how_to.html#call_other_hive_functions)
+31. [Look across rows, then finish in pandas](../sqlglot_composer/how_to.html#finish_in_pandas)
+32. [Review a change with Lineage](../sqlglot_composer/how_to.html#review_a_change_with_lineage)
+33. [Test your own Statements](../sqlglot_composer/how_to.html#test_your_own_statements)
+34. [Choose how a Saved table is stored](../sqlglot_composer/how_to.html#choose_how_a_saved_table_is_stored)
+35. [Keys, checked before each write](../sqlglot_composer/how_to.html#keys)
+36. [Semi-, anti- and full joins](../sqlglot_composer/how_to.html#semi_anti_and_full_joins)
+37. [Move a Saved table to its own folder](../sqlglot_composer/how_to.html#move_a_saved_table_to_its_own_folder)
+38. [Reconcile two tables](../sqlglot_composer/how_to.html#reconcile_two_tables)
+39. [Subtotals and grand totals](../sqlglot_composer/how_to.html#subtotals_and_grand_totals)
+40. [Keep reads and joins fast](../sqlglot_composer/how_to.html#keep_reads_and_joins_fast)
+
 ## The Example gallery
 
-Each Edition's folder holds its own Example gallery: every Worked example on one page, its Python
-and, for each Statement it builds, the Hive and any result. Open it in your browser. It needs
-nothing else: a box at the top keeps only the examples holding every word you type, and Ctrl+F
-searches it too. Besides each docstring's example, it holds the Worked examples that stand on
-their own: common jobs built in steps that each say why, such as building a Saved table or
-finding rows with no match, and Statements that give a wrong number shown beside their fix.
-
-- `sqlglot_composer/examples.html` shows each result from sqlglot Composer's Example database
-  or, where that can't run it, computed in pandas.
-- `spark_composer/examples.html` shows each result from Spark Composer's Example database,
-  which runs Spark, and marks the places where Spark Composer's Hive differs.
-
-## How-tos
-
-New to the Toolbox? After [A first Statement](#a-first-statement), start here. Beside each
-Example gallery, each Edition's folder holds a how-to page, `sqlglot_composer/how_to.html` and
-`spark_composer/how_to.html`, to open in your browser. A how-to walks through one job from
-start to finish, in steps you paste into one notebook, in order: its goal, its steps, each run
-on the Example database with what it shows, how to check it worked, and the mistakes people
-make first.
-
-The Getting started how-tos take you from your first notebook to a daily pipeline and its
-Lineage. The Intermediate ones are for work over many days and many tables: days written
-another way, week and month totals, rows that come in late, pipelines of Saved tables, quality
-checks, testing, how a Saved table is stored and its Key, more joins, looking across rows,
-reconciling two tables, subtotals, and keeping reads fast.
-
-Getting started, how-tos 1 to 18:
-
-1. Start a notebook
-2. Import a table's column names programmatically
-3. Describe a table by hand
-4. Build a first Statement and paste its Hive
-5. Filter rows
-6. Count and add up per group
-7. Join tables safely
-8. Reusable Derived tables (WITH ... AS in the Hive)
-9. The latest row per key, and the top N per group
-10. Save a table
-11. Backfill a range of days
-12. Run a daily pipeline
-13. Lineage of one Statement
-14. Lineage of a pipeline across Saved tables
-15. Keep queries small with Load limits
-16. Guards, Warnings and opt-outs
-17. Generate Statements in a loop
-18. Keep a Table reference true over time
-
-Intermediate, how-tos 19 to 37:
-
-19. A day written another way, and a second partition
-20. Look things up as of a day
-21. Week and month rollups
-22. Incremental loads and late data
-23. A pipeline of Saved tables
-24. Share Building blocks between Statements
-25. Check data quality with Statements
-26. Generate Table references and Statements from settings
-27. Call other Hive functions, and see where the Editions differ
-28. Look across rows, then finish in pandas
-29. Review a change with Lineage
-30. Test your own Statements
-31. Choose how a Saved table is stored
-32. Keys, checked before each write
-33. Semi-, anti- and full joins
-34. Move a Saved table to its own folder
-35. Reconcile two tables
-36. Subtotals and grand totals
-37. Keep reads and joins fast
-
-## Your Saved tables: Keys and storage
-
-A Saved table is one your own Statements write, a day at a time, or whole for a table with no
-days (`date_partition=None`). Its Table reference says two things 5.0 relies on.
-
-**Its Key**, `key=[...]`: the columns that tell its rows apart, such as
-`key=["job_id", "dt"]` for one row per job per day. Hive never checks a Key, so the Toolbox
-does, before each write: it refuses a write unless it can see that each row has a Key of its
-own. It sees that from a GROUP_BY over the Key's columns, a SELECT_DISTINCT, a
-`row_number(...)` kept at 1 in the Statement that reads its Derived table, or a FROM table
-whose own Key gives one row per Key written, when each join matches the whole Key of the table
-it joins. `unproven_key=True` on the write lets it through when you know better. The how-to
-"Keys, checked before each write" shows each.
-
-**Where it is stored**, `location=`: the folder your Saved tables go in. The Toolbox adds the
-table's own folder to it, so each Saved table is an external table in a folder of its own, which
-no other table reads or overwrites. `purge=True`, on the Table reference, has dropping the table
-delete its files too; without it, the files stay behind. The Table reference can also give the
-file format, Partitions inside each day and Buckets: the how-to "Choose how a Saved table is
-stored" walks through them, and through why there are no indexes. Hive 3 has none: what makes a
-read fast is reading only the days it needs, few large files, and statistics (see [Keep reads
-and joins fast](#keep-reads-and-joins-fast)).
-
-Hive can't change single rows of an external table, so the Toolbox has no `UPDATE`,
-`DELETE`, `MERGE` or `TRUNCATE`: write a day again with `INSERT_OVERWRITE`, which replaces it,
-or drop old days with `admin.drop_days`, which is Hive's: Spark refuses it, so if Spark runs
-your tables, ask whoever looks after them how old days are dropped. A table with no days is written whole again with
-`INSERT_OVERWRITE`, which replaces all its rows.
-
-## Session settings, Hive by hand, and the admin module
-
-A Session setting is a `SET` line Hive keeps for the rest of a session. `hive_settings(...)`
-gives the lines of a named set, and `run(hive_settings(...), send=...)` sends them, one line
-at a time: run it first, then your Statements. The Toolbox ships four sets, each explained in
-`help(hive_settings)`: `"dynamic_partitions"`, `"map_joins"`, `"statistics_on_write"` and
-`"merge_small_files"`. Keep your own in a settings.py of yours, and pass them to
-`hive_settings` as `sets=`.
-
-```python
->>> print(to_hive(hive_settings("map_joins")))
-SET hive.auto.convert.join=true
-SET hive.auto.convert.join.noconditionaltask=true
-SET hive.ignore.mapjoin.hint=false
-```
-
-They hold only while your `send` keeps one session across its calls, as `spark.sql` does in
-one notebook. If each call of your `send` opens a new session, as some query APIs do, each
-`SET` is gone before your Statement runs: ask whoever looks after your query API.
-
-For the one statement you need that no clause function writes yet, `unchecked_hive("...")`
-runs Hive you write by hand. No Guard, Warning or Load limit looks inside it, and `show_hive`
-says so.
-
-The admin module changes your own Saved tables, with its checks: `admin.drop_table(t)`,
-`admin.drop_days(t, before=...)`, `admin.add_columns(t, send=...)`,
-`admin.set_properties(t)` and `admin.move_to_own_folder(t, send=...)`. The star import leaves
-it out, so a notebook that changes a table says so at its top:
-
-```python
-from sqlglot_composer import admin
-```
-
-Each refuses a table that isn't one of your Saved tables, and `show_hive` prints what it changes
-and what can't be undone before its Hive. Each `run` of one, or of an `unchecked_hive(...)`,
-adds an entry to the Admin log, a file named admin_log.md in the folder of the notebook or
-script that runs it: when, the call, the Hive sent, and whether it worked. `set_admin_log(path)`
-keeps it elsewhere.
-
-## Joins, Windows, Stacks and subtotals
-
-Beside `JOIN`, `LEFT_JOIN` and `CROSS_JOIN`:
-
-- `SEMI_JOIN(t, ON=...)` keeps each row that has a match in t, once; `ANTI_JOIN(t, ON=...)`
-  keeps each row that has none; `FULL_JOIN(t, ON=...)` keeps the rows of both sides, matched or
-  not, to compare two records of the same things. `RIGHT_JOIN` is refused: swap the tables and
-  write `LEFT_JOIN`. `broadcast=True` asks Hive to copy a small joined table to every worker,
-  which Hive heeds once the Session setting `"map_joins"` is sent. The how-to "Semi-, anti- and
-  full joins" walks through them.
-- A Window, `window(PARTITION_BY=..., ORDER_BY=..., rows=...)`, passed as `over=` to `sum_of`,
-  `average_of`, `count_rows`, `min_of`, `max_of`, `rank`, `lag`, `lead` and the like, gives each
-  row a value worked out across the rows near it: a running total, a moving average, a rank, or
-  the value of the row before. The how-to "Look across rows, then finish in pandas" shows them.
-- `UNION_ALL`, `UNION`, `INTERSECT` and `EXCEPT` stack whole Statements' rows, their columns
-  matched by name (how-to "Reconcile two tables"), and `GROUP_BY(rollup(...))`, `cube(...)` and
-  `grouping_sets(...)` add subtotal and grand total rows (how-to "Subtotals and grand totals").
-
-sqlglot Composer's Example database can't run a semi join, a Window or subtotals, and says so;
-Spark Composer's runs them all. The how-tos show each result either way.
-
-## Keep reads and joins fast
-
-What makes a Statement fast is reading only the days it needs, which every Load limit already
-insists on, few large files, and statistics, from which Hive picks how to join.
-`compute_statistics(t, day)` counts a day of a Saved table, `explain(s)` gives Hive's plan for a
-Statement, and `repair_partitions(t)` adds the day folders it finds that the warehouse doesn't
-list. The how-to "Keep reads and joins fast" puts them beside the Session settings that help.
+`sqlglot_composer/examples.html` is the Example gallery: every Worked example on one page, its
+Python and, for each Statement it builds, the Hive and any result. Open it in your browser. It
+needs nothing else: a box at the top keeps only the examples holding every word you type, and
+Ctrl+F searches it too. Besides each docstring's example, it holds the Worked examples that
+stand on their own: common jobs built in steps that each say why, such as building a Saved table
+or finding rows with no match, and Statements that give a wrong number shown beside their fix.
+Each result comes from the Example database or, where that can't run it, is computed in pandas.
 
 ## Example projects
 
-An Example project is a folder of scripts laid out the way a project at work should be: Table
-references, Building blocks, Statements, and a `run_pipeline.py` that runs them in order, all
-written for the Example database's tables. Each Edition has two Example projects of its own,
-written for it: `example_projects/sqlglot_composer/` and `example_projects/spark_composer/`
-each hold
+An Example project is a Project made for the Example database's tables, laid out as yours is:
+everything in it was made by the `project` module's Project actions, then filled in by hand.
+`example_projects/` holds two:
 
-- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`. Examples 1 and 2 each save
-  one day's numbers in a Saved table, and example 3 reads both to give each team's day.
-- `intermediate/`, which builds on the starter project, on `ops.job_events`, `ops.job_owners`
-  and `ops.region_costs`. Each run writes the last 3 days again, since rows can come in late.
-  Example 1 saves each job's cost per day; example 2 saves each job's daily row beside the team
-  that owned the job on that day; example 3 combines them into each team's days and weeks. It
-  also has quality checks made from a few settings, and compares the Lineage before and after
-  editing a Building block.
+- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: two Saved tables written a
+  day at a time, and a third, each team's day, read from both, through a Building block and
+  Aliases.
+- `intermediate/`, on `ops.job_events`, `ops.job_owners` and `ops.region_costs`, which builds
+  on the starter project: four Saved tables, one from each of the other Table notebook
+  Templates. The three that count or add up rows write their last 3 days again on every run,
+  since rows can come in late; the quality checks write only their day.
 
-Each project's `README.md` says what each file is and how to run it. The Example database can
-be read but not written, so running a project's `run_pipeline.py` prints the Hive of every
-step, in order, without sending anything (a dry run). Python must find the Toolbox's two
-folders, three folders up from a project's folder, so in that folder run, in bash:
+Each project's `README.md` says what each folder holds and how to run it. Copy the
+`sqlglot_composer` folder into a project's folder first, as a Project holds it, then open its
+notebooks. The Example database can be read but not written, so a Table notebook's cell 3
+prints each write's Hive and runs only what reads the ops tables, and
+`admin/run_tables.ipynb`, with no send, prints every write in order, writers first, and sends
+nothing (a dry run).
 
-```
-PYTHONPATH=../../.. python run_pipeline.py
-```
-
-In PowerShell, run `$env:PYTHONPATH = "..\..\.."` first, and in the Windows command prompt
-`set PYTHONPATH=..\..\..`, then `python run_pipeline.py`.
-
-To start a project of your own, copy one out of the download, put `composer_core` and your
-Edition's folder beside its `run_pipeline.py`, then replace its tables and Statements with
-yours, or write its scripts from the Templates below.
+To start a Project of your own, start it with `project.start()` rather than copying one: an
+Example project is for reading, and copying it would bring its tables and its Admin log.
 
 ## Templates
 
-A Template is the empty shape of one of your own scripts, to copy into your project and fill
-in. Each placeholder, a word in angle brackets such as `<TABLE>`, is for you to replace,
-brackets and all, with your own; Python stops at a placeholder left in, so a Template can't run
-half filled in. Each Template's docstring says where in your project to copy it, lists its
-placeholders under "Fill in:", with an example of each, and names the Example project file it
-mirrors.
+A Template is the empty shape of one of your notebooks or files, to make a new one from. They
+ship inside the Toolbox, and `project.start()` copies them into your Project's
+`admin/templates`, where they are yours to edit, or to add your own beside.
+`project.new_table("mart.your_table", template="daily_table")` makes a Table folder's notebook
+from one, filling in the table's database and name. Every other placeholder, a word in angle
+brackets such as `<SOURCE_TABLE>`, is yours to replace, brackets and all; Python stops at one
+left in, so a notebook can't run half filled in. Each Template's first cell lists its
+placeholders, with an example of each.
 
-`templates/sqlglot_composer/` and `templates/spark_composer/` each hold a starter set and an
-intermediate set, and a `README.md` saying what each Template needs first. Below, the starter
-set is listed in the order to use it.
+The Table notebook Templates, each a notebook of the same five code cells around its own logic:
 
-In `starter/`:
+- `daily_table`: a table written a day at a time, from a table it reads.
+- `incremental_load`: each run writes its day and the few days before it again, for rows that
+  come in late.
+- `weekly_rollup`: a table written a day at a time and read a week at a time.
+- `as_of_lookup`: each row looked up in a snapshot table as of its own day.
+- `quality_checks`: a table's row count saved each day, and checks for repeated keys and NULLs.
 
-- `starter/notebook_start.py` - A notebook's first cells: your send, a first Table reference, a first Statement.
-- `starter/keep_table_references_true.py` - Writes the Table references of new tables, and compares those you keep with their tables.
-- `starter/building_block.py` - A Building block: one row per group and day.
-- `starter/saved_table_reference.py` - A Saved table's Table reference, by hand.
-- `starter/saved_table.py` - A Saved table's steps: create, preview, write a day, backfill.
-- `starter/daily_pipeline.py` - Every step for one day, in order.
-- `starter/per_group_statement.py` - A Statement counting per group, keeping the groups that pass a test.
+And two more, for files beside the notebooks:
 
-In `intermediate/`:
+- `saved_table_reference`: the Table reference `new_table` writes for the table, in
+  `references`, to fill in.
+- `building_block`: a Derived table several notebooks read, copied by hand into
+  `building_blocks`.
 
-- `intermediate/incremental_load.py` - A Saved table whose every run writes the last few days again.
-- `intermediate/incremental_pipeline.py` - Every step of a run, in order, for incremental loads.
-- `intermediate/weekly_rollup.py` - Weekly totals, added up from a Saved table's days.
-- `intermediate/as_of_lookup.py` - Rows counted by what a snapshot table said on their own day.
-- `intermediate/building_blocks.py` - Building blocks built from other Building blocks: the keys missing on a day.
-- `intermediate/quality_statements.py` - Repeated keys, NULL counts and rows per day, for one table.
-- `intermediate/settings_driven.py` - The same Statements for many tables, made from settings.
+## Update
 
-## Before you use Spark Composer at work
+1. Note which version you have: `sqlglot_composer.VERSION` says, such as
+   `'sqlglot Composer 5.1, exported ...'`.
+2. Delete the `sqlglot_composer` folder, and any `composer_core` folder beside it, left over from
+   before 6.0.
+3. From the new download, copy in the whole `sqlglot_composer` folder.
+4. Restart the kernel, which still holds the old code.
+5. In `CHANGES.md`, at the top of the download, read the "To update" part of every version newer
+   than yours: the newest comes first, so start at your version's next and read up the page. From
+   4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's "To update from 5.x". Each says what
+   to change in your notebooks and files.
 
-Check one setting once, by hand, in your notebook's Spark:
-`spark.conf.get("spark.sql.parser.escapedStringLiterals")` should be `"false"`, Spark's default.
-Set to `"true"`, Spark reads a backslash in a value as itself, so a value with a backslash in
-it, and the `%` or `_` that `contains` and `starts_with` match as themselves, would come out
-wrong. If it is `"true"`, ask whoever looks after your Spark whether it can be `"false"`, or run
-`spark.conf.set("spark.sql.parser.escapedStringLiterals", "false")` in your notebook first.
-
-Two other settings may be either:
-
-- `spark.sql.ansi.enabled`: with it on, Spark 4's default, Spark stops a query that divides by
-  0, and Spark Composer writes a division so it gives NULL instead, as Hive does.
-- `spark.sql.ansi.enforceReservedKeywords`: Spark Composer puts every word Spark reserves in
-  backticks.
-
-Before you read or write a Saved table, check it isn't a Hive ACID table: one Hive keeps its
-own way, so that single rows can be changed. Spark can't read or write those as it reads other
-tables. `spark.sql("SHOW TBLPROPERTIES mart.daily_runs").toPandas()` lists a table's properties,
-and an ACID table has `transactional` set to `true`. A table `create_table` makes is never
-one, since Hive makes only its own managed tables ACID, and `create_table` makes external
-ones. If a table you read is one, ask whoever looks after the warehouse for a table Spark can
-read, one with `transactional` set to `false`.
-
-## Where the two Editions' Hive differs
-
-Both Editions write the same Hive for a Statement, except in these places, each on purpose:
-
-- **Dividing by something that could be 0.** With ANSI mode on (Spark's setting for following the SQL standard strictly), Spark 4's default, Spark stops the whole query with an error when it divides by 0, where Hive gives NULL. So Spark Composer writes x / y as x / NULLIF(y, 0): NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive. A divisor that is a number other than 0 is written as it is. sqlglot Composer writes `SUM(job_runs.duration_mins) / COUNT(*)` where Spark Composer writes `SUM(job_runs.duration_mins) / NULLIF(COUNT(*), 0)`.
-- **A Python float.** Spark reads a number such as 0.5 as a DECIMAL, an exact decimal that pandas gets as a Decimal, where Hive reads a DOUBLE, SQL's float. So Spark Composer writes a Python float, such as 0.5, as 0.5D: the D marks a DOUBLE, and doesn't mean days. A very small or very large float, which the Toolbox writes with an e, such as 1e-05, is a DOUBLE already. sqlglot Composer writes `COALESCE(job_runs.avg_retry_secs, 0.1)` where Spark Composer writes `COALESCE(job_runs.avg_retry_secs, 0.1D)`.
-- **A hive_function call.** sqlglot Composer writes a hive_function call as sqlglot reads it back: sometimes by another name that does the same, such as COALESCE for nvl, and sometimes with an argument changed, such as a date_format pattern 'YYYY-MM' written 'yyyy-MM'. Spark Composer writes the call as you gave it, its name in capitals. So write 'yyyy' for the year in a date_format pattern: YYYY is the year a week belongs to, which Spark refuses in a pattern. And hive_function counts the arguments of the functions on its own list in both Editions; for any other function, sqlglot Composer refuses a call sqlglot can't build, and Spark Composer writes it, for Spark to refuse when it runs, as it does nvl2 with 1 argument, or to run, as it does unix_timestamp with none. sqlglot Composer writes `COALESCE(job_runs.status, 'none')` where Spark Composer writes `NVL(job_runs.status, 'none')`.
-- **A Saved table's Key in CREATE TABLE.** sqlglot Composer's create_table writes a Table reference's Key into the table as PRIMARY KEY (...) DISABLE NOVALIDATE, which Hive keeps for whoever reads the table and never checks. Spark refuses a PRIMARY KEY in CREATE TABLE, so Spark Composer leaves it out. Either way the Toolbox checks the Key itself, before each write. sqlglot Composer writes `runs BIGINT,
-  PRIMARY KEY (job_id) DISABLE NOVALIDATE
-)` where Spark Composer writes `runs BIGINT
-)`.
+When it is imported, the folder checks itself. If a file is missing, extra, from another
+version or another download, or from another Toolbox folder, or if this Python or the library
+it needs won't work with it, the import stops and says what happened, why it matters and the
+usual fix.
 
 ## License
 
 The Toolbox, its Example projects and its Templates are under the MIT No Attribution license,
 in `LICENSE`: use them, change them, share them or sell them, at work or anywhere else, with
-no need to say where they came from, so you needn't copy `LICENSE` along with the two folders.
+no need to say where they came from, so you needn't copy `LICENSE` along with the folder.
 They come as they are, with no warranty.
 
 ## Cheat sheet
 
-Everything the Toolbox offers, one line each, grouped by the file it lives in: the two constants
-are in your Edition's folder, and every other name in a file of `composer_core`. Import every
-name from your Edition's folder itself, `sqlglot_composer` or `spark_composer`: never from
-`composer_core`, or from a file inside either folder. Arithmetic isn't in it: a calculation uses
-Python's own `+ - * /` on columns, as in `job_runs.duration_mins / 60`. The star import brings
-the 89 names listed here before the admin module. The admin module's
-functions, which change your own Saved tables, come last: the star import leaves them out, so
-import the module by name, `from sqlglot_composer import admin`, and call `admin.drop_table(t)`.
+Everything the Toolbox offers, one line each, grouped by the file of `sqlglot_composer` it
+lives in. Import every name from `sqlglot_composer` itself, never from a file inside it.
+Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
+`job_runs.duration_mins / 60`. The star import brings the 89 names listed here before the admin
+module. Two modules' functions come last: the admin module's, which change your own Saved
+tables, and the project module's, which make and archive a Project's folders and files. The star
+import leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,
+and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 
 ### `__init__.py`
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'5.1'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 5.1, exported 2026-10-19 16:34'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'6.0'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 6.0, exported 2026-10-21 07:05'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
 Table references: Table, and the functions that read, write and check one.
 
 - `Table` - A Table reference: a table's columns, the day column it's split by, and its key.
-- `write_table_reference` - Write a table's Table reference as `<table>.py` in the folder you're working in.
+- `write_table_reference` - Write a table's Table reference as a file, such as ops__run_alerts.py.
 - `first_look` - A first look at a table: all its columns, and 20 of yesterday's rows.
 - `check_key` - Check on the newest day that no two rows share the Table reference's key.
 - `check_table_reference` - Compare a Table reference with its table as it is now, and list what differs.
@@ -650,3 +498,18 @@ The admin module: changes to your own Saved tables, written and checked for you.
 - `admin.add_columns` - Add the new columns of a Saved table's Table reference to the table itself.
 - `admin.set_properties` - Set a Saved table's properties as its Table reference gives them.
 - `admin.move_to_own_folder` - Move a Saved table to a folder of its own: a list of Statements to run.
+
+### `project.py`
+
+The project module: a Project's folders and files, made and archived for you, and logged.
+
+- `project.start` - Make a Project in the folder you're working in, once, from a notebook there.
+- `project.new_table` - Make a Table folder for a Saved table: its notebook, lineage/ and reference.
+- `project.remove_table` - Move a Table folder into admin/removed/, named by the time, deleting nothing.
+- `project.add_references` - Write a Table reference for each table into references/, skipping any it can't.
+- `project.remove_reference` - Move a Table reference into admin/removed/, named by the time, deleting nothing.
+- `project.register` - Adopt a Table folder or Table reference made by hand into the registry.
+- `project.check` - Report each Table folder or Table reference that the registry gets wrong.
+- `project.refresh_reference_sheet` - Rebuild the Reference sheet: a row per column of every Table reference.
+- `project.load` - A Table notebook's logic, its functions by name, from anywhere in the Project.
+- `project.run_tables` - Write a day of every table, each before the tables that read it.

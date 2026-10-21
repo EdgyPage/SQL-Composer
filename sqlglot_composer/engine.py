@@ -1,4 +1,4 @@
-# sqlglot Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
 """What sqlglot Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
@@ -12,14 +12,14 @@ from __future__ import annotations
 import contextlib
 import re
 
-from composer_core import _four_part_message as four_part_message
-from composer_core import _stop as _core_stop
+from . import _four_part_message as four_part_message
+from . import _stop as _core_stop
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 
 def _stop(what, why, fix):
-    """Stop this Edition's import, named by its own folder, with the four-part message."""
+    """Stop the Toolbox's import, named by its own folder, with the four-part message."""
     _core_stop(what, why, fix, folder=__name__.split(".")[0])
 
 
@@ -99,7 +99,7 @@ def _sqlglot_behaviour():
     from sqlglot.optimizer.qualify import qualify
 
     # Written the way the Toolbox writes, now that the sqlglot it needs is known to be here.
-    from composer_core.trees import Node
+    from .trees import Node
     from .writing import sql_text, to_sqlglot
 
     def written(tree) -> str:
@@ -258,7 +258,7 @@ def _refuse_missing_part(missing: str, error: Exception | None = None) -> None:
 
 
 def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) -> None:
-    """Refuse a query sqlglot couldn't read or run, as Spark Composer's Spark refuses one."""
+    """Refuse a query sqlglot couldn't read or run, as a warehouse refuses one."""
     names = [f"ops.{name}" for name in tables]
     listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
     raise RuntimeError(four_part_message(
@@ -371,7 +371,7 @@ def _sqlglot_said(error: Exception) -> str:
 
 def _check_tables(tree, tables: dict) -> None:
     """Refuse a table the query names with a database that isn't one of the Example database's,
-    such as mart.jobs, as Spark Composer's Spark refuses it, before a column of it is blamed."""
+    such as mart.jobs, as a warehouse refuses it, before a column of it is blamed."""
     from sqlglot import exp
 
     for table in tree.find_all(exp.Table):

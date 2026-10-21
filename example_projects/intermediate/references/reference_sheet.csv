@@ -1,0 +1,31 @@
+table,column,type,date_partition,in_key,aliases,description,exported_at
+mart.job_day_costs,job_id,bigint,,yes,,,2026-09-25 06:00:00
+mart.job_day_costs,cost_cents,bigint,,,,every region's cost added up; NULL until the bill comes in,2026-09-25 06:00:00
+mart.job_day_costs,dt,string,yes,yes,,"the day the cost is for, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.job_day_facts,job_id,bigint,,yes,,,2026-09-25 06:00:00
+mart.job_day_facts,team,string,,,,the team that owned the job that day; NULL if no snapshot says,2026-09-25 06:00:00
+mart.job_day_facts,events,bigint,,,,,2026-09-25 06:00:00
+mart.job_day_facts,runs,bigint,,,,,2026-09-25 06:00:00
+mart.job_day_facts,minutes,bigint,,,,the minutes of the runs that ended that day,2026-09-25 06:00:00
+mart.job_day_facts,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.job_events_checks,row_count,bigint,,,,ops.job_events' rows that day,2026-09-25 06:00:00
+mart.job_events_checks,dt,string,yes,yes,,"the day counted, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.team_days,team,string,,yes,,NULL for the jobs whose day had no snapshot to say,2026-09-25 06:00:00
+mart.team_days,events,bigint,,,,,2026-09-25 06:00:00
+mart.team_days,runs,bigint,,,,,2026-09-25 06:00:00
+mart.team_days,minutes,bigint,,,,,2026-09-25 06:00:00
+mart.team_days,cost_cents,bigint,,,,NULL while none of the team's bills for the day has come in,2026-09-25 06:00:00
+mart.team_days,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
+ops.job_events,event_id,bigint,,yes,,,2026-09-25 06:00:00
+ops.job_events,job_id,bigint,,,,,2026-09-25 06:00:00
+ops.job_events,event_type,string,,,ends_a_run (a condition),start / finish / retry / fail,2026-09-25 06:00:00
+ops.job_events,minutes,int,,,,minutes since the run started,2026-09-25 06:00:00
+ops.job_events,dt,string,yes,,,,2026-09-25 06:00:00
+ops.job_owners,job_id,bigint,,yes,,,2026-09-25 06:00:00
+ops.job_owners,team,string,,,,,2026-09-25 06:00:00
+ops.job_owners,owner,string,,,,NULL when nobody owns the job,2026-09-25 06:00:00
+ops.job_owners,dt,string,yes,yes,,,2026-09-25 06:00:00
+ops.region_costs,job_id,bigint,,yes,,,2026-09-25 06:00:00
+ops.region_costs,cost_cents,bigint,,,,NULL until the bill comes in,2026-09-25 06:00:00
+ops.region_costs,region,string,,yes,,,2026-09-25 06:00:00
+ops.region_costs,dt,string,yes,yes,,,2026-09-25 06:00:00
