@@ -4,8 +4,8 @@ Import everything from here, never from a file inside the folder:
 
     from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 
-The Toolbox is two folders side by side: this one, and composer_core, the code both Editions
-share. To update, delete both folders, copy both in again from one download and restart the
+The Toolbox is two folders side by side: this one, and composer_core, the code every Toolbox
+function runs. To update, delete both folders, copy both in again from one download and restart the
 kernel. The two check themselves when imported. If a file is missing, extra, from another
 version or export, or from another Toolbox folder, or if this Python can't run the Toolbox, it
 stops and says what happened, why it matters and the usual fix.
@@ -14,9 +14,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'5.1'
+'6.0'
 >>> VERSION
-'sqlglot Composer 5.1, ...'
+'sqlglot Composer 6.0, ...'
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from __future__ import annotations
 import importlib.util
 import os
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 # The folder this file belongs in, and the name its export stamps on each of that folder's
 # files.
@@ -57,8 +57,8 @@ _CORE_HERE = (_CORE.submodule_search_locations or [""])[0] if _CORE else ""
 if _CORE is None:
     _stop_before_the_core(
         what=f"The composer_core folder isn't beside the {_IMPORTING} folder.",
-        why="composer_core holds the code both Editions share, so the Toolbox can't work "
-        "without it.",
+        why="composer_core holds the code every Toolbox function runs, so the Toolbox can't "
+        "work without it.",
         fix="Copy the composer_core folder from the same download beside the "
         f"{_IMPORTING} folder, so the two sit side by side.",
     )

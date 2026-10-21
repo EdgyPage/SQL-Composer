@@ -165,7 +165,7 @@ the function gives: every team in capitals, and a contact for every job.
 >>> result = run(contacts, send=example_database.send)
 >>> list(result["team"])
 ['DATA', 'FINANCE', 'FINANCE', 'WEB']
->>> result["contact"].isna().sum()
+>>> int(result["contact"].isna().sum())
 0
 
 ## Common mistakes
@@ -228,7 +228,7 @@ Without `fill_null`, a job with no owner gets no contact at all, not "@web":
 0       1       ana@data
 1       2    ben@finance
 2       3  chloe@finance
-3       4           None
+3       4            NaN
 
 ### YYYY for the year in date_format
 

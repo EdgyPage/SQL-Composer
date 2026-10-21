@@ -25,7 +25,7 @@ runs that took too long.
 
 `ops.job_runs` holds nine runs, five on 2026-09-23 and four on 2026-09-24. Run 98 is still
 running, so its status is missing: NULL in Hive, which this page shows as NULL and pandas in
-your notebook as None.
+your notebook as NaN.
 
 ### Give the days to read
 
@@ -47,7 +47,7 @@ partition, `job_runs.dt`. There are three ways to write them:
 0      95  SUCCESS             12  2026-09-23
 1      96  SUCCESS             18  2026-09-23
 2      97   FAILED             30  2026-09-23
-3      98     None             15  2026-09-23
+3      98      NaN             15  2026-09-23
 4      99     TEST              5  2026-09-23
 5     101  SUCCESS             10  2026-09-24
 6     102   FAILED             20  2026-09-24
@@ -165,7 +165,7 @@ every run of the jobs that failed at least once, with the job_ids from the resul
    run_id  job_id   status
 0      96       2  SUCCESS
 1      97       3   FAILED
-2      98       2     None
+2      98       2      NaN
 3     102       2   FAILED
 4     103       3  SUCCESS
 
@@ -344,7 +344,7 @@ ask for the NULL rows too:
 0      95  SUCCESS
 1      96  SUCCESS
 2      97   FAILED
-3      98     None
+3      98      NaN
 
 `is_not_in` drops NULL rows the same way.
 

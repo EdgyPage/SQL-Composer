@@ -3,8 +3,7 @@
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
 reads the Hive back to check it, and builds the few pieces sqlglot has to build itself: calls to
 Hive's built-in functions, column types, and the commands that describe a table. sqlglot holds
-what it writes as a tree of its own objects, a "sqlglot tree". Each Edition of the Toolbox
-writes Hive its own way behind these same function names.
+what it writes as a tree of its own objects, a "sqlglot tree".
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from composer_core.trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 _DIALECT = "hive"
 

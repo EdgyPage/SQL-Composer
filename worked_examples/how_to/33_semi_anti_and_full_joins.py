@@ -122,7 +122,7 @@ WHERE
    run_id   status
 0      95  SUCCESS
 1      96  SUCCESS
-2      98     None
+2      98      NaN
 3      99     TEST
 
 The alerts' days are inside `ON=` here too: an alert outside them doesn't count as a match.

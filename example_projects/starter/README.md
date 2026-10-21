@@ -106,8 +106,7 @@ python run_pipeline.py
 That prints the Hive of every step for the Example database's last day, in order, each headed
 by its name, such as `-- 4 of 6: write_daily_job_runs`, without sending anything (a dry run).
 
-The scripts import the Toolbox as `from sqlglot_composer import ...`, the folder of the Edition
-they are written for. With the other Edition, write its folder's name in each import instead.
+The scripts import the Toolbox as `from sqlglot_composer import ...`.
 
 Each step that runs takes `send=`: a function that takes a Hive string and returns a pandas
 DataFrame, such as `lambda hive: spark.sql(hive).toPandas()` at work. Here it is

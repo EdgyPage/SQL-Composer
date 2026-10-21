@@ -138,11 +138,10 @@ all of report_build's past days for finance.
 
 **The newest snapshot of each job.** Example 2's `newest_owners(day)` answers who owns each job
 now: it numbers each job's snapshots from the 7 days up to the day with `row_number`, newest
-first, and keeps number 1. `row_number` is a window function. Each Edition ships its own
-Example database, and the one that runs its queries with sqlglot, rather than on Spark, has no
-window functions: it stops with a message saying so. `newest_owners_by_newest_day(day)` gives
-the same rows another way, so either Example database runs it: each job's newest day with
-`max_of`, joined back to that day's snapshot.
+first, and keeps number 1. `row_number` is a window function, which the Example database, which
+runs its queries with sqlglot, doesn't have: it stops with a message saying so.
+`newest_owners_by_newest_day(day)` gives the same rows another way, which the Example database
+runs: each job's newest day with `max_of`, joined back to that day's snapshot.
 
 **Days and weeks.** A write fills one day of a Saved table, so `mart.team_days` holds days, and
 example 3's `week_totals(first_day, last_day)` adds each team's week up when it reads them,
@@ -216,8 +215,7 @@ That prints the Hive of every step for the last 3 days up to the Example databas
 in order, each headed by its name, such as `-- 4 of 12: write_job_day_costs[0]`, the first day
 of example 1's writes, without sending anything (a dry run).
 
-The scripts import the Toolbox as `from sqlglot_composer import ...`, the folder of the Edition
-they are written for. With the other Edition, write its folder's name in each import instead.
+The scripts import the Toolbox as `from sqlglot_composer import ...`.
 
 Each step that runs takes `send=`: a function that takes a Hive string and returns a pandas
 DataFrame, such as `lambda hive: spark.sql(hive).toPandas()` at work. Here it is

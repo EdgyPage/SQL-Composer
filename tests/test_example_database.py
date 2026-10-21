@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import warnings
 
+import pandas as pd
 import pytest
 
 from sqlglot_composer import (
@@ -112,7 +113,10 @@ def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
         WHERE(last_n_days(job_runs.dt, 2)),
         GROUP_BY(job_runs.status),
     ), send=example_database.send)
-    assert frame.to_dict("records") == [
+    # A missing status read as None: pandas 3 shows missing text as NaN, which equals nothing.
+    records = [{name: None if pd.isna(value) else value for name, value in record.items()}
+               for record in frame.to_dict("records")]
+    assert records == [
         {"status": None, "runs": 1}, {"status": "FAILED", "runs": 2},
         {"status": "SUCCESS", "runs": 5}, {"status": "TEST", "runs": 1},
     ]

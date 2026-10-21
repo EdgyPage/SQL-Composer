@@ -71,8 +71,8 @@ def test_an_edition_without_composer_core_beside_it_says_so(tmp_path: Path) -> N
     assert result.stderr.strip().endswith(
         "ImportError: sqlglot_composer stopped on import:"
         "\n  What happened:  The composer_core folder isn't beside the sqlglot_composer folder."
-        "\n  Why it matters: composer_core holds the code both Editions share, so the Toolbox "
-        "can't work without it."
+        "\n  Why it matters: composer_core holds the code every Toolbox function runs, so the "
+        "Toolbox can't work without it."
         "\n  Usual fix:      Copy the composer_core folder from the same download beside the "
         "sqlglot_composer folder, so the two sit side by side."
         "\n  Opt-out:        none - this one can't be switched off.")

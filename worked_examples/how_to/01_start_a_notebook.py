@@ -18,8 +18,8 @@ imports the Toolbox and writes `send`; every cell after it builds Statements and
 
 ### Put the two folders beside your notebook
 
-The Toolbox is two folders: `composer_core`, the code both Editions share, and
-`sqlglot_composer`, this Edition's own. Copy both from the Toolbox you downloaded, each whole,
+The Toolbox is two folders: `composer_core`, the code every Toolbox function runs, and
+`sqlglot_composer`, the folder you import. Copy both from the Toolbox you downloaded, each whole,
 into the folder that holds your notebook, so they sit side by side. Keep your own files beside
 the two folders, never inside them: to update the Toolbox, you delete both folders and copy
 them in again.

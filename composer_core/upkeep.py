@@ -25,7 +25,7 @@ from .tables import (
 from .trees import Node
 from .unchecked import SessionSettings, UncheckedStatement
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 
 def _upkeep(tree: Node) -> Statement:
@@ -207,10 +207,9 @@ def explain(s):
     - each step's line headed "Statistics:" says how many rows Hive expects, or
       "Basic stats: NONE" where it has nothing to go by and compute_statistics would help.
 
-    On the Example database, explain gives the plan of a query only, never of a write, which
-    it refuses as it refuses the write itself. Where it runs on Spark, it gives Spark's own
-    plan, headed == Physical Plan ==; where it runs on its own small executor, it says it has
-    none to give.
+    On the Example database, explain gives no plan: it runs its queries on a small executor of
+    its own, which makes none, and says so. It refuses explain of a write as it refuses the
+    write itself.
 
     >>> print(to_hive(explain(statement(
     ...     SELECT(job_runs.run_id),

@@ -1,4 +1,4 @@
-# Runs pytest on every push to `dev`, on Python 3.11, at the bottom of the range of sqlglot the
+# Runs pytest on every push to `dev`, on Python 3.12, at the bottom of the range of sqlglot the
 # Toolbox supports and at its pin in requirements-dev.txt, the newest version it is tested on:
 # sqlglot 25.24.2 up to (not including) 31, run at 25.24.2 and 30.23.0.
 # `main` has no CI: a workflow file there would sit outside its allowlist.
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - run: pip install -r requirements-dev.txt
       - run: pip install "sqlglot==${{ matrix.sqlglot }}"
       - run: python -m pytest

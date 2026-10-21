@@ -117,11 +117,11 @@ automatic LIMIT, and never refuses its result:
 ...     returns_all_rows=True,
 ... )
 >>> run(all_runs_whole, send=example_database.send)
-   run_id  job_id  status
+   run_id  job_id   status
 0      95       1  SUCCESS
 1      96       2  SUCCESS
 2      97       3   FAILED
-3      98       2     None
+3      98       2      NaN
 4      99       1     TEST
 5     101       1  SUCCESS
 6     102       2   FAILED
@@ -240,7 +240,7 @@ rows. So `LIMIT(5)` brings back 5 of the 9 runs, and nothing says the rest are m
 0      95       1  SUCCESS
 1      96       2  SUCCESS
 2      97       3   FAILED
-3      98       2     None
+3      98       2      NaN
 4      99       1     TEST
 
 Use your own LIMIT for a top N, after `ORDER_BY`, not to hush the row limit. Which rows a LIMIT

@@ -181,7 +181,7 @@ stops, and says so:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  The Example database only reads, and can't be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.
+  What happened:  The Example database only reads, and can't be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.
 ...
 
 At work, the same `run`, with your own send in place of `example_database.send`, writes the

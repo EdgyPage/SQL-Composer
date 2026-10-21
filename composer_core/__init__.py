@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 # The export script writes this folder's file list here. On dev it is None, and the checks
 # for missing and extra files are skipped.

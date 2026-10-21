@@ -23,13 +23,16 @@ flat folder of Table references feeding a Reference sheet) is charted through
 
 ## Checks
 
-`pytest` holds every principle a test can hold, so run `python -m pytest`, which tests the
-Toolbox and the repo's own checks, before you commit. Set up with
-`pip install -r requirements-dev.txt`, which pins what dev tests on. `requirements.txt` is what a
+`pytest` holds every principle a test can hold, so run `.venv/Scripts/python -m pytest`, which
+tests the Toolbox and the repo's own checks, before you commit. Dev runs in a virtual
+environment on Python 3.12, in `.venv` (git-ignored, and never read by the offline policy): make
+it with `py -3.12 -m venv .venv`, then `.venv/Scripts/python -m pip install -r
+requirements-dev.txt`, which pins what dev tests on. Run every Python command of the repo, its
+tools and tests, with `.venv/Scripts/python`, never a bare `python`. `requirements.txt` is what a
 user installs: the same pins, which a test holds to `requirements-dev.txt` and to the libraries
 `tools/editions.py` lets the Toolbox import.
 
-CI runs two jobs on Python 3.11: sqlglot at the bottom of the Toolbox's range and at its pin,
+CI runs two jobs on Python 3.12: sqlglot at the bottom of the Toolbox's range and at its pin,
 which `.github/workflows/dev.yml` names. Export only a commit whose two jobs passed: the export
 doesn't check the gallery.
 
@@ -78,7 +81,8 @@ computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
 
 A `task` ticket that changes code is done when:
 
-1. `python -m pytest` passes, and CI's two jobs pass before the commit is exported;
+1. `.venv/Scripts/python -m pytest` passes, and CI's two jobs pass before the commit is
+   exported;
 2. the `code-review` skill has run with the ticket as its spec, and its findings are fixed or
    answered in the ticket;
 3. the ticket leaves no open item in `.scratch/drift.md`;

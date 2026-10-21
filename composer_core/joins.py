@@ -17,7 +17,7 @@ from __future__ import annotations
 from .refusals import guard_full_join_then_where, refuse
 from .trees import Node
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 # How each join clause is written in Hive.
 HOW = {

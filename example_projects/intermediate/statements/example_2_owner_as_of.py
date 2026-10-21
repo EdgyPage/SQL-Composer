@@ -17,11 +17,11 @@ finance from 2026-09-18, the day it moved.
 Two more steps answer a different question: who owns each job now? newest_owners(day) takes
 each job's newest snapshot in the 7 days up to the day, so a job is still found when the day's
 snapshot hasn't come in yet. It numbers each job's snapshots with row_number, newest first,
-and keeps number 1. row_number is a window function. Each Edition ships its own Example
-database, and the one that runs its queries with sqlglot, rather than on Spark, has no window
-functions: it stops with a message saying so. newest_owners_by_newest_day(day) gives the same
-rows without one, so either Example database runs it: each job's newest day with max_of,
-joined back to that day's snapshot. At work, either runs.
+and keeps number 1. row_number is a window function, which the Example database, which runs
+its queries with sqlglot, doesn't have: it stops with a message saying so.
+newest_owners_by_newest_day(day) gives the same rows without one, which the Example database
+runs: each job's newest day with max_of, joined back to that day's snapshot. At work, either
+runs.
 """
 
 import datetime

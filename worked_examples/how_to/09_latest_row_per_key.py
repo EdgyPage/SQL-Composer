@@ -124,7 +124,7 @@ FROM numbered;
 2       1     101  SUCCESS             2
 3       1     104  SUCCESS             1
 4       2      96  SUCCESS             3
-5       2      98     None             2
+5       2      98      NaN             2
 6       2     102   FAILED             1
 7       3      97   FAILED             2
 8       3     103  SUCCESS             1
