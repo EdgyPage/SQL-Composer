@@ -85,6 +85,12 @@ holds the hints later. This map is the design, built out ticket by ticket.
   pages unchanged.
 - [05 Hints in tests](issues/05-hints-in-tests.md): 511 functions hinted; test_offline_hook
   counts from `import inspect`, not a fixed line.
+- [03 Hints on the public functions](issues/03-hints-on-the-public-functions.md): every public
+  signature hints what to pass; `Clause` and `Window` public (96); `help()` shows hints quoted;
+  Named, Ordering, Subtotals and Verdict stay non-public though `help()` names them.
+- [06 Hints in the teaching code](issues/06-hints-in-the-teaching-code.md): Worked examples,
+  how-tos, Templates and Example projects hinted with public names; a send passed in is
+  `Callable[[str], pd.DataFrame]`, explained in how-to 01.
 
 ## Not yet specified
 
