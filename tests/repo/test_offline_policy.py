@@ -65,6 +65,15 @@ def test_a_network_import_in_the_toolbox_is_found() -> None:
     ('page = "https://x"\n', "URL"),
     ('where = f"ftp://{host}/file"\n', "URL"),
     ('def f():\n    """Run it:\n\n    >>> import requests\n    """\n', "network"),
+    ("import pickle\n", "dynamic code"),
+    ("import marshal\nmarshal.loads(data)\n", "dynamic code"),
+    ("import shelve\n", "dynamic code"),
+    ("import zipimport\n", "dynamic code"),
+    ("from pickle import loads\nloads(data)\n", "dynamic code"),
+    ("import importlib.util\nimportlib.util.spec_from_file_location('m', path)\n",
+     "dynamic code"),
+    ("from importlib.util import module_from_spec\nmodule_from_spec(spec)\n", "dynamic code"),
+    ("from importlib.machinery import SourceFileLoader\n", "dynamic code"),
 ])
 def test_each_forbidden_form_is_found_in_the_toolbox(text: str, kind: str) -> None:
     assert kind in kinds(text)
@@ -172,6 +181,20 @@ def test_a_template_is_read_with_its_placeholders_as_names() -> None:
     "<script>navigator.sendBeacon(where)</script>",
     "<iframe></iframe>",
     '<a href="http://example.com">x</a>',
+    '<a href="//example.com/x">x</a>',
+    '<a href="javascript:run()">x</a>',
+    '<img alt="" srcset="x.png">',
+    '<p style="background-image: url(data:image/png;base64,AAAA)"></p>',
+    '<form action="/send" method="post"></form>',
+    "<script>window.open(where)</script>",
+    "<script>window.location = where</script>",
+    "<script>location.href = where</script>",
+    "<script>location.assign(where)</script>",
+    '<meta http-equiv="refresh" content="0; url=x">',
+    "<script>importScripts('x.js')</script>",
+    "<script>eval(text)</script>",
+    "<script>new Function(text)()</script>",
+    "<script>setTimeout('run()', 10)</script>",
 ])
 def test_a_page_that_reaches_outside_itself_is_found(text: str) -> None:
     assert offline_policy.external_references(text) != []
@@ -180,7 +203,11 @@ def test_a_page_that_reaches_outside_itself_is_found(text: str) -> None:
 
 def test_a_page_that_reaches_nothing_has_no_references() -> None:
     page = ("<!doctype html><style>p { color: red; }</style><p>parse_url(x)</p>"
-            "<script>navigator.clipboard.writeText(text)</script>")
+            "<script>navigator.clipboard.writeText(text)</script>"
+            '<a href="#start">x</a><a href="examples.html#run">y</a>'
+            "<pre>Table(location=&quot;/data&quot;)</pre>"
+            "<script>const view = new URLSearchParams(location.search);"
+            " setTimeout(draw, 10); history.replaceState(null, '', '?' + view)</script>")
     assert offline_policy.external_references(page) == []
 
 

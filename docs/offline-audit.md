@@ -10,7 +10,9 @@ built from, and its tickets, are in `.scratch/offline-guard/`.
 Since 6.0 (2026-10-20) Spark Composer is gone (ADR 0008): R2, pyspark and py4j below no longer
 apply to the repo, and the runtime trap, `_refuse_the_network`, lives in `tests/offline_trap.py`.
 The Toolbox is one folder (ADR 0009): what this audit says of `composer_core/` is true of
-`sqlglot_composer/`, where its files now are.
+`sqlglot_composer/`, where its files now are. On 2026-10-21 a code audit read the repo, its
+history, `.git/` and `.venv` for malicious code again, at 6.0's libraries: see
+`docs/code-audit.md`.
 
 Read: the Composer core, both Editions, `tools/`, `tests/`, `.claude/hooks/`, the CI workflow,
 the Worked examples, Example projects and Templates, every page, and the installed libraries:
