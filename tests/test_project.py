@@ -19,10 +19,11 @@ from pathlib import Path
 import pytest
 from conftest import toolbox_module
 
-from sqlglot_composer import Table, admin, project, run, set_admin_log
+from sqlglot_composer import Table, admin, example_database, project, run, set_admin_log
 
 NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
-ADMIN_NOTEBOOKS = ["change_a_saved_table", "check_project", "new_table", "remove_table"]
+ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project", "new_table",
+                   "refresh_reference_sheet", "remove_table"]
 
 
 @pytest.fixture
@@ -244,7 +245,8 @@ def test_remove_table_marks_removed_a_registered_folder_deleted_by_hand(started)
         path.rmdir() if path.is_dir() else path.unlink()
     folder.rmdir()
     assert repr(project.remove_table("mart.daily_job_runs")) == (
-        "tables/mart__daily_job_runs/ wasn't there, so only its registry row is marked removed.")
+        "tables/mart__daily_job_runs/ wasn't there, so only its registry row is marked "
+        "removed.")
     assert [(row["kind"], row["removed_at"]) for row in registry(started)] == [
         ("table_folder", "2026-10-21 09:30:00"), ("reference", "")]
     assert "Registered, but not there" not in repr(project.check())
@@ -325,6 +327,118 @@ def test_register_refuses_when_there_is_nothing_to_adopt(started) -> None:
         project.register("mart.daily_job_runs")
     with pytest.raises(ValueError, match="nothing to register"):
         project.register("ops.jobs")
+
+
+# --- add_references ---------------------------------------------------------------------------
+
+
+def failing_on(missing: str):
+    """The Example database's send, but a table it doesn't have fails, as a warehouse's does."""
+    def send(hive):
+        if missing in hive:
+            raise RuntimeError(f"Table not found: {missing}")
+        return example_database.send(hive)
+
+    return send
+
+
+def test_add_references_writes_each_table_and_registers_it(started) -> None:
+    report = project.add_references(["ops.jobs", "ops.job_runs"], send=example_database.send)
+    assert sorted(path.name for path in (started / "references").iterdir()) == [
+        "ops__job_runs.py", "ops__jobs.py"]
+    assert "from references.ops__jobs import jobs, <alias>" in (
+        started / "references" / "ops__jobs.py").read_text(encoding="utf-8")
+    assert [(row["kind"], row["table"]) for row in registry(started)] == [
+        ("reference", "ops.jobs"), ("reference", "ops.job_runs")]
+    assert repr(report) == ("Wrote references/ops__jobs.py and references/ops__job_runs.py: "
+                            "fill in their TODO lines.")
+
+
+def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started) -> None:
+    (started / "references" / "ops__jobs.py").write_text("# mine", encoding="utf-8")
+    with pytest.raises(project.SkippedTables) as skipped:
+        project.add_references(["ops.jobs", "ops.job_ownres", "jobs", "ops.run_alerts"],
+                               send=failing_on("ops.job_ownres"))
+    message = " ".join(str(skipped.value).split())
+    assert ("add_references skipped 3 of 4 tables: ops.jobs (references/ops__jobs.py is there "
+            "already); ops.job_ownres (DESCRIBE failed: RuntimeError: Table not found: "
+            "ops.job_ownres); jobs (not a table's name with its database, such as ops.jobs)."
+            ) in message
+    assert "references/ops__run_alerts.py was written." in message
+    # The table after the skipped ones is still written, and the file there is left alone.
+    assert (started / "references" / "ops__run_alerts.py").is_file()
+    assert (started / "references" / "ops__jobs.py").read_text(encoding="utf-8") == "# mine"
+    assert [row["table"] for row in registry(started)] == ["ops.run_alerts"]
+    log = log_text(started)
+    assert ('- Call: `project.add_references(["ops.jobs", "ops.job_ownres", "jobs", '
+            '"ops.run_alerts"], send=...)`\n') in log
+    assert "- Files: created references/ops__run_alerts.py\n" in log
+    assert ("- Skipped: ops.jobs (references/ops__jobs.py is there already); "
+            "ops.job_ownres") in log
+    assert "- Result: failed, with SkippedTables: 3 of 4 skipped, named above\n" in log
+
+
+def test_add_references_refuses_a_name_where_a_list_goes(started) -> None:
+    with pytest.raises(ValueError, match="names isn't a list of tables"):
+        project.add_references("ops.jobs", send=example_database.send)
+
+
+# --- The Reference sheet ----------------------------------------------------------------------
+
+
+def sheet(root: Path) -> list[dict]:
+    path = root / "references" / "reference_sheet.csv"
+    with open(path, encoding="utf-8", newline="") as rows:
+        return list(csv.DictReader(rows))
+
+
+def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started) -> None:
+    project.add_references(["ops.job_runs"], send=example_database.send)
+    reference = started / "references" / "ops__job_runs.py"
+    text = reference.read_text(encoding="utf-8").replace("key=None,", 'key=["run_id"],')
+    reference.write_text(text + "minutes = job_runs.duration_mins\n"
+                         "failed = job_runs.status == 'x'\n", encoding="utf-8")
+    report = project.refresh_reference_sheet()
+    rows = {row["column"]: row for row in sheet(started)}
+    assert list(rows) == ["run_id", "job_id", "status", "duration_mins", "avg_retry_secs", "dt"]
+    assert rows["run_id"] | {"exported_at": ""} == {
+        "table": "ops.job_runs", "column": "run_id", "type": "bigint", "date_partition": "",
+        "in_key": "yes", "aliases": "", "description": "", "exported_at": ""}
+    assert rows["dt"]["date_partition"] == "yes"
+    assert rows["duration_mins"]["aliases"] == "minutes"
+    assert rows["status"]["description"] == "SUCCESS / FAILED / TEST, NULL while running"
+    assert {row["exported_at"] for row in rows.values()} == {"2026-10-21 09:30:00"}
+    assert repr(report) == "Wrote references/reference_sheet.csv: 6 rows, 1 table."
+
+
+def test_refreshing_one_table_replaces_only_its_rows(started, monkeypatch) -> None:
+    project.add_references(["ops.jobs", "ops.run_alerts"], send=example_database.send)
+    project.refresh_reference_sheet()
+    later = datetime.datetime(2026, 10, 22, 8, 0, 0)
+    monkeypatch.setattr(toolbox_module("project"), "_now", lambda: later)
+    reference = started / "references" / "ops__run_alerts.py"
+    reference.write_text(reference.read_text(encoding="utf-8").replace(
+        '"severity": "low / high"', '"severity": "low, high or critical"'), encoding="utf-8")
+    project.refresh_reference_sheet("ops.run_alerts")
+    rows = sheet(started)
+    assert {(row["table"], row["exported_at"]) for row in rows} == {
+        ("ops.jobs", "2026-10-21 09:30:00"), ("ops.run_alerts", "2026-10-22 08:00:00")}
+    assert [row["description"] for row in rows if row["column"] == "severity"] == [
+        "low, high or critical"]
+    assert len(rows) == 8
+
+
+def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started) -> None:
+    project.new_table("mart.daily_job_runs")
+    project.add_references(["ops.jobs"], send=example_database.send)
+    assert repr(project.refresh_reference_sheet()) == (
+        "Wrote references/reference_sheet.csv: 4 rows, 1 table.\n"
+        "Left out, since it doesn't parse yet: references/mart__daily_job_runs.py.")
+
+
+def test_refreshing_a_table_with_no_reference_is_refused(started) -> None:
+    with pytest.raises(FileNotFoundError, match="there is no references/ops__jobs.py to read"):
+        project.refresh_reference_sheet("ops.jobs")
 
 
 # --- The Admin log inside a Project -----------------------------------------------------------
