@@ -54,10 +54,11 @@ from types import FrameType
 
 import pandas as pd
 
+from .clauses import Statement
 from .project_templates import TEMPLATES
 from .refusals import callers_frame, refuse
 from .tables import TABLE_NAME, write_table_reference
-from .unchecked import _code, _script_line, _write_entry
+from .unchecked import UncheckedStatement, _code, _script_line, _write_entry
 
 TOOLBOX_VERSION = "6.1"
 
@@ -898,9 +899,10 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
     """Write a day of every table, each before the tables that read it.
 
     Each table's write_day(day) comes from its notebook's logic cell, through load; one that
-    gives a list, as an incremental load's does, sends each in turn. They run in the order
-    lineage draws them: a table is written before any table that reads it, and a
-    loop, two tables each reading the other, is refused. `tables` names some, such as
+    gives a list, as an incremental load's does, sends each in turn. Each write_day gives
+    Statements or Unchecked statements: anything else, such as Session settings, is refused
+    before anything is sent. They run in the order lineage draws them: a table is written
+    before any table that reads it, and a loop, two tables each reading the other, is refused. `tables` names some, such as
     ["mart.team_day"]; left out, it is every Table folder the registry lists. With no `send`
     it prints each one's Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
     sends nothing: a dry run, to read before you send. With your send, it sends each in turn,
@@ -931,19 +933,7 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
         return ProjectReport(["No Table folder to run: make one with project.new_table(...)."])
     named = []
     for name in tables:
-        logic = load(name)
-        if not hasattr(logic, "write_day"):
-            refuse(
-                what=f"{call}: the logic cell of {name}'s notebook defines no write_day.",
-                why="run_tables writes each table's day with its write_day(day).",
-                fix="Define write_day(day) in the logic cell, as the daily_table Template "
-                "does, or leave the table out with tables=[...].",
-                error=ValueError,
-            )
-        written = logic.write_day(day)
-        # An incremental load's write_day gives several days' writes, oldest first.
-        named += [(write, name) for write in
-                  (written if isinstance(written, (list, tuple)) else [written])]
+        named += [(write, name) for write in _writes_of(name, day, call)]
     ordered = in_order(named, call=call)
     if send is None:
         for position, (write, name) in enumerate(ordered, start=1):
@@ -962,6 +952,37 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
         print(f"{position} of {len(ordered)}: {name:<{width}}  worked")
     tables = len({name for _, name in ordered})
     return ProjectReport([f"Wrote {day} of {tables} table{'s' * (tables != 1)}, in order."])
+
+
+def _writes_of(name: str, day: str, call: str) -> list[Statement | UncheckedStatement]:
+    """What the write_day of `name`'s Table notebook gives for `day`, each one checked."""
+    logic = load(name)
+    if not hasattr(logic, "write_day"):
+        refuse(
+            what=f"{call}: the logic cell of {name}'s notebook defines no write_day.",
+            why="run_tables writes each table's day with its write_day(day).",
+            fix="Define write_day(day) in the logic cell, as the daily_table Template "
+            "does, or leave the table out with tables=[...].",
+            error=ValueError,
+        )
+    written = logic.write_day(day)
+    # An incremental load's write_day gives several days' writes, oldest first.
+    writes = written if isinstance(written, (list, tuple)) else [written]
+    for write in writes:
+        if not isinstance(write, (Statement, UncheckedStatement)):
+            gave = f"a list holding {write!r}" if writes is written else repr(write)
+            refuse(
+                what=f"{call}: write_day({_quoted(day)}), in the logic cell of {name}'s "
+                f"Table notebook, gave {gave}, which isn't a Statement.",
+                why="run_tables puts the tables in order by what each write reads and "
+                "writes, so each write_day gives a Statement, an Unchecked statement, or a "
+                "list of them.",
+                fix="Make write_day return the Statement that writes the day, as the "
+                "daily_table Template's does. Session settings aren't a write: run them on "
+                "their own, with run(hive_settings(...), send=send).",
+                given=write, call=call,
+            )
+    return list(writes)
 
 
 # --- Pieces they share ------------------------------------------------------------------------

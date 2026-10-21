@@ -1,7 +1,7 @@
 # run_tables refuses what write_day gives
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: -
 Size: S
 

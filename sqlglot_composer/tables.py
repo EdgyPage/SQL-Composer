@@ -1137,7 +1137,20 @@ def first_look(t: Table) -> Statement:
 
 
 class Verdict:
-    """What a check found, ready to print."""
+    """What check_key(...) or check_table_reference(...) found, ready to print.
+
+    Its `ok` is True when the check found nothing wrong, and printing it shows what it found.
+    Write the name in a type hint, to say that a function of yours gives back what a check
+    found:
+
+    >>> def key_holds(t: Table) -> Verdict:
+    ...     return check_key(t, send=example_database.send)
+    >>> verdict = key_holds(jobs)
+    >>> verdict.ok
+    True
+    >>> verdict
+    ops.jobs: the key (job_id) holds.
+    """
 
     def __init__(self, ok: bool, lines: list[str]) -> None:
         self.ok = ok

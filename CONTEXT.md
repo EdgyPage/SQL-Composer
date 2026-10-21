@@ -94,7 +94,8 @@ _Avoid_: table config, schema file, declaration, model, standard query
 The columns whose values name exactly one row of a table on one day: the table's primary key,
 declared on its Table reference. The warehouse never checks it; the Toolbox does, before writing
 a Saved table and when joining, and Lineage shows where an output keeps or loses it. A Derived
-table's Key is worked out from how its Statement makes its rows.
+table's Key is worked out from how its Statement makes its rows. `check_key(...)` gives back a
+`Verdict`, whose `ok` says whether the Key held: the name a type hint uses.
 _Avoid_: unique key, id, partition key
 
 **Building block**:
@@ -120,7 +121,8 @@ _Avoid_: builder, chain, method
 **Column**:
 One column of a table, as a Table reference's attribute (`job_runs.status`), or a calculation
 made from columns, as `job_runs.duration_mins / 60` and `sum_of(...)` give back. `Column` is the
-name a type hint uses.
+name a type hint uses, as `Named` is for what `AS(...)` gives back, a column with the name it
+gets in the result, and `Ordering` for what `descending(...)` gives back, a column to sort by.
 _Avoid_: field
 
 **Condition**:
@@ -168,7 +170,8 @@ _Avoid_: union (the Hive word for one kind), set operation, combined query, appe
 A row a Statement's grouping adds to its groups' rows, totalling the rows of several groups,
 such as one per team over all its jobs, or the grand total, one over every row. The columns it
 totals over are empty in it, as a real row's may be too, so the Toolbox can say which rows are
-subtotal rows.
+subtotal rows. In Python, `rollup(...)`, `cube(...)` and `grouping_sets(...)` give back
+`Subtotals`, the name a type hint uses.
 _Avoid_: total row, rollup row, summary row
 
 **Saved table**:

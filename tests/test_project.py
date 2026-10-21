@@ -698,6 +698,28 @@ def test_run_tables_refuses_a_loop(started: Path) -> None:
         project.run_tables("2026-09-24")
 
 
+@pytest.mark.parametrize(("gives", "said"), [
+    ('hive_settings("map_joins")', "<Session settings map_joins"),
+    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd'"),
+    ("None", "None"),
+    ('[hive_settings("map_joins")]', "a list holding <Session settings map_joins"),
+])
+def test_run_tables_refuses_what_write_day_gives_that_it_cant_send(
+        started: Path, capsys: pytest.CaptureFixture[str], gives: str, said: str) -> None:
+    (started / "admin" / "templates" / "odd.py").write_text(
+        "# %%\n# logic\nfrom sqlglot_composer import hive_settings\n\n\n"
+        f"def write_day(day):\n    return {gives}\n", encoding="utf-8")
+    project.new_table("mart.odd", template="odd")
+    with pytest.raises(TypeError) as refused:
+        project.run_tables("2026-09-24")
+    message = " ".join(str(refused.value).split())
+    assert message.count("What happened:") == 1
+    assert ('What happened: project.run_tables("2026-09-24"): write_day("2026-09-24"), in the '
+            f"logic cell of mart.odd's Table notebook, gave {said}") in message
+    assert "which isn't a Statement" in message
+    assert capsys.readouterr().out == ""
+
+
 def test_run_tables_with_no_table_folder_says_so(started: Path) -> None:
     assert repr(project.run_tables("2026-09-24")) == (
         "No Table folder to run: make one with project.new_table(...).")

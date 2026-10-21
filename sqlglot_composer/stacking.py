@@ -354,7 +354,16 @@ def stack_steps(s: Statement) -> list[Statement]:
 
 
 class Subtotals:
-    """Subtotals for GROUP_BY, made by rollup(...), cube(...) or grouping_sets(...)."""
+    """Subtotals for GROUP_BY, made by rollup(...), cube(...) or grouping_sets(...).
+
+    Make them with one of those three, never Subtotals(). Write the name in a type hint, to say
+    that a function of yours gives them back:
+
+    >>> def per_status_and_in_all() -> Subtotals:
+    ...     return rollup(job_runs.status)
+    >>> per_status_and_in_all()
+    <rollup(job_runs.status) - put it in GROUP_BY(...)>
+    """
 
     def __init__(self, call: str, columns: list[Column | str], sets: list[list[int]]) -> None:
         self._call = call  # how it was written, such as rollup(jobs.team, jobs.job_name)

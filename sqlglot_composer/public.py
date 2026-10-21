@@ -16,6 +16,7 @@ from .calculations import (
     if_else,
     max_of,
     min_of,
+    Ordering,
     month_start,
     sum_of,
     week_start,
@@ -24,6 +25,7 @@ from .clauses import (
     ANTI_JOIN,
     AS,
     Clause,
+    Named,
     CROSS_JOIN,
     FROM,
     FULL_JOIN,
@@ -69,6 +71,7 @@ from .running import by_day, run, set_load_limits, show_hive, to_hive
 from .stacking import (
     EXCEPT,
     INTERSECT,
+    Subtotals,
     UNION,
     UNION_ALL,
     cube,
@@ -79,6 +82,7 @@ from .stacking import (
 from .tables import (
     Column,
     Table,
+    Verdict,
     all_columns,
     check_key,
     check_table_reference,
@@ -118,6 +122,7 @@ __all__ = [
     "first_look",
     "check_key",
     "check_table_reference",
+    "Verdict",
     "create_table",
     "all_columns",
     # clauses.py
@@ -142,6 +147,7 @@ __all__ = [
     "statement",
     "Statement",
     "Clause",
+    "Named",
     "derived",
     # stacking.py
     "UNION_ALL",
@@ -152,6 +158,7 @@ __all__ = [
     "cube",
     "grouping_sets",
     "is_total",
+    "Subtotals",
     # conditions.py
     "equals",
     "not_equals",
@@ -182,6 +189,7 @@ __all__ = [
     "week_start",
     "month_start",
     "descending",
+    "Ordering",
     "hive_function",
     # windows.py
     "window",
