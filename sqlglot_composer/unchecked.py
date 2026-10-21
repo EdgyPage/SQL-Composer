@@ -394,8 +394,8 @@ def _note_a_change(text: str) -> None:
 
 # --- The Admin log ---------------------------------------------------------------------------
 
-# Where the Admin log is written: set by set_admin_log, None for admin_log.md beside the
-# script or notebook that runs.
+# Where the Admin log is written: set by set_admin_log, None for the usual place, admin_log.md
+# beside the script or notebook that runs, or in a Project, its admin/admin_log.md.
 _admin_log = {"path": None}
 
 
@@ -415,7 +415,7 @@ def set_admin_log(path=None):
 
     >>> set_admin_log("logs/admin_log.md").name
     'admin_log.md'
-    >>> set_admin_log()  # back to admin_log.md beside the script or notebook that runs
+    >>> set_admin_log()  # back to the usual place
     """
     if path is None:
         _admin_log["path"] = None
@@ -425,7 +425,8 @@ def set_admin_log(path=None):
             what=f"set_admin_log({path!r}): that isn't a path.",
             why="It takes the path of the Markdown file the Admin log is written to.",
             fix='Write it like set_admin_log("admin_log.md"), or call set_admin_log() for '
-            "admin_log.md beside your script or notebook.",
+            "the usual place: admin_log.md beside your script or notebook, or in a Project, "
+            "its admin/admin_log.md.",
         )
     if Path(path).suffix.lower() != ".md":
         refuse(
@@ -433,7 +434,8 @@ def set_admin_log(path=None):
             "ends in .md.",
             why="It is written as Markdown, which reads as plain text and shows as a page.",
             fix='Write it like set_admin_log("admin_log.md"), or call set_admin_log() for '
-            "admin_log.md beside your script or notebook.",
+            "the usual place: admin_log.md beside your script or notebook, or in a Project, "
+            "its admin/admin_log.md.",
             error=ValueError,
         )
     path = Path(path)

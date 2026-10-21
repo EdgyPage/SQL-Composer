@@ -259,7 +259,7 @@ def new_table(name, template="daily_table"):
             why="Its folder was moved or deleted by hand, and making a new one would hide "
             "that.",
             fix="Run admin/check_project.ipynb to see what is missing. Put the folder back, "
-            f'or archive its registry row with project.remove_table("{name}").',
+            f'or mark its registry row removed with project.remove_table("{name}").',
             error=FileExistsError,
         )
     template_path = root / "admin" / "templates" / f"{template}.py"
@@ -308,7 +308,8 @@ def remove_table(name):
     tables/mart__daily_job_runs/ moves, whole, to a folder such as
     admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked
     removed. The table stays in the warehouse, and its Table reference in references/: drop
-    the table with admin.drop_table, and archive the reference with remove_reference.
+    the table with admin.drop_table, and archive the reference with remove_reference. A
+    Table folder the registry lists but that was deleted by hand only has its row marked.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -333,7 +334,8 @@ def remove_reference(name):
 
     references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py,
     and its registry row is marked removed. It refuses while the table has a Table folder,
-    whose notebook imports the reference: remove_table first.
+    whose notebook imports the reference: remove_table first. A Table reference the registry
+    lists but that was deleted by hand only has its row marked.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -441,7 +443,8 @@ def check():
     nothing.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
-    moved or deleted by hand is put back, or archived with remove_table or remove_reference.
+    moved or deleted by hand is put back, or has its registry row marked removed with
+    remove_table or remove_reference.
 
     >>> from sqlglot_composer import project
     >>> project.start()
