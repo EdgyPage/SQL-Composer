@@ -1,7 +1,7 @@
 # The Example gallery in the Project layout
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 10
 Size: S
 
@@ -32,3 +32,22 @@ Built 2026-10-21 on branch `toolbox-6/13-gallery-project-layout`.
   scripts, each playing a Table notebook's logic cell, and the page no longer names it.
   `tests/repo/test_levels.py` holds Level 0 as `references/` for both.
 - CHANGES.md's 6.0 says so.
+
+### Reviews
+
+- Spec (2026-10-21): the page no longer said where a script goes; its header now says a
+  script plays a Table notebook's logic cell, and where its Table reference and Building block
+  would sit in a Project, and its label says so too. The beginner reader's report and the
+  drift items are below and in `.scratch/drift.md`.
+- Standards (2026-10-21): no violation. Answered: the `ABOVE_THE_LEVELS` comment named
+  `run_pipeline.py`, which no Example project has now, so its new wording is the true one; a
+  script's label names its file alone, with its part in a Project, since its maintainers'
+  folder isn't in the download.
+- Beginner reader (2026-10-21; costliest: scripts "kept with the Toolbox's own source" that
+  the download lacks, a bare `saved_table.py`, and "written by hand" against how-to 1's "never
+  by hand"): the header says the download doesn't hold the scripts, so each entry shows their
+  Python, and what each part would be in a Project; mart__runs_to_review.py says
+  `project.new_table` writes such a file in a Project, for you to fill in, and that `location=`
+  is a folder in the warehouse, named mart/runs_to_review. Answered: the ops tables come from
+  `example_database`, whose Table references ship inside the Toolbox, as the header now says;
+  the scripts import their Building block before the Toolbox, as their Level order reads.
