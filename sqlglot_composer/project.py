@@ -808,7 +808,7 @@ def load(name: str) -> TableLogic:
     tables/ and send.py. Next: write your send in send.py.
     >>> from pathlib import Path
     >>> _ = Path("admin/templates/plain.py").write_text(
-    ...     "# %%\n# logic\ndef write_day(day):\n    return day\n")
+    ...     "# %%\n# logic\ndef write_day(day: str) -> str:\n    return day\n")
     >>> _ = project.new_table("mart.daily_job_runs", template="plain")
     >>> logic = project.load("mart.daily_job_runs")
     >>> logic

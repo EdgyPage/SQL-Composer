@@ -145,6 +145,8 @@ _Avoid_: soft guard, lint, notice, advisory
 **Derived table**:
 A Statement given a name so another Statement can read from it, with its output columns checked
 like a Table reference's. It lives only inside the Statement that reads it, and is never stored.
+In Python, `derived(...)` gives back a `Table`, read like any other, so a Building block that
+gives one back says `-> Table`.
 _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what it is)
 
 **Window**:

@@ -114,6 +114,15 @@ each column named:
         rows = my_api.query(hive)  # your team's own call that runs Hive text goes here
         return pd.DataFrame(rows)
 
+`hive: str` and `-> pd.DataFrame` are type hints: they say a Hive string goes in and a DataFrame
+comes out, and Python doesn't check them. A function of yours that takes your send hints it as a
+function that takes one `str` and gives back a DataFrame, as later how-tos do:
+
+    from collections.abc import Callable
+
+    def run_today(send: Callable[[str], pd.DataFrame]) -> None:
+        ...
+
 This works when your API gives each row as a dict, such as `{"run_id": 97, "job_id": 3}`:
 `pd.DataFrame(rows)` takes the column names from its keys. If it gives each row as a tuple, it
 gives the column names apart too, as a database cursor does in `cursor.description`. Pass those

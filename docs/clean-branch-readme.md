@@ -50,8 +50,8 @@ tables/ and send.py. Next: write your send in send.py.
 Import from `sqlglot_composer`, at its top level, never from a file inside it. The Toolbox
 never connects to anything itself: it writes Hive as text, and `run` hands that text to a
 function of yours, `send`, which runs it and gives back a pandas DataFrame. Write it once, in
-`send.py`: for example, `def send(hive): return pd.DataFrame(my_api.query(hive))`, which runs
-the Hive through your team's query API. Every notebook imports it with
+`send.py`: for example, `def send(hive: str) -> pd.DataFrame: return
+pd.DataFrame(my_api.query(hive))`, which runs the Hive through your team's query API. Every notebook imports it with
 `from send import send`.
 
 Make and remove Table folders and Table references with the `project` module's Project
