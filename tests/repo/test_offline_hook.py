@@ -187,8 +187,8 @@ def test_a_page_that_loads_a_script_from_outside_is_refused() -> None:
 
 
 def test_user_copied_code_may_not_start_a_process() -> None:
-    why = write(ROOT / "templates" / "x.py", "import subprocess\n")
-    assert why is not None and "templates/x.py:1 process: import subprocess" in why
+    why = write(ROOT / "example_projects" / "x.py", "import subprocess\n")
+    assert why is not None and "example_projects/x.py:1 process: import subprocess" in why
     assert "copy" in why and "ALLOWED" in why
 
 
@@ -307,7 +307,7 @@ def test_a_broken_policy_refuses_the_toolbox_but_lets_its_own_fix_through(tmp_pa
     checkout = a_checkout(tmp_path, {})
     (checkout / "tools" / "offline_policy.py").write_text("raise RuntimeError('broken')\n",
                                                          encoding="utf-8")
-    why = write(checkout / "templates" / "x.py", "x = 1\n", checkout)
+    why = write(checkout / "example_projects" / "x.py", "x = 1\n", checkout)
     assert why is not None and "couldn't judge" in why and "broken" in why
     done = judge("Write", {"file_path": str(checkout / "tools" / "offline_policy.py"),
                            "content": "x = 1\n"}, checkout)

@@ -40,7 +40,7 @@ page: `external_references`.
 
 What is allowed depends on the folder, strictest first:
 
-- **user-copied code** (`templates/`, `example_projects/`, `worked_examples/`): nothing at all,
+- **user-copied code** (`example_projects/`, `worked_examples/`): nothing at all,
   since users copy these files into their own work;
 - **the Toolbox** (`sqlglot_composer/`): nothing, apart from the sites
   `ALLOWED` lists;
@@ -130,7 +130,7 @@ LIBRARIES = ("pandas", "numpy", "sqlglot")
 PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 
 TOOLBOX = (toolbox_registry.FOLDER,)
-USER_COPIED = ("templates", "example_projects", "worked_examples")
+USER_COPIED = ("example_projects", "worked_examples")
 # Folders never read: the tracker's notes, and what tools and Pythons leave behind, the dev
 # virtual environment's installed libraries among them.
 NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff_cache",
@@ -296,11 +296,6 @@ ALLOWED: tuple[Allowed, ...] = (
             "exec", "runs the test's own line of code in a scope with no name"),
     Allowed("tests/test_refusals.py", "test_a_repeated_rows_warning_shows_under_python_dash_c",
             "process", "subprocess.run", PYTHON),
-    Allowed("tests/test_templates.py", "filled_project", "dynamic code",
-            "importlib.import_module", "imports a filled-in template's modules by name"),
-    Allowed("tests/test_templates.py", "test_notebook_start_runs_in_an_empty_folder",
-            "dynamic code", "importlib.import_module",
-            "imports a filled-in template's module by name"),
     Allowed("tests/repo/test_export_clean.py", "<module>", "process", "subprocess",
             IMPORTS_GIT),
     Allowed("tests/repo/test_export_clean.py", "git", "process", "subprocess.run", GIT),

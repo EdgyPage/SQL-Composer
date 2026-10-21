@@ -9,12 +9,12 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed:
 - it copies the Toolbox's folder, `sqlglot_composer/`, and stamps line 1 of every file in it, for
   example `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - generated from dev, do not edit`;
 - it writes the list of the folder's files into its `__init__.py`, for the import self-check;
-- it copies the Example projects and the Templates, `example_projects/` and `templates/`, at the
-  same paths, with line 1 stamped, for example
-  `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - copy it, then edit your copy`;
+- it copies the Example projects, `example_projects/`, at the same paths, with line 1
+  stamped, for example
+  `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - copy it, then edit your copy`; the
+  Templates ship inside the Toolbox, in `sqlglot_composer/project_templates.py`;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
-  list of how-tos, from `worked_examples/how_to/`, the list of Templates, as
-  `templates/README.md`'s tables give them, and a cheat sheet: one line per public name,
+  list of how-tos, from `worked_examples/how_to/`, and a cheat sheet: one line per public name,
   grouped by file, from each docstring's first line;
 - it copies `CHANGES.md`, what changed in each version, `LICENSE`, the MIT No Attribution
   license, and `requirements.txt`, what the Toolbox needs beyond the standard library, as dev
@@ -80,13 +80,10 @@ VERSION_MARKER = "<!-- VERSION -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
 # The folders main holds a copy of, for the user to copy and edit, at the paths dev has them.
 EXAMPLE_PROJECTS = "example_projects"
-TEMPLATES = "templates"
-COPIED = (EXAMPLE_PROJECTS, TEMPLATES)
-TEMPLATES_README = "templates/README.md"
+COPIED = (EXAMPLE_PROJECTS,)
 # The how-tos, which how_to.html is written from, and which the README lists.
 HOW_TOS = "worked_examples/how_to"
 HOW_TOS_MARKER = "<!-- HOW-TOS -->"
-TEMPLATES_MARKER = "<!-- TEMPLATES -->"
 
 
 class ExportRefused(Exception):
@@ -356,36 +353,16 @@ def how_tos_text(source: Path) -> str:
         for group, how_tos in groups.items())
 
 
-def templates_text(source: Path) -> str:
-    """Each Template, by its path inside templates/, with what it is, as templates/README.md's
-    tables give them and in their order, each set under its folder's name."""
-    rows = re.findall(r"^\| `(\w+/\w+\.py)` \| ([^|]+?) \|",
-                      (source / TEMPLATES_README).read_text(encoding="utf-8"), re.MULTILINE)
-    files = [path.relative_to(source / TEMPLATES).as_posix()
-             for path in (source / TEMPLATES).glob("*/*.py")]
-    if sorted(relative for relative, _ in rows) != sorted(files):
-        raise ExportRefused(
-            f"{TEMPLATES_README}'s tables must name each Template once, and only those, for the "
-            f"README to list them in that order: it names {sorted(row[0] for row in rows)}, and "
-            f"{TEMPLATES}/ holds {sorted(files)}.")
-    sets: dict[str, list[str]] = {}
-    for relative, what in rows:
-        sets.setdefault(relative.split("/")[0], []).append(f"- `{relative}` - {what}")
-    return "\n\n".join(f"In `{folder}/`:\n\n" + "\n".join(lines)
-                       for folder, lines in sets.items())
-
-
 def readme_text(template: str, groups: list[dict], version: str, stamp: str,
                 source: Path) -> str:
     """The Clean branch's README: the template, with the version, such as "3.0, exported
-    2026-10-02 14:05", the how-tos, the Templates and the cheat sheet put in, the how-tos and
-    the Templates read from `source`."""
-    for marker in (VERSION_MARKER, HOW_TOS_MARKER, TEMPLATES_MARKER, CHEAT_SHEET_MARKER):
+    2026-10-02 14:05", the how-tos and the cheat sheet put in, the how-tos read from
+    `source`."""
+    for marker in (VERSION_MARKER, HOW_TOS_MARKER, CHEAT_SHEET_MARKER):
         if template.count(marker) != 1:
             raise ExportRefused(f"{README_TEMPLATE} must have `{marker}` exactly once.")
     text = template.replace(VERSION_MARKER, version)
     text = text.replace(HOW_TOS_MARKER, how_tos_text(source))
-    text = text.replace(TEMPLATES_MARKER, templates_text(source))
     text = text.replace(CHEAT_SHEET_MARKER, cheat_sheet(groups))
     return stamped("README.md", text, stamp)
 

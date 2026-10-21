@@ -311,12 +311,14 @@ def new_table(name, template="daily_table"):
             error=FileExistsError,
         )
     template_path = root / "admin" / "templates" / f"{template}.py"
-    if not isinstance(template, str) or not template_path.is_file():
+    if not isinstance(template, str) or not _is_notebook_template(template_path):
         there = sorted(path.stem for path in template_path.parent.glob("*.py")
-                       if path.stem != REFERENCE_TEMPLATE)
+                       if _is_notebook_template(path))
         refuse(
-            what=f"{call}: there is no Template {template!r} in admin/templates/.",
-            why="The notebook is made from the Template's cells.",
+            what=f"{call}: there is no Table notebook Template {template!r} in "
+            "admin/templates/.",
+            why="The notebook is made from the Template's cells, each starting at a # %% "
+            "line.",
             fix=f"Use one of: {', '.join(repr(stem) for stem in there)}, or add your own "
             f"{template}.py beside them.",
             error=FileNotFoundError,
@@ -877,8 +879,9 @@ def _logic_cell(notebook: Path) -> str | None:
 def run_tables(day, send=None, tables=None):
     """Write a day of every table, each before the tables that read it.
 
-    Each table's write_day(day) comes from its notebook's logic cell, through load. They run
-    in the order lineage draws them: a table is written before any table that reads it, and a
+    Each table's write_day(day) comes from its notebook's logic cell, through load; one that
+    gives a list, as an incremental load's does, sends each in turn. They run in the order
+    lineage draws them: a table is written before any table that reads it, and a
     loop, two tables each reading the other, is refused. `tables` names some, such as
     ["mart.team_day"]; left out, it is every Table folder the registry lists. With no `send`
     it prints each one's Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
@@ -919,7 +922,10 @@ def run_tables(day, send=None, tables=None):
                 "does, or leave the table out with tables=[...].",
                 error=ValueError,
             )
-        named.append((logic.write_day(day), name))
+        written = logic.write_day(day)
+        # An incremental load's write_day gives several days' writes, oldest first.
+        named += [(write, name) for write in
+                  (written if isinstance(written, (list, tuple)) else [written])]
     ordered = in_order(named, call=call)
     if send is None:
         for position, (write, name) in enumerate(ordered, start=1):
@@ -936,8 +942,8 @@ def run_tables(day, send=None, tables=None):
                   "tables after it weren't written.")
             raise
         print(f"{position} of {len(ordered)}: {name:<{width}}  worked")
-    return ProjectReport([f"Wrote {day} of {len(ordered)} table"
-                          f"{'s' * (len(ordered) != 1)}, in order."])
+    tables = len({name for _, name in ordered})
+    return ProjectReport([f"Wrote {day} of {tables} table{'s' * (tables != 1)}, in order."])
 
 
 # --- Pieces they share ------------------------------------------------------------------------
@@ -1036,6 +1042,12 @@ def _filled(text: str, fills: dict[str, str]) -> str:
     for placeholder, value in fills.items():
         text = text.replace(placeholder, value)
     return text
+
+
+def _is_notebook_template(path: Path) -> bool:
+    """Whether a file in admin/templates/ is a Table notebook's Template: one in cells."""
+    return path.is_file() and any(line.startswith("# %%") for line in
+                                  path.read_text(encoding="utf-8").splitlines())
 
 
 def _template_cells(text: str) -> list[tuple[str, str]]:

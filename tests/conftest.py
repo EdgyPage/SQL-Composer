@@ -167,16 +167,6 @@ def standing_in(hive: str, saved: dict[str, pd.DataFrame]) -> str:
 
 # --- Example projects and Templates ------------------------------------------------------------
 
-TEMPLATES = ROOT / "templates"
-# A Template's "Copy it to:" line: the place in the user's project it is copied to.
-COPY_IT_TO = re.compile(r"^Copy it to: (\S+\.py)", re.MULTILINE)
-# A Template's placeholder, such as <TABLE>: the name in the brackets is its group.
-PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
-
-
-def template_id(path: Path) -> str:
-    """A Template by its set and file name, such as "starter/saved_table.py"."""
-    return f"{path.parent.name}/{path.name}"
 
 
 def statements_in(result) -> list:

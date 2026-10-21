@@ -72,7 +72,8 @@ def test_start_lays_out_a_project(started) -> None:
         ["admin_log.md", "registry.csv", "templates"]
         + [f"{name}.ipynb" for name in ADMIN_NOTEBOOKS])
     assert sorted(path.name for path in (started / "admin" / "templates").iterdir()) == [
-        "daily_table.py", "saved_table_reference.py"]
+        "as_of_lookup.py", "building_block.py", "daily_table.py", "incremental_load.py",
+        "quality_checks.py", "saved_table_reference.py", "weekly_rollup.py"]
     assert registry(started) == []
     assert (started / "admin" / "registry.csv").read_text(encoding="utf-8") == (
         "kind,table,created_at,removed_at\n")
@@ -199,7 +200,10 @@ def test_new_table_refuses_a_table_the_registry_lists(started) -> None:
     ("mart.daily-runs", "daily_table", ValueError, "isn't a table's name with its database"),
     ("mart.class", "daily_table", ValueError, "a word Python keeps for itself"),
     ("mart.daily_job_runs", "dialy_table", FileNotFoundError,
-     "(?s)there is no Template 'dialy_table'.*Use one of: 'daily_table'"),
+     "(?s)there is no Table notebook Template 'dialy_table'.*Use one of: 'as_of_lookup', "
+     "'daily_table', 'incremental_load', 'quality_checks', 'weekly_rollup',"),
+    ("mart.daily_job_runs", "building_block", FileNotFoundError,
+     "there is no Table notebook Template 'building_block'"),
 ])
 def test_new_table_refuses(started, name, template, error, said) -> None:
     with pytest.raises(error, match=said):

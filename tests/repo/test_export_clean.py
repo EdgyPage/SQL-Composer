@@ -134,7 +134,7 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 
 # The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
 # here, not taken from export_clean, so the tests say what main holds on their own.
-COPIED = ["example_projects", "templates"]
+COPIED = ["example_projects"]
 
 
 def copied_files(folder: str) -> list[str]:
@@ -147,7 +147,7 @@ def copied_files(folder: str) -> list[str]:
 
 def exported_files() -> list[str]:
     """Every file `main` holds, sorted: the README, the change notes, the license,
-    requirements.txt, the Toolbox's files, and the Example projects and the Templates."""
+    requirements.txt, the Toolbox's files, and the Example projects."""
     toolbox = [f"{folder}/{path.name}" for folder in FOLDERS
                for path in (ROOT / folder).iterdir() if path.name != "__pycache__"]
     copies = [f"{folder}/{relative}" for folder in COPIED for relative in copied_files(folder)]
@@ -170,12 +170,13 @@ def test_anything_outside_the_allowlist_is_named() -> None:
     ]
 
 
-def test_the_example_projects_and_templates_may_hold_anything_below_them() -> None:
-    paths = ["example_projects/starter/run_pipeline.py", "templates/README.md",
-             "templates/starter/notebook_start.py", "example_projects", "templates.py",
+def test_the_example_projects_may_hold_anything_below_them() -> None:
+    paths = ["example_projects/starter/run_pipeline.py", "example_projects/starter/a/b.py",
+             "example_projects", "templates/starter/notebook_start.py",
              "worked_examples/how_to/01_start_a_notebook.py"]
     assert export_clean.outside_allowlist(paths) == [
-        "example_projects", "templates.py", "worked_examples/how_to/01_start_a_notebook.py"]
+        "example_projects", "templates/starter/notebook_start.py",
+        "worked_examples/how_to/01_start_a_notebook.py"]
 
 
 def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> None:
@@ -344,8 +345,7 @@ def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
-@pytest.mark.parametrize("marker", ["<!-- CHEAT SHEET -->", "<!-- HOW-TOS -->",
-                                    "<!-- TEMPLATES -->"])
+@pytest.mark.parametrize("marker", ["<!-- CHEAT SHEET -->", "<!-- HOW-TOS -->"])
 def test_a_readme_template_without_its_markers_is_refused(tmp_path: Path, marker: str) -> None:
     source = dev_copy(tmp_path / "dev")
     template = source / export_clean.README_TEMPLATE
@@ -385,22 +385,6 @@ def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) ->
     assert "<!--" not in section
 
 
-def test_the_readme_lists_each_template_as_the_templates_readme_does(clean: Path) -> None:
-    section = section_of(readme(clean), "Templates")
-    listed = re.findall(r"^- `(\w+)/(\w+\.py)` - ", section, re.MULTILINE)
-    assert listed[:7] == [("starter", name) for name in (
-        "notebook_start.py", "keep_table_references_true.py", "building_block.py",
-        "saved_table_reference.py", "saved_table.py", "daily_pipeline.py",
-        "per_group_statement.py")]
-    assert sorted(listed[7:]) == sorted(
-        ("intermediate", path.name) for path in (ROOT / "templates" / "intermediate").glob("*.py"))
-    assert ("- `starter/notebook_start.py` - A notebook's first cells: your send, a first Table "
-            "reference, a first Statement.\n") in section
-    assert ("- `intermediate/settings_driven.py` - The same Statements for many tables, made "
-            "from settings.") in section
-    assert "<!--" not in section
-
-
 def test_the_export_ships_what_dev_committed_not_ignored_leftovers(repo: Path) -> None:
     (repo / ".gitignore").write_text("*.log\n")
     git(repo, "add", ".gitignore")
@@ -427,7 +411,7 @@ def test_preview_builds_into_a_folder_and_commits_nothing(tmp_path: Path, capsys
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
         ".github", "CHANGES.md", "LICENSE", "example_projects", "requirements.txt",
-        "sqlglot_composer", "templates"]
+        "sqlglot_composer"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before
 
@@ -450,7 +434,7 @@ def test_the_folders_file_list_names_its_own_files(clean: Path) -> None:
     assert files_list_in(init) == _files_of(ROOT / "sqlglot_composer")
 
 
-def test_the_example_projects_and_templates_are_stamped_to_copy(clean: Path) -> None:
+def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
     stamp = f"{VERSION_TEXT} - copy it, then edit your copy"
     for folder in COPIED:
         for relative in copied_files(folder):
@@ -525,11 +509,11 @@ def test_a_commit_without_the_toolbox_is_refused(tmp_path: Path,
         export_clean.export(repo, WHEN)
 
 
-def test_a_commit_without_the_templates_is_refused(tmp_path: Path) -> None:
+def test_a_commit_without_the_example_projects_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    shutil.rmtree(source / "templates")
+    shutil.rmtree(source / "example_projects")
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
-            "this commit doesn't have templates. Commit it on dev.")):
+            "this commit doesn't have example_projects. Commit it on dev.")):
         export_clean.build(source, tmp_path / "clean", WHEN)
 
 
@@ -590,16 +574,16 @@ NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network,
                    "being the export's stamp:\n")
 
 
-def test_a_template_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
+def test_an_example_project_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "templates" / "starter" / "daily_pipeline.py",
-          '"""Every step for one day', 'import requests\n"""Every step for one day')
+    spoil(source / "example_projects" / "starter" / "run_pipeline.py",
+          '"""Run every step', 'import requests\n"""Run every step')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     # Line 2 on main: the export's stamp is line 1.
     assert str(refused.value).startswith(
         NETWORK_REFUSAL
-        + "  templates/starter/daily_pipeline.py:2 network: import requests\n")
+        + "  example_projects/starter/run_pipeline.py:2 network: import requests\n")
 
 
 def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path) -> None:
