@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """Stacks and subtotals: UNION_ALL and the rest, rollup, cube, grouping_sets and is_total.
 
 A Stack puts the rows of whole Statements together, one Statement after another:

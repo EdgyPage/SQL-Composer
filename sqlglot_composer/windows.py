@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """Windows: a calculation over the rows around each row, such as a running total or a rank.
 
 window(...) names the rows each row's value is worked out over: the rows that share its

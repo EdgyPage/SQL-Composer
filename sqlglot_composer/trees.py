@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of

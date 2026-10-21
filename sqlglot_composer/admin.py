@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """The admin module: changes to your own Saved tables, written and checked for you.
 
 It isn't brought by `from sqlglot_composer import *`. Import it by name:

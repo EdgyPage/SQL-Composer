@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """The Templates project.start() copies into a Project's admin/templates/, each as its text.
 
 A Template is a file with placeholders written <LIKE_THIS>. project.new_table fills in <DB>,

@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
 """Joins: how each join clause is written in Hive, and the checks statement(...) runs on
 SEMI_JOIN, ANTI_JOIN and FULL_JOIN.
 

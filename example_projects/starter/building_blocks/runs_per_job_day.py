@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:05 - copy it, then edit your copy
+# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
 """runs_per_job_day - one row per job and day: its runs, failed runs and minutes.
 
 Why: mart.daily_job_runs saves these numbers, and mart.team_day's notebook checks a day from

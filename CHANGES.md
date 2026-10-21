@@ -66,6 +66,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   Intermediate ones 22 to 40, each moved along by as many as came before it; a how-to's link,
   by its name, is unchanged. The others name a Project's folders, `references/` and
   `building_blocks/`, where they named files beside your notebook.
+- **The Example gallery reads as a Project does.** A Worked example imports its Table
+  reference from `references/`, named for its database and table, as
+  `from references.mart__runs_to_review import runs_to_review`, where it named
+  `table_references/runs_to_review.py`; each script is named by its file alone.
 - **The Example projects are Projects**: `admin/`, `references/`, `building_blocks/`, a
   Table folder per Saved table with its notebook and its lineage, and `send.py`, made by the
   `project` module's Project actions and filled in by hand. The starter project builds three
