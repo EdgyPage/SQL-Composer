@@ -1,0 +1,12 @@
+kind,table,created_at,removed_at
+reference,ops.job_events,2026-09-25 06:00:00,
+reference,ops.job_owners,2026-09-25 06:00:00,
+reference,ops.region_costs,2026-09-25 06:00:00,
+table_folder,mart.job_day_costs,2026-09-25 06:00:00,
+reference,mart.job_day_costs,2026-09-25 06:00:00,
+table_folder,mart.job_day_facts,2026-09-25 06:00:00,
+reference,mart.job_day_facts,2026-09-25 06:00:00,
+table_folder,mart.team_days,2026-09-25 06:00:00,
+reference,mart.team_days,2026-09-25 06:00:00,
+table_folder,mart.job_events_checks,2026-09-25 06:00:00,
+reference,mart.job_events_checks,2026-09-25 06:00:00,

@@ -1,11 +1,10 @@
-# sqlglot Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit
+# sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit
 """How sqlglot Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
 reads the Hive back to check it, and builds the few pieces sqlglot has to build itself: calls to
 Hive's built-in functions, column types, and the commands that describe a table. sqlglot holds
-what it writes as a tree of its own objects, a "sqlglot tree". Each Edition of the Toolbox
-writes Hive its own way behind these same function names.
+what it writes as a tree of its own objects, a "sqlglot tree".
 """
 
 from __future__ import annotations
@@ -16,12 +15,12 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
-from composer_core.refusals import four_part_message
-from composer_core.trees import HIVE_ESCAPES, Node, arguments_text, plain_name
+from .refusals import four_part_message
+from .trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "5.1"
+TOOLBOX_VERSION = "6.0"
 
 _DIALECT = "hive"
 
@@ -32,13 +31,13 @@ def _hive_with_hints():
 
     It also writes GROUPING SETS straight after GROUP BY's columns, as in GROUP BY a, b
     GROUPING SETS ((a, b), a, ()): Hive refuses a comma before it, which an older sqlglot,
-    such as 25.24.2, writes. And it escapes a string value's characters by the Composer core's
-    table, trees.HIVE_ESCAPES, as Spark Composer does, whatever sqlglot version runs.
+    such as 25.24.2, writes. And it escapes a string value's characters by the Toolbox's
+    table, trees.HIVE_ESCAPES, whatever sqlglot version runs.
     """
     hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
     hive.generator_class = type("HiveWithHints", (hive.generator_class,),
                                 {"QUERY_HINTS": True, "GROUPINGS_SEP": ""})
-    # A string value's characters are escaped by the Composer core's table, not sqlglot's own,
+    # A string value's characters are escaped by the Toolbox's table, not sqlglot's own,
     # which changed within the supported range. The quote is left to sqlglot, which escapes it
     # as the table does.
     hive.ESCAPED_SEQUENCES = {character: escaped for character, escaped
@@ -62,8 +61,7 @@ def hive_text(node: Node) -> str:
 def readable_text(node: Node) -> str:
     """A part of a Statement as Hive on one line, for the lineage to show how it was written.
 
-    Here it is just its Hive: sqlglot Composer adds nothing to its Hive that the other Edition
-    doesn't.
+    Here it is just its Hive.
     """
     return hive_text(node)
 
@@ -132,7 +130,7 @@ def _table_read_back(text: str) -> str:
 def check_writable_call(name: str, args: list[Node], call: str) -> None:
     """Refuse a hive_function call sqlglot can't build from its arguments.
 
-    calculations.py has checked the call against the list Hive and Spark share already. sqlglot
+    calculations.py has checked the call against the list in trees.py already. sqlglot
     knows more functions than that list, and builds some of them only from certain arguments.
     """
     try:
@@ -230,7 +228,7 @@ def _set_part(tree: exp.Expression, part: str, value) -> None:
 
 
 def _identifier(name: str) -> exp.Identifier:
-    """A name as Hive and Spark need it: in backticks only when it isn't a plain word."""
+    """A name as Hive needs it: in backticks only when it isn't a plain word."""
     return exp.to_identifier(name, quoted=not plain_name(name))
 
 
@@ -509,7 +507,7 @@ _REPLAY = {
     "Window": _window,
     "WindowCall": _window_call,
     "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
-    # Hive and Spark put NULL first when sorting up and last when sorting down; telling
+    # Hive puts NULL first when sorting up and last when sorting down; telling
     # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
     "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
                                         nulls_first=not node.parts["desc"]),

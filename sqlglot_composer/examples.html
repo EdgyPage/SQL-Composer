@@ -1,8 +1,8 @@
-<!-- sqlglot Composer 5.1, exported 2026-10-19 16:34 - generated from dev, do not edit -->
+<!-- sqlglot Composer 6.0, exported 2026-10-21 07:05 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 5.1: Example gallery</title>
+<title>sqlglot Composer 6.0: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -24,14 +24,14 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 5.1: Example gallery</h1>
+<h1>sqlglot Composer 6.0: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
-94 examples from the Toolbox's docstrings. Each shows its Python and, for each
+104 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
 <p>New to the Toolbox? Start with the <a href="how_to.html">how-tos</a>, on the page beside
-this one in the <code>sqlglot_composer</code> folder: how-to 1 starts a notebook.</p>
+this one in the <code>sqlglot_composer</code> folder: how-to 1 starts a Project.</p>
 <p>The examples take today as 2026-09-25, the day after the Example database's last day, so
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
@@ -72,7 +72,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -340,7 +340,7 @@ GROUP BY
     &quot;&quot;&quot;Each job&#x27;s failed runs as a percent of its runs: one count divided by another.
 
     Divide after GROUP_BY, as one count by another, not an average of per-row values. Times
-    100.0 for a percent; / keeps the decimals even between two counts, in Hive and Spark alike
+    100.0 for a percent; / keeps the decimals even between two counts, in Hive
     (DIV is the one that drops them). A division by 0 gives NULL, which pandas shows as NaN;
     COUNT(*) of a group is never 0, so it can&#x27;t happen here.
     &quot;&quot;&quot;
@@ -527,7 +527,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>create_if_missing()</code></h4><pre class="python">def create_if_missing():
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>create_if_missing()</code></h4><pre class="python">def create_if_missing():
     &quot;&quot;&quot;Step 1, in a notebook you run from the top every day: create the table only if missing.
 
     may_exist=True writes CREATE EXTERNAL TABLE IF NOT EXISTS, so the second day&#x27;s run skips it
@@ -545,7 +545,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>failed_runs()</code></h4><pre class="python">def failed_runs(day=LAST_DAY):
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>failed_runs()</code></h4><pre class="python">def failed_runs(day=LAST_DAY):
     &quot;&quot;&quot;Step 2: fill one day with that day&#x27;s failed runs, replacing whatever the day held.
 
     Because INSERT_OVERWRITE replaces the day, sending it twice leaves the same rows, not
@@ -563,7 +563,7 @@ SELECT
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day=LAST_DAY):
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>alerted_runs()</code></h4><pre class="python">def alerted_runs(day=LAST_DAY):
     &quot;&quot;&quot;Step 3: add that day&#x27;s runs that succeeded but raised a high alert.
 
     INSERT_INTO keeps the failed runs step 2 wrote, and adds these beside them. They come
@@ -594,7 +594,7 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days=(FIRST_DAY, LAST_DAY)):
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>backfill()</code></h4><pre class="python">def backfill(days=(FIRST_DAY, LAST_DAY)):
     &quot;&quot;&quot;Step 4: write past days, oldest first, each the way steps 2 and 3 write one.
 
     To backfill is to write days that have already happened: a new table&#x27;s past days, every
@@ -611,7 +611,7 @@ SELECT
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-23&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 2 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
+  job_runs.dt = &#x27;2026-09-23&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><p class="label">Hive of Statement 2 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-23&#x27;)
 SELECT DISTINCT
   job_runs.run_id,
   job_runs.job_id
@@ -622,13 +622,13 @@ WHERE
   run_alerts.dt = &#x27;2026-09-23&#x27;
   AND job_runs.dt = &#x27;2026-09-23&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 3 of 4</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><p class="label">Hive of Statement 3 of 4</p><pre class="hive">INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
 SELECT
   job_runs.run_id,
   job_runs.job_id
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 4 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status = &#x27;FAILED&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><p class="label">Hive of Statement 4 of 4</p><pre class="hive">INSERT INTO mart.runs_to_review PARTITION(dt = &#x27;2026-09-24&#x27;)
 SELECT DISTINCT
   job_runs.run_id,
   job_runs.job_id
@@ -639,18 +639,18 @@ WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27;
   AND job_runs.dt = &#x27;2026-09-24&#x27;
   AND run_alerts.severity = &#x27;high&#x27;
-  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
+  AND job_runs.status = &#x27;SUCCESS&#x27;</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><h4><code>rebuild()</code></h4><pre class="python">def rebuild():
     &quot;&quot;&quot;Step 5, rarely: after changing the table&#x27;s columns, drop it and create it again.
 
     create_table refuses while the old table exists, so the old one has to go first.
     admin.drop_table deletes every day of the table, since its Table reference had purge=True
     when create_table made it, so write them all again with backfill(). A column only added
     after the others can instead be added in place with admin.add_columns, without dropping
-    anything; on a table with a Date partition it writes CASCADE, which Spark refuses, so if
-    Spark rather than Hive runs your tables, ask whoever looks after them first.
+    anything; on a table with a Date partition it writes CASCADE, so the days already there
+    get the column too.
     IF EXISTS means the drop does nothing, rather than failing, if the table isn&#x27;t there.
     &quot;&quot;&quot;
-    return [admin.drop_table(runs_to_review), create_table(runs_to_review)]</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">DROP TABLE IF EXISTS mart.runs_to_review</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
+    return [admin.drop_table(runs_to_review), create_table(runs_to_review)]</pre><p class="label">Hive of Statement 1 of 2</p><pre class="hive">DROP TABLE IF EXISTS mart.runs_to_review</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p><p class="label">Hive of Statement 2 of 2</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
   job_id BIGINT,
   PRIMARY KEY (run_id) DISABLE NOVALIDATE
@@ -662,7 +662,7 @@ STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/runs_to_review&#x27;
 TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
-)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+)</pre><p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>Table</code>, <code>create_table</code>, <code>SELECT</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>INSERT_INTO</code>, <code>statement</code>, <code>equals</code>, <code>example_database</code>, <code>admin.drop_table</code></p>
 </section>
 <section class="entry" id="step_by_step">
@@ -1337,24 +1337,24 @@ WHERE
 <p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run</pre>
-<p>The Toolbox is two folders side by side: this one, and composer_core, the code both Editions share. To update, delete both folders, copy both in again from one download and restart the kernel. The two check themselves when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
+<p>The Toolbox is this one folder. To update, delete it, copy it in again from the download and restart the kernel. It checks itself when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;5.1&#x27;</pre>
+<pre class="output">&#x27;6.0&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 5.1, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 6.0, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
 <h3><code>Table</code></h3>
 <p class="why">A Table reference: a table&#x27;s columns, the day column it&#x27;s split by, and its key.</p>
 <p>Its columns become attributes, so <code>job_runs.status</code> is checked when your script runs: a typo stops with the list of real columns. Write one per table, generated once by write_table_reference(...) and then yours to edit.</p>
-<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none. It has no default, so a table with days is never read whole by mistake. A Saved table with date_partition=None has no days: a write fills it whole (help(INSERT_OVERWRITE)).</li><li><code>key</code> lists the columns that pick out one row, the table&#x27;s Key. JOIN warns when a join doesn&#x27;t use all of them; a write into a Saved table with a Key is refused unless the Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says how); and one Edition&#x27;s create_table writes it into the table (help(create_table) says why the other leaves it out). Hive never checks it.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li></ul>
+<ul><li><code>columns</code> maps each column to its Hive type as DESCRIBE, the command that lists a table&#x27;s columns, prints it (&quot;bigint&quot;, &quot;decimal(10,2)&quot;), or None when you don&#x27;t know it. A typed column gets its values checked.</li><li><code>date_partition</code> is required: the one date column the table is partitioned by, which every Statement must bound at both ends, or None for a table that has none. It has no default, so a table with days is never read whole by mistake. A Saved table with date_partition=None has no days: a write fills it whole (help(INSERT_OVERWRITE)).</li><li><code>key</code> lists the columns that pick out one row, the table&#x27;s Key. JOIN warns when a join doesn&#x27;t use all of them; a write into a Saved table with a Key is refused unless the Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says how); and create_table writes it into the table (help(create_table)). Hive never checks it.</li><li><code>does_not_add_up</code> lists columns that are averages, ratios or distinct counts, which sum_of(...) and average_of(...) refuse to add up.</li><li><code>date_format</code> is needed only when the Date partition&#x27;s days aren&#x27;t written like &quot;2026-09-25&quot;, for example date_format=&quot;%Y%m%d&quot;. It must put the year first, then the month, then the day: Hive compares the days as text, and only year-first text sorts in date order. The time zone is whatever the table uses; the Toolbox doesn&#x27;t convert it.</li><li><code>descriptions</code> says in words what a column holds, such as {&quot;status&quot;: &quot;SUCCESS or FAILED&quot;}, for the columns you want to describe. write_table_reference fills it from the comments DESCRIBE prints; it never changes the Hive.</li></ul>
 <p>A Saved table, one your Statements write into, also says how it is stored, which create_table writes and check_table_reference compares with the table. Of these, a Saved table needs only <code>location</code>; a table someone else owns has none of them:</p>
 <ul><li><code>location</code> is the folder your Saved tables go in, such as &quot;/data/your_team/tables&quot;. The Toolbox adds the table&#x27;s own folder, its database and its name, so mart.daily_runs is at /data/your_team/tables/mart/daily_runs. Every Saved table is an external table: its files are yours, in that folder, and the warehouse only keeps a record of where. Two tables in one folder would read each other&#x27;s files, so a Saved table whose folder would be another&#x27;s, or inside another&#x27;s, is refused.</li><li><code>purge=True</code> makes dropping the table delete its files too. purge=False keeps them in its folder, where a table created again reads them back: at once, or, for a table with a Date partition, its days once repair_partitions(t) lists them; left out, the warehouse&#x27;s own choice, which keeps them, is neither written nor checked.</li><li><code>properties</code> holds any other table properties, the notes on a table the warehouse keeps by name, such as {&quot;made_by&quot;: &quot;daily_pipeline&quot;}.</li><li><code>stored_as</code> is the file format, &quot;ORC&quot; (the usual one) or &quot;PARQUET&quot;, and <code>compression</code> how its files are packed: &quot;SNAPPY&quot;, or ORC&#x27;s &quot;ZLIB&quot; or Parquet&#x27;s &quot;GZIP&quot;, among others.</li><li><code>partitioned_by</code> lists Partitions after the Date partition, such as [&quot;region&quot;], each a column in <code>columns</code> too: each day&#x27;s folder then holds a folder per region. A write still fills one day, and the regions inside it from its rows&#x27; values.</li><li><code>bucketed_by</code> with <code>buckets</code> spreads each day&#x27;s rows into that many files by the values of those columns, and <code>sorted_by</code> sorts the rows in each, so a join on them can pair file with file. Leave them out unless the table is big and joined on those columns: changing them means writing the table again.</li></ul>
-<p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where Hive or Spark needs it, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
+<p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where it needs them, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
 <pre class="output">Table(&#x27;ops.job_runs&#x27;, columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)</pre>
@@ -1371,9 +1371,12 @@ AttributeError: job_runs has no column &#x27;stauts&#x27;. Did you mean &#x27;st
 </section>
 <section class="entry" id="write_table_reference">
 <h3><code>write_table_reference</code></h3>
-<p class="why">Write a table&#x27;s Table reference as <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in.</p>
-<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes <code>&lt;table&gt;.py</code> in the folder you&#x27;re working in, or <code>t_&lt;table&gt;.py</code> for a table named like a Python word or a module Python already has, such as calendar or pandas, which the file would be imported in place of. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. The Date partition is looked for in the first partition column only: a table partitioned first by something else, such as a region, gets date_partition=None and a TODO naming its partition columns. Name the one that holds the days, and check_table_reference(t, send=...) then gives the line its date_format needs, if any. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. The file is yours from then on, and this refuses to overwrite it.</p>
+<p class="why">Write a table&#x27;s Table reference as a file, such as ops__run_alerts.py.</p>
+<p>It sends DESCRIBE and SHOW PARTITIONS through your <code>send</code> (they read the table&#x27;s description, never its rows) and writes the file in <code>folder</code>, such as &quot;references&quot;, or in the folder you&#x27;re working in when folder is left out. The file is imported as <code>from ops__run_alerts import run_alerts</code>, or <code>from references.ops__run_alerts import run_alerts</code> from a folder &quot;references&quot;: two underscores join the database and the table, since a dot or a dash can&#x27;t be in a name Python imports. The Table reference in it is named for the table alone, or t_&lt;table&gt; for a table named like a Python word, such as t_class. Each column&#x27;s comment, which DESCRIBE prints, becomes its description. The newest day SHOW PARTITIONS lists gives the Date partition&#x27;s date_format. The Date partition is looked for in the first partition column only: a table partitioned first by something else, such as a region, gets date_partition=None and a TODO naming its partition columns. Name the one that holds the days, and check_table_reference(t, send=...) then gives the line its date_format needs, if any. It never guesses the key or which columns don&#x27;t add up: those are TODOs for you. Below the Table reference, under its Aliases heading, you can add your own names for its columns and conditions, as its examples show. The file is yours from then on, and this refuses to overwrite it.</p>
 <pre class="python">path = write_table_reference(&quot;ops.run_alerts&quot;, send=example_database.send)</pre>
+<pre class="python">path.name</pre>
+<p class="label">Python shows</p>
+<pre class="output">&#x27;ops__run_alerts.py&#x27;</pre>
 <pre class="python">print(path.read_text())</pre>
 <p class="label">Python shows</p>
 <pre class="output">&quot;&quot;&quot;ops.run_alerts - TODO: say in one line what one row is.&quot;&quot;&quot;
@@ -1384,13 +1387,27 @@ run_alerts = Table(
     columns={
         &quot;alert_id&quot;: &quot;bigint&quot;,
         &quot;run_id&quot;: &quot;bigint&quot;,
-        &quot;severity&quot;: &quot;string&quot;,  # low / high
+        &quot;severity&quot;: &quot;string&quot;,
         &quot;dt&quot;: &quot;string&quot;,
     },
     date_partition=&quot;dt&quot;,
     key=None,  # TODO: the columns that pick out one row, such as key=[&quot;alert_id&quot;]
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)</pre>
+    descriptions={
+        &quot;severity&quot;: &quot;low / high&quot;,
+    },
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from ops__run_alerts import run_alerts, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
+# gives back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = run_alerts.severity
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
 <p class="names">Toolbox names used: <code>write_table_reference</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="first_look">
@@ -1460,8 +1477,8 @@ Notes:
 <section class="entry" id="create_table">
 <h3><code>create_table</code></h3>
 <p class="why">The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.</p>
-<p>A Saved table is one your Statements write into. Send it once with run(create_table(t), send=...). The table is external: its files are yours, in its own folder under the Table reference&#x27;s location=, and the warehouse only keeps a record of where. It is stored as the Table reference says (help(Table) lists how), and a Table reference with no location= is refused. Every column needs a type Hive and Spark both have, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names Hive or Spark reserve, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...), or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer import admin). may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table alone, so it is safe to send again, as at the top of a pipeline that runs every day. It doesn&#x27;t check that the table there matches its Table reference: check_table_reference does. Where a table is made again at a folder whose files stayed, repair_partitions(t) finds their days.</p>
-<p>A Table reference with a Key, such as key=[&quot;job_id&quot;, &quot;dt&quot;], gets PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever reads the table and never checks. Spark refuses a PRIMARY KEY, so one Edition leaves it out: the README&#x27;s list of where the two Editions&#x27; Hive differs says which. Either way the Toolbox checks the Key itself, before each write.</p>
+<p>A Saved table is one your Statements write into. Send it once with run(create_table(t), send=...). The table is external: its files are yours, in its own folder under the Table reference&#x27;s location=, and the warehouse only keeps a record of where. It is stored as the Table reference says (help(Table) lists how), and a Table reference with no location= is refused. Every column needs a type Hive has, spelled as DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other, and a struct whose names are reserved words, and says what to write. If the table already exists, the warehouse refuses to create it again. Without that refusal, you could edit the Table reference, send this again, and think the table had changed when it hadn&#x27;t. Compare the two with check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...), or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer import admin). may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table alone, so it is safe to send again, as at the top of a pipeline that runs every day. It doesn&#x27;t check that the table there matches its Table reference: check_table_reference does. Where a table is made again at a folder whose files stayed, repair_partitions(t) finds their days.</p>
+<p>A Table reference with a Key, such as key=[&quot;job_id&quot;, &quot;dt&quot;], gets PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever reads the table and never checks: the Toolbox checks the Key itself, before each write.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     location=&quot;/data/your_team/tables&quot;)</pre>
@@ -1497,8 +1514,8 @@ TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;,
   &#x27;parquet.compression&#x27;=&#x27;SNAPPY&#x27;
 )</pre>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>create_table</code>, <code>Table</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
@@ -1635,7 +1652,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
 WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;</pre>
-<p>broadcast=True asks for a map join: a small joined table, such as jobs, is copied whole to every worker (each of the machines that share the work), so each matches the big table&#x27;s rows where they are, without first sorting them and sending them across the cluster. JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn&#x27;t, since it keeps the small table&#x27;s unmatched rows too. It is written as a hint after SELECT, as below: a comment, /*+ ... */, that Hive reads as a request. Send the Session setting &quot;map_joins&quot; first, with run(hive_settings(&quot;map_joins&quot;), send=...): Hive ignores the hint without it. You rarely need the hint, though: with &quot;map_joins&quot; sent, Hive makes map joins by itself, from the tables&#x27; sizes and statistics. Where your send runs the Hive on Spark, as spark.sql does, Spark heeds the hint always. Ask for it only for a table you know is small: copied to every worker, a big one can run them out of memory.</p>
+<p>broadcast=True asks for a map join: a small joined table, such as jobs, is copied whole to every worker (each of the machines that share the work), so each matches the big table&#x27;s rows where they are, without first sorting them and sending them across the cluster. JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn&#x27;t, since it keeps the small table&#x27;s unmatched rows too. It is written as a hint after SELECT, as below: a comment, /*+ ... */, that Hive reads as a request. Send the Session setting &quot;map_joins&quot; first, with run(hive_settings(&quot;map_joins&quot;), send=...): Hive ignores the hint without it. You rarely need the hint, though: with &quot;map_joins&quot; sent, Hive makes map joins by itself, from the tables&#x27; sizes and statistics. Ask for it only for a table you know is small: copied to every worker, a big one can run them out of memory.</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id, jobs.team),
     FROM(job_runs),
@@ -2034,8 +2051,8 @@ WHERE
   job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;
 GROUP BY
   jobs.team</pre>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>count_rows</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
@@ -2059,7 +2076,7 @@ SELECT DISTINCT
 FROM ops.run_alerts AS run_alerts
 WHERE
   run_alerts.dt = &#x27;2026-09-24&#x27; AND run_alerts.severity = &#x27;high&#x27;</pre>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>INSERT_INTO</code>, <code>Table</code>, <code>SELECT_DISTINCT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code>, <code>example_database</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
@@ -2355,7 +2372,7 @@ GROUP BY
     jobs.team,
     ()
   )</pre>
-<p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. Hive and Spark both take this form, so the Toolbox writes it rather than ROLLUP.</p>
+<p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. The Toolbox writes this form rather than ROLLUP, so the Hive names each set of rows it makes.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
 <p class="names">Toolbox names used: <code>rollup</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
@@ -2676,7 +2693,7 @@ GROUP BY
 <section class="entry" id="week_start">
 <h3><code>week_start</code></h3>
 <p class="why">The Monday that starts each date&#x27;s week, to group days into weeks.</p>
-<p>Hive and Spark have no week function that works the same on both, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;, whether your warehouse runs the query on Hive or on Spark: Hive&#x27;s NEXT_DAY gives text already, and Spark&#x27;s gives a date, so CAST(... AS STRING) makes it text there too. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
+<p>Hive has no function for the Monday of a week, so this takes the first Monday after the day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven days before. The result is text, a day like &quot;2026-09-21&quot;: CAST(... AS STRING) makes it text wherever the query runs, even on a warehouse whose NEXT_DAY gives a date, so a Saved table&#x27;s column for it is always typed &quot;string&quot;.</p>
 <pre class="python">week_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), &#x27;MO&#x27;) AS STRING)</pre>
@@ -2691,7 +2708,7 @@ GROUP BY
 <section class="entry" id="month_start">
 <h3><code>month_start</code></h3>
 <p class="why">The first day of each date&#x27;s month, to group days into months.</p>
-<p>The result is text, a day like &quot;2026-09-01&quot;, whether your warehouse runs the query on Hive or on Spark: Hive&#x27;s TRUNC gives text already, and Spark&#x27;s gives a date, so CAST(... AS STRING) makes it text there too. A Saved table&#x27;s column for it is typed &quot;string&quot;.</p>
+<p>The result is text, a day like &quot;2026-09-01&quot;: CAST(... AS STRING) makes it text wherever the query runs, even on a warehouse whose TRUNC gives a date, so a Saved table&#x27;s column for it is always typed &quot;string&quot;.</p>
 <pre class="python">month_start(job_runs.dt)</pre>
 <p class="label">Hive</p>
 <pre class="output">CAST(TRUNC(job_runs.dt, &#x27;MM&#x27;) AS STRING)</pre>
@@ -2710,7 +2727,7 @@ GROUP BY
 <section class="entry" id="hive_function">
 <h3><code>hive_function</code></h3>
 <p class="why">Call a Hive function the Toolbox doesn&#x27;t wrap, with your text quoted for you.</p>
-<p>The Hive writes its name in capitals. One Edition may write another name that does the same, as COALESCE for nvl, or leave out an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. The README&#x27;s list of where the two Editions&#x27; Hive differs says which. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which Spark refuses in a pattern.</p>
+<p>The Toolbox writes the function&#x27;s name in capitals, and writes the call in its usual form: sometimes by another name that does the same, as COALESCE for nvl, or without an argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1 is what the warehouse takes when none is given. Either way it does the same. In a date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which differs from the year in the last days of December and the first of January.</p>
 <p>It checks the call before writing it:</p>
 <ul><li>it refuses a call with the wrong number of arguments, for the functions it knows, such as upper, substr or date_add;</li><li>a function that turns many rows into one, such as collect_set or percentile, is treated as count_rows() is: it needs a name with AS, and GROUP_BY for the other columns;</li><li>it refuses a function that works only over a window of rows, written OVER (...) after it, such as lag or rank, since it can&#x27;t write OVER. For lag, lead, rank, dense_rank, ntile and row_number, the refusal names the Toolbox&#x27;s own function, such as lag(...), which takes a window(...); for the others, such as percent_rank, it says to work it out in pandas.</li></ul>
 <pre class="python">hive_function(&quot;regexp_replace&quot;, jobs.job_name, &quot;_&quot;, &quot; &quot;)</pre>
@@ -2780,7 +2797,7 @@ FROM two_days
 WHERE
   two_days.dt = &#x27;2026-09-24&#x27;</pre>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.</p>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>window</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>lag</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="row_number">
@@ -2928,7 +2945,7 @@ WHERE
 <section class="entry" id="show_hive">
 <h3><code>show_hive</code></h3>
 <p class="why">Print the Hive that runs, ready to paste into another program, and return it.</p>
-<p>Each Statement&#x27;s Hive is exactly what to_hive gives and run sends, with a ; added at the end, which a program such as Hue, DBeaver or spark-sql needs between Statements; run sends it without one. Pass several Statements, or a list such as by_day(...) gives, and each is headed by a comment: its number, and the name of the variable it is in, such as -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would. A write that fills Partitions from its rows, into a table with partitioned_by=, is printed after the Session setting it needs: a line saying so, then its SET lines, which run doesn&#x27;t send with it: send them first with run(hive_settings(&quot;dynamic_partitions&quot;), send=...). An Admin statement, from the admin module, is printed after comment lines saying what it changes, what can&#x27;t be undone, and what to check first.</p>
+<p>Each Statement&#x27;s Hive is exactly what to_hive gives and run sends, with a ; added at the end, which a program such as Hue, Beeline or DBeaver needs between Statements; run sends it without one. Pass several Statements, or a list such as by_day(...) gives, and each is headed by a comment: its number, and the name of the variable it is in, such as -- 1 of 2: failed_runs, or, for one in a list, days[0]. It refuses whatever to_hive would. A write that fills Partitions from its rows, into a table with partitioned_by=, is printed after the Session setting it needs: a line saying so, then its SET lines, which run doesn&#x27;t send with it: send them first with run(hive_settings(&quot;dynamic_partitions&quot;), send=...). An Admin statement, from the admin module, is printed after comment lines saying what it changes, what can&#x27;t be undone, and what to check first.</p>
 <p>It returns the same text, so <code>text = show_hive(...)</code> keeps it to use or save. In a notebook, show_hive(...) on its own shows the Hive once.</p>
 <pre class="python">failed_runs = statement(
     SELECT(job_runs.run_id),
@@ -2967,7 +2984,7 @@ WHERE
 <section class="entry" id="run">
 <h3><code>run</code></h3>
 <p class="why">Send a Statement&#x27;s Hive through your <code>send</code> function and return what comes back.</p>
-<p><code>send</code> is your own function from a Hive string to a pandas DataFrame. At work it calls the query API, or, where your notebook runs Spark, is lambda hive: spark.sql(hive).toPandas(); example_database.send runs the Example database instead. A write into a table with partitioned_by= needs the Session setting &quot;dynamic_partitions&quot; sent first, with run(hive_settings(&quot;dynamic_partitions&quot;), send=...), as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For explain(s), run gives back Hive&#x27;s plan as text, rather than a DataFrame.</p>
+<p><code>send</code> is your own function from a Hive string to a pandas DataFrame. At work it calls the query API; example_database.send runs the Example database instead. A write into a table with partitioned_by= needs the Session setting &quot;dynamic_partitions&quot; sent first, with run(hive_settings(&quot;dynamic_partitions&quot;), send=...), as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the write alone. For explain(s), run gives back Hive&#x27;s plan as text, rather than a DataFrame.</p>
 <pre class="python">run(statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     FROM(job_runs),
@@ -3062,7 +3079,7 @@ GROUP BY
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-composer_core.refusals.GuardRefused:
+sqlglot_composer.refusals.GuardRefused:
   What happened:  SELECT has a calculation with no name: COUNT(*).
   Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
   Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), &quot;runs&quot;)).
@@ -3077,7 +3094,7 @@ composer_core.refusals.GuardRefused:
 <p class="label">Refused</p>
 <pre class="output">Traceback (most recent call last):
 ...
-composer_core.refusals.LoadRefused:
+sqlglot_composer.refusals.LoadRefused:
   What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
   Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
@@ -3088,7 +3105,7 @@ composer_core.refusals.LoadRefused:
 <h3><code>export_lineage</code></h3>
 <p class="why">Write where each column comes from, as an HTML page and a Markdown twin.</p>
 <p>The HTML draws every step: the table columns, each Derived table and the outputs, with the conditions (WHERE, JOIN&#x27;s ON=, HAVING, LIMIT) as dashed boxes. Click a box to light up its whole path; controls expand, collapse or hide each table, and switch to a grouped flowchart. The Markdown file needs no script: a Mermaid chart, a report on each calculated column, and the Hive. Pass several Statements and the drawing follows each Saved table from the Statement that writes it to the ones that read it.</p>
-<p>The files go in a lineage/ folder beside your script or notebook, named by the time, your scripts&#x27; git commit, the file and the Statement&#x27;s variable, such as lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. to= names the HTML file instead. It returns the two paths, HTML first.</p>
+<p>The files go in a lineage/ folder beside your script or notebook, named by the time, your scripts&#x27; git commit, the file and the Statement&#x27;s variable, such as lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a Project, when every Statement you pass writes the same Saved table and it has a Table folder, the files go in that folder&#x27;s lineage/, named by the time and the table, such as tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds to the table&#x27;s past Lineage; the commit is in the footer. So do Statements of several tables passed from a Table notebook, when one of them writes that notebook&#x27;s table: its lineage across tables. Any others go beside your script or notebook, as above. to= names the HTML file instead. It returns the two paths, HTML first.</p>
 <pre class="python">runs_per_team = statement(
     SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -3124,7 +3141,7 @@ GROUP BY
 <section class="entry" id="hive_settings">
 <h3><code>hive_settings</code></h3>
 <p class="why">The SET lines of Session settings, by name, to send before your Statements.</p>
-<p>Hive keeps a Session setting for the rest of the session, so send them first, then your Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own, and gives back None. They hold only while your send keeps one session across its calls, as spark.sql does in one notebook: if each call of your send opens a new session, each SET is gone before your Statement runs. show_hive prints them, and export_lineage, passed them with the Statements, writes them at the foot of both its files.</p>
+<p>Hive keeps a Session setting for the rest of the session, so send them first, then your Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own, and gives back None. They hold only while your send keeps one session across its calls: if each call of your send opens a new session, each SET is gone before your Statement runs. show_hive prints them, and export_lineage, passed them with the Statements, writes them at the foot of both its files.</p>
 <p>Name one or more sets. The Toolbox ships four:</p>
 <ul><li>&quot;dynamic_partitions&quot;: hive.exec.dynamic.partition=true and hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its day, such as by region too: a write gives the day, and Hive fills the other Partitions from each row&#x27;s own values only with these on.</li><li>&quot;map_joins&quot;: hive.auto.convert.join=true, hive.auto.convert.join.noconditionaltask=true and hive.ignore.mapjoin.hint=false. Hive then joins a small table by copying it to every worker, which skips sorting the big one, and chooses this by itself from the tables&#x27; statistics; and it heeds the hint that JOIN(..., broadcast=True) writes, which it ignores otherwise. explain(s) shows whether it made one: a Map Join in the plan.</li><li>&quot;statistics_on_write&quot;: hive.stats.autogather=true and hive.stats.column.autogather=true. Each write then gathers the statistics of the day it writes, which Hive picks its join plans from, so they are never out of date. compute_statistics(t, day) counts a day written without them.</li><li>&quot;merge_small_files&quot;: hive.merge.mapfiles=true, hive.merge.mapredfiles=true and hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones, since many small files slow down every later read.</li></ul>
 <p>Keep your own sets in a settings.py of your own, beside your notebook, each a name and its settings, such as HIVE_SETTINGS = {&quot;nightly&quot;: {&quot;hive.exec.parallel&quot;: True}}, and pass them as sets=. True and False are written true and false.</p>
@@ -3162,11 +3179,11 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <h3><code>set_admin_log</code></h3>
 <p class="why">Set where the Admin log is written, such as ADMIN_LOG from your own settings.py.</p>
 <p>The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and its git commit, and whether it worked. It only ever adds to the file.</p>
-<p>Left unset, the log is admin_log.md beside the script or notebook that calls run. A path you give that isn&#x27;t absolute, such as &quot;logs/admin_log.md&quot;, starts from the folder of the script or notebook that calls set_admin_log. Call it at the top of each notebook or pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the default.</p>
+<p>Left unset, the log is admin_log.md beside the script or notebook that calls run, or inside a Project the Project&#x27;s admin/admin_log.md (help(project)). A path you give that isn&#x27;t absolute, such as &quot;logs/admin_log.md&quot;, starts from the folder of the script or notebook that calls set_admin_log. Call it at the top of each notebook or pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the default.</p>
 <pre class="python">set_admin_log(&quot;logs/admin_log.md&quot;).name</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;admin_log.md&#x27;</pre>
-<pre class="python">set_admin_log()  # back to admin_log.md beside the script or notebook that runs</pre>
+<pre class="python">set_admin_log()  # back to the usual place</pre>
 <p class="names">Toolbox names used: <code>set_admin_log</code></p>
 </section>
 <section class="entry" id="repair_partitions">
@@ -3180,7 +3197,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <pre class="python">print(to_hive(repair_partitions(daily_runs)))</pre>
 <p class="label">Hive</p>
 <pre class="output">MSCK REPAIR TABLE mart.daily_runs</pre>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>repair_partitions</code>, <code>Table</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="compute_statistics">
@@ -3188,7 +3205,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <p class="why">The ANALYZE TABLE Statement, which counts a Saved table&#x27;s rows for one day.</p>
 <p>Hive picks how to join a table from its statistics: how many rows and bytes each day holds. Without them it guesses, and may sort two big tables to join them even when copying a small one to every worker would do; the Session setting &quot;map_joins&quot; lets Hive choose to copy it. run(compute_statistics(t, day), send=...) reads the day&#x27;s files, counts them again and keeps the new count in place of the old, so it is safe to send again; it changes no row. The Session setting &quot;statistics_on_write&quot;, sent before your writes, has each write count its day as it writes it; compute_statistics is for the days written without that setting.</p>
 <p><code>day</code> is the one day to count, written as the table writes its days or as a datetime.date. For a table partitioned by more than its day, such as by region too, it counts every region of the day. A Saved table with no Date partition (date_partition=None) is counted whole, and takes no day.</p>
-<p>columns= counts columns too, other than the Partitions: how many different values each has, its smallest and largest, and how many are NULL, which Hive reads to order several joins. columns=True counts every column; as that reads more, columns=[daily_runs.job_id] counts only the columns you name, such as those you join or filter on. Where your send runs on Spark, not Hive, Spark counts columns over every day of the table, whatever the day, so name only those few.</p>
+<p>columns= counts columns too, other than the Partitions: how many different values each has, its smallest and largest, and how many are NULL, which Hive reads to order several joins. columns=True counts every column; as that reads more, columns=[daily_runs.job_id] counts only the columns you name, such as those you join or filter on.</p>
 <p>It takes only one of your Saved tables, a Table reference with location=. The Example database can&#x27;t run it, as its tables are made up and fixed.</p>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
@@ -3203,9 +3220,9 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
     columns=[daily_runs.job_id])))</pre>
 <p class="label">Hive</p>
 <pre class="output">ANALYZE TABLE mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;) COMPUTE STATISTICS FOR COLUMNS job_id</pre>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>compute_statistics</code>, <code>Table</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="explain">
@@ -3214,7 +3231,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <p>run(explain(s), send=...) gives back Hive&#x27;s plan as text, which prints line by line. It is the plan of exactly the Hive run(s, send=...) would send, with the LIMIT run adds when set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows the write without making it; and it is safe to send again.</p>
 <p>Read the plan to see why a Statement is slow, before and after you change it. It is a tree of steps, each reading what the steps under it give:</p>
 <ul><li>TableScan reads a table, with the filters it reads it with, so you can see a condition keep the read to the days it names;</li><li>a Map Join copies a small table to every worker, as the Session setting &quot;map_joins&quot; lets Hive choose, where a Merge Join sorts both sides first;</li><li>each step&#x27;s line headed &quot;Statistics:&quot; says how many rows Hive expects, or &quot;Basic stats: NONE&quot; where it has nothing to go by and compute_statistics would help.</li></ul>
-<p>On the Example database, explain gives the plan of a query only, never of a write, which it refuses as it refuses the write itself. Where it runs on Spark, it gives Spark&#x27;s own plan, headed == Physical Plan ==; where it runs on its own small executor, it says it has none to give.</p>
+<p>On the Example database, explain gives no plan: it runs its queries on a small executor of its own, which makes none, and says so. It refuses explain of a write as it refuses the write itself.</p>
 <pre class="python">print(to_hive(explain(statement(
     SELECT(job_runs.run_id),
     FROM(job_runs),
@@ -3237,7 +3254,7 @@ WHERE
 <ul><li><code>job_events</code>: each run&#x27;s events, start, finish, retry and fail;</li><li><code>job_owners</code>: one row per job per day, with its team and owner, so you can see report_build move from data to finance on 2026-09-18;</li><li><code>region_costs</code>: each run&#x27;s cost in cents, partitioned by region (&quot;eu&quot; or &quot;us&quot;, where the job is billed, not the jobs table&#x27;s LON, PAR or NYC), then by day, with days written like 20260911 rather than 2026-09-11.</li></ul>
 <p>These three 14-day tables keep a record of their own: they have no run_id, and don&#x27;t match job_runs run for run.</p>
 <p><code>send</code> runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and returns a DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to try anything here. Where it can&#x27;t run a query, it says why.</p>
-<p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with None first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
+<p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with NULL first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
 <pre class="python">run(statement(
     SELECT(runs.run_id, runs.status, runs.duration_mins),
@@ -3249,7 +3266,7 @@ WHERE
 0      95  SUCCESS             12
 1      96  SUCCESS             18
 2      97   FAILED             30
-3      98     None             15
+3      98      NaN             15
 4      99     TEST              5</pre>
 <p class="label">The Hive of the Statement given to run(...)</p>
 <pre class="hive">SELECT
@@ -3272,7 +3289,7 @@ WHERE
 <section class="entry" id="admin.add_columns">
 <h3><code>admin.add_columns</code></h3>
 <p class="why">Add the new columns of a Saved table&#x27;s Table reference to the table itself.</p>
-<p>It sends DESCRIBE through your <code>send</code> as it is made, and adds each column of the Table reference that the table doesn&#x27;t have yet. So you add a column by adding its line to the Table reference first, after the table&#x27;s other columns (its Date partition&#x27;s line may stay last, as Partitions aren&#x27;t among them): Hive adds new columns after the table&#x27;s own, and a write fills a table&#x27;s columns in their order. Then run the Statement it gives, with the same send. The rows already in the table read NULL in a new column until their day is written again. For a table with a Date partition it writes CASCADE: each day already there gets the new columns too. Without it, each of those days would keep its old list of columns, and a day written again would lose the new columns&#x27; values. Spark refuses CASCADE, so if Spark rather than Hive runs your tables, ask whoever looks after them first.</p>
+<p>It sends DESCRIBE through your <code>send</code> as it is made, and adds each column of the Table reference that the table doesn&#x27;t have yet. So you add a column by adding its line to the Table reference first, after the table&#x27;s other columns (its Date partition&#x27;s line may stay last, as Partitions aren&#x27;t among them): Hive adds new columns after the table&#x27;s own, and a write fills a table&#x27;s columns in their order. Then run the Statement it gives, with the same send. The rows already in the table read NULL in a new column until their day is written again. For a table with a Date partition it writes CASCADE: each day already there gets the new columns too. Without it, each of those days would keep its old list of columns, and a day written again would lose the new columns&#x27; values.</p>
 <p>It refuses a table that isn&#x27;t one of your Saved tables, a Table reference with no new column, a new column that isn&#x27;t after the table&#x27;s own, and a new Partition, which a table can&#x27;t gain: create a new table with it, and copy the days in.</p>
 <pre class="python">import pandas as pd</pre>
 <pre class="python">from sqlglot_composer import admin</pre>
@@ -3303,7 +3320,7 @@ ALTER TABLE mart.daily_runs ADD COLUMNS (
 <h3><code>admin.drop_days</code></h3>
 <p class="why">Drop a Saved table&#x27;s days before a given day: an ALTER TABLE Statement.</p>
 <p>Each day of the table before <code>before</code>, a datetime.date or a day written as the Table reference writes days, goes: every row of it, so no Statement reads it again. It is how a Saved table keeps only so many days, and does the job TRUNCATE can&#x27;t: Hive refuses TRUNCATE on an external table, a table whose files are in a folder you give, and every table create_table makes is one. The days&#x27; files go too when the table has external.table.purge true, which purge=True in its Table reference asks for (help(admin.drop_table)); otherwise they stay in the table&#x27;s folder. It refuses a table with no Date partition, and one that isn&#x27;t one of your Saved tables.</p>
-<p>Hive takes a comparison such as dt &lt; &#x27;2025-01-01&#x27; in DROP PARTITION, so one Statement drops them all. Spark takes only = there, one day at a time, so Spark refuses this Statement: if Spark rather than Hive runs your tables, ask whoever looks after them. The Example database, which is never written to, doesn&#x27;t run it either.</p>
+<p>Hive takes a comparison such as dt &lt; &#x27;2025-01-01&#x27; in DROP PARTITION, so one Statement drops them all. The Example database, which is never written to, doesn&#x27;t run it.</p>
 <pre class="python">from sqlglot_composer import admin</pre>
 <pre class="python">daily_runs = Table(&quot;mart.daily_runs&quot;, date_partition=&quot;dt&quot;,
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
@@ -3378,7 +3395,7 @@ WHERE
 <p>show_hive(moves) prints every step, and at work each is sent in turn:</p>
 <pre class="python">for step in moves:
     run(step, send=send)</pre>
-<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET, and, where it can, an EXPLAIN of a SELECT.</p>
+<p class="note">No result here. The Example database only reads, and can&#x27;t be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.</p>
 <p class="names">Toolbox names used: <code>Table</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="admin.set_properties">
@@ -3415,6 +3432,177 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 2      team    string
 3    region    string</pre>
 <p class="names">Toolbox names used: <code>example_database</code></p>
+</section>
+<section class="entry" id="project.add_references">
+<h3><code>project.add_references</code></h3>
+<p class="why">Write a Table reference for each table into references/, skipping any it can&#x27;t.</p>
+<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>send</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix those names, then run add_references again with them alone.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], send=example_database.send)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.</pre>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code></p>
+</section>
+<section class="entry" id="project.check">
+<h3><code>project.check</code></h3>
+<p class="why">Report each Table folder or Table reference that the registry gets wrong.</p>
+<p>It reports any the registry doesn&#x27;t list, and any it lists that isn&#x27;t there, and changes nothing.</p>
+<p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table or remove_reference.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
+<pre class="python">project.check()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Not registered, made by hand: references/ops__jobs.py. Adopt each with
+project.register(...).</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.load">
+<h3><code>project.load</code></h3>
+<p class="why">A Table notebook&#x27;s logic, its functions by name, from anywhere in the Project.</p>
+<p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs only its logic cell, the cell whose first line is # logic. That cell only imports and defines; in a notebook made from the daily_table Template, it defines create, rows, preview, write_day and backfill, and load gives each of them (the functions and classes only, not other names the cell sets). So another table&#x27;s notebook can use this table&#x27;s write_day, for lineage across your tables, and run_tables can write every table in order. It reads the notebook file as last saved, and your references/ and building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run, which would send Hive just by loading, and one with a &lt;...&gt; still to fill in.</p>
+<p>In the example, a one-line Template stands in for a notebook of yours:</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">_ = Path(&quot;admin/templates/plain.py&quot;).write_text(
+    &quot;# %%\n# logic\ndef write_day(day):\n    return day\n&quot;)</pre>
+<pre class="python">_ = project.new_table(&quot;mart.daily_job_runs&quot;, template=&quot;plain&quot;)</pre>
+<pre class="python">logic = project.load(&quot;mart.daily_job_runs&quot;)</pre>
+<pre class="python">logic</pre>
+<p class="label">Python shows</p>
+<pre class="output">The logic of mart.daily_job_runs: write_day.</pre>
+<pre class="python">logic.write_day(&quot;2026-10-20&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">&#x27;2026-10-20&#x27;</pre>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
+</section>
+<section class="entry" id="project.new_table">
+<h3><code>project.new_table</code></h3>
+<p class="why">Make a Table folder for a Saved table: its notebook, lineage/ and reference.</p>
+<p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/daily_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference to fill in, from admin/templates/saved_table_reference.py, unless that file is there already. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in every other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+admin/templates/daily_table.py.
+Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.refresh_reference_sheet">
+<h3><code>project.refresh_reference_sheet</code></h3>
+<p class="why">Rebuild the Reference sheet: a row per column of every Table reference.</p>
+<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is the Date partition or in the Key, its Aliases (each line below the Table(...) call that reads that column alone, such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, &quot;FAILED&quot;), shown as &quot;failed (a condition)&quot;), its description, and when the sheet was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t run yet, such as one with a &lt;...&gt; still to fill in, is left out (or, given its name, keeps its rows from before), and the report says so. It changes no other file, and isn&#x27;t logged: its exported_at column says when it was written.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.add_references([&quot;ops.run_alerts&quot;], send=example_database.send)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote references/ops__run_alerts.py: fill in its TODO lines.</pre>
+<pre class="python">project.refresh_reference_sheet()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote references/reference_sheet.csv: 4 rows, 1 table.</pre>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
+</section>
+<section class="entry" id="project.register">
+<h3><code>project.register</code></h3>
+<p class="why">Adopt a Table folder or Table reference made by hand into the registry.</p>
+<p>check() then stops reporting it.</p>
+<p>It adds a registry row for tables/&lt;db&gt;__&lt;table&gt;/ and for references/&lt;db&gt;__&lt;table&gt;.py, whichever is there and isn&#x27;t registered yet, and logs it. It refuses when there is nothing to adopt.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
+<pre class="python">project.register(&quot;ops.jobs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Registered references/ops__jobs.py.</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.remove_reference">
+<h3><code>project.remove_reference</code></h3>
+<p class="why">Move a Table reference into admin/removed/, named by the time, deleting nothing.</p>
+<p>references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. It refuses while the table has a Table folder, whose notebook imports the reference: remove_table first. A Table reference the registry lists but that was deleted by hand only has its row marked.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+admin/templates/daily_table.py.
+Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+<pre class="python">project.remove_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.</pre>
+<pre class="python">project.remove_reference(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved references/mart__daily_job_runs.py to admin/removed/...-mart__daily_job_runs.py.</pre>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code></p>
+</section>
+<section class="entry" id="project.remove_table">
+<h3><code>project.remove_table</code></h3>
+<p class="why">Move a Table folder into admin/removed/, named by the time, deleting nothing.</p>
+<p>tables/mart__daily_job_runs/ moves, whole, to a folder such as admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked removed. The table stays in the warehouse, and its Table reference in references/: drop the table with admin.drop_table, and archive the reference with remove_reference. A Table folder the registry lists but that was deleted by hand only has its row marked.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+admin/templates/daily_table.py.
+Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+<pre class="python">project.remove_table(&quot;mart.daily_job_runs&quot;)  # the time it ran, as yyyymmdd-hhmmss</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.</pre>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
+</section>
+<section class="entry" id="project.run_tables">
+<h3><code>project.run_tables</code></h3>
+<p class="why">Write a day of every table, each before the tables that read it.</p>
+<p>Each table&#x27;s write_day(day) comes from its notebook&#x27;s logic cell, through load; one that gives a list, as an incremental load&#x27;s does, sends each in turn. They run in the order lineage draws them: a table is written before any table that reads it, and a loop, two tables each reading the other, is refused. <code>tables</code> names some, such as [&quot;mart.team_day&quot;]; left out, it is every Table folder the registry lists. With no <code>send</code> it prints each one&#x27;s Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you send. With your send, it sends each in turn, printing a line as each one works, and stops at the first that fails: the tables after it aren&#x27;t written. It adds no entry of its own to the Admin log, since what it writes is in the warehouse, not your files; a write_day that gives an Admin or Unchecked statement is logged by run, as anywhere else.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.run_tables(&quot;2026-10-20&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">No Table folder to run: make one with project.new_table(...).</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.start">
+<h3><code>project.start</code></h3>
+<p class="why">Make a Project in the folder you&#x27;re working in, once, from a notebook there.</p>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and send.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry and the Admin log, whose first entry is this one. It refuses a folder that has any of them already, or that is inside a Project. Then write your send in send.py, and make your first Table folder from admin/new_table.ipynb.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<p class="names">Toolbox names used: none</p>
 </section>
 </main>
 <script>
