@@ -92,3 +92,7 @@ __all__ = ["TOOLBOX_VERSION", "VERSION", *_PUBLIC_NAMES]
 # The admin module, imported by name, as `from sqlglot_composer import admin`: the star import
 # leaves it out, since its functions change your own Saved tables.
 from . import admin  # noqa: E402, F401
+
+# The project module, imported by name too, as `from sqlglot_composer import project`: its
+# functions make and archive a Project's folders and files.
+from . import project  # noqa: E402, F401

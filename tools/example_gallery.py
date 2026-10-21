@@ -64,6 +64,8 @@ PANDAS_LABEL = "computed in pandas, not by running this Hive"
 PUBLIC = list(sqlglot_composer.__all__)
 # The admin module's functions, imported by name rather than by the star import.
 ADMIN = [f"admin.{name}" for name in sqlglot_composer.admin.__all__]
+# The project module's functions, imported by name too.
+ADMIN += [f"project.{name}" for name in sqlglot_composer.project.__all__]
 CONSTANTS = ["TOOLBOX_VERSION", "VERSION"]
 REFUSALS = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused)
 
@@ -110,8 +112,9 @@ def names_in(code: str) -> list[str]:
     module's, as admin.drop_table."""
     tree = ast.parse(code)
     used = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
-    used |= {f"admin.{node.attr}" for node in ast.walk(tree) if isinstance(node, ast.Attribute)
-             and isinstance(node.value, ast.Name) and node.value.id == "admin"}
+    used |= {f"{node.value.id}.{node.attr}" for node in ast.walk(tree)
+             if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+             and node.value.id in ("admin", "project")}
     return [name for name in PUBLIC + ADMIN if name in used]
 
 

@@ -66,9 +66,9 @@ def commit_here() -> str:
 HEADER = (
     "# Admin log\n"
     "\n"
-    "Each Admin statement and Unchecked statement the Toolbox has run, oldest first. The "
-    "Toolbox only ever adds to this file. Its Unchecked statements are the list of what the "
-    "Toolbox should learn to write next.\n"
+    "Each Admin statement, Unchecked statement and Project action the Toolbox has run, oldest "
+    "first. The Toolbox only ever adds to this file. Its Unchecked statements are the list of "
+    "what the Toolbox should learn to write next.\n"
 )
 
 

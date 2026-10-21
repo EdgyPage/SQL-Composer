@@ -46,6 +46,17 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   like a module, such as calendar, no longer does, since its file's name starts with its
   database. A name with no database, such as `"jobs"`, is refused: write `"ops.jobs"`. Files
   written before 6.0 keep their names: nothing to change.
+- **New: the `project` module**, imported by name, as `from sqlglot_composer import project`.
+  `project.start()`, run once from a notebook in a folder beside `sqlglot_composer`, lays out a
+  Project: `admin/` (a notebook per Project action, the Templates, a registry and the Admin
+  log), `references/`, `building_blocks/`, `tables/` and `send.py`, your send written once.
+  `project.new_table("mart.daily_job_runs")` makes a Table folder, with a notebook made from a
+  Template and a `lineage/` folder, and the table's Table reference to fill in;
+  `remove_table` and `remove_reference` move what they remove into `admin/removed/`, deleting
+  nothing; `register` adopts what you made by hand, and `check()` reports what the registry
+  doesn't know. Inside a Project, Admin statements log to `admin/admin_log.md` too, wherever
+  the notebook that runs them is. Nothing to change in your notebooks: a folder that isn't a
+  Project works as before.
 
 ## 5.1
 
