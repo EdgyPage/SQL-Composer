@@ -37,8 +37,9 @@ HOW_TOS = how_to_page.how_to_paths()
 SLUGS = [how_to_page.slug_of(path) for path in HOW_TOS]
 PUBLIC = set(sqlglot_composer.__all__)
 # Names a how-to may use without defining them: what a notebook at work has (the query API or
-# database cursor a send calls), the Example database's database, and the Toolbox's folders.
-OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER}
+# database cursor a send calls), the Example database's database, the Toolbox's folders, and
+# its project module, which a how-to may name in prose, such as `project.check()`.
+OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project"}
 
 
 def page() -> str:
@@ -59,8 +60,8 @@ def test_the_committed_page_is_what_the_tool_writes() -> None:
     )
 
 
-def test_there_is_a_how_to_and_how_to_1_starts_a_notebook() -> None:
-    assert SLUGS[:1] == ["start_a_notebook"]
+def test_there_is_a_how_to_and_how_to_1_starts_a_project() -> None:
+    assert SLUGS[:1] == ["start_a_project"]
     assert HOW_TOS[0].stem.startswith("01_")
 
 
@@ -77,7 +78,7 @@ def test_each_how_to_runs_as_a_doctest(path: Path, tmp_path, monkeypatch) -> Non
     report = []
     # A Warning is shown on the page; here it may not stop the step it comes from. A pandas
     # stand-in answers as on the page.
-    with (warnings.catch_warnings(record=True),
+    with (warnings.catch_warnings(record=True), how_to_page.lineage_pinned(),
           how_to_page.pandas_standing_in(how_to_page.stand_ins_of(path), test.globs, [])):
         warnings.simplefilter("always")
         runner.run(test, out=report.append)
@@ -137,8 +138,9 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
         defined |= names_of(tree)[0]
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == FOLDER:
-                # The admin module is imported by name: the star import leaves it out.
-                assert {alias.name for alias in node.names} - {"*"} <= PUBLIC | {"admin"}, (
+                # The admin and project modules are imported by name: the star
+                # import leaves them out.
+                assert {alias.name for alias in node.names} - {"*"} <= PUBLIC | {"admin", "project"}, (
                     ast.unparse(node))
             if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
                     and node.value.id == "example_database"):
@@ -243,25 +245,25 @@ def test_a_refusal_on_the_page_is_the_toolbox_s_own_message() -> None:
     with pytest.raises(toolbox.LoadRefused) as refused:
         toolbox.statement(toolbox.SELECT(job_runs.run_id), toolbox.FROM(job_runs),
                           toolbox.WHERE(toolbox.equals(job_runs.status, "FAILED")))
-    shown = re.findall(r'<pre class="refusal">.*?</pre>', page_sections()["start_a_notebook"],
+    shown = re.findall(r'<pre class="refusal">.*?</pre>', page_sections()["start_a_project"],
                        re.DOTALL)
     assert example_gallery.code_html(example_gallery.message_text(refused.value),
                                      "refusal") in shown
 
 
 def test_the_send_mistake_shows_the_numbered_columns_it_gives() -> None:
-    section = page_sections()["start_a_notebook"]
+    section = page_sections()["start_a_project"]
     assert "<tr><th>0</th><th>1</th><th>2</th></tr>" in section
 
 
 def test_a_step_that_prints_hive_shows_it_as_hive_ready_to_paste() -> None:
-    section = page_sections()["start_a_notebook"]
+    section = page_sections()["start_a_project"]
     assert ('<p class="label">Hive, ready to paste</p><pre class="hive">SELECT' in section)
     assert "&#x27;2026-09-24&#x27;;</pre>" in section
 
 
 def test_a_result_shows_as_a_table() -> None:
-    cells = re.findall(r"<td>(.*?)</td>", page_sections()["start_a_notebook"])
+    cells = re.findall(r"<td>(.*?)</td>", page_sections()["start_a_project"])
     assert cells[:6] == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
 
 
@@ -464,6 +466,20 @@ def test_a_long_file_a_step_writes_is_folded_and_a_file_shown_before_is_not_show
             "<code>long.md</code> above.</p>") in shown
 
 
+def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path) -> None:
+    path = a_how_to(tmp_path, """>>> from sqlglot_composer import project
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.""")
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    files = re.search(r'<p class="label">It writes (\d+) files</p>\n<pre class="file">(.*?)'
+                      "</pre>", shown, re.DOTALL)
+    assert int(files.group(1)) > how_to_page.LIST_AFTER
+    assert page_text(files.group(2)).split()[-1] == "send.py"
+    assert "admin/templates/daily_table.py" in page_text(files.group(2))
+    assert "It writes send.py" not in shown
+
+
 def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
@@ -525,8 +541,8 @@ def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> No
 
 
 @pytest.mark.parametrize(("name", "group", "says"), [
-    ("19_try_it.py", "Getting started", "the Getting started how-tos are 1 to 18"),
-    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 19 to 37"),
+    ("22_try_it.py", "Getting started", "the Getting started how-tos are 1 to 21"),
+    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 22 to 40"),
     ("02_try_it.py", "Advanced", "says `For: Advanced`"),
 ])
 def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path, name: str,

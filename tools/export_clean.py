@@ -331,7 +331,7 @@ def cheat_sheet(groups: list[dict]) -> str:
 
 def how_tos_text(source: Path) -> str:
     """Each how-to's number and title, linked to it on how_to.html, under its group, such as
-    "Getting started, how-tos 1 to 18:", read from the docstrings in worked_examples/how_to/ that
+    "Getting started, how-tos 1 to 21:", read from the docstrings in worked_examples/how_to/ that
     how_to.html is written from. The README is at .github/README.md, so a link goes up one folder.
 
     Each docstring's line 1 is its title and line 3 names its group, as `For: Getting started`.

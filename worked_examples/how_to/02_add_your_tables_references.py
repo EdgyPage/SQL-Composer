@@ -1,33 +1,43 @@
-"""Import a table's column names programmatically
+"""Add your tables' references
 
 For: Getting started
 
 ## Goal
 
-Get every column of a table, its name and its Hive type, into your notebook without typing
-them. `write_table_reference` asks the table itself and writes its Table reference, a small
-.py file describing the table. You fill in what it can't know, check the file against the
-table, and then build Statements from its columns: all of them at once, or the ones
+Get every column of the tables you read, each name and its Hive type, into your Project without
+typing them. `project.add_references` asks each table itself and writes its Table reference, a
+small .py file describing the table, into the Project's `references/` folder. You fill in what
+it can't know, add Aliases, your own names for its columns and conditions, check the file
+against the table, and then build Statements from its columns: all of them at once, or the ones
 a list of names picks.
 
 ## When you'd use it
 
-The first time you read a table at work. A Statement reads a table through its Table reference,
-so every table you read needs one, and a table with forty columns is forty chances to mistype a
-name or a type. Generate it instead, then keep the file beside your notebook, for every
-notebook that reads the table.
+The first time you read a table at work, and whenever your notebooks start reading another. A
+Statement reads a table through its Table reference, so every table you read needs one, and a
+table with forty columns is forty chances to mistype a name or a type. Write them instead, many
+at once, and every notebook of the Project imports them from `references/`.
 
 A table that doesn't exist yet, such as a Saved table (a table of your own, which your
-Statements write into) you are about to create, has nothing to ask: describe it by hand, as [Describe a table by hand](#describe_a_table_by_hand) shows.
+Statements write into) you are about to create, has nothing to ask: describe it by hand, as
+[Describe a table by hand](#describe_a_table_by_hand) shows, or let
+[Add a Saved table](#add_a_saved_table) write its file for you to fill in.
 
 ## Steps
 
-### Import the Toolbox
+### Start a Project
+
+These steps run in a Project, as [Start a Project](#start_a_project) makes one. This page starts
+a new one, in the folder its notebook runs in:
 
 >>> from sqlglot_composer import *
+>>> from sqlglot_composer import project
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.
 
 Every step here passes `send=example_database.send`, the Example database's own send. At work,
-pass your own send, from [Start a notebook](#start_a_notebook), and name your own tables.
+pass your own, `from send import send`, and name your own tables.
 
 ### See what the table says about itself
 
@@ -52,18 +62,24 @@ section: its name is empty, and its other two cells are missing, NULL in Hive, w
 on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under
 `# Partition Information` say which column splits the table into days: dt, its Date partition.
 
-### Write one table's Table reference
+### Write your tables' Table references
 
-`write_table_reference` sends those two commands through your send and turns what comes back
-into a Table reference file. It writes the file in the folder your notebook runs in, named
-after the database and the table joined by two underscores, and gives back the file's path:
+`project.add_references` takes a list of tables. For each, it sends those two commands through
+your send, turns what comes back into a Table reference file in `references/`, and adds it to
+the registry, admin/registry.csv; then it logs what it did in the Admin log:
 
->>> path = write_table_reference("ops.job_runs", send=example_database.send)
->>> path.name
-'ops__job_runs.py'
+>>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
+...                        send=example_database.send)
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 
-Read the file it wrote. It imports `Table`, then makes one variable, `job_runs`, named after the
-table:
+Each file is named after the database and the table joined by two underscores, `ops.jobs`
+giving ops__jobs.py, since a dot or a dash can't be in a name Python imports. The variable in
+it is named after the table alone, jobs. A table named like a word Python keeps for itself,
+such as class, gets t_ in front of its variable: `ops.class` would give ops__class.py, holding
+t_class.
+
+Read references/ops__job_runs.py, above. It imports `Table`, then makes one variable,
+`job_runs`:
 
 - `columns` holds every column and its type;
 - `date_partition="dt"` comes from `SHOW PARTITIONS`;
@@ -74,28 +90,9 @@ table:
 - under the Aliases heading at the end, commented-out examples show how to add your own names
   for the table's columns and conditions, as Fill in the TODOs, below, does.
 
-To write the file into another folder, such as the references/ folder a Project keeps its
-Table references in, pass `folder="references"`: the folder must be there already.
-
-### Write several in a loop
-
-`write_table_reference` is a plain function, so a Python `for` loop writes one file per table
-in a list:
-
->>> for name in ["ops.jobs", "ops.run_alerts"]:
-...     path = write_table_reference(name, send=example_database.send)
-...     print(path.name)
-ops__jobs.py
-ops__run_alerts.py
-
-Each file is named after the database and the table, `ops.jobs` giving ops__jobs.py, since a
-dot or a dash can't be in a name Python imports. The variable in it is named after the table
-alone, jobs. A table named like a word Python keeps for itself, such as class, gets t_ in
-front of its variable: `ops.class` would give ops__class.py, holding t_class.
-
 ### Fill in the TODOs
 
-Open ops__job_runs.py in your editor and replace the three TODO lines. This is the file with
+Open references/ops__job_runs.py in your editor and replace the three TODO lines. This is the file with
 them filled in, and two Aliases of your own under its Aliases heading, whose comment lines are
 left out here:
 
@@ -136,11 +133,17 @@ left out here:
   `job_runs.duration_mins`, for you: the Hive, and the DataFrame `run` gives back, still call
   the column duration_mins. `failed` names a condition on this table alone, for `WHERE` or
   `count_rows(where=...)`; `equals` joins `Table` in the import at the top, since it calls it.
+- `descriptions=` is yours too: add what a column holds where the warehouse has no comment, as
+  `"duration_mins": "how long the run took, in minutes"`.
 
-Then import the file in your notebook, as you import any of your own .py files, with the
+Then import the file in any notebook of the Project by its folder, references, with the
 Aliases you use beside the table:
 
-    from ops__job_runs import job_runs, minutes, failed
+    from references.ops__job_runs import job_runs, minutes, failed
+
+Run `project.refresh_reference_sheet()` after you fill a file in: the Reference sheet lists
+every column of every Table reference, with its Aliases and description, as
+[The Reference sheet](#the_reference_sheet) shows.
 
 The Example database ships this same Table reference, filled in the same way, so the steps
 here use its copy:
@@ -265,11 +268,13 @@ A name that isn't one of the table's columns stops the list at once: see Common 
 
 ## Check it worked
 
-The three Table reference files are in the folder your notebook runs in:
+The three Table reference files are in references/, and the registry lists each one:
 
 >>> from pathlib import Path
->>> [Path(name).exists() for name in ["ops__job_runs.py", "ops__jobs.py", "ops__run_alerts.py"]]
-[True, True, True]
+>>> sorted(path.name for path in Path("references").glob("ops__*.py"))
+['ops__job_runs.py', 'ops__jobs.py', 'ops__run_alerts.py']
+>>> project.check()
+Every Table folder and Table reference is registered, and each one registered is there.
 
 Once you've filled in a file's TODOs, both checks pass for its table:
 
@@ -319,21 +324,22 @@ sqlglot_composer.refusals.GuardRefused:
 refuses one that would quietly give a wrong number. If you leave `does_not_add_up=[]` empty,
 nothing stops it, and the total means nothing.
 
-### Writing a Table reference that is already there
+### Adding a table whose Table reference is already there
 
-`write_table_reference` never overwrites a file: once written, the file is yours, and
-rewriting it would lose the key and the notes you added. Run a second time for the same table,
-it stops:
+`project.add_references` never writes over a file: once written, the file is yours, and
+writing it again would lose the key and the notes you added. A list that names a table
+already in `references/` writes the others, skips that one, and then stops, naming it:
 
->>> write_table_reference("ops.job_runs", send=example_database.send)
+>>> project.add_references(["ops.jobs", "ops.scheduler_runs"], send=example_database.send)
 Traceback (most recent call last):
 ...
-FileExistsError:
-  What happened:  ops__job_runs.py already exists in the folder you're working in, so nothing was written.
+sqlglot_composer.project.SkippedTables:
+  What happened:  add_references skipped 1 of 2 tables: ops.jobs (references/ops__jobs.py is there already).
 ...
 
-Edit the file instead, and run `check_table_reference` to see what has changed in the table
-since.
+references/ops__scheduler_runs.py was written all the same, and the Admin log names the table
+skipped. A table whose file is there needs nothing: edit the file instead, and run
+`check_table_reference` to see what has changed in the table since.
 
 ### A key that doesn't pick out one row
 
@@ -362,13 +368,15 @@ Its key is `["alert_id"]`: one row per alert.
   [Describe a table by hand](#describe_a_table_by_hand).
 - Build your first Statement on the table and paste its Hive into another program:
   [Build a first Statement and paste its Hive](#build_a_first_statement).
+- Read every column of the Project's tables in one place:
+  [The Reference sheet](#the_reference_sheet).
 - When a table gains or changes a column after you wrote its file:
   [Keep a Table reference true over time](#keep_a_table_reference_true_over_time).
 - A table whose days are written like 20260924, or which is split by a second column too:
   [A day written another way, and a second partition](#a_day_written_another_way).
 - Each function here has a Worked example in the gallery:
-  [`write_table_reference`](examples.html#write_table_reference),
-  [`check_table_reference`](examples.html#check_table_reference),
+  [`write_table_reference`](examples.html#write_table_reference), which writes one table's
+  file, [`check_table_reference`](examples.html#check_table_reference),
   [`check_key`](examples.html#check_key), [`first_look`](examples.html#first_look) and
   [`all_columns`](examples.html#all_columns).
 """

@@ -270,9 +270,9 @@ and a change to the function reaches them all.
 
 ### Keep it in a file
 
-Building blocks go in .py files in a folder of their own beside your notebook, one block to a
+Building blocks go in .py files in your Project's building_blocks/ folder, one block to a
 file, such as building_blocks/runs_per_job.py, or a few that belong together in one file, as
-how-to 24 does. A block's file imports the
+[Share Building blocks between Statements](#share_building_blocks_between_statements) does. A block's file imports the
 Toolbox and the Table references it reads, never another block's file or a Statement:
 
     \"\"\"Each job's runs, failed runs and minutes, as a Derived table to read.\"\"\"
@@ -280,7 +280,7 @@ Toolbox and the Table references it reads, never another block's file or a State
         AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, statement,
         sum_of,
     )
-    from table_references.job_runs import job_runs
+    from references.ops__job_runs import job_runs
 
 
     def runs_per_job(first_day, last_day):
@@ -297,18 +297,14 @@ Toolbox and the Table references it reads, never another block's file or a State
             GROUP_BY(job_runs.job_id),
         ))
 
-This file imports its Table reference from a folder table_references/, beside
-building_blocks/: once you have many, Table references get a folder of their own too. In
-[Import a table's column names programmatically](#import_column_names) the file sat beside the
-notebook, so the line there was `from ops__job_runs import job_runs`. Here the file is
-table_references/job_runs.py, named for its table alone, as the starter Example project names
-it; a file write_table_reference wrote keeps its name, and is imported as
-`from table_references.ops__job_runs import job_runs`.
+This file imports its Table reference from the Project's references/ folder, beside
+building_blocks/, where [Add your tables' references](#add_your_tables_references) wrote it.
 
-A notebook then imports the block with
+A Table notebook then imports the block with
 `from building_blocks.runs_per_job import runs_per_job`. The starter Example project, in the
-Toolbox download's example_projects folder, is laid out this way: Table references, Building
-blocks, then Statements.
+Toolbox download's example_projects folder, is laid out this way: its Table references in
+references/, its Building block in building_blocks/, and a Table notebook per Saved table in
+tables/, each importing from the two folders.
 
 ## Check it worked
 

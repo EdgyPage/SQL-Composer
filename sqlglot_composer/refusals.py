@@ -665,7 +665,7 @@ def refuse_what_isnt_a_dataframe(result) -> None:
         fix=f"{start}. From a query API, it is pd.DataFrame(rows), which takes the column "
         "names from each row's keys when the API gives each row as a dict; when it gives each "
         "row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). "
-        "How-to 1, Start a notebook, shows how to write your send.",
+        "How-to 1, Start a Project, shows how to write your send.",
         opt_out=None,
     ))
 

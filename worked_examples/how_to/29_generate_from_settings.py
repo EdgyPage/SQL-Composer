@@ -43,7 +43,7 @@ of `ops.job_runs` is an average, which must never be added up, so its setting li
 ### Generate a Table reference for each table
 
 A Table reference needs each column and its type. Rather than type them, ask the table, as
-[Import a table's column names](#import_column_names) does: your send runs DESCRIBE, which lists
+[Add your tables' references](#add_your_tables_references) does: your send runs DESCRIBE, which lists
 the columns, one per row, each with its name in `"col_name"` and its type in `"data_type"`.
 After them it lists the partition columns again, under a heading row starting with `#`, often
 after an empty row, so stop at the first such row:

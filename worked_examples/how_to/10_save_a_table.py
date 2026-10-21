@@ -267,7 +267,7 @@ one list, in the order they are sent:
 2
 
 At work, a loop sends the day's writes in order. Here it is a function that takes your own
-send, written as in [Start a notebook](#start_a_notebook); it isn't called on this page, since
+send, written as in [Start a Project](#start_a_project); it isn't called on this page, since
 the Example database's send would refuse the writes:
 
 >>> def send_day(day, send):

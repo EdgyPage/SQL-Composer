@@ -1,46 +1,105 @@
-"""Start a notebook
+"""Start a Project
 
 For: Getting started
 
 ## Goal
 
-Get a notebook ready to write Hive SQL with the Toolbox. You import the Toolbox, write `send`,
-your own function that runs Hive SQL on your warehouse, and try a first Statement on the
-Example database, the made-up tables that ship inside the Toolbox, so you see each piece work
-before you touch a real table.
+Get a Project ready: one folder that holds the Toolbox, `send`, your own function that runs Hive
+SQL on your warehouse, and, as you add them, your tables' Table references, the Building blocks
+your notebooks share and a notebook per Saved table. `project.start()` lays the folder out the
+same way every time. Then you try a first Statement on the Example database, the made-up tables
+that ship inside the Toolbox, so you see each piece work before you touch a real table.
 
 ## When you'd use it
 
-At the top of every notebook, or script, that writes Hive with the Toolbox. Its first cell
-imports the Toolbox and writes `send`; every cell after it builds Statements and runs them.
+Once, when you start writing Hive with the Toolbox for your team's tables. Every notebook after
+it lives in the Project, finds the Toolbox and your send through it, and makes and removes its
+folders and files through the Project's admin notebooks, which log each change.
 
 ## Steps
 
-### Put the folder beside your notebook
+### Make the Project's folder and put the Toolbox in it
 
-The Toolbox is one folder, `sqlglot_composer`. Copy it whole from the Toolbox you downloaded
-into the folder that holds your notebook. Keep your own files beside it, never inside it: to
-update the Toolbox, you delete the folder and copy it in again.
+Make an empty folder for the Project, such as my_project. The Toolbox is one folder,
+`sqlglot_composer`: copy it whole from the Toolbox you downloaded into the Project's folder.
+Keep your own files beside it, never inside it: to update the Toolbox, you delete the folder
+and copy it in again.
+
+Then open a notebook in the Project's folder for the steps here. Jupyter runs a notebook in the
+folder it is in, so the notebook finds `sqlglot_composer` beside it.
 
 ### Import the Toolbox
 
 One line imports every Toolbox name: `statement`, the clause functions such as `SELECT`,
-`FROM` and `WHERE`, `to_hive`, `show_hive`, `run`, `example_database`, and the rest.
+`FROM` and `WHERE`, `to_hive`, `show_hive`, `run`, `example_database`, and the rest. A second
+imports the `project` module, which makes and keeps the Project's folders: like the admin
+module, it is imported by its name, since the first line leaves it out.
 
 >>> from sqlglot_composer import *
+>>> from sqlglot_composer import project
 
 If the import stops instead, its message says what happened, why it matters and the usual fix.
 Most often a file is missing, or files from different downloads were mixed in one folder.
+
+### Start the Project
+
+`project.start()` makes the Project's folders and files in the folder your notebook runs in:
+
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.
+
+This is the Project, beside the Toolbox you copied in, and what each part is for:
+
+- `send.py`: your send, written once, which every notebook imports from here;
+- `admin/`: a notebook per Project action, which you run to make or remove a folder or file,
+  such as new_table.ipynb; admin_log.md, the Admin log, every Project action, oldest
+  first; registry.csv, every Table folder and Table reference made, and when; and
+  `templates/`, the Templates a new Table notebook is made from;
+- `references/`: a Table reference per table you read or write, and the Reference sheet;
+- `building_blocks/`: the pieces several notebooks share;
+- `tables/`: a Table folder per Saved table, holding its notebook and `lineage/`, its Lineage,
+  a pair of files each time you export it.
+
+`references/`, `building_blocks/` and `tables/` are empty for now:
+[Add your tables' references](#add_your_tables_references) fills the first, and
+[Add a Saved table](#add_a_saved_table) the last. Make and remove Table folders and Table
+references through the admin notebooks, never by hand: each Project action refuses a folder or
+file that is already there, so nothing of yours is written over, and the Admin log keeps what
+each one did. `Path`, from Python's own `pathlib`, reads a file:
+
+>>> from pathlib import Path
+>>> print(Path("admin/admin_log.md").read_text(encoding="utf-8").split("## ")[1])
+2026-09-25 09:00:00, Project action
+<BLANKLINE>
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, send.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+<BLANKLINE>
+<BLANKLINE>
 
 ### Write your send
 
 The Toolbox never connects to anything itself. It writes Hive as text, and `run` hands that
 text to a function of yours, `send`, which runs it and gives back a pandas DataFrame. How you
 connect, retry or save files stays in your `send`, so the Toolbox works with whatever your
-notebook uses to reach the warehouse.
+notebooks use to reach the warehouse.
 
-`send` calls your query API, whatever your team uses to run a Hive string, and turns the rows
-that come back into a pandas DataFrame, each column named. Write it once, in your first cell:
+`project.start()` wrote `send.py` with a send that runs Hive on the Example database, for you to
+replace:
+
+>>> print(Path("send.py").read_text(encoding="utf-8"))
+\"\"\"send - runs a Hive string on your warehouse and gives back a pandas DataFrame.
+...
+def send(hive):
+    \"\"\"Run a Hive string and give back a pandas DataFrame.\"\"\"
+    return example_database.send(hive)  # at work: your warehouse's call
+<BLANKLINE>
+
+Open `send.py` in your editor and write your own: one that calls your query API, whatever your
+team uses to run a Hive string, and turns the rows that come back into a pandas DataFrame,
+each column named:
 
     import pandas as pd
 
@@ -58,9 +117,30 @@ names on; don't type them yourself, since each Statement has its own columns:
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
 
-There is no warehouse on this page, so the next steps use the Example database's own send,
+Every notebook of the Project then imports it with `from send import send`. There is no
+warehouse on this page, so the next steps use the Example database's own send,
 `example_database.send`, which runs Hive on the Example database's seven made-up tables. At work
 you give `run` your own `send` in its place.
+
+### See how a notebook deeper in the Project finds the Toolbox
+
+Python looks for what a notebook imports in the folder the notebook runs in. A notebook in the
+Project's folder finds `sqlglot_composer` and `send.py` there. A Table notebook sits two folders
+down, in `tables/<db>__<table>/`, so its first cell starts with two path lines, which put the
+Project's folder on Python's list of places to look:
+
+    import pathlib
+    import sys
+    sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
+
+    from sqlglot_composer import *
+    from send import send
+
+`pathlib.Path.cwd()` is the folder the notebook runs in, and `.parents[1]` the folder two above
+it: the Project's. After them, the notebook imports the Toolbox, your send, and your tables'
+Table references and Building blocks by their folders, as in
+`from references.ops__job_runs import job_runs`. A Table notebook is written with these lines
+already in it, as [Add a Saved table](#add_a_saved_table) shows.
 
 ### Build a first Statement on the Example database
 
@@ -131,13 +211,22 @@ returns. Here the Example database's send runs it:
 0      97       3  2026-09-23
 1     102       2  2026-09-24
 
-At work it is the same call with your own send, `run(failed, send=send)`, and a Statement that
-reads your own tables.
+At work it is the same call with your own send, `run(failed, send=send)`, after
+`from send import send`, and a Statement that reads your own tables.
 
 ## Check it worked
 
-The import ran without stopping. Keep what `run` gives back, and check that it is a pandas
-DataFrame holding the two failed runs:
+The Project's folders are there, and `project.check()` finds nothing wrong with them: every
+Table folder and Table reference the registry lists is there, and none is there that it doesn't
+list.
+
+>>> sorted(path.name for path in Path(".").iterdir() if path.is_dir())
+['admin', 'building_blocks', 'references', 'tables']
+>>> project.check()
+Every Table folder and Table reference is registered, and each one registered is there.
+
+Keep what `run` gives back, and check that it is a pandas DataFrame holding the two failed
+runs:
 
 >>> import pandas as pd
 >>> result = run(failed, send=example_database.send)
@@ -155,6 +244,21 @@ At work, try your own send on its own, with a query that reads no table, such as
 0    1
 
 ## Common mistakes
+
+### Starting a Project inside another
+
+`project.start()` refuses a folder inside a Project, the Project's own folder among them, so a
+second run never writes over the first's files:
+
+>>> project.start()
+Traceback (most recent call last):
+...
+FileExistsError:
+  What happened:  project.start() was run inside a Project: ...
+...
+
+Run it once, in the Project's folder. To work on the Project, open a notebook in it: there is
+nothing to start again.
 
 ### A send that gives back the wrong thing
 
@@ -214,14 +318,12 @@ small table you truly need whole.
 
 ## Next
 
-- Read one of your own tables: `write_table_reference` reads a table's columns through your
-  send and writes its Table reference for you. See how in
-  [Import a table's column names programmatically](#import_column_names).
+- Write the Table references of the tables you read, many at once:
+  [Add your tables' references](#add_your_tables_references).
 - Build a Statement a clause at a time, then paste its Hive into another program:
   [Build a first Statement and paste its Hive](#build_a_first_statement).
+- Give a Saved table its own Table folder and notebook: [Add a Saved table](#add_a_saved_table).
 - Build Statements of your own from the [Example gallery](examples.html), which has a Worked
   example for every Toolbox name, such as [`statement`](examples.html#statement),
   [`run`](examples.html#run) and [`show_hive`](examples.html#show_hive).
-- See a job built step by step, each step's Hive shown, in the gallery's
-  [Worked example of a job in steps](examples.html#step_by_step).
 """

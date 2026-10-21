@@ -8,8 +8,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### To update from 5.x
 
-- **The README is a tutorial**: eight steps, from installing the Toolbox to a project of your
-  own, each pointing to the how-tos that walk through it. What it said about one version,
+- **The README is a tutorial**: eight steps, from installing the Toolbox and starting a
+  Project to keeping it in order, each pointing to the how-tos that walk through it. What it said about one version,
   such as updating from 4.x or 3.x, is in these notes, under that version's "To update".
 - **The Toolbox is one folder, `sqlglot_composer`.** Delete both old folders, `composer_core`
   and `sqlglot_composer`, copy in the new `sqlglot_composer`, and restart the kernel. Imports
@@ -56,6 +56,15 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `per_group_statement` to the Table notebook Templates; `settings_driven` and the
   intermediate `building_blocks` and `quality_statements` to `quality_checks` and
   `building_block`.
+- **The how-tos start with a Project.** How-to 1 is "Start a Project" and how-to 2 "Add your
+  tables' references", in place of "Start a notebook" and "Import a table's column names
+  programmatically", so a link to `how_to.html#start_a_notebook` or `#import_column_names`
+  now lands at the top of the page: link to `#start_a_project` or
+  `#add_your_tables_references`. Three are new: "Add a Saved table", "Lineage across your
+  tables" and "The Reference sheet". The Getting started how-tos are now 1 to 21, and the
+  Intermediate ones 22 to 40, each moved along by as many as came before it; a how-to's link,
+  by its name, is unchanged. The others name a Project's folders, `references/` and
+  `building_blocks/`, where they named files beside your notebook.
 - **The Example projects are Projects**: `admin/`, `references/`, `building_blocks/`, a
   Table folder per Saved table with its notebook and its lineage, and `send.py`, made by the
   `project` module's Project actions and filled in by hand. The starter project builds three
@@ -72,16 +81,18 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `project.add_references([...], send=send)` writes many tables' Table references at once,
   skipping any already there or that DESCRIBE can't read, and naming each skipped at the end;
   `project.refresh_reference_sheet()` writes `references/reference_sheet.csv`, a row per
-  column of every Table reference, with its Aliases and description;
+  column of every Table reference, with its Aliases (a condition on the column shown as
+  "failed (a condition)") and description;
   `project.load("mart.daily_job_runs")` gives a Table notebook's logic, its functions such as
   `write_day`, from anywhere in the Project. `project.run_tables(day, send=send)` writes a day
   of every table, each before the tables that read it; with no `send`, it prints each Hive and
   sends nothing. `remove_table` and `remove_reference` move what they remove into
   `admin/removed/`, deleting nothing; `register` adopts what you made by hand, and `check()`
   reports what the registry doesn't know. Inside a Project, Admin statements log to
-  `admin/admin_log.md` too, wherever the notebook that runs them is, and `export_lineage` of one
-  write of a Saved table with a Table folder puts its files in that folder's `lineage/`, named
-  by the time and the table, so each run adds to the table's past Lineage. Nothing to change
+  `admin/admin_log.md` too, wherever the notebook that runs them is, and `export_lineage` of
+  writes that all fill one Saved table with a Table folder, or, run from a Table folder's
+  notebook, of writes that fill its table among others, puts its files in that folder's
+  `lineage/`, named by the time and the table, so each run adds to the table's past Lineage. Nothing to change
   in your notebooks: a folder that isn't a Project works as before.
 
 ## 5.1
