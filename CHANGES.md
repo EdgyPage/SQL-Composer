@@ -18,8 +18,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   GuardRefused`. A traceback names a Toolbox error by its new home, such as
   `sqlglot_composer.refusals.GuardRefused`, where it said `composer_core.refusals.GuardRefused`.
   These change notes, `CHANGES.md`, are now at the top of the download, beside the README, and
-  the Example projects and the Templates sit in `example_projects/` and `templates/` themselves,
-  not in a folder named `sqlglot_composer` inside each.
+  the Example projects sit in `example_projects/` itself, not in a folder named
+  `sqlglot_composer` inside it.
 - **Spark Composer is dropped.** If you used it: install sqlglot (`pip install -r
   requirements.txt`), delete the `spark_composer` and `composer_core` folders, copy in
   `sqlglot_composer`, change each `from spark_composer import` to `from
