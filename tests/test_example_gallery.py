@@ -143,7 +143,7 @@ def test_a_common_job_shows_each_step_with_its_hive_and_no_careless_side() -> No
     section = entry_section("saved_table")
     assert '<div class="pair">' not in section
     text = page_text(section)
-    assert "The Table reference it imports, table_references/runs_to_review.py" in text
+    assert "The Table reference it imports, references/mart__runs_to_review.py" in text
     steps = ["create()", "create_if_missing()", "failed_runs()", "alerted_runs()",
              "backfill()", "rebuild()"]
     assert [text.index(step) for step in steps] == sorted(text.index(step) for step in steps)
