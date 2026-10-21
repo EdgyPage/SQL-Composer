@@ -60,9 +60,11 @@ holds the hints later. This map is the design, built out ticket by ticket.
 - [05 Hints in tests](issues/05-hints-in-tests.md)
 - [06 Hints in the teaching code](issues/06-hints-in-the-teaching-code.md)
 - [07 run_tables refuses what write_day gives](issues/07-run-tables-refuses-what-write-day-gives.md)
+- [08 Named, Ordering, Subtotals and Verdict public](issues/08-named-ordering-subtotals-and-verdict-public.md)
 
 01 lands first. 02 and 03 touch the same files, in that order; 04, 05 and 06 don't wait for them.
 07 came out of 02's hints: a bug the map's Out of scope sends to a ticket of its own.
+The user (2026-10-21) asked for 07 in 6.1, and for 08, after both beginner reads' costliest stop.
 
 ## Records this changes
 

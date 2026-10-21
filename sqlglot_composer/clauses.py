@@ -118,7 +118,16 @@ class Clause:
 
 
 class Named:
-    """A column or calculation with the name it gets in the result. Made by AS(...)."""
+    """A column or calculation with the name it gets in the result, made by AS(...).
+
+    Make one with AS(...), never Named(). Write the name in a type hint, to say that a function
+    of yours gives back a named column:
+
+    >>> def runs_named() -> Named:
+    ...     return AS(count_rows(), "runs")
+    >>> runs_named()
+    COUNT(*) AS runs
+    """
 
     def __init__(self, column: Column, name: str) -> None:
         self._column = column

@@ -333,7 +333,16 @@ def month_start(column: Column) -> Column:
 
 
 class Ordering:
-    """A column to sort by, and which way. Made by descending(...)."""
+    """A column to sort by, and which way, made by descending(...).
+
+    Make one with descending(...), never Ordering(). Write the name in a type hint, to say that
+    a function of yours gives one back:
+
+    >>> def newest_first() -> Ordering:
+    ...     return descending(job_runs.dt)
+    >>> newest_first()
+    descending(job_runs.dt)
+    """
 
     def __init__(self, target: Column | str) -> None:
         self._target = target
