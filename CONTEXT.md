@@ -46,6 +46,34 @@ _Avoid_: backend, engine, server, platform
 
 ### The user's own scripts
 
+**Project**:
+The user's folder at work holding the Toolbox and their own scripts in one fixed layout: an
+admin folder, a flat folder of Table references, Building blocks, and a Table folder for each
+Saved table they build.
+_Avoid_: workspace, repo, codebase
+
+**Table folder**:
+The folder in a Project that holds everything about one Saved table the user builds: the
+notebook whose Statements create and write it, and its past Lineage. Only a Project action
+creates or removes one.
+_Avoid_: table directory, table project, model folder
+
+**Project action**:
+A one-time change to a Project's files - starting a Project, creating or removing a Table
+folder, adding Table references - run from the admin folder and recorded in the Admin log.
+Where an Admin statement changes the warehouse, a Project action changes only files.
+_Avoid_: admin statement, migration, setup step
+
+**Reference sheet**:
+One table listing every column of every table the Project has a Table reference for, with its
+type, its aliases and what it holds, to read and search outside Python.
+_Avoid_: data dictionary, catalog, master sheet
+
+**Alias**:
+A name the user gives by hand, in a Table reference, to one of its table's columns or to a
+condition on that table alone, so Statements can say it shorter or plainer.
+_Avoid_: nickname, shortcut, synonym
+
 **Level**:
 One of three tiers of the user's own scripts. A script imports only from lower Levels and from the
 Toolbox, never from a higher or equal Level. A script that runs Statements in order, such as an
@@ -151,8 +179,9 @@ tables. The admin module is imported by name, apart from the everyday names.
 _Avoid_: one-time action, migration, maintenance
 
 **Admin log**:
-The text record the Toolbox keeps of every Admin statement and Unchecked statement the user has
-run: when, on which table, the Hive sent, from which script, and whether it worked. Newest last;
+The text record the Toolbox keeps of every Admin statement, Unchecked statement and Project
+action the user has run: when, on which table, the Hive sent or the files changed, from which
+script, and whether it worked. Newest last;
 the Toolbox only ever adds to it.
 _Avoid_: audit trail, history
 
