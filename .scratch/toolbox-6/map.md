@@ -204,6 +204,11 @@ lands before 05.
   reads weeks; `incremental_load`'s `write_day` gives a list. 09b makes each Example project a
   Project, written by `tools/example_project.py` through the Project actions with the time and
   commit pinned; the Reference sheet now lists condition Aliases beside their column.
+- [10 How-tos and the README tutorial](issues/10-how-tos-and-the-readme-tutorial.md): how-tos 1
+  and 2 are Start a Project and Add your tables' references; 11, 16 and 17 are new (Add a Saved
+  table, Lineage across your tables, The Reference sheet), so Getting started is 1-21; a how-to
+  fills a notebook's `<...>` through its JSON, saying so; the README's step 8 is "Keep the
+  Project in order".
 
 ## Not yet specified
 

@@ -270,10 +270,11 @@ and a change to the function reaches them all.
 
 ### Keep it in a file
 
-Building blocks go in .py files in your Project's building_blocks/ folder, one block to a
-file, such as building_blocks/runs_per_job.py, or a few that belong together in one file, as
-[Share Building blocks between Statements](#share_building_blocks_between_statements) does. A block's file imports the
-Toolbox and the Table references it reads, never another block's file or a Statement:
+Building blocks go in .py files in your Project's building_blocks/ folder, one block to a file,
+such as building_blocks/runs_per_job.py, or a few that belong together in one file, as
+[Share Building blocks between Statements](#share_building_blocks_between_statements) does. A
+block's file imports the Toolbox and the Table references it reads, never another block's file
+or a Statement:
 
     \"\"\"Each job's runs, failed runs and minutes, as a Derived table to read.\"\"\"
     from sqlglot_composer import (

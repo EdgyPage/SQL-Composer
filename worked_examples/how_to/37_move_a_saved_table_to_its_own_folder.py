@@ -191,9 +191,9 @@ never written to:
 ...     return moves
 
 Each step that `run` sends adds an entry to the Admin log, admin/admin_log.md in your Project
-(or admin_log.md beside your notebook, outside a Project) unless `set_admin_log` moved it: when, the call, such as
-admin.move_to_own_folder(mart.job_day, send=...)[3] for the fourth step, the Hive, the script
-and its git commit, and whether it worked. `show_hive` adds nothing to it.
+(or admin_log.md beside your notebook, outside a Project) unless `set_admin_log` moved it: when,
+the call, such as admin.move_to_own_folder(mart.job_day, send=...)[3] for the fourth step, the
+Hive, the script and its git commit, and whether it worked. `show_hive` adds nothing to it.
 
 If a step before the drop fails, fix what it says and send the steps again from the first:
 creating the new table again does nothing, and each day is written again whole. If the fourth

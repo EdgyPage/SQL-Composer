@@ -1,7 +1,7 @@
 # How-tos and the README tutorial
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 04, 09
 Size: L
 
@@ -56,3 +56,31 @@ Built 2026-10-21 on branch `toolbox-6/10-how-tos-and-readme`.
 - CHANGES.md's 6.0: the how-tos' new start and numbers, the Reference sheet's condition
   Aliases, and export_lineage's Table folder rule as it now is.
 - Closes drift items D213, D214 and D215.
+
+### Reviews
+
+- Spec (2026-10-21): the beginner reader's report and the drift items' closing were still to
+  come, and are below and in `.scratch/drift.md`. Answered: `_and` (now `_as_a_sentence`),
+  `LIST_AFTER` and the Project actions' pinned times serve the how-tos the ticket asked for,
+  and CHANGES.md's rewordings say what 6.0 does now; the Example gallery's Worked examples
+  keep 5.x's `statements/`, `table_references/` and `building_blocks/` labels, outside this
+  ticket, and are offered to the user as a follow-up; the fixture path
+  `01_start_a_notebook.py` in test_export_clean is renamed all the same.
+- Standards (2026-10-21): "one-time actions" is now "a notebook per Project action";
+  `lineage_pinned` is `times_pinned`, `_and` is `_as_a_sentence`; ragged prose rewrapped in
+  CHANGES.md, the README, how-tos 02, 08, 11, 16, 26 and 37; a long assert split. Answered: the
+  fill-in loop and the start preamble repeat across 11, 16 and 17 because a how-to stands
+  alone; `add_references`' two report branches word "its" and "their".
+- Beginner reader (2026-10-21; costliest: a later how-to's `project.start()` in your own
+  Project, admin notebooks against calling `project.*`, the daily table's Hive): every how-to
+  after 1 says to leave `project.start()` out in your own Project, and the README says so too;
+  the README and how-tos 1 and 11 say a Project action from any notebook is the same as its
+  admin notebook's, and "by hand" means your file explorer; how-to 11 says why the key holds
+  dt, which `<...>` take quotes, what `PRIMARY KEY ... DISABLE NOVALIDATE` is, and shows
+  `rows`' docstring on GROUP_BY; 16 states the lineage folder rule whole and what
+  mart.jobs_by_runs counts; how-to 1 says what the Script line's commit is, that your own
+  list holds sqlglot_composer, and counts three lines, not two; the README's send is a whole
+  `def`; 02 says to add `equals` to the import; 11 lists backfill and who runs run_tables;
+  17 says why `csv` rather than `read_csv`. Answered: the Load limit, Problem, the admin
+  module and the registry are each explained where they first matter; the how-to page shows
+  each written file above the prose that names it.

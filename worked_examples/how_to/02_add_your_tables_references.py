@@ -27,8 +27,8 @@ Statements write into) you are about to create, has nothing to ask: describe it 
 
 ### Start a Project
 
-These steps run in a Project, as [Start a Project](#start_a_project) makes one. This page starts
-a new one, in the folder its notebook runs in:
+These steps run in a Project, as [Start a Project](#start_a_project) makes one. In your own Project, which is started already, leave out `project.start()`: it refuses a
+folder that is a Project. This page has none, so it starts one:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -78,7 +78,8 @@ it is named after the table alone, jobs. A table named like a word Python keeps 
 such as class, gets t_ in front of its variable: `ops.class` would give ops__class.py, holding
 t_class.
 
-Read references/ops__job_runs.py, above. It imports `Table`, then makes one variable,
+Open references/ops__job_runs.py, which the page shows above. It imports `Table`, then makes
+one variable,
 `job_runs`:
 
 - `columns` holds every column and its type;
@@ -92,9 +93,9 @@ Read references/ops__job_runs.py, above. It imports `Table`, then makes one vari
 
 ### Fill in the TODOs
 
-Open references/ops__job_runs.py in your editor and replace the three TODO lines. This is the file with
-them filled in, and two Aliases of your own under its Aliases heading, whose comment lines are
-left out here:
+Open references/ops__job_runs.py in your editor and replace the three TODO lines. This is the
+file with them filled in, and two Aliases of your own under its Aliases heading, whose comment
+lines are left out here:
 
     \"\"\"ops.job_runs - one row per run of a job.\"\"\"
     from sqlglot_composer import Table, equals
@@ -132,7 +133,8 @@ left out here:
 - An Alias is your own name, written by hand. `minutes` is a shorter name for
   `job_runs.duration_mins`, for you: the Hive, and the DataFrame `run` gives back, still call
   the column duration_mins. `failed` names a condition on this table alone, for `WHERE` or
-  `count_rows(where=...)`; `equals` joins `Table` in the import at the top, since it calls it.
+  `count_rows(where=...)`. Add `equals` to the import at the top, beside `Table`, since
+  `failed` calls it.
 - `descriptions=` is yours too: add what a column holds where the warehouse has no comment, as
   `"duration_mins": "how long the run took, in minutes"`.
 
