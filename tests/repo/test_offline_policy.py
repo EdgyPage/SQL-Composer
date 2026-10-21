@@ -194,17 +194,20 @@ def test_markdown_is_read_as_a_page_only_when_asked() -> None:
     # export reads the Clean tree's Markdown as pages, since a preview loads what it embeds.
     text = 'See the picture.\n<img src="https://example.com/x.png">\n'
     assert findings_in(text, "example_projects/README.md") == []
-    assert [str(finding) for finding in offline_policy.page_findings(text, "example_projects/README.md")
-            ] == ['example_projects/README.md:2 page reference: <img src="https://example.com/x.png">'] * 2
+    found = offline_policy.page_findings(text, "example_projects/README.md")
+    assert [str(finding) for finding in found] == [
+        'example_projects/README.md:2 page reference: <img src="https://example.com/x.png">'] * 2
 
 
 def test_user_copied_code_may_hold_nothing_at_all() -> None:
-    entry = Allowed("example_projects/starter/x.py", "<module>", "network", "socket", "a reason")
+    entry = Allowed("example_projects/starter/x.py", "<module>", "network", "socket",
+                    "a reason")
     for folder in ("example_projects", "worked_examples"):
         path = f"{folder}/starter/x.py"
         assert kinds("import socket\n", path) == ["network"]
         assert kinds('page = "https://x"\n', path) == ["URL"]
-    assert kinds("import socket\n", "example_projects/starter/x.py", allowed=(entry,)) == ["network"]
+    assert kinds("import socket\n", "example_projects/starter/x.py",
+                 allowed=(entry,)) == ["network"]
     assert [finding.kind for finding in stale_entries(ROOT, (entry,))] == ["stale entry"]
 
 

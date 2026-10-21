@@ -50,8 +50,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   the download's `templates/` folder is gone. `project.start()` copies them into a Project's
   `admin/templates/`: five Table notebook Templates (`daily_table`, `incremental_load`,
   `weekly_rollup`, `as_of_lookup`, `quality_checks`), the Saved table's Table reference, and a
-  Building block. 5.x's Templates you copied stay yours, as they are; `notebook_start` and
-  `keep_table_references_true` are how-to steps now.
+  Building block. 5.x's Templates you copied stay yours, as they are. Of 5.x's,
+  `notebook_start` and `keep_table_references_true` are how-to steps now; `daily_pipeline`
+  and `incremental_pipeline` give way to `project.run_tables`; `saved_table` and
+  `per_group_statement` to the Table notebook Templates; `settings_driven` and the
+  intermediate `building_blocks` and `quality_statements` to `quality_checks` and
+  `building_block`.
 - **New: the `project` module**, imported by name, as `from sqlglot_composer import project`.
   `project.start()`, run once from a notebook in a folder beside `sqlglot_composer`, lays out a
   Project: `admin/` (a notebook per Project action, the Templates, a registry and the Admin
