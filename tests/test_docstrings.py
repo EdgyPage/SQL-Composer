@@ -22,6 +22,8 @@ from conftest import skip_unless_the_example_database_runs
 PUBLIC = list(sqlglot_composer.__all__)
 # The admin module's names, as admin.drop_table: imported by name, not by the star import.
 ADMIN = [f"admin.{name}" for name in sqlglot_composer.admin.__all__]
+# The project module's names, as project.start, imported by name like the admin module's.
+ADMIN += [f"project.{name}" for name in sqlglot_composer.project.__all__]
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
 # Examples that run a query, and so need the Example database to run here.
 RUNS_A_QUERY = ("run(", "check_key(")

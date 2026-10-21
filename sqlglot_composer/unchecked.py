@@ -3,7 +3,8 @@
 hive_settings(...) gives the SET lines of a named set of Session settings, and
 unchecked_hive(...) wraps Hive you wrote by hand. Neither is a Statement, but to_hive,
 show_hive, run and export_lineage accept them too. Each run of an Unchecked statement, and of
-an Admin statement, adds an entry to the Admin log, a Markdown file set_admin_log can move.
+an Admin statement, adds an entry to the Admin log, a Markdown file set_admin_log can move;
+inside a Project, it is the Project's admin/admin_log.md, which logs its Project actions too.
 """
 
 from __future__ import annotations
@@ -405,8 +406,9 @@ def set_admin_log(path=None):
     Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and
     its git commit, and whether it worked. It only ever adds to the file.
 
-    Left unset, the log is admin_log.md beside the script or notebook that calls run. A path
-    you give that isn't absolute, such as "logs/admin_log.md", starts from the folder of the
+    Left unset, the log is admin_log.md beside the script or notebook that calls run, or,
+    inside a Project, the Project's admin/admin_log.md (help(project)). A path you give that
+    isn't absolute, such as "logs/admin_log.md", starts from the folder of the
     script or notebook that calls set_admin_log. Call it at the top of each notebook or
     pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the
     default.
@@ -446,10 +448,25 @@ def set_admin_log(path=None):
 HEADER = (
     "# Admin log\n"
     "\n"
-    "Each Admin statement and Unchecked statement the Toolbox has run, oldest first. The "
-    "Toolbox only ever adds to this file. Its Unchecked statements are the list of what the "
-    "Toolbox should learn to write next.\n"
+    "Each Admin statement, Unchecked statement and Project action the Toolbox has run, oldest "
+    "first. The Toolbox only ever adds to this file. Its Unchecked statements are the list of "
+    "what the Toolbox should learn to write next.\n"
 )
+# The file a folder is a Project by: project.start() writes it, and only a Project has it.
+REGISTRY = Path("admin") / "registry.csv"
+
+
+def project_folder(folder: Path) -> Path | None:
+    """The Project `folder` is in, or is: the nearest folder up holding admin/registry.csv."""
+    for place in [folder, *folder.parents]:
+        if (place / REGISTRY).is_file():
+            return place
+    return None
+
+
+def project_log(project: Path) -> Path:
+    """A Project's Admin log."""
+    return project / "admin" / "admin_log.md"
 # How much of an Unchecked statement's first line an entry's call shows.
 _CALL_LENGTH = 65
 
@@ -479,18 +496,46 @@ def logged_run(kind: str, call: str, hive: str, send):
 
 def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
     """Add one entry to the end of the Admin log, writing its heading first if it is new."""
-    from .lineage import caller_folder, calling_file, scripts_commit  # it imports this file
+    from .lineage import caller_folder, calling_file  # it imports this file
 
     caller = calling_file(frame)
-    path = _admin_log["path"] or caller_folder(caller) / "admin_log.md"
-    script = caller.name if caller is not None else "a notebook"
+    # The Project the script is in, or else the one Python is working in.
+    project = project_folder(caller_folder(caller)) or project_folder(Path.cwd())
+    path = _admin_log["path"] or (project_log(project) if project is not None
+                                  else caller_folder(caller) / "admin_log.md")
     tables = tables_named(hive)
     fence = "`" * max(3, _longest_backticks(hive) + 1)
     lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, {kind}", "", f"- Call: {_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
-    lines += [f"- Script: {script}, at commit {scripts_commit(caller_folder(caller))}",
-              f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
+    lines += [_script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
+    _write_entry(path, lines)
+
+
+def log_project_action(project: Path, call: str, tables: list[str], files: list[str],
+                       result: str, frame) -> None:
+    """Add a Project action's entry to the Project's Admin log: when, the call, the tables it
+    names, what it did to which files, the script and its commit, and whether it worked."""
+    from .lineage import calling_file  # it imports this file
+
+    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {_code(call)}"]
+    if tables:
+        lines.append(f"- Tables named: {', '.join(tables)}")
+    lines += [f"- Files: {'; '.join(files)}", _script_line(calling_file(frame)),
+              f"- Result: {result}", ""]
+    _write_entry(project_log(project), lines)
+
+
+def _script_line(caller: Path | None) -> str:
+    """An entry's Script line: the script or notebook that ran, and its git commit."""
+    from .lineage import caller_folder, scripts_commit  # it imports this file
+
+    script = caller.name if caller is not None else "a notebook"
+    return f"- Script: {script}, at commit {scripts_commit(caller_folder(caller))}"
+
+
+def _write_entry(path: Path, lines: list[str]) -> None:
+    """Add an entry's lines to the end of the Admin log at `path`, its heading first if new."""
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
     with open(path, "a", encoding="utf-8", newline="\n") as log:

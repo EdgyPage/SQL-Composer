@@ -25,7 +25,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 <header>
 <h1>sqlglot Composer 6.0: Example gallery</h1>
 <p>Every Worked example on one page: 13 Worked examples on their own, and the
-94 examples from the Toolbox's docstrings. Each shows its Python and, for each
+100 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -71,7 +71,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run"><code>run</code></a>, <a href="#by_day"><code>by_day</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.drop_days"><code>admin.drop_days</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.send"><code>example_database.send</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.start"><code>project.start</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -3178,7 +3178,7 @@ SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pr
 <h3><code>set_admin_log</code></h3>
 <p class="why">Set where the Admin log is written, such as ADMIN_LOG from your own settings.py.</p>
 <p>The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and its git commit, and whether it worked. It only ever adds to the file.</p>
-<p>Left unset, the log is admin_log.md beside the script or notebook that calls run. A path you give that isn&#x27;t absolute, such as &quot;logs/admin_log.md&quot;, starts from the folder of the script or notebook that calls set_admin_log. Call it at the top of each notebook or pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the default.</p>
+<p>Left unset, the log is admin_log.md beside the script or notebook that calls run, or, inside a Project, the Project&#x27;s admin/admin_log.md (help(project)). A path you give that isn&#x27;t absolute, such as &quot;logs/admin_log.md&quot;, starts from the folder of the script or notebook that calls set_admin_log. Call it at the top of each notebook or pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the default.</p>
 <pre class="python">set_admin_log(&quot;logs/admin_log.md&quot;).name</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;admin_log.md&#x27;</pre>
@@ -3431,6 +3431,108 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 2      team    string
 3    region    string</pre>
 <p class="names">Toolbox names used: <code>example_database</code></p>
+</section>
+<section class="entry" id="project.check">
+<h3><code>project.check</code></h3>
+<p class="why">Report each Table folder or Table reference that the registry gets wrong.</p>
+<p>It reports any the registry doesn&#x27;t list, and any it lists that isn&#x27;t there, and changes nothing.</p>
+<p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or archived with remove_table or remove_reference.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
+<pre class="python">project.check()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Not registered, made by hand: references/ops__jobs.py. Adopt each with project.register(...).</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.new_table">
+<h3><code>project.new_table</code></h3>
+<p class="why">Make a Table folder for a Saved table: its notebook, lineage/ and reference.</p>
+<p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/daily_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference to fill in, from admin/templates/saved_table_reference.py, unless that file is there already. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in every other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+admin/templates/daily_table.py.
+Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.register">
+<h3><code>project.register</code></h3>
+<p class="why">Adopt a Table folder or Table reference made by hand into the registry.</p>
+<p>check() then stops reporting it.</p>
+<p>It adds a registry row for tables/&lt;db&gt;__&lt;table&gt;/ and for references/&lt;db&gt;__&lt;table&gt;.py, whichever is there and isn&#x27;t registered yet, and logs it. It refuses when there is nothing to adopt.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
+<pre class="python">project.register(&quot;ops.jobs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Registered references/ops__jobs.py.</pre>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
+<section class="entry" id="project.remove_reference">
+<h3><code>project.remove_reference</code></h3>
+<p class="why">Move a Table reference into admin/removed/, named by the time, deleting nothing.</p>
+<p>references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. It refuses while the table has a Table folder, whose notebook imports the reference: remove_table first.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+admin/templates/daily_table.py.
+Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+<pre class="python">project.remove_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.</pre>
+<pre class="python">project.remove_reference(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved references/mart__daily_job_runs.py to admin/removed/...-mart__daily_job_runs.py.</pre>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code></p>
+</section>
+<section class="entry" id="project.remove_table">
+<h3><code>project.remove_table</code></h3>
+<p class="why">Move a Table folder into admin/removed/, named by the time, deleting nothing.</p>
+<p>tables/mart__daily_job_runs/ moves, whole, to a folder such as admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked removed. The table stays in the warehouse, and its Table reference in references/: drop the table with admin.drop_table, and archive the reference with remove_reference.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+admin/templates/daily_table.py.
+Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+<pre class="python">project.remove_table(&quot;mart.daily_job_runs&quot;)  # the time it ran, as yyyymmdd-hhmmss</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.</pre>
+<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
+</section>
+<section class="entry" id="project.start">
+<h3><code>project.start</code></h3>
+<p class="why">Make a Project in the folder you&#x27;re working in, once, from a notebook there.</p>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and send.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry and the Admin log, whose first entry is this one. It refuses a folder that has any of them already, or that is inside a Project. Then write your send in send.py, and make your first Table folder from admin/new_table.ipynb.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and send.py. Next: write your send in send.py.</pre>
+<p class="names">Toolbox names used: none</p>
 </section>
 </main>
 <script>
