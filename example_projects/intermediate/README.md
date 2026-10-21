@@ -258,7 +258,8 @@ run_pipeline.write_lineage_files("2026-09-24")
    `run_pipeline.py`.
 2. In `table_references/`, delete the three generated files. Start Python in that folder,
    since `write_table_reference` writes its file into the folder Python started in, with the
-   Toolbox's folders in `PYTHONPATH`. Write your own tables' Table references with
+   project's folder, the one that holds `sqlglot_composer`, in `PYTHONPATH`: `..` from
+   `table_references/`. Write your own tables' Table references with
    `write_table_reference("your_db.your_table", send=run_query)`, `run_query` being your own
    send function, and fill in each TODO line. Write your Saved tables' Table references by
    hand, naming a database you may write to.

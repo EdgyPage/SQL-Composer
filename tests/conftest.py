@@ -8,7 +8,7 @@ load limits are switched off again after each test, since `set_load_limits` chan
 the whole session.
 
 A run collects the shared tests directly in `tests/`, sqlglot Composer's own in
-`tests/sqlglot_edition/`, and the repo's own checks in `tests/repo/`.
+`tests/sqlglot_checks/`, and the repo's own checks in `tests/repo/`.
 
 A test marked `needs_example_database` runs a query on the Example database. Where this computer
 can't run one, because something it needs is missing, the test skips, saying why; whether it can

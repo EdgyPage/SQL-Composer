@@ -321,7 +321,7 @@ def test_create_tables_refusal_says_what_to_write_for_a_type_people_often_use(
     ("varchar(20)", "VARCHAR(20)"), ("char(255)", "CHAR(255)"),
     ("map<string,array<int>>", "MAP<STRING, ARRAY<INT>>"),
     ("array<string>", "ARRAY<STRING>"), ("map<string,int>", "MAP<STRING, INT>"),
-    # A struct is in tests/sqlglot_edition/test_sqlglot_statements.py, since sqlglot Composer
+    # A struct is in tests/sqlglot_checks/test_sqlglot_statements.py, since sqlglot Composer
     # refuses one where its sqlglot can't write a struct's colons.
 ])
 def test_create_table_takes_each_type_hive_and_spark_share(kind: str, written: str) -> None:

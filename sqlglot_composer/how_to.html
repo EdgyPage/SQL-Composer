@@ -3855,7 +3855,7 @@ job_runs = example_database.job_runs</pre>
 <p>At work, <code>set_load_limits(rows=100000, dates=31)</code> is a good start. The Example database is tiny, so this page sets small numbers, to see each limit at work:</p>
 <pre class="python">set_load_limits(rows=5, dates=7)</pre>
 <p class="label">Python shows</p><pre class="output">{&#x27;rows&#x27;: 5, &#x27;dates&#x27;: 7}</pre>
-<p>It gives back the limits now in force. Call it in your own notebook, never inside the Toolbox&#x27;s folders, which you replace with each update.</p>
+<p>It gives back the limits now in force. Call it in your own notebook, never inside the Toolbox&#x27;s folder, which you replace with each update.</p>
 <h5>See the automatic LIMIT</h5>
 <p>Every query without a LIMIT of its own now gets one, at the end of its Hive:</p>
 <pre class="python">all_runs = statement(

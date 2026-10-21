@@ -548,6 +548,18 @@ def spoil(path: Path, old: str, new: str) -> None:
     path.write_text(text.replace(old, new), encoding="utf-8")
 
 
+def test_a_folder_that_imports_only_beside_something_else_is_refused(tmp_path: Path) -> None:
+    folder = tmp_path / "clean" / "sqlglot_composer"
+    folder.mkdir(parents=True)
+    (folder / "__init__.py").write_text("import beside\n", encoding="utf-8")
+    (tmp_path / "clean" / "beside.py").write_text("x = 1\n", encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused) as refused:
+        export_clean.check_imports_alone(tmp_path / "clean")
+    assert str(refused.value).startswith(
+        "sqlglot_composer, copied on its own, doesn't import, so nothing was exported:\n"
+        "ModuleNotFoundError: No module named 'beside'")
+
+
 def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
     spoil(source / "example_projects" / "intermediate" / "run_pipeline.py",

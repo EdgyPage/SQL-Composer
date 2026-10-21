@@ -8,16 +8,18 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### To update from 5.x
 
-- **The Toolbox is one folder, `sqlglot_composer`.** Delete `composer_core` with the old
-  `sqlglot_composer`, copy in the new `sqlglot_composer`, and restart the kernel. Your imports
-  stay as they are. A traceback names a Toolbox error by its new home, such as
+- **The Toolbox is one folder, `sqlglot_composer`.** Delete both old folders, `composer_core`
+  and `sqlglot_composer`, copy in the new `sqlglot_composer`, and restart the kernel. Imports
+  `from sqlglot_composer import ...` stay as they are; one that named `composer_core`, such as
+  `from composer_core.refusals import GuardRefused`, becomes `from sqlglot_composer import
+  GuardRefused`. A traceback names a Toolbox error by its new home, such as
   `sqlglot_composer.refusals.GuardRefused`, where it said `composer_core.refusals.GuardRefused`.
   These change notes, `CHANGES.md`, are now at the top of the download, beside the README, and
   the Example projects and the Templates sit in `example_projects/` and `templates/` themselves,
-  not in a folder named for the Edition.
+  not in a folder named `sqlglot_composer` inside each.
 - **Spark Composer is dropped.** If you used it: install sqlglot (`pip install -r
-  requirements.txt`), delete the `spark_composer` and `composer_core` folders, copy in the new
-  `composer_core` and `sqlglot_composer`, change each `from spark_composer import` to `from
+  requirements.txt`), delete the `spark_composer` and `composer_core` folders, copy in
+  `sqlglot_composer`, change each `from spark_composer import` to `from
   sqlglot_composer import`, and restart the kernel. Where your send runs the Hive on Spark,
   `send=lambda hive: spark.sql(hive).toPandas()` still works; the README's "If your send runs the
   Hive on Spark" says where Spark reads Hive its own way.

@@ -598,11 +598,11 @@ _CALLED = {"Table": "Table reference", "Column": "column", "Named": "column name
            "Statement": "Statement", "Window": "window(...)"}
 
 
-def refuse_what_the_other_edition_made(value, call: str) -> None:
+def refuse_what_another_folder_made(value, call: str) -> None:
     """Refuse an object another Toolbox folder made, before it is called the wrong kind of thing.
 
-    What is left to refuse is an object from a Toolbox folder of an earlier version, such as a Table reference file that
-    still imports a folder left over from 3.x. Each folder is known by the module the object's
+    What is left to refuse is an object from a Toolbox folder of an earlier version, such as a
+    Table reference file that still imports a folder left over from 3.x. Each folder is known by the module the object's
     class is in.
     """
     made_by = type(value).__module__.split(".")[0]
@@ -634,7 +634,7 @@ def refuse(what: str, why: str, fix: str, *, error=TypeError, given=None,
     instead.
     """
     if given is not None:
-        refuse_what_the_other_edition_made(given, call)
+        refuse_what_another_folder_made(given, call)
     raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 

@@ -1,7 +1,7 @@
 """How the test suite is laid out: shared tests, sqlglot Composer's own, and the repo's own.
 
 The tests directly in `tests/` test the Toolbox through its public names, so they don't import
-sqlglot themselves. `tests/sqlglot_edition/` holds what tests sqlglot itself, and `tests/repo/`
+sqlglot themselves. `tests/sqlglot_checks/` holds what tests sqlglot itself, and `tests/repo/`
 the checks on the repo. pytest imports every file under `tests/` by its name alone, so no two
 may share one.
 """

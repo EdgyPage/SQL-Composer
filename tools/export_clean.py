@@ -24,7 +24,7 @@ It then checks what it built:
 
 - each Toolbox file imports only what work has (the standard library, pandas, numpy, and sqlglot
   where `tools/toolbox_registry.py` allows it);
-- the stamped folder imports in a fresh Python;
+- the stamped folder imports in a fresh Python, in the Clean tree and copied on its own;
 - each Example project's `run_pipeline.py` runs its dry run, in a fresh Python, finding the
   Toolbox as its README says, and leaves no file behind; a dry run prints every step's Hive and
   sends nothing;
@@ -55,6 +55,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -219,6 +220,18 @@ def import_stamped(into: Path) -> dict:
     return described
 
 
+def check_imports_alone(into: Path) -> None:
+    """Refuse a stamped folder that imports only with something else beside it: at work it is
+    copied on its own, into a folder of the user's."""
+    folder = toolbox_registry.FOLDER
+    with tempfile.TemporaryDirectory() as alone:
+        shutil.copytree(into / folder, Path(alone) / folder)
+        done = fresh_python(Path(alone), f"import {folder}")
+    if done.returncode != 0:
+        raise ExportRefused(f"{folder}, copied on its own, doesn't import, so nothing was "
+                            f"exported:\n{last_error(done.stderr)}")
+
+
 # Where an Example project on main finds the Toolbox: the Clean tree's top folder, two up.
 TOOLBOX_FROM_A_PROJECT = os.path.join(os.pardir, os.pardir)
 
@@ -278,8 +291,8 @@ def check_offline(into: Path, paths: list[str]) -> None:
             "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
             "stamp:\n"
             + "".join(f"  {finding}\n" for finding in found)
-            + "Take each out on dev. A Toolbox site that must stay needs a reviewed entry in ALLOWED in tools/offline_policy.py, with the "
-            "user's OK.")
+            + "Take each out on dev. A Toolbox site that must stay needs a reviewed entry in "
+            "ALLOWED in tools/offline_policy.py, with the user's OK.")
 
 
 def files_in(folder: Path) -> list[str]:
@@ -386,6 +399,9 @@ def check_folder(source: Path) -> None:
                                      path.read_text(encoding="utf-8"), re.MULTILINE)
                 for path in sorted((source / folder).glob("*.py"))}
     found = {name: version.group(1) for name, version in versions.items() if version}
+    if "__init__.py" not in found:
+        raise ExportRefused(f"{folder}/__init__.py declares no TOOLBOX_VERSION. Put its "
+                            '`TOOLBOX_VERSION = "..."` line back, and commit.')
     if len(set(found.values())) > 1:
         said = " and ".join(f"{name} is {version}" for name, version in found.items()
                             if version != found["__init__.py"])
@@ -476,6 +492,7 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     version = toolbox_version_of(source, folder)
     build_folder(source, into, folder, stamp_text(product, version, when))
     described = import_stamped(into)
+    check_imports_alone(into)
     build_copies(source, into, copy_stamp_text(product, version, when))
     check_offline(into, list(COPIED))
     check_dry_runs(into)

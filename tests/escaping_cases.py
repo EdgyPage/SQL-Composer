@@ -7,7 +7,7 @@ hold, byte for byte, across the supported range 25.24.2 to 30.23.0, with the Too
 escape table, trees.HIVE_ESCAPES (see the research behind
 "Which sqlglot APIs can the Toolbox use at work?").
 
-`sqlglot_edition/test_sqlglot_escaping_cases.py` checks them against sqlglot alone. The
+`sqlglot_checks/test_sqlglot_escaping_cases.py` checks them against sqlglot alone. The
 Toolbox's tests push the same cases through every way a value reaches a Statement: each
 comparison function, both ends of a range, each item of a list, a Date partition bound, and the
 PARTITION of an `INSERT_OVERWRITE`. v1's tests also proved two things these cases can't, because they are

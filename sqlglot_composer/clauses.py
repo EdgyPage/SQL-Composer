@@ -36,7 +36,7 @@ from .refusals import (
     load_limit_date_bound,
     load_limit_order_by,
     refuse,
-    refuse_what_the_other_edition_made,
+    refuse_what_another_folder_made,
     warning_repeated_rows,
 )
 from .tables import Column, Table, aliased, need_saved_table, python_text
@@ -242,7 +242,7 @@ def _outputs(items, call: str) -> list[tuple[Column, str]]:
 
 
 def _refuse_output(item, call: str) -> None:
-    refuse_what_the_other_edition_made(item, call)
+    refuse_what_another_folder_made(item, call)
     if isinstance(item, Table):
         fix = f"Name its columns, or use all_columns({item._alias})."
     elif isinstance(item, Condition) and any(item._tree.find_all("Grouping")):

@@ -97,7 +97,7 @@ def _one_day(*clauses):
         "ORDER_BY", "equals column", "equals value", "arithmetic", "sum_of",
         "count_rows where", "if_else", "statement", "derived", "to_hive", "by_day",
         "export_lineage", "check_key"])
-def test_an_object_the_other_editions_folder_made_is_named_so(call, given: str,
+def test_an_object_another_folder_made_is_named_so(call, given: str,
                                                               called: str) -> None:
     with pytest.raises(TypeError) as refused:
         call()
@@ -109,7 +109,7 @@ def test_an_object_the_other_editions_folder_made_is_named_so(call, given: str,
             f"to `from {FOLDER} import`.") in message
 
 
-def test_an_object_no_edition_made_gets_the_message_it_got_before() -> None:
+def test_an_object_no_toolbox_folder_made_gets_the_message_it_got_before() -> None:
     with pytest.raises(TypeError, match="isn't a table") as refused:
         FROM(_made_by("elsewhere", "Table"))
     assert "import" not in str(refused.value)
