@@ -15,11 +15,6 @@ a script may import the standard library, what the Toolbox may import (pandas an
 
 Each Statement script's module docstring gives a title and one sentence on why, which the
 Example gallery shows, and so does every script of an Example project.
-
-The Templates in `templates/` are Level-shaped too: each says where it is copied to in the
-user's project ("Copy it to: building_blocks/<BLOCK>.py"), and its imports are held to that
-place's Level. Its placeholders are read as plain names there, since a Template with one left
-in doesn't parse.
 """
 
 from __future__ import annotations
@@ -30,7 +25,6 @@ from pathlib import Path
 
 import pytest
 
-from conftest import COPY_IT_TO, PLACEHOLDER, TEMPLATES, template_id
 from toolbox_registry import SHARED_IMPORTS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -216,39 +210,3 @@ def test_a_pandas_result_says_so_in_its_first_line(path: Path) -> None:
         if isinstance(function, ast.FunctionDef) and function.name.endswith("_in_pandas"):
             first = (ast.get_docstring(function) or "").splitlines()[:1]
             assert first and PANDAS_LABEL in first[0], f"{path.name}: {function.name}"
-
-
-def as_names(source: str) -> str:
-    """A Template with each placeholder read as a plain name, <TABLE> as table, so it parses."""
-    return PLACEHOLDER.sub(lambda placeholder: placeholder.group(1).lower(), source)
-
-
-def template_scripts() -> list[tuple[Path, int]]:
-    """Each Template, with the Level of the place its "Copy it to:" line puts it: a Level
-    folder's, or above the Levels for a script beside them, such as run_pipeline.py."""
-    found = []
-    for path in sorted(TEMPLATES.glob("*/*.py")):
-        place = COPY_IT_TO.search(path.read_text(encoding="utf-8")).group(1)
-        found.append((path, LEVELS.get(place.split("/")[0], ABOVE_THE_LEVELS)))
-    return found
-
-
-def template_script_id(script: tuple[Path, int]) -> str:
-    return template_id(script[0])
-
-
-def test_the_templates_sit_at_every_level() -> None:
-    levels = {level for _, level in template_scripts()}
-    assert levels == {*LEVELS.values(), ABOVE_THE_LEVELS}
-
-
-@pytest.mark.parametrize("script", template_scripts(), ids=template_script_id)
-def test_a_templates_imports_point_only_downward(script: tuple[Path, int]) -> None:
-    path, level = script
-    assert level_problems(as_names(path.read_text(encoding="utf-8")), level) == []
-
-
-@pytest.mark.parametrize("script", template_scripts(), ids=template_script_id)
-def test_a_template_gives_a_title_and_why(script: tuple[Path, int]) -> None:
-    path = script[0]
-    check_title_and_why(path, as_names(path.read_text(encoding="utf-8")))

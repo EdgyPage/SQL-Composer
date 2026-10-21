@@ -1,7 +1,7 @@
 # CLAUDE.md - dev branch
 
 This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
-branch**: the Toolbox, a copy of the Example projects and the Templates, its README,
+branch**: the Toolbox (its Templates inside it), a copy of the Example projects, its README,
 `CHANGES.md`, its license (`LICENSE`, MIT No Attribution) and `requirements.txt`, each as dev
 holds it, generated from this branch by `.venv/Scripts/python tools/export_clean.py` and never
 edited or committed to by hand. Each export commits to `main` locally, replacing whatever it

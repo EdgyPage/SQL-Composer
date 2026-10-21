@@ -30,9 +30,9 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
 3. Copy the whole `sqlglot_composer` folder into the folder that holds your notebooks and
    scripts. Keep your own scripts beside it, never inside it.
 
-The download's two other folders, `example_projects` and `templates`, are for reading and
-copying from, and the Toolbox doesn't need them: see [Example projects](#example-projects) and
-[Templates](#templates).
+The download's other folder, `example_projects`, is for reading and copying from, and the
+Toolbox doesn't need it: see [Example projects](#example-projects). The
+[Templates](#templates) ship inside the Toolbox.
 
 ## 2. Start a notebook
 
@@ -204,17 +204,30 @@ from the Templates below.
 
 ## Templates
 
-A Template is the empty shape of one of your own scripts, to copy into your project and fill
-in. Each placeholder, a word in angle brackets such as `<TABLE>`, is for you to replace,
-brackets and all, with your own; Python stops at a placeholder left in, so a Template can't run
-half filled in. Each Template's docstring says where in your project to copy it, lists its
-placeholders under "Fill in:", with an example of each, and names the Example project file it
-mirrors.
+A Template is the empty shape of one of your notebooks or files, to make a new one from. They
+ship inside the Toolbox, and `project.start()` copies them into your Project's
+`admin/templates`, where they are yours to edit, or to add your own beside.
+`project.new_table("mart.your_table", template="daily_table")` makes a Table folder's notebook
+from one, filling in the table's database and name. Every other placeholder, a word in angle
+brackets such as `<SOURCE_TABLE>`, is yours to replace, brackets and all; Python stops at one
+left in, so a notebook can't run half filled in. Each Template's first cell lists its
+placeholders, with an example of each.
 
-`templates/` holds a starter set and an intermediate set, and a `README.md` saying what each
-Template needs first. Below, the starter set is listed in the order to use it.
+The Table notebook Templates, each a notebook of the same five code cells around its own logic:
 
-<!-- TEMPLATES -->
+- `daily_table`: a table written a day at a time, from a table it reads.
+- `incremental_load`: each run writes its day and the few days before it again, for rows that
+  come in late.
+- `weekly_rollup`: a table written a day at a time and read a week at a time.
+- `as_of_lookup`: each row looked up in a snapshot table as of its own day.
+- `quality_checks`: a table's row count saved each day, and checks for repeated keys and NULLs.
+
+And two more, for files beside the notebooks:
+
+- `saved_table_reference`: the Table reference `new_table` writes for the table, in
+  `references`, to fill in.
+- `building_block`: a Derived table several notebooks read, copied by hand into
+  `building_blocks`.
 
 ## Update
 

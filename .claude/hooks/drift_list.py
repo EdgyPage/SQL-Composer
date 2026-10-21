@@ -23,7 +23,7 @@ DRIFT_LIST = Path(".scratch") / "drift.md"
 REVIEWER_BRIEF = Path(".claude") / "hooks" / "drift-reviewer.md"
 REQUESTS_FILE = "sql-composer-drift-requests"
 
-WATCHED_FOLDERS = ("sqlglot_composer/", "worked_examples/", "example_projects/", "templates/",
+WATCHED_FOLDERS = ("sqlglot_composer/", "worked_examples/", "example_projects/",
                    "docs/")
 WATCHED_FILES = frozenset({"CHANGES.md", "CONTEXT.md", "CLAUDE.md", "requirements-dev.txt",
                            "requirements.txt"})

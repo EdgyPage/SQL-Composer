@@ -46,6 +46,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   like a module, such as calendar, no longer does, since its file's name starts with its
   database. A name with no database, such as `"jobs"`, is refused: write `"ops.jobs"`. Files
   written before 6.0 keep their names: nothing to change.
+- **The Templates ship inside the Toolbox**, in `sqlglot_composer/project_templates.py`, and
+  the download's `templates/` folder is gone. `project.start()` copies them into a Project's
+  `admin/templates/`: five Table notebook Templates (`daily_table`, `incremental_load`,
+  `weekly_rollup`, `as_of_lookup`, `quality_checks`), the Saved table's Table reference, and a
+  Building block. 5.x's Templates you copied stay yours, as they are; `notebook_start` and
+  `keep_table_references_true` are how-to steps now.
 - **New: the `project` module**, imported by name, as `from sqlglot_composer import project`.
   `project.start()`, run once from a notebook in a folder beside `sqlglot_composer`, lays out a
   Project: `admin/` (a notebook per Project action, the Templates, a registry and the Admin
