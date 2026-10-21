@@ -2121,7 +2121,7 @@ def runs_per_job(first_day, last_day):
         WHERE(between(job_runs.dt, first_day, last_day)),
         GROUP_BY(job_runs.job_id),
     ))</pre>
-<p>This file imports its Table reference from a folder table_references/, beside building_blocks/: once you have many, Table references get a folder of their own too. In <a href="#import_column_names">Import a table&#x27;s column names programmatically</a> the file sat beside the notebook, so the line there was <code>from ops__job_runs import job_runs</code>.</p>
+<p>This file imports its Table reference from a folder table_references/, beside building_blocks/: once you have many, Table references get a folder of their own too. In <a href="#import_column_names">Import a table&#x27;s column names programmatically</a> the file sat beside the notebook, so the line there was <code>from ops__job_runs import job_runs</code>. Here the file is table_references/job_runs.py, named for its table alone, as the starter Example project names it; a file write_table_reference wrote keeps its name, and is imported as <code>from table_references.ops__job_runs import job_runs</code>.</p>
 <p>A notebook then imports the block with <code>from building_blocks.runs_per_job import runs_per_job</code>. The starter Example project, in the Toolbox download&#x27;s example_projects folder, is laid out this way: Table references, Building blocks, then Statements.</p>
 <h4>Check it worked</h4>
 <p>The block, checked alone, and a Statement built on it give the same numbers. The failed runs of the two days, from the block alone, add up to those per team:</p>

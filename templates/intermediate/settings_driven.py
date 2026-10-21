@@ -41,7 +41,8 @@ Fill in:
     <FIRST_TABLE>: the first table's Table reference, such as region_costs.
     <FIRST_TABLE_FILE>: its file's name in table_references/, without .py, such as
         ops__region_costs: the database and the table joined by two underscores, as
-        write_table_reference names it.
+        write_table_reference names it, or region_costs for the
+        Example projects' files, named for their table alone.
     <FIRST_TABLE_NAME>: its name in the warehouse, in quotes, as its Table reference names it,
         such as "ops.region_costs".
     <FIRST_DATE_PARTITION>: its Date partition's name, in quotes, such as "dt".
@@ -51,7 +52,7 @@ Fill in:
     <SECOND_TABLE>: a second table's Table reference, such as job_events. Its dict adds
         nothing up, which leaves each day's rows.
     <SECOND_TABLE_FILE>: its file's name in table_references/, without .py, such as
-        ops__job_events.
+        ops__job_events, or job_events for the Example projects' file.
     <SECOND_TABLE_NAME>: its name in the warehouse, in quotes, such as "ops.job_events".
     <SECOND_DATE_PARTITION>: its Date partition's name, in quotes, such as "dt".
     <SECOND_KEY>: the names of the columns that pick out one row, each in quotes, such as
