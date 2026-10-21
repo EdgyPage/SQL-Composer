@@ -261,8 +261,8 @@ The shape of one of the user's own scripts, with its specifics left out - the ta
 days and names - each marked as a placeholder, to copy into a project and fill in; a Template
 with a placeholder left in doesn't run. Where an Example project shows scripts filled in for the
 Example database, a Template is the empty shape of such a script, or of one a project keeps
-beside them, such as a notebook's first cells. The Toolbox ships a starter set and an
-intermediate set, beside its Example projects.
+beside them, such as a Table notebook. The Toolbox ships its Templates inside it, and a
+Project keeps its own copies in its admin folder, to edit and add to.
 _Avoid_: skeleton, boilerplate, stub, scaffold, example
 
 **Example gallery**:

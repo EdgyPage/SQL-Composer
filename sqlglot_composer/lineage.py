@@ -1076,15 +1076,17 @@ def _table_folder_path(statements, caller: Path | None,
     project = project_folder(here) or project_folder(Path.cwd())
     if project is None:
         return None
-    written = {name for s in statements for name in _tables_written(s) if "." in name}
-    stems = {table_stem(name) for name in written}
-    if len(stems) != 1:
-        working = [folder.name for folder in (here, Path.cwd())
-                   if folder.parent == project / "tables"]
-        stems = {stem for stem in working if stem in stems}
-    if len(stems) != 1:
+    written = {table_stem(name) for s in statements for name in _tables_written(s)
+               if "." in name}
+    if len(written) == 1:
+        chosen = written
+    else:
+        working = {folder.name for folder in (here, Path.cwd())
+                   if folder.parent == project / "tables"}
+        chosen = working & written
+    if len(chosen) != 1:
         return None
-    stem = stems.pop()
+    stem = chosen.pop()
     folder = project / "tables" / stem
     if not folder.is_dir():
         return None
@@ -1180,8 +1182,8 @@ def export_lineage(*statements, to=None):
     tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds
     to the table's past Lineage; the commit is in the footer. So do Statements of several
     tables passed from a Table notebook, when one of them writes that notebook's table: its
-    lineage across tables. Any others go beside your script or notebook, as above. to= names the HTML file instead. It
-    returns the two paths, HTML first.
+    lineage across tables. Any others go beside your script or notebook, as above. to= names
+    the HTML file instead. It returns the two paths, HTML first.
 
     >>> runs_per_team = statement(
     ...     SELECT(jobs.team, AS(count_rows(), "runs")),

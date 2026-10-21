@@ -22,7 +22,10 @@ from sqlglot_composer.project_templates import (
     BUILDING_BLOCK,
     NOTEBOOK_TEMPLATES,
     SAVED_TABLE_REFERENCE,
+    TEMPLATES,
 )
+
+ROOT = Path(__file__).resolve().parent.parent
 
 PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 # What new_table fills in itself; every other placeholder is the user's.
@@ -41,8 +44,9 @@ FILLS = {
     "weekly_rollup": ({**SOURCE, "<GROUP_COLUMN>": "job_id", "<NUMBER_COLUMN>": "duration_mins",
                        "<TOTAL>": "minutes", "<TOTAL_NAME>": '"minutes"'},
                       {"job_id": "bigint", "minutes": "bigint"}, ["job_id", "dt"]),
-    "as_of_lookup": ({**SOURCE, "<MATCH_COLUMN>": "job_id", "<SNAPSHOT_NAME>": "ops__job_owners",
-                      "<SNAPSHOT>": "job_owners", "<SNAPSHOT_MATCH_COLUMN>": "job_id",
+    "as_of_lookup": ({**SOURCE, "<MATCH_COLUMN>": "job_id",
+                      "<SNAPSHOT_NAME>": "ops__job_owners", "<SNAPSHOT>": "job_owners",
+                      "<SNAPSHOT_MATCH_COLUMN>": "job_id",
                       "<SNAPSHOT_DATE_PARTITION>": "dt", "<LOOKED_UP_COLUMN>": "team"},
                      {"team": "string", "row_count": "bigint"}, ["team", "dt"]),
     "quality_checks": ({"<CHECKED_NAME>": "ops__job_events", "<CHECKED>": "job_events",
@@ -185,3 +189,9 @@ def test_the_building_block_template_filled_in_is_a_derived_table(started) -> No
                           "    return minutes_per_job_day(day, day)\n")
     assert repr(logic.block(DAY)) == (
         "derived('minutes_per_job_day', columns: job_id, dt, row_count, minutes)")
+
+
+def test_the_readme_names_each_template_the_toolbox_ships() -> None:
+    readme = (ROOT / "docs" / "clean-branch-readme.md").read_text(encoding="utf-8")
+    section = readme.split("## Templates\n", 1)[1].split("\n## ", 1)[0]
+    assert re.findall(r"^- `(\w+)`: ", section, re.MULTILINE) == list(TEMPLATES)

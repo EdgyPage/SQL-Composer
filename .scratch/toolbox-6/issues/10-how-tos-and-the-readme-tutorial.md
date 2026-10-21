@@ -12,6 +12,10 @@ a Saved table", "Lineage across your tables", "The Reference sheet"; the rest mo
 Project's layout and import names; the README tutorial's steps filled in; CHANGES.md's 6.0
 section finished. The last ticket before the 6.0 export.
 
+The how-tos also take in 5.x's `notebook_start` and `keep_table_references_true` Templates,
+which ticket 09a removed, as steps: writing a first Table reference and a first Statement, and
+checking a Project's references against their tables every week.
+
 ## Done when
 
 - The how-to page and the README tutorial walk start, references, a table and lineage, in order.
