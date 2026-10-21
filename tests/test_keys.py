@@ -42,8 +42,6 @@ from sqlglot_composer import (
     sum_of,
     to_hive,
 )
-import editions
-from conftest import edition
 from composer_core.example_database import job_owners, job_runs, jobs, run_alerts
 
 DAY = "2026-09-24"
@@ -308,12 +306,7 @@ def test_an_all_of_with_the_key_keeps_it() -> None:
 
 
 def test_create_table_writes_the_key_as_information_hive_never_checks() -> None:
-    written = to_hive(create_table(per_job))
-    if edition() is editions.SPARK_COMPOSER:
-        # Spark refuses PRIMARY KEY: the primary_key row of DECLARED_DIFFERENCES.
-        assert "PRIMARY KEY" not in written
-        return
-    assert written == (
+    assert to_hive(create_table(per_job)) == (
         "CREATE EXTERNAL TABLE mart.per_job (\n"
         "  job_id BIGINT,\n"
         "  runs BIGINT,\n"
@@ -330,9 +323,7 @@ def test_create_table_writes_the_key_as_information_hive_never_checks() -> None:
 def test_create_table_puts_a_key_column_in_backticks_where_hive_needs_them() -> None:
     odd = Table("mart.odd", columns={"select": "string", "dt": "string"}, date_partition="dt",
                 key=["select"], location=BASE)
-    written = to_hive(create_table(odd))
-    if edition() is not editions.SPARK_COMPOSER:
-        assert "PRIMARY KEY (`select`) DISABLE NOVALIDATE" in written
+    assert "PRIMARY KEY (`select`) DISABLE NOVALIDATE" in to_hive(create_table(odd))
 
 
 def test_create_table_of_a_table_with_no_key_writes_none() -> None:

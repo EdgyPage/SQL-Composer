@@ -1,11 +1,10 @@
-"""The two Editions' folders, and the Composer core both run.
+"""sqlglot Composer's folder, and the Composer core it runs.
 
-`composer_core/` holds every file both Editions share, once. Each Edition's folder holds its
-own `__init__.py`, `writing.py`, `engine.py` and Example gallery. These tests hold each folder
-to the Edition registry, the two `__init__.py` files the same apart from their names, the
-Edition files' interface the same in both, one Edition per Python, a missing composer_core
-named, and `spark_composer` importable with neither Java nor sqlglot. One TOOLBOX_VERSION
-across the folders is held in test_toolbox_checks.py.
+`composer_core/` holds the code every function a user calls runs; `sqlglot_composer/` holds its
+own `__init__.py`, `writing.py`, `engine.py`, Example gallery and how-to page. These tests hold
+each folder to the registry in `tools/editions.py`, the Edition files to the interface the core
+calls, and a missing composer_core named. One TOOLBOX_VERSION across the folders is held in
+test_toolbox_checks.py.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ import pytest
 import editions
 
 ROOT = Path(__file__).resolve().parents[2]
-SQLGLOT, SPARK = ROOT / editions.SQLGLOT_COMPOSER.folder, ROOT / editions.SPARK_COMPOSER.folder
+SQLGLOT = ROOT / editions.SQLGLOT_COMPOSER.folder
 CORE = ROOT / editions.CORE
 
 
@@ -33,13 +32,6 @@ def _files(folder: Path) -> set[str]:
 def test_each_folder_holds_exactly_its_files() -> None:
     assert _files(CORE) == set(editions.CORE_FILES)
     assert _files(SQLGLOT) == set(editions.EDITION_FILES + editions.PAGES)
-    assert _files(SPARK) == set(editions.EDITION_FILES + editions.PAGES)
-
-
-def test_the_two_editions_init_files_differ_only_by_their_names() -> None:
-    sql_init = (SQLGLOT / "__init__.py").read_text(encoding="utf-8")
-    spark_init = (SPARK / "__init__.py").read_text(encoding="utf-8")
-    assert spark_init == editions.named_for(editions.SPARK_COMPOSER, sql_init)
 
 
 def _functions(path: Path) -> dict[str, list[str]]:
@@ -50,9 +42,8 @@ def _functions(path: Path) -> dict[str, list[str]]:
 
 
 @pytest.mark.parametrize("name", sorted(editions.EDITION_INTERFACE))
-@pytest.mark.parametrize("folder", [SQLGLOT, SPARK], ids=lambda folder: folder.name)
-def test_each_edition_file_has_the_interface_both_share(folder: Path, name: str) -> None:
-    found = _functions(folder / name)
+def test_each_edition_file_has_the_interface_the_core_calls(name: str) -> None:
+    found = _functions(SQLGLOT / name)
     wanted = editions.EDITION_INTERFACE[name]
     assert {function: found.get(function) for function in wanted} == wanted
 
@@ -71,24 +62,6 @@ def _run(script: str, cwd: Path, **environment) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, "-c", script], cwd=cwd,
                           env={**os.environ, **environment}, capture_output=True, text=True,
                           timeout=120)
-
-
-def test_spark_composer_imports_with_neither_java_nor_sqlglot(tmp_path: Path) -> None:
-    script = ("import sys\n"
-              "sys.modules['sqlglot'] = None\n"
-              "import spark_composer\n"
-              "assert 'sqlglot_composer' not in sys.modules\n"
-              "print(len(spark_composer.__all__), spark_composer.VERSION)")
-    result = _run(script, ROOT, JAVA_HOME=str(tmp_path / "no-java"))
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.startswith("89 Spark Composer ")
-
-
-def test_importing_both_editions_in_one_python_stops() -> None:
-    pytest.importorskip("sqlglot")
-    result = _run("import spark_composer\nimport sqlglot_composer", ROOT)
-    assert "sqlglot_composer stopped on import:" in result.stderr
-    assert "sqlglot_composer was imported after spark_composer, in the same Python" in result.stderr
 
 
 def test_an_edition_without_composer_core_beside_it_says_so(tmp_path: Path) -> None:

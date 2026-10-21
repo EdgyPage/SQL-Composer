@@ -15,7 +15,6 @@ import re
 import pytest
 
 import hive_literals
-from conftest import in_this_edition
 from escaping_cases import (
     IDENTIFIER_CASES,
     INJECTION_PAYLOADS,
@@ -151,11 +150,11 @@ numbers = Table(
 COLUMN_OF = {"BIGINT": numbers.b, "DECIMAL(18,2)": numbers.d, "DOUBLE": numbers.x}
 
 
-@pytest.mark.parametrize(("hive_type", "value", "sqlglot_composer", "spark_composer"), NUMBER_CASES)
-def test_a_number_is_written_like_this(hive_type, value, sqlglot_composer, spark_composer) -> None:
+@pytest.mark.parametrize(("hive_type", "value", "expected"), NUMBER_CASES)
+def test_a_number_is_written_like_this(hive_type, value, expected) -> None:
     column = COLUMN_OF[hive_type]
     written = repr(equals(column, value)).split(" = ")[1]
-    assert written == in_this_edition(sqlglot_composer, spark_composer)
+    assert written == expected
     assert re.fullmatch(NUMBER_TEXT, written)
 
 

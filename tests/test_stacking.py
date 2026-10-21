@@ -7,11 +7,8 @@ Each test runs on both Editions, which write the same Hive for every one of them
 
 from __future__ import annotations
 
-import pandas as pd
 import pytest
 
-import editions
-from conftest import edition
 from sqlglot_composer import (
     AS,
     EXCEPT,
@@ -500,26 +497,6 @@ def test_by_day_refuses_subtotals_over_the_days_and_splits_them_within_a_day() -
 
 
 @pytest.mark.needs_example_database
-def test_rollup_gives_a_subtotal_row_for_each_level() -> None:
-    s = runs_by(rollup(jobs.team, jobs.job_name), select=(
-        jobs.team, jobs.job_name, AS(if_else(is_total(jobs.job_name), 1, 0), "subtotal")))
-    if edition() is not editions.SPARK_COMPOSER:
-        with pytest.raises(RuntimeError, match="The Example database can't run this Hive"):
-            run(s, send=example_database.send)
-        return
-    result = run(s, send=example_database.send)
-    expected = pd.DataFrame(
-        [[None, None, 1, 4], ["data", None, 1, 2], ["data", "nightly_load", 0, 2],
-         ["finance", None, 1, 2], ["finance", "invoice_sync", 0, 1],
-         ["finance", "report_build", 0, 1]],
-        columns=["team", "job_name", "subtotal", "runs"])
-    assert result[["team", "job_name", "subtotal", "runs"]].values.tolist() == (
-        expected.values.tolist())
-
-
-@pytest.mark.needs_example_database
-def test_sqlglot_composers_example_database_says_it_cant_make_subtotals() -> None:
-    if edition() is editions.SPARK_COMPOSER:
-        pytest.skip("Spark Composer's Example database makes subtotals")
+def test_the_example_database_says_it_cant_make_subtotals() -> None:
     with pytest.raises(RuntimeError, match="its executor has no GROUPING SETS"):
         run(runs_by(rollup(jobs.team, jobs.job_name)), send=example_database.send)

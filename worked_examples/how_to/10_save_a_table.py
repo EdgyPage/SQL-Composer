@@ -100,16 +100,8 @@ EXTERNAL and LOCATION make it a table whose files are yours, in its own folder.
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) shows the rest of
 what a Saved table's Table reference can say about how it is kept.
 
-[sqlglot_composer only]
 `PRIMARY KEY (run_id) DISABLE NOVALIDATE` writes the Key into the table, for whoever reads
 it: `DISABLE NOVALIDATE` says Hive keeps it as information only, and never checks it.
-[end]
-[spark_composer only]
-Spark refuses a `PRIMARY KEY` in `CREATE TABLE`, so Spark Composer leaves the Key out of the
-table; sqlglot Composer, whose Hive runs on Hive, writes it as
-`PRIMARY KEY (run_id) DISABLE NOVALIDATE`, which Hive keeps as information only and never
-checks. Either way, the Toolbox checks the Key itself, before each write.
-[end]
 
 You send it once. If the table already exists, the warehouse refuses to create it again, on
 purpose: after you edit the Table reference, sending this again can't quietly look as if it

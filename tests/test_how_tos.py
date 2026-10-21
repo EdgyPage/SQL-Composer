@@ -1,4 +1,4 @@
-"""The how-tos, and the page each Edition ships them on, `how_to.html`.
+"""The how-tos, and the page the Toolbox ships them on, `how_to.html`.
 
 `tools/how_to_page.py` writes the page from the how-tos in `worked_examples/how_to/`, running
 each step on the Example database. The page is committed and ships with the Toolbox, so these
@@ -57,8 +57,7 @@ def page_sections() -> dict[str, str]:
 def test_the_committed_page_is_what_the_tool_writes() -> None:
     committed = page() if PAGE.exists() else ""
     assert how_to_page.how_to_page() == committed, (
-        f"{PAGE.relative_to(ROOT).as_posix()} is out of date: run python tools/how_to_page.py "
-        f"--edition {edition().option}"
+        f"{PAGE.relative_to(ROOT).as_posix()} is out of date: run python tools/how_to_page.py"
     )
 
 
@@ -74,13 +73,12 @@ def test_there_is_a_how_to_and_how_to_1_starts_a_notebook() -> None:
 @pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
 def test_each_how_to_runs_as_a_doctest(path: Path, tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    text = how_to_page.edition_text(how_to_page.docstring_of(path), edition())
+    text = how_to_page.docstring_of(path)
     test = doctest.DocTestParser().get_doctest(text, {}, path.stem, str(path), 0)
     runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
     report = []
     # A Warning is shown on the page; here it may not stop the step it comes from. A pandas
-    # stand-in answers as on the page, so on Spark Composer, which never needs it, the output
-    # both Editions share holds it to Spark's result.
+    # stand-in answers as on the page.
     with (warnings.catch_warnings(record=True),
           how_to_page.pandas_standing_in(how_to_page.stand_ins_of(path), test.globs, [])):
         warnings.simplefilter("always")
@@ -99,20 +97,17 @@ def test_a_how_to_has_its_title_its_group_and_its_headings_in_order(path: Path) 
 
 
 def code_and_prose(path: Path) -> tuple[list[str], list[str]]:
-    """A how-to's code, its >>> steps and indented code, and its `backticked` spans of prose,
-    on both Editions' pages."""
+    """A how-to's code, its >>> steps and indented code, and its `backticked` spans of prose."""
     code, spans = [], []
-    for each in editions.EDITIONS.values():
-        text = how_to_page.edition_text(how_to_page.docstring_of(path), each)
-        for part in doctest.DocTestParser().parse(text):
-            if not isinstance(part, str):
-                code.append(part.source)
-                continue
-            for paragraph in how_to_page.paragraphs(part):
-                if how_to_page.is_code(paragraph):
-                    code.append(paragraph)
-                else:
-                    spans += re.findall(r"`([^`]+)`", paragraph)
+    for part in doctest.DocTestParser().parse(how_to_page.docstring_of(path)):
+        if not isinstance(part, str):
+            code.append(part.source)
+            continue
+        for paragraph in how_to_page.paragraphs(part):
+            if how_to_page.is_code(paragraph):
+                code.append(paragraph)
+            else:
+                spans += re.findall(r"`([^`]+)`", paragraph)
     return [textwrap.dedent(block) for block in code], spans
 
 
@@ -159,9 +154,7 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
 
 
 def link_targets(path: Path) -> set[str]:
-    return {target for each in editions.EDITIONS.values()
-            for _, target in how_to_page.LINK.findall(
-                how_to_page.edition_text(how_to_page.docstring_of(path), each))}
+    return {target for _, target in how_to_page.LINK.findall(how_to_page.docstring_of(path))}
 
 
 @pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
@@ -259,15 +252,9 @@ def test_a_refusal_on_the_page_is_the_toolbox_s_own_message() -> None:
                                      "refusal") in shown
 
 
-def test_the_send_mistake_shown_is_the_one_this_edition_s_users_make() -> None:
+def test_the_send_mistake_shows_the_numbered_columns_it_gives() -> None:
     section = page_sections()["start_a_notebook"]
-    only = "\n".join(re.findall(r'<div class="only">\n(.*?)\n</div>', section, re.DOTALL))
-    if edition() is editions.SPARK_COMPOSER:
-        assert "Your send gave back a Spark DataFrame" in only
-        assert "send_without_column_names" not in section
-    else:
-        assert "<tr><th>0</th><th>1</th><th>2</th></tr>" in only
-        assert "SparkDataFrame" not in section
+    assert "<tr><th>0</th><th>1</th><th>2</th></tr>" in section
 
 
 def test_a_step_that_prints_hive_shows_it_as_hive_ready_to_paste() -> None:
@@ -492,7 +479,7 @@ def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path) -> None:
         "RepeatedRowsWarning: What happened: JOIN(run_alerts) matches on run_id")
 
 
-# A Statement sqlglot Composer's Example database can't run: its executor has no week_start.
+# A Statement the Example database can't run: its executor has no week_start.
 WEEKS = """>>> from sqlglot_composer import *
 >>> job_runs = example_database.job_runs
 >>> weeks = statement(
@@ -511,24 +498,17 @@ def weeks_in_pandas():
 
 
 @pytest.mark.needs_example_database
-def test_a_pandas_stand_in_gives_what_sqlglot_composer_s_example_database_cannot(tmp_path) -> None:
+def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path) -> None:
     path = a_how_to(tmp_path, WEEKS, stand_ins=WEEKS_IN_PANDAS)
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     cells = re.findall(r"<td>(.*?)</td>", shown)
-    if edition() is editions.SPARK_COMPOSER:
-        # Spark runs it, and the stand-in stays unused.
-        assert '<p class="label">Result on the Example database</p>' in shown
-        assert "stand" not in cells and example_gallery.PANDAS_LABEL not in shown
-    else:
-        assert f'<p class="label">Result, {example_gallery.PANDAS_LABEL}</p>' in shown
-        assert cells == ["2026-09-23", "stand", "2026-09-24", "in"]
-        assert "stops" not in shown
+    assert f'<p class="label">Result, {example_gallery.PANDAS_LABEL}</p>' in shown
+    assert cells == ["2026-09-23", "stand", "2026-09-24", "in"]
+    assert "stops" not in shown
 
 
 @pytest.mark.needs_example_database
 def test_without_its_stand_in_the_statement_shows_why_it_cannot_run(tmp_path) -> None:
-    if edition() is editions.SPARK_COMPOSER:
-        pytest.skip("Spark Composer's Example database runs every Statement")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, WEEKS)))
     assert "The Example database can&#x27;t run this Hive" in shown
 
@@ -537,56 +517,6 @@ def test_a_stand_in_for_no_statement_is_refused(tmp_path) -> None:
     path = a_how_to(tmp_path, ">>> weeks = 1", stand_ins=WEEKS_IN_PANDAS)
     with pytest.raises(how_to_page.HowToRefused, match="makes a Statement weeks"):
         how_to_page.how_to_html(how_to_page.read_how_to(path))
-
-
-def test_an_edition_block_shows_only_on_its_own_editions_page() -> None:
-    doc = ("Both: sqlglot_composer.\n[sqlglot_composer only]\nOnly sqlglot: spark_composer.\n"
-           "[end]\n[spark_composer only]\nOnly Spark: sqlglot_composer.\n[end]\nBoth again.\n")
-    assert how_to_page.edition_text(doc, editions.SQLGLOT_COMPOSER) == (
-        "Both: sqlglot_composer.\nOnly sqlglot: spark_composer.\nBoth again.\n")
-    assert how_to_page.edition_text(doc, editions.SPARK_COMPOSER, marked=True) == (
-        "Both: spark_composer.\n[only]\nOnly Spark: sqlglot_composer.\n[end]\nBoth again.\n")
-    notebook = how_to_page.Notebook(scope={}, folder=Path.cwd())
-    shown = how_to_page.chunk_html("Both.\n[only]\nMine.\n[end]\n", notebook)
-    assert shown == '<p>Both.</p>\n<div class="only">\n<p>Mine.</p>\n</div>'
-
-
-def test_a_step_in_an_edition_block_runs_only_for_its_own_edition(tmp_path) -> None:
-    path = a_how_to(tmp_path, ">>> x = 1\n\n[sqlglot_composer only]\n>>> x + 1\n2\n\n[end]\n"
-                              "[spark_composer only]\n>>> x + 10\n11\n\n[end]\n")
-    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
-    added = "10" if edition() is editions.SPARK_COMPOSER else "1"
-    assert re.findall(r'<div class="only">\n(.*?)\n</div>', shown, re.DOTALL) == [
-        f'<pre class="python">x + {added}</pre>\n<p class="label">Python shows</p>'
-        f'<pre class="output">{1 + int(added)}</pre>']
-
-
-@pytest.mark.parametrize(("doc", "says"), [
-    ("[sql_composr only]\nWords.\n[end]\n", "names no Edition"),
-    ("[spark_composer only]\n### A heading\n[end]\n", "holds a heading or another block"),
-    ("[spark_composer only]\n[sqlglot_composer only]\nWords.\n[end]\n[end]\n",
-     "holds a heading or another block"),
-    ("Words.\n[end]\n", "opens or closes no block"),
-])
-def test_an_edition_block_that_breaks_the_rules_is_refused(doc: str, says: str) -> None:
-    with pytest.raises(how_to_page.HowToRefused, match=says):
-        how_to_page.edition_text(doc, edition())
-
-
-@pytest.mark.parametrize("doc", [
-    "Both sqlglot Composer and Spark Composer write it.\n",
-    "Import sqlglot_composer or\nspark_composer.\n",
-])
-def test_text_that_would_name_one_edition_twice_on_a_page_is_refused(doc: str) -> None:
-    """Outside a block, sqlglot Composer's name becomes Spark Composer's on its page."""
-    with pytest.raises(how_to_page.HowToRefused, match="Spark Composer's page would read"):
-        how_to_page.edition_text(doc, edition())
-
-
-def test_an_edition_block_may_name_both_editions() -> None:
-    doc = "[sqlglot_composer only]\nsqlglot Composer and Spark Composer differ.\n[end]\n"
-    assert how_to_page.edition_text(doc, editions.SQLGLOT_COMPOSER) == (
-        "sqlglot Composer and Spark Composer differ.\n")
 
 
 def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path) -> None:

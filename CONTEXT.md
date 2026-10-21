@@ -1,32 +1,30 @@
-# The Toolbox: sqlglot Composer and Spark Composer
+# The Toolbox: sqlglot Composer
 
 A toolbox for writing Hive SQL in Python. Queries are composed from Python functions and a small
 stack of the user's own scripts, emitted as a single Hive SQL string - sent to a query API that
-accepts only strings, or run on Spark - and traced back to the table columns they read.
+accepts only strings - and traced back to the table columns they read.
 
 ## Language
 
 ### What ships to work
 
 **Toolbox**:
-The set of Python functions that compose Hive SQL - the only thing copied to work. It comes in two
-Editions, and is copied as the Composer core and one Edition.
+The set of Python functions that compose Hive SQL - the only thing copied to work. It is copied
+as the Composer core and its Edition, sqlglot Composer.
 _Avoid_: library, package, framework, SQL module
 
 **Edition**:
-One of the two forms the Toolbox comes in, with the same functions and almost the same Hive:
-sqlglot Composer, which needs sqlglot at work, and Spark Composer, which needs pyspark and runs
-its Hive on Spark. A notebook uses one.
+A form the Toolbox comes in. Since 6.0 there is one, sqlglot Composer, which needs sqlglot at
+work; Spark Composer, which ran its Hive on Spark, was dropped.
 _Avoid_: flavour, variant, port, fork, backend, dialect
 
 **Composer core**:
-The part of the Toolbox both Editions share, written once: every function a user calls. An Edition
-adds what is its own, how it writes its Hive and runs its Example database.
+The part of the Toolbox that holds every function a user calls. The Edition adds what is its own,
+how it writes its Hive and runs its Example database.
 _Avoid_: base, common, shared library, framework
 
 **Toolbox version**:
-The feature number of the Toolbox (`5.1`), raised only when a big feature lands, and shared by both
-Editions. Two copies of the same Toolbox version are told apart by when they were exported.
+The feature number of the Toolbox (`5.1`), raised only when a big feature lands. Two copies of the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
@@ -40,8 +38,7 @@ The branch where all work happens: the Toolbox plus its tests, agents and tracke
 _Avoid_: develop, internal branch, testing branch
 
 **Warehouse**:
-Where Statements run at work: the tables, and the Hive or Spark that runs a Statement's Hive on
-them. Each Toolbox user has one; the Example database stands in for it.
+Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them. Each Toolbox user has one; the Example database stands in for it.
 _Avoid_: backend, engine, server, platform
 
 ### The user's own scripts
@@ -237,7 +234,7 @@ _Avoid_: guard, quota, throttle, safety check
 
 **Example database**:
 A small set of made-up tables, with their Table references, on which Worked examples run and each
-Guard and Warning is shown catching a wrong number. It ships inside each Edition, so Statements
+Guard and Warning is shown catching a wrong number. It ships inside the Toolbox, so Statements
 can be practised on it at work without touching the warehouse.
 _Avoid_: fixture, sample data, demo database, test tables
 

@@ -1810,9 +1810,8 @@ def create_table(t, may_exist=False):
 
     A Table reference with a Key, such as key=["job_id", "dt"], gets
     PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
-    reads the table and never checks. Spark refuses a PRIMARY KEY, so one Edition leaves it
-    out: the README's list of where the two Editions' Hive differs says which. Either way the
-    Toolbox checks the Key itself, before each write.
+    reads the table and never checks: the Toolbox checks the Key itself, before each write.
+    Spark refuses a PRIMARY KEY, so create a Saved table with a Key where Hive runs.
 
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},

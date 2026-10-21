@@ -198,9 +198,6 @@ class Allowed:
 
 # Every reviewed site, by file. A new entry needs a reason and the user's OK. Each says what
 # the site runs or reaches, and why that is local.
-ENGINE = "spark_composer/engine.py"
-WINDOWS_JOB = ("holds the Example database's processes in a Windows job, through kernel32, so "
-               "they all end with your Python")
 GIT = "runs git on a local repository, the repo's own or one in a test's temporary folder"
 PYTHON = "runs this same Python on the repo's own code, in a process of its own"
 IMPORTS_GIT = "imports subprocess, to run git on a local repository"
@@ -209,47 +206,11 @@ LOCAL_MODULES = "imports the repo's own modules by name, from its own folders"
 TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the network "
                         "under the offline trap and its backstop, so nothing is sent")
 ALLOWED: tuple[Allowed, ...] = (
-    # Spark Composer's Example database: a Spark in a process of its own, on loopback only.
-    Allowed(ENGINE, "<module>", "network", "socket",
-            "imports socket, for _launch's listener on 127.0.0.1"),
-    Allowed(ENGINE, "<module>", "process", "subprocess",
-            "imports subprocess, to start the Example database's process and ask Java"),
-    Allowed(ENGINE, "<module>", "process", "subprocess.Popen",
-            "_Launcher subclasses Popen, so a Spark launcher that quits is seen to"),
-    Allowed(ENGINE, "_launch", "network", "socket.create_server",
-            "the listener the process connects back to, on 127.0.0.1 only",
-            address="127.0.0.1"),
-    Allowed(ENGINE, "_launch", "process", "subprocess.Popen",
-            "starts this Python on engine.py itself, as the Example database's process"),
-    Allowed(ENGINE, "_check_key", "network", "multiprocessing.connection.*",
-            "checks the 32-byte key on a connection to the 127.0.0.1 listener",
-            address=PASSED_IN),
-    Allowed(ENGINE, "_serve", "network", "multiprocessing.connection.*",
-            "the process connects back to the address its parent sent on stdin: the "
-            "listener on 127.0.0.1", address=PASSED_IN),
-    Allowed(ENGINE, "_refuse_the_network", "network", "socket.socket.*",
-            "wraps socket's methods given an address, so the process refuses one off this "
-            "computer before Python looks it up; it calls none", address=NOT_CALLED),
-    Allowed(ENGINE, "_ask_java", "process", "subprocess.run",
-            "runs java -version to ask its version and folder"),
-    Allowed(ENGINE, "_end", "process", "subprocess.TimeoutExpired",
-            "catches a wait for the process that timed out"),
-    Allowed(ENGINE, "_kill_everything_started_by", "process", "subprocess.run",
-            "taskkill /T /F on the process's own tree, where Windows gave no job"),
-    Allowed(ENGINE, "_temporary_folder", "process", "ctypes.*",
-            "asks kernel32 for the temporary folder's short name, without a space"),
-    Allowed(ENGINE, "_kernel32", "process", "ctypes.*", WINDOWS_JOB),
-    Allowed(ENGINE, "_job_limits", "process", "ctypes.*", WINDOWS_JOB),
-    Allowed(ENGINE, "_job_limits.Basic", "process", "ctypes.*", WINDOWS_JOB),
-    Allowed(ENGINE, "_job_limits.Extended", "process", "ctypes.*", WINDOWS_JOB),
-    Allowed(ENGINE, "_job_holding", "process", "ctypes.*", WINDOWS_JOB),
     # The dev hooks.
     Allowed(".claude/hooks/drift_list.py", "<module>", "process", "subprocess", IMPORTS_GIT),
     Allowed(".claude/hooks/drift_list.py", "git", "process", "subprocess.run", GIT),
     Allowed(".claude/hooks/drift_list.py", "on_this_branch", "process", "subprocess.run", GIT),
     # The dev tools.
-    Allowed("tools/editions.py", "use", "dynamic code", "importlib.import_module",
-            "imports Spark Composer's own modules under sqlglot Composer's names"),
     Allowed("tools/example_gallery.py", "statement_scripts", "dynamic code",
             "importlib.import_module", LOCAL_MODULES),
     Allowed("tools/example_gallery.py", "toolbox_modules", "dynamic code",
@@ -323,6 +284,9 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/offline_trap.py", "_backstop_the_socket_methods", "network",
             "socket.socket.*", "wraps socket's methods given an address with the backstop, "
             "which stops a host the trap's tests try; it calls none", address=NOT_CALLED),
+    Allowed("tests/offline_trap.py", "_refuse_the_network", "network", "socket.socket.*",
+            "wraps socket's methods given an address, so the test Python refuses one off this "
+            "computer before Python looks it up; it calls none", address=NOT_CALLED),
     Allowed("tests/test_offline_trap.py", "<module>", "process", "subprocess", IMPORTS_PYTHON),
     Allowed("tests/test_offline_trap.py",
             "test_the_real_calls_are_refused_before_anything_is_sent", "process",
@@ -340,11 +304,6 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/test_templates.py", "test_notebook_start_runs_in_an_empty_folder",
             "dynamic code", "importlib.import_module",
             "imports a filled-in template's module by name"),
-    Allowed("tests/repo/test_edition_parity.py", "<module>", "process", "subprocess",
-            IMPORTS_PYTHON),
-    Allowed("tests/repo/test_edition_parity.py",
-            "test_without_what_spark_composer_adds_it_shows_what_sqlglot_composer_shows",
-            "process", "subprocess.run", "runs this same Python on tools/hive_corpus.py"),
     Allowed("tests/repo/test_export_clean.py", "<module>", "process", "subprocess",
             IMPORTS_GIT),
     Allowed("tests/repo/test_export_clean.py", "git", "process", "subprocess.run", GIT),
@@ -370,37 +329,11 @@ ALLOWED: tuple[Allowed, ...] = (
             "runs this same Python on a hook in .claude/hooks/"),
     Allowed("tests/repo/test_toolbox_checks.py", "<module>", "process", "subprocess",
             IMPORTS_PYTHON),
-    Allowed("tests/repo/test_toolbox_checks.py",
-            "test_spark_composer_has_the_same_public_names", "process", "subprocess.run",
-            PYTHON),
     Allowed("tests/repo/test_toolbox_checks.py", "test_ruff_passes_with_its_complexity_limit",
             "process", "subprocess.run", "runs ruff, in this same Python, on the repo"),
     Allowed("tests/repo/test_two_editions.py", "<module>", "process", "subprocess",
             IMPORTS_PYTHON),
     Allowed("tests/repo/test_two_editions.py", "_run", "process", "subprocess.run", PYTHON),
-    Allowed("tests/spark_edition/test_spark_example_database.py", "<module>", "network",
-            "socket", "imports socket, for a stray connection to the Example database's "
-            "listener on 127.0.0.1"),
-    Allowed("tests/spark_edition/test_spark_example_database.py", "<module>", "process",
-            "subprocess", "imports subprocess, to run Python and powershell"),
-    Allowed("tests/spark_edition/test_spark_example_database.py",
-            "test_a_stray_connection_doesnt_hold_up_a_start.knock", "network",
-            "socket.create_connection",
-            "a stray connection to the Example database's listener, on 127.0.0.1 only",
-            address="127.0.0.1"),
-    Allowed("tests/spark_edition/test_spark_example_database.py", "_processes_naming",
-            "process", "subprocess.run",
-            "powershell Get-CimInstance, listing this computer's processes"),
-    Allowed("tests/spark_edition/test_spark_example_database.py", "_other_python", "process",
-            "subprocess.Popen", PYTHON),
-    Allowed("tests/spark_edition/test_spark_example_database.py",
-            "test_a_python_that_stops_mid_query_stops_at_once_and_leaves_nothing", "process",
-            "subprocess.run", PYTHON),
-    Allowed("tests/spark_edition/test_spark_example_database.py",
-            "test_a_python_under_its_trap_refuses_a_lookup_off_this_computer", "process",
-            "subprocess.run", TRIES_UNDER_THE_TRAP),
-    Allowed("tests/spark_edition/test_spark_independence.py", "_loaded", "dynamic code",
-            "importlib.import_module", LOCAL_MODULES),
 )
 
 

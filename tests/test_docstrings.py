@@ -16,9 +16,8 @@ import inspect
 
 import pytest
 
-import editions
 import sqlglot_composer
-from conftest import edition, skip_unless_the_example_database_runs
+from conftest import skip_unless_the_example_database_runs
 
 PUBLIC = list(sqlglot_composer.__all__)
 # The admin module's names, as admin.drop_table: imported by name, not by the star import.
@@ -29,14 +28,13 @@ RUNS_A_QUERY = ("run(", "check_key(")
 
 
 def docstring_of(name: str) -> str:
-    """A public name's docstring, naming this run's Edition: the Composer core's are written
-    once, naming sqlglot Composer."""
+    """A public name's docstring."""
     if name in CONSTANTS:
         return sqlglot_composer.__doc__ or ""
     value = sqlglot_composer
     for part in name.split("."):
         value = getattr(value, part)
-    return editions.named_for(edition(), inspect.getdoc(value) or "")
+    return inspect.getdoc(value) or ""
 
 
 def first_line(name: str) -> str:

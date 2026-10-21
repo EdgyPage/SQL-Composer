@@ -10,12 +10,9 @@ well: functions, keyword arguments, imports, lists, dicts, pandas DataFrames. Yo
 a little: you can read `SELECT ... FROM ... WHERE` but not much more. You have never seen this
 Toolbox before, and nobody is there to explain it.
 
-The Toolbox comes in two Editions with the same names and docstrings: `sqlglot_composer`,
-sqlglot Composer, which writes its Hive with sqlglot, and `spark_composer`, Spark Composer,
-which runs on Spark. Both run the code in `composer_core`, which a user copies beside their
-Edition's folder; most functions and docstrings live there. Read `sqlglot_composer` unless you
-are asked to read as a Spark user; then read `spark_composer` and the README's part for Spark
-users, and run its examples where Java 17 to 21 is installed. The README is
+The Toolbox is `sqlglot_composer`, sqlglot Composer, which writes its Hive with sqlglot, and
+runs the code in `composer_core`, which a user copies beside it; most functions and docstrings
+live there. The README is
 `docs/clean-branch-readme.md`, which the export fills in;
 `python tools/export_clean.py --preview <an empty folder>` builds it as `main` will hold it.
 

@@ -1,7 +1,6 @@
 """The code both Editions of the Toolbox share. Never import it yourself.
 
-Import your Edition's folder instead, sqlglot_composer or spark_composer, which loads this
-folder beside it and plugs in the two files of its own that write and run the Hive:
+Import sqlglot_composer instead, which loads this folder beside it and plugs in the two files of its own that write and run the Hive:
 
     from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
 

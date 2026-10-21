@@ -2,8 +2,7 @@
 that build, SELECTs that run, and a README that names every file.
 
 Each project is written again by `tools/example_project.py` into a temporary folder and
-compared with the committed one, file by file, line endings aside. In Spark Composer's run it
-is written for Spark Composer, and compared with the committed project named for it.
+compared with the committed one, file by file, line endings aside.
 
 The project's scripts import their own folders, such as `table_references`, as a notebook
 started in the project's folder does. The Worked examples have folders of the same names, so
@@ -12,8 +11,7 @@ the project's modules are imported with its folder first on the path, then put a
 The starter project's tests come first, then the intermediate project's. A SELECT that reads a
 Saved table, which only a warehouse holds, runs with the Saved table stood in for by the rows
 the Statement that writes it previews. One that sqlglot's executor can't run, such as one with
-row_number or week_start, runs only in Spark Composer's run, and is skipped in sqlglot
-Composer's with the reason.
+row_number or week_start, isn't run.
 """
 
 from __future__ import annotations
@@ -28,10 +26,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import editions
 import example_project
 from conftest import (
-    INSERT, ROOT, edition, every_day, example_rows, functions_given,
+    INSERT, ROOT, example_rows, functions_given,
     is_a_select_on_the_example_database, previewed_days, project_on_the_path, standing_in,
     without_the_write,
 )
@@ -84,7 +81,7 @@ def example(project: dict, name: str):
 def write_project(into: Path, project: str = "starter") -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(ROOT / "tools" / "example_project.py"), "--project", project,
-         "--edition", edition().option, "--into", str(into)],
+         "--into", str(into)],
         capture_output=True, text=True, check=False,
     )
 
@@ -103,7 +100,7 @@ def test_the_committed_project_is_what_the_generator_writes(tmp_path: Path, proj
     assert example_project.project_files(into) == committed
     stale = [relative for relative in committed
              if (into / relative).read_text(encoding="utf-8")
-             != editions.named_for(edition(), (folder / relative).read_text(encoding="utf-8"))]
+             != (folder / relative).read_text(encoding="utf-8")]
     assert stale == [], (
         f"{stale} differ from what the generator writes: run "
         f"python tools/example_project.py --project {project}"
@@ -382,16 +379,6 @@ I_STEPS = ("create", "preview", "write_days")
 I_DAYS = ("2026-09-14", "2026-09-18", "2026-09-24")
 WINDOW = ("2026-09-22", "2026-09-24")  # the last 3 days, as each run writes them
 ALL_DAYS = ("2026-09-11", "2026-09-24")  # every day the Example database holds
-# Why sqlglot Composer's Example database skips a SELECT.
-NO_WINDOW_FUNCTIONS = ("sqlglot's executor has no window functions, so it can't run "
-                       "row_number: Spark Composer's run checks it")
-NO_WEEK_START = ("sqlglot's executor has no NEXT_DAY, so it can't run week_start: Spark "
-                 "Composer's run checks it")
-
-
-def skip_in_sqlglot_composer(reason: str) -> None:
-    if edition() is editions.SQLGLOT_COMPOSER:
-        pytest.skip(reason)
 
 
 def i_arguments(intermediate: dict) -> dict:
@@ -621,16 +608,6 @@ def test_example_2_finds_each_jobs_newest_owner_without_row_number(
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
-def test_example_2_finds_each_jobs_newest_owner_with_row_number(
-        intermediate: dict, day: str) -> None:
-    skip_in_sqlglot_composer(NO_WINDOW_FUNCTIONS)
-    module = example(intermediate, I_EXAMPLES[1])
-    got = run(module.newest_owners(day), send=example_database.send)
-    same(got, newest_owners_on(day))
-
-
-@pytest.mark.needs_example_database
-@pytest.mark.parametrize("day", I_DAYS)
 def test_example_3_groups_each_teams_day_from_job_events(intermediate: dict, day: str) -> None:
     got = run(example(intermediate, I_EXAMPLES[2]).team_day_from_job_events(day),
               send=example_database.send)
@@ -647,25 +624,6 @@ def test_intermediate_example_3_previews_each_teams_day_from_both_saved_tables(
              "job_day_costs": previewed_days(example(intermediate, I_EXAMPLES[0]), [day])}
     hive = standing_in(to_hive(example(intermediate, I_EXAMPLES[2]).preview(day)), saved)
     same(example_database.send(hive), team_day_on(day))
-
-
-@pytest.mark.needs_example_database
-def test_example_3_adds_each_teams_days_up_into_weeks(intermediate: dict) -> None:
-    skip_in_sqlglot_composer(NO_WEEK_START)
-    days = every_day(*ALL_DAYS)
-    team_days = pd.concat([team_day_on(day).assign(dt=day) for day in days], ignore_index=True)
-    hive = standing_in(to_hive(example(intermediate, I_EXAMPLES[2]).week_totals(*ALL_DAYS)),
-                       {"team_days": team_days})
-    monday = pd.to_datetime(team_days.dt)
-    monday = (monday - pd.to_timedelta(monday.dt.weekday, unit="D")).dt.strftime("%Y-%m-%d")
-    expected = (team_days.assign(week=monday)
-                .groupby(["week", "team"])[["events", "runs", "minutes", "cost_cents"]]
-                .agg(lambda numbers: numbers.sum(min_count=1)).reset_index())
-    got = example_database.send(hive).sort_values(["week", "team"])
-    same(got, expected)
-    week = expected[expected.week == "2026-09-14"].set_index("team").runs
-    # report_build's run on 2026-09-14 counts for data, and its run on 09-18 for finance
-    assert week.to_dict() == {"data": 7 + 1, "finance": 5 + 1}
 
 
 # --- The quality checks --------------------------------------------------------------------------
@@ -734,8 +692,8 @@ def test_every_intermediate_select_on_the_example_databases_tables_runs(
             for s in statements:
                 if not is_a_select_on_the_example_database(s):
                     continue
-                if edition() is editions.SQLGLOT_COMPOSER and "ROW_NUMBER" in to_hive(s):
-                    continue  # NO_WINDOW_FUNCTIONS: Spark Composer's run runs it
+                if "ROW_NUMBER" in to_hive(s):
+                    continue  # sqlglot's executor has no window functions
                 run(s, send=example_database.send)
                 ran.append(f"{name}.{function}")
     expected = [f"{I_EXAMPLES[0]}.preview", f"{I_EXAMPLES[1]}.preview",
@@ -747,8 +705,7 @@ def test_every_intermediate_select_on_the_example_databases_tables_runs(
                 *["quality_checks.every_check"] * (3 * len(intermediate["settings"].TABLES_READ)
                                                    + 1),
                 "quality_checks.jobs_not_run"]
-    if edition() is editions.SQLGLOT_COMPOSER:
-        expected.remove(f"{I_EXAMPLES[1]}.newest_owners")
+    expected.remove(f"{I_EXAMPLES[1]}.newest_owners")
     assert sorted(ran) == sorted(expected)
 
 

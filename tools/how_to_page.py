@@ -1,19 +1,15 @@
-"""Write an Edition's how-to page, `how_to.html` in its folder, from the how-tos.
+"""Write the how-to page, `sqlglot_composer/how_to.html`, from the how-tos.
 
 Run it on `dev` after changing a how-to in `worked_examples/how_to/`, or anything that changes
 what a how-to's steps show:
 
     python tools/how_to_page.py
-    python tools/how_to_page.py --edition spark
 
-The first writes `sqlglot_composer/how_to.html`, and the second `spark_composer/how_to.html`,
-whose Example database needs Java 17. A test fails while a committed page differs from what
-this writes.
+A test fails while a committed page differs from what this writes.
 
 A how-to walks through one job from start to finish, as one fresh notebook. Each is a file
 `worked_examples/how_to/NN_slug.py`: NN is its number, and the page's link to it is `#slug`.
-The file holds a docstring, written for sqlglot Composer as the Worked examples are (Spark
-Composer's page names its own folder), and any pandas stand-ins (below). The docstring is laid
+The file holds a docstring and any pandas stand-ins (below). The docstring is laid
 out like this:
 
     Start a notebook                    <- the title, on line 1
@@ -37,20 +33,14 @@ Under the headings go:
   with, and each file it writes: a .py or .md file in full, folded when it is longer than
   FOLD_AFTER lines, or named only when it is the same as one shown before, and an .html file
   by name;
-- indented code, shown but not run, for what works only at work, such as your own send;
-- a block that only one Edition's page shows, as written, between a line
-  `[sqlglot_composer only]` or `[spark_composer only]` and a line `[end]`: for what differs,
-  such as the send, or a mistake only one Edition's users make. It holds prose, indented code
-  and `>>>` steps, but no heading and no other block. Its steps run only for its own Edition.
+- indented code, shown but not run, for what works only at work, such as your own send.
 
-Where sqlglot Composer's Example database can't run a Statement's Hive, such as one with
+Where the Example database can't run a Statement's Hive, such as one with
 row_number or week_start, the how-to's file gives a pandas stand-in after its docstring: a
 function `NAME_in_pandas()`, which returns the DataFrame the Statement the steps call `NAME`
 gives, as the Worked examples' `*_in_pandas` functions do. When the Example database's send
 can't run that Statement's Hive, the stand-in's DataFrame comes back instead, both on the page,
-labelled as computed in pandas as the Example gallery labels it, and in the doctest. Spark
-Composer's Example database runs it, and the doctest's output, the same on both Editions, holds
-the stand-in to Spark's result.
+labelled as computed in pandas as the Example gallery labels it, and in the doctest.
 
 While the steps run, today is 2026-09-25, as on the Example gallery, and each how-to works in a
 folder of its own, deleted afterwards. A lineage's time, your scripts' commit and the Toolbox
@@ -83,11 +73,6 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import editions  # noqa: E402
-
-if __name__ == "__main__":
-    # Before any Toolbox import: `import sqlglot_composer` then gives the Edition asked for.
-    editions.use(editions.edition_on_command_line(sys.argv))
-
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
@@ -160,7 +145,7 @@ class HowTo:
     title: str
     # The name of its Group: Getting started or Intermediate.
     group: str
-    # The rest of its docstring, for this Edition's page: see edition_text.
+    # The rest of its docstring: its six sections.
     text: str
     # Its pandas stand-ins, by the name of the Statement each stands in for: see stand_ins_of.
     stand_ins: dict = field(default_factory=dict, compare=False)
@@ -193,70 +178,11 @@ def stand_ins_of(path: Path) -> dict[str, Callable[[], pd.DataFrame]]:
             if name.endswith("_in_pandas") and callable(function)}
 
 
-# A block only one Edition's page shows, and the lines that open or close one.
-ONLY = re.compile(r"^\[(\w+) only\]\n(.*?)^\[end\]\n?", re.MULTILINE | re.DOTALL)
-MARKER = re.compile(r"^\[(\w+ only|end)\]$", re.MULTILINE)
-# The same block, in the text edition_text gives with `marked`.
-MARKED = re.compile(r"^\[only\]\n(.*?)^\[end\]\n?", re.MULTILINE | re.DOTALL)
-
-
-def edition_text(doc: str, edition: editions.Edition, marked: bool = False) -> str:
-    """A how-to's text for `edition`: named for its folder, with only its own Edition's blocks.
-
-    Everything outside a block is written for sqlglot Composer and is named for `edition`; a
-    block is kept as written, or left out on the other Edition's page. `marked` keeps a block's
-    edges, as lines `[only]` and `[end]`, for the page to show where it is.
-    """
-    pieces, outside, at = [], [], 0
-    for found in ONLY.finditer(doc):
-        folder, body = found.groups()
-        if folder not in editions.EDITIONS:
-            raise HowToRefused(f"[{folder} only] names no Edition: write [sqlglot_composer only] "
-                               "or [spark_composer only].")
-        if re.search(r"^#", body, re.MULTILINE) or MARKER.search(body):
-            raise HowToRefused(f"A [{folder} only] block holds a heading or another block. It "
-                               "may hold only prose, indented code and >>> steps: put the "
-                               "heading outside it, and give each Edition's text a block of "
-                               "its own.")
-        outside.append(doc[at:found.start()])
-        pieces.append(editions.named_for(edition, outside[-1]))
-        if folder == edition.folder:
-            pieces.append(f"[only]\n{body}[end]\n" if marked else body)
-        at = found.end()
-    outside.append(doc[at:])
-    pieces.append(editions.named_for(edition, outside[-1]))
-    for piece in outside:
-        refuse_one_edition_named_twice(piece)
-    stray = [found for piece in outside for found in MARKER.findall(piece)]
-    if stray:
-        raise HowToRefused(f"A line [{stray[0]}] opens or closes no block: a block is a line "
-                           "[sqlglot_composer only] or [spark_composer only], then its text, "
-                           "then a line [end].")
-    return "".join(pieces)
-
-
-def refuse_one_edition_named_twice(text: str) -> None:
-    """Refuse text outside a block that, named for an Edition, would name it twice in a row.
-
-    "sqlglot Composer and Spark Composer" reads "Spark Composer and Spark Composer" on Spark
-    Composer's page, so text both pages show names both Editions as "the two Editions".
-    """
-    for edition in editions.EDITIONS.values():
-        swapped = editions.named_for(edition, text)
-        for name in (edition.product, edition.folder):
-            twice = re.search(rf"{re.escape(name)},?\s+(?:and|or)\s+{re.escape(name)}", swapped)
-            if twice:
-                read = " ".join(twice[0].split())
-                raise HowToRefused(f"{edition.product}'s page would read {read!r}. Outside a "
-                                   "block, write \"the two Editions\", or give each Edition's "
-                                   "text a block of its own.")
-
-
 LAYOUT = re.compile(r"(?P<title>[^\n]+)\n\nFor: (?P<group>[^\n]+)\n\n(?P<rest>.*)", re.DOTALL)
 
 
-def read_how_to(path: Path, edition: editions.Edition = EDITION) -> HowTo:
-    """A how-to, read from its file, for `edition`'s page."""
+def read_how_to(path: Path) -> HowTo:
+    """A how-to, read from its file."""
     laid_out = LAYOUT.fullmatch(docstring_of(path))
     if laid_out is None:
         raise HowToRefused(f"{path.name} must start with its title on line 1 and a line such as "
@@ -270,7 +196,7 @@ def read_how_to(path: Path, edition: editions.Edition = EDITION) -> HowTo:
         raise HowToRefused(f"{path.name} is how-to {number}, but the {name} how-tos are "
                            f"{numbers.start} to {numbers.stop - 1}.")
     return HowTo(number, slug_of(path), laid_out["title"], name,
-                 edition_text(laid_out["rest"], edition, marked=True), stand_ins_of(path))
+                 laid_out["rest"], stand_ins_of(path))
 
 
 def sections(how_to: HowTo) -> list[tuple[str, str]]:
@@ -499,23 +425,12 @@ def live_steps_html(text: str, notebook: Notebook) -> str:
     return "\n".join(block for block in shown if block)
 
 
-def chunk_html(text: str, notebook: Notebook) -> str:
-    """Text under one heading, with each block only this Edition's page shows marked as such."""
-    shown = []
-    for position, piece in enumerate(MARKED.split(text)):
-        html = live_steps_html(piece, notebook)
-        if position % 2 and html:  # a block only this Edition's page shows
-            html = f'<div class="only">\n{html}\n</div>'
-        shown.append(html)
-    return "\n".join(block for block in shown if block)
-
-
 def section_html(text: str, notebook: Notebook) -> str:
     """One fixed heading's text: its steps or mistakes each under its own heading."""
     parts = re.split(r"^### (.+)\n", text, flags=re.MULTILINE)
-    shown = [chunk_html(parts[0], notebook)]
+    shown = [live_steps_html(parts[0], notebook)]
     for heading, chunk in zip(parts[1::2], parts[2::2]):
-        shown += [f"<h5>{linked(heading)}</h5>", chunk_html(chunk, notebook)]
+        shown += [f"<h5>{linked(heading)}</h5>", live_steps_html(chunk, notebook)]
     return "\n".join(block for block in shown if block)
 
 
@@ -625,7 +540,6 @@ HOW_TO_STYLE = """h5{font-size:15px;margin:16px 0 4px;color:#333}
 .groups ul{margin:4px 0}
 .badge{font-size:12px;font-weight:600;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:2px}
 .badge.getting-started{color:#1f5a2a;background:#e6f4e8} .badge.intermediate{color:#6b4500;background:#fbefdc}
-.only{margin:0}
 pre.file{white-space:pre-wrap}
 details summary{cursor:pointer;color:#555;margin:4px 0}
 .code{position:relative} .code pre{padding-right:64px}
@@ -695,7 +609,7 @@ __SCRIPT__</script>
 def main() -> int:
     try:
         page = how_to_page()
-    except (RuntimeError, HowToRefused, editions.SwapRefused) as why:
+    except (RuntimeError, HowToRefused) as why:
         print(why, file=sys.stderr)
         return 1
     PAGE_PATH.write_text(page, encoding="utf-8", newline="\n")

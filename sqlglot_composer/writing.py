@@ -32,7 +32,7 @@ def _hive_with_hints():
     It also writes GROUPING SETS straight after GROUP BY's columns, as in GROUP BY a, b
     GROUPING SETS ((a, b), a, ()): Hive refuses a comma before it, which an older sqlglot,
     such as 25.24.2, writes. And it escapes a string value's characters by the Composer core's
-    table, trees.HIVE_ESCAPES, as Spark Composer does, whatever sqlglot version runs.
+    table, trees.HIVE_ESCAPES, whatever sqlglot version runs.
     """
     hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
     hive.generator_class = type("HiveWithHints", (hive.generator_class,),

@@ -41,10 +41,8 @@ text to a function of yours, `send`, which runs it and gives back a pandas DataF
 connect, retry or save files stays in your `send`, so the Toolbox works with whatever your
 notebook uses to reach the warehouse.
 
-[sqlglot_composer only]
-With sqlglot Composer, `send` calls your query API, whatever your team uses to run a Hive
-string, and turns the rows that come back into a pandas DataFrame, each column named. Write it
-once, in your first cell:
+`send` calls your query API, whatever your team uses to run a Hive string, and turns the rows
+that come back into a pandas DataFrame, each column named. Write it once, in your first cell:
 
     import pandas as pd
 
@@ -62,25 +60,10 @@ names on; don't type them yourself, since each Statement has its own columns:
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
 
-If your notebook has a Spark session, `spark`, that reads the warehouse's tables, use Spark
-Composer instead. Its `send` runs the Hive on your `spark`, and where Spark would read a piece
-of Hive differently, it writes that piece so Spark gives what Hive gives; the README lists each
-place. Its folder, `spark_composer`, has its own copy of this page.
-[end]
-[spark_composer only]
-With Spark Composer, `send` runs the Hive on your notebook's own `spark` session, and turns
-Spark's DataFrame into a pandas one. Write it once, in your first cell:
-
-    send = lambda hive: spark.sql(hive).toPandas()
-
-`lambda hive: ...` is a function on one line: it takes the Hive text as `hive` and gives back
-what follows the colon. `spark.sql(hive)` runs the Hive on Spark, and `.toPandas()` fetches
-the rows into a pandas DataFrame.
-
-The Example database runs on Spark too: its own Spark, apart from yours, which needs Java 17
-to 21 on your computer. The first query a notebook sends it prints a Note saying it is starting
-that Spark, and takes about 15 seconds; later queries take about a second.
-[end]
+If your notebook has a Spark session, `spark`, that reads the warehouse's tables, your send
+can be `send = lambda hive: spark.sql(hive).toPandas()`. Spark reads a few pieces of Hive its own
+way, such as a division by 0, which stops a whole query under its ANSI mode where Hive gives
+NULL: check a Statement's numbers on Spark before you rely on them.
 
 There is no warehouse on this page, so the next steps use the Example database's own send,
 `example_database.send`, which runs Hive on the Example database's seven made-up tables. At work
@@ -182,7 +165,6 @@ At work, try your own send on its own, with a query that reads no table, such as
 
 ### A send that gives back the wrong thing
 
-[sqlglot_composer only]
 Many query APIs give each row as a tuple, without the column names. A send that hands those
 rows to `pd.DataFrame` without the names gives back a DataFrame whose columns are numbered 0, 1
 and 2. This page has no query API, so a stand-in plays yours here, giving each row as a tuple:
@@ -214,26 +196,6 @@ TypeError:
 
 The fix is the message's: end your send with `return pd.DataFrame(rows)`, with the column
 names when each row is a tuple, as the step Write your send shows.
-[end]
-[spark_composer only]
-`spark.sql(hive)` gives back Spark's own DataFrame, which hasn't fetched its rows yet. A send
-that leaves out `.toPandas()` hands that to `run`, which stops: there are no rows yet to count
-or read. Your own `spark` isn't in this notebook, so a stand-in plays its DataFrame here; like
-Spark's, it has a `toPandas` method, which is how `run` knows it is Spark's:
-
->>> class SparkDataFrame:
-...     def toPandas(self):
-...         return pd.DataFrame()
->>> send_without_to_pandas = lambda hive: SparkDataFrame()
->>> run(failed, send=send_without_to_pandas)
-Traceback (most recent call last):
-...
-TypeError:
-  What happened:  Your send gave back a Spark DataFrame, where a pandas DataFrame goes.
-...
-
-The fix is the message's: end your send with `.toPandas()`.
-[end]
 
 ### A Statement that doesn't give the days it reads
 
@@ -256,21 +218,6 @@ composer_core.refusals.LoadRefused:
 Give the days as the message says, with `between` or `last_n_days` in `WHERE`, as `failed`
 does. The message's Opt-out, `reads_all_partitions=True`, reads every day: use it only for a
 small table you truly need whole.
-
-### Importing both Editions
-
-[sqlglot_composer only]
-Use one Edition in a notebook. After `from sqlglot_composer import *`, a second import line
-`from spark_composer import *` stops with a message: the two Editions share `composer_core`,
-which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in
-any of your own .py files it imports, then restart the notebook's kernel.
-[end]
-[spark_composer only]
-Use one Edition in a notebook. After `from spark_composer import *`, a second import line
-`from sqlglot_composer import *` stops with a message: the two Editions share `composer_core`,
-which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in
-any of your own .py files it imports, then restart the notebook's kernel.
-[end]
 
 ## Next
 

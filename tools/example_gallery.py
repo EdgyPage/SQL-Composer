@@ -1,16 +1,13 @@
-"""Write an Edition's Example gallery, `examples.html` in its folder, from the Worked examples.
+"""Write the Example gallery, `sqlglot_composer/examples.html`, from the Worked examples.
 
 Run it on `dev` after changing a docstring's example, a Statement script in
 `worked_examples/statements/`, or anything that changes the Hive the Toolbox writes:
 
     python tools/example_gallery.py
-    python tools/example_gallery.py --edition spark
 
-The first writes `sqlglot_composer/examples.html`, and the second
-`spark_composer/examples.html`, whose Example database needs Java 17. A test fails while a
-committed page differs from what this writes. It runs every Statement on the Edition's Example
-database, which says when it can't, such as on a sqlglot older than the pin in
-requirements-dev.txt. The Worked examples' Python is shown naming the Edition's own folder.
+A test fails while a committed page differs from what this writes. It runs every Statement on
+the Example database, which says when it can't, such as on a sqlglot older than the pin in
+requirements-dev.txt.
 
 The page holds two kinds of Worked example:
 
@@ -23,9 +20,8 @@ The page holds two kinds of Worked example:
   `run(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
-Statement, as sqlglot Composer's can't run row_number or week_start, a pandas result from the
-Worked example that builds the same Hive stands in, labelled as such; Spark Composer's runs them
-all. Everything is plain HTML; a few lines of script add a filter box.
+Statement, as it can't run row_number or week_start, a pandas result from the Worked example
+that builds the same Hive stands in, labelled as such. Everything is plain HTML; a few lines of script add a filter box.
 """
 
 from __future__ import annotations
@@ -52,11 +48,6 @@ WORKED_EXAMPLES = ROOT / "worked_examples"
 sys.path[:0] = [str(ROOT), str(WORKED_EXAMPLES)]
 
 import editions  # noqa: E402
-
-if __name__ == "__main__":
-    # Before any Toolbox import: `import sqlglot_composer` then gives the Edition asked for.
-    editions.use(editions.edition_on_command_line(sys.argv))
-
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
@@ -119,7 +110,7 @@ def docstrings() -> list[tuple[list[str], str]]:
                 found.append(([name.removeprefix(f"{editions.CORE}.")], doc))
                 seen.add(doc)
     # The Composer core's docstrings are written once, naming sqlglot Composer.
-    return [(names, editions.named_for(EDITION, doc)) for names, doc in found]
+    return found
 
 
 def names_in(code: str) -> list[str]:
@@ -173,8 +164,7 @@ def result_html(s, pandas_result=None, which: str = "") -> str:
             return ('<p class="note">Sent to the Example database one SET line at a time; '
                     "run gives back None.</p>")
         if isinstance(result, str):
-            # explain's plan, as text: only its heading, since Spark numbers the columns in
-            # the steps under it afresh each run.
+            # explain's plan, as text: only its heading.
             heading = result.splitlines()[0] if result else ""
             return (label(f"Result{which} on the Example database, its first line")
                     + table_html(pd.DataFrame({"plan": [heading]})))
@@ -212,24 +202,13 @@ def code_html(text: str, kind: str = "python") -> str:
 
 
 def source_html(text: str) -> str:
-    """A Worked example's Python, naming this Edition's folder, as it does pasted into it.
-
-    The Worked examples are written for sqlglot Composer, and import sqlglot_composer.
-    """
-    return code_html(editions.named_for(EDITION, text))
-
-
-# What Spark Composer adds to the Hive, by the row of DECLARED_DIFFERENCES that says why, and
-# how each shows in its Hive: NULLIF around a divisor, and the D of a float.
-ADDED = {"division": re.compile(r"/ NULLIF\("), "float": re.compile(r"\b\d+\.\d+D\b")}
+    """A Worked example's Python."""
+    return code_html(text)
 
 
 def hive_html(text: str) -> str:
-    """A Statement's Hive, with a note on each thing in it that Spark Composer adds, and why."""
-    notes = [editions.DECLARED_DIFFERENCES[name].why for name, shows in ADDED.items()
-             if EDITION is editions.SPARK_COMPOSER and shows.search(text)]
-    return code_html(text, "hive") + "".join(f'<p class="note">{inline(note)}</p>'
-                                              for note in notes)
+    """A Statement's Hive."""
+    return code_html(text, "hive")
 
 
 def inline(text: str) -> str:
@@ -633,7 +612,6 @@ def gallery_page() -> str:
                    if from_pandas else ""),
         but_not_pandas=(", but not\nthe pandas that computes a result the Example database can't run"
                         if from_pandas else ""),
-        send_at_work=SEND_AT_WORK.get(EDITION.folder, ""),
         version=escape(sqlglot_composer.TOOLBOX_VERSION),
         worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
@@ -647,15 +625,6 @@ def gallery_page() -> str:
         documented="\n".join(entry for _, entry in documented),
         filter_script=FILTER_SCRIPT,
     )
-
-
-# What a page adds on the send a user gives run(...) at work, by the Edition's folder.
-SEND_AT_WORK = {
-    "spark_composer": """
-<p>At work your notebook's own <code>spark</code> runs the Hive: where an example gives
-<code>run(...)</code> <code>send=run_query</code>, give it
-<code>send=lambda hive: spark.sql(hive).toPandas()</code>.</p>""",
-}
 
 
 def contents_html(entries: list[tuple[str, str, str]]) -> str:
@@ -704,7 +673,7 @@ this one in the <code>{folder}</code> folder: how-to 1 starts a notebook.</p>
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
 to get the results shown. <code>first_look(t)</code> reads your own yesterday too, so pasted, it
-shows no rows here.</p>{send_at_work}
+shows no rows here.</p>
 <p>To paste a docstring's example, first run <code>from {folder} import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
 examples on their own are scripts kept with the Toolbox's own source, not in the

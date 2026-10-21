@@ -257,7 +257,7 @@ def _refuse_missing_part(missing: str, error: Exception | None = None) -> None:
 
 
 def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) -> None:
-    """Refuse a query sqlglot couldn't read or run, as Spark Composer's Spark refuses one."""
+    """Refuse a query sqlglot couldn't read or run, as a warehouse refuses one."""
     names = [f"ops.{name}" for name in tables]
     listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
     raise RuntimeError(four_part_message(
@@ -370,7 +370,7 @@ def _sqlglot_said(error: Exception) -> str:
 
 def _check_tables(tree, tables: dict) -> None:
     """Refuse a table the query names with a database that isn't one of the Example database's,
-    such as mart.jobs, as Spark Composer's Spark refuses it, before a column of it is blamed."""
+    such as mart.jobs, as a warehouse refuses it, before a column of it is blamed."""
     from sqlglot import exp
 
     for table in tree.find_all(exp.Table):

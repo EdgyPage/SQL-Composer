@@ -13,14 +13,12 @@ core, `composer_core/`, and each Edition `tools/editions.py` names in EXPORTED:
   `# Composer core 2.0, exported ...`, every folder with the same time;
 - it writes the list of the folder's files into its `__init__.py`, for the import self-check;
 - for each Edition, it writes a copy of the Example projects and the Templates, which dev holds
-  for sqlglot Composer in `example_projects/` and `templates/`, into
-  `example_projects/<Edition's folder>/` and `templates/<Edition's folder>/`: each file named
-  for that Edition with `named_for`, each place it names, such as
+  in `example_projects/` and `templates/`, into `example_projects/<Edition's folder>/` and
+  `templates/<Edition's folder>/`: each place a file names, such as
   `example_projects/starter/`, as main has it, and line 1 stamped, for example
-  `# Spark Composer 2.0, exported 2026-10-02 14:05 - copy it, then edit your copy`;
+  `# sqlglot Composer 2.0, exported 2026-10-02 14:05 - copy it, then edit your copy`;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
-  places the two Editions' Hive differs, from `DECLARED_DIFFERENCES` in `tools/editions.py`,
-  the list of how-tos, from `worked_examples/how_to/`, the list of Templates, as
+  list of how-tos, from `worked_examples/how_to/`, the list of Templates, as
   `templates/README.md`'s tables give them, and a cheat sheet: one line per public name, grouped by file,
   from each docstring's first line;
 - it copies `LICENSE`, the MIT No Attribution license, and `requirements.txt`, what the
@@ -30,19 +28,16 @@ It then checks what it built:
 
 - each Toolbox file imports only what work has (the standard library, pandas, numpy, and its
   Edition's library where `tools/editions.py` allows it);
-- each stamped Edition, with the Composer core beside it, imports in a fresh Python that can't
-  import the other Edition's library, and, copied without the Composer core, stops on import
-  and says to copy `composer_core`;
-- importing both Editions in one Python stops;
-- each Example project's `run_pipeline.py` runs its dry run, in a fresh Python that can't
-  import the other Edition's library, finding the Toolbox as its README says, and leaves no
-  file behind; a dry run prints every step's Hive and sends nothing, so Spark Composer's needs
-  no Java;
+- each stamped Edition, with the Composer core beside it, imports in a fresh Python, and,
+  copied without the Composer core, stops on import and says to copy `composer_core`;
+- each Example project's `run_pipeline.py` runs its dry run, in a fresh Python, finding the
+  Toolbox as its README says, and leaves no file behind; a dry run prints every step's Hive and
+  sends nothing;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
   is imported or run: the Toolbox, each Edition's copies of the Example projects and the
   Templates, and the README, pages included and Markdown read as pages, so that none of it can
   reach the network;
-- the folders have one version, and both Editions describe the same public names the same way;
+- the folders have one version;
 - the tree holds nothing outside its allowlist: the Composer core's folder and each Edition's,
   flat, each Edition's copies of the Example projects and the Templates, `.github/README.md`,
   `LICENSE` and `requirements.txt`.
@@ -87,11 +82,9 @@ LICENSE = "LICENSE"
 REQUIREMENTS = "requirements.txt"
 ROOT_FILES = (LICENSE, REQUIREMENTS)
 VERSION_MARKER = "<!-- VERSION -->"
-DIFFERENCES_MARKER = "<!-- DIFFERENCES -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
-# The folders main holds a copy of for each Edition, for the user to copy and edit: on dev they
-# hold sqlglot Composer's, and on main each Edition's copy sits in a folder named for it, such as
-# example_projects/spark_composer/.
+# The folders main holds a copy of for each Edition, for the user to copy and edit: on main each
+# Edition's copy sits in a folder named for it, such as example_projects/sqlglot_composer/.
 EXAMPLE_PROJECTS = "example_projects"
 TEMPLATES = "templates"
 COPIED = (EXAMPLE_PROJECTS, TEMPLATES)
@@ -202,34 +195,26 @@ def last_error(stderr: str) -> str:
     return "\n".join(lines[start:])
 
 
-def other_libraries(edition: editions.Edition) -> list[str]:
-    """The libraries of the Editions other than `edition`, such as ["pyspark"]."""
-    return [other.library for other in editions.EDITIONS.values() if other is not edition]
-
-
-def fresh_python(folder: Path, code: str, blocked: list[str] | None = None,
-                 path: str | None = None) -> subprocess.CompletedProcess:
-    """Run `code` in a fresh Python started in `folder`, which can't import the libraries
-    `blocked` names, with `path`, if given, as its PYTHONPATH, and nothing else on it."""
+def fresh_python(folder: Path, code: str, path: str | None = None) -> subprocess.CompletedProcess:
+    """Run `code` in a fresh Python started in `folder`, with `path`, if given, as its
+    PYTHONPATH, and nothing else on it."""
     environment = {name: value for name, value in os.environ.items() if name != "PYTHONPATH"}
     environment["PYTHONIOENCODING"] = "utf-8"
     if path is not None:
         environment["PYTHONPATH"] = path
-    # A None in sys.modules makes any import of that library fail loudly.
     return subprocess.run(
-        [sys.executable, "-B", "-c",
-         f"import sys; sys.modules.update(dict.fromkeys({blocked or []!r})); {code}"],
+        [sys.executable, "-B", "-c", code],
         cwd=folder, env=environment, capture_output=True, text=True, encoding="utf-8",
     )
 
 
 def import_stamped(into: Path, edition: editions.Edition) -> dict:
-    """Import an Edition's stamped folder in a fresh Python that can't import the other
-    Edition's library, and return `describe_toolbox()` of it."""
+    """Import an Edition's stamped folder in a fresh Python, and return `describe_toolbox()` of
+    it."""
     done = fresh_python(
         into, "import json, export_clean; "
         f"print(json.dumps(export_clean.describe_toolbox({edition.folder!r})))",
-        blocked=other_libraries(edition), path=str(Path(__file__).parent))
+        path=str(Path(__file__).parent))
     if done.returncode != 0:
         raise ExportRefused(
             f"The stamped copy of {edition.product} doesn't import, so nothing was exported:\n"
@@ -251,8 +236,7 @@ def check_needs_the_core(into: Path, edition: editions.Edition) -> None:
     composer_core beside it."""
     with tempfile.TemporaryDirectory() as alone:
         shutil.copytree(into / edition.folder, Path(alone) / edition.folder)
-        done = fresh_python(Path(alone), f"import {edition.folder}",
-                            blocked=other_libraries(edition))
+        done = fresh_python(Path(alone), f"import {edition.folder}")
     if done.returncode == 0:
         said = "imported, so another composer_core must be on this Python's path"
     elif COPY_THE_CORE not in done.stderr:
@@ -263,38 +247,19 @@ def check_needs_the_core(into: Path, edition: editions.Edition) -> None:
                         f"import and say to copy composer_core, but it {said}")
 
 
-def check_one_edition_per_python(into: Path) -> None:
-    """Refuse a Clean tree whose two Editions can be imported in one Python: the Composer core
-    holds one Edition at a time, so importing the second must stop."""
-    if len(editions.EXPORTED) < 2:
-        return
-    first, second = (edition.folder for edition in editions.EXPORTED[:2])
-    done = fresh_python(into, f"import {first}, {second}")
-    if done.returncode == 0:
-        raise ExportRefused(
-            f"Importing {first} and then {second} in one Python must stop, but it didn't. "
-            "composer_core/edition.py's plug() stops the second Edition plugged in: put that "
-            "back.")
-    if f"{second} was imported after {first}" not in done.stderr:
-        raise ExportRefused(
-            f"Importing {first} and then {second} in one Python must stop and say to use one "
-            f"Edition, but it gave:\n{last_error(done.stderr)}")
-
-
 # Where an Example project on main finds the Toolbox: the Clean tree's top folder, three up.
 TOOLBOX_FROM_A_PROJECT = os.path.join(os.pardir, os.pardir, os.pardir)
 
 
 def check_dry_runs(into: Path, edition: editions.Edition) -> None:
     """Run each of `edition`'s Example projects' run_pipeline.py, as its README says, in a
-    fresh Python that can't import the other Edition's library, and refuse one that stops or
-    prints no Hive. Its dry run prints the Hive of every step and sends nothing, so it needs
-    no Java."""
+    fresh Python, and refuse one that stops or prints no Hive. Its dry run prints the Hive of
+    every step and sends nothing."""
     for script in sorted((into / EXAMPLE_PROJECTS / edition.folder).glob("*/run_pipeline.py")):
         before = files_in(into)
         done = fresh_python(
             script.parent, "import runpy; runpy.run_path('run_pipeline.py', run_name='__main__')",
-            blocked=other_libraries(edition), path=TOOLBOX_FROM_A_PROJECT)
+            path=TOOLBOX_FROM_A_PROJECT)
         where = script.relative_to(into).as_posix()
         # It runs inside the Clean tree, so anything it writes would ship unstamped.
         left = [path for path in files_in(into) if path not in before]
@@ -382,14 +347,6 @@ def cheat_sheet(groups: list[dict]) -> str:
     return "\n\n".join(sections)
 
 
-def differences_text() -> str:
-    """One item for each place the two Editions' Hive differs, from DECLARED_DIFFERENCES."""
-    return "\n".join(
-        f"- **{row.title}** {row.why} sqlglot Composer writes `{row.sqlglot_composer}` where Spark "
-        f"Composer writes `{row.spark_composer}`."
-        for row in editions.DECLARED_DIFFERENCES.values())
-
-
 def how_tos_text(source: Path) -> str:
     """Each how-to's number and title, under its group, such as "Getting started, how-tos 1 to
     18:", read from the docstrings in worked_examples/how_to/ that how_to.html is written from.
@@ -437,14 +394,12 @@ def templates_text(source: Path) -> str:
 def readme_text(template: str, groups: list[dict], version: str, stamp: str,
                 source: Path) -> str:
     """The Clean branch's README: the template, with the version, such as "3.0, exported
-    2026-10-02 14:05", the Editions' differences, the how-tos, the Templates and the cheat sheet
-    put in, the how-tos and the Templates read from `source`."""
-    for marker in (VERSION_MARKER, DIFFERENCES_MARKER, HOW_TOS_MARKER, TEMPLATES_MARKER,
-                   CHEAT_SHEET_MARKER):
+    2026-10-02 14:05", the how-tos, the Templates and the cheat sheet put in, the how-tos and
+    the Templates read from `source`."""
+    for marker in (VERSION_MARKER, HOW_TOS_MARKER, TEMPLATES_MARKER, CHEAT_SHEET_MARKER):
         if template.count(marker) != 1:
             raise ExportRefused(f"{README_TEMPLATE} must have `{marker}` exactly once.")
     text = template.replace(VERSION_MARKER, version)
-    text = text.replace(DIFFERENCES_MARKER, differences_text())
     text = text.replace(HOW_TOS_MARKER, how_tos_text(source))
     text = text.replace(TEMPLATES_MARKER, templates_text(source))
     text = text.replace(CHEAT_SHEET_MARKER, cheat_sheet(groups))
@@ -475,47 +430,6 @@ def check_editions(source: Path) -> None:
             f"The Toolbox's folders share one version, but {said}. Set TOOLBOX_VERSION in "
             f"every .py file of {', '.join(f'{folder}/' for folder in exported_folders())}, "
             "and commit.")
-
-
-def cheat_sheet_lines(described: dict) -> list[str]:
-    """Each line of the cheat sheet a description gives, less the one holding VERSION's value."""
-    lines = []
-    for group in described["groups"]:
-        lines.append(f"{group['file']}: {group['about']}")
-        lines += [f"{group['file']}: `{name}` {line}" for name, line in group["names"]
-                  if name != "VERSION"]
-    return lines
-
-
-def check_described_alike(described: list[dict]) -> None:
-    """Refuse Editions whose cheat sheets would differ: the README shows only the first's."""
-    first = cheat_sheet_lines(described[0])
-    for edition, one in zip(editions.EXPORTED[1:], described[1:]):
-        theirs = cheat_sheet_lines(one)
-        if theirs != first:
-            ours = next((line for line in first if line not in theirs), "(nothing)")
-            differs = next((line for line in theirs if line not in first), "(nothing)")
-            raise ExportRefused(
-                f"{edition.product}'s cheat sheet differs from "
-                f"{editions.EXPORTED[0].product}'s: it has {differs!r} where "
-                f"{editions.EXPORTED[0].product} has {ours!r}. The README shows one cheat sheet "
-                "for both, from each file's and each name's docstring's first line, so reword "
-                "that line to read the same in both, and commit.")
-
-
-# How any spelling of each Edition's name is found, such as "Spark Composer" or "spark_composer".
-_NAMED = {editions.SQLGLOT_COMPOSER: editions.SQLGLOT_COMPOSER_NAME,
-          editions.SPARK_COMPOSER: editions.SPARK_COMPOSER_NAME}
-
-
-def check_readme(template: str) -> None:
-    """Refuse a README template that names an Edition this export doesn't ship."""
-    unshipped = [edition.product for edition in editions.EDITIONS.values()
-                 if edition not in editions.EXPORTED and _NAMED[edition].search(template)]
-    if unshipped:
-        raise ExportRefused(
-            f"{README_TEMPLATE} names {', '.join(unshipped)}, which this export doesn't ship. "
-            "Leave it out of the README until it ships.")
 
 
 # --- Building and committing ---------------------------------------------------------------------
@@ -550,15 +464,11 @@ def with_mains_paths(text: str, source: Path, edition: editions.Edition) -> str:
 
 def build_copies(source: Path, into: Path, edition: editions.Edition, stamp: str) -> None:
     """Write `edition`'s copy of the Example projects and the Templates into `into`: each file
-    named for `edition`, with main's paths, and stamped."""
+    with main's paths, and stamped."""
     for folder in COPIED:
         for relative in copied_files(source / folder):
             where = f"{folder}/{relative}"
             text = (source / folder / relative).read_text(encoding="utf-8")
-            try:
-                text = editions.named_for(edition, text, where)
-            except editions.SwapRefused as why:
-                raise ExportRefused(f"{why} Write it so it names sqlglot Composer one way.")
             target = into / folder / edition.folder / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(stamped(where, with_mains_paths(text, source, edition), stamp),
@@ -610,8 +520,8 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     """Build the Clean tree from the `dev` folder `source` into the folder `into`, with each
     Edition EXPORTED in tools/editions.py names.
 
-    Returns what the tree is, as main's commit names it, such as "sqlglot Composer and Spark
-    Composer 3.0, exported 2026-10-02 14:05".
+    Returns what the tree is, as main's commit names it, such as "sqlglot Composer 6.0,
+    exported 2026-10-20 14:05".
     """
     if into.exists() and any(into.iterdir()):
         raise ExportRefused(f"{into} isn't empty. Build the Clean tree into an empty folder.")
@@ -624,7 +534,6 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
             "on dev.")
     check_root_files(source)
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
-    check_readme(template)
     version = toolbox_version_of(source, editions.CORE)
     build_folder(source, into, editions.CORE, stamp_text(editions.CORE_PRODUCT, version, when))
     described = []
@@ -635,8 +544,6 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
         build_copies(source, into, edition, copy_stamp_text(edition.product, version, when))
         check_offline(into, [f"{folder}/{edition.folder}" for folder in COPIED])
         check_dry_runs(into, edition)
-    check_one_edition_per_python(into)
-    check_described_alike(described)
     # The README is every Edition's, so its stamp names them all.
     products = " and ".join(edition.product for edition in editions.EXPORTED)
     (into / README).parent.mkdir()

@@ -64,13 +64,11 @@ GROUP BY
 4  finance  invoice_sync     1       20
 5  finance  report_build     1       30
 
-[sqlglot_composer only]
 Pasted into your own notebook, this `run`, and each `run` of subtotals below, stops with a
-RuntimeError saying the Example database can't run this Hive: sqlglot Composer's Example
-database runs Hive with sqlglot, which can't make subtotals. The results here were worked out
+RuntimeError saying the Example database can't run this Hive: the Example database runs Hive
+with sqlglot, which can't make subtotals. The results here were worked out
 in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it
 is, and Check it worked below runs on the Example database too.
-[end]
 
 The Hive spells out each set of rows in `GROUPING SETS`: each team and job, each team,
 and `()`, nothing, for one row over all of them. In a subtotal row the columns it totals over
@@ -131,7 +129,7 @@ The rows come sorted by their first column, as the Example database sorts them, 
 `is_total` in `HAVING` keeps or leaves out subtotal rows, since `HAVING` tests the rows
 `GROUP_BY` made, subtotals included. Here only each team's total and the grand total. The
 column it tests, `jobs.job_name`, must be in `SELECT` too: some warehouses, Spark among them,
-refuse it otherwise, so the Toolbox does in both Editions.
+refuse it otherwise, so the Toolbox does too.
 
 >>> team_totals = statement(
 ...     SELECT(jobs.team, jobs.job_name, AS(count_rows(), "runs")),
@@ -159,7 +157,7 @@ adds days together.
 ## Check it worked
 
 Each team's subtotal is its jobs' runs added up, and the grand total all of them. A plain
-`GROUP_BY`, which the Example database runs in either Edition, counts the same:
+`GROUP_BY`, which the Example database runs, counts the same:
 
 >>> runs_per_team = statement(
 ...     SELECT(jobs.team, AS(count_rows(), "runs")),

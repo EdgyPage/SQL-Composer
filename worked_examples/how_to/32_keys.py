@@ -160,13 +160,14 @@ one failed run a day per job is a habit of the Example database, not a rule.
 
 ### The Key in CREATE TABLE
 
-`create_table` makes the table; what it writes of the Key depends on the Edition:
+`create_table` makes the table, with its Key:
 
 >>> text = show_hive(create_table(job_day))
 CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
   runs BIGINT,
-  minutes BIGINT...
+  minutes BIGINT,
+  PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE
 )
 PARTITIONED BY (
   dt STRING
@@ -174,16 +175,8 @@ PARTITIONED BY (
 STORED AS ORC
 LOCATION '/data/your_team/tables/mart/job_day';
 
-[sqlglot_composer only]
 `PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE` is the Key. `DISABLE NOVALIDATE` tells Hive to
 keep it as information only: Hive never checks it, which is why the Toolbox does.
-[end]
-[spark_composer only]
-Spark refuses a `PRIMARY KEY` in `CREATE TABLE`, so Spark Composer leaves the Key out of the
-table. sqlglot Composer, whose Hive runs on Hive, writes it as
-`PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE`, which Hive keeps as information only and never
-checks. Either way, the Toolbox checks the Key itself, before each write.
-[end]
 
 ### Lineage shows each step's Key
 

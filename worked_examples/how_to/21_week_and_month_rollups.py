@@ -62,13 +62,11 @@ GROUP BY
 7  2026-09-21       2       4
 8  2026-09-21       3       1
 
-[sqlglot_composer only]
 Pasted into your own notebook, this `run`, and each `run` of a week or a month below, stops with
-a RuntimeError saying the Example database can't run this Hive: sqlglot Composer's Example
-database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The results here were worked
+a RuntimeError saying the Example database can't run this Hive: the Example database runs
+Hive with sqlglot, which has no NEXT_DAY or TRUNC. The results here were worked
 out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as
 it is, and Check it worked below runs on the Example database too.
-[end]
 
 The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it
 is the day a week earlier, and NEXT_DAY(..., 'MO') is the first Monday after that. For Thursday
@@ -137,7 +135,7 @@ each day's count instead, and what the Toolbox says.
 ## Check it worked
 
 Each week's runs are its days' runs added up, and the weeks' runs add up to the 28 runs over the
-14 days. Check both from a count per day, which the Example database runs in either Edition, with
+14 days. Check both from a count per day, which the Example database runs, with
 each day's Monday worked out in pandas: `days.dt.weekday` is 0 on a Monday and 6 on a Sunday, so
 taking that many days off a day gives its Monday.
 

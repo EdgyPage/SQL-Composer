@@ -16,7 +16,16 @@ from offline_policy import Allowed, findings_in, scan, stale_entries
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOLBOX_FILE = "composer_core/somewhere.py"
-ENGINE = "spark_composer/engine.py"
+# A made-up site that listens and connects on this computer only, with the entries a review
+# would give it.
+SITE = "tools/local_server.py"
+SITE_ALLOWED = (
+    Allowed(SITE, "<module>", "network", "socket", "imports socket, for _launch's listener"),
+    Allowed(SITE, "_launch", "network", "socket.create_server",
+            "the listener the process connects back to, on 127.0.0.1 only", address="127.0.0.1"),
+    Allowed(SITE, "_serve", "network", "multiprocessing.connection.*",
+            "connects back to the address its parent sent", address=offline_policy.PASSED_IN),
+)
 
 
 def kinds(text: str, path: str = TOOLBOX_FILE, **options) -> list[str]:
@@ -204,10 +213,11 @@ def test_user_copied_code_may_hold_nothing_at_all() -> None:
     assert [finding.kind for finding in stale_entries(ROOT, (entry,))] == ["stale entry"]
 
 
-def test_the_engine_s_allowed_import_is_found_anywhere_else() -> None:
-    assert kinds("import socket\n", ENGINE) == []
-    assert kinds("import socket\n", "spark_composer/writing.py") == ["network"]
-    assert kinds("import socket\n", "templates/starter/daily_pipeline.py") == ["network"]
+def test_an_allowed_import_is_found_anywhere_else() -> None:
+    assert kinds("import socket\n", SITE, allowed=SITE_ALLOWED) == []
+    assert kinds("import socket\n", "tools/elsewhere.py", allowed=SITE_ALLOWED) == ["network"]
+    assert kinds("import socket\n", "templates/starter/daily_pipeline.py",
+                 allowed=SITE_ALLOWED) == ["network"]
 
 
 def test_maintainer_code_may_start_processes_only_where_allowed_and_hold_urls() -> None:
@@ -221,29 +231,30 @@ def test_the_allowed_socket_is_refused_off_127_0_0_1() -> None:
     def launching_on(address: str) -> str:
         return f"import socket\n\ndef _launch():\n    socket.create_server(({address}, 0))\n"
 
-    assert kinds(launching_on('"127.0.0.1"'), ENGINE) == []
-    [finding] = findings_in(launching_on('"0.0.0.0"'), ENGINE)
+    assert kinds(launching_on('"127.0.0.1"'), SITE, allowed=SITE_ALLOWED) == []
+    [finding] = findings_in(launching_on('"0.0.0.0"'), SITE, allowed=SITE_ALLOWED)
     assert (finding.kind, finding.name, finding.address) == (
         "network", "socket.create_server", "0.0.0.0")
-    assert kinds(launching_on("host"), ENGINE) == ["network"]
+    assert kinds(launching_on("host"), SITE, allowed=SITE_ALLOWED) == ["network"]
 
 
-def test_the_example_database_s_process_connects_only_to_the_address_it_is_sent() -> None:
+def test_an_allowed_client_connects_only_to_the_address_it_is_sent() -> None:
     def serving(address: str) -> str:
         return ("def _serve():\n    from multiprocessing.connection import Client\n"
                 f"    connection = Client({address}, authkey=key)\n")
 
-    assert kinds(serving('tuple(config["address"])'), ENGINE) == []
-    assert kinds(serving('("example.com", 80)'), ENGINE) == ["network"]
+    assert kinds(serving('tuple(config["address"])'), SITE, allowed=SITE_ALLOWED) == []
+    assert kinds(serving('("example.com", 80)'), SITE, allowed=SITE_ALLOWED) == ["network"]
     # Kept to be called later, the listener's address could be anything.
     assert kinds("import socket\n\ndef _launch():\n    listen = socket.create_server\n",
-                 ENGINE) == ["network"]
+                 SITE, allowed=SITE_ALLOWED) == ["network"]
 
 
 def test_an_allowed_entry_that_matches_nothing_is_stale() -> None:
-    entry = Allowed(ENGINE, "_nowhere", "network", "socket.create_connection", "a reason")
+    entry = Allowed("tools/export_clean.py", "_nowhere", "network", "socket.create_connection",
+                    "a reason")
     [stale] = stale_entries(ROOT, (entry,))
-    assert (stale.path, stale.kind) == (ENGINE, "stale entry")
+    assert (stale.path, stale.kind) == ("tools/export_clean.py", "stale entry")
     assert "matches nothing" in stale.code
 
 

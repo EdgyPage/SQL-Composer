@@ -27,7 +27,6 @@ h5{font-size:15px;margin:16px 0 4px;color:#333}
 .groups ul{margin:4px 0}
 .badge{font-size:12px;font-weight:600;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:2px}
 .badge.getting-started{color:#1f5a2a;background:#e6f4e8} .badge.intermediate{color:#6b4500;background:#fbefdc}
-.only{margin:0}
 pre.file{white-space:pre-wrap}
 details summary{cursor:pointer;color:#555;margin:4px 0}
 .code{position:relative} .code pre{padding-right:64px}
@@ -88,7 +87,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <li data-for="share_building_blocks_between_statements"><a href="#share_building_blocks_between_statements">24. Share Building blocks between Statements</a></li>
 <li data-for="check_data_quality"><a href="#check_data_quality">25. Check data quality with Statements</a></li>
 <li data-for="generate_from_settings"><a href="#generate_from_settings">26. Generate Table references and Statements from settings</a></li>
-<li data-for="call_other_hive_functions"><a href="#call_other_hive_functions">27. Call other Hive functions, and see where the Editions differ</a></li>
+<li data-for="call_other_hive_functions"><a href="#call_other_hive_functions">27. Call other Hive functions</a></li>
 <li data-for="finish_in_pandas"><a href="#finish_in_pandas">28. Look across rows, then finish in pandas</a></li>
 <li data-for="review_a_change_with_lineage"><a href="#review_a_change_with_lineage">29. Review a change with Lineage</a></li>
 <li data-for="test_your_own_statements"><a href="#test_your_own_statements">30. Test your own Statements</a></li>
@@ -118,8 +117,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <p>If the import stops instead, its message says what happened, why it matters and the usual fix. Most often a file or a folder is missing, or the two folders come from different downloads.</p>
 <h5>Write your send</h5>
 <p>The Toolbox never connects to anything itself. It writes Hive as text, and <code>run</code> hands that text to a function of yours, <code>send</code>, which runs it and gives back a pandas DataFrame. How you connect, retry or save files stays in your <code>send</code>, so the Toolbox works with whatever your notebook uses to reach the warehouse.</p>
-<div class="only">
-<p>With sqlglot Composer, <code>send</code> calls your query API, whatever your team uses to run a Hive string, and turns the rows that come back into a pandas DataFrame, each column named. Write it once, in your first cell:</p>
+<p><code>send</code> calls your query API, whatever your team uses to run a Hive string, and turns the rows that come back into a pandas DataFrame, each column named. Write it once, in your first cell:</p>
 <pre class="python">import pandas as pd
 
 def send(hive):
@@ -130,8 +128,7 @@ def send(hive):
     cursor.execute(hive)  # your team&#x27;s own cursor, from its database library
     names = [column[0] for column in cursor.description]
     return pd.DataFrame(cursor.fetchall(), columns=names)</pre>
-<p>If your notebook has a Spark session, <code>spark</code>, that reads the warehouse&#x27;s tables, use Spark Composer instead. Its <code>send</code> runs the Hive on your <code>spark</code>, and where Spark would read a piece of Hive differently, it writes that piece so Spark gives what Hive gives; the README lists each place. Its folder, <code>spark_composer</code>, has its own copy of this page.</p>
-</div>
+<p>If your notebook has a Spark session, <code>spark</code>, that reads the warehouse&#x27;s tables, your send can be <code>send = lambda hive: spark.sql(hive).toPandas()</code>. Spark reads a few pieces of Hive its own way, such as a division by 0, which stops a whole query under its ANSI mode where Hive gives NULL: check a Statement&#x27;s numbers on Spark before you rely on them.</p>
 <p>There is no warehouse on this page, so the next steps use the Example database&#x27;s own send, <code>example_database.send</code>, which runs Hive on the Example database&#x27;s seven made-up tables. At work you give <code>run</code> your own <code>send</code> in its place.</p>
 <h5>Build a first Statement on the Example database</h5>
 <p>The Example database&#x27;s first three tables are <code>ops.jobs</code>, one row per job; <code>ops.job_runs</code>, one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and <code>ops.run_alerts</code>, the alerts a run raised. A fourth, <code>ops.scheduler_runs</code>, is the scheduler&#x27;s own record of the two days&#x27; runs, and three more, which the Intermediate how-tos use, hold 14 days each. Each table&#x27;s Table reference, which says what columns it has, comes with the Toolbox. Give the one you need a short name:</p>
@@ -190,7 +187,6 @@ isinstance(result, pd.DataFrame)</pre>
 </table></div>
 <h4>Common mistakes</h4>
 <h5>A send that gives back the wrong thing</h5>
-<div class="only">
 <p>Many query APIs give each row as a tuple, without the column names. A send that hands those rows to <code>pd.DataFrame</code> without the names gives back a DataFrame whose columns are numbered 0, 1 and 2. This page has no query API, so a stand-in plays yours here, giving each row as a tuple:</p>
 <pre class="python">def query_api(hive):
     answer = example_database.send(hive)
@@ -212,7 +208,6 @@ run(failed, send=send_without_a_dataframe)</pre>
   Usual fix:      Turn the rows into a DataFrame at the end of your send. On Spark, that is spark.sql(hive).toPandas(). From a query API, it is pd.DataFrame(rows), which takes the column names from each row&#x27;s keys when the API gives each row as a dict; when it gives each row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). How-to 1, Start a notebook, shows how to write your send.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>The fix is the message&#x27;s: end your send with <code>return pd.DataFrame(rows)</code>, with the column names when each row is a tuple, as the step Write your send shows.</p>
-</div>
 <h5>A Statement that doesn&#x27;t give the days it reads</h5>
 <p>A table with a Date partition is stored a day at a time, and a Statement that doesn&#x27;t give the first and last day to read would read every day the table holds. The Toolbox refuses it as you build it, before anything runs:</p>
 <pre class="python">every_failed_run = statement(
@@ -226,10 +221,6 @@ run(failed, send=send_without_a_dataframe)</pre>
   Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, &quot;2026-09-01&quot;, &quot;2026-09-24&quot;)) or WHERE(last_n_days(job_runs.dt, 7)).
   Opt-out:        FROM(job_runs, reads_all_partitions=True)</pre>
 <p>Give the days as the message says, with <code>between</code> or <code>last_n_days</code> in <code>WHERE</code>, as <code>failed</code> does. The message&#x27;s Opt-out, <code>reads_all_partitions=True</code>, reads every day: use it only for a small table you truly need whole.</p>
-<h5>Importing both Editions</h5>
-<div class="only">
-<p>Use one Edition in a notebook. After <code>from sqlglot_composer import *</code>, a second import line <code>from spark_composer import *</code> stops with a message: the two Editions share <code>composer_core</code>, which writes the Hive for one Edition at a time. Keep one import line, in your notebook and in any of your own .py files it imports, then restart the notebook&#x27;s kernel.</p>
-</div>
 <h4>Next</h4>
 <ul><li>Read one of your own tables: <code>write_table_reference</code> reads a table&#x27;s columns through your send and writes its Table reference for you. See how in <a href="#import_column_names">Import a table&#x27;s column names programmatically</a>.</li><li>Build a Statement a clause at a time, then paste its Hive into another program: <a href="#build_a_first_statement">Build a first Statement and paste its Hive</a>.</li><li>Build Statements of your own from the <a href="examples.html">Example gallery</a>, which has a Worked example for every Toolbox name, such as <a href="examples.html#statement"><code>statement</code></a>, <a href="examples.html#run"><code>run</code></a> and <a href="examples.html#show_hive"><code>show_hive</code></a>.</li><li>See a job built step by step, each step&#x27;s Hive shown, in the gallery&#x27;s <a href="examples.html#step_by_step">Worked example of a job in steps</a>.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
@@ -2182,8 +2173,7 @@ GROUP BY
     FROM(job_runs),
     WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
 ))</pre>
-<div class="only">
-<p>sqlglot Composer&#x27;s Example database runs only part of Hive, and not <code>row_number</code>. Pasted into your own notebook with sqlglot Composer, running a Statement that reads <code>numbered</code>, here and in the steps below, stops with this message:</p>
+<p>The Example database runs only part of Hive, and not <code>row_number</code>. Pasted into your own notebook, running a Statement that reads <code>numbered</code>, here and in the steps below, stops with this message:</p>
 <pre class="python">run(statement(SELECT(all_columns(numbered)), FROM(numbered)), send=example_database.send)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">RuntimeError:
   What happened:  The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.
@@ -2191,7 +2181,6 @@ GROUP BY
   Usual fix:      See the Hive with to_hive(...), and run it at work with your own send; or try the Statement here without that part.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>So the results below that read <code>numbered</code>, or <code>ranked</code> and <code>oldest_first</code> like it, are what Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.</p>
-</div>
 <p>Check the numbering alone first, with a Statement that reads every column of it:</p>
 <pre class="python">numbering = statement(SELECT(all_columns(numbered)), FROM(numbered))
 text = show_hive(numbering)</pre>
@@ -2306,10 +2295,7 @@ WHERE
 </table></div>
 <p>Two rows per job, or fewer for a job with fewer runs. <code>ORDER_BY</code> with <code>LIMIT</code>, as in <a href="#count_and_add_up_per_group">Count and add up per group</a>, keeps the top N rows of the whole result; <code>row_number</code> keeps the top N of each group.</p>
 <h4>Check it worked</h4>
-<p>Check that each job comes back once: one row per job, as many rows as jobs that ran.</p>
-<div class="only">
-<p>On the Example database this run stops, as above; <code>newest</code> here is the pandas result. At work the Statement runs, and the check is the same.</p>
-</div>
+<p>Check that each job comes back once: one row per job, as many rows as jobs that ran. On the Example database this run stops, as above; <code>newest</code> here is the pandas result. At work the Statement runs, and the check is the same.</p>
 <pre class="python">newest = run(latest, send=example_database.send)
 newest[&quot;job_id&quot;].is_unique</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
@@ -2433,9 +2419,7 @@ TBLPROPERTIES (
   &#x27;external.table.purge&#x27;=&#x27;true&#x27;
 );</pre>
 <p>EXTERNAL and LOCATION make it a table whose files are yours, in its own folder. <code>PARTITIONED BY (dt STRING)</code> is the Date partition: the table keeps each day apart. <code>STORED AS ORC</code> is the file format the warehouse saves it in. TBLPROPERTIES holds <code>purge=True</code>. <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> shows the rest of what a Saved table&#x27;s Table reference can say about how it is kept.</p>
-<div class="only">
 <p><code>PRIMARY KEY (run_id) DISABLE NOVALIDATE</code> writes the Key into the table, for whoever reads it: <code>DISABLE NOVALIDATE</code> says Hive keeps it as information only, and never checks it.</p>
-</div>
 <p>You send it once. If the table already exists, the warehouse refuses to create it again, on purpose: after you edit the Table reference, sending this again can&#x27;t quietly look as if it changed the real table. In a notebook you run from the top every day, use <code>may_exist=True</code> instead, which skips the table when it is already there and never changes it:</p>
 <pre class="python">create_if_missing = create_table(runs_to_review, may_exist=True)
 text = show_hive(create_if_missing)</pre>
@@ -4958,9 +4942,7 @@ WHERE
 <tr><td>3</td><td>finance</td><td>chloe</td><td>2026-09-24</td></tr>
 <tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-24</td></tr>
 </table></div>
-<div class="only">
-<p>Pasted into your own notebook, this <code>run</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive: sqlglot Composer&#x27;s Example database runs Hive with sqlglot, which has no <code>row_number</code>. The result above was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive above as it is.</p>
-</div>
+<p>Pasted into your own notebook, this <code>run</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no <code>row_number</code>. The result above was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive above as it is.</p>
 <p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm (job 4), so its owner is NULL (pandas shows it as None).</p>
 <h4>Check it worked</h4>
 <p>Each run should meet exactly one row of the snapshot, so the teams&#x27; runs add up to every run over the 14 days:</p>
@@ -5085,9 +5067,7 @@ GROUP BY
 <tr><td>2026-09-21</td><td>2</td><td>4</td></tr>
 <tr><td>2026-09-21</td><td>3</td><td>1</td></tr>
 </table></div>
-<div class="only">
-<p>Pasted into your own notebook, this <code>run</code>, and each <code>run</code> of a week or a month below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: sqlglot Composer&#x27;s Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
-</div>
+<p>Pasted into your own notebook, this <code>run</code>, and each <code>run</code> of a week or a month below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
 <p>The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) is the first Monday after that. For Thursday 2026-09-24, a week earlier is 2026-09-17, and the first Monday after it is 2026-09-21; for Monday 2026-09-14, a week earlier is 2026-09-07, and the first Monday after it is 2026-09-14 itself. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
 <p>The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.</p>
 <h5>Count each job&#x27;s runs per month</h5>
@@ -5138,7 +5118,7 @@ run(jobs_per_week, send=example_database.send)</pre>
 </table></div>
 <p>Three different jobs ran in each week. The first mistake below shows the count that adds up each day&#x27;s count instead, and what the Toolbox says.</p>
 <h4>Check it worked</h4>
-<p>Each week&#x27;s runs are its days&#x27; runs added up, and the weeks&#x27; runs add up to the 28 runs over the 14 days. Check both from a count per day, which the Example database runs in either Edition, with each day&#x27;s Monday worked out in pandas: <code>days.dt.weekday</code> is 0 on a Monday and 6 on a Sunday, so taking that many days off a day gives its Monday.</p>
+<p>Each week&#x27;s runs are its days&#x27; runs added up, and the weeks&#x27; runs add up to the 28 runs over the 14 days. Check both from a count per day, which the Example database runs, with each day&#x27;s Monday worked out in pandas: <code>days.dt.weekday</code> is 0 on a Monday and 6 on a Sunday, so taking that many days off a day gives its Monday.</p>
 <pre class="python">import pandas as pd
 starts_per_day = statement(
     SELECT(job_events.dt, AS(count_rows(), &quot;starts&quot;)),
@@ -6728,11 +6708,11 @@ daily_totals(tables[&quot;ops.job_runs&quot;], averages, first_day, last_day)</p
 <p class="names">Toolbox names used: <code>Table</code>, <code>check_key</code>, <code>check_table_reference</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>between</code>, <code>count_rows</code>, <code>sum_of</code>, <code>show_hive</code>, <code>run</code>, <code>export_lineage</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="call_other_hive_functions">
-<h3>27. Call other Hive functions, and see where the Editions differ <span class="badge intermediate">Intermediate</span></h3>
+<h3>27. Call other Hive functions <span class="badge intermediate">Intermediate</span></h3>
 <h4>Goal</h4>
-<p>Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with <code>hive_function</code>. Then see the three places where the two Editions write different Hive for the same Statement, and why each gives the same result.</p>
+<p>Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with <code>hive_function</code>. Then see three things about the Hive the Toolbox writes that are easy to trip on: a division by 0, a Python float, and a function written by another name.</p>
 <h4>When you&#x27;d use it</h4>
-<p>When the Hive you need has a function the Toolbox doesn&#x27;t wrap: text functions such as upper, concat or substr, or date functions such as datediff and date_format. And when you read the Hive one Edition wrote beside Hive the other wrote, say from a colleague, and some lines differ.</p>
+<p>When the Hive you need has a function the Toolbox doesn&#x27;t wrap: text functions such as upper, concat or substr, or date functions such as datediff and date_format. And when the Hive you see isn&#x27;t quite what you typed.</p>
 <h4>Steps</h4>
 <h5>Import the Toolbox</h5>
 <pre class="python">from sqlglot_composer import *
@@ -6767,8 +6747,8 @@ WHERE
 </table></div>
 <p>The function concat gives NULL as soon as one of its arguments is NULL, so <code>fill_null</code> puts &quot;nobody&quot; in where a job has no owner, as job 4, cache_warm, has none.</p>
 <p>Before writing the call, <code>hive_function</code> checks it: for the functions it knows, such as upper, substr or date_add, it refuses the wrong number of arguments, and it refuses a function that works only over a window of rows, such as lag or rank. The Common mistakes below show both.</p>
-<h5>Where the two Editions write different Hive</h5>
-<p>The two Editions take the same Statements and give the same results, but in three places they write different Hive, each for a reason. The README lists them too, under &quot;Where the two Editions&#x27; Hive differs&quot;. Each step below builds a Statement with one of them, shows the Hive this Edition writes, and runs it. After the three, each line that differs is listed as both Editions write it.</p>
+<h5>Three things to know about the Hive</h5>
+<p>Each step below builds a Statement, shows the Hive the Toolbox writes for it, and runs it.</p>
 <h5>Dividing by something that could be 0</h5>
 <p>How many retries each job&#x27;s finished runs needed on 2026-09-24: the retries, divided by the finishes.</p>
 <pre class="python">retries_per_finish = statement(
@@ -6795,7 +6775,7 @@ GROUP BY
 <tr><td>1</td><td>0.0</td></tr>
 <tr><td>2</td><td><i>NULL</i></td></tr>
 </table></div>
-<p>invoice_sync, job 2, is still running on 2026-09-24, so it has no finish, and its row divides by 0. Both Editions give that row NULL, which pandas shows as NaN, rather than stop.</p>
+<p>invoice_sync, job 2, is still running on 2026-09-24, so it has no finish, and its row divides by 0. Hive gives that row NULL, which pandas shows as NaN, rather than stop.</p>
 <h5>A Python float</h5>
 <p>The jobs whose finished runs took more than 15.5 minutes on average. <code>job_events.minutes</code> holds the minutes since the run started, so on a <code>&quot;finish&quot;</code> row it is how long the run took. 15.5 is a Python float:</p>
 <pre class="python">long_runs = statement(
@@ -6824,6 +6804,7 @@ HAVING
 <tr><td>2</td><td>9</td></tr>
 <tr><td>3</td><td>3</td></tr>
 </table></div>
+<p>A Python float is written as it is, 15.5, which Hive reads as a DOUBLE, SQL&#x27;s float.</p>
 <h5>A hive_function call</h5>
 <p>The function nvl gives its first argument, or its second where the first is NULL, as <code>fill_null</code> does. Here it puts &quot;none&quot; in for run 98, which is still running and has no status yet:</p>
 <pre class="python">statuses = statement(
@@ -6847,12 +6828,7 @@ WHERE
 <tr><td>98</td><td>none</td></tr>
 <tr><td>99</td><td>TEST</td></tr>
 </table></div>
-<h5>The three, listed</h5>
-<div class="only">
-<p>This page is sqlglot Composer&#x27;s, so the Hive above is sqlglot Composer&#x27;s. Here is each line that differs, as each Edition writes it, and why. Both give the same results.</p>
-<ul><li>Dividing. sqlglot Composer writes the divisor as it is, <code>COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END)</code>, and Spark Composer writes <code>NULLIF(COUNT(CASE WHEN job_events.event_type = &#x27;finish&#x27; THEN 1 END), 0)</code>. With ANSI mode on (Spark&#x27;s setting for following the SQL standard strictly), Spark 4&#x27;s default, Spark stops the whole query when it divides by 0, where Hive gives NULL; NULLIF(y, 0) is NULL when y is 0, so that row gets NULL, as in Hive.</li><li>A float. sqlglot Composer writes <code>HAVING AVG(job_events.minutes) &gt; 15.5</code>, and Spark Composer <code>HAVING AVG(job_events.minutes) &gt; 15.5D</code>. Spark reads 15.5 as a DECIMAL, an exact decimal, where Hive reads a DOUBLE, SQL&#x27;s float; the D marks a DOUBLE, and doesn&#x27;t mean days.</li><li>A hive_function call. sqlglot Composer writes <code>COALESCE(job_runs.status, &#x27;none&#x27;) AS status</code>, and Spark Composer <code>NVL(job_runs.status, &#x27;none&#x27;) AS status</code>. sqlglot Composer writes the call as sqlglot reads it back: sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an argument changed, as a date_format pattern &#x27;YYYY-MM&#x27; written &#x27;yyyy-MM&#x27;. Spark Composer writes it as you gave it, its name in capitals.</li></ul>
-<p>None of the three changes a result: each Edition writes what its own warehouse needs to give the same answer.</p>
-</div>
+<p>The Hive says COALESCE, not nvl: the Toolbox writes a <code>hive_function</code> call as sqlglot reads it back, sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an argument changed, as the Common mistakes below show for date_format. The result is the same.</p>
 <h4>Check it worked</h4>
 <p>The function&#x27;s name, in capitals, and each argument are in the Hive, and the result holds what the function gives: every team in capitals, and a contact for every job.</p>
 <pre class="python">result = run(contacts, send=example_database.send)
@@ -6918,8 +6894,7 @@ run(no_fill, send=example_database.send)</pre>
     FROM(job_events),
     WHERE(between(job_events.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)),
 )</pre>
-<div class="only">
-<p>With sqlglot Composer no message stops you: it writes the pattern as sqlglot reads it back, here as yyyy-MM, which is what you meant. Write yyyy anyway, so the same notebook gives the same Hive with Spark Composer, which writes the pattern as you gave it, and Spark refuses YYYY.</p>
+<p>No message stops you: the Toolbox writes the pattern as sqlglot reads it back, here as yyyy-MM, which is what you meant. Write yyyy anyway, so your Python says what its Hive does.</p>
 <pre class="python">text = show_hive(by_month)</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">SELECT
   job_events.event_id,
@@ -6927,11 +6902,10 @@ run(no_fill, send=example_database.send)</pre>
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;;</pre>
-</div>
 <h5>A function that works over a window of rows</h5>
 <p>lag, lead, rank and the other window functions need OVER (...) after them, which <code>hive_function</code> can&#x27;t write, so it refuses them. For lag, lead, rank, dense_rank, ntile and row_number, its message names the Toolbox&#x27;s own function that writes it, such as <code>lag</code>, which takes a <code>window</code>; for the others, such as percent_rank, it says to work it out in pandas. <a href="#finish_in_pandas">Look across rows, then finish in pandas</a> shows the ones the Toolbox writes.</p>
 <h4>Next</h4>
-<ul><li><a href="#finish_in_pandas">Look across rows, then finish in pandas</a>: lag, rank and a rolling sum, each over a Window.</li><li>The gallery&#x27;s <a href="examples.html#hive_function"><code>hive_function</code></a> entry, and <a href="examples.html#fill_null"><code>fill_null</code></a> for putting a value in where a column is NULL.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant, whichever Edition writes it.</li></ul>
+<ul><li><a href="#finish_in_pandas">Look across rows, then finish in pandas</a>: lag, rank and a rolling sum, each over a Window.</li><li>The gallery&#x27;s <a href="examples.html#hive_function"><code>hive_function</code></a> entry, and <a href="examples.html#fill_null"><code>fill_null</code></a> for putting a value in where a column is NULL.</li><li><a href="#test_your_own_statements">Test your own Statements</a>: check that a Statement gives the numbers you meant.</li></ul>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>HAVING</code>, <code>statement</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>count_rows</code>, <code>average_of</code>, <code>fill_null</code>, <code>hive_function</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="finish_in_pandas">
@@ -6951,8 +6925,7 @@ region_costs = example_database.region_costs</pre>
 <p>And the rows to read, the same in every step: the finished runs of the last week of the Example database.</p>
 <pre class="python">week_finished = [between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
                  equals(job_events.event_type, &quot;finish&quot;)]</pre>
-<div class="only">
-<p>sqlglot Composer&#x27;s Example database runs only part of Hive, and no windows. Pasted into your own notebook with sqlglot Composer, running a Statement with a Window stops with this message:</p>
+<p>The Example database runs only part of Hive, and no windows. Pasted into your own notebook, running a Statement with a Window stops with this message:</p>
 <pre class="python">run(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
                                            &quot;minutes_before&quot;)),
               FROM(job_events), WHERE(*week_finished)), send=example_database.send)</pre>
@@ -6962,7 +6935,6 @@ region_costs = example_database.region_costs</pre>
   Usual fix:      See the Hive with to_hive(...), and run it at work with your own send; or try the Statement here without that part.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>So the results of the Statements below with a Window are what Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.</p>
-</div>
 <h5>The run before: lag</h5>
 <p>How much faster or slower was each run than the job&#x27;s run before it? <code>lag</code> gives each row the value of the row before it in its Window&#x27;s order, and NULL to the first row of each job. pandas holds a missing number as NaN, and so shows that column with decimals; the tables on this page show NaN as NULL:</p>
 <pre class="python">with_before = statement(
@@ -8282,7 +8254,7 @@ newest = write_newest(&quot;2026-09-24&quot;)</pre>
 )</pre>
 <p>Use it only when you are sure, and check the day with <code>check_key</code> after it is written: here one failed run a day per job is a habit of the Example database, not a rule.</p>
 <h5>The Key in CREATE TABLE</h5>
-<p><code>create_table</code> makes the table; what it writes of the Key depends on the Edition:</p>
+<p><code>create_table</code> makes the table, with its Key:</p>
 <pre class="python">text = show_hive(create_table(job_day))</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">CREATE EXTERNAL TABLE mart.job_day (
   job_id BIGINT,
@@ -8295,9 +8267,7 @@ PARTITIONED BY (
 )
 STORED AS ORC
 LOCATION &#x27;/data/your_team/tables/mart/job_day&#x27;;</pre>
-<div class="only">
 <p><code>PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE</code> is the Key. <code>DISABLE NOVALIDATE</code> tells Hive to keep it as information only: Hive never checks it, which is why the Toolbox does.</p>
-</div>
 <h5>Lineage shows each step&#x27;s Key</h5>
 <p><code>export_lineage</code> marks each column that is part of a Key &quot;in the Key&quot;, and its report lists each step&#x27;s Key, or where it lost one, and whether the write&#x27;s Key holds:</p>
 <pre class="python">html_file, markdown_file = export_lineage(newest, to=&quot;lineage/newest.html&quot;)</pre>
@@ -8557,9 +8527,7 @@ WHERE
 <tr><td>103</td><td>SUCCESS</td></tr>
 <tr><td>104</td><td>SUCCESS</td></tr>
 </table></div>
-<div class="only">
-<p>Pasted into your own notebook, this <code>run</code>, and the one of <code>with_an_alert</code> under Check it worked, stops with a RuntimeError saying the Example database can&#x27;t run a <code>LEFT SEMI JOIN</code>: sqlglot&#x27;s own small executor doesn&#x27;t know it. The result above is worked out in pandas instead. Hive at work runs it, and so does Spark Composer&#x27;s Example database.</p>
-</div>
+<p>Pasted into your own notebook, this <code>run</code>, and the one of <code>with_an_alert</code> under Check it worked, stops with a RuntimeError saying the Example database can&#x27;t run a <code>LEFT SEMI JOIN</code>: sqlglot&#x27;s own small executor doesn&#x27;t know it. The result above is worked out in pandas instead. Hive at work runs it.</p>
 <p>Since a semi join never repeats rows, the runs keep their Key, run_id: a write of these rows into a Saved table keyed by run_id is let through, as <a href="#keys">Keys, checked before each write</a> explains.</p>
 <h5>Keep each run with no alert, with ANTI_JOIN</h5>
 <p><code>ANTI_JOIN</code> keeps the rows that have no match. Hive 3 has no anti join of its own, so the Toolbox writes a <code>LEFT JOIN</code>, then a <code>WHERE</code> that keeps the rows where the column <code>ON=</code> matched is NULL: a run with an alert has its run_id there.</p>
@@ -9127,9 +9095,7 @@ GROUP BY
 <tr><td>finance</td><td>invoice_sync</td><td>1</td><td>20</td></tr>
 <tr><td>finance</td><td>report_build</td><td>1</td><td>30</td></tr>
 </table></div>
-<div class="only">
-<p>Pasted into your own notebook, this <code>run</code>, and each <code>run</code> of subtotals below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: sqlglot Composer&#x27;s Example database runs Hive with sqlglot, which can&#x27;t make subtotals. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
-</div>
+<p>Pasted into your own notebook, this <code>run</code>, and each <code>run</code> of subtotals below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which can&#x27;t make subtotals. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
 <p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas shows as <code>None</code> and the tables on this page as NULL: <code>&quot;job_name&quot;</code> in a team&#x27;s subtotal, and <code>&quot;team&quot;</code> too in the grand total.</p>
 <h5>Tell a subtotal row from a real NULL</h5>
 <p>A column can be empty in a real row too. On 2026-09-23 one run was still going, with no <code>job_runs.status</code> yet, so a rollup of <code>job_runs.status</code> has two rows with <code>None</code>:</p>
@@ -9173,7 +9139,7 @@ run(labelled, send=example_database.send)</pre>
 </table></div>
 <p>The rows come sorted by their first column, as the Example database sorts them, which puts &quot;every team&quot; between &quot;data&quot; and &quot;finance&quot;. At work rows come in no fixed order: sort them with <code>ORDER_BY</code>, or in pandas.</p>
 <h5>Keep only the subtotals</h5>
-<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses, Spark among them, refuse it otherwise, so the Toolbox does in both Editions.</p>
+<p><code>is_total</code> in <code>HAVING</code> keeps or leaves out subtotal rows, since <code>HAVING</code> tests the rows <code>GROUP_BY</code> made, subtotals included. Here only each team&#x27;s total and the grand total. The column it tests, <code>jobs.job_name</code>, must be in <code>SELECT</code> too: some warehouses, Spark among them, refuse it otherwise, so the Toolbox does too.</p>
 <pre class="python">team_totals = statement(
     SELECT(jobs.team, jobs.job_name, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -9192,7 +9158,7 @@ run(team_totals, send=example_database.send)</pre>
 <h5>Other sets of subtotals</h5>
 <p><code>rollup</code> drops its columns from the right, first <code>&quot;job_name&quot;</code>, then <code>&quot;team&quot;</code>: each team over its jobs, never each job over its teams. For every mix, use <code>cube(jobs.team, jobs.region)</code>: each team over every region, each region over every team, and the grand total. To pick the sets yourself, list them with <code>grouping_sets([jobs.team], [jobs.region], [])</code>. A plain column beside a rollup is in every set, so <code>GROUP_BY(job_runs.dt, rollup(jobs.team))</code> totals each day&#x27;s teams, and never adds days together.</p>
 <h4>Check it worked</h4>
-<p>Each team&#x27;s subtotal is its jobs&#x27; runs added up, and the grand total all of them. A plain <code>GROUP_BY</code>, which the Example database runs in either Edition, counts the same:</p>
+<p>Each team&#x27;s subtotal is its jobs&#x27; runs added up, and the grand total all of them. A plain <code>GROUP_BY</code>, which the Example database runs, counts the same:</p>
 <pre class="python">runs_per_team = statement(
     SELECT(jobs.team, AS(count_rows(), &quot;runs&quot;)),
     FROM(job_runs),
@@ -9332,9 +9298,7 @@ GROUP BY
     print(run(explain(runs_per_team), send=send))</pre>
 <p>Hive&#x27;s plan is a tree of steps, each reading what the steps below it give. Look for:</p>
 <ul><li>&quot;TableScan&quot;, once for each table read, with the filter it reads it with;</li><li>&quot;Map Join Operator&quot; where Hive copies the small table to every worker, or &quot;Merge Join Operator&quot; where it sorts both sides first;</li><li>each step&#x27;s &quot;Statistics:&quot; line, the rows Hive expects, and &quot;Basic stats: NONE&quot; or &quot;Column stats: NONE&quot; where it has none to go by: count that table&#x27;s days with <code>compute_statistics</code>.</li></ul>
-<div class="only">
 <p>The Example database can&#x27;t give a plan: it runs Hive on sqlglot&#x27;s own small executor, which makes none. <code>to_hive(explain(...))</code> still shows what you would send at work.</p>
-</div>
 <h5>Find the days a Saved table lost</h5>
 <p>The warehouse keeps a list of each table&#x27;s days, and reads only the day folders on it. When a table is made again where its old files stayed, since it was dropped without <code>purge=True</code>, or when files are copied into its folder, their days are missing from the list until <code>repair_partitions</code> finds them:</p>
 <pre class="python">print(to_hive(repair_partitions(daily_runs)))</pre>

@@ -21,7 +21,7 @@ import pytest
 import editions
 import sqlglot_composer
 from offline_policy import external_references
-from conftest import edition, gallery_entries, page_text, toolbox_folder, toolbox_module
+from conftest import gallery_entries, page_text, toolbox_folder, toolbox_module
 
 ROOT = Path(__file__).resolve().parent.parent
 GALLERY = toolbox_folder() / "examples.html"
@@ -35,7 +35,7 @@ def test_the_committed_gallery_is_what_the_generator_writes() -> None:
     committed = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
     assert example_gallery.gallery_page() == committed, (
         f"{GALLERY.relative_to(ROOT).as_posix()} is out of date: run python "
-        f"tools/example_gallery.py --edition {edition().option}"
+        "tools/example_gallery.py"
     )
 
 
@@ -60,11 +60,10 @@ def test_every_public_name_has_an_entry_named_after_it(name: str) -> None:
 def test_every_docstring_example_is_on_the_page(docstring: doctest.DocTest) -> None:
     shown = page_text(GALLERY.read_text(encoding="utf-8"))
     for example in docstring.examples:
-        # The Composer core's docstrings name sqlglot Composer; the page names its own Edition.
-        source = editions.named_for(edition(), example.source)
+        source = example.source
         assert " ".join(source.split()) in shown, source
         # <BLANKLINE> is how a doctest writes an empty line; the page shows the empty line.
-        want = editions.named_for(edition(), example.want).replace("<BLANKLINE>", "")
+        want = example.want.replace("<BLANKLINE>", "")
         assert " ".join(want.split()) in shown, want
 
 
@@ -269,11 +268,9 @@ def test_the_page_names_no_folder_a_toolbox_user_does_not_have() -> None:
     assert "worked_examples/" not in GALLERY.read_text(encoding="utf-8")
 
 
-def test_the_page_names_only_its_own_edition() -> None:
+def test_the_page_names_no_edition_but_its_own() -> None:
     page = GALLERY.read_text(encoding="utf-8")
-    others = [other for other in editions.EDITIONS.values() if other is not edition()]
-    assert [name for other in others for name in (other.folder, other.product)
-            if name in page] == []
+    assert [name for name in ("spark_composer", "Spark Composer") if name in page] == []
 
 
 def test_a_scripts_statements_are_found_on_the_example_day() -> None:

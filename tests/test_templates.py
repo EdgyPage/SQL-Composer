@@ -35,11 +35,9 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-import editions
 from conftest import (
-    COPY_IT_TO, INSERT, PLACEHOLDER, ROOT, TEMPLATES, edition, functions_given,
-    is_a_select_on_the_example_database, previewed_days, project_on_the_path, standing_in,
-    template_id, without_the_write,
+    COPY_IT_TO, INSERT, PLACEHOLDER, ROOT, TEMPLATES, functions_given,
+    is_a_select_on_the_example_database, project_on_the_path, template_id, without_the_write,
 )
 from sqlglot_composer import (
     FROM, SELECT, all_columns, create_table, example_database, run, statement, to_hive,
@@ -132,10 +130,8 @@ DAYS = {"starter": ("2026-09-23", "2026-09-24"), "intermediate": ("2026-09-22", 
 # A notebook's first cells run as they are imported, so they are imported in a test of their own.
 RUNS_WHEN_IMPORTED = "notebook_start"
 # The SELECTs sqlglot Composer's Example database can't run, by set, Template and function.
-NO_WINDOW_FUNCTIONS = ("sqlglot's executor has no window functions, so it can't run "
-                       "row_number: Spark Composer's run checks it")
-NO_WEEK_START = ("sqlglot's executor has no NEXT_DAY, so it can't run week_start: Spark "
-                 "Composer's run checks it")
+NO_WINDOW_FUNCTIONS = "sqlglot's executor has no window functions, so it can't run row_number"
+NO_WEEK_START = "sqlglot's executor has no NEXT_DAY, so it can't run week_start"
 NOT_ON_SQLGLOTS_EXECUTOR = {
     ("intermediate", "as_of_lookup", "newest_per_key"): NO_WINDOW_FUNCTIONS,
     ("intermediate", "weekly_rollup", "week_totals"): NO_WEEK_START,
@@ -193,11 +189,6 @@ def write_filled(text: str, fills: dict[str, str], folder: Path) -> str:
     (folder / relative).parent.mkdir(parents=True, exist_ok=True)
     (folder / relative).write_text(text, encoding="utf-8")
     return relative
-
-
-def skip_in_sqlglot_composer(reason: str) -> None:
-    if edition() is editions.SQLGLOT_COMPOSER:
-        pytest.skip(reason)
 
 
 # --- The placeholders --------------------------------------------------------------------------
@@ -266,23 +257,6 @@ def test_each_template_says_where_it_goes_and_which_files_it_mirrors(path: Path)
     mirrored = MIRRORS.findall(" ".join(text.split()))
     assert mirrored, f"{template_id(path)} names no Example project file it mirrors"
     assert [m for m in mirrored if not (ROOT / m).is_file()] == []
-
-
-@pytest.mark.parametrize("path", templates(), ids=template_id)
-def test_each_template_can_be_named_for_either_edition(path: Path) -> None:
-    """The export copies each Template for each Edition through editions.named_for, which
-    refuses text that would still name sqlglot Composer in Spark Composer's copy."""
-    text = path.read_text(encoding="utf-8")
-    for each in (editions.SQLGLOT_COMPOSER, editions.SPARK_COMPOSER):
-        named = editions.named_for(each, text, where=template_id(path))
-        assert f"from {each.folder} import" in named
-
-
-def test_the_readme_can_be_named_for_either_edition() -> None:
-    """The README ships beside the Templates, named for each Edition the same way."""
-    text = README.read_text(encoding="utf-8")
-    for each in (editions.SQLGLOT_COMPOSER, editions.SPARK_COMPOSER):
-        assert f"`{each.folder}`" in editions.named_for(each, text, where="templates/README.md")
 
 
 # --- Filled in, in a project folder --------------------------------------------------------------
@@ -363,8 +337,8 @@ def test_the_saved_table_reference_makes_a_create_table(starter: dict) -> None:
 
 
 def runnable_selects(name: str, stem: str, module) -> dict[str, list]:
-    """Each function's SELECTs that either Example database runs: none that reads a Saved
-    table, and none that NOT_ON_SQLGLOTS_EXECUTOR names, which a test of its own runs."""
+    """Each function's SELECTs that the Example database runs: none that reads a Saved table,
+    and none that NOT_ON_SQLGLOTS_EXECUTOR names."""
     found = {}
     for function, statements in built_by(module, name).items():
         if (name, stem, function) in NOT_ON_SQLGLOTS_EXECUTOR:
@@ -406,34 +380,6 @@ def test_each_select_it_builds_runs_on_the_example_database(request, case) -> No
                 assert rows.empty, f"{stem}.{function} found a repeated key"
             else:
                 assert len(rows) > 0, f"{stem}.{function} gave no rows"
-
-
-@pytest.mark.needs_example_database
-def test_newest_per_key_runs_on_spark(intermediate: dict) -> None:
-    """It gives the rows newest_per_key_by_newest_day gives, without row_number."""
-    skip_in_sqlglot_composer(
-        NOT_ON_SQLGLOTS_EXECUTOR[("intermediate", "as_of_lookup", "newest_per_key")])
-    module = intermediate["as_of_lookup"].module
-    rows = run(module.newest_per_key("2026-09-24"), send=example_database.send)
-    assert len(rows) > 0 and rows.job_id.is_unique
-    without = run(module.newest_per_key_by_newest_day("2026-09-24"), send=example_database.send)
-    pd.testing.assert_frame_equal(rows.sort_values("job_id").reset_index(drop=True),
-                                  without.sort_values("job_id").reset_index(drop=True),
-                                  check_dtype=False)
-
-
-@pytest.mark.needs_example_database
-def test_the_weekly_rollup_runs_on_spark(intermediate: dict) -> None:
-    """mart.job_day_minutes, which only a warehouse holds, is stood in for by what the
-    incremental load previews for each of ops.job_runs' two days."""
-    skip_in_sqlglot_composer(
-        NOT_ON_SQLGLOTS_EXECUTOR[("intermediate", "weekly_rollup", "week_totals")])
-    saved = previewed_days(intermediate["incremental_load"].module, DAYS["starter"])
-    hive = to_hive(intermediate["weekly_rollup"].module.week_totals("2026-09-21", "2026-09-27"))
-    rows = example_database.send(standing_in(hive, {"job_day_minutes": saved}))
-    assert set(rows.week) == {"2026-09-21"}
-    # nightly_load's minutes: 12 and 5 on 2026-09-23, 10 and 40 on 2026-09-24
-    assert rows.set_index("job_id").minutes[1] == 12 + 5 + 10 + 40
 
 
 # --- Each starter Template, filled in -----------------------------------------------------------

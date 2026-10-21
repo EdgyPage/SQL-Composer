@@ -160,12 +160,9 @@ WHERE
 2       3  finance  chloe  2026-09-24
 3       4      web   None  2026-09-24
 
-[sqlglot_composer only]
 Pasted into your own notebook, this `run` stops with a RuntimeError saying the Example database
-can't run this Hive: sqlglot Composer's Example database runs Hive with sqlglot, which has no
-`row_number`. The result above was worked out in pandas from the same rows, to show what the
+can't run this Hive: the Example database runs Hive with sqlglot, which has no `row_number`. The result above was worked out in pandas from the same rows, to show what the
 Hive gives. Your warehouse runs the Hive above as it is.
-[end]
 
 Here every job is in every day's copy, so each newest row is from 2026-09-24, and reading that
 one day would give the same. At work a row can drop out of a snapshot, such as a job that was

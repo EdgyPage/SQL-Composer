@@ -116,7 +116,7 @@ def test_an_executor_error_that_names_no_function_is_refused_plainly(monkeypatch
 ])
 def test_the_intermediate_tables_meet_the_same_limits(table, calculation, missing) -> None:
     """The newest snapshot per key and week and month rollups, which the intermediate how-tos
-    show, run on Spark Composer's Example database; here the gallery shows a pandas result."""
+    show, which the gallery shows as a pandas result."""
     t = getattr(example_database, table)
     s = statement(SELECT(t.job_id, AS(calculation(t), "x")), FROM(t),
                   WHERE(last_n_days(t.dt, 14)))

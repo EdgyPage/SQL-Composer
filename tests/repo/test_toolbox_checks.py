@@ -7,18 +7,15 @@
   so are the admin module's, which the star import leaves out;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
 - requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
-  each under its own Edition's heading, pinned to the version requirements-dev.txt pins;
-- each Edition's library pin in requirements-dev.txt (sqlglot for sqlglot Composer, pyspark for
-  Spark Composer) falls inside the range its engine.py supports, and CI runs each Edition at the
-  bottom of that range and at the pin; Spark Composer's jobs run on Java 17, without sqlglot,
-  with its Example database required.
+  pinned to the version requirements-dev.txt pins;
+- sqlglot's pin in requirements-dev.txt falls inside the range engine.py supports, and CI runs
+  the tests at the bottom of that range and at the pin.
 """
 
 from __future__ import annotations
 
 import importlib
 import importlib.util
-import json
 import re
 import subprocess
 import sys
@@ -91,26 +88,13 @@ def test_the_admin_modules_names_are_the_decided_ones() -> None:
         assert callable(getattr(sqlglot_composer.admin, name)), name
 
 
-def test_spark_composer_has_the_same_public_names() -> None:
-    # In a Python of its own, since a Python runs one Edition and this one runs sqlglot Composer.
-    script = ("import json, spark_composer\n"
-              "print(json.dumps([spark_composer.__all__,\n"
-              "                  [n for n in spark_composer.__all__ if not hasattr(spark_composer, n)]]))")
-    done = subprocess.run([sys.executable, "-c", script], cwd=ROOT, capture_output=True,
-                          text=True, timeout=120)
-    assert done.returncode == 0, done.stderr
-    names, missing = json.loads(done.stdout)
-    assert sorted(names) == sorted(PUBLIC_NAMES)
-    assert missing == []
-
-
 @pytest.mark.parametrize("folder", [f for f in FOLDERS if (ROOT / f).is_dir()])
 def test_each_toolbox_file_imports_only_what_editions_allows(folder: str) -> None:
     assert editions.imports_outside(ROOT / folder) == []
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: f"{p.parent.name}/{p.name}")
-def test_every_file_of_both_editions_declares_the_same_toolbox_version(path: Path) -> None:
+def test_every_toolbox_file_declares_the_same_toolbox_version(path: Path) -> None:
     found = re.findall(r'^TOOLBOX_VERSION = "([^"]+)"$', path.read_text(encoding="utf-8"),
                        re.MULTILINE)
     assert found == [sqlglot_composer.TOOLBOX_VERSION]
@@ -141,7 +125,7 @@ def _version(text: str) -> tuple[int, ...]:
 def _engine(edition: editions.Edition):
     """An Edition's engine.py, which holds the range of its library it supports.
 
-    It is loaded by its path, not imported with its Edition, since a Python runs one Edition.
+    It is loaded by its path, under a name of its own.
     """
     path = ROOT / edition.folder / "engine.py"
     spec = importlib.util.spec_from_file_location(f"{edition.folder}_engine", path)
@@ -212,7 +196,7 @@ def _normal(name: str) -> str:
 
 def _needs(package: str) -> set[str] | None:
     """The packages an installed `package` needs in turn, its extras left out, or None where
-    this Python hasn't installed it (as sqlglot in CI's Spark Composer jobs)."""
+    this Python hasn't installed it."""
     import importlib.metadata
     try:
         requires = importlib.metadata.distribution(package).requires or []
@@ -241,34 +225,9 @@ def test_requirements_lists_what_each_listed_package_needs_in_turn() -> None:
 
 
 def test_requirements_pins_the_versions_dev_tests_on() -> None:
-    # So a user installs exactly what both runs and CI's pinned jobs passed on.
+    # So a user installs exactly what the tests and CI's pinned job passed on.
     dev = _dev_pins()
     assert _requirements() == {name: dev[name] for name in _requirements()}
-
-
-def _section_of(package: str) -> str:
-    """The `# ---- ... ----` heading requirements.txt lists `package` under."""
-    heading = ""
-    for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines():
-        if line.startswith("# ----"):
-            heading = line
-        elif re.match(rf"{re.escape(package)}\b", line):
-            return heading
-    raise AssertionError(f"requirements.txt doesn't list {package}")
-
-
-@EACH_EDITION
-def test_requirements_lists_each_library_under_its_own_editions_heading(edition) -> None:
-    # So a user deletes the other Edition's section by hand, knowing which it is.
-    others = [e.product for e in editions.EDITIONS.values() if e is not edition]
-    heading = _section_of(edition.library)
-    assert f"{edition.product} only" in heading
-    assert all(f"if you use {other}" in heading for other in others)
-
-
-@pytest.mark.parametrize("package", sorted(editions.SHARED_IMPORTS))
-def test_requirements_lists_pandas_and_numpy_under_both_editions(package) -> None:
-    assert "Both Editions" in _section_of(package)
 
 
 @EACH_EDITION
@@ -284,15 +243,3 @@ def test_ci_runs_each_edition_at_the_bottom_of_its_range_and_at_its_pin(edition)
 
 def test_sqlglot_composers_ci_runs_its_tests() -> None:
     assert _steps(_job(editions.SQLGLOT_COMPOSER))[-1] == "python -m pytest"
-
-
-def test_spark_composers_ci_runs_on_java_17_without_sqlglot_and_needs_its_example_database(
-) -> None:
-    job = _job(editions.SPARK_COMPOSER)
-    assert "distribution: temurin" in job and 'java-version: "17"' in job
-    steps = _steps(job)
-    assert "pip uninstall --yes sqlglot" in steps
-    # It exits 1 while sqlglot can be found, on its own.
-    assert ("""python -c "import importlib.util, sys; """
-            """sys.exit(importlib.util.find_spec('sqlglot') is not None)\"""" in steps)
-    assert steps[-1] == "python -m pytest --edition spark --example-database required"

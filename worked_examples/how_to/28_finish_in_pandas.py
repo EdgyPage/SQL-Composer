@@ -41,9 +41,8 @@ Example database.
 >>> week_finished = [between(job_events.dt, "2026-09-18", "2026-09-24"),
 ...                  equals(job_events.event_type, "finish")]
 
-[sqlglot_composer only]
-sqlglot Composer's Example database runs only part of Hive, and no windows. Pasted into your
-own notebook with sqlglot Composer, running a Statement with a Window stops with this message:
+The Example database runs only part of Hive, and no windows. Pasted into your own notebook,
+running a Statement with a Window stops with this message:
 
 >>> run(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
 ...                                            "minutes_before")),
@@ -56,7 +55,6 @@ RuntimeError:
 
 So the results of the Statements below with a Window are what Hive gives at work, worked out
 in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.
-[end]
 
 ### The run before: lag
 
@@ -375,9 +373,9 @@ import pandas as pd
 
 from sqlglot_composer import FROM, SELECT, WHERE, all_columns, between, example_database, run, statement
 
-# sqlglot Composer's Example database can't run a window, so the page and the doctest get
+# The Example database can't run a window, so the page and the doctest get
 # each Statement's result from these, worked out in pandas from every finished run of the
-# week. Spark Composer's runs the Hive itself, and its result must match.
+# week.
 
 
 def finished_runs() -> pd.DataFrame:
@@ -421,5 +419,5 @@ def last_three_in_pandas() -> pd.DataFrame:
 def slower_in_pandas() -> pd.DataFrame:
     changes = with_before_in_pandas()
     slower = changes[changes["change"] > 0][["job_id", "dt", "change"]]
-    # With no NULL left, Spark gives the change as whole numbers.
+    # With no NULL left, Hive gives the change as whole numbers.
     return in_order(slower.astype({"change": "int64"}))

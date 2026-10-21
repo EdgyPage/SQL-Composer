@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -24,7 +25,15 @@ ROOT = TOOLBOX.parent
 CORE = ROOT / editions.CORE
 FOLDER, PRODUCT = edition().folder, edition().product
 CORE_FOLDER, CORE_PRODUCT = editions.CORE, editions.CORE_PRODUCT
-OTHER = next(other for other in editions.EDITIONS.values() if other is not edition())
+# Another Toolbox folder, whose files a paste at work could mix in: Spark Composer's, the
+# Edition dropped in 6.0, of which a user may still have a copy.
+OTHER = SimpleNamespace(folder="spark_composer", product="Spark Composer")
+
+
+def other_folders_init() -> str:
+    """The other folder's __init__.py, as it names itself."""
+    text = (TOOLBOX / "__init__.py").read_text(encoding="utf-8")
+    return text.replace(FOLDER, OTHER.folder).replace(PRODUCT, OTHER.product)
 VERSION = sqlglot_composer.TOOLBOX_VERSION
 
 
@@ -305,7 +314,7 @@ def test_an_edition_file_pasted_into_the_core_stops_the_import(tmp_path) -> None
 def test_the_other_folders_init_stops_the_import_naming_itself(tmp_path) -> None:
     """Its own text names the other folder, so the stop goes by the folder the import found."""
     def pasted_in(copy: Path) -> None:
-        shutil.copy(ROOT / OTHER.folder / "__init__.py", copy / "__init__.py")
+        (copy / "__init__.py").write_text(other_folders_init(), encoding="utf-8")
         from_the_other_folder(copy, "__init__.py")
 
     assert import_copy(tmp_path, pasted_in, stamp_core).endswith(import_stop(
@@ -344,7 +353,7 @@ def test_the_other_folders_init_in_a_renamed_folder_stops_the_import_naming_itse
         tmp_path) -> None:
     """The folder is what most of its files' stamps say, whatever the pasted __init__.py says."""
     def pasted_in(copy: Path) -> None:
-        shutil.copy(ROOT / OTHER.folder / "__init__.py", copy / "__init__.py")
+        (copy / "__init__.py").write_text(other_folders_init(), encoding="utf-8")
         with_file_list(copy)
         stamp_line = f"# {OTHER.product} {VERSION}, exported 2026-10-02 14:05 - generated from dev"
         init = copy / "__init__.py"

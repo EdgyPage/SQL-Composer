@@ -1,7 +1,7 @@
 # Remove Spark Composer
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: -
 Size: L
 
@@ -19,7 +19,10 @@ supersedes 0002 (why, and the tag to recover it from).
 
 ## Done when
 
-- `git grep -i spark` on dev finds only the ADRs, CHANGES.md's history and the .scratch tracker.
+- `git grep -i spark_composer` and `git grep "Spark Composer"` on dev find only the ADRs,
+  CHANGES.md's history, the README's note for Spark Composer's users, the .scratch tracker, and
+  the tests' stand-in for an old copy; Spark itself stays named where a user's own send may run
+  the Hive on Spark.
 - The export ships one Toolbox and checks nothing Spark-shaped.
 - The pytest runs pass, the code-review skill has run with this ticket as its spec, its drift
   items are closed, and the beginner reader has run on what a beginner sees (CLAUDE.md's

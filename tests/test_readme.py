@@ -1,9 +1,4 @@
-"""The Clean branch README's examples run, in both Editions.
-
-The README is written for sqlglot Composer and tells a Spark Composer user to write
-`spark_composer` wherever it writes `sqlglot_composer`. The Spark Composer run makes `import
-sqlglot_composer` give Spark Composer, so each example runs there as that user would run it.
-"""
+"""The Clean branch README's examples run."""
 
 from __future__ import annotations
 

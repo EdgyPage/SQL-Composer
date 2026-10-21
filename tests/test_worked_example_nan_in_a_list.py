@@ -10,7 +10,7 @@ import math
 
 import pytest
 
-from conftest import example_rows, in_this_edition
+from conftest import example_rows
 from sqlglot_composer import GuardRefused, example_database, run, to_hive
 from statements import nan_in_a_list as example
 
@@ -39,7 +39,7 @@ def test_the_guard_refuses_a_nan_in_the_list() -> None:
 @pytest.mark.needs_example_database
 def test_the_careless_hive_would_count_no_rows() -> None:
     hive = to_hive(example.fixed())
-    listed = in_this_edition("2.0", "2.0D")
+    listed = "2.0"
     assert f"NOT job_runs.job_id IN ({listed})" in hive
     careless_hive = hive.replace(f"IN ({listed})", f"IN ({listed}, NULL)")
     assert example_database.send(careless_hive).runs[0] == 0

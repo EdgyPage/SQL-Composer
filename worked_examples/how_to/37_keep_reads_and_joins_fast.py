@@ -153,21 +153,8 @@ Hive's plan is a tree of steps, each reading what the steps below it give. Look 
 - each step's "Statistics:" line, the rows Hive expects, and "Basic stats: NONE" or "Column
   stats: NONE" where it has none to go by: count that table's days with `compute_statistics`.
 
-[spark_composer only]
-The Example database runs on Spark, so it gives Spark's own plan, which reads differently from
-Hive's and starts with its heading:
-
->>> plan = run(explain(runs_per_team), send=example_database.send)
->>> print(plan.splitlines()[0])
-== Physical Plan ==
-
-Spark calls a map join a BroadcastHashJoin.
-[end]
-
-[sqlglot_composer only]
 The Example database can't give a plan: it runs Hive on sqlglot's own small executor, which
 makes none. `to_hive(explain(...))` still shows what you would send at work.
-[end]
 
 ### Find the days a Saved table lost
 

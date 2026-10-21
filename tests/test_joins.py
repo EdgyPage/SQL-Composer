@@ -2,7 +2,7 @@
 
 Each join's Hive, its rows on the Example database, what it refuses, the Key it keeps or loses
 (ADR 0005) and what Lineage says of it. sqlglot's executor can't run a LEFT SEMI JOIN, so
-sqlglot Composer's Example database says so, and Spark Composer's gives the rows.
+the Example database says so.
 """
 
 from __future__ import annotations
@@ -46,8 +46,6 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
-import editions
-from conftest import edition
 
 job_runs = example_database.job_runs
 jobs = example_database.jobs
@@ -185,13 +183,9 @@ def test_broadcast_must_be_true_or_false(value) -> None:
 
 
 @pytest.mark.needs_example_database
-def test_semi_join_keeps_each_run_with_an_alert_once() -> None:
-    if edition() is editions.SQLGLOT_COMPOSER:
-        with pytest.raises(RuntimeError, match="its executor has no LEFT SEMI JOIN"):
-            run(runs_with_an_alert(), send=example_database.send)
-        return
-    frame = run(runs_with_an_alert(), send=example_database.send)
-    assert list(frame.run_id) == [97, 101, 102, 103, 104]
+def test_the_example_database_says_it_cant_run_a_semi_join() -> None:
+    with pytest.raises(RuntimeError, match="its executor has no LEFT SEMI JOIN"):
+        run(runs_with_an_alert(), send=example_database.send)
 
 
 @pytest.mark.needs_example_database
