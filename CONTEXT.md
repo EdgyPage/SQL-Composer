@@ -50,8 +50,9 @@ _Avoid_: table directory, table project, model folder
 
 **Table notebook**:
 The notebook in a Table folder whose cells create, preview and write its Saved table, made from
-a Template when the Table folder is made. One of its cells holds the table's logic alone, so
-other notebooks can use that logic without running the rest.
+a Template when the Table folder is made. Its logic cell, the one whose first line is
+`# logic`, holds the table's logic alone, its imports and its functions, so other notebooks
+can load and use that logic without running the rest.
 _Avoid_: table script, pipeline notebook, job
 
 **Registry**:
