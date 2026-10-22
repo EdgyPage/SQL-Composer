@@ -8,7 +8,7 @@ import pandas as pd
 from building_blocks.jobs_per_day import jobs_per_day
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, between, count_distinct,
-    example_database, run, statement, sum_of, week_start,
+    example_database, run_query, statement, sum_of, week_start,
 )
 
 job_runs = example_database.job_runs
@@ -45,10 +45,10 @@ def fixed() -> Statement:
 
 def every_run() -> pd.DataFrame:
     """Every run on both days, read with a Statement the Example database can run."""
-    return run(
+    return run_query(
         statement(SELECT(all_columns(job_runs)), FROM(job_runs),
                   WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY))),
-        query=example_database.query,
+        example_database.query,
     )
 
 

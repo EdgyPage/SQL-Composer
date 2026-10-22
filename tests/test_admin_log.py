@@ -30,7 +30,7 @@ from sqlglot_composer import (
     equals,
     example_database,
     hive_settings,
-    run,
+    run_query, run_execute,
     set_admin_log,
     show_hive,
     statement,
@@ -54,11 +54,11 @@ def log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return set_admin_log(tmp_path / "admin_log.md")
 
 
-def by_hand(text: str = TEXT, *, returns_rows: bool = False) -> UncheckedStatement:
-    """unchecked_hive(text, returns_rows=...), its note on ALTER taken as read."""
+def by_hand(text: str = TEXT) -> UncheckedStatement:
+    """unchecked_hive(text), its note on ALTER taken as read."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return unchecked_hive(text, returns_rows=returns_rows)
+        return unchecked_hive(text)
 
 
 def no_rows(hive: str) -> pd.DataFrame:
@@ -82,7 +82,7 @@ HEADER = (
 def test_a_run_adds_an_entry_with_the_time_call_hive_script_commit_and_result(
         log: Path) -> None:
     sent = []
-    run(by_hand(), execute=sent.append)
+    run_execute(by_hand(), sent.append)
     assert sent == [TEXT]
     assert log.read_text(encoding="utf-8") == HEADER + (
         "\n"
@@ -100,9 +100,9 @@ def test_a_run_adds_an_entry_with_the_time_call_hive_script_commit_and_result(
 
 
 def test_each_run_adds_to_the_end_and_never_rewrites(log: Path) -> None:
-    run(by_hand(), execute=lambda hive: None)
+    run_execute(by_hand(), lambda hive: None)
     first = log.read_text(encoding="utf-8")
-    run(by_hand("SELECT 1", returns_rows=True), query=no_rows)
+    run_query(by_hand("SELECT 1"), no_rows)
     both = log.read_text(encoding="utf-8")
     assert both.startswith(first)
     assert both.count("\n## ") == 2
@@ -114,13 +114,13 @@ def test_a_run_that_fails_is_logged_with_its_error_then_raises(log: Path) -> Non
         raise RuntimeError("the warehouse said no:\n  table not found")
 
     with pytest.raises(RuntimeError, match="the warehouse said no"):
-        run(by_hand(), execute=execute)
+        run_execute(by_hand(), execute)
     assert ("- Result: failed, with RuntimeError: the warehouse said no: table not found\n"
             in log.read_text(encoding="utf-8"))
 
 
 def test_hive_holding_backticks_and_quotes_keeps_its_entry_whole(log: Path) -> None:
-    run(by_hand("SELECT '```' AS fence, \"a\" AS `b`", returns_rows=True), query=no_rows)
+    run_query(by_hand("SELECT '```' AS fence, \"a\" AS `b`"), no_rows)
     text = log.read_text(encoding="utf-8")
     assert "- Call: ````unchecked_hive(\"SELECT '```' AS fence, \\\"a\\\" AS `b`\")````\n" in text
     assert text.endswith("````sql\nSELECT '```' AS fence, \"a\" AS `b`\n````\n")
@@ -134,17 +134,17 @@ def test_showing_or_writing_the_hive_logs_nothing(
 
 
 def test_session_settings_and_statements_are_not_logged(log: Path) -> None:
-    run(hive_settings("map_joins"), execute=lambda hive: None)
-    run(statement(SELECT(job_runs.run_id), FROM(job_runs),
-                  WHERE(equals(job_runs.dt, "2026-09-24"))), query=no_rows)
-    run(create_table(daily_runs), execute=lambda hive: None)
+    run_execute(hive_settings("map_joins"), lambda hive: None)
+    run_query(statement(SELECT(job_runs.run_id), FROM(job_runs),
+                        WHERE(equals(job_runs.dt, "2026-09-24"))), no_rows)
+    run_execute(create_table(daily_runs), lambda hive: None)
     assert not log.exists()
 
 
 def test_an_admin_statement_is_logged_with_its_call(log: Path) -> None:
     """The admin module marks each Statement it makes with the call that made it, which the
     entry names."""
-    run(admin.drop_table(daily_runs), execute=lambda hive: None)
+    run_execute(admin.drop_table(daily_runs), lambda hive: None)
     entry = log.read_text(encoding="utf-8").split("\n## ", 1)[1]
     assert entry.startswith("2026-10-15 14:30:05, Admin statement\n")
     assert "- Call: `admin.drop_table(mart.daily_runs)`\n" in entry
@@ -156,9 +156,9 @@ def test_an_admin_statement_is_logged_with_its_call(log: Path) -> None:
 
 
 SCRIPT = """
-    from sqlglot_composer import run, set_admin_log, unchecked_hive
+    from sqlglot_composer import run_query, run_execute, set_admin_log, unchecked_hive
     set_admin_log()
-    files = run(unchecked_hive("SELECT 1", returns_rows=False), execute=lambda hive: None)
+    files = run_execute(unchecked_hive("SELECT 1"), lambda hive: None)
 """
 
 
@@ -175,7 +175,7 @@ def test_a_path_that_isnt_absolute_is_taken_from_the_callers_folder() -> None:
 
 def test_a_missing_folder_is_made(tmp_path: Path) -> None:
     set_admin_log(tmp_path / "logs" / "admin_log.md")
-    run(by_hand("SELECT 1", returns_rows=True), query=no_rows)
+    run_query(by_hand("SELECT 1"), no_rows)
     assert (tmp_path / "logs" / "admin_log.md").exists()
 
 

@@ -311,7 +311,7 @@ import leaves it out:
 >>> from sqlglot_composer import admin
 
 `admin.drop_table(...)` gives the one that drops a table, which you send with
-`run(..., execute=execute)`, as admin/change_a_saved_table.ipynb does. `help(admin)` lists
+`run_execute(..., execute)`, as admin/change_a_saved_table.ipynb does. `help(admin)` lists
 every Admin statement.
 
 `project.remove_block` archives a Building block the same way, from admin/new_block.ipynb's

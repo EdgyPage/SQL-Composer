@@ -26,7 +26,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run, show_hive
+from sqlglot_composer import export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -101,7 +101,7 @@ def team_runs_from_job_runs(reads: Condition) -> Statement:
 # %%
 # 3. Try it: the Hive of each step, then each team's runs from ops.job_runs
 show_hive([create(), write()])
-run(team_runs_from_job_runs(equals(job_runs.dt, "2026-09-24")), query=query)
+run_query(team_runs_from_job_runs(equals(job_runs.dt, "2026-09-24")), query)
 
 # %%
 # 4. Lineage: both tables together, in a new pair in lineage/ named by the time and this

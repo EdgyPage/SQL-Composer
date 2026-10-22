@@ -290,7 +290,7 @@ run: one row for each job and day.
 ...     WHERE(between(job_events.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_events.job_id, job_events.dt),
 ... )
->>> rows = run(per_job_day, query=query)  # -> DataFrame
+>>> rows = run_query(per_job_day, query)  # -> DataFrame
 >>> bool(rows.duplicated(["job_id", "dt"]).any())
 False
 

@@ -44,7 +44,7 @@ from sqlglot_composer import (
     if_else,
     is_total,
     rollup,
-    run,
+    run_query,
     set_load_limits,
     statement,
     to_hive,
@@ -283,7 +283,7 @@ def test_a_union_of_statements_reading_different_days_fills_each_days_partition(
 @pytest.mark.parametrize("stack, run_ids", [(UNION_ALL, [101, 102, 102]), (UNION, [101, 102]),
                                             (INTERSECT, [102]), (EXCEPT, [])])
 def test_each_stack_gives_its_rows(stack: Callable[..., Statement], run_ids: list[int]) -> None:
-    result = run(stack(failed_runs(), alerted_runs()), query=example_database.query)
+    result = run_query(stack(failed_runs(), alerted_runs()), example_database.query)
     assert list(result["run_id"]) == run_ids
 
 
@@ -295,11 +295,11 @@ def owners_on(day: str) -> Statement:
 @pytest.mark.needs_example_database
 def test_except_both_ways_finds_where_two_tables_differ() -> None:
     teams = statement(SELECT(jobs.job_id, jobs.team), FROM(jobs))
-    only_in_jobs = run(EXCEPT(teams, owners_on("2026-09-17")), query=example_database.query)
-    only_in_owners = run(EXCEPT(owners_on("2026-09-17"), teams), query=example_database.query)
+    only_in_jobs = run_query(EXCEPT(teams, owners_on("2026-09-17")), example_database.query)
+    only_in_owners = run_query(EXCEPT(owners_on("2026-09-17"), teams), example_database.query)
     assert only_in_jobs.values.tolist() == [[3, "finance"]]
     assert only_in_owners.values.tolist() == [[3, "data"]]
-    agree = run(EXCEPT(teams, owners_on(DAY)), query=example_database.query)
+    agree = run_query(EXCEPT(teams, owners_on(DAY)), example_database.query)
     assert agree.empty
 
 
@@ -476,4 +476,4 @@ def test_subtotals_lose_the_key() -> None:
 @pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_make_subtotals() -> None:
     with pytest.raises(RuntimeError, match="its executor has no GROUPING SETS"):
-        run(runs_by(rollup(jobs.team, jobs.job_name)), query=example_database.query)
+        run_query(runs_by(rollup(jobs.team, jobs.job_name)), example_database.query)

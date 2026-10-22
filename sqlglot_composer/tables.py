@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, NoReturn
 import numpy as np
 import pandas as pd
 
-from . import _FOLDER
+from . import _FOLDER, kinds
 from .writing import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
@@ -53,7 +53,7 @@ if TYPE_CHECKING:  # clauses.py and conditions.py import this file
     from .clauses import Statement
     from .conditions import Condition
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # How a date is written in Hive text, as Hive writes one: 2026-09-25.
 DATE_FORMAT = "%Y-%m-%d"
@@ -496,8 +496,8 @@ class Table:
       a record of where. Two tables in one folder would read each other's files, so a Saved
       table whose folder is another's, or inside another's, is refused. A location such as
       "${hivevar:root}/mart.db/daily_runs" holds a Hive variable: send its SET first, with
-      run(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),
-      execute=...), and check_table_reference then notes the table's folder rather than
+      run_execute(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),
+      execute), and check_table_reference then notes the table's folder rather than
       comparing it.
     - `purge=True` makes dropping the table delete its files too. purge=False keeps them in
       its folder, where a table created again reads them back: at once, or, for a
@@ -978,7 +978,7 @@ def first_look(t: Table) -> Statement:
 
     It is an ordinary Statement, with LIMIT 20. A partitioned table is read with
     reads_all_partitions=True: Hive stops reading once it has 20 rows, so it is safe on a big
-    table too. Send it with run(first_look(t), query=...).
+    table too. Send it with run_query(first_look(t), query).
     """
     from .clauses import FROM, LIMIT, SELECT, statement
 
@@ -1029,7 +1029,7 @@ def _ask(query: object, hive: str, call: str) -> pd.DataFrame:
             what=f"{call}: query gave back "
             f"{'None' if frame is None else kind_name(frame)} for {hive}.",
             why="It reads what the warehouse prints, as a pandas DataFrame.",
-            fix="Make your query return the warehouse's answer as a DataFrame, as run(...) needs too.",
+            fix="Make your query return the warehouse's answer as a DataFrame, as run_query(...) needs too.",
         )
     if len(frame.columns) == 0:
         refuse(
@@ -1163,8 +1163,8 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from ops__run_alerts import run_alerts, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = run_alerts.severity
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -1276,8 +1276,8 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
         f"# Import one beside the table: from {module} import {variable}, <alias>",
         "#",
         "# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame "
-        "run",
-        "# gives back, still call the column by its own name. To rename an output, use AS(...).",
+        "you",
+        "# get back, still call the column by its own name. To rename an output, use AS(...).",
         f"#     <alias> = {variable}.{example}",
         "# A condition Alias names a condition on this table alone, for WHERE or",
         "# count_rows(where=...). Add what it calls, such as equals, to the import at the top.",
@@ -1359,7 +1359,7 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
     from .calculations import count_rows
     from .clauses import AS, FROM, GROUP_BY, HAVING, LIMIT, SELECT, WHERE, statement
     from .conditions import Condition, more_than
-    from .running import run
+    from .running import run_query
 
     t = _real_table(t, "check_key(...)")
     if not t._key:
@@ -1395,7 +1395,7 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
         clauses.append(WHERE(where))
         when = f" where {where!r}"
     clauses += [GROUP_BY(key), HAVING(more_than(count_rows(), 1)), LIMIT(20)]
-    repeats = run(statement(*clauses), query=query)
+    repeats = run_query(statement(*clauses), query)
     if len(repeats.columns) == 0:
         refuse(
             what=f"check_key({t._alias}): your query gave back a DataFrame with no columns.",
@@ -1689,13 +1689,13 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     LOCATION '/data/your_team/mart.db/daily_runs'
 
     A Saved table is one your Statements write into. Send it once with
-    run(create_table(t), execute=...). The table is external: its files are yours, in its own
+    run_execute(create_table(t), execute). The table is external: its files are yours, in its own
     folder, the Table reference's location=, and the warehouse only keeps a record of
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
     reference with no location= is refused. A location= holding a Hive variable, such as
     "${hivevar:root}/mart.db/daily_runs", needs its SET sent first, with
-    run(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),
-    execute=...), and check_table_reference then notes the table's folder rather than
+    run_execute(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),
+    execute), and check_table_reference then notes the table's folder rather than
     comparing it. Every column needs a type Hive has, spelled as
     DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
     and a struct whose names are reserved words, and says what to write. If the table
@@ -1766,6 +1766,7 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
         properties.append((FILE_FORMATS[t._stored_as][0], t._compression))
     properties += list(t._properties.items())
     s = Statement()
+    s._kind = kinds.CREATE
     s._ddl = Node("Create", target=table_node(t._name), columns=columns,
                   partitioned_by=partitioned_by, exists=may_exist,
                   bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),

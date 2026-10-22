@@ -1,11 +1,11 @@
 """The Example database: nine made-up tables, and a query and execute to try them.
 
 >>> runs = example_database.job_runs
->>> run(statement(
+>>> run_query(statement(
 ...     SELECT(runs.run_id, runs.status, runs.duration_mins),
 ...     FROM(runs),
 ...     WHERE(equals(runs.dt, "2026-09-23")),
-... ), query=example_database.query)
+... ), example_database.query)
    run_id   status  duration_mins
 0      95  SUCCESS             12
 1      96  SUCCESS             18
@@ -56,21 +56,21 @@ At work, rows come back in no fixed order: sort the DataFrame in pandas when the
 isn't partitioned, so a read of it is never limited:
 
 >>> budgets = example_database.region_budgets
->>> run(statement(
+>>> run_query(statement(
 ...     SELECT(budgets.job_id, budgets.budget_cents),
 ...     FROM(budgets),
 ...     WHERE(equals(budgets.region, "eu")),
-... ), query=example_database.query)
+... ), example_database.query)
    job_id  budget_cents
 0       1           150
 1       2           200
 2       4            50
 >>> notes = example_database.team_notes
->>> run(statement(
+>>> run_query(statement(
 ...     SELECT(notes.team, AS(count_rows(), "notes")),
 ...     FROM(notes),
 ...     GROUP_BY(notes.team),
-... ), query=example_database.query)
+... ), example_database.query)
       team  notes
 0     data      2
 1  finance      2
@@ -87,7 +87,7 @@ from .engine import run_query
 from .refusals import refuse
 from .tables import Table
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # --- The Table references -----------------------------------------------------------------
 
@@ -546,7 +546,7 @@ def query(hive: str) -> pd.DataFrame:
 
     It answers SELECT, DESCRIBE and SHOW PARTITIONS. It refuses an EXPLAIN, since its executor
     makes no plan, and other reads it doesn't know, such as SHOW TABLES; the rest, which change
-    something, run(...) sends to execute.
+    something, go through execute, with run_execute(...).
 
     >>> example_database.query("DESCRIBE ops.jobs")
        col_name data_type comment
@@ -559,7 +559,7 @@ def query(hive: str) -> pd.DataFrame:
         refuse(
             what=f"example_database.query was given {hive!r}, which isn't Hive text.",
             why="Like your query at work, it takes Hive text to run.",
-            fix="To run a Statement, pass it to run(s, query=example_database.query), which "
+            fix="To run a Statement, pass it to run_query(s, example_database.query), which "
             "turns it into Hive; to_hive(s) shows that Hive.",
             given=hive, call="example_database.query",
         )
@@ -580,7 +580,7 @@ def query(hive: str) -> pd.DataFrame:
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
             fix="A Statement that changes something goes to execute instead: "
-            "run(s, execute=example_database.execute) prints its first line. A read it doesn't "
+            "run_execute(s, example_database.execute) prints its first line. A read it doesn't "
             "answer, such as SHOW TABLES, runs only at work. to_hive(...) shows the Hive of any "
             "Statement without sending it, as in "
             "to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a "
@@ -605,7 +605,7 @@ def execute(hive: str) -> None:
         refuse(
             what=f"example_database.execute was given {hive!r}, which isn't Hive text.",
             why="Like your execute at work, it takes Hive text to send.",
-            fix="To run a Statement, pass it to run(s, execute=example_database.execute), "
+            fix="To run a Statement, pass it to run_execute(s, example_database.execute), "
             "which turns it into Hive; to_hive(s) shows that Hive.",
             given=hive, call="example_database.execute",
         )

@@ -81,7 +81,7 @@ WHERE
   AND job_events.event_type IN ('finish', 'fail')
 GROUP BY
   job_events.job_id;
->>> run(careless, query=query)  # -> DataFrame
+>>> run_query(careless, query)  # -> DataFrame
    job_id  event_id  minutes
 0       1        56       14
 1       2        54       22
@@ -119,7 +119,7 @@ The Example database runs only part of Hive, and not `row_number`. Pasted into y
 notebook, running a Statement that reads `numbered`, here and in the steps below, stops with
 this message:
 
->>> run(statement(SELECT(all_columns(numbered)), FROM(numbered)), query=query)
+>>> run_query(statement(SELECT(all_columns(numbered)), FROM(numbered)), query)
 Traceback (most recent call last):
 ...
 RuntimeError:
@@ -151,7 +151,7 @@ SELECT
   numbered.minutes,
   numbered.last_first
 FROM numbered;
->>> run(numbering, query=query)  # -> DataFrame
+>>> run_query(numbering, query)  # -> DataFrame
     job_id  event_id  minutes  last_first
 0        1        32       14           7
 1        1        38       11           6
@@ -189,7 +189,7 @@ SELECT
 FROM numbered
 WHERE
   numbered.last_first = 1;
->>> run(latest, query=query)  # -> DataFrame
+>>> run_query(latest, query)  # -> DataFrame
    job_id  event_id  minutes
 0       1        56       10
 1       2        54       18
@@ -240,7 +240,7 @@ SELECT
 FROM ranked
 WHERE
   ranked.longest_first <= 3;
->>> run(top_three, query=query)  # -> DataFrame
+>>> run_query(top_three, query)  # -> DataFrame
    job_id  event_id  minutes
 0       1        32       14
 1       1        42       13
@@ -261,7 +261,7 @@ Check that each job comes back once: one row per job, as many rows as jobs that 
 Example database this run stops, as above; `last_runs` here is the pandas result. At work the
 Statement runs, and the check is the same.
 
->>> last_runs = run(latest, query=query)  # -> DataFrame
+>>> last_runs = run_query(latest, query)  # -> DataFrame
 >>> last_runs["job_id"].is_unique
 True
 
@@ -275,7 +275,7 @@ its event, so the order the rows came back in doesn't matter:
 ...     WHERE(*week_ends),
 ...     GROUP_BY(job_events.job_id),
 ... )
->>> largest = run(largest_ids, query=query)  # -> DataFrame
+>>> largest = run_query(largest_ids, query)  # -> DataFrame
 >>> dict(zip(largest["job_id"], largest["event_id"])) == dict(
 ...     zip(last_runs["job_id"], last_runs["event_id"]))
 True
@@ -320,7 +320,7 @@ run of the week, not its last. Nothing stops it:
 ...     FROM(first_first),
 ...     WHERE(equals(first_first.position, 1)),
 ... )
->>> run(first_runs, query=query)  # -> DataFrame
+>>> run_query(first_runs, query)  # -> DataFrame
    job_id  event_id  minutes
 0       1        32       14
 1       2        34       22
@@ -362,7 +362,7 @@ Name it with `AS`, so the Statement that reads it can test it by that name.
 import pandas as pd
 
 from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, is_in, run, statement,
+    FROM, SELECT, WHERE, all_columns, between, example_database, is_in, run_query, statement,
 )
 
 # The Example database can't run row_number, so the page and the doctest get each Statement's
@@ -373,10 +373,10 @@ def every_run_end() -> pd.DataFrame:
     """Every event that ended a run in the week, read with a Statement the Example database
     can run."""
     job_events = example_database.job_events
-    return run(statement(SELECT(all_columns(job_events)), FROM(job_events),
-                         WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"),
-                               is_in(job_events.event_type, ["finish", "fail"]))),
-               query=example_database.query)
+    return run_query(statement(SELECT(all_columns(job_events)), FROM(job_events),
+                               WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"),
+                                     is_in(job_events.event_type, ["finish", "fail"]))),
+                     example_database.query)
 
 
 def numbered_runs(by: list[str], largest_first: bool) -> pd.DataFrame:

@@ -44,7 +44,8 @@ from sqlglot_composer import (
     is_in,
     last_n_days,
     row_number,
-    run,
+    run_execute,
+    run_query,
     set_load_limits,
     statement,
     sum_of,
@@ -557,7 +558,7 @@ def test_order_by_an_output_name_with_a_limit() -> None:
     assert "ORDER BY\n  job_count DESC,\n  jobs.team ASC\nLIMIT 2" in hive
 
 
-# --- run: which of your two calls each Statement goes to --------------------------------------
+# --- run_query and run_execute: you pick the call ---------------------------------------------
 
 saved_runs = Table("mart.saved_runs", columns={"job_id": "bigint", "dt": "string"},
                    partitioned_by=["dt"], location="/data/your_team/mart.db/saved_runs")
@@ -584,16 +585,22 @@ def one_day_read() -> Statement:
                      WHERE(equals(job_runs.dt, "2026-09-24")))
 
 
-def test_run_sends_a_read_to_query_and_gives_back_its_rows() -> None:
-    query, execute, sent = recording()
-    rows = run(one_day_read(), query=query, execute=execute)
+def test_run_query_sends_a_read_to_query_and_gives_back_its_rows() -> None:
+    query, _, sent = recording()
+    rows = run_query(one_day_read(), query)
     assert rows["plan"].tolist() == ["STAGE DEPENDENCIES:"]
     assert sent == [("query", to_hive(one_day_read()))]
 
 
-def test_run_sends_explain_to_query_and_gives_back_the_plan() -> None:
-    query, execute, sent = recording()
-    assert run(explain(one_day_read()), query=query, execute=execute) == "STAGE DEPENDENCIES:"
+def test_run_query_takes_query_by_name_too() -> None:
+    query, _, sent = recording()
+    run_query(one_day_read(), query=query)
+    assert sent == [("query", to_hive(one_day_read()))]
+
+
+def test_run_query_sends_explain_to_query_and_gives_back_the_plan() -> None:
+    query, _, sent = recording()
+    assert run_query(explain(one_day_read()), query) == "STAGE DEPENDENCIES:"
     assert sent == [("query", to_hive(explain(one_day_read())))]
 
 
@@ -602,56 +609,97 @@ def test_run_sends_explain_to_query_and_gives_back_the_plan() -> None:
     pytest.param(lambda: create_table(saved_runs), id="create_table"),
     pytest.param(lambda: admin.drop_table(saved_runs), id="admin_drop_table"),
 ])
-def test_run_sends_what_changes_a_table_to_execute_and_gives_back_none(
+def test_run_execute_sends_what_changes_a_table_to_execute_and_gives_back_none(
         make: Callable[[], Statement]) -> None:
-    query, execute, sent = recording()
-    assert run(make(), query=query, execute=execute) is None
+    _, execute, sent = recording()
+    assert run_execute(make(), execute) is None
     assert sent == [("execute", to_hive(make()))]
 
 
-def test_run_sends_each_session_setting_to_execute() -> None:
-    query, execute, sent = recording()
-    assert run(hive_settings("dynamic_partitions"), query=query, execute=execute) is None
+def test_run_execute_sends_each_session_setting_on_its_own() -> None:
+    _, execute, sent = recording()
+    assert run_execute(hive_settings("dynamic_partitions"), execute) is None
     assert sent == [("execute", "SET hive.exec.dynamic.partition=true"),
                     ("execute", "SET hive.exec.dynamic.partition.mode=nonstrict")]
 
 
-@pytest.mark.parametrize("make, needed", [
-    pytest.param(one_day_read, "query", id="read"),
-    pytest.param(lambda: explain(one_day_read()), "query", id="explain"),
-    pytest.param(backfill, "execute", id="write"),
-    pytest.param(lambda: create_table(saved_runs), "execute", id="create_table"),
-    pytest.param(lambda: hive_settings("map_joins"), "execute", id="session_settings"),
+@pytest.mark.parametrize("make, words", [
+    pytest.param(backfill, "a Statement that writes a Saved table", id="write"),
+    pytest.param(lambda: create_table(saved_runs), "create_table(...)'s Statement",
+                 id="create_table"),
+    pytest.param(lambda: admin.drop_table(saved_runs), "an Admin statement", id="admin"),
+    pytest.param(lambda: hive_settings("map_joins"), "Session settings", id="settings"),
 ])
-def test_run_refuses_a_step_whose_call_it_wasnt_given_naming_it(
-        make: Callable[[], object], needed: str) -> None:
-    query, execute, sent = recording()
-    other = {"execute": execute} if needed == "query" else {"query": query}
-    with pytest.raises(TypeError) as refused:
-        run(make(), **other)
-    message = str(refused.value)
-    assert f"run needs {needed}=, and wasn't given it." in message
-    assert f"from warehouse import {needed}" in message
+def test_run_query_refuses_what_changes_something_naming_run_execute(
+        make: Callable[[], object], words: str) -> None:
+    query, _, sent = recording()
+    step = make()
+    with pytest.raises(ValueError) as refused:
+        run_query(step, query)
+    message = " ".join(str(refused.value).split())
+    assert f"run_query was given {words}" in message
+    assert "Send it with run_execute(step, execute)." in message
     assert sent == []
 
 
-def test_run_refuses_send_naming_query_and_execute() -> None:
+@pytest.mark.parametrize("make, words", [
+    pytest.param(one_day_read, "a Statement that reads rows", id="read"),
+    pytest.param(lambda: explain(one_day_read()), "explain(...)'s Statement", id="explain"),
+])
+def test_run_execute_refuses_a_read_naming_run_query(make: Callable[[], Statement],
+                                                     words: str) -> None:
+    _, execute, sent = recording()
+    step = make()
+    with pytest.raises(ValueError) as refused:
+        run_execute(step, execute)
+    message = " ".join(str(refused.value).split())
+    assert f"run_execute was given {words}" in message
+    assert "Send it with run_query(step, query), which gives back its rows." in message
+    assert sent == []
+
+
+@pytest.mark.parametrize("call, other, instead", [
+    pytest.param(run_query, "execute", "run_execute", id="run_query"),
+    pytest.param(run_execute, "query", "run_query", id="run_execute"),
+])
+def test_each_refuses_the_other_call_by_name_naming_the_function_that_takes_it(
+        call: Callable[..., object], other: str, instead: str) -> None:
+    query, execute, sent = recording()
+    with pytest.raises(TypeError) as refused:
+        call(one_day_read(), **{other: query if other == "query" else execute})
+    message = str(refused.value)
+    assert f"{call.__name__} was given {other}=, your other call." in message
+    assert f"call {instead}(s, {other}) instead." in message
+    assert sent == []
+
+
+@pytest.mark.parametrize("call, needed", [(run_query, "query"), (run_execute, "execute")])
+def test_each_refuses_a_missing_call_naming_it(call: Callable[..., object],
+                                               needed: str) -> None:
+    step = one_day_read() if needed == "query" else backfill()
+    with pytest.raises(TypeError) as refused:
+        call(step)
+    message = str(refused.value)
+    assert f"{call.__name__} needs {needed}=, and wasn't given it." in message
+    assert f"from warehouse import {needed}" in message
+
+
+def test_run_query_refuses_send_naming_query() -> None:
     sent = []
     with pytest.raises(TypeError) as refused:
-        run(one_day_read(), send=sent.append)
+        run_query(one_day_read(), send=sent.append)
     message = str(refused.value)
-    assert "run was given send=, which Toolbox 7.0 replaced." in message
-    assert ("Pass query= and execute= instead, imported with from warehouse import query, "
-            "execute.") in message
+    assert "run_query was given send=, which Toolbox 7.0 replaced." in message
+    assert "Pass query= instead, imported with from warehouse import query, execute." in message
     assert "CHANGES.md" in message
     assert sent == []
 
 
-def test_run_refuses_a_keyword_it_doesnt_take() -> None:
-    query, execute, sent = recording()
+def test_run_query_refuses_a_keyword_it_doesnt_take() -> None:
+    query, _, sent = recording()
     with pytest.raises(TypeError) as refused:
-        run(one_day_read(), query=query, querry=query)
+        run_query(one_day_read(), query, querry=query)
     message = str(refused.value)
-    assert "run was given querry=, which it doesn't take." in message
-    assert "It takes s, query= and execute=, and nothing else." in message
+    assert "run_query was given querry=, which it doesn't take." in message
+    assert "It takes s and query=, and nothing else." in message
     assert sent == []

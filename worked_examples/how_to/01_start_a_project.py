@@ -133,9 +133,10 @@ one over each call:
 - `query` runs Hive and gives back its rows as a pandas DataFrame;
 - `execute` runs Hive and gives back nothing.
 
-The Toolbox picks which one each Statement goes to. `project.start()` wrote them to run Hive on
-the Example database, the made-up tables that ship inside the Toolbox, so every how-to runs
-before you touch a real table:
+You pick which one sends each Statement, by the Toolbox function you call, as [Build and run
+a first statement](#build_and_run_a_first_statement) shows. `project.start()` wrote them to run
+Hive on the Example database, the made-up tables that ship inside the Toolbox, so every how-to
+runs before you touch a real table:
 
 >>> print(Path("warehouse.py").read_text(encoding="utf-8"))
 \"\"\"warehouse - your two calls to the warehouse, query and execute.
@@ -219,7 +220,7 @@ for each name after SELECT:
 
 You won't write Hive by hand like this again: from
 [Build and run a first statement](#build_and_run_a_first_statement) on, the Toolbox writes it,
-and `run` hands it to your query.
+and `run_query` hands it to your query.
 
 ### See how a notebook deeper in the Project finds the Toolbox
 
@@ -235,7 +236,7 @@ Template writes it:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run, show_hive
+    from sqlglot_composer import export_lineage, project, run_query, show_hive
     from warehouse import query
 
 `pathlib.Path.cwd()` is the folder the notebook runs in, and `.parents[1]` the folder two above
@@ -285,7 +286,7 @@ This page has no API, so a stand-in plays yours here, giving each row as a tuple
 Nothing stops it, but no column has its name: reading one by name, such as `"one"`, stops
 with a `KeyError`. Pass `pd.DataFrame` the column names your API gives, as the step Write your
 query and execute shows. A query that gives back the rows as a plain list, without
-`pd.DataFrame`, is refused the first time `run` gets them back.
+`pd.DataFrame`, is refused the first time `run_query` gets them back.
 
 ### Starting the Project again
 

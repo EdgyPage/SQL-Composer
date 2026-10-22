@@ -1037,13 +1037,12 @@ def _by_hand_cases(
     found["hive_settings:before_a_read"] = lambda: [hive_settings("map_joins"),
                                                     _rows(job_runs.run_id)]
     found["unchecked:select"] = lambda: [unchecked_hive(
-        "SELECT `select` FROM ops.`order` -- a comment;\n;", returns_rows=True)]
-    found["unchecked:then_a_read"] = lambda: [unchecked_hive(BY_HAND, returns_rows=False),
+        "SELECT `select` FROM ops.`order` -- a comment;\n;")]
+    found["unchecked:then_a_read"] = lambda: [unchecked_hive(BY_HAND),
                                               _reading_daily_runs()]
     found["unchecked:alter"] = lambda: [unchecked_hive(
-        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')",
-        returns_rows=False)]
-    found["unchecked:blank"] = lambda: [unchecked_hive(" ; ", returns_rows=False)]
+        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')")]
+    found["unchecked:blank"] = lambda: [unchecked_hive(" ; ")]
     return found
 
 

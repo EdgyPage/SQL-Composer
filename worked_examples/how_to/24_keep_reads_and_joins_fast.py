@@ -70,14 +70,14 @@ SET hive.merge.mapredfiles=true
 SET hive.merge.tezfiles=true
 SET hive.stats.autogather=true
 SET hive.stats.column.autogather=true
->>> run(settings, execute=execute)
+>>> run_execute(settings, execute)
 execute: SET hive.merge.mapfiles=true
 execute: SET hive.merge.mapredfiles=true
 execute: SET hive.merge.tezfiles=true
 execute: SET hive.stats.autogather=true
 execute: SET hive.stats.column.autogather=true
 
-`run` sends each SET line through your execute, as a call of its own, and gives back nothing;
+`run_execute` sends each SET line through your execute, as a call of its own, and gives back nothing;
 the Example database's execute prints each one. They hold only while your query and execute
 keep one session across their calls.
 
@@ -108,7 +108,7 @@ execute; sending one again counts it again, which does no harm:
 
     def count_days(days: list[str]) -> None:
         for day in days:
-            run(compute_statistics(job_day_facts, partition={"dt": day}), execute=execute)
+            run_execute(compute_statistics(job_day_facts, partition={"dt": day}), execute)
 
 ### Let Hive copy a small table to every worker
 
@@ -122,7 +122,7 @@ them. Send it before your Statements, as the settings above:
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
 SET hive.ignore.mapjoin.hint=false
->>> run(hive_settings("map_joins"), execute=execute)
+>>> run_execute(hive_settings("map_joins"), execute)
 execute: SET hive.auto.convert.join=true
 execute: SET hive.auto.convert.join.noconditionaltask=true
 execute: SET hive.ignore.mapjoin.hint=false
@@ -145,8 +145,8 @@ stored](#choose_how_a_saved_table_is_stored) shows how.
 
 ### See Hive's plan with explain
 
-`explain` writes EXPLAIN before exactly the Hive `run` would send, and `run` gives back Hive's
-plan for it as text, without running the Statement. Here each team's events on 2026-09-24,
+`explain` writes EXPLAIN before exactly the Hive `run_query` would send, and `run_query` gives
+back Hive's plan for it as text, without running the Statement. Here each team's events on 2026-09-24,
 each event joined to its job's owner that day:
 
 >>> events_per_team = statement(  # -> Statement
@@ -173,7 +173,7 @@ WHERE
 GROUP BY
   job_owners.team
 
-At work, print the plan your query gives back, `print(run(plan, query=query))`. Hive's plan is
+At work, print the plan your query gives back, `print(run_query(plan, query))`. Hive's plan is
 a tree of steps, each reading what the steps below it give. Look for:
 
 - "TableScan", once for each table read, with the filter it reads it with;
@@ -196,7 +196,7 @@ when files are copied into its folder, their Partitions are missing from the lis
 >>> repair = repair_partitions(job_day_facts)  # -> Statement
 >>> print(to_hive(repair))
 MSCK REPAIR TABLE mart.job_day_facts
->>> run(repair, execute=execute)
+>>> run_execute(repair, execute)
 execute: MSCK REPAIR TABLE mart.job_day_facts
 
 It only adds Partitions; it deletes no file, so it is safe to send again. Like
@@ -205,14 +205,14 @@ first line, since its tables are made up and fixed.
 
 ## Check it worked
 
-`explain` explains exactly the Hive `run` sends, so the plan is of the Statement you run:
+`explain` explains exactly the Hive `run_query` sends, so the plan is of the Statement you run:
 
 >>> to_hive(plan) == "EXPLAIN " + to_hive(events_per_team)
 True
 
 The Statement itself still gives its rows:
 
->>> run(events_per_team, query=query)  # -> DataFrame
+>>> run_query(events_per_team, query)  # -> DataFrame
       team  events
 0     data       2
 1  finance       1

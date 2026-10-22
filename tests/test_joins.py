@@ -45,7 +45,7 @@ from sqlglot_composer import (
     export_lineage,
     fill_null,
     is_null,
-    run,
+    run_query,
     statement,
     to_hive,
 )
@@ -189,12 +189,12 @@ def test_broadcast_must_be_true_or_false(value: int | str | None) -> None:
 @pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_run_a_semi_join() -> None:
     with pytest.raises(RuntimeError, match="its executor has no LEFT SEMI JOIN"):
-        run(runs_with_an_alert(), query=example_database.query)
+        run_query(runs_with_an_alert(), example_database.query)
 
 
 @pytest.mark.needs_example_database
 def test_anti_join_keeps_each_run_with_no_alert() -> None:
-    frame = run(runs_with_no_alert(), query=example_database.query)
+    frame = run_query(runs_with_no_alert(), example_database.query)
     assert list(frame.run_id) == [95, 96, 98, 99]
 
 
@@ -203,17 +203,17 @@ def test_anti_join_finds_the_job_that_never_ran() -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs),
                   ANTI_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id),
                                                 both_days(job_runs))))
-    assert list(run(s, query=example_database.query).job_name) == ["cache_warm"]
+    assert list(run_query(s, example_database.query).job_name) == ["cache_warm"]
 
 
 @pytest.mark.needs_example_database
 def test_full_join_keeps_the_runs_only_one_record_holds() -> None:
-    frame = run(both_records(any_of(is_null(recorded().run_id), is_null(started().run_id))),
-                query=example_database.query)
+    frame = run_query(both_records(any_of(is_null(recorded().run_id), is_null(started().run_id))),
+                      example_database.query)
     rows = [(int(r.run_id), r.in_job_runs == r.in_job_runs, r.started == r.started)
             for r in frame.itertuples()]
     assert rows == [(99, True, False), (100, False, True)]
-    assert len(run(both_records(), query=example_database.query)) == 10
+    assert len(run_query(both_records(), example_database.query)) == 10
 
 
 @pytest.mark.needs_example_database
@@ -223,8 +223,8 @@ def test_broadcast_changes_no_row() -> None:
                          JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id),
                               broadcast=broadcast),
                          WHERE(both_days(job_runs)), GROUP_BY(jobs.team))
-    assert run(per_team(True), query=example_database.query).equals(
-        run(per_team(False), query=example_database.query))
+    assert run_query(per_team(True), example_database.query).equals(
+        run_query(per_team(False), example_database.query))
 
 
 # --- What they refuse ------------------------------------------------------------------------

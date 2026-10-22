@@ -169,13 +169,13 @@ GROUP BY
 
 The columns in PARTITION(...) have no value: the warehouse takes each row's region and dt
 from the SELECT's last columns. Doing so is Hive's dynamic partitioning, which a Session
-setting switches on, so `show_hive` prints its two SET lines first. `run` sends the write
-alone: send the Session setting first, with `hive_settings`, before the first such write. The
+setting switches on, so `show_hive` prints its two SET lines first. `run_execute` sends the
+write alone: send the Session setting first, with `hive_settings`, before the first such write. The
 warehouse keeps it for as long as your execute's connection lasts, and sending it again does
 no harm. `project.run_tables()` sends it for you. Here it goes to the Example database's
 execute, which prints each SET line:
 
->>> run(hive_settings("dynamic_partitions"), execute=execute)
+>>> run_execute(hive_settings("dynamic_partitions"), execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
 
@@ -288,7 +288,7 @@ The write's rows come from its SELECT, which the Example database can run on its
 ...     WHERE(equals(region_costs.dt, "20260924")),
 ...     GROUP_BY(region_costs.job_id, region_costs.region, region_costs.dt),
 ... )
->>> run(costs_on_the_day, query=query)  # -> DataFrame
+>>> run_query(costs_on_the_day, query)  # -> DataFrame
    job_id region        dt  cost_cents
 0       1     eu  20260924       100.0
 1       2     eu  20260924         NaN

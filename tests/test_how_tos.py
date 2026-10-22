@@ -238,7 +238,7 @@ def test_the_top_of_the_page_shows_the_chain_of_types() -> None:
     gives = re.findall(r"<tr><td>.*?</td><td><code>(\w+)</code></td>", chain.group(1))
     assert gives == ["Table", "Column", "Condition", "Clause", "Statement", "str", "DataFrame"]
     for call in ("ops.jobs", "ops.jobs.job_id", "equals(...)", "SELECT(...)", "statement(...)",
-                 "to_hive(...)", "run(..., query=query)"):
+                 "to_hive(...)", "run_query(..., query)"):
         assert f"<code>{html.escape(call)}</code>" in chain.group(1), call
     # Each type but the Hive's str and pandas' DataFrame is one of the Toolbox's public names.
     assert set(gives) - {"str", "DataFrame"} <= PUBLIC
@@ -545,7 +545,7 @@ WEEKS = """>>> from sqlglot_composer import *
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(weeks, query=example_database.query)"""
+>>> run_query(weeks, example_database.query)"""
 WEEKS_IN_PANDAS = '''
 import pandas as pd
 

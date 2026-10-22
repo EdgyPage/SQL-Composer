@@ -16,10 +16,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import kinds
 from .refusals import refuse
 from .tables import Column, Table
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # What a refusal's usual fix shows a call as.
 _EXAMPLE = "python_step(add_margin, reads=[sales.price, sales.cost], writes=margins)"
@@ -36,7 +37,7 @@ class PythonStep:
     >>> python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins], writes=hours)
     <Python step: add_hours in a notebook, line 1 of its cell; writes mart.run_hours>
 
-    It isn't a Statement, and has no Hive: run refuses it, show_hive prints comment lines
+    It isn't a Statement, and has no Hive: run_query and run_execute refuse it, show_hive prints comment lines
     saying what it is, and export_lineage draws it as one step. Make one with python_step(...). Write the
     name in a type hint, to say that a function of yours gives back a Python step:
 
@@ -46,6 +47,8 @@ class PythonStep:
     >>> hours_step()
     <Python step: add_hours in a notebook, line 1 of its cell; writes mart.run_hours>
     """
+
+    _kind = kinds.PYTHON  # what it is, as kinds.py names it
 
     def __init__(self, function: Callable[..., object], file: str | None, in_notebook: bool,
                  reads: list[tuple[Table, str]], writes: Table) -> None:
@@ -98,7 +101,8 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
     It sends nothing. export_lineage draws it as one step it can't see inside, from the
     columns it read to the table it wrote, with a section of the report naming the function,
     such as "changed in Python by `building_blocks/margins.py:add_margin`, line 12".
-    show_hive prints comment lines saying what it is, run refuses it, and a Table notebook's
+    show_hive prints comment lines saying what it is, run_query and run_execute refuse it,
+    and a Table notebook's
     write() may give it beside its Statements: project.run_tables passes over it, but still
     puts it in order.
     """

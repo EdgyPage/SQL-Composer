@@ -71,9 +71,9 @@ Example database.
 The Example database runs only part of Hive, and no windows. Pasted into your own notebook,
 running a Statement with a Window stops with this message:
 
->>> run(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
-...                                            "minutes_before")),
-...               FROM(job_events), WHERE(*week_finished)), query=query)
+>>> run_query(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
+...                                                  "minutes_before")),
+...                     FROM(job_events), WHERE(*week_finished)), query)
 Traceback (most recent call last):
 ...
 RuntimeError:
@@ -108,7 +108,7 @@ FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN '2026-09-18' AND '2026-09-24'
   AND job_events.event_type = 'finish';
->>> run(with_before, query=query)  # -> DataFrame
+>>> run_query(with_before, query)  # -> DataFrame
     job_id          dt  minutes  minutes_before  change
 0        1  2026-09-18       14             NaN     NaN
 1        1  2026-09-19       11            14.0    -3.0
@@ -141,7 +141,7 @@ run the rank after both, as job 1's two runs of 12 minutes do: both 3, then 5 fo
 ...     FROM(job_events),
 ...     WHERE(*week_finished),
 ... )
->>> run(ranked, query=query)  # -> DataFrame
+>>> run_query(ranked, query)  # -> DataFrame
     job_id          dt  minutes  longest_first
 0        1  2026-09-18       14              1
 1        1  2026-09-19       11              5
@@ -181,7 +181,7 @@ and no `rows=`, the Window is the whole job:
 >>> text = show_hive(last_three)  # -> str
 SELECT
 ...
->>> run(last_three, query=query)  # -> DataFrame
+>>> run_query(last_three, query)  # -> DataFrame
     job_id          dt  minutes  last_3_runs  week_minutes
 0        1  2026-09-18       14           14            82
 1        1  2026-09-19       11           25            82
@@ -212,7 +212,7 @@ it:
 ...     FROM(changes),
 ...     WHERE(more_than(changes.change, 0)),
 ... )
->>> run(slower, query=query)  # -> DataFrame
+>>> run_query(slower, query)  # -> DataFrame
    job_id          dt  change
 0       1  2026-09-20       1
 1       1  2026-09-21       1
@@ -281,7 +281,7 @@ first line of each write and changes nothing. A loop sends one such write for ea
 first:
 
 >>> for day in ["2026-09-23", "2026-09-24"]:
-...     run(changes_on(day), execute=execute)
+...     run_execute(changes_on(day), execute)
 execute: WITH week AS (
 execute: WITH week AS (
 
@@ -306,8 +306,8 @@ its cost from `ops.region_costs`. Add up each per job, with a Statement each:
 ...     WHERE(between(region_costs.dt, "20260918", "20260924")),
 ...     GROUP_BY(region_costs.job_id),
 ... )
->>> minutes = run(minutes_per_job, query=query)  # -> DataFrame
->>> costs = run(cost_per_job, query=query)  # -> DataFrame
+>>> minutes = run_query(minutes_per_job, query)  # -> DataFrame
+>>> costs = run_query(cost_per_job, query)  # -> DataFrame
 
 `.merge` puts the two side by side, matching rows on `"job_id"`. `how="outer"` keeps a job that
 only one of them has, and `validate="one_to_one"` stops the merge if `"job_id"` repeats on
@@ -334,7 +334,7 @@ is quicker to write and to change.
 Only each job's first run of the week has no run before it, so of three jobs, three rows have
 NaN. And the merge kept one row per job:
 
->>> runs = run(with_before, query=query)  # -> DataFrame
+>>> runs = run_query(with_before, query)  # -> DataFrame
 >>> int(runs["minutes_before"].isna().sum())
 3
 >>> per_job["job_id"].is_unique
@@ -385,7 +385,7 @@ per day, so adding them up gives far too much:
 ...     FROM(region_costs),
 ...     WHERE(between(region_costs.dt, "20260918", "20260924")),
 ... )
->>> daily_costs = run(daily_cost, query=query)  # -> DataFrame
+>>> daily_costs = run_query(daily_cost, query)  # -> DataFrame
 >>> repeated = minutes.merge(daily_costs, on="job_id")
 >>> int(repeated["minutes"].sum()), int(minutes["minutes"].sum())
 (1035, 194)
@@ -415,7 +415,7 @@ Add up per job first, as `cost_per_job` does, then merge.
 import pandas as pd
 
 from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, run, statement,
+    FROM, SELECT, WHERE, all_columns, between, example_database, run_query, statement,
 )
 
 # The Example database can't run a window, so the page and the doctest get
@@ -426,9 +426,9 @@ from sqlglot_composer import (
 def finished_runs() -> pd.DataFrame:
     """Every finished run of the week, read with a Statement the Example database can run."""
     job_events = example_database.job_events
-    rows = run(statement(SELECT(all_columns(job_events)), FROM(job_events),
-                         WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"))),
-               query=example_database.query)
+    rows = run_query(statement(SELECT(all_columns(job_events)), FROM(job_events),
+                               WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"))),
+                     example_database.query)
     rows = rows[rows["event_type"] == "finish"]
     return rows.sort_values(["job_id", "dt"]).reset_index(drop=True)
 

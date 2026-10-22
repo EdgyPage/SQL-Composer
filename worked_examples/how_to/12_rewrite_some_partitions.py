@@ -133,7 +133,7 @@ above the write: the Session setting "dynamic_partitions".
 `facts.preview()` is the same rows as a plain SELECT, for the days `write()` writes, which
 the Example database runs:
 
->>> run(facts.preview(), query=query)  # -> DataFrame
+>>> run_query(facts.preview(), query)  # -> DataFrame
    job_id     team  events  runs  minutes          dt
 0       1     data       2     1       10  2026-09-22
 1       1     data       2     1       10  2026-09-24
@@ -147,14 +147,14 @@ so 0 minutes.
 
 ### Send it
 
-`run` sends a write through your execute. It doesn't send the SET lines with it: send the
+`run_execute` sends a write through your execute. It doesn't send the SET lines with it: send the
 Session setting first, `hive_settings("dynamic_partitions")`, which holds for as long as your
 execute keeps one session:
 
->>> run(hive_settings("dynamic_partitions"), execute=execute)
+>>> run_execute(hive_settings("dynamic_partitions"), execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
->>> run(backfill, execute=execute)
+>>> run_execute(backfill, execute)
 execute: WITH events_per_job AS (
 
 The write is an INSERT OVERWRITE, which replaces the days it writes. So if it fails, say on a
@@ -239,7 +239,7 @@ each headed by its place in the list; a loop sends them, oldest first:
 >>> from collections.abc import Callable
 >>> def send_each(writes: list[Statement], execute: Callable[[str], None]) -> None:
 ...     for write in writes:
-...         run(write, execute=execute)
+...         run_execute(write, execute)
 >>> send_each(writes[:2], execute=execute)
 execute: WITH events_per_job AS (
 execute: WITH events_per_job AS (
@@ -260,7 +260,7 @@ Partition alone:
 ...     print(to_hive(write).splitlines()[0])
 INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'eu')
 INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'us')
->>> run(overruns.preview(), query=query)  # -> DataFrame
+>>> run_query(overruns.preview(), query)  # -> DataFrame
    job_id  budget_cents  days  days_over
 0       1           150    14          1
 1       2           200    10          2
@@ -268,7 +268,7 @@ INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'us')
 `overruns.preview()` is eu's rows. To rewrite eu alone, send its write alone; the us
 Partition keeps what it held:
 
->>> run(by_region[0], execute=execute)
+>>> run_execute(by_region[0], execute)
 execute: INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'eu')
 
 ### A source that writes its days another way
@@ -297,7 +297,7 @@ after them, the same days. `project.run_tables` loads each table's `write()` and
 the order Lineage draws them, every table before the tables that read it, with the Session
 setting "dynamic_partitions" first, since some fill their Partitions from their rows:
 
->>> project.run_tables(query=query, execute=execute,  # -> a report, printed
+>>> project.run_tables(execute=execute,  # -> a report, printed
 ...                    tables=["mart.team_days", "mart.job_day_costs", "mart.job_day_facts"])
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
@@ -319,7 +319,7 @@ from facts that weren't.
 A write that fills Partitions from its rows replaces the Partitions its rows fill, and no
 other, so the days `write()` rewrites are the days `facts.preview()` gives, the last three:
 
->>> sorted(set(run(facts.preview(), query=query)["dt"]))  # -> list[str]
+>>> sorted(set(run_query(facts.preview(), query)["dt"]))  # -> list[str]
 ['2026-09-22', '2026-09-23', '2026-09-24']
 
 The day-at-a-time writes come oldest first, with none missing:
@@ -329,7 +329,7 @@ The day-at-a-time writes come oldest first, with none missing:
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-29')
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-30')
 
-At work, after a rewrite, read the Saved table's days back with `run`, and compare them with
+At work, after a rewrite, read the Saved table's days back with `run_query`, and compare them with
 `facts.preview()`'s rows.
 
 ## Common mistakes
@@ -418,7 +418,7 @@ row of `ops.region_costs`, and a Statement that reads it gives nothing:
 ...     FROM(ops.region_costs),
 ...     WHERE(between(ops.region_costs.dt, "2026-09-22", "2026-09-24")),
 ... )
->>> run(with_dashes, query=query)  # -> DataFrame
+>>> run_query(with_dashes, query)  # -> DataFrame
 Empty DataFrame
 Columns: [job_id, cost_cents]
 Index: []
@@ -426,16 +426,16 @@ Index: []
 A write from it would write no rows, and nothing would say so. Write each day the table's way,
 as `as_written_here` does.
 
-### Handing run a whole list
+### Handing run_execute a whole list
 
-`run` sends one Statement, and refuses a list, such as a `write()` that gives a write per
+`run_execute` sends one Statement, and refuses a list, such as a `write()` that gives a write per
 region:
 
->>> run(by_region, execute=execute)
+>>> run_execute(by_region, execute)
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  run was given [...], which isn't a Statement.
+  What happened:  run_execute was given [...], which isn't a Statement.
 ...
 
 Send each in turn, with a loop, as `send_each` does, or let `project.run_tables` send them.

@@ -130,7 +130,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run, show_hive
+    from sqlglot_composer import export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -191,7 +191,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     # %%
     # 3. Try it: the Hive of each step, then the rows
     show_hive([create(), write()])
-    run(preview(), query=query)
+    run_query(preview(), query)
 
     # %%
     # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
@@ -231,7 +231,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run, show_hive
+    from sqlglot_composer import export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -292,7 +292,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     # %%
     # 3. Try it: the Hive of each step, then the rows
     show_hive([create(), write()])
-    run(preview(), query=query)
+    run_query(preview(), query)
 
     # %%
     # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
@@ -368,8 +368,8 @@ The file `references/mart__alerts_per_severity.py`, as project.new_table wrote i
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.mart__alerts_per_severity import alerts_per_severity, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = alerts_per_severity.<column>
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -417,8 +417,8 @@ The file `references/mart__alerts_per_severity.py`, after you fill it in:
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.mart__alerts_per_severity import alerts_per_severity, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = alerts_per_severity.<column>
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -499,7 +499,7 @@ WHERE
 GROUP BY
   run_alerts.severity,
   run_alerts.dt;
->>> run(logic.preview(), query=query)  # -> DataFrame
+>>> run_query(logic.preview(), query)  # -> DataFrame
   severity  alerts          dt
 0     high       2  2026-09-24
 1      low       5  2026-09-24
@@ -515,7 +515,7 @@ GROUP BY
 At work, `project.run_tables`, below, sends each table's write() and never its create(), so
 create each table once, before its first `project.run_tables`. From any notebook of the
 Project, with `logic` from `project.load` as here, that is
-`run(logic.create(), execute=execute)`; in the table's own notebook, add a cell after cell 3
+`run_execute(logic.create(), execute)`; in the table's own notebook, add a cell after cell 3
 that runs its create() the same way, and import execute beside query in cell 1. The Example
 database can be read but not written, so this page creates nothing.
 
@@ -588,7 +588,7 @@ the first line of each thing sent. It takes query= as well as execute=, since a 
 give an Admin statement or an Unchecked statement, and one that reads rows goes to your query.
 A write fills dt from its rows, so the Session setting `"dynamic_partitions"` goes first:
 
->>> project.run_tables(query=query, execute=execute)
+>>> project.run_tables(execute=execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
 execute: INSERT OVERWRITE TABLE mart.alerts_per_severity PARTITION(dt)
@@ -611,7 +611,7 @@ Every Table folder, Table reference and Building block is registered, and each o
 
 The preview gave a row per severity, and its counts add up to the day's alerts:
 
->>> rows = run(logic.preview(), query=query)  # -> DataFrame
+>>> rows = run_query(logic.preview(), query)  # -> DataFrame
 >>> int(rows["alerts"].sum())
 7
 

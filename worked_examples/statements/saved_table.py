@@ -6,7 +6,7 @@ a day and save than to work out again every time someone reads it.
 runs_to_review is partitioned by dt, and each write below fills one day's Partition, named
 with partition={"dt": day}. Each function below is one step. The Example database can't be
 written to, so the steps show their Hive but no result. At work, send each one with
-run(step(), execute=execute), execute being your own function from your Project's
+run_execute(step(), execute), execute being your own function from your Project's
 warehouse.py, and loop over the ones that return a list.
 """
 
@@ -89,7 +89,7 @@ def backfill(days: tuple[str, ...] = (FIRST_DAY, LAST_DAY)) -> list[Statement]:
     without partition=, its SELECT listing dt last, fills each day's Partition from the rows.
 
         for s in backfill():
-            run(s, execute=execute)
+            run_execute(s, execute)
     """
     return [s for day in days for s in (failed_runs(day), alerted_runs(day))]
 

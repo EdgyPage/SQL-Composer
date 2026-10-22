@@ -132,7 +132,7 @@ The Statement here counts each team's runs, and their failed runs, over two days
 ...     WHERE(between(ops.job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(ops.jobs.team),
 ... )
->>> run(team_runs, query=query)  # -> DataFrame
+>>> run_query(team_runs, query)  # -> DataFrame
       team  runs  failed_runs
 0     data     4            0
 1  finance     5            2
@@ -177,7 +177,7 @@ Statement's own section, `team_runs`:
   here first), and what one row stands for, from GROUP_BY;
 - Copied columns: `"team"`, from `ops.jobs.team`;
 - Keys: which columns tell the rows apart, here `"team"`;
-- Hive as submitted: the Hive `run` sends.
+- Hive as submitted: the Hive `run_query` or `run_execute` sends.
 
 The HTML page draws the same Lineage as boxes and arrows: click a box to light up every column
 it comes from and every condition that decides its rows. It needs no internet.
@@ -228,7 +228,7 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run, show_hive
+    from sqlglot_composer import export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -272,7 +272,7 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     # %%
     # 3. Try it: the Hive of each step, then the rows
     show_hive([create(), write()])
-    run(preview(), query=query)
+    run_query(preview(), query)
 
     # %%
     # 4. Lineage: a new pair in lineage/, named by the time and this table
@@ -346,7 +346,7 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run, show_hive
+    from sqlglot_composer import export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -397,7 +397,7 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
 
     # %%
     # 3. Try it: the Hive of each step. Its preview reads mart.daily_job_runs, which only
-    # your warehouse holds, so it runs at work: run(preview(), query=query)
+    # your warehouse holds, so it runs at work: run_query(preview(), query)
     show_hive([create(), write()])
 
     # %%
@@ -444,7 +444,7 @@ a write() may give an Admin statement or an Unchecked statement, and one that re
 to your query:
 
 >>> os.chdir("../..")
->>> project.run_tables(query=query, execute=execute)
+>>> project.run_tables(execute=execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
 execute: WITH runs_per_job AS (
@@ -509,7 +509,7 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run, show_hive
+    from sqlglot_composer import export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -559,7 +559,7 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     # %%
     # 3. Pull the rows, change them in pandas, and save them with your own call
     show_hive([create(), write()])
-    runs = run(preview(), query=query)
+    runs = run_query(preview(), query)
     changed = add_minutes_over_median(runs)
     # at work, your own call saves them, once create() has made the table:
     # my_api.write_table(changed, "mart.run_speed", partition_by=["dt"])
@@ -577,7 +577,7 @@ Its function lives in the logic cell, so any notebook that loads the logic can c
 pulls the rows and changes them:
 
 >>> speed = project.load("mart.run_speed")  # -> the notebook's functions
->>> runs = run(speed.preview(), query=query)  # -> DataFrame
+>>> runs = run_query(speed.preview(), query)  # -> DataFrame
 >>> changed = speed.add_minutes_over_median(runs)  # -> DataFrame
 >>> changed
    run_id  job_id  duration_mins          dt  minutes_over_median
@@ -607,7 +607,7 @@ inside it, and its section says where to open the function.
 `project.run_tables` puts the step in order with the other tables, by the tables it reads and
 writes, and passes over it, since your own call saves its rows:
 
->>> project.run_tables(query=query, execute=execute)
+>>> project.run_tables(execute=execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
 execute: WITH runs_per_job AS (

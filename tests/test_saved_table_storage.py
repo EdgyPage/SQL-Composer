@@ -441,7 +441,7 @@ def test_a_location_holding_a_hive_variable_is_noted_not_compared() -> None:
 
 
 def test_help_says_how_a_location_holding_a_hive_variable_works() -> None:
-    call = 'run(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),'
+    call = 'run_execute(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),'
     for doc in (Table.__doc__, create_table.__doc__):
         flat = " ".join(doc.split())
         assert call in flat

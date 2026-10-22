@@ -29,7 +29,7 @@ from sqlglot_composer import (
     last_n_days,
     month_start,
     row_number,
-    run,
+    run_query,
     statement,
     week_start,
 )
@@ -56,7 +56,7 @@ def test_it_says_plainly_what_its_executor_cant_run(calculation: Column, missing
     s = statement(SELECT(job_runs.run_id, AS(calculation, "x")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
     with pytest.raises(RuntimeError) as refused:
-        run(s, query=example_database.query)
+        run_query(s, example_database.query)
     message = str(refused.value)
     assert f"The Example database can't run this Hive: its executor has no {missing}." in message
     assert "Usual fix:" in message
@@ -128,7 +128,7 @@ def test_the_intermediate_tables_meet_the_same_limits(
     s = statement(SELECT(t.job_id, AS(calculation(t), "x")), FROM(t),
                   WHERE(last_n_days(t.dt, 14)))
     with pytest.raises(RuntimeError, match=f"its executor has no {missing}"):
-        run(s, query=example_database.query)
+        run_query(s, example_database.query)
 
 
 def _events_of(event_type: str, name: str) -> Table:
@@ -156,7 +156,7 @@ def test_it_refuses_to_add_up_rows_after_a_left_join_to_a_column_named_like_one_
         GROUP_BY(starts.job_id),
     )
     with pytest.raises(RuntimeError) as refused:
-        run(unfinished_per_job, query=example_database.query)
+        run_query(unfinished_per_job, example_database.query)
     message = str(refused.value)
     assert ("The Example database can't run this Hive: its executor would mix up "
             "starts.job_id and finishes.job_id, two columns called job_id" in message)
@@ -177,5 +177,5 @@ def test_it_still_adds_up_rows_after_a_join_whose_on_sets_the_shared_column_equa
         WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
         GROUP_BY(jobs.job_id),
     )
-    found = run(runs_per_job, query=example_database.query)
+    found = run_query(runs_per_job, example_database.query)
     assert found.set_index("job_id").runs.to_dict() == {1: 4, 2: 3, 3: 2}

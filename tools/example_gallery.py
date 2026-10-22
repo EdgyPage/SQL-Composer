@@ -17,7 +17,7 @@ The page holds two kinds of Worked example:
   Statement functions in turn, as the steps of a common job;
 - every docstring's `>>>` example, in the cheat sheet's order, step by step as the docstring
   shows it, then the Hive and the result of each Statement it hands to `to_hive(...)`,
-  `run(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
+  `run_query(...)`, `run_execute(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
 Statement, as it can't run row_number or week_start, a pandas result from the Worked example
@@ -54,7 +54,7 @@ import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
-from sqlglot_composer import conditions, example_database  # noqa: E402
+from sqlglot_composer import conditions, example_database, kinds  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
 from sqlglot_composer.python_steps import PythonStep  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
@@ -153,26 +153,31 @@ def what_happened(error: Exception) -> str:
 
 def result_html(s: Statement | SessionSettings | UncheckedStatement,
                 pandas_result: Callable[..., pd.DataFrame] | None = None,
-                which: str = "") -> str:
+                which: str = "", call: str = "") -> str:
     """The result of running `s` on the Example database, or why the Example database can't.
 
     `pandas_result`, a function computing the same result in pandas, stands in when the
     Example database can't run the Statement. `which` says which Statement, when there are
-    several, such as " of Statement 1 of 2".
+    several, such as " of Statement 1 of 2". `call` is the function the docstring handed it
+    to: run_execute sends it through the Example database's execute, and anything else through
+    run_query, unless it changes something.
     """
+    executes = call == "run_execute" or kinds.sent_by(s) == kinds.EXECUTE
     try:
         with contextlib.redirect_stdout(io.StringIO()):  # execute prints each line it is given
-            result = sqlglot_composer.run(s, query=example_database.query,
-                                          execute=example_database.execute)
+            if executes:
+                result = sqlglot_composer.run_execute(s, example_database.execute)
+            else:
+                result = sqlglot_composer.run_query(s, example_database.query)
         if result is None and isinstance(s, SessionSettings):  # each SET line to execute
             return ('<p class="note">Sent to the Example database one SET line at a time; '
-                    "run gives back None.</p>")
+                    "run_execute gives back None.</p>")
         if result is None and pandas_result is not None:
             return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
         if result is None:  # a write, or other Hive that changes something, sent to execute
             return ('<p class="note">No result here. The Example database is never written to: '
-                    "its execute prints the Hive's first line and changes nothing, and run "
-                    "gives back None.</p>")
+                    "its execute prints the Hive's first line and changes nothing, and "
+                    "run_execute gives back None.</p>")
         if isinstance(result, str):
             # explain's plan, as text: only its heading.
             heading = result.splitlines()[0] if result else ""
@@ -289,13 +294,14 @@ def output_label(source: str, value: object) -> str:
 
 
 # The Toolbox functions a docstring's example hands a Statement to, which note each one.
-HANDED_TO = ("to_hive", "run", "export_lineage")
+HANDED_TO = ("to_hive", "run_query", "run_execute", "export_lineage")
 
 
 def example_scope(
     handed: list[tuple[str, Statement | SessionSettings | UncheckedStatement]],
 ) -> dict[str, object]:
-    """What the doctests have in scope; to_hive, run and export_lineage note each Statement.
+    """What the doctests have in scope; to_hive, run_query, run_execute and export_lineage
+    note each Statement.
 
     `handed` gets one (function name, Statement) pair per Statement handed to them. A Python
     step has no Hive and runs nothing, so it isn't noted.
@@ -304,7 +310,9 @@ def example_scope(
     def noting(name: str) -> Callable[..., object]:
         def call(*statements: Statement | SessionSettings | UncheckedStatement | PythonStep,
                  **options: object) -> object:
-            handed.extend((name, s) for s in statements if not isinstance(s, PythonStep))
+            # run_query and run_execute take one Statement, then your call.
+            given = statements[:1] if name.startswith("run_") else statements
+            handed.extend((name, s) for s in given if not isinstance(s, PythonStep))
             if name == "export_lineage":
                 # It would write beside its caller, this script; keep to the temporary folder.
                 options.setdefault("to", Path.cwd() / "lineage" / "example.html")
@@ -344,7 +352,7 @@ def handed_html(handed: list[tuple[str, Statement | SessionSettings | UncheckedS
             body += [label(f"The Hive of the Statement given to {name}(...)"),
                      code_html(hive, "hive")]
         which = f" of Statement {number} of {len(handed)}" if len(handed) > 1 else ""
-        body.append(result_html(s, pandas_results.get(hive), which))
+        body.append(result_html(s, pandas_results.get(hive), which, name))
     return body
 
 
@@ -384,7 +392,7 @@ def week_start_on_each_day(names: list[str]) -> str:
     )
     shown = "week_start(job_runs.dt) on each day of the Example database"
     try:
-        weeks = sqlglot_composer.run(s, query=example_database.query)
+        weeks = sqlglot_composer.run_query(s, example_database.query)
     except (RuntimeError, ValueError):
         weeks = regrouping.with_week(regrouping.every_run())[["dt", "week"]].drop_duplicates()
         shown += f", {PANDAS_LABEL}"

@@ -79,14 +79,14 @@ The file `building_blocks/run_speed.py`, after you write your function in it:
 
 A run's minutes are on the event that ends it, which ops.job_events' Alias `ends_a_run` picks.
 The runs that ended on the Example database's last two days, with the columns the change reads.
-`run` gives back a DataFrame:
+`run_query` gives back a DataFrame:
 
 >>> ended = statement(  # -> Statement
 ...     SELECT(job_events.event_id, job_events.job_id, job_events.minutes, job_events.dt),
 ...     FROM(job_events),
 ...     WHERE(between(job_events.dt, "2026-09-23", "2026-09-24"), ends_a_run),
 ... )
->>> runs = run(ended, query=query)  # -> DataFrame
+>>> runs = run_query(ended, query)  # -> DataFrame
 >>> runs
    event_id  job_id  minutes          dt
 0        52       1       12  2026-09-23
@@ -158,7 +158,7 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, run
+    from sqlglot_composer import export_lineage, run_query
     from warehouse import query
 
     # %%
@@ -202,7 +202,7 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     # 3. Pull the rows, change them in pandas, and save them with your own call
     import my_api  # your team's API, as warehouse.py uses it
 
-    changed = add_minutes_over_median(run(rows(), query=query))
+    changed = add_minutes_over_median(run_query(rows(), query))
     my_api.write_table(changed, "mart.run_speed", partition_by=["dt"])
 
     # %%
@@ -342,8 +342,7 @@ With your execute, it passes over the Python step, since it sends nothing for on
 so: run mart.run_speed's own notebook first, whose cell 3 saves its rows, so that
 mart.slow_runs reads what it holds.
 
->>> project.run_tables(tables=["mart.slow_runs", "mart.run_speed"], query=query,
-...                    execute=execute)
+>>> project.run_tables(tables=["mart.slow_runs", "mart.run_speed"], execute=execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
 1 of 2: mart.run_speed  passed over: a Python step, whose rows your own call saves
@@ -382,13 +381,13 @@ True
 
 ### Running the step
 
-A Python step only declares a change; the rows are yours to save. `run` refuses it:
+A Python step only declares a change; the rows are yours to save. `run_execute` refuses it:
 
->>> run(speed_step, execute=execute)
+>>> run_execute(speed_step, execute)
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  run was given a Python step, which sends nothing.
+  What happened:  run_execute was given a Python step, which sends nothing.
 ...
 
 Save the rows with your own call, and pass the step to `export_lineage`.
@@ -424,7 +423,7 @@ Write the change with `def` and a name, in a Building block that `project.new_bl
 
 - Compare the Lineage before and after you change the function:
   [Review and test a change](#review_and_test_a_change).
-- More of what pandas does with the rows `run` gives back: [Look across rows](#look_across_rows).
+- More of what pandas does with the rows `run_query` gives back: [Look across rows](#look_across_rows).
 - The gallery's [`python_step`](examples.html#python_step) and
   [`export_lineage`](examples.html#export_lineage) entries.
 """

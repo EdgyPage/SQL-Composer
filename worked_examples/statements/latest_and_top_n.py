@@ -8,7 +8,7 @@ import pandas as pd
 
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, at_most, between, derived,
-    descending, equals, example_database, max_of, row_number, run, statement,
+    descending, equals, example_database, max_of, row_number, run_query, statement,
 )
 
 job_runs = example_database.job_runs
@@ -67,10 +67,10 @@ def top_runs_per_job(n: int = 2) -> Statement:
 
 def every_run() -> pd.DataFrame:
     """Every run on both days, read with a Statement the Example database can run."""
-    return run(
+    return run_query(
         statement(SELECT(all_columns(job_runs)), FROM(job_runs),
                   WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY))),
-        query=example_database.query,
+        example_database.query,
     )
 
 

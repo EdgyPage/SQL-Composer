@@ -38,7 +38,8 @@ from sqlglot_composer import (
     export_lineage,
     project,
     python_step,
-    run,
+    run_execute,
+    run_query,
     set_admin_log,
     show_hive,
     statement,
@@ -196,13 +197,15 @@ def test_what_isnt_a_column_or_a_table_reference_is_refused(
 # --- It sends nothing ------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("call", ["run", "to_hive"])
+@pytest.mark.parametrize("call", ["run_query", "run_execute", "to_hive"])
 def test_run_and_to_hive_refuse_it_since_it_sends_nothing(a_project: Path, call: str) -> None:
     sent = []
     step = margin_step(a_project)
     with pytest.raises(TypeError) as refused:
-        if call == "run":
-            run(step, query=sent.append, execute=sent.append)
+        if call == "run_query":
+            run_query(step, sent.append)
+        elif call == "run_execute":
+            run_execute(step, sent.append)
         else:
             to_hive(step)
     message = " ".join(str(refused.value).split())
@@ -413,7 +416,7 @@ def test_run_tables_passes_over_it_and_sends_the_rest_in_order(
         python_table: Path, capsys: pytest.CaptureFixture[str]) -> None:
     capsys.readouterr()
     sent = []
-    report = project.run_tables(query=lambda hive: pd.DataFrame(), execute=sent.append)
+    report = project.run_tables(execute=sent.append)
     assert [hive.split("\n")[0] for hive in sent] == [
         "SET hive.exec.dynamic.partition=true",
         "SET hive.exec.dynamic.partition.mode=nonstrict",

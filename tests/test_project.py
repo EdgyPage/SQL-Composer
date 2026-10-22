@@ -30,7 +30,7 @@ from sqlglot_composer import (
     example_database,
     export_lineage,
     project,
-    run,
+    run_execute,
     set_admin_log,
     to_hive,
 )
@@ -1005,7 +1005,7 @@ def write():
     )
 
 # %%
-run(write(), execute=execute)
+run_execute(write(), execute)
 """
 TEAM_LOGIC = """# %%
 # logic
@@ -1073,8 +1073,9 @@ def test_load_refuses_a_notebook_it_cant_find(two_tables: Path) -> None:
 @pytest.mark.parametrize(("logic", "said"), [
     ("x = 1\n", "has no cell whose first line is # logic"),
     ("# logic\nfrom references.<SOURCE> import x\n", "isn't Python yet, at its line 2"),
-    ("# logic\nfrom sqlglot_composer import run\nrun(1, execute=print)\n", "calls run"),
-    ("# logic\nfrom sqlglot_composer import run as go\ngo(1, execute=print)\n", "calls run"),
+    ("# logic\nfrom sqlglot_composer import run_execute\nrun_execute(1, print)\n",
+     "calls run_execute"),
+    ("# logic\nfrom sqlglot_composer import run_query as go\ngo(1, print)\n", "calls go"),
     ("# logical next steps\nx = 1\n", "has no cell whose first line is # logic"),
 ])
 def test_load_refuses_a_logic_cell_it_cant_run_safely(
@@ -1153,8 +1154,7 @@ def test_run_tables_with_no_execute_prints_each_write_writers_first(
 
 def test_run_tables_sends_every_registered_table_to_execute_in_order(two_tables: Path) -> None:
     sent = []
-    report = project.run_tables(query=lambda hive: sent.append(hive) or "rows",
-                                execute=sent.append)
+    report = project.run_tables(execute=sent.append)
     # Both fill dt from their rows, so dynamic partitioning is sent once, before either.
     assert [hive.split("\n")[0] for hive in sent] == [
         "SET hive.exec.dynamic.partition=true",
@@ -1171,7 +1171,7 @@ def test_run_tables_refuses_send_naming_query_and_execute(
         project.run_tables(send=sent.append)
     message = str(refused.value)
     assert "run_tables was given send=, which Toolbox 7.0 replaced." in message
-    assert "Pass query= and execute= instead" in message
+    assert "Pass execute= instead" in message
     assert sent == []
     assert capsys.readouterr().out == ""
 
@@ -1241,11 +1241,11 @@ SETTINGS = "<Session settings map_joins - show_hive(...) shows their SET lines>"
 
 
 @pytest.mark.parametrize(("gives", "said"), [
-    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement, an Unchecked statement or a Python step"),
-    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a Statement, an Unchecked statement or a Python step"),
-    ("None", "None, which isn't a Statement, an Unchecked statement or a Python step"),
-    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement, an Unchecked statement or a Python step"),
-    ("(1, 2)", "a tuple, and 1 in it isn't a Statement, an Unchecked statement or a Python step"),
+    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement that writes, an Unchecked statement or a Python step"),
+    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a Statement that writes, an Unchecked statement or a Python step"),
+    ("None", "None, which isn't a Statement that writes, an Unchecked statement or a Python step"),
+    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement that writes, an Unchecked statement or a Python step"),
+    ("(1, 2)", "a tuple, and 1 in it isn't a Statement that writes, an Unchecked statement or a Python step"),
     ("[]", "an empty list, with no write in it"),
 ])
 def test_run_tables_refuses_what_write_gives_that_it_cant_send(
@@ -1260,6 +1260,25 @@ def test_run_tables_refuses_what_write_gives_that_it_cant_send(
     assert message.count("What happened:") == 1
     assert ("What happened: project.run_tables(): write(), in the "
             f"logic cell of mart.odd's Table notebook, gave {said}.") in message
+    assert capsys.readouterr().out == ""
+
+
+def test_run_tables_refuses_a_read_that_write_gives_before_sending_anything(
+        started: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Everything run_tables sends goes through execute, which gives back no rows."""
+    (started / "admin" / "templates" / "reads.py").write_text(
+        "# %%\n# logic\nfrom sqlglot_composer import FROM, SELECT, statement\n"
+        "from sqlglot_composer.example_database import jobs\n\n\n"
+        "def write():\n    return statement(SELECT(jobs.job_id), FROM(jobs))\n",
+        encoding="utf-8")
+    project.new_table("mart.odd", template="reads")
+    sent = []
+    with pytest.raises(TypeError) as refused:
+        project.run_tables(execute=sent.append)
+    message = " ".join(str(refused.value).split())
+    assert "which isn't a Statement that writes" in message
+    assert "a read gives back rows, which only run_query brings back" in message
+    assert sent == []
     assert capsys.readouterr().out == ""
 
 
@@ -1300,6 +1319,6 @@ def test_an_admin_statement_run_inside_a_project_logs_in_its_admin_folder(
     monkeypatch.chdir(started / "tables")
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "dt": "string"},
               partitioned_by=["dt"], location="/data/your_team/mart.db/daily_runs")
-    run(admin.drop_table(t), execute=lambda hive: None)
+    run_execute(admin.drop_table(t), lambda hive: None)
     assert "## 2026-10-21 09:30:00, Admin statement\n" in log_text(started)
     assert not (started / "tables" / "admin_log.md").exists()

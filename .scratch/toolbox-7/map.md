@@ -34,6 +34,12 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
   of the code would open a drift item on every commit until 7.0 is done. The ADRs, 0011 and
   0012, record decisions, so they land in 01.
 
+### Toolbox 7.1: tickets 09 to 11
+
+- **09 to 11 are Toolbox 7.1**, the user's call (2026-10-22): "Make sure this is version 7.1".
+  7.0 is dev as d3c0a93 left it, and stays as CHANGES.md's `## 7.0` says; 09 raises the version
+  to 7.1 and writes CHANGES.md's `## 7.1`, with "To update from 7.0".
+
 ### The warehouse calls (ADR 0012)
 
 - **`send` is removed, not deprecated.** The user: "deprecate Send in favor of Execute and Query

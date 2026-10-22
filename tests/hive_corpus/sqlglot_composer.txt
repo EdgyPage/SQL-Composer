@@ -3474,7 +3474,7 @@ WHERE
 ---
 
 
-== doc:run
+== doc:run_query
 -- Statement 1: to_hive
 SELECT
   job_runs.run_id,
@@ -3558,6 +3558,15 @@ WHERE
 
 ---
 
+
+== doc:run_execute
+-- Statement 1: to_hive
+SET hive.exec.dynamic.partition=true
+SET hive.exec.dynamic.partition.mode=nonstrict
+-- Statement 1: show_hive
+-- Session settings: dynamic_partitions, sent one line at a time
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
 
 == doc:export_lineage
 -- Statement 1: to_hive
@@ -3926,6 +3935,14 @@ GROUP BY
 ---
 
 
+== doc:admin.check_the_copy
+-- Statement 1: to_hive
+DROP TABLE IF EXISTS mart.daily_runs
+-- Statement 1: show_hive
+-- Drops the old mart.daily_runs: its files stay in the folder it shared. Can't be undone:
+-- admin.check_the_copy gives it only once the copy holds every row.
+DROP TABLE IF EXISTS mart.daily_runs;
+
 == doc:admin.drop_partitions
 -- Statement 1: to_hive
 ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt <= '2025-01-31')
@@ -3961,7 +3978,7 @@ FROM mart.daily_runs AS daily_runs
 -- Statement 1: show_hive
 -- Copies all of mart.daily_runs's rows into mart.daily_runs_moving.
 -- It fills dt from the rows, which needs the Session setting "dynamic_partitions": send
--- run(hive_settings("dynamic_partitions"), execute=...) before it.
+-- run_execute(hive_settings("dynamic_partitions"), execute) before it.
 INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)
 SELECT
   daily_runs.job_id,
@@ -19132,8 +19149,9 @@ LOCATION '/data/your_team/mart.db/daily_runs'
 -- Statement 1: show_hive
 -- admin.move_to_own_folder(mart.daily_runs, query=...) moves mart.daily_runs to its own
 -- folder, /data/your_team/mart.db/daily_runs. This first step creates mart.daily_runs_moving
--- there; the steps after it copy the table's rows into it, compare the two, then drop
--- mart.daily_runs and give the copy its name. Send them in order, one at a time.
+-- there, and the next copies the table's rows into it. Then admin.check_the_copy compares
+-- the two and gives the steps that drop mart.daily_runs and give the copy its name. Send
+-- them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
@@ -19156,92 +19174,13 @@ FROM mart.daily_runs AS daily_runs
 -- Statement 2: show_hive
 -- Copies all of mart.daily_runs's rows into mart.daily_runs_moving.
 -- It fills dt from the rows, which needs the Session setting "dynamic_partitions": send
--- run(hive_settings("dynamic_partitions"), execute=...) before it.
+-- run_execute(hive_settings("dynamic_partitions"), execute) before it.
 INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)
 SELECT
   daily_runs.job_id,
   daily_runs.runs,
   daily_runs.dt
 FROM mart.daily_runs AS daily_runs;
--- Statement 3: to_hive
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs AS daily_runs
-  GROUP BY
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs_moving AS daily_runs_moving
-  GROUP BY
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count
--- Statement 3: show_hive
--- Compares each Partition's rows in mart.daily_runs and mart.daily_runs_moving, and stops
--- the move, before anything is dropped, if any Partition differs or is missing from the
--- copy. It gives back no rows when they match.
--- Rows with no value in a partition column are counted under __HIVE_DEFAULT_PARTITION__, as
--- Hive names their Partition.
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs AS daily_runs
-  GROUP BY
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs_moving AS daily_runs_moving
-  GROUP BY
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
--- Statement 4: to_hive
-ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-)
--- Statement 4: show_hive
--- Sets external.table.purge to false on mart.daily_runs, so that dropping it next leaves the
--- files in its folder, which other tables may read.
-ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-);
--- Statement 5: to_hive
-DROP TABLE IF EXISTS mart.daily_runs
--- Statement 5: show_hive
--- Drops the old mart.daily_runs: its files stay in the folder it shared. Can't be undone, so
--- send it only after the step before it, the comparison, gave back no rows.
-DROP TABLE IF EXISTS mart.daily_runs;
--- Statement 6: to_hive
-ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
--- Statement 6: show_hive
--- Gives mart.daily_runs_moving the name mart.daily_runs. Its files stay at its own folder,
--- /data/your_team/mart.db/daily_runs. If this step fails, send it alone again.
-ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
 
 == edge:admin:move:region_runs
 -- Statement 1: to_hive
@@ -19258,9 +19197,9 @@ LOCATION '/data/your_team/mart.db/region_runs'
 -- Statement 1: show_hive
 -- admin.move_to_own_folder(mart.region_runs, query=...) moves mart.region_runs to its own
 -- folder, /data/your_team/mart.db/region_runs. This first step creates
--- mart.region_runs_moving there; the steps after it copy the table's rows into it, compare
--- the two, then drop mart.region_runs and give the copy its name. Send them in order, one at
--- a time.
+-- mart.region_runs_moving there, and the next copies the table's rows into it. Then
+-- admin.check_the_copy compares the two and gives the steps that drop mart.region_runs and
+-- give the copy its name. Send them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.region_runs_moving (
@@ -19284,7 +19223,7 @@ FROM mart.region_runs AS region_runs
 -- Statement 2: show_hive
 -- Copies all of mart.region_runs's rows into mart.region_runs_moving.
 -- It fills dt, region from the rows, which needs the Session setting "dynamic_partitions":
--- send run(hive_settings("dynamic_partitions"), execute=...) before it.
+-- send run_execute(hive_settings("dynamic_partitions"), execute) before it.
 INSERT OVERWRITE TABLE mart.region_runs_moving PARTITION(dt, region)
 SELECT
   region_runs.job_id,
@@ -19292,95 +19231,6 @@ SELECT
   region_runs.dt,
   region_runs.region
 FROM mart.region_runs AS region_runs;
--- Statement 3: to_hive
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(region_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COALESCE(CAST(region_runs.region AS STRING), '__HIVE_DEFAULT_PARTITION__') AS region,
-    COUNT(*) AS row_count
-  FROM mart.region_runs AS region_runs
-  GROUP BY
-    COALESCE(CAST(region_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__'),
-    COALESCE(CAST(region_runs.region AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(region_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COALESCE(CAST(region_runs_moving.region AS STRING), '__HIVE_DEFAULT_PARTITION__') AS region,
-    COUNT(*) AS row_count
-  FROM mart.region_runs_moving AS region_runs_moving
-  GROUP BY
-    COALESCE(CAST(region_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__'),
-    COALESCE(CAST(region_runs_moving.region AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.region,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt AND copied_counts.region = old_counts.region
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count
--- Statement 3: show_hive
--- Compares each Partition's rows in mart.region_runs and mart.region_runs_moving, and stops
--- the move, before anything is dropped, if any Partition differs or is missing from the
--- copy. It gives back no rows when they match.
--- Rows with no value in a partition column are counted under __HIVE_DEFAULT_PARTITION__, as
--- Hive names their Partition.
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(region_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COALESCE(CAST(region_runs.region AS STRING), '__HIVE_DEFAULT_PARTITION__') AS region,
-    COUNT(*) AS row_count
-  FROM mart.region_runs AS region_runs
-  GROUP BY
-    COALESCE(CAST(region_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__'),
-    COALESCE(CAST(region_runs.region AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(region_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COALESCE(CAST(region_runs_moving.region AS STRING), '__HIVE_DEFAULT_PARTITION__') AS region,
-    COUNT(*) AS row_count
-  FROM mart.region_runs_moving AS region_runs_moving
-  GROUP BY
-    COALESCE(CAST(region_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__'),
-    COALESCE(CAST(region_runs_moving.region AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.region,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt AND copied_counts.region = old_counts.region
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
--- Statement 4: to_hive
-ALTER TABLE mart.region_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-)
--- Statement 4: show_hive
--- Sets external.table.purge to false on mart.region_runs, so that dropping it next leaves
--- the files in its folder, which other tables may read.
-ALTER TABLE mart.region_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-);
--- Statement 5: to_hive
-DROP TABLE IF EXISTS mart.region_runs
--- Statement 5: show_hive
--- Drops the old mart.region_runs: its files stay in the folder it shared. Can't be undone,
--- so send it only after the step before it, the comparison, gave back no rows.
-DROP TABLE IF EXISTS mart.region_runs;
--- Statement 6: to_hive
-ALTER TABLE mart.region_runs_moving RENAME TO mart.region_runs
--- Statement 6: show_hive
--- Gives mart.region_runs_moving the name mart.region_runs. Its files stay at its own folder,
--- /data/your_team/mart.db/region_runs. If this step fails, send it alone again.
-ALTER TABLE mart.region_runs_moving RENAME TO mart.region_runs;
 
 == edge:admin:move:compact
 -- Statement 1: to_hive
@@ -19397,9 +19247,9 @@ LOCATION '/data/your_team/ops.db/compact_runs'
 -- Statement 1: show_hive
 -- admin.move_to_own_folder(ops.compact_runs, query=...) moves ops.compact_runs to its own
 -- folder, /data/your_team/ops.db/compact_runs. This first step creates
--- ops.compact_runs_moving there; the steps after it copy the table's rows into it, compare
--- the two, then drop ops.compact_runs and give the copy its name. Send them in order, one at
--- a time.
+-- ops.compact_runs_moving there, and the next copies the table's rows into it. Then
+-- admin.check_the_copy compares the two and gives the steps that drop ops.compact_runs and
+-- give the copy its name. Send them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS ops.compact_runs_moving (
@@ -19422,92 +19272,13 @@ FROM ops.compact_runs AS compact_runs
 -- Statement 2: show_hive
 -- Copies all of ops.compact_runs's rows into ops.compact_runs_moving.
 -- It fills day from the rows, which needs the Session setting "dynamic_partitions": send
--- run(hive_settings("dynamic_partitions"), execute=...) before it.
+-- run_execute(hive_settings("dynamic_partitions"), execute) before it.
 INSERT OVERWRITE TABLE ops.compact_runs_moving PARTITION(day)
 SELECT
   compact_runs.run_id,
   compact_runs.status,
   compact_runs.day
 FROM ops.compact_runs AS compact_runs;
--- Statement 3: to_hive
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(compact_runs.day AS STRING), '__HIVE_DEFAULT_PARTITION__') AS day,
-    COUNT(*) AS row_count
-  FROM ops.compact_runs AS compact_runs
-  GROUP BY
-    COALESCE(CAST(compact_runs.day AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(compact_runs_moving.day AS STRING), '__HIVE_DEFAULT_PARTITION__') AS day,
-    COUNT(*) AS row_count
-  FROM ops.compact_runs_moving AS compact_runs_moving
-  GROUP BY
-    COALESCE(CAST(compact_runs_moving.day AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.day,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.day = old_counts.day
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count
--- Statement 3: show_hive
--- Compares each Partition's rows in ops.compact_runs and ops.compact_runs_moving, and stops
--- the move, before anything is dropped, if any Partition differs or is missing from the
--- copy. It gives back no rows when they match.
--- Rows with no value in a partition column are counted under __HIVE_DEFAULT_PARTITION__, as
--- Hive names their Partition.
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(compact_runs.day AS STRING), '__HIVE_DEFAULT_PARTITION__') AS day,
-    COUNT(*) AS row_count
-  FROM ops.compact_runs AS compact_runs
-  GROUP BY
-    COALESCE(CAST(compact_runs.day AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(compact_runs_moving.day AS STRING), '__HIVE_DEFAULT_PARTITION__') AS day,
-    COUNT(*) AS row_count
-  FROM ops.compact_runs_moving AS compact_runs_moving
-  GROUP BY
-    COALESCE(CAST(compact_runs_moving.day AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.day,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.day = old_counts.day
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
--- Statement 4: to_hive
-ALTER TABLE ops.compact_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-)
--- Statement 4: show_hive
--- Sets external.table.purge to false on ops.compact_runs, so that dropping it next leaves
--- the files in its folder, which other tables may read.
-ALTER TABLE ops.compact_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-);
--- Statement 5: to_hive
-DROP TABLE IF EXISTS ops.compact_runs
--- Statement 5: show_hive
--- Drops the old ops.compact_runs: its files stay in the folder it shared. Can't be undone,
--- so send it only after the step before it, the comparison, gave back no rows.
-DROP TABLE IF EXISTS ops.compact_runs;
--- Statement 6: to_hive
-ALTER TABLE ops.compact_runs_moving RENAME TO ops.compact_runs
--- Statement 6: show_hive
--- Gives ops.compact_runs_moving the name ops.compact_runs. Its files stay at its own folder,
--- /data/your_team/ops.db/compact_runs. If this step fails, send it alone again.
-ALTER TABLE ops.compact_runs_moving RENAME TO ops.compact_runs;
 
 == edge:admin:move:managed
 -- Statement 1: to_hive
@@ -19524,8 +19295,9 @@ LOCATION '/data/your_team/mart.db/daily_runs'
 -- Statement 1: show_hive
 -- admin.move_to_own_folder(mart.daily_runs, query=...) moves mart.daily_runs to its own
 -- folder, /data/your_team/mart.db/daily_runs. This first step creates mart.daily_runs_moving
--- there; the steps after it copy the table's rows into it, compare the two, then drop
--- mart.daily_runs and give the copy its name. Send them in order, one at a time.
+-- there, and the next copies the table's rows into it. Then admin.check_the_copy compares
+-- the two and gives the steps that drop mart.daily_runs and give the copy its name. Send
+-- them in order, one at a time.
 -- The old table's files are dropped with it: it is managed, so its files are its own.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (
   job_id BIGINT,
@@ -19547,82 +19319,13 @@ FROM mart.daily_runs AS daily_runs
 -- Statement 2: show_hive
 -- Copies all of mart.daily_runs's rows into mart.daily_runs_moving.
 -- It fills dt from the rows, which needs the Session setting "dynamic_partitions": send
--- run(hive_settings("dynamic_partitions"), execute=...) before it.
+-- run_execute(hive_settings("dynamic_partitions"), execute) before it.
 INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)
 SELECT
   daily_runs.job_id,
   daily_runs.runs,
   daily_runs.dt
 FROM mart.daily_runs AS daily_runs;
--- Statement 3: to_hive
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs AS daily_runs
-  GROUP BY
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs_moving AS daily_runs_moving
-  GROUP BY
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count
--- Statement 3: show_hive
--- Compares each Partition's rows in mart.daily_runs and mart.daily_runs_moving, and stops
--- the move, before anything is dropped, if any Partition differs or is missing from the
--- copy. It gives back no rows when they match.
--- Rows with no value in a partition column are counted under __HIVE_DEFAULT_PARTITION__, as
--- Hive names their Partition.
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs AS daily_runs
-  GROUP BY
-    COALESCE(CAST(daily_runs.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.daily_runs_moving AS daily_runs_moving
-  GROUP BY
-    COALESCE(CAST(daily_runs_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
--- Statement 4: to_hive
-DROP TABLE IF EXISTS mart.daily_runs
--- Statement 4: show_hive
--- Drops the old mart.daily_runs: its files go too, since it is managed. Can't be undone, so
--- send it only after the step before it, the comparison, gave back no rows.
-DROP TABLE IF EXISTS mart.daily_runs;
--- Statement 5: to_hive
-ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs
--- Statement 5: show_hive
--- Gives mart.daily_runs_moving the name mart.daily_runs. Its files stay at its own folder,
--- /data/your_team/mart.db/daily_runs. If this step fails, send it alone again.
-ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs;
 
 == edge:admin:move:unpartitioned
 -- Statement 1: to_hive
@@ -19634,8 +19337,9 @@ LOCATION '/data/your_team/mart.db/admin_runs'
 -- Statement 1: show_hive
 -- admin.move_to_own_folder(mart.admin_runs, query=...) moves mart.admin_runs to its own
 -- folder, /data/your_team/mart.db/admin_runs. This first step creates mart.admin_runs_moving
--- there; the steps after it copy the table's rows into it, compare the two, then drop
--- mart.admin_runs and give the copy its name. Send them in order, one at a time.
+-- there, and the next copies the table's rows into it. Then admin.check_the_copy compares
+-- the two and gives the steps that drop mart.admin_runs and give the copy its name. Send
+-- them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
@@ -19654,66 +19358,6 @@ INSERT OVERWRITE TABLE mart.admin_runs_moving
 SELECT
   admin_runs.job_id
 FROM mart.admin_runs AS admin_runs;
--- Statement 3: to_hive
-WITH old_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs AS admin_runs
-), copied_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs_moving AS admin_runs_moving
-)
-SELECT
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-CROSS JOIN copied_counts
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count
--- Statement 3: show_hive
--- Compares the rows in mart.admin_runs and mart.admin_runs_moving, and stops the move,
--- before anything is dropped, if they differ. It gives back no rows when they match.
-WITH old_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs AS admin_runs
-), copied_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs_moving AS admin_runs_moving
-)
-SELECT
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-CROSS JOIN copied_counts
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
--- Statement 4: to_hive
-ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-)
--- Statement 4: show_hive
--- Sets external.table.purge to false on mart.admin_runs, so that dropping it next leaves the
--- files in its folder, which other tables may read.
-ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-);
--- Statement 5: to_hive
-DROP TABLE IF EXISTS mart.admin_runs
--- Statement 5: show_hive
--- Drops the old mart.admin_runs: its files stay in the folder it shared. Can't be undone, so
--- send it only after the step before it, the comparison, gave back no rows.
-DROP TABLE IF EXISTS mart.admin_runs;
--- Statement 6: to_hive
-ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs
--- Statement 6: show_hive
--- Gives mart.admin_runs_moving the name mart.admin_runs. Its files stay at its own folder,
--- /data/your_team/mart.db/admin_runs. If this step fails, send it alone again.
-ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs;
 
 == edge:admin:move:unpartitioned_elsewhere
 -- Statement 1: to_hive
@@ -19725,8 +19369,9 @@ LOCATION '/data/your_team/mart.db/admin_runs'
 -- Statement 1: show_hive
 -- admin.move_to_own_folder(mart.admin_runs, query=...) moves mart.admin_runs to its own
 -- folder, /data/your_team/mart.db/admin_runs. This first step creates mart.admin_runs_moving
--- there; the steps after it copy the table's rows into it, compare the two, then drop
--- mart.admin_runs and give the copy its name. Send them in order, one at a time.
+-- there, and the next copies the table's rows into it. Then admin.check_the_copy compares
+-- the two and gives the steps that drop mart.admin_runs and give the copy its name. Send
+-- them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.admin_runs_moving (
@@ -19745,66 +19390,6 @@ INSERT OVERWRITE TABLE mart.admin_runs_moving
 SELECT
   admin_runs.job_id
 FROM mart.admin_runs AS admin_runs;
--- Statement 3: to_hive
-WITH old_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs AS admin_runs
-), copied_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs_moving AS admin_runs_moving
-)
-SELECT
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-CROSS JOIN copied_counts
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count
--- Statement 3: show_hive
--- Compares the rows in mart.admin_runs and mart.admin_runs_moving, and stops the move,
--- before anything is dropped, if they differ. It gives back no rows when they match.
-WITH old_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs AS admin_runs
-), copied_counts AS (
-  SELECT
-    COUNT(*) AS row_count
-  FROM mart.admin_runs_moving AS admin_runs_moving
-)
-SELECT
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-CROSS JOIN copied_counts
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
--- Statement 4: to_hive
-ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-)
--- Statement 4: show_hive
--- Sets external.table.purge to false on mart.admin_runs, so that dropping it next leaves the
--- files in its folder, which other tables may read.
-ALTER TABLE mart.admin_runs SET TBLPROPERTIES (
-  'external.table.purge'='false'
-);
--- Statement 5: to_hive
-DROP TABLE IF EXISTS mart.admin_runs
--- Statement 5: show_hive
--- Drops the old mart.admin_runs: its files stay in the folder it shared. Can't be undone, so
--- send it only after the step before it, the comparison, gave back no rows.
-DROP TABLE IF EXISTS mart.admin_runs;
--- Statement 6: to_hive
-ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs
--- Statement 6: show_hive
--- Gives mart.admin_runs_moving the name mart.admin_runs. Its files stay at its own folder,
--- /data/your_team/mart.db/admin_runs. If this step fails, send it alone again.
-ALTER TABLE mart.admin_runs_moving RENAME TO mart.admin_runs;
 
 == edge:admin:move:refused:unpartitioned_inside_where_it_is
 -- refused
@@ -49187,7 +48772,7 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')
 ValueError:
   What happened:  unchecked_hive(' ; ') has no Hive in it.
   Why it matters: There would be nothing to send.
-  Usual fix:      Write the Hive to send, as in unchecked_hive("ALTER TABLE ...", returns_rows=False).
+  Usual fix:      Write the Hive to send, as in unchecked_hive("ALTER TABLE ...").
   Opt-out:        none - this one can't be switched off.
 
 == warehouse:ops.jobs

@@ -6,7 +6,7 @@ For: Intermediate
 
 Send Hive you write by hand, for what no clause function writes, with your Table references'
 names dropped into it by an f-string: `unchecked_hive(f"SELECT {ops.jobs.job_id} FROM
-{ops.jobs}", returns_rows=True)`. Each name is spelt as its Table reference spells it, `run`
+{ops.jobs}")`. Each name is spelt as its Table reference spells it, `run_query`
 sends the text as you wrote it, and Lineage shows it as one step over the tables it reads.
 
 ## When you'd use it
@@ -78,12 +78,11 @@ string, and each name in `{...}`:
 >>> busy_jobs = unchecked_hive(  # -> UncheckedStatement
 ...     f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} "
 ...     f"WHERE {jobs.job_id} IN (SELECT {job_events.job_id} FROM {job_events} "
-...     f"WHERE {job_events.dt} = '2026-09-24')",
-...     returns_rows=True)
+...     f"WHERE {job_events.dt} = '2026-09-24')")
 >>> text = show_hive(busy_jobs)  # -> str
 -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
 SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.job_id IN (SELECT job_events.job_id FROM ops.job_events AS job_events WHERE job_events.dt = '2026-09-24');
->>> run(busy_jobs, query=query)  # -> DataFrame
+>>> run_query(busy_jobs, query)  # -> DataFrame
    job_id      job_name
 0       1  nightly_load
 1       2  invoice_sync
@@ -93,19 +92,18 @@ is the spelling: a column renamed in its Table reference is renamed here too, an
 mistyped, such as `jobs.job_idd`, stops at once with a message naming the table's columns,
 rather than reaching the warehouse.
 
-### Say whether it gives back rows
+### Send it with the call that suits it
 
-`returns_rows=` has no default. `returns_rows=True` sends the text through your query, which
-gives back a DataFrame, as for a SELECT, SHOW or DESCRIBE. `returns_rows=False` sends it
-through your execute, which gives back nothing, as for a CREATE or ALTER. A view, which the
-Toolbox doesn't write, is created through your execute; the Example database's prints the
-first line it is given, and changes nothing:
+You choose which of your two calls sends it, by the function you call: `run_query` sends the
+text through your query, which gives back a DataFrame, as for a SELECT, SHOW or DESCRIBE;
+`run_execute` sends it through your execute, which gives back nothing, as for a CREATE or
+ALTER. A view, which the Toolbox doesn't write, is created through your execute; the Example
+database's prints the first line it is given, and changes nothing:
 
 >>> finance_jobs = unchecked_hive(  # -> UncheckedStatement
 ...     f"CREATE VIEW IF NOT EXISTS mart.finance_jobs AS "
-...     f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} WHERE {jobs.team} = 'finance'",
-...     returns_rows=False)
->>> run(finance_jobs, execute=execute)
+...     f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} WHERE {jobs.team} = 'finance'")
+>>> run_execute(finance_jobs, execute)
 execute: CREATE VIEW IF NOT EXISTS mart.finance_jobs AS SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.team = 'finance'
 
 Each run of an Unchecked statement adds an entry to the Admin log, admin/admin_log.md: its
@@ -116,8 +114,7 @@ entries are the list of what the Toolbox should learn to write next.
 DESCRIBE and SHOW PARTITIONS take a table's name with no AS after it, so write the name
 yourself, as the warehouse knows it:
 
->>> days = run(unchecked_hive("SHOW PARTITIONS ops.job_events", returns_rows=True),
-...            query=query)  # -> DataFrame
+>>> days = run_query(unchecked_hive("SHOW PARTITIONS ops.job_events"), query)  # -> DataFrame
 >>> days.tail(2)
         partition
 12  dt=2026-09-23
@@ -147,7 +144,7 @@ The Hive holds each table's text after FROM, and the run gave the two jobs with 
 
 >>> "FROM ops.jobs AS jobs WHERE" in to_hive(busy_jobs)
 True
->>> list(run(busy_jobs, query=query)["job_name"])
+>>> list(run_query(busy_jobs, query)["job_name"])
 ['nightly_load', 'invoice_sync']
 
 ## Common mistakes
@@ -156,7 +153,7 @@ True
 
 Write a column's name out as you reach it in Python, and the Hive has three parts in it:
 
-    unchecked_hive(f"SELECT ops.jobs.job_id FROM {jobs}", returns_rows=True)
+    unchecked_hive(f"SELECT ops.jobs.job_id FROM {jobs}")
 
 Hive refuses it, saying it can't find the table or column `ops`: after `FROM ops.jobs AS
 jobs` the table is called `jobs`. The Example database's own small executor runs it anyway, so
@@ -166,30 +163,30 @@ try it at work. Drop the column's text in with `{jobs.job_id}` instead.
 
 An f-string gives a table's text with its AS, which only FROM and JOIN take:
 
->>> to_hive(unchecked_hive(f"DESCRIBE {jobs}", returns_rows=True))
+>>> to_hive(unchecked_hive(f"DESCRIBE {jobs}"))
 'DESCRIBE ops.jobs AS jobs'
 
 Hive refuses that. Write the name alone, `"DESCRIBE ops.jobs"`, as the steps do for SHOW
 PARTITIONS.
 
-### Leaving returns_rows out
+### Sending a read with run_execute
 
-The Toolbox can't tell from the text which of your two calls to send it through, so it isn't
-guessed:
+The Toolbox doesn't read your text to choose a call: it sends it through the one you called.
+A read sent with `run_execute` goes to your execute, which gives back nothing, so its rows are
+lost:
 
->>> unchecked_hive("SHOW PARTITIONS ops.job_events")
-Traceback (most recent call last):
-...
-TypeError: unchecked_hive() missing 1 required keyword-only argument: 'returns_rows'
+>>> run_execute(unchecked_hive("SHOW PARTITIONS ops.job_events"), execute)
+execute: SHOW PARTITIONS ops.job_events
+
+Send Hive that gives back rows with `run_query`, as the steps do.
 
 ### Expecting a Load limit
 
 No Load limit looks inside the text, so a read of a partitioned table that filters none of
 its days is sent as written, and reads every day: here all 14 days of ops.job_events.
 
->>> every_day = unchecked_hive(f"SELECT COUNT(*) AS events FROM {job_events}",
-...                            returns_rows=True)  # -> UncheckedStatement
->>> run(every_day, query=query)
+>>> every_day = unchecked_hive(f"SELECT COUNT(*) AS events FROM {job_events}")  # -> UncheckedStatement
+>>> run_query(every_day, query)
    events
 0      57
 

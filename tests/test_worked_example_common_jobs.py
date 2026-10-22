@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import Statement, example_database, run
+from sqlglot_composer import Statement, example_database, run_query
 from statements import (
     groups_and_top_n,
     jobs_that_never_ran,
@@ -29,7 +29,7 @@ def runs() -> pd.DataFrame:
 
 
 def result(s: Statement) -> list[dict[str, object]]:
-    return run(s, query=example_database.query).to_dict("records")
+    return run_query(s, example_database.query).to_dict("records")
 
 
 # --- jobs_that_never_ran --------------------------------------------------------------------

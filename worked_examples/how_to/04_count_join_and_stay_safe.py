@@ -66,8 +66,8 @@ The file `references/ops__job_runs.py`, after you fill it in:
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.ops__job_runs import job_runs, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = job_runs.status
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -97,8 +97,8 @@ The file `references/ops__jobs.py`, after you fill it in:
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.ops__jobs import jobs, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = jobs.job_name
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -129,8 +129,8 @@ The file `references/ops__run_alerts.py`, after you fill it in:
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.ops__run_alerts import run_alerts, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = run_alerts.severity
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -177,8 +177,8 @@ The file `references/ops__region_budgets.py`, after you fill it in:
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.ops__region_budgets import region_budgets, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = region_budgets.job_id
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -210,8 +210,8 @@ The file `references/ops__team_notes.py`, after you fill it in:
     # Your own names for this table's columns and conditions, written by hand below.
     # Import one beside the table: from references.ops__team_notes import team_notes, <alias>
     #
-    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+    # get back, still call the column by its own name. To rename an output, use AS(...).
     #     <alias> = team_notes.team
     # A condition Alias names a condition on this table alone, for WHERE or
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
@@ -246,7 +246,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(all_runs, query=query)
+>>> run_query(all_runs, query)
    runs  minutes
 0     9      180
 
@@ -283,7 +283,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id;
->>> run(per_job, query=query)
+>>> run_query(per_job, query)
    job_id  runs  failed_runs  minutes  longest
 0       1     4            0       67       40
 1       2     3            1       53       20
@@ -306,7 +306,7 @@ SQL works `HAVING` out before `SELECT` has named anything. Here, the jobs with 3
 ...     GROUP_BY(job_runs.job_id),
 ...     HAVING(at_least(count_rows(), 3)),
 ... )
->>> run(busy_jobs, query=query)
+>>> run_query(busy_jobs, query)
    job_id  runs
 0       1     4
 1       2     3
@@ -323,7 +323,7 @@ the two jobs with the most minutes:
 ...     ORDER_BY(descending("minutes")),
 ...     LIMIT(2),
 ... )
->>> run(top_two, query=query)
+>>> run_query(top_two, query)
    job_id  minutes
 0       1       67
 1       3       60
@@ -353,7 +353,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   jobs.team;
->>> run(per_team, query=query)
+>>> run_query(per_team, query)
       team  runs  minutes
 0     data     4       67
 1  finance     5      113
@@ -374,7 +374,7 @@ the JOIN. `run_alerts` is partitioned too, so it gets its own filter on `run_ale
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           between(run_alerts.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(careless_total, query=query)
+>>> run_query(careless_total, query)
    minutes  alerts
 0      210       9
 
@@ -433,7 +433,7 @@ LEFT JOIN alerts_per_run
   ON alerts_per_run.run_id = job_runs.run_id
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(fixed_total, query=query)
+>>> run_query(fixed_total, query)
    minutes  alerts
 0      180       9
 
@@ -459,7 +459,7 @@ counted per job first, so each job meets at most one row:
 ...     LEFT_JOIN(runs_per_job, ON=equals(runs_per_job.job_id, jobs.job_id)),
 ...     WHERE(is_null(runs_per_job.job_id)),
 ... )
->>> run(never_ran, query=query)
+>>> run_query(never_ran, query)
    job_id    job_name
 0       4  cache_warm
 
@@ -505,7 +505,7 @@ any other:
 ...     FROM(budgets),
 ...     WHERE(is_in(budgets.region, ["eu", "us"])),
 ... )
->>> run(every_budget, query=query)
+>>> run_query(every_budget, query)
    job_id region  budget_cents
 0       1     eu           150
 1       2     eu           200
@@ -546,7 +546,7 @@ there too, and the join now matches on the whole Key:
 ...     LEFT_JOIN(budgets, ON=all_of(equals(budgets.job_id, jobs.job_id),
 ...                                  equals(budgets.region, "eu"))),
 ... )
->>> run(eu_budgets, query=query)
+>>> run_query(eu_budgets, query)
        job_name  budget_cents
 0    cache_warm          50.0
 1  invoice_sync         200.0
@@ -569,7 +569,7 @@ any join onto it. Each job, beside its team's notes:
 ...     FROM(jobs),
 ...     JOIN(notes, ON=equals(notes.team, jobs.team)),
 ... )
->>> run(job_notes, query=query)
+>>> run_query(job_notes, query)
        job_name                                          note
 0    cache_warm            cache_warm is paused until October
 1  invoice_sync       invoice_sync's bill comes in a day late
@@ -600,15 +600,15 @@ is a good start. The Example database is tiny, so this page sets 5:
 
 >>> set_load_limits(rows=5)  # -> dict[str, int | None]
 {'rows': 5}
->>> run(statement(
+>>> run_query(statement(
 ...     SELECT(job_runs.run_id),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
-... ), query=query)
+... ), query)
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  run(...) got back 5 rows, exactly the automatic LIMIT set by set_load_limits(rows=...).
+  What happened:  run_query(...) got back 5 rows, exactly the automatic LIMIT set by set_load_limits(rows=...).
 ...
 
 The usual fix is to ask for fewer rows. Its opt-out, `returns_all_rows=True` on
@@ -640,21 +640,21 @@ When the opt-out would hide a mistake, make the fix instead.
 A join that doesn't repeat rows keeps the totals of the table in `FROM`: the runs and minutes
 per team add up to those of every run, and `fixed_total` has them too:
 
->>> totals = run(all_runs, query=query)  # -> DataFrame
->>> teams = run(per_team, query=query)  # -> DataFrame
+>>> totals = run_query(all_runs, query)  # -> DataFrame
+>>> teams = run_query(per_team, query)  # -> DataFrame
 >>> int(teams["runs"].sum()) == int(totals["runs"][0])
 True
->>> int(teams["minutes"].sum()) == int(run(fixed_total, query=query)["minutes"][0]) == 180
+>>> int(teams["minutes"].sum()) == int(run_query(fixed_total, query)["minutes"][0]) == 180
 True
 
 And the warehouse's counts per job match the same counts made in pandas from the rows:
 
->>> every_run = run(statement(  # -> DataFrame
+>>> every_run = run_query(statement(  # -> DataFrame
 ...     SELECT(job_runs.job_id, job_runs.duration_mins),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
-... ), query=query)
->>> from_hive = run(per_job, query=query)  # -> DataFrame
+... ), query)
+>>> from_hive = run_query(per_job, query)  # -> DataFrame
 >>> every_run.groupby("job_id")["duration_mins"].sum().to_dict() == dict(
 ...     zip(from_hive["job_id"], from_hive["minutes"]))
 True
@@ -733,7 +733,7 @@ wrong, and now nothing says so:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           between(run_alerts.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(silenced, query=query)
+>>> run_query(silenced, query)
    minutes
 0      210
 

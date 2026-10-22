@@ -13,14 +13,14 @@ import datetime
 import pytest
 import sqlglot.executor.python
 
-from sqlglot_composer import example_database, run
+from sqlglot_composer import example_database, run_query
 from statements import latest_and_top_n, regrouping
 
 
 @pytest.mark.needs_example_database
 def test_the_example_database_cant_run_week_start() -> None:
     with pytest.raises(RuntimeError, match="its executor has no NEXT_DAY"):
-        run(regrouping.fixed(), query=example_database.query)
+        run_query(regrouping.fixed(), example_database.query)
 
 
 def _date_add(day: str, days: int, *_: object) -> str:
@@ -38,8 +38,8 @@ def test_the_regrouping_hive_gives_the_same_numbers_as_pandas(
         monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sqlglot.executor.python.ENV, "TSORDSADD", _date_add)
     monkeypatch.setitem(sqlglot.executor.python.ENV, "NEXTDAY", _next_day)
-    careless = run(regrouping.careless(adds_up=True), query=example_database.query)
-    fixed = run(regrouping.fixed(), query=example_database.query)
+    careless = run_query(regrouping.careless(adds_up=True), example_database.query)
+    fixed = run_query(regrouping.fixed(), example_database.query)
     assert careless.to_dict("records") == regrouping.careless_in_pandas().to_dict("records")
     assert fixed.to_dict("records") == regrouping.fixed_in_pandas().to_dict("records")
 
@@ -48,4 +48,4 @@ def test_the_regrouping_hive_gives_the_same_numbers_as_pandas(
 @pytest.mark.parametrize("statement", ["fixed", "top_runs_per_job"])
 def test_the_example_database_cant_run_row_number(statement: str) -> None:
     with pytest.raises(RuntimeError, match="its executor has no window functions"):
-        run(getattr(latest_and_top_n, statement)(), query=example_database.query)
+        run_query(getattr(latest_and_top_n, statement)(), example_database.query)

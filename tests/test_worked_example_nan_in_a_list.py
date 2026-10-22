@@ -11,7 +11,7 @@ import math
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import GuardRefused, example_database, run, to_hive
+from sqlglot_composer import GuardRefused, example_database, run_query, to_hive
 from statements import nan_in_a_list as example
 
 
@@ -47,4 +47,4 @@ def test_the_careless_hive_would_count_no_rows() -> None:
 
 @pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_the_other_jobs_runs() -> None:
-    assert run(example.fixed(), query=example_database.query).runs[0] == pandas_check() == 3
+    assert run_query(example.fixed(), example_database.query).runs[0] == pandas_check() == 3

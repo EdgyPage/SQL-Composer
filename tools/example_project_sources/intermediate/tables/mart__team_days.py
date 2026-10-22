@@ -29,7 +29,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run, show_hive
+from sqlglot_composer import export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -137,7 +137,7 @@ def team_day_from_job_events(day: str) -> Statement:
 # %%
 # 3. Try it: the Hive of each step, then each team's day from ops.job_events
 show_hive([create(), write(), week_totals("2026-09-21", DAY)])
-run(team_day_from_job_events(DAY), query=query)
+run_query(team_day_from_job_events(DAY), query)
 
 # %%
 # 4. Lineage: the three tables together, through the other two notebooks' logic, in a new pair

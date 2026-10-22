@@ -37,7 +37,7 @@ from sqlglot_composer import (
     is_null,
     last_n_days,
     max_of,
-    run,
+    run_query,
     statement,
     sum_of,
     to_hive,
@@ -151,8 +151,8 @@ def reference_text(name: str, columns: list[str], partitioned_by: str, first_key
         f"# Import one beside the table: from ops__{name} import {name}, <alias>",
         "#",
         "# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame "
-        "run",
-        "# gives back, still call the column by its own name. To rename an output, use AS(...).",
+        "you",
+        "# get back, still call the column by its own name. To rename an output, use AS(...).",
         f"#     <alias> = {name}.{example}",
         "# A condition Alias names a condition on this table alone, for WHERE or",
         "# count_rows(where=...). Add what it calls, such as equals, to the import at the top.",
@@ -260,7 +260,7 @@ def test_events_per_type_over_the_14_days() -> None:
         WHERE(last_n_days(events.dt, 14)),
         GROUP_BY(events.event_type),
     )
-    found = run(s, query=example_database.query).set_index("event_type").events.to_dict()
+    found = run_query(s, example_database.query).set_index("event_type").events.to_dict()
     rows = example_rows("job_events")
     assert found == rows.groupby("event_type").size().to_dict()
     assert sum(found.values()) == len(rows)
@@ -271,7 +271,7 @@ def test_each_jobs_team_on_the_day_it_changes() -> None:
     def teams_on(day: str) -> dict[int, str]:
         s = statement(SELECT(owners.job_id, owners.team), FROM(owners),
                       WHERE(equals(owners.dt, day)))
-        return run(s, query=example_database.query).set_index("job_id").team.to_dict()
+        return run_query(s, example_database.query).set_index("job_id").team.to_dict()
 
     rows = example_rows("job_owners")
     for day in ("2026-09-17", "2026-09-18"):
@@ -291,7 +291,7 @@ def test_finished_minutes_per_team_as_of_each_day() -> None:
               equals(events.event_type, "finish")),
         GROUP_BY(owners.team),
     )
-    found = run(s, query=example_database.query).set_index("team").minutes.to_dict()
+    found = run_query(s, example_database.query).set_index("team").minutes.to_dict()
     finished = example_rows("job_events").query("event_type == 'finish'")
     joined = finished.merge(example_rows("job_owners"), on=["job_id", "dt"])
     assert found == joined.groupby("team").minutes.sum().to_dict()
@@ -306,7 +306,7 @@ def test_cost_per_region_over_a_week_of_compact_days() -> None:
         GROUP_BY(costs.region),
     )
     assert "region_costs.dt BETWEEN '20260914' AND '20260920'" in to_hive(s)
-    found = run(s, query=example_database.query).set_index("region").cents.to_dict()
+    found = run_query(s, example_database.query).set_index("region").cents.to_dict()
     rows = example_rows("region_costs")
     week = rows[rows.dt.between("20260914", "20260920")]
     assert found == {region: int(cents) for region, cents
@@ -325,7 +325,7 @@ def test_last_n_days_writes_days_with_dashes_whatever_the_column_holds() -> None
         GROUP_BY(costs.dt),
     )
     assert "region_costs.dt BETWEEN '2026-09-18' AND '2026-09-24'" in to_hive(s)
-    assert run(s, query=example_database.query).empty
+    assert run_query(s, example_database.query).empty
 
 
 def test_a_day_is_written_as_given_whatever_the_column_holds() -> None:
@@ -343,7 +343,7 @@ def test_one_region_alone_filters_the_partitions_read() -> None:
         WHERE(equals(costs.region, "us")),
         GROUP_BY(costs.job_id),
     )
-    found = run(s, query=example_database.query)
+    found = run_query(s, example_database.query)
     rows = example_rows("region_costs")
     us = rows[rows.region == "us"].groupby("job_id").cost_cents.sum()
     assert found.to_dict("records") == [{"job_id": job, "cents": int(cents)}
@@ -381,7 +381,7 @@ def test_distinct_event_types_per_job() -> None:
         WHERE(last_n_days(events.dt, 14)),
         GROUP_BY(events.job_id),
     )
-    found = run(s, query=example_database.query).set_index("job_id").types.to_dict()
+    found = run_query(s, example_database.query).set_index("job_id").types.to_dict()
     assert found == example_rows("job_events").groupby("job_id").event_type.nunique().to_dict()
 
 
@@ -393,7 +393,7 @@ def test_the_newest_snapshot_day_per_job() -> None:
         WHERE(last_n_days(owners.dt, 14)),
         GROUP_BY(owners.job_id),
     )
-    found = run(s, query=example_database.query).set_index("job_id").newest.to_dict()
+    found = run_query(s, example_database.query).set_index("job_id").newest.to_dict()
     assert found == example_rows("job_owners").groupby("job_id").dt.max().to_dict()
 
 
@@ -405,7 +405,7 @@ def test_a_missing_cost_filled_and_labelled() -> None:
         FROM(costs),
         WHERE(equals(costs.dt, "20260924")),
     )
-    found = run(s, query=example_database.query).sort_values("job_id")
+    found = run_query(s, example_database.query).sort_values("job_id")
     day = example_rows("region_costs").query("dt == '20260924'").sort_values("job_id")
     assert list(found.cents) == list(day.cost_cents.fillna(0).astype(int))
     assert list(found.cost) == ["missing" if pd.isna(c) else "known" for c in day.cost_cents]
@@ -420,5 +420,5 @@ def test_a_derived_table_of_events_per_day_is_read_by_the_next_step() -> None:
         GROUP_BY(events.dt),
     ))
     s = statement(SELECT(AS(max_of(per_day.events), "busiest")), FROM(per_day))
-    found = run(s, query=example_database.query).busiest.iloc[0]
+    found = run_query(s, example_database.query).busiest.iloc[0]
     assert found == example_rows("job_events").groupby("dt").size().max()

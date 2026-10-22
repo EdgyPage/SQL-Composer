@@ -22,7 +22,7 @@ from sqlglot_composer import (
     example_database,
     export_lineage,
     hive_settings,
-    run,
+    run_query, run_execute,
     show_hive,
     statement,
     to_hive,
@@ -168,20 +168,20 @@ def test_show_hive_lists_the_settings_first_in_a_pipeline_as_given(
 
 def test_run_sends_each_line_to_execute_as_a_call_of_its_own() -> None:
     sent = []
-    assert run(hive_settings("dynamic_partitions"), execute=sent.append) is None
+    assert run_execute(hive_settings("dynamic_partitions"), sent.append) is None
     assert sent == ["SET hive.exec.dynamic.partition=true",
                     "SET hive.exec.dynamic.partition.mode=nonstrict"]
 
 
-def test_run_without_execute_refuses_them_naming_it() -> None:
-    """A SET line gives back no rows, so a query alone can't send it."""
-    with pytest.raises(TypeError, match=r"run needs execute=, and wasn't given it\."):
-        run(hive_settings("map_joins"), query=example_database.query)
+def test_run_query_refuses_them_naming_run_execute() -> None:
+    """A SET line gives back no rows, so run_query doesn't send it."""
+    with pytest.raises(ValueError, match=r"Send it with run_execute\(s, execute\)\."):
+        run_query(hive_settings("map_joins"), example_database.query)
 
 
 def test_the_example_databases_execute_takes_set_lines(
         capsys: pytest.CaptureFixture[str]) -> None:
-    run(hive_settings("merge_small_files"), execute=example_database.execute)
+    run_execute(hive_settings("merge_small_files"), example_database.execute)
     out = capsys.readouterr().out
     assert "execute: SET hive.merge.tezfiles=true\n" in out
     assert all(line.startswith("execute: SET ") for line in out.splitlines())

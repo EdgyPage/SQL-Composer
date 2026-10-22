@@ -44,7 +44,7 @@ PUBLIC_NAMES = [
     "any_of", "all_of",
     "count_rows", "count_distinct", "sum_of", "average_of", "min_of", "max_of", "if_else",
     "fill_null", "week_start", "month_start", "row_number", "descending", "hive_function",
-    "to_hive", "show_hive", "run", "set_load_limits",
+    "to_hive", "show_hive", "set_load_limits",
     "GuardRefused", "LoadRefused",
     "export_lineage",
     # Toolbox 5.0, ticket 03: Session settings, the Unchecked statement and the Admin log.
@@ -66,12 +66,15 @@ PUBLIC_NAMES = [
     "Named", "Ordering", "Subtotals", "Verdict",
     # Toolbox 7.0, ticket 08: Python steps, declared for Lineage.
     "python_step", "PythonStep",
+    # Toolbox 7.1 (7.0's map, ticket 09): you pick the call, so run_query and run_execute replace run.
+    "run_query", "run_execute",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
 # ticket 04: drop_table moved here from the names above. Toolbox 7.0, ticket 03: tables have no
-# days, so drop_partitions replaced drop_days and by_day left the names above.
+# days, so drop_partitions replaced drop_days and by_day left the names above. Toolbox 7.0,
+# ticket 09, 7.1: check_the_copy compares a move's copy through query, then gives its last steps.
 ADMIN_NAMES = ["drop_table", "drop_partitions", "add_columns", "set_properties",
-               "move_to_own_folder"]
+               "move_to_own_folder", "check_the_copy"]
 # The project module's names, `from sqlglot_composer import project`, as decided in Toolbox
 # 6.0's ticket 06. Toolbox 7.0, ticket 06: new_block and remove_block, for Building blocks.
 PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_block",
@@ -93,8 +96,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 101
-    assert len(set(PUBLIC_NAMES)) == 101
+    assert len(PUBLIC_NAMES) == 102
+    assert len(set(PUBLIC_NAMES)) == 102
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

@@ -69,7 +69,7 @@ keep, with `HAVING`, only the groups holding more than one row:
 ...     GROUP_BY(job_owners.job_id, job_owners.dt),
 ...     HAVING(more_than(count_rows(), 1)),
 ... )
->>> run(repeated_keys, query=query)  # -> DataFrame
+>>> run_query(repeated_keys, query)  # -> DataFrame
 Empty DataFrame
 Columns: [job_id, dt, copies]
 Index: []
@@ -113,14 +113,14 @@ SELECT
 FROM ops.job_owners AS job_owners
 WHERE
   job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24';
->>> run(owner_nulls, query=query)  # -> DataFrame
+>>> run_query(owner_nulls, query)  # -> DataFrame
    total_rows  null_job_id  null_team  null_owner  null_dt
 0          56            0          0          14        0
 
 14 of the 56 rows have no owner: cache_warm has had none on any of the 14 days. The same
 function counts the NULLs in `ops.region_costs`, here its eu Partitions:
 
->>> run(null_counts(region_costs, equals(region_costs.region, "eu")), query=query)
+>>> run_query(null_counts(region_costs, equals(region_costs.region, "eu")), query)
    total_rows  null_job_id  null_cost_cents  null_region  null_dt
 0          24            0                1            0        0
 
@@ -135,7 +135,7 @@ Count the rows per day with `GROUP_BY`:
 ...     WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_events.dt),
 ... )
->>> run(events_per_day, query=query)  # -> DataFrame
+>>> run_query(events_per_day, query)  # -> DataFrame
             dt  events
 0   2026-09-11       6
 1   2026-09-12       2
@@ -180,8 +180,8 @@ write `region_costs`'s days like `job_events`'s, then put the two side by side w
 `starts.merge`. `how="outer"` keeps a day that only one of them has, with NaN, pandas' empty
 value, for the other count, so that day shows up as a difference too:
 
->>> starts = run(starts_per_day, query=query)  # -> DataFrame
->>> bills = run(bills_per_day, query=query)  # -> DataFrame
+>>> starts = run_query(starts_per_day, query)  # -> DataFrame
+>>> bills = run_query(bills_per_day, query)  # -> DataFrame
 >>> bills["dt"] = pd.to_datetime(bills["dt"], format="%Y%m%d").dt.strftime("%Y-%m-%d")
 >>> both = starts.merge(bills, on="dt", how="outer")  # -> DataFrame
 >>> both[both["starts"] != both["bills"]]
@@ -213,7 +213,7 @@ tables disagree, already in pandas, then count each check's problem rows:
 
 >>> checks = {"repeated_keys": repeated_keys, "no_owner": no_owner,
 ...           "not_billed": not_billed}
->>> found = {name: run(check_statement, query=query)  # -> dict[str, DataFrame]
+>>> found = {name: run_query(check_statement, query)  # -> dict[str, DataFrame]
 ...          for name, check_statement in checks.items()}
 >>> found["starts_not_billed"] = both[both["starts"] != both["bills"]]
 >>> summary = pd.DataFrame({"check": list(found),  # -> DataFrame
@@ -244,11 +244,11 @@ each day's row count, so a day that came in short shows beside the days around i
 >>> checks_logic = project.load("mart.job_events_checks")  # -> the notebook's functions
 >>> checks_logic
 The logic of mart.job_events_checks: create, rows, preview, write, repeated_keys, column_name, null_counts.
->>> run(checks_logic.repeated_keys(), query=query)  # -> DataFrame
+>>> run_query(checks_logic.repeated_keys(), query)  # -> DataFrame
 Empty DataFrame
 Columns: [event_id, times_seen]
 Index: []
->>> run(checks_logic.null_counts(), query=query)  # -> DataFrame
+>>> run_query(checks_logic.null_counts(), query)  # -> DataFrame
    null_event_id  null_job_id  null_event_type  null_minutes  null_dt
 0              0            0                0             0        0
 
@@ -296,7 +296,7 @@ skips the weekends without a word:
 ...           equals(job_events.job_id, 2)),
 ...     GROUP_BY(job_events.dt),
 ... )
->>> per_day = run(invoice_sync_per_day, query=query)  # -> DataFrame
+>>> per_day = run_query(invoice_sync_per_day, query)  # -> DataFrame
 >>> len(per_day)
 10
 

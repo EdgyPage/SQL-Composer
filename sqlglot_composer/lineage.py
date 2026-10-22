@@ -22,6 +22,7 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
+from . import kinds
 from .clauses import Statement, derived_tables
 from .conditions import Condition
 from .keys import Keys, possessive, statement_keys, unproven, wanted_key
@@ -35,7 +36,7 @@ from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_writ
 from .windows import call_of
 from .writing import hive_text
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------
@@ -430,10 +431,10 @@ def build_graph(ordered: list[tuple[Statement | UncheckedStatement | PythonStep,
     graph, ends = Graph(), []
     groups = _derived_group_names(ordered)
     for index, (s, name) in enumerate(ordered):
-        if isinstance(s, UncheckedStatement):
+        if kinds.kind(s) == kinds.UNCHECKED:
             ends += _add_unchecked(graph, s, index, name)
             continue
-        if isinstance(s, PythonStep):
+        if kinds.kind(s) == kinds.PYTHON:
             ends += _add_python_step(graph, s, index, name)
             continue
         for table in derived_tables(s):
@@ -441,7 +442,7 @@ def build_graph(ordered: list[tuple[Statement | UncheckedStatement | PythonStep,
                       group=groups[(index, table._name)], table=table._name)
         _add_step(graph, s, index=index, kind="output", group=name)
         ends += [_box_key("output", index, output) for _, output in s._outputs]
-        if s._write is not None:
+        if kinds.kind(s) == kinds.WRITE:
             ends += _add_write(graph, s, index)
     _link_whole_tables(graph)
     keep = set(ends)
@@ -472,9 +473,9 @@ def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement | Py
 def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     """The names of the real tables a Statement reads, itself or through its Derived tables,
     that an Unchecked statement's text reads, or that a Python step read."""
-    if isinstance(s, UncheckedStatement):
+    if kinds.kind(s) == kinds.UNCHECKED:
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
-    if isinstance(s, PythonStep):
+    if kinds.kind(s) == kinds.PYTHON:
         return step_tables_read(s)
     return {read.table._name for step in statements_within(s) for read in step._reads
             if read.table._statement is None}
@@ -483,18 +484,18 @@ def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
 def _tables_written(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
     """The Saved table a Statement writes, each table an Unchecked statement's text writes
     or changes, or the table a Python step wrote."""
-    if isinstance(s, UncheckedStatement):
+    if kinds.kind(s) == kinds.UNCHECKED:
         return list(dict.fromkeys(name for name, how in tables_read_and_written(s._text)
                                   if how == "writes"))
-    if isinstance(s, PythonStep):
+    if kinds.kind(s) == kinds.PYTHON:
         return [s._writes._name]
-    return [s._write._name] if s._write is not None else []
+    return [s._write._name] if kinds.kind(s) == kinds.WRITE else []
 
 
 def _derived_tables_of(s: Statement | UncheckedStatement | PythonStep) -> list[Table]:
     """The Derived tables a Statement reads; an Unchecked statement and a Python step have
     none the Toolbox knows of."""
-    return [] if isinstance(s, (UncheckedStatement, PythonStep)) else derived_tables(s)
+    return [] if kinds.kind(s) in (kinds.UNCHECKED, kinds.PYTHON) else derived_tables(s)
 
 
 def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
@@ -505,7 +506,7 @@ def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]
     only on others. `call`, given by project.run_tables, names it in the refusal of a loop."""
     reads = [_tables_read(s) for s, _ in named]
     needs = [{j for j, (w, _) in enumerate(named) if set(_tables_written(w)) & reads[i]
-              and not (j == i and isinstance(w, (UncheckedStatement, PythonStep)))}
+              and not (j == i and kinds.kind(w) in (kinds.UNCHECKED, kinds.PYTHON))}
              for i in range(len(named))]
     placed = []
     while len(placed) < len(named):
@@ -691,11 +692,11 @@ def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement | Py
     """One section per Statement, writers first: its calculated and copied columns, its Hive."""
     sections = []
     for index, (s, name) in enumerate(ordered):
-        if isinstance(s, UncheckedStatement):
+        if kinds.kind(s) == kinds.UNCHECKED:
             sections.append({"name": name, "about": _about_unchecked(s), "calculated": [],
                              "copied": [], "sql": s._text, "unchecked": True})
             continue
-        if isinstance(s, PythonStep):
+        if kinds.kind(s) == kinds.PYTHON:
             sections.append({"name": name, "about": _about_python_step(s), "calculated": [],
                              "copied": [], "python": changed_in_python(s)})
             continue
@@ -1091,15 +1092,14 @@ def _check_statements(statements: tuple[object, ...]
         )
     found, settings, admin = [], [], []
     for s in statements:
-        if isinstance(s, SessionSettings):
+        if kinds.kind(s) == kinds.SETTINGS:
             settings.append(s)
             continue
-        if isinstance(s, Statement) and s._admin_call is not None:
+        if kinds.kind(s) == kinds.ADMIN:
             # An Admin statement changes a table, or copies its rows whole: left out.
             admin.append(s)
             continue
-        if not isinstance(s, (Statement, UncheckedStatement, PythonStep)) or (
-                isinstance(s, Statement) and s._ddl is not None):
+        if kinds.kind(s) not in (kinds.READ, kinds.WRITE, kinds.UNCHECKED, kinds.PYTHON):
             refuse(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
                 "table.",

@@ -27,7 +27,7 @@ from sqlglot_composer import (
     equals,
     example_database,
     first_look,
-    run,
+    run_query,
     statement,
     to_hive,
     unchecked_hive,
@@ -137,8 +137,8 @@ def test_a_format_spec_works_on_a_table_and_a_column_as_on_a_str() -> None:
 def test_the_text_of_a_table_and_its_columns_is_hive_that_runs() -> None:
     skip_unless_the_example_database_runs()
     by_hand = unchecked_hive(f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} "
-                             f"ORDER BY {jobs.job_id}", returns_rows=True)
-    rows = run(by_hand, query=example_database.query)
+                             f"ORDER BY {jobs.job_id}")
+    rows = run_query(by_hand, example_database.query)
     assert list(rows.columns) == ["job_id", "job_name"]
     assert list(rows["job_id"]) == [1, 2, 3, 4]
 
@@ -461,10 +461,10 @@ def test_first_look_reads_a_partitioned_table_with_no_where() -> None:
 
 @pytest.mark.needs_example_database
 def test_first_look_runs_on_a_partitioned_table() -> None:
-    from sqlglot_composer import run
+    from sqlglot_composer import run_query
 
     # Every Partition is read, without a Load limit refusing the read.
-    rows = run(first_look(job_runs), query=example_database.query)
+    rows = run_query(first_look(job_runs), example_database.query)
     assert set(rows["dt"]) == {"2026-09-23", "2026-09-24"}
 
 
