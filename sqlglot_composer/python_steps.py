@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 
 from . import kinds
-from .refusals import refuse
+from .refusals import in_words, refuse
 from .tables import Column, Table
 
 TOOLBOX_VERSION = "7.1"
@@ -146,7 +146,7 @@ def step_tables_read(step: PythonStep) -> set[str]:
 def step_about(step: PythonStep) -> str:
     """One sentence on what a Python step read and wrote."""
     read = step_columns_read(step)
-    reads = f"It reads {_listed(read)}, and writes" if read else "It reads no table, and writes"
+    reads = f"It reads {in_words(read)}, and writes" if read else "It reads no table, and writes"
     return f"{reads} {step._writes._name}."
 
 
@@ -156,11 +156,6 @@ def python_step_text(step: PythonStep) -> str:
     said = (f"Python step: changed in Python by {step_where(step)}. {step_about(step)} Nothing is sent "
             "for it: your own call saves its rows.")
     return "\n".join("-- " + each for each in textwrap.wrap(said, width=90))
-
-
-def _listed(items: list[str]) -> str:
-    """Items as a sentence lists them: a, b and c."""
-    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
 
 
 # --- Checking what python_step is given -----------------------------------------------------
