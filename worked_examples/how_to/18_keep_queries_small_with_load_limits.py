@@ -11,7 +11,7 @@ what each refusal says; and you learn when its opt-out is the right answer.
 
 ## When you'd use it
 
-In the first cell of every notebook at work, after the import and your send. A Load limit
+In the first cell of every notebook at work, after the import and your query. A Load limit
 protects the cluster everyone shares, and your notebook's memory: a query that reads a year of
 a big table, or brings back millions of rows, can stall both. It matters most when you explore
 a table you don't know yet, or share a notebook with someone new to the warehouse.
@@ -83,7 +83,7 @@ The two days hold 9 runs. With the LIMIT, the warehouse sends back 5, exactly th
 the result was probably cut short. `run` refuses it, rather than hand you 5 of 9 rows as if
 they were all:
 
->>> run(all_runs, send=example_database.send)
+>>> run(all_runs, query=example_database.query)
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
@@ -100,7 +100,7 @@ conditions in WHERE. A result under the limit comes back as usual:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           equals(job_runs.status, "FAILED")),
 ... )
->>> run(failed, send=example_database.send)
+>>> run(failed, query=example_database.query)
    run_id  job_id  status
 0      97       3  FAILED
 1     102       2  FAILED
@@ -116,7 +116,7 @@ automatic LIMIT, and never refuses its result:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     returns_all_rows=True,
 ... )
->>> run(all_runs_whole, send=example_database.send)
+>>> run(all_runs_whole, query=example_database.query)
    run_id  job_id   status
 0      95       1  SUCCESS
 1      96       2  SUCCESS
@@ -174,7 +174,7 @@ Each day's query keeps the automatic `LIMIT 5`, but gives one row, well under it
 after another, and put their results together in pandas with `pd.concat`:
 
 >>> import pandas as pd
->>> results = [run(day, send=example_database.send) for day in days]
+>>> results = [run(day, query=example_database.query) for day in days]
 >>> pd.concat(results, ignore_index=True)
            dt  events
 0  2026-09-15       4
@@ -235,7 +235,7 @@ rows. So `LIMIT(5)` brings back 5 of the 9 runs, and nothing says the rest are m
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     LIMIT(5),
 ... )
->>> run(first_five, send=example_database.send)
+>>> run(first_five, query=example_database.query)
    run_id  job_id   status
 0      95       1  SUCCESS
 1      96       2  SUCCESS

@@ -120,10 +120,13 @@ The region in PARTITION(...) has no value: the warehouse takes each row's region
 SELECT's last column. Doing so is Hive's dynamic partitioning, which a Session setting switches
 on, so `show_hive` prints its two SET lines first. `run` sends the write alone: send the
 Session setting first, with `hive_settings`, before the first such write. The warehouse keeps
-it for as long as your send's connection lasts, and sending it again does no harm. Here it
-goes to the Example database, and `run` gives back nothing for it:
+it for as long as your execute's connection lasts, and sending it again does no harm. Here it
+goes to the Example database's execute, which prints each SET line, and `run` gives back
+nothing for it:
 
->>> run(hive_settings("dynamic_partitions"), send=example_database.send)
+>>> run(hive_settings("dynamic_partitions"), execute=example_database.execute)
+execute: SET hive.exec.dynamic.partition=true
+execute: SET hive.exec.dynamic.partition.mode=nonstrict
 
 The day is written the Saved table's way, 2026-09-21, though the table it reads writes it
 20260921.
@@ -190,19 +193,19 @@ The write's rows come from its SELECT, which the Example database can run on its
 ...     WHERE(equals(region_costs.dt, "20260921")),
 ...     GROUP_BY(region_costs.job_id, region_costs.region),
 ... )
->>> run(costs_on_the_day, send=example_database.send)
+>>> run(costs_on_the_day, query=example_database.query)
    job_id region  cost_cents
 0       1     eu         130
 1       2     eu         210
 2       3     us         330
 
 At work, once `create_table` has made the table, `check_table_reference` sends DESCRIBE
-FORMATTED, which lists how the table is kept, and compares that too. A stand-in send plays a
+FORMATTED, which lists how the table is kept, and compares that too. A stand-in query plays a
 table made by hand at a folder it shares with other tables, /data/your_team/tables itself,
 as the warehouse would describe it:
 
 >>> import pandas as pd
->>> def send_at_work(hive: str) -> pd.DataFrame:
+>>> def query_at_work(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-21/region=eu"]})
 ...     return pd.DataFrame([
@@ -217,10 +220,10 @@ as the warehouse would describe it:
 ...         ("# Storage Information", None, None),
 ...         ("InputFormat:", "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat", None),
 ...     ], columns=["col_name", "data_type", "comment"])
->>> check_table_reference(job_costs, send=send_at_work)
+>>> check_table_reference(job_costs, query=query_at_work)
 mart.job_costs differs from its Table reference.
 Problems:
-  - it is at hdfs://namenode:8020/data/your_team/tables, not at its own folder /data/your_team/tables/mart/job_costs. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it with admin.move_to_own_folder(t, send=...).
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at its own folder /data/your_team/tables/mart/job_costs. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it with admin.move_to_own_folder(t, query=...).
 
 Everything else matches. The warehouse writes a folder in full, with `hdfs://namenode:8020`
 before it, and the Toolbox compares the folder alone. Moving a table that shares a folder

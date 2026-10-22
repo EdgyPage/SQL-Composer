@@ -50,7 +50,7 @@ WHERE
 GROUP BY
   CAST(NEXT_DAY(DATE_ADD(job_events.dt, 7 * -1), 'MO') AS STRING),
   job_events.job_id;
->>> run(starts_per_week, send=example_database.send)
+>>> run(starts_per_week, query=example_database.query)
          week  job_id  starts
 0  2026-09-07       1       3
 1  2026-09-07       2       1
@@ -103,7 +103,7 @@ WHERE
 GROUP BY
   CAST(TRUNC(job_events.dt, 'MM') AS STRING),
   job_events.job_id;
->>> run(starts_per_month, send=example_database.send)
+>>> run(starts_per_month, query=example_database.query)
         month  job_id  starts
 0  2026-09-01       1      14
 1  2026-09-01       2      10
@@ -123,7 +123,7 @@ that week:
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY("week"),
 ... )
->>> run(jobs_per_week, send=example_database.send)
+>>> run(jobs_per_week, query=example_database.query)
          week  jobs_that_ran
 0  2026-09-07              3
 1  2026-09-14              3
@@ -147,7 +147,7 @@ taking that many days off a day gives its Monday.
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_events.dt),
 ... )
->>> per_day = run(starts_per_day, send=example_database.send)
+>>> per_day = run(starts_per_day, query=example_database.query)
 >>> days = pd.to_datetime(per_day["dt"])
 >>> per_day["week"] = (days - pd.to_timedelta(days.dt.weekday, unit="D")).dt.strftime("%Y-%m-%d")
 >>> per_day.groupby("week")["starts"].sum()
@@ -222,7 +222,7 @@ The days you read decide which days each week holds. Counting the days in each w
 ...     WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY("week"),
 ... )
->>> run(days_per_week, send=example_database.send)
+>>> run(days_per_week, query=example_database.query)
          week  days
 0  2026-09-07     3
 1  2026-09-14     7
@@ -259,7 +259,7 @@ def every_event() -> pd.DataFrame:
     events = run(
         statement(SELECT(all_columns(job_events)), FROM(job_events),
                   WHERE(between(job_events.dt, "2026-09-11", "2026-09-24"))),
-        send=example_database.send,
+        query=example_database.query,
     )
     days = pd.to_datetime(events.dt)
     monday = days - pd.to_timedelta(days.dt.weekday, unit="D")

@@ -96,7 +96,7 @@ def docstrings() -> list[tuple[list[str], str]]:
     """Every docstring with a >>> example, with the names it is about, in the cheat sheet's order.
 
     The two constants share the Toolbox's own docstring. A docstring that isn't a public
-    name's, such as example_database.send's, comes after the public names.
+    name's, such as example_database.query's, comes after the public names.
     """
     found = [(CONSTANTS, inspect.cleandoc(sqlglot_composer.__doc__))]
     found += [([name], inspect.getdoc(getattr(sqlglot_composer, name)))
@@ -160,10 +160,18 @@ def result_html(s: Statement | SessionSettings | UncheckedStatement,
     several, such as " of Statement 1 of 2".
     """
     try:
-        result = sqlglot_composer.run(s, send=example_database.send)
-        if result is None:  # Session settings: each SET line is sent, and run gives back None
+        with contextlib.redirect_stdout(io.StringIO()):  # execute prints each line it is given
+            result = sqlglot_composer.run(s, query=example_database.query,
+                                          execute=example_database.execute)
+        if result is None and isinstance(s, SessionSettings):  # each SET line to execute
             return ('<p class="note">Sent to the Example database one SET line at a time; '
                     "run gives back None.</p>")
+        if result is None and pandas_result is not None:
+            return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
+        if result is None:  # a write, or other Hive that changes something, sent to execute
+            return ('<p class="note">No result here. The Example database is never written to: '
+                    "its execute prints the Hive's first line and changes nothing, and run "
+                    "gives back None.</p>")
         if isinstance(result, str):
             # explain's plan, as text: only its heading.
             heading = result.splitlines()[0] if result else ""
@@ -374,7 +382,7 @@ def week_start_on_each_day(names: list[str]) -> str:
     )
     shown = "week_start(job_runs.dt) on each day of the Example database"
     try:
-        weeks = sqlglot_composer.run(s, send=example_database.send)
+        weeks = sqlglot_composer.run(s, query=example_database.query)
     except (RuntimeError, ValueError):
         weeks = regrouping.with_week(regrouping.every_run())[["dt", "week"]].drop_duplicates()
         shown += f", {PANDAS_LABEL}"
@@ -496,10 +504,10 @@ def builds_statements(value: object) -> bool:
 
 
 class _SentAQuery(Exception):
-    """What the Example database's send raises while other_statements looks at a function."""
+    """What the Example database's query raises while other_statements looks at a function."""
 
 
-def _refuse_to_send(text: str) -> NoReturn:
+def _refuse_to_query(text: str) -> NoReturn:
     raise _SentAQuery(text)
 
 
@@ -509,7 +517,7 @@ def other_statements(
     """The script's other Statement functions besides careless() and fixed(), in file order.
 
     A function that sends a query, such as the every_run() a pandas twin reads, isn't one. Its
-    query isn't run: the Example database's send refuses while each function is looked at.
+    query isn't run: the Example database's query refuses while each function is looked at.
     """
     found = []
     for name, function in inspect.getmembers(module, inspect.isfunction):
@@ -517,8 +525,8 @@ def other_statements(
                 or name.endswith("_in_pandas")):
             continue
         if all(p.default is not p.empty for p in inspect.signature(function).parameters.values()):
-            with example_setting(), mock.patch.object(example_database, "send",
-                                                      _refuse_to_send):
+            with example_setting(), mock.patch.object(example_database, "query",
+                                                      _refuse_to_query):
                 try:
                     value = function()
                 except _SentAQuery:

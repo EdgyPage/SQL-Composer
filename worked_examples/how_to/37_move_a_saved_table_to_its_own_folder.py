@@ -43,12 +43,12 @@ own folder, /data/your_team/tables/mart/job_day:
 ...     location="/data/your_team/tables",
 ... )
 
-The Example database holds no Saved table, so a stand-in send plays the warehouse at work: it
+The Example database holds no Saved table, so a stand-in query plays the warehouse at work: it
 answers DESCRIBE FORMATTED and SHOW PARTITIONS for a mart.job_day that was made by hand in
 /data/your_team/tables itself, a folder other tables share:
 
 >>> import pandas as pd
->>> def send_at_work(hive: str) -> pd.DataFrame:
+>>> def query_at_work(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
 ...     return pd.DataFrame([
@@ -58,30 +58,30 @@ answers DESCRIBE FORMATTED and SHOW PARTITIONS for a mart.job_day that was made 
 ...         ("Location:", "hdfs://namenode:8020/data/your_team/tables", None),
 ...         ("Table Type:", "EXTERNAL_TABLE", None),
 ...     ], columns=["col_name", "data_type", "comment"])
->>> check_table_reference(job_day, send=send_at_work)
+>>> check_table_reference(job_day, query=query_at_work)
 mart.job_day differs from its Table reference.
 Problems:
-  - it is at hdfs://namenode:8020/data/your_team/tables, not at its own folder /data/your_team/tables/mart/job_day. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it with admin.move_to_own_folder(t, send=...).
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at its own folder /data/your_team/tables/mart/job_day. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it with admin.move_to_own_folder(t, query=...).
 
 ### Check its rows first
 
 The move copies each day as the old table reads it. Where two tables shared a day's folder,
 each read the other's files too, so a day may hold rows that aren't its own. Before you move
-it, check its Key on the newest day with `check_key(job_day, send=...)`, and look at a day you
+it, check its Key on the newest day with `check_key(job_day, query=...)`, and look at a day you
 know. If the rows are mixed, don't copy them: drop the table with `admin.drop_table`, create it
 with `create_table`, and write its days again from their source, as
 [Backfill a range of days](#backfill_a_range_of_days) does.
 
 ### Build the move
 
-`admin.move_to_own_folder` sends DESCRIBE FORMATTED and SHOW PARTITIONS to find where the table
-is and which days it holds, and gives back the steps that move it, as a list of Statements, in
-order. `show_hive` prints each one, after what it does:
+`admin.move_to_own_folder` sends DESCRIBE FORMATTED and SHOW PARTITIONS through your query to
+find where the table is and which days it holds, and gives back the steps that move it, as a
+list of Statements, in order. `show_hive` prints each one, after what it does:
 
->>> moves = admin.move_to_own_folder(job_day, send=send_at_work)
+>>> moves = admin.move_to_own_folder(job_day, query=query_at_work)
 >>> text = show_hive(moves)
 -- 1 of 7: moves[0]
--- admin.move_to_own_folder(mart.job_day, send=...) moves mart.job_day to its own folder,
+-- admin.move_to_own_folder(mart.job_day, query=...) moves mart.job_day to its own folder,
 -- /data/your_team/tables/mart/job_day. This first step creates mart.job_day_moving there;
 -- the steps after it copy each of its 2 days into it, compare the two, then drop
 -- mart.job_day and give the copy its name. Send them in order, one at a time.
@@ -180,20 +180,22 @@ Only then is the old table dropped, and the new one renamed: a renamed table kee
 
 At work, send each step in turn with `run`. A step that fails raises, so the loop stops there,
 and the steps after it aren't sent. The fourth step raises when a day's rows differ, before
-anything is dropped. Here it is a function that takes your own send and gives back the steps,
-so that one can be sent again; it isn't called on this page, since the Example database is
-never written to:
+anything is dropped. `run` sends the fourth step through your query, since it reads rows, and
+every other step through your execute. Here it is a function that takes your own query and
+execute and gives back the steps, so that one can be sent again; it isn't called on this page,
+since the Example database is never written to:
 
 >>> from collections.abc import Callable
->>> def move(t: Table, send: Callable[[str], pd.DataFrame]) -> list[Statement]:
-...     moves = admin.move_to_own_folder(t, send=send)
+>>> def move(t: Table, query: Callable[[str], pd.DataFrame],
+...          execute: Callable[[str], None]) -> list[Statement]:
+...     moves = admin.move_to_own_folder(t, query=query)
 ...     for step in moves:
-...         run(step, send=send)
+...         run(step, query=query, execute=execute)
 ...     return moves
 
 Each step that `run` sends adds an entry to the Admin log, admin/admin_log.md in your Project
 (or admin_log.md beside your notebook, outside a Project) unless `set_admin_log` moved it: when,
-the call, such as admin.move_to_own_folder(mart.job_day, send=...)[3] for the fourth step, the
+the call, such as admin.move_to_own_folder(mart.job_day, query=...)[3] for the fourth step, the
 Hive, the script and its git commit, and whether it worked. `show_hive` adds nothing to it.
 
 If a step before the drop fails, fix what it says and send the steps again from the first:
@@ -201,7 +203,7 @@ creating the new table again does nothing, and each day is written again whole. 
 step says a day is missing from the copy, a day was written since the steps were made, so make
 them again with `admin.move_to_own_folder` and send them all. Once the old table is dropped,
 the steps can't be made again, since the table they read is gone: if only the last step, the
-rename, fails, send it alone again with `run(moves[-1], send=...)`, from the `moves` you made.
+rename, fails, send it alone again with `run(moves[-1], execute=...)`, from the `moves` you made.
 
 ### Move the other tables
 
@@ -211,10 +213,10 @@ the folder before deleting any, since other teams' tables may read it too.
 
 ## Check it worked
 
-Once the steps have run, the table is at its own folder. A stand-in send plays the warehouse
+Once the steps have run, the table is at its own folder. A stand-in query plays the warehouse
 again, now describing the moved table:
 
->>> def send_after_the_move(hive: str) -> pd.DataFrame:
+>>> def query_after_the_move(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
 ...     return pd.DataFrame([
@@ -224,7 +226,7 @@ again, now describing the moved table:
 ...         ("Location:", "hdfs://namenode:8020/data/your_team/tables/mart/job_day", None),
 ...         ("Table Type:", "EXTERNAL_TABLE", None),
 ...     ], columns=["col_name", "data_type", "comment"])
->>> check_table_reference(job_day, send=send_after_the_move)
+>>> check_table_reference(job_day, query=query_after_the_move)
 mart.job_day matches its Table reference.
 
 The compare step checked that each day holds as many rows in the new table as in the old.
@@ -241,7 +243,7 @@ mart.job_day, but it holds ops.job_events, from which mart.job_day's days are wr
 ...     FROM(job_events),
 ...     WHERE(equals(job_events.dt, "2026-09-24")),
 ...     GROUP_BY(job_events.job_id),
-... ), send=example_database.send)
+... ), query=example_database.query)
    job_id  starts  finishes
 0       1       1         1
 1       2       1         0
@@ -253,7 +255,7 @@ mart.job_day, but it holds ops.job_events, from which mart.job_day's days are wr
 The admin module changes only your own Saved tables, the ones whose Table reference has
 `location=`. Any other is refused before anything is sent:
 
->>> admin.move_to_own_folder(example_database.job_runs, send=send_at_work)
+>>> admin.move_to_own_folder(example_database.job_runs, query=query_at_work)
 Traceback (most recent call last):
 ...
 ValueError:
@@ -265,11 +267,11 @@ ValueError:
 Once a table is at its own folder, there is nothing to move, and a move built again is refused,
 so a notebook that moves a table can't move it twice:
 
->>> admin.move_to_own_folder(job_day, send=send_after_the_move)
+>>> admin.move_to_own_folder(job_day, query=query_after_the_move)
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  admin.move_to_own_folder(mart.job_day, send=...): mart.job_day is at its own folder already, hdfs://namenode:8020/data/your_team/tables/mart/job_day.
+  What happened:  admin.move_to_own_folder(mart.job_day, query=...): mart.job_day is at its own folder already, hdfs://namenode:8020/data/your_team/tables/mart/job_day.
 ...
 
 ### Sending the steps out of order

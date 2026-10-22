@@ -4,8 +4,8 @@ It isn't brought by `from sqlglot_composer import *`. Import it by name:
 
     from sqlglot_composer import admin
 
-Each function makes an Admin statement, an ordinary Statement that run(s, send=...) sends like
-any other; admin.move_to_own_folder makes a list of them, sent one at a time. show_hive prints,
+Each function makes an Admin statement, an ordinary Statement that run(s, execute=...) sends
+like any other; admin.move_to_own_folder makes a list of them, sent one at a time. show_hive prints,
 before an Admin statement's Hive, what it changes, what can't be undone, and what to check
 first. Each refuses a table that isn't one of your Saved tables: a Table reference with no
 location= is a table someone else owns. Each run of one adds an entry to the Admin log
@@ -24,7 +24,12 @@ import pandas as pd
 
 from .clauses import Statement
 from .writing import hive_text
-from .refusals import refuse, refuse_what_isnt_a_dataframe
+from .refusals import (
+    need_warehouse_call,
+    refuse,
+    refuse_removed_arguments,
+    refuse_what_isnt_a_dataframe,
+)
 from .tables import (
     FILE_FORMATS,
     PURGE,
@@ -212,15 +217,16 @@ def drop_days(t: Table, before: str | datetime.date) -> Statement:
 # --- Adding columns ---------------------------------------------------------------------------
 
 
-def add_columns(t: Table, send: Callable[[str], pd.DataFrame]) -> Statement:
+def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
+                **removed: object) -> Statement:
     """Add the new columns of a Saved table's Table reference to the table itself.
 
-    It sends DESCRIBE through your `send` as it is made, and adds each column of the Table
+    It sends DESCRIBE through your `query` as it is made, and adds each column of the Table
     reference that the table doesn't have yet. So you add a column by adding its line to the
     Table reference first, after the table's other columns (its Date partition's line may
     stay last, as Partitions aren't among them): Hive adds new columns after the table's own,
     and a write fills a table's columns in their order. Then run the Statement it gives, with
-    the same send. The rows already in the table read NULL in a new column until their day is
+    your execute. The rows already in the table read NULL in a new column until their day is
     written again. For a table with a Date partition it writes CASCADE: each day already there
     gets the new columns too. Without it, each of those days would keep its old list of
     columns, and a day written again would lose the new columns' values.
@@ -232,7 +238,7 @@ def add_columns(t: Table, send: Callable[[str], pd.DataFrame]) -> Statement:
     >>> import pandas as pd
     >>> from sqlglot_composer import admin
     >>> # the warehouse's answer to DESCRIBE mart.daily_runs
-    >>> def send_at_work(hive: str) -> pd.DataFrame:
+    >>> def query_at_work(hive: str) -> pd.DataFrame:
     ...     return pd.DataFrame([
     ...         ("job_id", "bigint", ""), ("runs", "bigint", ""),
     ...         ("# Partition Information", None, None), ("dt", "string", ""),
@@ -240,8 +246,8 @@ def add_columns(t: Table, send: Callable[[str], pd.DataFrame]) -> Statement:
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "fails": "bigint", "dt": "string"},
     ...     location="/data/your_team/tables")
-    >>> text = show_hive(admin.add_columns(daily_runs, send=send_at_work))
-    -- admin.add_columns(mart.daily_runs, send=...) adds the column fails to mart.daily_runs,
+    >>> text = show_hive(admin.add_columns(daily_runs, query=query_at_work))
+    -- admin.add_columns(mart.daily_runs, query=...) adds the column fails to mart.daily_runs,
     -- after its other columns. The rows already there read NULL in it until their day is written
     -- again.
     -- CASCADE adds it to each day already in the table too, so a day written again keeps its
@@ -253,9 +259,11 @@ def add_columns(t: Table, send: Callable[[str], pd.DataFrame]) -> Statement:
       fails BIGINT
     ) CASCADE;
     """
+    refuse_removed_arguments("add_columns", removed, "query=")
+    need_warehouse_call("admin.add_columns", "query", query, "It sends DESCRIBE through your query, to see which columns the table has.")
     t = need_saved_table(t, "admin.add_columns(...)")
-    call = f"admin.add_columns({t._name}, send=...)"
-    described = _describe(t._name, send, "admin.add_columns(...)")
+    call = f"admin.add_columns({t._name}, query=...)"
+    described = _describe(t._name, query, "admin.add_columns(...)")
     new = _new_columns(t, described.columns, call)
     definitions = [hive_text(_column_definition(t, column, call)) for column in new]
     hive = f"ALTER TABLE {_name(t)} ADD COLUMNS {_listed(definitions)}"
@@ -282,7 +290,7 @@ def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
             what=f"{call}: DESCRIBE listed no columns for {t._name}.",
             why="It adds the Table reference's columns that the table doesn't have, and can't "
             "tell which those are.",
-            fix="Check the table's name, and that send returns what DESCRIBE prints.",
+            fix="Check the table's name, and that your query returns what DESCRIBE prints.",
             error=ValueError,
         )
     partitions = partition_columns(t)
@@ -399,14 +407,14 @@ def set_properties(t: Table) -> Statement:
 _MOVING = "_moving"
 
 
-def move_to_own_folder(t: Table,
-                       send: Callable[[str], pd.DataFrame]) -> list[Statement]:
+def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
+                       **removed: object) -> list[Statement]:
     """Move a Saved table to a folder of its own: a list of Statements to run.
 
     A Saved table belongs in its own folder, under its Table reference's location=: in a
     folder it shares, two tables read each other's files, and an INSERT OVERWRITE of a day in
     one can delete the other's files for that day. This sends DESCRIBE FORMATTED and SHOW
-    PARTITIONS through your `send` to find where the table is and which days it holds, and
+    PARTITIONS through your `query` to find where the table is and which days it holds, and
     returns the Statements that move it, to send in order with run, one at a time:
 
     - create a copy, named like the table with _moving added, at the folder the Table
@@ -434,7 +442,7 @@ def move_to_own_folder(t: Table,
     >>> import pandas as pd
     >>> from sqlglot_composer import admin
     >>> # the warehouse, with mart.daily_runs in a shared folder
-    >>> def send_at_work(hive: str) -> pd.DataFrame:
+    >>> def query_at_work(hive: str) -> pd.DataFrame:
     ...     if hive.startswith("SHOW PARTITIONS"):
     ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
     ...     return pd.DataFrame([
@@ -447,7 +455,7 @@ def move_to_own_folder(t: Table,
     >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
     ...     location="/data/your_team/tables")
-    >>> moves = admin.move_to_own_folder(daily_runs, send=send_at_work)
+    >>> moves = admin.move_to_own_folder(daily_runs, query=query_at_work)
     >>> len(moves)
     7
     >>> print(to_hive(moves[1]))
@@ -462,13 +470,15 @@ def move_to_own_folder(t: Table,
     show_hive(moves) prints every step, and at work each is sent in turn:
 
         for step in moves:
-            run(step, send=send)
+            run(step, query=query, execute=execute)
     """
+    refuse_removed_arguments("move_to_own_folder", removed, "query=")
+    need_warehouse_call("admin.move_to_own_folder", "query", query, "It sends DESCRIBE FORMATTED and SHOW PARTITIONS through your query, to find the table's folder.")
     t = need_saved_table(t, "admin.move_to_own_folder(...)")
-    call = f"admin.move_to_own_folder({t._name}, send=...)"
-    described = _describe(t._name, send, "admin.move_to_own_folder(...)", formatted=True)
+    call = f"admin.move_to_own_folder({t._name}, query=...)"
+    described = _describe(t._name, query, "admin.move_to_own_folder(...)", formatted=True)
     managed = _check_movable(t, described, call)
-    days, no_day = _days(t, send) if t._date_partition is not None else ([None], False)
+    days, no_day = _days(t, query) if t._date_partition is not None else ([None], False)
     copy_of = copy.copy(t)
     copy_of._name, copy_of._alias = t._name + _MOVING, t._alias + _MOVING
     steps = [_create_step(t, copy_of, call, len(days), managed, no_day)]
@@ -489,7 +499,7 @@ def _check_movable(t: Table, described: Described, call: str) -> bool:
         refuse(
             what=f"{call}: DESCRIBE FORMATTED listed no Location for {t._name}.",
             why="It moves the table only when it isn't at its own folder already.",
-            fix="Check that send returns everything DESCRIBE FORMATTED prints.",
+            fix="Check that your query returns everything DESCRIBE FORMATTED prints.",
             error=ValueError,
         )
     kind = (described.details.get("table type") or described.details.get("type") or "")
@@ -508,7 +518,7 @@ def _check_movable(t: Table, described: Described, call: str) -> bool:
         refuse(
             what=f"{call}: {t._name} is at its own folder already, {location}.",
             why="There is nothing to move.",
-            fix="Leave it where it is; check_table_reference(t, send=...) says whether "
+            fix="Leave it where it is; check_table_reference(t, query=...) says whether "
             "anything else differs.",
             error=ValueError,
         )
@@ -520,7 +530,7 @@ def _check_movable(t: Table, described: Described, call: str) -> bool:
             why="The move copies the Table reference's columns from the table, so each must "
             "be there.",
             fix="Make the Table reference match the table first: "
-            "check_table_reference(t, send=...) lists what differs.",
+            "check_table_reference(t, query=...) lists what differs.",
             error=ValueError,
         )
     return managed
@@ -532,10 +542,10 @@ def _inside(folder: str, other: str) -> bool:
     return path.startswith(urllib.parse.urlsplit(other).path.rstrip("/") + "/")
 
 
-def _days(t: Table, send: Callable[[str], object]) -> tuple[list[str], bool]:
+def _days(t: Table, query: Callable[[str], object]) -> tuple[list[str], bool]:
     """The days SHOW PARTITIONS lists, each once, oldest first, and whether it lists rows with
     no day, which aren't among them."""
-    frame = _ask(send, f"SHOW PARTITIONS {_name(t)}", "admin.move_to_own_folder(...)")
+    frame = _ask(query, f"SHOW PARTITIONS {_name(t)}", "admin.move_to_own_folder(...)")
     days, no_day = set(), False
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
@@ -564,7 +574,7 @@ def _create_step(t: Table, copy_of: Table, call: str, days: int, managed: bool,
     if t._partitioned_by:
         about.append(f"Each copy fills {', '.join(t._partitioned_by)} from its rows, which "
                      'needs the Session setting "dynamic_partitions": send '
-                     'run(hive_settings("dynamic_partitions"), send=...) first.')
+                     'run(hive_settings("dynamic_partitions"), execute=...) first.')
     about.append("The old table's files are dropped with it: it is managed, so its files "
                  "are its own." if managed else
                  "The old table's files stay where they are, since its folder may hold other "
@@ -653,7 +663,7 @@ def _counts_match(t: Table, copy_of: Table) -> Callable[[object], pd.DataFrame]:
             "dropped.",
             fix="A day whose copied_rows is empty (NaN) is missing from the copy: it was "
             "written since the steps were made, so make them again with "
-            "admin.move_to_own_folder(t, send=...), and send them from the first. A day that "
+            "admin.move_to_own_folder(t, query=...), and run them from the first. A day that "
             "differs: send that day's copy step again (show_hive(moves) names each step's "
             "day), then this one and the rest.",
             error=ValueError,

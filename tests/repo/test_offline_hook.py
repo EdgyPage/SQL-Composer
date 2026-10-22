@@ -198,7 +198,7 @@ def test_user_copied_code_may_not_start_a_process() -> None:
 def test_the_reason_names_the_way_through() -> None:
     why = write(ROOT / "sqlglot_composer" / "x.py", "import requests\n")
     assert why is not None
-    assert "`send`" in why
+    assert "`query` and `execute`" in why
     assert "tools/offline_policy.py" in why and "ALLOWED" in why and "user's OK" in why
 
 

@@ -55,13 +55,13 @@ PARTITION_HEADERS = [("", None, None), ("# Partition Information", None, None),
 
 def described(name: str) -> list[tuple[str | None, ...]]:
     """DESCRIBE's rows, a missing cell read as None: pandas 3 shows missing text as NaN."""
-    frame = example_database.send(f"DESCRIBE {name}")
+    frame = example_database.query(f"DESCRIBE {name}")
     return [tuple(None if pd.isna(cell) else cell for cell in row)
             for row in frame.itertuples(index=False, name=None)]
 
 
 def partitions(name: str) -> list[str]:
-    return list(example_database.send(f"SHOW PARTITIONS {name}").partition)
+    return list(example_database.query(f"SHOW PARTITIONS {name}").partition)
 
 
 # --- DESCRIBE and SHOW PARTITIONS -------------------------------------------------------------
@@ -116,7 +116,7 @@ def test_region_costs_lists_each_region_then_its_days() -> None:
 
 def test_an_unknown_table_is_refused_naming_all_seven() -> None:
     with pytest.raises(ValueError) as refused:
-        example_database.send("DESCRIBE ops.nope")
+        example_database.query("DESCRIBE ops.nope")
     assert ("ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, "
             "ops.job_owners or "
             "ops.region_costs") in str(refused.value)
@@ -164,7 +164,7 @@ def reference_text(name: str, columns: list[str], date_lines: list[str], first_k
 def test_write_table_reference_on_job_events(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    path = write_table_reference("ops.job_events", send=example_database.send)
+    path = write_table_reference("ops.job_events", query=example_database.query)
     assert path.read_text(encoding="utf-8") == reference_text("job_events", [
         '"event_id": "bigint",',
         '"job_id": "bigint",',
@@ -181,7 +181,7 @@ def test_write_table_reference_on_job_events(
 def test_write_table_reference_on_job_owners(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    path = write_table_reference("ops.job_owners", send=example_database.send)
+    path = write_table_reference("ops.job_owners", query=example_database.query)
     assert path.read_text(encoding="utf-8") == reference_text("job_owners", [
         '"job_id": "bigint",',
         '"team": "string",',
@@ -195,7 +195,7 @@ def test_write_table_reference_on_region_costs_points_at_dt(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Its first partition, region, holds no days, so the TODO names dt for you to check."""
     monkeypatch.chdir(tmp_path)
-    path = write_table_reference("ops.region_costs", send=example_database.send)
+    path = write_table_reference("ops.region_costs", query=example_database.query)
     assert path.read_text(encoding="utf-8") == reference_text("region_costs", [
         '"job_id": "bigint",',
         '"cost_cents": "bigint",',
@@ -209,13 +209,13 @@ def test_write_table_reference_on_region_costs_points_at_dt(
 
 @pytest.mark.parametrize("t", [events, owners])
 def test_check_table_reference_finds_each_one_matches(t: Table) -> None:
-    verdict = check_table_reference(t, send=example_database.send)
+    verdict = check_table_reference(t, query=example_database.query)
     assert verdict.ok
     assert str(verdict) == f"{t._name} matches its Table reference."
 
 
 def test_check_table_reference_notes_region_costs_second_partition() -> None:
-    verdict = check_table_reference(costs, send=example_database.send)
+    verdict = check_table_reference(costs, query=example_database.query)
     assert verdict.ok
     assert str(verdict) == "\n".join([
         "ops.region_costs matches its Table reference.",
@@ -227,7 +227,7 @@ def test_check_table_reference_notes_region_costs_second_partition() -> None:
 def test_check_table_reference_gives_region_costs_date_format() -> None:
     """Named as the TODO says, dt's days are checked, and the date_format line is given."""
     named = Table("ops.region_costs", columns=dict(costs._columns), date_partition="dt")
-    verdict = check_table_reference(named, send=example_database.send)
+    verdict = check_table_reference(named, query=example_database.query)
     assert not verdict.ok
     assert ("  - the newest dt, '20260924', isn't written like date_format='%Y-%m-%d', the "
             'usual one: change the line to date_format="%Y%m%d",') in str(verdict)
@@ -240,7 +240,7 @@ def test_check_table_reference_gives_region_costs_date_format() -> None:
     (costs, "ops.region_costs: the key (job_id, region, dt) holds on 20260924."),
 ])
 def test_check_key_holds_on_each(t: Table, said: str) -> None:
-    verdict = check_key(t, send=example_database.send)
+    verdict = check_key(t, query=example_database.query)
     assert verdict.ok
     assert str(verdict) == said
 
@@ -256,7 +256,7 @@ def test_events_per_type_over_the_14_days() -> None:
         WHERE(last_n_days(events.dt, 14)),
         GROUP_BY(events.event_type),
     )
-    found = run(s, send=example_database.send).set_index("event_type").events.to_dict()
+    found = run(s, query=example_database.query).set_index("event_type").events.to_dict()
     rows = example_rows("job_events")
     assert found == rows.groupby("event_type").size().to_dict()
     assert sum(found.values()) == len(rows)
@@ -267,7 +267,7 @@ def test_each_jobs_team_on_the_day_it_changes() -> None:
     def teams_on(day: str) -> dict[int, str]:
         s = statement(SELECT(owners.job_id, owners.team), FROM(owners),
                       WHERE(equals(owners.dt, day)))
-        return run(s, send=example_database.send).set_index("job_id").team.to_dict()
+        return run(s, query=example_database.query).set_index("job_id").team.to_dict()
 
     rows = example_rows("job_owners")
     for day in ("2026-09-17", "2026-09-18"):
@@ -287,7 +287,7 @@ def test_finished_minutes_per_team_as_of_each_day() -> None:
               equals(events.event_type, "finish")),
         GROUP_BY(owners.team),
     )
-    found = run(s, send=example_database.send).set_index("team").minutes.to_dict()
+    found = run(s, query=example_database.query).set_index("team").minutes.to_dict()
     finished = example_rows("job_events").query("event_type == 'finish'")
     joined = finished.merge(example_rows("job_owners"), on=["job_id", "dt"])
     assert found == joined.groupby("team").minutes.sum().to_dict()
@@ -302,7 +302,7 @@ def test_cost_per_region_over_a_week_of_compact_days() -> None:
         GROUP_BY(costs.region),
     )
     assert "region_costs.dt BETWEEN '20260914' AND '20260920'" in to_hive(s)
-    found = run(s, send=example_database.send).set_index("region").cents.to_dict()
+    found = run(s, query=example_database.query).set_index("region").cents.to_dict()
     rows = example_rows("region_costs")
     week = rows[rows.dt.between("20260914", "20260920")]
     assert found == {region: int(cents) for region, cents
@@ -318,7 +318,7 @@ def test_last_n_days_writes_compact_days_and_reads_only_them() -> None:
         GROUP_BY(costs.dt),
     )
     assert "region_costs.dt BETWEEN '20260918' AND '20260924'" in to_hive(s)
-    found = run(s, send=example_database.send)
+    found = run(s, query=example_database.query)
     rows = example_rows("region_costs")
     expected = rows[rows.dt >= "20260918"].groupby("dt").cost_cents.sum()
     assert list(found.dt) == COMPACT_DAYS[-7:]
@@ -344,7 +344,7 @@ def test_one_region_bounded_too() -> None:
         WHERE(equals(costs.region, "us"), last_n_days(costs.dt, 14)),
         GROUP_BY(costs.job_id),
     )
-    found = run(s, send=example_database.send)
+    found = run(s, query=example_database.query)
     rows = example_rows("region_costs")
     us = rows[rows.region == "us"].groupby("job_id").cost_cents.sum()
     assert found.to_dict("records") == [{"job_id": job, "cents": int(cents)}
@@ -382,7 +382,7 @@ def test_distinct_event_types_per_job() -> None:
         WHERE(last_n_days(events.dt, 14)),
         GROUP_BY(events.job_id),
     )
-    found = run(s, send=example_database.send).set_index("job_id").types.to_dict()
+    found = run(s, query=example_database.query).set_index("job_id").types.to_dict()
     assert found == example_rows("job_events").groupby("job_id").event_type.nunique().to_dict()
 
 
@@ -394,7 +394,7 @@ def test_the_newest_snapshot_day_per_job() -> None:
         WHERE(last_n_days(owners.dt, 14)),
         GROUP_BY(owners.job_id),
     )
-    found = run(s, send=example_database.send).set_index("job_id").newest.to_dict()
+    found = run(s, query=example_database.query).set_index("job_id").newest.to_dict()
     assert found == example_rows("job_owners").groupby("job_id").dt.max().to_dict()
 
 
@@ -406,7 +406,7 @@ def test_a_missing_cost_filled_and_labelled() -> None:
         FROM(costs),
         WHERE(equals(costs.dt, "20260924")),
     )
-    found = run(s, send=example_database.send).sort_values("job_id")
+    found = run(s, query=example_database.query).sort_values("job_id")
     day = example_rows("region_costs").query("dt == '20260924'").sort_values("job_id")
     assert list(found.cents) == list(day.cost_cents.fillna(0).astype(int))
     assert list(found.cost) == ["missing" if pd.isna(c) else "known" for c in day.cost_cents]
@@ -421,5 +421,5 @@ def test_a_derived_table_of_events_per_day_is_read_by_the_next_step() -> None:
         GROUP_BY(events.dt),
     ))
     s = statement(SELECT(AS(max_of(per_day.events), "busiest")), FROM(per_day))
-    found = run(s, send=example_database.send).busiest.iloc[0]
+    found = run(s, query=example_database.query).busiest.iloc[0]
     assert found == example_rows("job_events").groupby("dt").size().max()

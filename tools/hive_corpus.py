@@ -59,7 +59,7 @@ PIN = re.search(r"^sqlglot==(\S+)$",
 # The exception types a Toolbox refusal comes as; is_refusal tells a refusal from a bug.
 REFUSAL_TYPES = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused, TypeError,
                  ValueError)
-# The warehouse's newest day, as the recording send lists it.
+# The warehouse's newest day, as the recording query lists it.
 NEWEST_DAY = datetime.date(2026, 9, 24)
 # The lines that start a case and a part of a case in the file.
 CASE_MARK = "== "
@@ -253,7 +253,7 @@ def _undated(line: str) -> str | None:
 
 
 class Recording:
-    """A send that notes each command and answers like the warehouse, without running a query.
+    """A query that notes each command and answers like the warehouse, without running one.
 
     DESCRIBE and SHOW PARTITIONS are answered from the Table reference itself, as Hive lists
     them, with NEWEST_DAY written in the table's date_format; any other command gets an empty
@@ -292,19 +292,19 @@ def warehouse_text(t: Table) -> str:
                ("check_key", sqlglot_composer.check_key)]
     with gallery.example_setting():
         for name, helper in helpers:
-            send = Recording(t)
+            query = Recording(t)
             try:
-                helper(t, send)
+                helper(t, query=query)
             except REFUSAL_TYPES as error:
-                send.sent.append(refusal_or_raise(error))
-            lines += [PART_MARK + name, *send.sent]
+                query.sent.append(refusal_or_raise(error))
+            lines += [PART_MARK + name, *query.sent]
     return "\n".join(lines + [""])
 
 
-def _write_table_reference(t: Table, send: Recording) -> None:
+def _write_table_reference(t: Table, *, query: Recording) -> None:
     """write_table_reference, in a folder of its own, so its file never meets another."""
     with tempfile.TemporaryDirectory() as folder, contextlib.chdir(folder):
-        sqlglot_composer.write_table_reference(t._name, send=send)
+        sqlglot_composer.write_table_reference(t._name, query=query)
 
 
 def tables() -> list[Table]:

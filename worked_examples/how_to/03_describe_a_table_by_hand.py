@@ -132,7 +132,7 @@ WHERE
   job_day.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_day.minutes >= 30;
 
 The table mart.job_day isn't on the Example database, so this how-to shows its Hive but can't
-run it. At work, once the table exists and holds some days, `run` runs it with your own send.
+run it. At work, once the table exists and holds some days, `run` runs it with your own query.
 
 ### A table whose days are written another way
 
@@ -162,7 +162,7 @@ You then write each day the table's way:
 ...     FROM(region_costs),
 ...     WHERE(equals(region_costs.dt, "20260923")),
 ... )
->>> run(costs, send=example_database.send)
+>>> run(costs, query=example_database.query)
    job_id  cost_cents
 0       1         120
 1       2         180
@@ -189,7 +189,7 @@ WHERE
 
 A table that already exists can be compared with your Table reference:
 
->>> check_table_reference(region_costs, send=example_database.send)
+>>> check_table_reference(region_costs, query=example_database.query)
 ops.region_costs matches its Table reference.
 Notes:
   - the table is also partitioned by region, which a Statement may bound too.
@@ -220,7 +220,7 @@ how Hive splits a table into days. STORED AS ORC says how Hive keeps the table's
 compact format Hive reads quickly. EXTERNAL and LOCATION say the files are yours, in the
 table's own folder.
 
-At work, once `run` has sent `create_table(job_day)` through your own send and made the table,
+At work, once `run` has sent `create_table(job_day)` through your own execute and made the table,
 `check_table_reference` compares it with your file, as above.
 
 ## Common mistakes

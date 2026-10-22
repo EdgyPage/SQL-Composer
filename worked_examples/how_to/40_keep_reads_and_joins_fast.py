@@ -56,10 +56,17 @@ SET hive.merge.mapredfiles=true
 SET hive.merge.tezfiles=true
 SET hive.stats.autogather=true
 SET hive.stats.column.autogather=true
->>> run(hive_settings("merge_small_files", "statistics_on_write"), send=example_database.send)
+>>> run(hive_settings("merge_small_files", "statistics_on_write"),
+...     execute=example_database.execute)
+execute: SET hive.merge.mapfiles=true
+execute: SET hive.merge.mapredfiles=true
+execute: SET hive.merge.tezfiles=true
+execute: SET hive.stats.autogather=true
+execute: SET hive.stats.column.autogather=true
 
-`run` sends each SET line as a call of its own and gives back nothing. They hold only while
-your send keeps one session across its calls.
+`run` sends each SET line through your execute, as a call of its own, and gives back nothing;
+the Example database's execute prints each one. They hold only while your query and execute
+keep one session across their calls.
 
 ### Give Hive the statistics it plans joins from
 
@@ -75,15 +82,15 @@ ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
 ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, runs
 
 It counts one day, as each write fills one. At work, a function counts the days you wrote
-before, one by one, through your own send; sending a day again counts it again, which does no
+before, one by one, through your own execute; sending a day again counts it again, which does no
 harm:
 
     from collections.abc import Callable
     import pandas as pd
 
-    def count_days(send: Callable[[str], pd.DataFrame]) -> None:
+    def count_days(execute: Callable[[str], None]) -> None:
         for day in ["2026-09-22", "2026-09-23", "2026-09-24"]:
-            run(compute_statistics(daily_runs, day), send=send)
+            run(compute_statistics(daily_runs, day), execute=execute)
 
 `columns=[daily_runs.job_id]` counts only the columns you name, such as those you join or filter
 on, which reads less.
@@ -100,7 +107,10 @@ your Statements, as the settings above:
 SET hive.auto.convert.join=true
 SET hive.auto.convert.join.noconditionaltask=true
 SET hive.ignore.mapjoin.hint=false
->>> run(hive_settings("map_joins"), send=example_database.send)
+>>> run(hive_settings("map_joins"), execute=example_database.execute)
+execute: SET hive.auto.convert.join=true
+execute: SET hive.auto.convert.join.noconditionaltask=true
+execute: SET hive.ignore.mapjoin.hint=false
 
 Nothing in the Statement changes: Hive decides when it plans it. The next step shows how to see
 what it decided.
@@ -141,10 +151,10 @@ WHERE
 GROUP BY
   jobs.team
 
-At work, print the plan your own send gives back:
+At work, print the plan your own query gives back:
 
-    def show_plan(send: Callable[[str], pd.DataFrame]) -> None:
-        print(run(explain(runs_per_team), send=send))
+    def show_plan(query: Callable[[str], pd.DataFrame]) -> None:
+        print(run(explain(runs_per_team), query=query))
 
 Hive's plan is a tree of steps, each reading what the steps below it give. Look for:
 
@@ -167,8 +177,9 @@ when files are copied into its folder, their days are missing from the list unti
 >>> print(to_hive(repair_partitions(daily_runs)))
 MSCK REPAIR TABLE mart.daily_runs
 
-It only adds days; it deletes no file, so it is safe to send again. Neither Example database
-can run it or `compute_statistics`: their tables are made up and fixed.
+It only adds days; it deletes no file, so it is safe to send again. Like `compute_statistics`,
+it goes to your execute; the Example database's execute only prints its first line, since its
+tables are made up and fixed.
 
 ## Check it worked
 
@@ -179,7 +190,7 @@ True
 
 The Statement itself still gives its rows:
 
->>> run(runs_per_team, send=example_database.send)
+>>> run(runs_per_team, query=example_database.query)
       team  runs
 0     data     2
 1  finance     2
@@ -221,12 +232,12 @@ TypeError:
 
 Pass the day, or loop over the days, as above.
 
-### Sending Session settings to a send that forgets them
+### Sending Session settings to an execute that forgets them
 
-A Session setting holds for the rest of a session. If your send opens a new session for each
-call, each SET is gone before your Statement runs, and the plan shows no change. Send the
-settings and the Statements through one send that keeps its session, such as one that
-uses the same connection for every call.
+A Session setting holds for the rest of a session. If your execute opens a new session for each
+call, each SET is gone before your Statement runs, and the plan shows no change. A read goes
+through your query and a SET through your execute, so make both use one connection that keeps
+its session for every call.
 
 ## Next
 

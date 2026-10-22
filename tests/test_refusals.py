@@ -78,7 +78,7 @@ daily_runs = Table(
 
 
 def rows_of(n: int) -> Callable[[str], pd.DataFrame]:
-    """A stand-in for `send` that returns n rows, whatever it is sent."""
+    """A stand-in for `query` that returns n rows, whatever it is sent."""
     return lambda hive: pd.DataFrame({"job_name": ["a"] * n})
 
 
@@ -614,21 +614,21 @@ def test_load_limit_rows_refuses() -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs))
     assert to_hive(s).endswith("LIMIT 3")
     with pytest.raises(LoadRefused, match="got back 3 rows"):
-        run(s, send=rows_of(3))
+        run(s, query=rows_of(3))
 
 
 def test_load_limit_rows_opt_out() -> None:
     set_load_limits(rows=3)
     s = statement(SELECT(jobs.job_name), FROM(jobs), returns_all_rows=True)
     assert "LIMIT" not in to_hive(s)
-    assert len(run(s, send=rows_of(3))) == 3
+    assert len(run(s, query=rows_of(3))) == 3
 
 
 def test_a_limit_the_user_writes_is_never_refused() -> None:
     set_load_limits(rows=3)
     s = statement(SELECT(jobs.job_name), FROM(jobs), LIMIT(2))
     assert to_hive(s).endswith("LIMIT 2")
-    assert len(run(s, send=rows_of(2))) == 2
+    assert len(run(s, query=rows_of(2))) == 2
 
 
 def test_load_limit_dates_refuses() -> None:

@@ -33,12 +33,13 @@ Under the headings go:
   with, and each file it writes: a .py or .md file in full, folded when it is longer than
   FOLD_AFTER lines, or named only when it is the same as one shown before, and an .html file
   by name;
-- indented code, shown but not run, for what works only at work, such as your own send.
+- indented code, shown but not run, for what works only at work, such as your own query and
+  execute.
 
 Where the Example database can't run a Statement's Hive, such as one with
 row_number or week_start, the how-to's file gives a pandas stand-in after its docstring: a
 function `NAME_in_pandas()`, which returns the DataFrame the Statement the steps call `NAME`
-gives, as the Worked examples' `*_in_pandas` functions do. When the Example database's send
+gives, as the Worked examples' `*_in_pandas` functions do. When the Example database's query
 can't run that Statement's Hive, the stand-in's DataFrame comes back instead, both on the page,
 labelled as computed in pandas as the Example gallery labels it, and in the doctest.
 
@@ -281,11 +282,11 @@ def pandas_standing_in(stand_ins: dict[str, Callable[[], pd.DataFrame]],
     `stand_ins` are a how-to's, by the name of their Statement in `scope`, the steps' names.
     Each query a stand-in answers has its Hive added to `answered`.
     """
-    real_send = example_database.send
+    real_query = example_database.query
 
-    def send(hive: str) -> pd.DataFrame:
+    def query(hive: str) -> pd.DataFrame:
         try:
-            return real_send(hive)
+            return real_query(hive)
         except RuntimeError as error:
             if CANT_RUN not in str(error):
                 raise
@@ -296,7 +297,7 @@ def pandas_standing_in(stand_ins: dict[str, Callable[[], pd.DataFrame]],
                     return in_pandas()
             raise
 
-    with mock.patch.object(example_database, "send", send):
+    with mock.patch.object(example_database, "query", query):
         yield
 
 
@@ -376,7 +377,7 @@ def value_html(source: str, value: object, in_pandas: bool) -> str:
                                                                    "refusal")
     if isinstance(value, pd.DataFrame):
         on = (f"Result, {PANDAS_LABEL}" if in_pandas
-              else "Result on the Example database" if "example_database.send" in source
+              else "Result on the Example database" if "example_database.query" in source
               else "Python shows")
         return label(on) + table_html(value)
     return label("Python shows") + code_html(repr(value), "output")
@@ -605,7 +606,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <code>__FOLDER__</code> folder, holds every Worked example, and the how-tos link to it.</p>
 </header>
 <p id="filter" hidden><label>Show only the how-tos holding every word:
-<input type="search" placeholder="for example: show_hive or send"></label>
+<input type="search" placeholder="for example: show_hive or query"></label>
 <span id="count"></span></p>
 <main>
 <nav class="groups">

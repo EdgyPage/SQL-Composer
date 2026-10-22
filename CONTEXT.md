@@ -31,8 +31,10 @@ _Avoid_: develop, internal branch, testing branch
 
 **Warehouse**:
 Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them.
-Each Toolbox user has one; the Example database stands in for it.
-_Avoid_: backend, engine, server, platform
+Each Toolbox user has one; the Example database stands in for it. The Toolbox reaches it only
+through the user's two calls: `query`, which gives back rows as a DataFrame, and `execute`, which
+gives back nothing, as the user's own API does.
+_Avoid_: backend, engine, server, platform, send
 
 ### The user's own scripts
 
@@ -79,10 +81,10 @@ _Avoid_: nickname, shortcut, synonym
 
 **Level**:
 One of three tiers of the user's own scripts. A script imports only from lower Levels and from the
-Toolbox, never from a higher or equal Level. In a Project, the Table references and the send are
-Level 0, the Building blocks Level 1, and each Table notebook's logic Level 2. What runs the
-Statements of many Table notebooks in order sits above the three Levels, so it may read all of
-them.
+Toolbox, never from a higher or equal Level. In a Project, the Table references and the
+warehouse calls are Level 0, the Building blocks Level 1, and each Table notebook's logic Level
+2. What runs the Statements of many Table notebooks in order sits above the three Levels, so it
+may read all of them.
 _Avoid_: layer, tier, stage
 
 **Table reference**:
@@ -301,7 +303,7 @@ _Avoid_: manual, guide, docs
 **How-to**:
 A walkthrough of one job from start to finish, as one notebook: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
-run on the Example database; what works only at work, such as your own send, is shown and not
-run. There are Getting started how-tos and Intermediate how-tos, on a page the Toolbox ships
-beside its Example gallery.
+run on the Example database; what works only at work, such as your own query and execute, is
+shown and not run. There are Getting started how-tos and Intermediate how-tos, on a page the
+Toolbox ships beside its Example gallery.
 _Avoid_: tutorial, guide, lesson, recipe

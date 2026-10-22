@@ -40,7 +40,7 @@ Job 3, report_build, moved from the data team to finance on 2026-09-18:
 ...     WHERE(equals(job_owners.job_id, 3),
 ...           between(job_owners.dt, "2026-09-16", "2026-09-19")),
 ... )
->>> run(report_build_owners, send=example_database.send)
+>>> run(report_build_owners, query=example_database.query)
            dt     team  owner
 0  2026-09-16     data    ana
 1  2026-09-17     data    ana
@@ -79,7 +79,7 @@ WHERE
   AND job_events.event_type = 'start'
   AND job_events.dt BETWEEN '2026-09-11' AND '2026-09-24'
   AND job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24';
->>> run(report_build_runs, send=example_database.send)
+>>> run(report_build_runs, query=example_database.query)
            dt     team
 0  2026-09-11     data
 1  2026-09-14     data
@@ -102,7 +102,7 @@ The same join, for every job, grouped by team:
 ...           between(job_owners.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team, send=example_database.send)
+>>> run(runs_per_team, query=example_database.query)
       team  runs
 0     data    16
 1  finance    12
@@ -153,7 +153,7 @@ SELECT
 FROM numbered
 WHERE
   numbered.newest_first = 1;
->>> run(newest_owner, send=example_database.send)
+>>> run(newest_owner, query=example_database.query)
    job_id     team  owner          dt
 0       1     data    ana  2026-09-24
 1       2  finance    ben  2026-09-24
@@ -180,10 +180,10 @@ over the 14 days:
 ...     WHERE(equals(job_events.event_type, "start"),
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ... )
->>> run(every_run, send=example_database.send)
+>>> run(every_run, query=example_database.query)
    runs
 0    28
->>> int(run(runs_per_team, send=example_database.send)["runs"].sum())
+>>> int(run(runs_per_team, query=example_database.query)["runs"].sum())
 28
 
 ## Common mistakes
@@ -202,7 +202,7 @@ warns at the `JOIN`, since a job_owners row is unique only by job and day:
 ...           between(job_owners.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team_repeated, send=example_database.send)
+>>> run(runs_per_team_repeated, query=example_database.query)
       team  runs
 0     data   224
 1  finance   168
@@ -224,7 +224,7 @@ gives every run today's team:
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(jobs.team),
 ... )
->>> run(runs_per_team_today, send=example_database.send)
+>>> run(runs_per_team_today, query=example_database.query)
       team  runs
 0     data    14
 1  finance    14
@@ -281,7 +281,7 @@ def newest_owner_in_pandas() -> pd.DataFrame:
     every_day = run(
         statement(SELECT(all_columns(job_owners)), FROM(job_owners),
                   WHERE(between(job_owners.dt, "2026-09-11", "2026-09-24"))),
-        send=example_database.send,
+        query=example_database.query,
     )
     newest_first = every_day.sort_values("dt", ascending=False, kind="stable")
     newest = newest_first.groupby("job_id").head(1)

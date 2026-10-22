@@ -1,6 +1,6 @@
 """Worked examples of common jobs: each Statement's result checked against pandas.
 
-Each check reads the Example database's rows directly, not through its send, so it doesn't
+Each check reads the Example database's rows directly, not through its query, so it doesn't
 rely on sqlglot's executor, the thing it checks.
 """
 
@@ -29,7 +29,7 @@ def runs() -> pd.DataFrame:
 
 
 def result(s: Statement) -> list[dict[str, object]]:
-    return run(s, send=example_database.send).to_dict("records")
+    return run(s, query=example_database.query).to_dict("records")
 
 
 # --- jobs_that_never_ran --------------------------------------------------------------------

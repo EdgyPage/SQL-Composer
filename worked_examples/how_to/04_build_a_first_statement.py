@@ -7,7 +7,7 @@ For: Getting started
 Build a Statement a clause at a time, reading its Hive after each change, then run it, and
 copy the finished Hive into another program, such as Hue, Beeline or DBeaver,
 exactly as `run` sends it. Three functions do the work: `to_hive` gives the Hive as text,
-`show_hive` prints it ready to paste, and `run` runs it through a send and gives back a pandas
+`show_hive` prints it ready to paste, and `run` runs it through a query and gives back a pandas
 DataFrame.
 
 ## When you'd use it
@@ -155,9 +155,9 @@ Paste the lot into a program that runs several queries in a row, such as a Beeli
 ### Run it
 
 `run` turns the Statement into Hive, exactly the text `to_hive` gave, without the `;`, hands
-it to a send, and gives back the pandas DataFrame the send returns:
+it to a query, and gives back the pandas DataFrame the query returns:
 
->>> result = run(long_runs, send=example_database.send)
+>>> result = run(long_runs, query=example_database.query)
 >>> result
    run_id   status  minutes
 0     102   FAILED       20
@@ -169,7 +169,7 @@ The column names are the Statement's: `"minutes"`, as `AS` named it. From here i
 >>> print(result["minutes"].sum())
 90
 
-At work, pass your own send in place of `example_database.send`, as
+At work, pass your own query in place of `example_database.query`, as
 [Start a Project](#start_a_project) shows.
 
 ## Check it worked
@@ -202,28 +202,28 @@ Wrap it in `print(...)`, or use `show_hive`, which prints it for you.
 `run` takes the Statement and makes the Hive itself, so it can check it first. Given the text,
 it stops:
 
->>> run(to_hive(long_runs), send=example_database.send)
+>>> run(to_hive(long_runs), query=example_database.query)
 Traceback (most recent call last):
 ...
 TypeError:
   What happened:  run was given "SELECT...", which isn't a Statement.
 ...
 
-Pass the Statement itself: `run(long_runs, send=example_database.send)`.
+Pass the Statement itself: `run(long_runs, query=example_database.query)`.
 
-### Giving a send the Statement
+### Giving a query the Statement
 
-A send works the other way round: it takes Hive text, not a Statement. The Example database's
-send stops:
+A query works the other way round: it takes Hive text, not a Statement. The Example database's
+query stops:
 
->>> example_database.send(long_runs)
+>>> example_database.query(long_runs)
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  example_database.send was given <Statement reading ops.job_runs - print(to_hive(s)) shows its Hive>, which isn't Hive text.
+  What happened:  example_database.query was given <Statement reading ops.job_runs - print(to_hive(s)) shows its Hive>, which isn't Hive text.
 ...
 
-`run(long_runs, send=example_database.send)` makes the text and hands it to the send for you.
+`run(long_runs, query=example_database.query)` makes the text and hands it to the query for you.
 
 ### Pasting Hive that was built with last_n_days
 

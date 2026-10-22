@@ -50,7 +50,7 @@ def test_the_checks_hold_the_numbers_the_docstrings_give() -> None:
 
 @pytest.mark.needs_example_database
 def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
-    careless = run(example.careless(), send=example_database.send).to_dict("records")
+    careless = run(example.careless(), query=example_database.query).to_dict("records")
     right = latest_check()
     assert [row["run_id"] for row in careless] == [row["run_id"] for row in right]
     assert [row["status"] for row in careless] == largest_per_column_check()

@@ -770,12 +770,12 @@ def _upkeep_cases() -> dict[str, Callable[..., list[Statement]]]:
 def warehouse(t: Table, location: str | None = None, kind: str = "EXTERNAL_TABLE",
               lacking: tuple[str, ...] = (), days: tuple[str, ...] = (DAY,)
               ) -> Callable[..., pd.DataFrame]:
-    """A stand-in for send at work: the warehouse's DESCRIBE, DESCRIBE FORMATTED and SHOW
+    """A stand-in for query at work: the warehouse's DESCRIBE, DESCRIBE FORMATTED and SHOW
     PARTITIONS for a Saved table, without the columns `lacking`, at `location` (by default a
     folder it shares with others, BASE itself), holding `days`."""
     partitions = [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
 
-    def send(hive: str) -> pd.DataFrame:
+    def query(hive: str) -> pd.DataFrame:
         if hive.startswith("SHOW PARTITIONS"):
             listed = [f"{t._date_partition}={day}" for day in days]
             return pd.DataFrame({"partition": listed})
@@ -790,7 +790,7 @@ def warehouse(t: Table, location: str | None = None, kind: str = "EXTERNAL_TABLE
                      ("Location:", location or f"hdfs://namenode:8020{BASE}", None),
                      ("Table Type:", kind, None)]
         return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-    return send
+    return query
 
 
 def _saved(name: str = "mart.admin_runs", columns: dict[str, str | None] | None = None,
@@ -835,48 +835,48 @@ def _add_columns_cases() -> dict[str, Callable[..., list[Statement]]]:
              "dt": "string"}
     return {
         "admin:add_columns:one": lambda: [admin.add_columns(
-            _saved(columns=wider), send=warehouse(_saved(columns=wider), lacking=("note",)))],
+            _saved(columns=wider), query=warehouse(_saved(columns=wider), lacking=("note",)))],
         "admin:add_columns:two": lambda: [admin.add_columns(
-            _saved(columns=wider), send=warehouse(_saved(columns=wider),
+            _saved(columns=wider), query=warehouse(_saved(columns=wider),
                                                   lacking=("fails", "note")))],
         "admin:add_columns:no_date_partition": lambda: [admin.add_columns(
             _saved(columns={"job_id": "bigint", "two words": "string"}, date_partition=None),
-            send=warehouse(_saved(columns={"job_id": "bigint", "two words": "string"},
+            query=warehouse(_saved(columns={"job_id": "bigint", "two words": "string"},
                                   date_partition=None), lacking=("two words",)))],
         "admin:add_columns:none_new": lambda: [admin.add_columns(
-            _saved(), send=warehouse(_saved()))],
+            _saved(), query=warehouse(_saved()))],
         "admin:add_columns:before_the_tables_own": lambda: [admin.add_columns(
-            _saved(columns=wider), send=warehouse(_saved(columns=wider), lacking=("fails",)))],
+            _saved(columns=wider), query=warehouse(_saved(columns=wider), lacking=("fails",)))],
         "admin:add_columns:untyped": lambda: [admin.add_columns(
             _saved(columns={"job_id": "bigint", "fails": None, "dt": "string"}),
-            send=warehouse(_saved(), lacking=("fails",)))],
+            query=warehouse(_saved(), lacking=("fails",)))],
         "admin:add_columns:a_partition": lambda: [admin.add_columns(
-            region_runs, send=warehouse(region_runs, lacking=("region",)))],
+            region_runs, query=warehouse(region_runs, lacking=("region",)))],
     }
 
 
 def _move_cases() -> dict[str, Callable[..., list[Statement]]]:
     return {
         "admin:move:two_days": lambda: admin.move_to_own_folder(
-            daily_runs, send=warehouse(daily_runs, days=(FIRST_DAY, DAY))),
+            daily_runs, query=warehouse(daily_runs, days=(FIRST_DAY, DAY))),
         "admin:move:region_runs": lambda: admin.move_to_own_folder(
-            region_runs, send=warehouse(region_runs)),
-        "admin:move:compact": lambda: admin.move_to_own_folder(compact, send=warehouse(
+            region_runs, query=warehouse(region_runs)),
+        "admin:move:compact": lambda: admin.move_to_own_folder(compact, query=warehouse(
             compact, days=("20260924",))),
-        "admin:move:managed": lambda: admin.move_to_own_folder(daily_runs, send=warehouse(
+        "admin:move:managed": lambda: admin.move_to_own_folder(daily_runs, query=warehouse(
             daily_runs, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs",
             kind="MANAGED_TABLE")),
         "admin:move:no_date_partition": lambda: admin.move_to_own_folder(
             _saved(columns={"job_id": "bigint"}, date_partition=None),
-            send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None))),
+            query=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None))),
         "admin:move:no_date_partition_elsewhere": lambda: admin.move_to_own_folder(
             _saved(columns={"job_id": "bigint"}, date_partition=None),
-            send=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None),
+            query=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None),
                            location="hdfs://namenode:8020/data/old_tables")),
         "admin:move:at_its_own_folder": lambda: admin.move_to_own_folder(
-            daily_runs, send=warehouse(daily_runs, location=f"{BASE}/mart/daily_runs")),
+            daily_runs, query=warehouse(daily_runs, location=f"{BASE}/mart/daily_runs")),
         "admin:move:lacking_a_column": lambda: admin.move_to_own_folder(
-            daily_runs, send=warehouse(daily_runs, lacking=("runs",))),
+            daily_runs, query=warehouse(daily_runs, lacking=("runs",))),
     }
 
 
@@ -910,11 +910,13 @@ def _by_hand_cases(
     found["hive_settings:before_a_read"] = lambda: [hive_settings("map_joins"),
                                                     _rows(job_runs.run_id)]
     found["unchecked:select"] = lambda: [unchecked_hive(
-        "SELECT `select` FROM ops.`order` -- a comment;\n;")]
-    found["unchecked:then_a_read"] = lambda: [unchecked_hive(BY_HAND), _reading_daily_runs()]
+        "SELECT `select` FROM ops.`order` -- a comment;\n;", returns_rows=True)]
+    found["unchecked:then_a_read"] = lambda: [unchecked_hive(BY_HAND, returns_rows=False),
+                                              _reading_daily_runs()]
     found["unchecked:alter"] = lambda: [unchecked_hive(
-        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')")]
-    found["unchecked:blank"] = lambda: [unchecked_hive(" ; ")]
+        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')",
+        returns_rows=False)]
+    found["unchecked:blank"] = lambda: [unchecked_hive(" ; ", returns_rows=False)]
     return found
 
 

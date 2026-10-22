@@ -40,7 +40,7 @@ minutes it took. This first try counts every row of each job, and adds up every 
 ...         WHERE(between(job_events.dt, first_day, last_day)),
 ...         GROUP_BY(job_events.job_id),
 ...     )
->>> run(careless_finished_runs("2026-09-18", "2026-09-24"), send=example_database.send)
+>>> run(careless_finished_runs("2026-09-18", "2026-09-24"), query=example_database.query)
    job_id  finished  minutes
 0       1        14       82
 1       2         9       79
@@ -62,7 +62,7 @@ of it:
 ...         FROM(job_events),
 ...         WHERE(between(job_events.dt, first_day, last_day)),
 ...     )
-...     return run(every_event, send=example_database.send)
+...     return run(every_event, query=example_database.query)
 >>> def oracle(rows: pd.DataFrame) -> pd.DataFrame:
 ...     finishes = rows[rows["event_type"] == "finish"]
 ...     return finishes.groupby("job_id", as_index=False).agg(
@@ -88,7 +88,7 @@ into a list of plain dicts, which compare with `==` as Python lists do:
 >>> from collections.abc import Callable
 >>> def test_statement(make_statement: Callable[[str, str], Statement],
 ...                    first_day: str, last_day: str) -> None:
-...     result = run(make_statement(first_day, last_day), send=example_database.send)
+...     result = run(make_statement(first_day, last_day), query=example_database.query)
 ...     expected = oracle(events(first_day, last_day))
 ...     message = f"{first_day} to {last_day}:\\n{result}\\n{expected}"
 ...     assert same_rows(result, expected), message
@@ -130,7 +130,7 @@ hadn't finished. `test_statement` prints nothing when every `assert` holds:
 Some facts you know without any oracle. Write them as `assert`s too: each job appears once,
 and on 2026-09-24 invoice_sync, job 2, started but didn't finish, so it isn't there.
 
->>> last_day = run(finished_runs("2026-09-24", "2026-09-24"), send=example_database.send)
+>>> last_day = run(finished_runs("2026-09-24", "2026-09-24"), query=example_database.query)
 >>> assert last_day["job_id"].is_unique
 >>> assert 2 not in set(last_day["job_id"])
 >>> last_day
@@ -155,7 +155,7 @@ held.
 `==` between two DataFrames compares them cell by cell and gives back a third DataFrame, of
 True and False. `assert` can't say whether a whole DataFrame is true, so it stops:
 
->>> result = run(finished_runs("2026-09-18", "2026-09-24"), send=example_database.send)
+>>> result = run(finished_runs("2026-09-18", "2026-09-24"), query=example_database.query)
 >>> expected = oracle(events("2026-09-18", "2026-09-24"))
 >>> assert result == expected
 Traceback (most recent call last):
@@ -184,7 +184,7 @@ An oracle built from the Statement's own result always agrees with it, careless 
 message stops you: the careless Statement passes against itself, though it counts 14 runs
 where job 1 finished 7:
 
->>> careless = run(careless_finished_runs("2026-09-18", "2026-09-24"), send=example_database.send)
+>>> careless = run(careless_finished_runs("2026-09-18", "2026-09-24"), query=example_database.query)
 >>> same_rows(careless, careless)
 True
 

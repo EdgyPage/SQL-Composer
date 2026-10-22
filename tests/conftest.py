@@ -88,7 +88,7 @@ def example_database_cannot_run() -> str | None:
         return reason
     if "reason" not in _ANSWERED:
         try:
-            toolbox_module("example_database").send("SELECT job_id FROM ops.jobs")
+            toolbox_module("example_database").query("SELECT job_id FROM ops.jobs")
             _ANSWERED["reason"] = None
         except RuntimeError as error:
             said = re.search(r"What happened:\s*(.+)", str(error))
@@ -111,8 +111,8 @@ def skip_unless_the_example_database_runs() -> None:
 def example_rows(table: str) -> pd.DataFrame:
     """One Example database table as a DataFrame, for the Worked examples' pandas checks.
 
-    It reads the rows the Example database holds directly, not through its send, so a pandas
-    check doesn't rely on the send it checks.
+    It reads the rows the Example database holds directly, not through its query, so a pandas
+    check doesn't rely on the query it checks.
     """
     reference, rows = toolbox_module("example_database")._TABLES[table]
     return pd.DataFrame(rows, columns=list(reference._columns))
@@ -235,7 +235,7 @@ def previewed_days(module: TableLogic, days: list[str]) -> pd.DataFrame:
     """What the module's preview shows for each of the days on the Example database, with the
     day as dt: the rows a Saved table its write fills would hold."""
     toolbox = toolbox_module()
-    return pd.concat([toolbox.run(module.preview(day), send=toolbox.example_database.send)
+    return pd.concat([toolbox.run(module.preview(day), query=toolbox.example_database.query)
                       .assign(dt=day) for day in days], ignore_index=True)
 
 

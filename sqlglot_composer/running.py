@@ -1,8 +1,9 @@
 """Running: turn a Statement into Hive, send it, split it by day, and set the load limits.
 
-run(s, send=...) is the only way the Toolbox reaches the query API, and `send` is your own
-function: it takes a Hive string and returns a DataFrame. Connection, retries and saving
-CSVs stay in it. The Toolbox never imports it.
+run(s, query=..., execute=...) is the only way the Toolbox reaches the warehouse, through your
+own two functions: `query` takes a Hive string and gives back a DataFrame, `execute` takes one
+and gives back nothing. Connection, retries and saving CSVs stay in them. The Toolbox never
+imports them.
 """
 
 from __future__ import annotations
@@ -40,7 +41,9 @@ from .refusals import (
     guard_one_day_per_write,
     load_limit_dates,
     load_limit_rows,
+    need_warehouse_call,
     refuse,
+    refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
 from .stacking import STACK_HOW, nth, stack_steps, stacked
@@ -465,7 +468,7 @@ def _need_statement(s: object, call: str, frame: FrameType | None, why: str,
 
     `frame` is the caller's, so the usual fix can name their own variable: a Derived table is
     wrapped in a Statement that reads it, and a list is sent one Statement at a time. `more`
-    is what the fix's call takes after the Statement, such as ", send=...".
+    is what the fix's call takes after the Statement, such as ", query=...".
     """
     if isinstance(s, Statement):
         return
@@ -498,7 +501,7 @@ def settings_needed(s: Statement) -> list[str]:
     """The lines show_hive prints ahead of a Statement: a note and the SET lines of the
     Session setting it needs, or none. A write that fills Partitions after the day from its
     rows needs Hive's dynamic partitioning, the shipped set "dynamic_partitions", which the
-    user sends with run(hive_settings("dynamic_partitions"), send=...). run sends the
+    user sends with run(hive_settings("dynamic_partitions"), execute=...). run sends the
     Statement alone."""
     if s._ddl is not None or s._write is None or not s._write._partitioned_by:
         return []
@@ -528,7 +531,7 @@ class HiveText(str):
 
 
 class HivePlan(str):
-    """The plan run(explain(s), send=...) gives back, as text. In a notebook it is printed,
+    """The plan run(explain(s), query=...) gives back, as text. In a notebook it is printed,
     line by line, rather than shown as one string."""
 
     def _ipython_display_(self) -> None:
@@ -536,7 +539,7 @@ class HivePlan(str):
 
 
 def _plan(result: object) -> HivePlan:
-    """The plan an EXPLAIN's send gave back, as one text: Hive gives each line of it as a row,
+    """The plan an EXPLAIN's query gave back, as one text: Hive gives each line of it as a row,
     in the DataFrame's only column."""
     refuse_what_isnt_a_dataframe(result)
     lines = [str(line) for line in result.iloc[:, 0]] if len(result.columns) else []
@@ -555,7 +558,7 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
     A write that fills Partitions from its rows, into a table with partitioned_by=, is printed
     after the Session setting it needs: a line saying so, then its SET lines, which run
     doesn't send with it: send them first with run(hive_settings("dynamic_partitions"),
-    send=...). An Admin statement, from the admin module, is printed after comment lines
+    execute=...). An Admin statement, from the admin module, is printed after comment lines
     saying what it changes, what can't be undone, and what to check first.
 
     It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
@@ -635,57 +638,83 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
     return HiveText(text)
 
 
-def run(s: Statement | SessionSettings | UncheckedStatement,
-        send: Callable[[str], pd.DataFrame]) -> pd.DataFrame | str | None:
-    """Send a Statement's Hive through your `send` function and return what comes back.
+def run(s: Statement | SessionSettings | UncheckedStatement, *,
+        query: Callable[[str], pd.DataFrame] | None = None,
+        execute: Callable[[str], None] | None = None,
+        **removed: object) -> pd.DataFrame | str | None:
+    """Send a Statement's Hive through your query or execute; a read gives back rows.
 
-    `send` is your own function from a Hive string to a pandas DataFrame. At work it calls
-    the query API; example_database.send runs the Example database instead. A write into a
-    table with partitioned_by= needs the Session setting "dynamic_partitions" sent first,
-    with run(hive_settings("dynamic_partitions"), send=...), as show_hive prints and
-    help(INSERT_OVERWRITE) explains: run sends the write alone. For explain(s), run gives back
-    Hive's plan as text, rather than a DataFrame, and for hive_settings(...) it gives back
-    None, since it sends each SET line as a call of its own. A write gives back what your send
-    gave back for it.
+    `query` and `execute` are your own functions, in your Project's warehouse.py: `query`
+    sends Hive whose rows you want back and gives them back as a pandas DataFrame; `execute`
+    sends Hive that changes something, and gives back nothing. run picks which one each
+    Statement goes to, so pass the ones it needs: a read, explain(s) and an Admin statement
+    that checks what it did go to `query`; a write, create_table, hive_settings(...) and the
+    other Admin statements go to `execute`; an Unchecked statement goes to the one its
+    returns_rows= names. At work they call your query API; example_database.query and
+    example_database.execute stand in for them.
+
+    A read gives back its rows, explain(s) gives back Hive's plan as text, and the rest give
+    back None. A write into a table with partitioned_by= needs the Session setting
+    "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"),
+    execute=...), as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the
+    write alone. hive_settings(...) sends each SET line as a call of its own.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     ...     FROM(job_runs),
     ...     WHERE(equals(job_runs.status, "FAILED"), last_n_days(job_runs.dt, 2)),
-    ... ), send=example_database.send)
+    ... ), query=example_database.query)
        run_id  job_id          dt
     0      97       3  2026-09-23
     1     102       2  2026-09-24
     """
-    if not callable(send):
-        refuse(
-            what=f"run(..., send={send!r}): send isn't a function.",
-            why="run hands the Hive string to your own function, which sends it and "
-            "returns a DataFrame.",
-            fix="Pass your function itself, without calling it: run(s, send=run_query).",
-        )
+    refuse_removed_arguments("run", removed, "query= and execute=")
     if isinstance(s, SessionSettings):
+        need_warehouse_call("run", "execute", execute,
+                            "Session settings change the session, and give back no rows.")
         for line in s._lines:  # Hive takes one SET per call
-            send(line)
+            execute(line)
         return None
     if isinstance(s, UncheckedStatement):
-        return logged_run("Unchecked statement", unchecked_call(s), s._text, send)
+        if s._returns_rows:
+            need_warehouse_call("run", "query", query, "This Unchecked statement says "
+                                "returns_rows=True: its rows come back through your query.")
+            return logged_run("Unchecked statement", unchecked_call(s), s._text, query)
+        need_warehouse_call("run", "execute", execute, "This Unchecked statement says "
+                            "returns_rows=False: it goes through your execute.")
+        logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
+        return None
     _need_statement(s, "run", inspect.currentframe().f_back,
                     why="run writes the Hive of one Statement made by statement(...) and "
-                    "sends it.", more=", send=...")
+                    "sends it.", more=", execute=..." if query is None and execute is not None
+                    else ", query=...")
     text = to_hive(s)
     if s._admin_call is not None:
         check = s._admin_check
-        sent = send if check is None else (lambda hive: check(send(hive)))
-        return logged_run("Admin statement", s._admin_call, text, sent)
-    result = send(text)
+        if check is None:
+            need_warehouse_call("run", "execute", execute,
+                                "This Admin statement changes a table, and gives back no rows.")
+            logged_run("Admin statement", s._admin_call, text, execute)
+            return None
+        need_warehouse_call("run", "query", query, "This Admin statement checks what the "
+                            "steps before it did, by reading rows through your query.")
+        return logged_run("Admin statement", s._admin_call, text,
+                          lambda hive: check(query(hive)))
     if s._ddl is not None and s._ddl.kind == "Explain":
-        return _plan(result)
-    # A write has already been carried out when its send returns, so only a read's rows matter.
-    if s._ddl is None and s._write is None:
-        refuse_what_isnt_a_dataframe(result)
-    limit = automatic_limit(s) if s._ddl is None else None
-    if limit is not None and hasattr(result, "__len__"):
+        need_warehouse_call("run", "query", query,
+                            "explain(...) reads Hive's plan, which comes back as rows.")
+        return _plan(query(text))
+    if s._ddl is not None or s._write is not None:
+        need_warehouse_call("run", "execute", execute,
+                            "This Statement changes a table, and gives back no rows.")
+        execute(text)
+        return None
+    need_warehouse_call("run", "query", query,
+                        "This Statement reads rows, which come back through your query.")
+    result = query(text)
+    refuse_what_isnt_a_dataframe(result)
+    limit = automatic_limit(s)
+    if limit is not None:
         load_limit_rows(len(result), limit)
     return result
 
@@ -790,7 +819,7 @@ def by_day(s: Statement) -> list[Statement]:
     Use it to read a long range a day at a time, or to write a Saved table day by day:
 
         for day in by_day(s):
-            df = run(day, send=run_query)
+            df = run(day, query=query)
 
     It splits on the Date partition of the table in FROM, following Derived tables down to
     it; a joined table keeps its own bound. It refuses a Statement that groups rows without
@@ -839,7 +868,7 @@ def by_day(s: Statement) -> list[Statement]:
             f"{s._write._name}, which has no Date partition.",
             why="A write into a table with no days fills the whole table at once, from all the "
             "rows its Statement reads, so it is sent whole, not a day at a time.",
-            fix="Send it whole, with run(s, send=...).",
+            fix="Send it whole, with run(s, execute=...).",
             error=ValueError,
         )
     table, span = _bottom_days(

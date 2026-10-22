@@ -618,7 +618,7 @@ def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path: Path) -> 
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     hive = section(markdown, "### Hive as submitted")
     assert ("This write covers 2 days, and a write fills one day at a time: send it with "
-            "`for day in by_day(fill): run(day, send=...)`. This is the first day's Hive."
+            "`for day in by_day(fill): run(day, execute=...)`. This is the first day's Hive."
             ) in hive
     assert "PARTITION(dt = '2026-09-23')" in hive
 
@@ -862,7 +862,7 @@ BY_HAND = ("INSERT OVERWRITE TABLE mart.daily_runs PARTITION (dt = '2026-09-24')
 
 def test_an_unchecked_statement_is_one_opaque_step_linked_to_the_tables_it_names(
         tmp_path: Path) -> None:
-    fill = unchecked_hive(BY_HAND)
+    fill = unchecked_hive(BY_HAND, returns_rows=False)
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     got = chart(markdown)
     assert got["boxes"]["⚠ Unchecked statement"] == "fill"
@@ -875,7 +875,7 @@ def test_an_unchecked_statement_is_one_opaque_step_linked_to_the_tables_it_names
 
 def test_its_report_says_nothing_inside_it_was_checked_and_shows_its_hive(
         tmp_path: Path) -> None:
-    fill = unchecked_hive(BY_HAND)
+    fill = unchecked_hive(BY_HAND, returns_rows=False)
     markdown, page = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     about = section(markdown, "## fill")
     said = ("⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load "
@@ -888,7 +888,7 @@ def test_its_report_says_nothing_inside_it_was_checked_and_shows_its_hive(
 
 
 def test_it_is_ordered_before_the_statements_that_read_what_it_writes(tmp_path: Path) -> None:
-    fill, weekly = unchecked_hive(BY_HAND), runs_by_team()
+    fill, weekly = unchecked_hive(BY_HAND, returns_rows=False), runs_by_team()
     markdown, _ = read(export_lineage(weekly, fill, to=tmp_path / "lineage.html"))
     assert markdown.startswith("# Lineage: fill, weekly\n")
     got = chart(markdown)
@@ -897,7 +897,7 @@ def test_it_is_ordered_before_the_statements_that_read_what_it_writes(tmp_path: 
 
 
 def test_the_page_draws_it_as_an_output_marked_unchecked(tmp_path: Path) -> None:
-    fill = unchecked_hive(BY_HAND)
+    fill = unchecked_hive(BY_HAND, returns_rows=False)
     _, page = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     data = page_data(page)
     opaque = [box for box in data["boxes"] if box["lines"][0] == "⚠ Unchecked statement"]

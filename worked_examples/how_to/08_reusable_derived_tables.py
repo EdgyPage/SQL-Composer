@@ -73,7 +73,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = job_totals.job_id
 GROUP BY
   jobs.team;
->>> run(per_team, send=example_database.send)
+>>> run(per_team, query=example_database.query)
       team  minutes
 0     data       67
 1  finance      113
@@ -132,7 +132,7 @@ SELECT
   runs_per_job.failed_runs,
   runs_per_job.minutes
 FROM runs_per_job;
->>> run(check_two_days, send=example_database.send)
+>>> run(check_two_days, query=example_database.query)
    job_id  runs  failed_runs  minutes
 0       1     4            0       67
 1       2     3            1       53
@@ -157,7 +157,7 @@ SELECT
   runs_per_job.failed_runs,
   runs_per_job.minutes
 FROM runs_per_job;
->>> run(check_last_day, send=example_database.send)
+>>> run(check_last_day, query=example_database.query)
    job_id  runs  failed_runs  minutes
 0       1     2            0       50
 1       2     1            1       20
@@ -215,7 +215,7 @@ SELECT
 FROM busy_jobs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = busy_jobs.job_id;
->>> run(busy_with_names, send=example_database.send)
+>>> run(busy_with_names, query=example_database.query)
        job_name  runs  minutes
 0  invoice_sync     3       53
 1  nightly_load     4       67
@@ -257,7 +257,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = runs_per_job.job_id
 GROUP BY
   jobs.team;
->>> run(failed_per_team, send=example_database.send)
+>>> run(failed_per_team, query=example_database.query)
       team  failed_runs
 0     data            0
 1  finance            2
@@ -312,8 +312,8 @@ tables/, each importing from the two folders.
 The block, checked alone, and a Statement built on it give the same numbers. The failed runs
 of the two days, from the block alone, add up to those per team:
 
->>> from_block = run(check_two_days, send=example_database.send)
->>> from_teams = run(failed_per_team, send=example_database.send)
+>>> from_block = run(check_two_days, query=example_database.query)
+>>> from_teams = run(failed_per_team, query=example_database.query)
 >>> print(from_block["failed_runs"].sum(), from_teams["failed_runs"].sum())
 2 2
 
@@ -323,7 +323,7 @@ of the two days, from the block alone, add up to those per team:
 
 `run` takes a Statement. A Derived table is a step to read, so on its own it stops:
 
->>> run(two_days, send=example_database.send)
+>>> run(two_days, query=example_database.query)
 Traceback (most recent call last):
 ...
 TypeError:

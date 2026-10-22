@@ -42,9 +42,9 @@ def test_the_careless_hive_would_count_no_rows() -> None:
     listed = "2.0"
     assert f"NOT job_runs.job_id IN ({listed})" in hive
     careless_hive = hive.replace(f"IN ({listed})", f"IN ({listed}, NULL)")
-    assert example_database.send(careless_hive).runs[0] == 0
+    assert example_database.query(careless_hive).runs[0] == 0
 
 
 @pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_the_other_jobs_runs() -> None:
-    assert run(example.fixed(), send=example_database.send).runs[0] == pandas_check() == 3
+    assert run(example.fixed(), query=example_database.query).runs[0] == pandas_check() == 3

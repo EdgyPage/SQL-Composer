@@ -13,17 +13,17 @@
 # `building_blocks/owner_on_day.py`. A day with no snapshot in ops.job_owners keeps its numbers
 # with a NULL team.
 #
-# The code cells: 1 the Project and your send; 2 the logic, which starts `# logic`; 3 try it;
+# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet.
 
 # %%
-# 1. The Project, your send, and a day to try things on
+# 1. The Project, your query, and a day to try things on
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
 from sqlglot_composer import export_lineage, project, run, show_hive
-from send import send
+from warehouse import query
 
 DAY = "2026-09-24"  # the Example database's last day
 
@@ -76,7 +76,7 @@ def write_day(day: str) -> list[Statement]:
 # %%
 # 3. Try it: the Hive of each step, then the day's rows
 show_hive([create(), *write_day(DAY)])
-run(preview(DAY), send=send)
+run(preview(DAY), query=query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before

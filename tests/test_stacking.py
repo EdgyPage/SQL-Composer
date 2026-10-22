@@ -305,7 +305,7 @@ def test_by_day_splits_a_union_that_keeps_the_day() -> None:
 @pytest.mark.parametrize("stack, run_ids", [(UNION_ALL, [101, 102, 102]), (UNION, [101, 102]),
                                             (INTERSECT, [102]), (EXCEPT, [])])
 def test_each_stack_gives_its_rows(stack: Callable[..., Statement], run_ids: list[int]) -> None:
-    result = run(stack(failed_runs(), alerted_runs()), send=example_database.send)
+    result = run(stack(failed_runs(), alerted_runs()), query=example_database.query)
     assert list(result["run_id"]) == run_ids
 
 
@@ -317,11 +317,11 @@ def owners_on(day: str) -> Statement:
 @pytest.mark.needs_example_database
 def test_except_both_ways_finds_where_two_tables_differ() -> None:
     teams = statement(SELECT(jobs.job_id, jobs.team), FROM(jobs))
-    only_in_jobs = run(EXCEPT(teams, owners_on("2026-09-17")), send=example_database.send)
-    only_in_owners = run(EXCEPT(owners_on("2026-09-17"), teams), send=example_database.send)
+    only_in_jobs = run(EXCEPT(teams, owners_on("2026-09-17")), query=example_database.query)
+    only_in_owners = run(EXCEPT(owners_on("2026-09-17"), teams), query=example_database.query)
     assert only_in_jobs.values.tolist() == [[3, "finance"]]
     assert only_in_owners.values.tolist() == [[3, "data"]]
-    agree = run(EXCEPT(teams, owners_on(DAY)), send=example_database.send)
+    agree = run(EXCEPT(teams, owners_on(DAY)), query=example_database.query)
     assert agree.empty
 
 
@@ -511,4 +511,4 @@ def test_by_day_refuses_subtotals_over_the_days_and_splits_them_within_a_day() -
 @pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_make_subtotals() -> None:
     with pytest.raises(RuntimeError, match="its executor has no GROUPING SETS"):
-        run(runs_by(rollup(jobs.team, jobs.job_name)), send=example_database.send)
+        run(runs_by(rollup(jobs.team, jobs.job_name)), query=example_database.query)

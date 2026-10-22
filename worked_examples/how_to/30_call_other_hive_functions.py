@@ -45,7 +45,7 @@ SELECT
 FROM ops.job_owners AS job_owners
 WHERE
   job_owners.dt BETWEEN '2026-09-24' AND '2026-09-24';
->>> run(contacts, send=example_database.send)
+>>> run(contacts, query=example_database.query)
    job_id      team        contact
 0       1      DATA       ana@data
 1       2   FINANCE    ben@finance
@@ -86,7 +86,7 @@ WHERE
   job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'
 GROUP BY
   job_events.job_id;
->>> run(retries_per_finish, send=example_database.send)
+>>> run(retries_per_finish, query=example_database.query)
    job_id  retries_per_finish
 0       1                 0.0
 1       2                 NaN
@@ -120,7 +120,7 @@ GROUP BY
   job_events.job_id
 HAVING
   AVG(job_events.minutes) > 15.5;
->>> run(long_runs, send=example_database.send)
+>>> run(long_runs, query=example_database.query)
    job_id  finished_runs
 0       2              9
 1       3              3
@@ -145,7 +145,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-23';
->>> run(statuses, send=example_database.send)
+>>> run(statuses, query=example_database.query)
    run_id   status
 0      95  SUCCESS
 1      96  SUCCESS
@@ -162,7 +162,7 @@ argument changed, as the Common mistakes below show for date_format. The result 
 The function's name, in capitals, and each argument are in the Hive, and the result holds what
 the function gives: every team in capitals, and a contact for every job.
 
->>> result = run(contacts, send=example_database.send)
+>>> result = run(contacts, query=example_database.query)
 >>> list(result["team"])
 ['DATA', 'FINANCE', 'FINANCE', 'WEB']
 >>> int(result["contact"].isna().sum())
@@ -182,7 +182,7 @@ gets the same value, and nothing stops it:
 ...     FROM(job_owners),
 ...     WHERE(between(job_owners.dt, "2026-09-24", "2026-09-24")),
 ... )
->>> run(shouting, send=example_database.send)
+>>> run(shouting, query=example_database.query)
    job_id  team
 0       1  TEAM
 1       2  TEAM
@@ -225,7 +225,7 @@ Without `fill_null`, a job with no owner gets no contact at all, not "@web":
 ...     FROM(job_owners),
 ...     WHERE(between(job_owners.dt, "2026-09-24", "2026-09-24")),
 ... )
->>> run(no_fill, send=example_database.send)
+>>> run(no_fill, query=example_database.query)
    job_id        contact
 0       1       ana@data
 1       2    ben@finance

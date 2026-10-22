@@ -31,9 +31,9 @@ from sqlglot_composer.example_database import job_runs, jobs
 
 def describing(columns: list[tuple[str, str]], partitions: list[str] | tuple[str, ...] = (),
                days: list[str] | tuple[str, ...] = ()) -> Callable[..., pd.DataFrame]:
-    """A stand-in for `send` at work: it answers DESCRIBE and SHOW PARTITIONS like Hive."""
+    """A stand-in for `query` at work: it answers DESCRIBE and SHOW PARTITIONS like Hive."""
 
-    def send(hive: str) -> pd.DataFrame:
+    def query(hive: str) -> pd.DataFrame:
         if hive.startswith("DESCRIBE"):
             rows = [(name, kind, "") for name, kind in columns]
             if partitions:
@@ -44,7 +44,7 @@ def describing(columns: list[tuple[str, str]], partitions: list[str] | tuple[str
         assert hive.startswith("SHOW PARTITIONS"), hive
         return pd.DataFrame({"partition": list(days)})
 
-    return send
+    return query
 
 
 # --- Table(...) checks itself ---------------------------------------------------------------
@@ -95,7 +95,7 @@ def test_write_table_reference_writes_a_file_that_imports(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "references").mkdir()
-    path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
+    path = write_table_reference("ops.job_runs", query=example_database.query, folder="references")
     assert path == Path("references") / "ops__job_runs.py"
     written = _imported_job_runs_reference(tmp_path).job_runs
     assert repr(written) == repr(job_runs)
@@ -107,7 +107,7 @@ def test_an_alias_under_the_aliases_heading_imports_beside_its_table(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "references").mkdir()
-    path = write_table_reference("ops.job_runs", send=example_database.send, folder="references")
+    path = write_table_reference("ops.job_runs", query=example_database.query, folder="references")
     text = path.read_text(encoding="utf-8")
     assert "# --- Aliases " in text and "#     <alias> = job_runs.status" in text
     # The heading's import names the folder the file was written into.
@@ -129,7 +129,7 @@ def test_write_table_reference_never_overwrites(tmp_path: Path,
     monkeypatch.chdir(tmp_path)
     (tmp_path / "ops__jobs.py").write_text("mine", encoding="utf-8")
     with pytest.raises(FileExistsError, match="nothing was written") as refused:
-        write_table_reference("ops.jobs", send=example_database.send)
+        write_table_reference("ops.jobs", query=example_database.query)
     assert (tmp_path / "ops__jobs.py").read_text(encoding="utf-8") == "mine"
     # The file by its name, in the folder you're working in: a whole path differs per computer.
     assert "ops__jobs.py already exists in the folder you're working in" in str(refused.value)
@@ -140,7 +140,7 @@ def test_write_table_reference_refuses_a_folder_that_isnt_there(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(FileNotFoundError, match=r"folder='refrences'\): there is no such folder"):
-        write_table_reference("ops.jobs", send=example_database.send, folder="refrences")
+        write_table_reference("ops.jobs", query=example_database.query, folder="refrences")
     assert list(tmp_path.iterdir()) == []
 
 
@@ -148,7 +148,7 @@ def test_write_table_reference_refuses_a_name_with_no_database(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="has no database name") as refused:
-        write_table_reference("jobs", send=example_database.send)
+        write_table_reference("jobs", query=example_database.query)
     assert 'Write the database first, like "ops.jobs".' in str(refused.value)
 
 
@@ -167,10 +167,10 @@ def test_table_refuses_descriptions_of_columns_it_doesnt_have(
 def test_write_table_reference_finds_a_date_format(tmp_path: Path,
                                                    monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = describing([("n", "int"), ("day", "string"), ("region", "string")],
+    query = describing([("n", "int"), ("day", "string"), ("region", "string")],
                       partitions=["day", "region"],
                       days=["day=20260923/region=LON", "day=20260924/region=PAR"])
-    text = write_table_reference("mart.events", send=send).read_text(encoding="utf-8")
+    text = write_table_reference("mart.events", query=query).read_text(encoding="utf-8")
     assert 'date_partition="day",  # TODO check: also partitioned by region' in text
     assert 'date_format="%Y%m%d",' in text
 
@@ -178,9 +178,9 @@ def test_write_table_reference_finds_a_date_format(tmp_path: Path,
 def test_write_table_reference_leaves_a_partition_that_isnt_a_date_to_you(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = describing([("n", "int"), ("region", "string")], partitions=["region"],
+    query = describing([("n", "int"), ("region", "string")], partitions=["region"],
                       days=["region=LON"])
-    text = write_table_reference("mart.by_region", send=send).read_text(encoding="utf-8")
+    text = write_table_reference("mart.by_region", query=query).read_text(encoding="utf-8")
     assert "date_partition=None,  # TODO: partitioned by region" in text
 
 
@@ -189,9 +189,9 @@ def test_write_table_reference_leaves_a_partition_that_isnt_a_date_to_you(
 
 def answering(describe_rows: list[tuple[str, str | None, str | None]], partitions: list[str],
               sent: list[str] | None = None) -> Callable[..., pd.DataFrame]:
-    """A stand-in for `send` answering with the rows given, noting every command it is sent."""
+    """A stand-in for `query` answering with the rows given, noting every command it is sent."""
 
-    def send(hive: str) -> pd.DataFrame:
+    def query(hive: str) -> pd.DataFrame:
         if sent is not None:
             sent.append(hive)
         if hive.startswith("DESCRIBE"):
@@ -200,7 +200,7 @@ def answering(describe_rows: list[tuple[str, str | None, str | None]], partition
             return pd.DataFrame({"partition": partitions})
         return pd.DataFrame({"run_id": [], "copies": []})
 
-    return send
+    return query
 
 
 # Some warehouses list DESCRIBE with a None comment, no blank row before the partitions, and
@@ -230,11 +230,11 @@ def test_describe_is_read_as_warehouses_list_it(
         describe: list[tuple[str, str | None, str | None]], tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = answering(describe, ["dt=2026-09-24"])
+    query = answering(describe, ["dt=2026-09-24"])
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               date_partition="dt")
-    assert repr(check_table_reference(t, send=send)) == "ops.runs matches its Table reference."
-    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    assert repr(check_table_reference(t, query=query)) == "ops.runs matches its Table reference."
+    text = write_table_reference("ops.runs", query=query).read_text(encoding="utf-8")
     assert '"Part 0"' not in text
     assert 'date_partition="dt",\n' in text
 
@@ -243,38 +243,38 @@ def test_every_escaped_character_of_a_partition_value_is_read(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     sent = []
-    send = answering(COMPACT_DESCRIBE, ["region=eu%3Dwest/dt=2026%2F09%2F24/note=50%25%5Cx"], sent)
+    query = answering(COMPACT_DESCRIBE, ["region=eu%3Dwest/dt=2026%2F09%2F24/note=50%25%5Cx"], sent)
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               date_partition="dt", date_format="%Y/%m/%d", key=["run_id"])
-    check_key(t, send=send)
+    check_key(t, query=query)
     assert "runs.dt = '2026/09/24'" in sent[-1]
 
 
 def test_a_section_after_the_partitions_is_not_read_as_partitions(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = answering(COMPACT_DESCRIBE, ["dt=2026-09-24"])
-    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    query = answering(COMPACT_DESCRIBE, ["dt=2026-09-24"])
+    text = write_table_reference("ops.runs", query=query).read_text(encoding="utf-8")
     assert 'date_partition="dt",\n' in text
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               date_partition="dt")
-    assert repr(check_table_reference(t, send=send)) == "ops.runs matches its Table reference."
+    assert repr(check_table_reference(t, query=query)) == "ops.runs matches its Table reference."
 
 
 def test_an_escaped_partition_value_is_read_as_its_day(tmp_path: Path,
                                                       monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    send = answering(COMPACT_DESCRIBE, ["dt=2026%2F09%2F23", "dt=2026%2F09%2F24"])
-    text = write_table_reference("ops.runs", send=send).read_text(encoding="utf-8")
+    query = answering(COMPACT_DESCRIBE, ["dt=2026%2F09%2F23", "dt=2026%2F09%2F24"])
+    text = write_table_reference("ops.runs", query=query).read_text(encoding="utf-8")
     assert 'date_format="%Y/%m/%d",' in text
 
 
 def test_the_null_day_is_never_the_newest() -> None:
     sent = []
-    send = answering(COMPACT_DESCRIBE, ["dt=2026-09-23", "dt=__HIVE_DEFAULT_PARTITION__"], sent)
+    query = answering(COMPACT_DESCRIBE, ["dt=2026-09-23", "dt=__HIVE_DEFAULT_PARTITION__"], sent)
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               date_partition="dt", key=["run_id"])
-    assert repr(check_key(t, send=send)) == "ops.runs: the key (run_id) holds on 2026-09-23."
+    assert repr(check_key(t, query=query)) == "ops.runs: the key (run_id) holds on 2026-09-23."
     assert "runs.dt = '2026-09-23'" in sent[-1]
 
 
@@ -282,7 +282,7 @@ def test_a_reserved_table_name_is_quoted_in_what_is_sent(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     sent = []
-    write_table_reference("ops.order", send=answering(COMPACT_DESCRIBE, ["dt=2026-09-24"], sent))
+    write_table_reference("ops.order", query=answering(COMPACT_DESCRIBE, ["dt=2026-09-24"], sent))
     assert sent == ["DESCRIBE ops.`order`", "SHOW PARTITIONS ops.`order`"]
 
 
@@ -290,51 +290,51 @@ def test_a_reserved_table_name_is_quoted_in_what_is_sent(
 
 
 def test_a_changed_date_format_is_a_problem() -> None:
-    send = describing([("run_id", "bigint"), ("dt", "string")], partitions=["dt"],
+    query = describing([("run_id", "bigint"), ("dt", "string")], partitions=["dt"],
                       days=["dt=20260924"])
     t = Table("ops.t", columns={"run_id": "bigint", "dt": "string"}, date_partition="dt")
-    verdict = check_table_reference(t, send=send)
+    verdict = check_table_reference(t, query=query)
     assert not verdict.ok
     assert "change the line to date_format=\"%Y%m%d\"," in repr(verdict)
 
 
 def test_a_date_partition_that_is_gone_is_a_problem() -> None:
-    send = describing([("run_id", "bigint"), ("dt", "string")])
+    query = describing([("run_id", "bigint"), ("dt", "string")])
     t = Table("ops.t", columns={"run_id": "bigint", "dt": "string"}, date_partition="dt")
-    assert "dt is no longer a partition column" in repr(check_table_reference(t, send=send))
+    assert "dt is no longer a partition column" in repr(check_table_reference(t, query=query))
 
 
 def test_a_different_column_order_is_only_a_note() -> None:
-    send = describing([("b", "int"), ("a", "int")])
+    query = describing([("b", "int"), ("a", "int")])
     t = Table("ops.t", columns={"a": "INT", "b": "int"}, date_partition=None)
-    verdict = check_table_reference(t, send=send)
+    verdict = check_table_reference(t, query=query)
     assert verdict.ok
     assert "only if a Statement writes to this table" in repr(verdict)
 
 
 def test_a_table_hive_cant_describe_is_reported_not_raised() -> None:
     t = Table("ops.gone", columns={"run_id": "bigint"}, date_partition=None)
-    verdict = check_table_reference(t, send=example_database.send)
+    verdict = check_table_reference(t, query=example_database.query)
     assert not verdict.ok
     assert repr(verdict).startswith("ops.gone: DESCRIBE failed, so nothing was compared.")
     assert "no table 'ops.gone'" in repr(verdict)
 
 
-def test_a_send_that_fails_is_reported_not_raised() -> None:
+def test_a_query_that_fails_is_reported_not_raised() -> None:
     def broken(hive: str) -> pd.DataFrame:
         raise ConnectionError("the query API is down")
 
-    verdict = check_table_reference(job_runs, send=broken)
+    verdict = check_table_reference(job_runs, query=broken)
     assert not verdict.ok
     assert "the query API is down" in repr(verdict)
 
 
 def test_a_date_format_back_to_the_usual_one_says_to_remove_the_line() -> None:
-    send = describing([("run_id", "bigint"), ("dt", "string")], partitions=["dt"],
+    query = describing([("run_id", "bigint"), ("dt", "string")], partitions=["dt"],
                       days=["dt=2026-09-24"])
     t = Table("ops.t", columns={"run_id": "bigint", "dt": "string"}, date_partition="dt",
               date_format="%Y%m%d")
-    verdict = check_table_reference(t, send=send)
+    verdict = check_table_reference(t, query=query)
     assert not verdict.ok
     assert "remove the date_format line" in repr(verdict)
     assert 'date_format="%Y-%m-%d"' not in repr(verdict)
@@ -345,7 +345,7 @@ def test_a_derived_table_cant_be_checked() -> None:
 
     teams = derived("teams", statement(SELECT(jobs.team), FROM(jobs)))
     with pytest.raises(TypeError, match="not on a table.s name as text"):
-        check_table_reference(teams, send=example_database.send)
+        check_table_reference(teams, query=example_database.query)
 
 
 # --- check_key --------------------------------------------------------------------------------
@@ -354,12 +354,12 @@ def test_a_derived_table_cant_be_checked() -> None:
 def test_check_key_needs_a_key() -> None:
     t = Table("ops.jobs", columns={"job_id": "bigint"}, date_partition=None)
     with pytest.raises(ValueError, match="declares no key"):
-        check_key(t, send=example_database.send)
+        check_key(t, query=example_database.query)
 
 
 @pytest.mark.needs_example_database
 def test_check_key_on_a_table_with_no_date_partition() -> None:
-    assert repr(check_key(jobs, send=example_database.send)) == \
+    assert repr(check_key(jobs, query=example_database.query)) == \
         "ops.jobs: the key (job_id) holds."
 
 

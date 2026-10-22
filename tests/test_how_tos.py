@@ -38,9 +38,10 @@ HOW_TOS = how_to_page.how_to_paths()
 SLUGS = [how_to_page.slug_of(path) for path in HOW_TOS]
 PUBLIC = set(sqlglot_composer.__all__)
 # Names a how-to may use without defining them: what a notebook at work has (the query API or
-# database cursor a send calls), the Example database's database, the Toolbox's folders, and
-# its project module, which a how-to may name in prose, such as `project.check()`.
-OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project"}
+# database cursor a query or execute calls, and the Project's warehouse.py, which holds them,
+# named in prose as `warehouse.py`), the Example database's database, the Toolbox's folders,
+# and its project module, which a how-to may name in prose, such as `project.check()`.
+OUTSIDE_NAMES = {"my_api", "cursor", "ops", FOLDER, "project", "warehouse", "query", "execute"}
 
 
 def page() -> str:
@@ -253,7 +254,7 @@ def test_a_refusal_on_the_page_is_the_toolbox_s_own_message() -> None:
                                      "refusal") in shown
 
 
-def test_the_send_mistake_shows_the_numbered_columns_it_gives() -> None:
+def test_the_query_mistake_shows_the_numbered_columns_it_gives() -> None:
     section = page_sections()["start_a_project"]
     assert "<tr><th>0</th><th>1</th><th>2</th></tr>" in section
 
@@ -428,7 +429,7 @@ def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path: Path) -> Non
 @pytest.mark.needs_example_database
 def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
->>> path = write_table_reference("ops.run_alerts", send=example_database.send)
+>>> path = write_table_reference("ops.run_alerts", query=example_database.query)
 >>> job_runs = example_database.job_runs
 >>> failed = statement(
 ...     SELECT(job_runs.run_id),
@@ -473,14 +474,14 @@ def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path: Path) ->
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and send.py. Next: write your send in send.py.""")
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     files = re.search(r'<p class="label">It writes (\d+) files</p>\n<pre class="file">(.*?)'
                       "</pre>", shown, re.DOTALL)
     assert int(files.group(1)) > how_to_page.LIST_AFTER
-    assert page_text(files.group(2)).split()[-1] == "send.py"
+    assert page_text(files.group(2)).split()[-1] == "warehouse.py"
     assert "admin/templates/daily_table.py" in page_text(files.group(2))
-    assert "It writes send.py" not in shown
+    assert "It writes warehouse.py" not in shown
 
 
 def test_a_warning_a_clause_gives_is_shown_with_its_message(tmp_path: Path) -> None:
@@ -503,7 +504,7 @@ WEEKS = """>>> from sqlglot_composer import *
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(weeks, send=example_database.send)"""
+>>> run(weeks, query=example_database.query)"""
 WEEKS_IN_PANDAS = '''
 import pandas as pd
 

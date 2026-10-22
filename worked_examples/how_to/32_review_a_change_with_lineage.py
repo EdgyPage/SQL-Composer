@@ -61,7 +61,7 @@ A function builds both, so after you change the Building block, one call builds 
 ...     )
 ...     return minutes_per_team, longest_jobs
 >>> minutes_per_team, longest_jobs = build_statements("2026-09-18", "2026-09-24")
->>> run(minutes_per_team, send=example_database.send)
+>>> run(minutes_per_team, query=example_database.query)
       team  minutes
 0     data       82
 1  finance      112
@@ -144,7 +144,7 @@ anywhere new.
 Run the Statements again to see what the change does to the numbers. The finance team's
 minutes grew by 12, the minutes report_build ran on 2026-09-18 before it failed:
 
->>> run(minutes_per_team, send=example_database.send)
+>>> run(minutes_per_team, query=example_database.query)
       team  minutes
 0     data       82
 1  finance      124

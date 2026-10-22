@@ -243,9 +243,9 @@ DRY_RUN = 'from sqlglot_composer import project; project.run_tables("2026-09-24"
 
 
 def check_dry_runs(into: Path) -> None:
-    """Run each Example project's run_tables with no send, as its admin/run_tables.ipynb does,
-    in a fresh Python started in its admin/ folder, and refuse one that stops or prints no
-    Hive. The dry run prints each table's write and sends nothing."""
+    """Run each Example project's run_tables with no execute, as its admin/run_tables.ipynb
+    does, in a fresh Python started in its admin/ folder, and refuse one that stops or prints
+    no Hive. The dry run prints each table's write and sends nothing."""
     for admin in sorted((into / EXAMPLE_PROJECTS).glob("*/admin")):
         before = files_in(into)
         done = fresh_python(admin, DRY_RUN, path=TOOLBOX_FROM_ADMIN)
@@ -291,7 +291,8 @@ def check_offline(into: Path, paths: list[str]) -> None:
     if found:
         raise ExportRefused(
             "The Clean tree holds something that could reach the network, but the Toolbox, "
-            "its Example projects and its Templates reach nothing but the user's send. "
+            "its Example projects and its Templates reach nothing but the user's query and "
+            "execute. "
             "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
             "stamp:\n"
             + "".join(f"  {finding}\n" for finding in found)

@@ -166,18 +166,25 @@ def test_show_hive_lists_the_settings_first_in_a_pipeline_as_given(
     assert "\n\n-- 2 of 2: write_day\nSELECT" in out
 
 
-def test_run_sends_each_line_as_a_call_of_its_own() -> None:
+def test_run_sends_each_line_to_execute_as_a_call_of_its_own() -> None:
     sent = []
-    assert run(hive_settings("dynamic_partitions"), send=sent.append) is None
+    assert run(hive_settings("dynamic_partitions"), execute=sent.append) is None
     assert sent == ["SET hive.exec.dynamic.partition=true",
                     "SET hive.exec.dynamic.partition.mode=nonstrict"]
 
 
-def test_the_example_database_takes_set_lines(tmp_path: Path) -> None:
-    run(hive_settings("merge_small_files"), send=example_database.send)
-    answer = example_database.send("SET hive.merge.tezfiles=true")
-    assert list(answer.columns) == ["key", "value"]
-    assert answer.values.tolist() == [["hive.merge.tezfiles", "true"]]
+def test_run_without_execute_refuses_them_naming_it() -> None:
+    """A SET line gives back no rows, so a query alone can't send it."""
+    with pytest.raises(TypeError, match=r"run needs execute=, and wasn't given it\."):
+        run(hive_settings("map_joins"), query=example_database.query)
+
+
+def test_the_example_databases_execute_takes_set_lines(
+        capsys: pytest.CaptureFixture[str]) -> None:
+    run(hive_settings("merge_small_files"), execute=example_database.execute)
+    out = capsys.readouterr().out
+    assert "execute: SET hive.merge.tezfiles=true\n" in out
+    assert all(line.startswith("execute: SET ") for line in out.splitlines())
 
 
 def test_session_settings_say_how_to_see_them() -> None:

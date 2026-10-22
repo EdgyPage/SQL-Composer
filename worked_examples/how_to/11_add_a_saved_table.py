@@ -31,8 +31,8 @@ and writes the one table it reads, `ops.job_runs`:
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and send.py. Next: write your send in send.py.
->>> project.add_references(["ops.job_runs"], send=example_database.send)
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+>>> project.add_references(["ops.job_runs"], query=example_database.query)
 Wrote references/ops__job_runs.py: fill in its TODO lines.
 
 ### Make its Table folder
@@ -61,7 +61,7 @@ registry:
 
 The notebook has five code cells, run top to bottom:
 
-1. the path lines and imports from [Start a Project](#start_a_project), your send, and DAY, a
+1. the path lines and imports from [Start a Project](#start_a_project), your query, and DAY, a
    day to try things on;
 2. the logic, whose first line is `# logic`: only imports and functions, each giving a
    Statement and running nothing: create, preview, write_day, and backfill, which writes a
@@ -169,7 +169,7 @@ WHERE
 GROUP BY
   job_runs.dt,
   job_runs.job_id;
->>> run(logic.preview("2026-09-24"), send=example_database.send)
+>>> run(logic.preview("2026-09-24"), query=example_database.query)
    job_id  runs
 0       1     2
 1       2     1
@@ -180,13 +180,13 @@ table's description: Hive keeps it but never checks it, and the Toolbox checks i
 each Statement instead. dt is in it though it sits under `PARTITIONED BY`: a partition column
 is a column of every row all the same.
 
-At work, send the create step once, `run(logic.create(), send=...)` with your send, before the
+At work, send the create step once, `run(logic.create(), execute=...)` with your execute, before the
 first write. The Example database can be read but not written, so this page sends neither.
 
 ### Write it every day, with the Project's other tables
 
 `project.run_tables` loads every Table notebook's logic and writes each table's day, a
-table before any table that reads it: it finds which tables each write reads from its Hive. With no send, it prints each write's Hive in that order
+table before any table that reads it: it finds which tables each write reads from its Hive. With no execute, it prints each write's Hive in that order
 and sends nothing, a dry run to read first:
 
 >>> project.run_tables("2026-09-24")
@@ -201,11 +201,11 @@ WHERE
 GROUP BY
   job_runs.dt,
   job_runs.job_id;
-Printed 1 write in order, and sent nothing. Pass send= to run them.
+Printed 1 write in order, and sent nothing. Pass execute= to run them.
 
 At work, you run the admin notebook admin/run_tables.ipynb each day, or your team's scheduler
-does: it does this, then sends them with your send, project.run_tables(DAY, send=send),
-printing a line as each table is written.
+does: it does this, then sends them with your query and execute,
+project.run_tables(DAY, query=query, execute=execute), printing a line as each table is written.
 
 ## Check it worked
 

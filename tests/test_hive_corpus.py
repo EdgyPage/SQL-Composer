@@ -2,9 +2,9 @@
 
 `tools/hive_corpus.py` writes, for each case under a stable id, what the Toolbox shows through
 its public names: each Statement's Hive, the repr of its outputs and conditions, the commands
-`write_table_reference`, `check_table_reference` and `check_key` send, and `export_lineage`'s
-Markdown report. The cases are every docstring example and Worked example that builds a
-Statement, the edge cases in `hive_corpus_cases.py`, and about 200 generated ones.
+`write_table_reference`, `check_table_reference` and `check_key` send through `query`, and
+`export_lineage`'s Markdown report. The cases are every docstring example and Worked example
+that builds a Statement, the edge cases in `hive_corpus_cases.py`, and about 200 generated ones.
 
 This test fails while the committed file differs from what the Toolbox writes today. Write it
 again only for a change that is meant to alter the output.

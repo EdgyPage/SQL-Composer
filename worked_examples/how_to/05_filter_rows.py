@@ -42,7 +42,7 @@ partition, `job_runs.dt`. There are three ways to write them:
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(two_days, send=example_database.send)
+>>> run(two_days, query=example_database.query)
    run_id   status  duration_mins          dt
 0      95  SUCCESS             12  2026-09-23
 1      96  SUCCESS             18  2026-09-23
@@ -91,7 +91,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED';
->>> run(failed, send=example_database.send)
+>>> run(failed, query=example_database.query)
    run_id  job_id          dt
 0      97       3  2026-09-23
 1     102       2  2026-09-24
@@ -116,7 +116,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
   AND job_runs.duration_mins >= 15
   AND job_runs.duration_mins < 30;
->>> run(middling, send=example_database.send)
+>>> run(middling, query=example_database.query)
    run_id  duration_mins
 0      96             18
 1      98             15
@@ -139,7 +139,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.job_id IN (1, 3);
->>> run(some_jobs, send=example_database.send)
+>>> run(some_jobs, query=example_database.query)
    run_id  job_id
 0      95       1
 1      97       3
@@ -152,7 +152,7 @@ The list can come from anywhere in your notebook, such as a column of another re
 every run of the jobs that failed at least once, with the job_ids from the result of
 `failed`, above:
 
->>> failed_jobs = run(failed, send=example_database.send)["job_id"].tolist()
+>>> failed_jobs = run(failed, query=example_database.query)["job_id"].tolist()
 >>> failed_jobs
 [3, 2]
 >>> runs_of_failed_jobs = statement(
@@ -161,7 +161,7 @@ every run of the jobs that failed at least once, with the job_ids from the resul
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           is_in(job_runs.job_id, failed_jobs)),
 ... )
->>> run(runs_of_failed_jobs, send=example_database.send)
+>>> run(runs_of_failed_jobs, query=example_database.query)
    run_id  job_id   status
 0      96       2  SUCCESS
 1      97       3   FAILED
@@ -188,7 +188,7 @@ SELECT
 FROM ops.jobs AS jobs
 WHERE
   jobs.job_name LIKE '%sync%';
->>> run(named, send=example_database.send)
+>>> run(named, query=example_database.query)
    job_id      job_name
 0       2  invoice_sync
 
@@ -217,7 +217,7 @@ WHERE
   AND (
     job_runs.status = 'FAILED' OR job_runs.duration_mins >= 30
   );
->>> run(to_check, send=example_database.send)
+>>> run(to_check, query=example_database.query)
    run_id   status  duration_mins
 0      97   FAILED             30
 1     102   FAILED             20
@@ -251,7 +251,7 @@ WHERE
     )
     OR job_runs.status = 'FAILED'
   );
->>> run(slow_or_failed, send=example_database.send)
+>>> run(slow_or_failed, query=example_database.query)
    run_id  job_id   status  duration_mins
 0      97       3   FAILED             30
 1     102       2   FAILED             20
@@ -274,7 +274,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status IS NULL;
->>> run(still_running, send=example_database.send)
+>>> run(still_running, query=example_database.query)
    run_id status
 0      98   None
 
@@ -283,8 +283,8 @@ WHERE
 Check a Statement's rows against the same condition worked out in pandas, on every row of the
 days it reads. Here, `to_check`: the runs that failed or took 30 minutes or more.
 
->>> kept = run(to_check, send=example_database.send)
->>> every_run = run(two_days, send=example_database.send)
+>>> kept = run(to_check, query=example_database.query)
+>>> every_run = run(two_days, query=example_database.query)
 >>> in_pandas = every_run[(every_run["status"] == "FAILED") | (every_run["duration_mins"] >= 30)]
 >>> sorted(in_pandas["run_id"]) == sorted(kept["run_id"])
 True
@@ -324,7 +324,7 @@ it. Leaving out the TEST runs on 2026-09-23 also leaves out run 98, still runnin
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-23"), not_equals(job_runs.status, "TEST")),
 ... )
->>> run(not_test, send=example_database.send)
+>>> run(not_test, query=example_database.query)
    run_id   status
 0      95  SUCCESS
 1      96  SUCCESS
@@ -339,7 +339,7 @@ ask for the NULL rows too:
 ...     WHERE(equals(job_runs.dt, "2026-09-23"),
 ...           any_of(not_equals(job_runs.status, "TEST"), is_null(job_runs.status))),
 ... )
->>> run(not_test, send=example_database.send)
+>>> run(not_test, query=example_database.query)
    run_id   status
 0      95  SUCCESS
 1      96  SUCCESS
@@ -359,7 +359,7 @@ keeps nothing, without any message:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           equals(job_runs.status, "FAILED"), equals(job_runs.status, "TEST")),
 ... )
->>> run(failed_and_test, send=example_database.send)
+>>> run(failed_and_test, query=example_database.query)
 Empty DataFrame
 Columns: [run_id, status]
 Index: []

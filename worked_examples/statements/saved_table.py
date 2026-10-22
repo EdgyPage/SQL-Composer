@@ -5,8 +5,8 @@ a day and save than to work out again every time someone reads it.
 
 A Saved table is written one day at a time, and each function below is one step. The
 Example database can't be written to, so the steps show their Hive but no result. At work,
-send each one with run(step(), send=run_query), run_query being your own send function,
-and loop over the ones that return a list.
+send each one with run(step(), execute=execute), execute being your own function from your
+Project's warehouse.py, and loop over the ones that return a list.
 """
 
 from sqlglot_composer import (
@@ -87,7 +87,7 @@ def backfill(days: tuple[str, ...] = (FIRST_DAY, LAST_DAY)) -> list[Statement]:
     day filled by one Statement alone can be split into days with by_day(s) instead.
 
         for s in backfill():
-            run(s, send=run_query)
+            run(s, execute=execute)
     """
     return [s for day in days for s in (failed_runs(day), alerted_runs(day))]
 

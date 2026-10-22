@@ -172,17 +172,16 @@ That printout is a dry run: every write for the day, in order, sent nowhere. At 
 sends them, in order:
 
     from collections.abc import Callable
-    import pandas as pd
 
-    def run_pipeline(day: str, send: Callable[[str], pd.DataFrame]) -> None:
+    def run_pipeline(day: str, execute: Callable[[str], None]) -> None:
         for step in pipeline(day):
-            run(step, send=send)
+            run(step, execute=execute)
 
 To fill several days, call it once per day, oldest first, so each day's Saved tables are written
 in order. In a Project, where each Saved table's Statements sit in its own Table notebook,
-`project.run_tables(day, send=send)` is this runner for every table at once, each written after
-the tables it reads, as [Add a Saved table](#add_a_saved_table) shows. Then read the week with
-`run(weekly, send=send)`, your own send in place of the Example database's.
+`project.run_tables(day, query=..., execute=...)` is this runner for every table at once, each
+written after the tables it reads, as [Add a Saved table](#add_a_saved_table) shows. Then read
+the week with `run(weekly, query=...)`, your own query in place of the Example database's.
 
 ### Export one Lineage for the chain
 
@@ -218,7 +217,7 @@ out the same numbers for a day straight from the raw tables, in one Statement:
 ...     WHERE(equals(job_events.dt, "2026-09-24"), equals(job_owners.dt, "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(team_day_from_raw, send=example_database.send)
+>>> run(team_day_from_raw, query=example_database.query)
       team  starts  finishes
 0     data       1         1
 1  finance       1         0
@@ -256,10 +255,11 @@ module, which the star import leaves out, adds the column in place:
 
 >>> from sqlglot_composer import admin
 
-`run(admin.add_columns(job_day, send=send), send=send)` adds each column the Table reference
-lists and the table lacks, here the column `"fails"`, and the days already written read NULL in
-it until they are written again. `send` goes in twice: `admin.add_columns` sends DESCRIBE as it
-is made, to find the new columns, and `run` sends the change. It writes CASCADE, since
+`run(admin.add_columns(job_day, query=...), execute=...)` adds each column the Table
+reference lists and the table lacks, here the column `"fails"`, and the days already written
+read NULL in it until they are written again. It takes both your calls: `admin.add_columns`
+sends DESCRIBE through your query as it is made, to find the new columns, and `run` sends the
+change through your execute. It writes CASCADE, since
 `job_day` has a Date partition, so the days already there get the column too. To start the
 table again instead, give `job_day`'s Table reference `purge=True`, set it in the table with
 `admin.set_properties(job_day)`, then drop it with `admin.drop_table(job_day)`, create it

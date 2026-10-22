@@ -72,7 +72,7 @@ its key is `run_alerts.alert_id`. So it builds the Statement, with a Warning at 
 In a notebook, the Warning shows under the cell, at your own line; it doesn't stop anything.
 Run the Statement, and the numbers are too big:
 
->>> run(alert_minutes, send=example_database.send)
+>>> run(alert_minutes, query=example_database.query)
    job_id  minutes
 0       1       70
 1       2       20
@@ -99,7 +99,7 @@ See [`derived`](examples.html#derived), and
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id),
 ... )
->>> run(alert_minutes, send=example_database.send)
+>>> run(alert_minutes, query=example_database.query)
    job_id  minutes
 0       1       50
 1       2       20
@@ -152,7 +152,7 @@ shows. Each job matches many runs, so the Toolbox warns again:
 But this time one row per matching run is exactly what is wanted: each job's row is repeated
 once per failed run, and the Statement counts those repeats. The numbers are right:
 
->>> run(failed_per_job, send=example_database.send)
+>>> run(failed_per_job, query=example_database.query)
        job_name  failed_runs
 0    cache_warm            0
 1  invoice_sync            1
@@ -246,9 +246,9 @@ The fixed Statements build with no Warning and no refusal, and their numbers mat
 tables hold: job 1's runs with alerts took 10 + 40 = 50 minutes, and two of the four jobs had
 a failed run.
 
->>> run(alert_minutes, send=example_database.send)["minutes"].tolist()
+>>> run(alert_minutes, query=example_database.query)["minutes"].tolist()
 [50, 20, 30]
->>> run(failed_per_job, send=example_database.send)["failed_runs"].tolist()
+>>> run(failed_per_job, query=example_database.query)["failed_runs"].tolist()
 [0, 1, 0, 1]
 
 ## Common mistakes
@@ -269,7 +269,7 @@ with no failed run are gone, and nothing says so:
 ...     WHERE(equals(job_runs.status, "FAILED")),
 ...     GROUP_BY(jobs.job_name),
 ... )
->>> run(only_failed, send=example_database.send)
+>>> run(only_failed, query=example_database.query)
        job_name  failed_runs
 0  invoice_sync            1
 1  report_build            1

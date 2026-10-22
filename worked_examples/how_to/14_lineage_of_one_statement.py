@@ -40,7 +40,7 @@ tables, `ops.job_runs` and `ops.jobs`, and works out two columns:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(jobs.team),
 ... )
->>> run(team_runs, send=example_database.send)
+>>> run(team_runs, query=example_database.query)
       team  runs  failed_runs
 0     data     4            0
 1  finance     5            2

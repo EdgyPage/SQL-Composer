@@ -35,10 +35,10 @@ def test_the_careless_hive_would_count_no_rows() -> None:
     hive = to_hive(example.fixed())
     assert "job_runs.status IS NULL" in hive
     careless_hive = hive.replace("job_runs.status IS NULL", "job_runs.status = NULL")
-    assert example_database.send(careless_hive).running[0] == equal_to_none == 0
+    assert example_database.query(careless_hive).running[0] == equal_to_none == 0
 
 
 @pytest.mark.needs_example_database
 def test_the_fixed_statement_finds_the_run_still_going() -> None:
     _, missing = pandas_check()
-    assert run(example.fixed(), send=example_database.send).running[0] == missing == 1
+    assert run(example.fixed(), query=example_database.query).running[0] == missing == 1

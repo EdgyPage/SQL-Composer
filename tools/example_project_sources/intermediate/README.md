@@ -27,7 +27,7 @@ Template:
 
 ```
 intermediate/
-├── send.py                  your send: here, the Example database's
+├── warehouse.py             your query and execute: here, the Example database's
 ├── admin/                   one notebook per Project action, and the Templates
 ├── references/              a Table reference per table, and the Reference sheet
 │   ├── ops__job_events.py, ops__job_owners.py, ops__region_costs.py
@@ -49,5 +49,5 @@ which `building_blocks/events_per_job_day.py` reads.
 Copy the `sqlglot_composer` folder into this folder first, as a Project holds it. Then open a
 notebook in Jupyter and run its cells top to bottom. The Example database can be read but not
 written, so a notebook's cell 3 prints each write's Hive and runs only what reads ops tables,
-and `admin/run_tables.ipynb`, with no send, prints every write of the last 3 days in order,
+and `admin/run_tables.ipynb`, with no execute, prints every write of the last 3 days in order,
 writers first, and sends nothing.

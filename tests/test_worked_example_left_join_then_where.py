@@ -38,7 +38,7 @@ def test_keeps_only_matches_lets_the_careless_statement_through() -> None:
 @pytest.mark.needs_example_database
 def test_the_careless_statement_loses_the_job_that_never_ran() -> None:
     right = pandas_check()
-    result = run(example.careless(keeps_only_matches=True), send=example_database.send)
+    result = run(example.careless(keeps_only_matches=True), query=example_database.query)
     assert runs_by_job(result) == {name: n for name, n in right.items() if n > 0}
     assert "cache_warm" not in runs_by_job(result)
 
@@ -46,6 +46,6 @@ def test_the_careless_statement_loses_the_job_that_never_ran() -> None:
 @pytest.mark.needs_example_database
 def test_the_fixed_statement_keeps_it_with_no_runs() -> None:
     right = pandas_check()
-    result = run(example.fixed(), send=example_database.send)
+    result = run(example.fixed(), query=example_database.query)
     assert runs_by_job(result) == right
     assert right == {"nightly_load": 4, "invoice_sync": 3, "report_build": 2, "cache_warm": 0}

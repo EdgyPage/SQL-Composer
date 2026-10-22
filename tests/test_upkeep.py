@@ -72,13 +72,13 @@ def one_day() -> Statement:
 
 def recording(
         answer: pd.DataFrame | None = None) -> tuple[Callable[[str], pd.DataFrame], list[str]]:
-    """A send that keeps each Hive it is given, and answers with `answer`."""
+    """A query that keeps each Hive it is given, and answers with `answer`."""
     sent = []
 
-    def send(hive: str) -> pd.DataFrame:
+    def query(hive: str) -> pd.DataFrame:
         sent.append(hive)
         return pd.DataFrame() if answer is None else answer
-    return send, sent
+    return query, sent
 
 
 # --- repair_partitions ----------------------------------------------------------------------
@@ -89,10 +89,10 @@ def test_repair_partitions_writes_msck_repair_table() -> None:
     assert to_hive(repair_partitions(REGION_RUNS)) == "MSCK REPAIR TABLE mart.region_runs"
 
 
-def test_repair_partitions_is_sent_as_written_and_again() -> None:
-    send, sent = recording()
+def test_repair_partitions_is_sent_to_execute_as_written_and_again() -> None:
+    sent = []
     for _ in range(2):
-        run(repair_partitions(DAILY_RUNS), send=send)
+        assert run(repair_partitions(DAILY_RUNS), execute=sent.append) is None
     assert sent == ["MSCK REPAIR TABLE mart.daily_runs"] * 2
 
 
@@ -265,7 +265,7 @@ def test_explain_refuses_what_to_hive_refuses() -> None:
 @pytest.mark.parametrize(("given", "says"), [
     (lambda: "SELECT 1", "isn't a Statement"),
     (lambda: [one_day()], "one at a time"),
-    (lambda: unchecked_hive("SELECT 1"), 'unchecked_hive("EXPLAIN '),
+    (lambda: unchecked_hive("SELECT 1", returns_rows=True), 'unchecked_hive("EXPLAIN '),
     (lambda: hive_settings("map_joins"), "Session settings have no plan"),
     (lambda: create_table(DAILY_RUNS), "isn't a query or a write"),
     (lambda: admin.drop_table(DAILY_RUNS), "an Admin statement, which isn't a query"),
@@ -281,19 +281,19 @@ def test_explain_refuses_what_has_no_plan_to_show(
 def test_run_gives_back_the_plan_as_text() -> None:
     hive_plan = pd.DataFrame({"Explain": ["STAGE DEPENDENCIES:", "  Stage-0 is a root stage",
                                           ""]})
-    send, sent = recording(hive_plan)
-    plan = run(explain(one_day()), send=send)
+    query, sent = recording(hive_plan)
+    plan = run(explain(one_day()), query=query)
     assert sent == [to_hive(explain(one_day()))]
     assert plan == "STAGE DEPENDENCIES:\n  Stage-0 is a root stage"
     assert isinstance(plan, str)
     one_row_plan = pd.DataFrame({"plan": ["== Physical Plan ==\n*(1) Project [a]\n\n"]})
-    assert run(explain(one_day()), send=recording(one_row_plan)[0]) == (
+    assert run(explain(one_day()), query=recording(one_row_plan)[0]) == (
         "== Physical Plan ==\n*(1) Project [a]")
 
 
 def test_run_refuses_a_plan_that_isnt_a_dataframe() -> None:
     with pytest.raises(TypeError, match="DataFrame"):
-        run(explain(one_day()), send=lambda hive: ["STAGE DEPENDENCIES:"])
+        run(explain(one_day()), query=lambda hive: ["STAGE DEPENDENCIES:"])
 
 
 def test_export_lineage_draws_no_upkeep(tmp_path: Path) -> None:
@@ -322,13 +322,16 @@ def test_an_upkeep_statement_that_doesnt_read_back_is_caught() -> None:
     assert writing.read_back(garbled) != garbled
 
 
-def test_the_example_database_refuses_to_repair_or_count() -> None:
+def test_repair_and_count_go_to_execute_which_the_example_database_only_prints(
+        capsys: pytest.CaptureFixture[str]) -> None:
     for s in (repair_partitions(DAILY_RUNS), compute_statistics(DAILY_RUNS, "2026-09-24")):
-        with pytest.raises(ValueError, match="can't be written to"):
-            run(s, send=example_database.send)
+        with pytest.raises(TypeError, match=r"run needs execute=, and wasn't given it\."):
+            run(s, query=example_database.query)
+        assert run(s, execute=example_database.execute) is None
+        assert capsys.readouterr().out == f"execute: {to_hive(s)}\n"
 
 
 @pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_explain() -> None:
     with pytest.raises(RuntimeError, match="its executor has no EXPLAIN"):
-        run(explain(one_day()), send=example_database.send)
+        run(explain(one_day()), query=example_database.query)

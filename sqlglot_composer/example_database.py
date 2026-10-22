@@ -1,4 +1,4 @@
-"""The Example database: seven made-up tables, and a send to run Statements on.
+"""The Example database: seven made-up tables, and a query and execute to try them.
 
 Four of its Table references have rows on two days, 2026-09-23 and 2026-09-24: `jobs`,
 `job_runs`, `run_alerts`, and `scheduler_runs`, the scheduler's own record of the runs it
@@ -17,9 +17,11 @@ The other three have rows on 14 days, 2026-09-11 to 2026-09-24:
 These three 14-day tables keep a record of their own: they have no run_id, and don't match job_runs run for
 run.
 
-`send` runs a Statement's Hive on a small database of the Toolbox's own and returns a
-DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to
-try anything here. Where it can't run a query, it says why.
+`query` runs a Statement's Hive on a small database of the Toolbox's own and gives back a
+DataFrame, just like your own query at work. `execute` stands in for your execute: the Example
+database is never written to, so it prints the first line of the Hive and changes nothing.
+Neither reaches your warehouse, so it is safe to try anything here. Where query can't run a
+Statement, it says why.
 
 Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
 ORDER_BY, its rows are sorted by its first column, then its second, and so on, with NULL first.
@@ -30,7 +32,7 @@ At work, rows come back in no fixed order: sort the DataFrame in pandas when the
 ...     SELECT(runs.run_id, runs.status, runs.duration_mins),
 ...     FROM(runs),
 ...     WHERE(equals(runs.dt, "2026-09-23")),
-... ), send=example_database.send)
+... ), query=example_database.query)
    run_id   status  duration_mins
 0      95  SUCCESS             12
 1      96  SUCCESS             18
@@ -465,19 +467,14 @@ def _in_order(row: tuple[object, ...]) -> tuple[tuple[bool, object], ...]:
     return tuple((value is not None, value) for value in row)
 
 
-def _set(text: str) -> pd.DataFrame:
-    """A Session setting's SET line, answered with the setting and its value.
+def query(hive: str) -> pd.DataFrame:
+    """Run Hive that gives back rows on the Example database, as a DataFrame, like your query
+    at work.
 
-    The Example database keeps no setting: its answers are the same whatever is set.
-    """
-    setting, value = text[3:].split("=", 1)
-    return pd.DataFrame({"key": [setting.strip()], "value": [value.strip()]})
+    It answers SELECT, DESCRIBE, SHOW PARTITIONS and EXPLAIN. run(...) sends the rest, which
+    change something, to execute instead.
 
-
-def send(hive: str) -> pd.DataFrame:
-    """Run Hive on the Example database and return a DataFrame, like your send at work.
-
-    >>> example_database.send("DESCRIBE ops.jobs")
+    >>> example_database.query("DESCRIBE ops.jobs")
        col_name data_type comment
     0    job_id    bigint
     1  job_name    string
@@ -486,11 +483,11 @@ def send(hive: str) -> pd.DataFrame:
     """
     if not isinstance(hive, str):
         refuse(
-            what=f"example_database.send was given {hive!r}, which isn't Hive text.",
-            why="Like your send at work, it takes Hive text to run.",
-            fix="To run a Statement, pass it to run(s, send=example_database.send), which "
+            what=f"example_database.query was given {hive!r}, which isn't Hive text.",
+            why="Like your query at work, it takes Hive text to run.",
+            fix="To run a Statement, pass it to run(s, query=example_database.query), which "
             "turns it into Hive; to_hive(s) shows that Hive.",
-            given=hive, call="example_database.send",
+            given=hive, call="example_database.query",
         )
     text = hive.strip()
     words = text.split()
@@ -498,19 +495,19 @@ def send(hive: str) -> pd.DataFrame:
         return _describe(words[-1])
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
         return _show_partitions(words[-1])
-    if words[:1] and words[0].upper() == "SET" and "=" in text:
-        return _set(text)
     if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
         # The plan of a query, which sqlglot_composer's engine refuses: its executor makes none.
         columns, rows = run_query(text, _TABLES)
         return pd.DataFrame(rows, columns=columns)
     if not _is_query(text):
         refuse(
-            what="The Example database only reads, and can't be written to: it answers "
-            "SELECT, DESCRIBE, SHOW PARTITIONS and SET.",
+            what="example_database.query only reads: it answers SELECT, DESCRIBE, SHOW "
+            "PARTITIONS and EXPLAIN.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
-            fix="to_hive(...) shows the Hive of any Statement without sending it, as in "
+            fix="run(s, execute=example_database.execute) takes a Statement that changes "
+            "something, and prints its first line. to_hive(...) shows the Hive of any "
+            "Statement without sending it, as in "
             "to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a "
             "write. It takes a Statement, such as one create_table, statement(...) or the "
             "admin module builds, not text.",
@@ -520,3 +517,21 @@ def send(hive: str) -> pd.DataFrame:
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)
     return pd.DataFrame(rows, columns=columns)
+
+
+def execute(hive: str) -> None:
+    """Take Hive that changes something, as your execute at work does, and print its first
+    line: the Example database is never written to, so nothing changes.
+
+    >>> example_database.execute("SET hive.exec.dynamic.partition=true")
+    execute: SET hive.exec.dynamic.partition=true
+    """
+    if not isinstance(hive, str) or not hive.strip():
+        refuse(
+            what=f"example_database.execute was given {hive!r}, which isn't Hive text.",
+            why="Like your execute at work, it takes Hive text to send.",
+            fix="To run a Statement, pass it to run(s, execute=example_database.execute), "
+            "which turns it into Hive; to_hive(s) shows that Hive.",
+            given=hive, call="example_database.execute",
+        )
+    print(f"execute: {hive.strip().splitlines()[0]}")
