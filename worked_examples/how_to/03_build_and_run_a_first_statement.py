@@ -29,15 +29,16 @@ Statement here, so this page leaves them as `project.add_references` writes them
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
->>> from warehouse import query
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
-A notebook of the Project starts with three imports: every Toolbox name, your query, and the
-tables of the Database ops:
+A notebook of the Project starts with three imports: every Toolbox name, your query and
+execute, and the tables of the Database ops:
 
 >>> from references import ops
 

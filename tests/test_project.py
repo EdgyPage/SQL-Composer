@@ -122,8 +122,8 @@ def test_start_says_to_write_the_query_and_execute(
     set_admin_log()
     assert " ".join(repr(project.start()).split()) == (
         "Started a Project in the folder you're working in: admin/, references/, "
-        "building_blocks/, tables/ and warehouse.py. Next: write your query and execute in "
-        "warehouse.py.")
+        "building_blocks/, tables/ and warehouse.py. Next: write your two functions, query and "
+        "execute, in warehouse.py.")
 
 
 def test_start_logs_a_project_action(started: Path) -> None:
@@ -168,6 +168,22 @@ def test_start_run_again_in_a_project_adds_only_what_it_lacks(
     assert warehouse.read_text(encoding="utf-8") == "# mine\n"  # never written over
     assert "added admin/templates/saved_table.py" in (
         started / "admin" / "admin_log.md").read_text(encoding="utf-8")
+
+
+def test_start_run_again_in_a_project_from_before_7_writes_no_warehouse_py(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """send.py's call goes into warehouse.py by hand, so check() goes on reporting it."""
+    monkeypatch.chdir(started)
+    (started / "warehouse.py").rename(started / "send.py")
+    (started / "admin" / "new_block.ipynb").unlink()
+    says = ("send.py is from before 7.0, so no warehouse.py was written: write your two "
+            "functions, query and execute, in a new warehouse.py, as CHANGES.md's 7.0 says, "
+            "then delete send.py.")
+    assert str(project.start()) == ("This folder is a Project already. Added what it lacked: "
+                                    "admin/new_block.ipynb.\n" + says)
+    assert str(project.start()) == "This folder is a Project already.\n" + says
+    assert not (started / "warehouse.py").exists()
+    assert "send.py is from before 7.0" in repr(project.check())
 
 
 # --- new_table --------------------------------------------------------------------------------

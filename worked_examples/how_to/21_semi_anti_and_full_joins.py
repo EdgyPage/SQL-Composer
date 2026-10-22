@@ -18,7 +18,7 @@ and see why `RIGHT_JOIN` is refused.
 - **FULL_JOIN**: two records that should agree, such as the runs `ops.job_runs` holds and the
   runs the scheduler says it started. Each run comes out once, whichever side has it.
 
-It needs [Build and run a first Statement](#build_and_run_a_first_statement) and [Count, join
+It needs [Build and run a first statement](#build_and_run_a_first_statement) and [Count, join
 and stay safe](#count_join_and_stay_safe), which shows `JOIN`, `LEFT_JOIN` and the
 repeated-rows Warning.
 
@@ -45,7 +45,7 @@ tables' references](#add_your_tables_references) shows:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 >>> project.add_references(["ops.job_runs", "ops.scheduler_runs"], query=query)
 Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.

@@ -474,8 +474,10 @@ def arguments_of(function: Callable[..., object]) -> str:
     parameters = [parameter for parameter in inspect.signature(function).parameters.values()
                   if parameter.kind is not parameter.VAR_KEYWORD]
     names = [f"{parameter.name}=" for parameter in parameters]
-    first = parameters[0] if parameters else None
-    if first and first.kind is first.POSITIONAL_OR_KEYWORD and first.default is first.empty:
+    if not names:
+        return "nothing"
+    first = parameters[0]
+    if first.kind is first.POSITIONAL_OR_KEYWORD and first.default is first.empty:
         names[0] = first.name
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
@@ -492,6 +494,13 @@ def refuse_removed_arguments(call: str, removed: dict[str, object],
     if "send" in removed:
         warehouse = " and ".join(f"{name}=" for name in ("query", "execute")
                                  if name in inspect.signature(takes).parameters)
+        if not warehouse:
+            refuse(
+                what=f"{call} was given send=, which Toolbox 7.0 replaced.",
+                why=f"It sends nothing to the warehouse, so it takes neither query nor "
+                f"execute: it takes {arguments}.",
+                fix="Leave send= out.",
+            )
         refuse(
             what=f"{call} was given send=, which Toolbox 7.0 replaced.",
             why="Since 7.0 your warehouse.py holds two calls: query, which gives back rows as a "

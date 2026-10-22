@@ -44,7 +44,7 @@ counts the runs.
 >>> from sqlglot_composer import project
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> job_events = ops.job_events  # -> Table
 
 ### Count each job's runs per week
@@ -162,7 +162,7 @@ rather than counting them again. mart.team_days, a Saved table of the Project, h
 team's day, and its notebook's logic cell defines `week_totals`, which adds its days up into
 weeks; `project.load` gives it:
 
->>> team_days = project.load("mart.team_days")  # -> TableLogic
+>>> team_days = project.load("mart.team_days")  # -> the notebook's functions
 >>> week_totals = team_days.week_totals("2026-09-14", "2026-09-20")  # -> Statement
 >>> text = show_hive(week_totals)  # -> str
 SELECT

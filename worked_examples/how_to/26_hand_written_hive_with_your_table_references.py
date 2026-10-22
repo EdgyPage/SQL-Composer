@@ -18,7 +18,7 @@ Guard, Warning or Load limit looks inside it, so keep the clause functions for t
 
 It needs [Start a Project](#start_a_project), [Add your tables'
 references](#add_your_tables_references) and [Build and run a first
-Statement](#build_and_run_a_first_statement); [Follow Lineage](#follow_lineage) shows the
+statement](#build_and_run_a_first_statement); [Follow lineage](#follow_lineage) shows the
 Lineage it is drawn in.
 
 ## Steps
@@ -43,7 +43,7 @@ Key is read in Hive you write by hand.
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs"], query=query)
 Wrote references/ops__jobs.py: fill in its TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
@@ -128,7 +128,7 @@ yourself, as the warehouse knows it:
 `export_lineage` draws an Unchecked statement as one step it can't see inside, reading each
 table its text names, whole: no column is followed through it.
 
->>> html_file, markdown_file = export_lineage(busy_jobs, to="lineage/busy_jobs.html")
+>>> html_file, markdown_file = export_lineage(busy_jobs, to="lineage/busy_jobs.html")  # -> tuple[Path, Path]
 >>> print(markdown_file.read_text(encoding="utf-8").split("## busy_jobs")[1].split("###")[0])
 <BLANKLINE>
 <BLANKLINE>
@@ -202,6 +202,6 @@ At work that can be the whole of a big table. Filter its partition column yourse
   `SEMI_JOIN`, which the Toolbox checks and draws column by column.
 - [Call other Hive functions](#call_other_hive_functions): a Hive function inside a Statement,
   rather than the whole Statement by hand.
-- [Follow Lineage](#follow_lineage): Lineage of Statements and Saved tables.
+- [Follow lineage](#follow_lineage): Lineage of Statements and Saved tables.
 - The gallery's [`unchecked_hive`](examples.html#unchecked_hive) entry.
 """

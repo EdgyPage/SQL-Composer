@@ -19,7 +19,7 @@ change read, which table it wrote, and which function made it, so whoever reads 
 can open that function and see what it does.
 
 It needs [Save a table](#save_a_table), [Share Building blocks](#share_building_blocks) and
-[Follow Lineage](#follow_lineage).
+[Follow lineage](#follow_lineage).
 
 ## Steps
 
@@ -39,7 +39,7 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run  # -> Condition
 >>> job_events = ops.job_events  # -> Table
@@ -216,7 +216,7 @@ through its Table reference (a Table reference stands for every one of its colum
 table it wrote. It gives back a `PythonStep`, and sends nothing. `project.load` runs the
 notebook's logic cell, as `project.run_tables` does, so its write() is here too:
 
->>> speed = project.load("mart.run_speed")
+>>> speed = project.load("mart.run_speed")  # -> the notebook's functions
 >>> speed_step = speed.write()  # -> PythonStep
 >>> speed_step
 <Python step: building_blocks/run_speed.py:add_minutes_over_median, line 10; writes mart.run_speed>
@@ -357,8 +357,8 @@ Passed over 1 Python step, of mart.run_speed: run each one's notebook, whose own
 Pass the step to `export_lineage` with the Statements around it: the one that pulls its rows,
 and the write that reads what it saved:
 
->>> slow = project.load("mart.slow_runs")
->>> html_file, markdown_file = export_lineage(speed.rows(), speed_step, slow.write(),
+>>> slow = project.load("mart.slow_runs")  # -> the notebook's functions
+>>> html_file, markdown_file = export_lineage(speed.rows(), speed_step, slow.write(),  # -> tuple[Path, Path]
 ...                                           to="lineage/run_speed.html")
 
 The chart draws the step as one box, "Python step", naming the function and its line, with

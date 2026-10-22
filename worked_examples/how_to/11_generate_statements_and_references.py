@@ -23,7 +23,7 @@ builds anything else. Check first that you need several: when only a value chang
 Statement with `GROUP_BY` often answers for every value at once.
 
 It needs the Getting started how-tos [Add your tables' references](#add_your_tables_references),
-[Build and run a first Statement](#build_and_run_a_first_statement) and [Count, join and stay
+[Build and run a first statement](#build_and_run_a_first_statement) and [Count, join and stay
 safe](#count_join_and_stay_safe).
 
 ## Steps
@@ -47,7 +47,7 @@ Then import the Toolbox, pandas, the Project's `ops` Database and your query:
 >>> from sqlglot_composer import *
 >>> import pandas as pd
 >>> from references import ops
->>> from warehouse import query
+>>> from warehouse import query, execute
 
 ### Check whether one Statement does it
 
@@ -353,14 +353,14 @@ Run each in a loop, and keep each result under its table's name:
 
 Pass every Statement to [`export_lineage`](examples.html#export_lineage) at once, and it writes
 one HTML page and one Markdown file for them all, laid out as in [Follow
-Lineage](#follow_lineage). `to=` names the HTML file, and the Markdown file goes beside it.
+lineage](#follow_lineage). `to=` names the HTML file, and the Markdown file goes beside it.
 
 `export_lineage` names each Statement after the variable that holds it. These sit in a dict, in
 no variable of their own, so it numbers them in the order you passed them: in the file below,
 statement_1 is `ops.job_runs`'s, statement_2 `ops.run_alerts`'s and statement_3
 `ops.scheduler_runs`'s, and each one's Hive, at the end of its part, names its table.
 
->>> html_file, markdown_file = export_lineage(*daily.values(), to="daily_totals.html")
+>>> html_file, markdown_file = export_lineage(*daily.values(), to="daily_totals.html")  # -> tuple[Path, Path]
 
 ## Check it worked
 

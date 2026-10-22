@@ -96,7 +96,7 @@ def test_a_how_to_has_its_title_its_group_and_its_headings_in_order(path: Path) 
 
 
 def file_blocks(path: Path) -> list[how_to_page.FileBlock]:
-    """The files a how-to shows as they are after an edit."""
+    """The files a how-to shows as they are after an edit, or as a Project action wrote them."""
     return [part for part in how_to_page.with_file_blocks(how_to_page.docstring_of(path))
             if isinstance(part, how_to_page.FileBlock)]
 
@@ -171,7 +171,8 @@ def test_each_python_file_a_how_to_shows_names_only_what_it_defines_or_imports(
     """A file of the Project, or a notebook's cells, runs on its own, so it imports what it
     uses."""
     for block in file_blocks(path):
-        if Path(block.path).suffix not in (".py", ".ipynb"):
+        # A file as a Project action wrote it still holds its <...> placeholders.
+        if Path(block.path).suffix not in (".py", ".ipynb") or block.written_by:
             continue
         defined, read = names_of(ast.parse(block.text))
         assert read - defined - set(dir(builtins)) - {"__file__"} == set(), block.path
@@ -513,7 +514,8 @@ def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path: Path) ->
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.""")
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     files = re.search(r'<p class="label">It writes (\d+) files</p>\n<pre class="file">(.*?)'
                       "</pre>", shown, re.DOTALL)
@@ -696,6 +698,54 @@ def test_the_page_shows_a_file_after_an_edit_in_a_box_headed_by_its_path(
     # The steps read what the files hold, and none is shown as written by a step.
     assert "It writes" not in shown and '<p class="label">Python shows</p>' in shown
     assert "The file `" not in page_text(shown)
+
+
+WRITTEN = """>>> from sqlglot_composer import project
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from pathlib import Path
+>>> notebook = Path("tables/mart__little/mart__little.ipynb")
+>>> notebook.parent.mkdir(parents=True)
+>>> project._write_notebook(notebook, [("markdown", "# mart.little"),
+...                                    ("code", "READS = <READS>")])
+
+The file `tables/mart__little/mart__little.ipynb`, as project.new_table wrote it:
+
+    # %% [markdown]
+    # # mart.little
+
+    # %%
+    READS = <READS>
+"""
+
+
+def test_a_file_shown_as_a_project_action_wrote_it_is_checked_not_written(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = a_how_to(tmp_path, WRITTEN)
+    [block] = file_blocks(path)
+    assert (block.path, block.what, block.written_by) == (
+        "tables/mart__little/mart__little.ipynb", "", "project.new_table")
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    failures, report = how_to_page.run_as_doctest(path)
+    assert failures == 0, report
+    again = tmp_path / "again"
+    again.mkdir()
+    monkeypatch.chdir(again)
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    assert ('<p class="label">The file <code>tables/mart__little/mart__little.ipynb</code>, '
+            'as <code>project.new_table</code> wrote it</p>\n<pre class="python">') in shown
+
+
+def test_a_file_shown_as_a_project_action_wrote_it_but_not_so_is_refused(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = a_how_to(tmp_path, WRITTEN.replace("    READS = <READS>", "    READS = 1"))
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(how_to_page.HowToRefused, match="isn't what the folder holds there"):
+        how_to_page.run_as_doctest(path)
 
 
 @pytest.mark.parametrize(("steps", "says"), [

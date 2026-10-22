@@ -27,8 +27,8 @@ which.
 
 ### Where the last how-to left the Project
 
-[Follow lineage](#follow_lineage) left the Starter Example project with its Table references,
-its Building block and its Saved tables. This how-to looks at the Project's files rather than
+[Follow lineage](#follow_lineage) left the Project with its Table references, its Building
+block and its Saved tables. This how-to looks at the Project's files rather than
 running its notebooks, so the steps make it again with the three Table references filled in,
 the Building block as `project.new_block` writes it, and one Saved table,
 mart.alerts_per_severity, whose Table reference is filled in:
@@ -41,9 +41,10 @@ mart.alerts_per_severity, whose Table reference is filled in:
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
->>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
-...                        query=example_database.query)
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from warehouse import query, execute
+>>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -184,7 +185,7 @@ its own, never from its own Level or one above:
 
 | Level | Files | May import |
 |---|---|---|
-| 0 | references/: each Table reference and Database module; warehouse.py | the Toolbox, and a Database module its own Table references |
+| 0 | references/: each Table reference and Database module; warehouse.py | the Toolbox; a Database module also imports the Table references of its Database |
 | 1 | building_blocks/: each Building block | the Toolbox and Level 0 |
 | 2 | each Table notebook's logic cell | the Toolbox, Level 0 and Level 1 |
 
@@ -242,7 +243,6 @@ checks each Key it can. Run it in Jupyter, top to bottom. At its heart is
 `check_table_reference`, which gives back a Verdict; here, on each Table reference, with the
 Project's query from warehouse.py:
 
->>> from warehouse import query
 >>> from references import mart, ops
 >>> for table in [ops.jobs, ops.job_runs, ops.run_alerts, mart.alerts_per_severity]:
 ...     print(check_table_reference(table, query=query))
@@ -295,14 +295,23 @@ Wrote references/mart__job_minutes.py: fill in its <...> and TODO lines.
 
 `project.remove_table`, from admin/remove_table.ipynb, moves the Table folder, whole, into
 admin/removed/, named by the time, and marks its registry row removed.
-`project.remove_reference` then archives its Table reference the same way. Nothing is deleted, and nothing in the
-warehouse changes: a table you created stays there until you drop it with the admin module's
-drop_table, from admin/change_a_saved_table.ipynb.
+`project.remove_reference` then archives its Table reference the same way:
 
 >>> project.remove_table("mart.job_minutes")  # the time it ran, as yyyymmdd-hhmmss
 Moved tables/mart__job_minutes/ to admin/removed/...-mart__job_minutes/.
 >>> project.remove_reference("mart.job_minutes")
 Moved references/mart__job_minutes.py to admin/removed/...-mart__job_minutes.py.
+
+Nothing is deleted, and nothing in the warehouse changes: a table you created stays there until
+you drop it with an Admin statement, a Statement that changes one of your Saved tables in the
+warehouse, such as dropping it. The admin module makes them; import it by name, since the star
+import leaves it out:
+
+>>> from sqlglot_composer import admin
+
+`admin.drop_table(...)` gives the one that drops a table, which you send with
+`run(..., execute=execute)`, as admin/change_a_saved_table.ipynb does. `help(admin)` lists
+every Admin statement.
 
 `project.remove_block` archives a Building block the same way, from admin/new_block.ipynb's
 last cell. Each refuses while something still needs what it archives:
@@ -343,8 +352,8 @@ Lineage in admin/removed/, where you can find them again.
 
 ### Deleting an admin notebook by mistake
 
-`project.start()`, run again in the Project's folder, adds back what start() makes that the
-Project lacks, and changes nothing else:
+`project.start()`, run again in the Project's folder, adds back only what start() makes and
+the Project is missing, and writes over nothing:
 
 >>> os.remove("admin/new_block.ipynb")
 >>> project.start()

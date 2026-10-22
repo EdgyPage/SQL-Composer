@@ -22,7 +22,8 @@ with a Warning: read it before you change anything.
 
 ### Where the last how-to left the Project
 
-[Add your tables' references](#add_your_tables_references) left the Project with three Table
+[Build and run a first statement](#build_and_run_a_first_statement) built its Statements on
+the Project as [Add your tables' references](#add_your_tables_references) left it: three Table
 references filled in, and Aliases in two of them. This page has no Project, so it makes one
 with the same three files; in your own, leave these steps out:
 
@@ -30,8 +31,9 @@ with the same three files; in your own, leave these steps out:
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
->>> from warehouse import query
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
@@ -376,10 +378,20 @@ the JOIN. `run_alerts` is partitioned too, so it gets its own filter on `run_ale
    minutes  alerts
 0      210       9
 
-In a notebook, the Warning shows under the cell, at your own line; it doesn't stop anything. The
-nine runs took 180 minutes, but here they come out as 210: runs 97 and 103 are added twice,
-run 101 three times, and the four runs with no alert not at all, since `JOIN` keeps only rows
-that match.
+The Statement builds, with the repeated-rows Warning. In a notebook it shows under the cell, at
+your own line, and on this page under the step that builds it; it doesn't stop anything. It
+says:
+
+- What happened: JOIN(run_alerts) matches on run_id, but a run_alerts row is told apart only
+  by its Key (alert_id).
+- Why it matters: Each row before the join is repeated once per matching run_alerts row, so
+  sums and counts over it may come out too big.
+- Usual fix: Group run_alerts first so it has one row per value you join on, and join that.
+- Opt-out: `JOIN(run_alerts, ON=..., many_matches=True)`
+
+And so it is: the nine runs took 180 minutes, but here they come out as 210. Runs 97 and 103
+are added twice, run 101 three times, and the four runs with no alert not at all, since `JOIN`
+keeps only rows that match.
 
 ### Add up first, with a Derived table
 
@@ -426,7 +438,7 @@ WHERE
 0      180       9
 
 No Warning, and the totals are right. The Derived table is written at the top of the Hive, as
-`WITH alerts_per_run AS (...)`. [Share building blocks](#share_building_blocks) keeps one in a
+`WITH alerts_per_run AS (...)`. [Share Building blocks](#share_building_blocks) keeps one in a
 file of its own, for every notebook that needs it.
 
 ### Find the rows with no match
@@ -762,11 +774,11 @@ Copy the opt-out from the message as it is written.
 ## Next
 
 - Keep a Derived table such as `alerts_per_run` in a file of its own, and use it in every
-  notebook that needs it: [Share building blocks](#share_building_blocks).
+  notebook that needs it: [Share Building blocks](#share_building_blocks).
 - Save a count like `per_job` as a table of your own, a Partition at a time:
   [Save a table](#save_a_table).
 - More joins, such as rows of one table with no match in another:
-  [Semi, anti and full joins](#semi_anti_and_full_joins).
+  [Semi-, anti- and full joins](#semi_anti_and_full_joins).
 - The gallery's Worked examples of [`GROUP_BY`](examples.html#GROUP_BY),
   [`HAVING`](examples.html#HAVING), [`JOIN`](examples.html#JOIN),
   [`LEFT_JOIN`](examples.html#LEFT_JOIN) and [`set_load_limits`](examples.html#set_load_limits),

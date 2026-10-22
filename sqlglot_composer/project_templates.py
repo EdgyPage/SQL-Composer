@@ -27,6 +27,9 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
     try-it cell its own, the others the same in every Template. `fill_in` lists each
     placeholder of the notebook with an example, first; `saves` says what the table's Table
     reference lists."""
+    # The call that made the notebook: new_table's own Template needs no template=.
+    call = ('"<DB>.<TABLE>"' if name == "saved_table"
+            else f'"<DB>.<TABLE>", template="{name}"')
     return f'''# %% [markdown]
 # # <DB>.<TABLE>
 #
@@ -42,7 +45,7 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 #
 {about}
 #
-# Made by `project.new_table("<DB>.<TABLE>", template="{name}")` from
+# Made by `project.new_table({call})` from
 # `admin/templates/{name}.py`, which filled in the database, the table and its file's name,
 # <NAME>. Run the cells top to bottom once both are filled in.
 #

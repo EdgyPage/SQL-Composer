@@ -18,7 +18,7 @@ folder of its own, the one its `location=` names. Two tables in one folder read 
 files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that
 Partition, so move each one out before writing it again.
 
-It needs [Save a table](#save_a_table) and [Keep the project in
+It needs [Save a table](#save_a_table) and [Keep the Project in
 order](#keep_the_project_in_order), which checks Table references against their tables;
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) explains the folder
 of its own.
@@ -45,7 +45,7 @@ out, so you import it by name, and it is plain where a notebook changes a table:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import admin, project
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 >>> from references import mart
 >>> job_day_facts = mart.job_day_facts  # -> Table
 
@@ -246,7 +246,7 @@ doesn't hold mart.job_day_facts, but its notebook's preview() gives the rows its
 saves, from the tables the Example database does hold. `project.load` gives a Table notebook's
 logic, its functions, as [Save a table](#save_a_table) shows:
 
->>> logic = project.load("mart.job_day_facts")
+>>> logic = project.load("mart.job_day_facts")  # -> the notebook's functions
 >>> logic
 The logic of mart.job_day_facts: create, rows, preview, write_days, write.
 >>> run(logic.preview(), query=query)  # -> DataFrame
@@ -297,7 +297,7 @@ can lose Partitions the copy doesn't hold.
 
 - How a Saved table is stored, and why it needs a folder of its own:
   [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored).
-- Check every Table reference against its table: [Keep the project in
+- Check every Table reference against its table: [Keep the Project in
   order](#keep_the_project_in_order).
 - Write some of a table's Partitions again from their sources: [Rewrite some
   partitions](#rewrite_some_partitions).

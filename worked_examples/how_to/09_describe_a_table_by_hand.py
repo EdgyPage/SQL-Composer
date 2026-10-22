@@ -45,7 +45,7 @@ Then import the Toolbox, the `project` module, the Project's `ops` Database and 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from references import ops
->>> from warehouse import query
+>>> from warehouse import query, execute
 
 ### Decide what one row is
 
@@ -112,10 +112,10 @@ What each argument says:
 A file you write by hand isn't in the Project's registry yet. `project.check()` lists it as
 made by hand, with the call that adopts it:
 
->>> project.check()  # -> ProjectReport
+>>> project.check()  # -> a report, printed
 Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register("mart.job_day")
->>> project.register("mart.job_day")  # -> ProjectReport
+>>> project.register("mart.job_day")  # -> a report, printed
 Registered references/mart__job_day.py.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes and mart.team_days.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -231,7 +231,7 @@ At work, once `run(create_table(job_day), execute=execute)` has made the table,
 `check_table_reference(job_day, query=query)` compares it with your file, as above. And the
 Project knows the file:
 
->>> project.check()  # -> ProjectReport
+>>> project.check()  # -> a report, printed
 Every Table folder, Table reference and Building block is registered, and each one registered is there.
 
 ## Common mistakes

@@ -42,7 +42,7 @@ team and owner, once per day.
 
 >>> from sqlglot_composer import *
 >>> from references import ops
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> job_events = ops.job_events  # -> Table
 >>> job_owners = ops.job_owners  # -> Table
 
@@ -176,7 +176,7 @@ each job's rows from the newest day down; the Statement that reads them keeps nu
 `PARTITION_BY=` is SQL's word for the groups to number within, here each job, not the table's
 Partitions. Hive can't keep a row by its number in the same SELECT that numbers it, so the
 numbering goes in a Derived table, which the Hive writes at its top as
-`WITH numbered AS (...)`. [The latest row of each group](#latest_row_per_key) starts with it:
+`WITH numbered AS (...)`. [The latest row of each group](#latest_row_of_each_group) starts with it:
 
 >>> numbered = derived("numbered", statement(  # -> Table
 ...     SELECT(job_owners.job_id, job_owners.team, job_owners.owner, job_owners.dt,
@@ -320,7 +320,7 @@ Filter it with the same days as the table it is joined to, in `WHERE` as the ste
 - Save each job's day beside its team then, and rewrite the last few days as rows come in late:
   [Rewrite some partitions](#rewrite_some_partitions).
 - Each job's last row of a table, and the top N: [The latest row of each
-  group](#latest_row_per_key).
+  group](#latest_row_of_each_group).
 - The gallery's [latest run per job](examples.html#latest_and_top_n), which shows why `max_of`
   on each column can mix values from different rows, and its Worked example of
   [`row_number`](examples.html#row_number).

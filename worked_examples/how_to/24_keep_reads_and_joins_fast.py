@@ -41,7 +41,7 @@ mart.job_day_facts, each job's events, runs and minutes per day beside its team,
 Project's Saved tables, partitioned by dt:
 
 >>> from sqlglot_composer import *
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 >>> from references import mart, ops
 >>> job_day_facts = mart.job_day_facts  # -> Table
 >>> job_events, job_owners = ops.job_events, ops.job_owners  # -> Table, Table

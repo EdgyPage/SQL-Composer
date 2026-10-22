@@ -14,7 +14,7 @@ When two tables should hold the same rows: a Saved table and the table it was co
 same table before and after a change to its Statement, or your team's table and another team's
 record of the same thing.
 
-It needs [Build and run a first Statement](#build_and_run_a_first_statement) and [Share
+It needs [Build and run a first statement](#build_and_run_a_first_statement) and [Share
 Building blocks](#share_building_blocks), which starts with Derived tables.
 
 ## Steps
@@ -40,7 +40,7 @@ tables' references](#add_your_tables_references) shows. Its TODO lines can wait,
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs"], query=query)
 Wrote references/ops__jobs.py: fill in its TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
