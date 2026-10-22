@@ -56,7 +56,7 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 - **A table's partitions are its own**, of any kind, or none (the user: "different tables have
   different partitions"). `date_partition=` and `date_format=` go; `partitioned_by=[...]` stands
   alone.
-- **The read limit**: a read of a partitioned table that filters none of its partition columns
+- **The Load limit on reads**: a read of a partitioned table that filters none of its partition columns
   is refused; `reads_all_partitions=True` opts out. An unpartitioned table is never limited.
   "At both ends" and `set_load_limits(dates=...)` go.
 - **Writes**: dynamic partitions by default, `PARTITION(region, load_id)` from the rows' own
