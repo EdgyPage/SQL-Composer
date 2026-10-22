@@ -12,6 +12,7 @@ import inspect
 import textwrap
 from collections.abc import Callable
 from types import FrameType
+from typing import NoReturn
 
 import pandas as pd
 
@@ -19,6 +20,7 @@ from . import _FOLDER, writing
 from .clauses import Clause, Statement, derived_tables
 from .conditions import Condition
 from .joins import HOW, anti_join_tests, broadcast
+from .python_steps import PythonStep, python_step_text
 from .refusals import (
     load_limit_rows,
     need_warehouse_call,
@@ -217,7 +219,7 @@ def _self_check(text: str) -> None:
         )
 
 
-def to_hive(s: Statement | SessionSettings | UncheckedStatement) -> str:
+def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) -> str:
     """The Hive string for a Statement, ready to send.
 
     It checks itself by reading the string back. An Admin statement, from the admin module, is
@@ -225,7 +227,8 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement) -> str:
     The Hive may write a function
     differently from how you would by hand, for example DATE_SUB(dt, 7) as
     DATE_ADD(dt, 7 * -1), which means the same. Given Session settings, it gives their SET
-    lines, one to a line; given an Unchecked statement, its text as you wrote it.
+    lines, one to a line; given an Unchecked statement, its text as you wrote it. A Python
+    step has no Hive, so it is refused: show_hive prints a line saying what it is.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
@@ -242,6 +245,9 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement) -> str:
         return "\n".join(s._lines)
     if isinstance(s, UncheckedStatement):
         return s._text
+    if isinstance(s, PythonStep):
+        _refuse_a_python_step("to_hive", "It writes the Hive a Statement sends, and a "
+                              "Python step has none")
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
                     why="to_hive writes the Hive of one Statement made by statement(...).")
     if s._admin_hive is not None:
@@ -279,6 +285,18 @@ def _need_statement(s: object, call: str, frame: FrameType | None, why: str,
         fix = "Pass statement(SELECT(...), FROM(...), ...)."
     refuse(what=f"{call} was given {s!r}, which isn't a Statement.", why=why, fix=fix,
            given=s, call=call)
+
+
+def _refuse_a_python_step(call: str, why: str) -> NoReturn:
+    """Refuse a Python step given to `call`, which sends or writes Hive: it has none."""
+    refuse(
+        what=f"{call} was given a Python step, which sends nothing.",
+        why=f"{why}: python_step(...) only declares a change you make in Python and save with "
+        "your own call, so Lineage can show it. The Toolbox never moves its data.",
+        fix="Save the rows with your own call, as you do now, and pass the step to "
+        "export_lineage(...) with your Statements. show_hive(step) prints a line saying what "
+        "it is, and in a Table notebook's write() project.run_tables passes over it.",
+    )
 
 
 def name_in(frame: FrameType, value: object) -> str | None:
@@ -340,7 +358,7 @@ def _plan(result: object) -> HivePlan:
     return HivePlan("\n".join(lines).rstrip())
 
 
-def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
+def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | PythonStep
               | list[Statement]) -> str:
     """Print the Hive that runs, ready to paste into another program, and return it.
 
@@ -353,7 +371,9 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
     setting it needs: a line saying so, then its SET lines, which run
     doesn't send with it: send them first with run(hive_settings("dynamic_partitions"),
     execute=...). An Admin statement, from the admin module, is printed after comment lines
-    saying what it changes, what can't be undone, and what to check first.
+    saying what it changes, what can't be undone, and what to check first. A Python step has
+    no Hive: it is printed as comment lines saying where its function lives, what it read and
+    wrote, and that nothing is sent for it.
 
     It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
     notebook, show_hive(...) on its own shows the Hive once.
@@ -414,15 +434,7 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        if isinstance(s, SessionSettings):
-            hive = settings_text(s)
-        elif isinstance(s, UncheckedStatement):
-            hive = unchecked_text(s)
-        else:
-            _need_statement(s, "show_hive", frame,
-                            why="show_hive prints the Hive of Statements made by "
-                            "statement(...).")
-            hive = "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
+        hive = _shown(s, frame)
         if len(named) > 1:
             heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
             hive = f"{heading}\n{hive}"
@@ -432,7 +444,21 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement
     return HiveText(text)
 
 
-def run(s: Statement | SessionSettings | UncheckedStatement, *,
+def _shown(s: object, frame: FrameType) -> str:
+    """What show_hive prints for one of the things it is given, or the refusal of what isn't
+    one: `frame` is its caller's."""
+    if isinstance(s, SessionSettings):
+        return settings_text(s)
+    if isinstance(s, UncheckedStatement):
+        return unchecked_text(s)
+    if isinstance(s, PythonStep):
+        return python_step_text(s)
+    _need_statement(s, "show_hive", frame,
+                    why="show_hive prints the Hive of Statements made by statement(...).")
+    return "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
+
+
+def run(s: Statement | SessionSettings | UncheckedStatement | PythonStep, *,
         query: Callable[[str], pd.DataFrame] | None = None,
         execute: Callable[[str], None] | None = None,
         **removed: object) -> pd.DataFrame | str | None:
@@ -452,6 +478,7 @@ def run(s: Statement | SessionSettings | UncheckedStatement, *,
     its rows needs the Session setting "dynamic_partitions" sent first, with
     run(hive_settings("dynamic_partitions"), execute=...), as show_hive prints and
     help(INSERT_OVERWRITE) explains: run sends the write alone. hive_settings(...) sends each SET line as a call of its own.
+    A Python step is refused, since it sends nothing: you save its rows yourself.
 
     >>> run(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -463,6 +490,9 @@ def run(s: Statement | SessionSettings | UncheckedStatement, *,
     1     102       2  2026-09-24
     """
     refuse_removed_arguments("run", removed, "query= and execute=")
+    if isinstance(s, PythonStep):
+        _refuse_a_python_step("run", "It sends Hive through your query or execute, and a "
+                              "Python step has none")
     if isinstance(s, SessionSettings):
         need_warehouse_call("run", "execute", execute,
                             "Session settings change the session, and give back no rows.")
@@ -470,16 +500,7 @@ def run(s: Statement | SessionSettings | UncheckedStatement, *,
             execute(line)
         return None
     if isinstance(s, UncheckedStatement):
-        if s._returns_rows:
-            need_warehouse_call("run", "query", query, "This Unchecked statement says "
-                                "returns_rows=True: its rows come back through your query.")
-            rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
-            refuse_what_isnt_a_dataframe(rows)
-            return rows
-        need_warehouse_call("run", "execute", execute, "This Unchecked statement says "
-                            "returns_rows=False: it goes through your execute.")
-        logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
-        return None
+        return _run_unchecked(s, query, execute)
     _need_statement(s, "run", inspect.currentframe().f_back,
                     why="run writes the Hive of one Statement made by statement(...) and "
                     "sends it.", more=", execute=..." if query is None and execute is not None
@@ -513,6 +534,21 @@ def run(s: Statement | SessionSettings | UncheckedStatement, *,
     if limit is not None:
         load_limit_rows(len(result), limit)
     return result
+
+
+def _run_unchecked(s: UncheckedStatement, query: Callable[[str], pd.DataFrame] | None,
+                   execute: Callable[[str], None] | None) -> pd.DataFrame | None:
+    """Send an Unchecked statement through the call its returns_rows= names, and log it."""
+    if s._returns_rows:
+        need_warehouse_call("run", "query", query, "This Unchecked statement says "
+                            "returns_rows=True: its rows come back through your query.")
+        rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
+        refuse_what_isnt_a_dataframe(rows)
+        return rows
+    need_warehouse_call("run", "execute", execute, "This Unchecked statement says "
+                        "returns_rows=False: it goes through your execute.")
+    logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
+    return None
 
 
 __all__ = ["to_hive", "run", "set_load_limits"]

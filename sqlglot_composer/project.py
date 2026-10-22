@@ -58,6 +58,7 @@ import pandas as pd
 
 from .clauses import Statement
 from .project_templates import TEMPLATES
+from .python_steps import PythonStep
 from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, _code, _script_line, _write_entry, hive_settings
@@ -799,6 +800,9 @@ def _called(call: ast.Call) -> str | None:
 LOGIC = "# logic"
 # The folders of a Project whose modules a logic cell imports, read again by each load.
 OWN_MODULES = ("references", "building_blocks")
+# What load names the module a logic cell runs as, before the table's name: a function the
+# cell defines says it is from "logic of mart.daily_job_runs".
+LOGIC_OF = "logic of "
 
 
 class TableLogic:
@@ -821,14 +825,14 @@ def load(name: str) -> TableLogic:
     It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
     whose first line is # logic. That cell only imports and defines, and it defines write(),
     which takes nothing and gives what writes the table: a Statement, an Unchecked statement,
-    or a list of them. In a notebook made from the daily_table Template, it defines create,
-    rows, preview, write and backfill, and load gives each of them (the functions and classes
-    only, not other names the cell sets). So another table's notebook can use this table's
-    write, for lineage across your tables, and run_tables can write every table in order. It
-    reads the notebook file as last saved, and your references/ and building_blocks/ as they
-    are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run,
-    which would send Hive just by loading, one with a <...> still to fill in, and one that
-    defines no write() taking nothing.
+    a Python step, or a list of them. In a notebook made from the daily_table Template, it
+    defines create, rows, preview, write and backfill, and load gives each of them (the
+    functions and classes only, not other names the cell sets). So another table's notebook can
+    use this table's write, for lineage across your tables, and run_tables can write every
+    table in order. It reads the notebook file as last saved, and your references/ and
+    building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic
+    cell that calls run, which would send Hive just by loading, one with a <...> still to fill
+    in, and one that defines no write() taking nothing.
 
     In the example, a one-line Template stands in for a notebook of yours:
 
@@ -855,7 +859,7 @@ def load(name: str) -> TableLogic:
     for module in [module for module in sys.modules
                    if module.split(".")[0] in OWN_MODULES]:
         del sys.modules[module]  # each load reads your references as they are now
-    module_name = f"logic of {name}"
+    module_name = f"{LOGIC_OF}{name}"
     namespace = {"__name__": module_name}
     exec(source, namespace)
     _check_write(namespace, f"tables/{stem}/{stem}.ipynb", call)
@@ -863,6 +867,16 @@ def load(name: str) -> TableLogic:
                  if callable(value) and getattr(value, "__module__", None) == module_name}
     functions["write"] = namespace["write"]  # also when it is imported from elsewhere
     return TableLogic(name, functions)
+
+
+def logic_notebook(module: str) -> str | None:
+    """The Table notebook, from the Project's folder, whose logic cell load ran as `module`,
+    such as tables/mart__daily_job_runs/mart__daily_job_runs.ipynb; None for any other
+    module."""
+    if not module.startswith(LOGIC_OF):
+        return None
+    stem = table_stem(module.removeprefix(LOGIC_OF))
+    return f"tables/{stem}/{stem}.ipynb"
 
 
 def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:
@@ -964,8 +978,10 @@ def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
 
     Each table's write() comes from its notebook's logic cell, through load; one that gives a
     list, such as a write per region, sends each in turn. Each write() gives Statements, an
-    Admin statement among them, or Unchecked statements: anything else, such as Session
-    settings, is refused before anything is sent. They run in the order lineage draws them: a
+    Admin statement among them, Unchecked statements or Python steps: anything else, such as
+    Session settings, is refused before anything is sent. A Python step (help(python_step))
+    sends nothing, so it is passed over, and its table isn't written: run its own notebook,
+    whose call saves the rows. They run in the order lineage draws them: a
     table is written before any table that reads it, and a loop, two tables each reading the
     other, is refused. `tables` names some, such as ["mart.team_day"]; left out, it is every
     Table folder the registry lists. With no `execute` it prints each one's Hive in that
@@ -986,7 +1002,7 @@ def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
     """
     refuse_removed_arguments("run_tables", removed, "query= and execute=")
     from .lineage import in_order  # lineage imports what imports this
-    from .running import run, settings_needed, show_hive
+    from .running import run, settings_needed
 
     call = ("project.run_tables(query=..., execute=...)" if execute is not None
             else "project.run_tables()")
@@ -1003,28 +1019,50 @@ def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
         named += [(write, name) for write in _writes_of(name, call)]
     ordered = in_order(named, call=call)
     if execute is None:
-        for position, (write, name) in enumerate(ordered, start=1):
-            print(f"-- {position} of {len(ordered)}: {name}")
-            show_hive(write)
-        return ProjectReport([f"Printed {len(ordered)} write{'s' * (len(ordered) != 1)} in "
-                              "order, and sent nothing. Pass execute= to run them."])
+        return _dry_run(ordered)
     width = max(len(name) for _, name in ordered)
     # A write filling Partitions from its rows needs Hive's dynamic partitioning: sent once.
     if any(isinstance(write, Statement) and settings_needed(write) for write, _ in ordered):
         run(hive_settings("dynamic_partitions"), execute=execute)
     for position, (write, name) in enumerate(ordered, start=1):
+        shown = f"{position} of {len(ordered)}: {name:<{width}}"
+        if isinstance(write, PythonStep):
+            print(f"{shown}  passed over: a Python step, whose rows your own call saves")
+            continue
         try:
             run(write, query=query, execute=execute)
         except Exception:
-            print(f"{position} of {len(ordered)}: {name:<{width}}  failed: see below. The "
-                  "tables after it weren't written.")
+            print(f"{shown}  failed: see below. The tables after it weren't written.")
             raise
-        print(f"{position} of {len(ordered)}: {name:<{width}}  worked")
-    tables = len({name for _, name in ordered})
-    return ProjectReport([f"Wrote {tables} table{'s' * (tables != 1)}, in order."])
+        print(f"{shown}  worked")
+    return ProjectReport(_ran(ordered))
 
 
-def _writes_of(name: str, call: str) -> list[Statement | UncheckedStatement]:
+def _dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
+             ) -> ProjectReport:
+    """Print each write's Hive in order, sending nothing: run_tables with no execute."""
+    from .running import show_hive  # imported here, as run_tables imports run
+
+    for position, (write, name) in enumerate(ordered, start=1):
+        print(f"-- {position} of {len(ordered)}: {name}")
+        show_hive(write)
+    return ProjectReport([f"Printed {len(ordered)} write{'s' * (len(ordered) != 1)} in "
+                          "order, and sent nothing. Pass execute= to run them."])
+
+
+def _ran(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]) -> list[str]:
+    """What run_tables says it did: the tables it wrote, and the Python steps it passed over."""
+    tables = len({name for write, name in ordered if not isinstance(write, PythonStep)})
+    said = [f"Wrote {tables} table{'s' * (tables != 1)}, in order."]
+    passed = [name for write, name in ordered if isinstance(write, PythonStep)]
+    if passed:
+        steps = f"{len(passed)} Python step{'s' * (len(passed) != 1)}"
+        said.append(f"Passed over {steps}, of {', '.join(dict.fromkeys(passed))}: run "
+                    "each one's notebook, whose own call saves its rows.")
+    return said
+
+
+def _writes_of(name: str, call: str) -> list[Statement | UncheckedStatement | PythonStep]:
     """What the write() of `name`'s Table notebook gives, each one checked. load has checked
     that its logic cell defines a write() taking nothing."""
     written = load(name).write()
@@ -1035,10 +1073,11 @@ def _writes_of(name: str, call: str) -> list[Statement | UncheckedStatement]:
     if not writes:
         _refuse_a_write(call, name, f"an empty {kind}, with no write in it", written)
     for write in writes:
-        if not isinstance(write, (Statement, UncheckedStatement)):
+        if not isinstance(write, (Statement, UncheckedStatement, PythonStep)):
             gave = (f"a {kind}, and {write!r} in it isn't" if several
                     else f"{write!r}, which isn't")
-            _refuse_a_write(call, name, f"{gave} a Statement or an Unchecked statement", write)
+            _refuse_a_write(call, name, f"{gave} a Statement, an Unchecked statement or a "
+                            "Python step", write)
     return writes
 
 
@@ -1047,8 +1086,8 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
     refuse(
         what=f"{call}: write(), in the logic cell of {name}'s Table notebook, gave {gave}.",
         why="run_tables puts the tables in order by the tables each Statement reads and "
-        "writes, so each write() gives a Statement, an Unchecked statement, or a list of "
-        "them.",
+        "writes, so each write() gives a Statement, an Unchecked statement, a Python step, "
+        "or a list of them.",
         fix="Make write() return the Statement that writes the table, as the daily_table "
         "Template's does; one that gives None has lost its return. For Hive you wrote by "
         "hand, return unchecked_hive(...). Session settings aren't a write: send them before "

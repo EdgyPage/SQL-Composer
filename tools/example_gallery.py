@@ -56,6 +56,7 @@ import pandas as pd  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import conditions, example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
+from sqlglot_composer.python_steps import PythonStep  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 from sqlglot_composer import engine  # noqa: E402
 
@@ -296,13 +297,14 @@ def example_scope(
 ) -> dict[str, object]:
     """What the doctests have in scope; to_hive, run and export_lineage note each Statement.
 
-    `handed` gets one (function name, Statement) pair per Statement handed to them.
+    `handed` gets one (function name, Statement) pair per Statement handed to them. A Python
+    step has no Hive and runs nothing, so it isn't noted.
     """
 
     def noting(name: str) -> Callable[..., object]:
-        def call(*statements: Statement | SessionSettings | UncheckedStatement,
+        def call(*statements: Statement | SessionSettings | UncheckedStatement | PythonStep,
                  **options: object) -> object:
-            handed.extend((name, s) for s in statements)
+            handed.extend((name, s) for s in statements if not isinstance(s, PythonStep))
             if name == "export_lineage":
                 # It would write beside its caller, this script; keep to the temporary folder.
                 options.setdefault("to", Path.cwd() / "lineage" / "example.html")

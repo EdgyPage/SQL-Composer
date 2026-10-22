@@ -830,11 +830,11 @@ SETTINGS = "<Session settings map_joins - show_hive(...) shows their SET lines>"
 
 
 @pytest.mark.parametrize(("gives", "said"), [
-    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement or an Unchecked statement"),
-    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a Statement or an Unchecked statement"),
-    ("None", "None, which isn't a Statement or an Unchecked statement"),
-    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement or an Unchecked statement"),
-    ("(1, 2)", "a tuple, and 1 in it isn't a Statement or an Unchecked statement"),
+    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement, an Unchecked statement or a Python step"),
+    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a Statement, an Unchecked statement or a Python step"),
+    ("None", "None, which isn't a Statement, an Unchecked statement or a Python step"),
+    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement, an Unchecked statement or a Python step"),
+    ("(1, 2)", "a tuple, and 1 in it isn't a Statement, an Unchecked statement or a Python step"),
     ("[]", "an empty list, with no write in it"),
 ])
 def test_run_tables_refuses_what_write_gives_that_it_cant_send(

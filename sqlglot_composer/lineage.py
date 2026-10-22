@@ -5,7 +5,8 @@ from the table columns through each Derived table to the Statement's outputs, wi
 to expand, collapse or hide each table. The Markdown twin needs no script: a Mermaid chart,
 then a report on each calculated column, and the Hive as submitted. Pass several Statements
 and the drawing continues through each Saved table one writes and another reads. An Unchecked statement is drawn as one step its
-columns can't be followed through, linked to the tables its text names.
+columns can't be followed through, linked to the tables its text names, and so is a Python
+step, linked to the columns it read and the table it wrote.
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ from typing import NoReturn
 from .clauses import Statement, derived_tables
 from .conditions import Condition
 from .keys import Keys, possessive, statement_keys, unproven, wanted_key
+from .python_steps import PythonStep, line, place
+from .python_steps import about as about_python_step
+from .python_steps import tables_read as python_tables_read
 from .refusals import refuse
 from .running import name_in, statements_within, to_hive
 from .stacking import STACK_HOW, nth
@@ -52,10 +56,11 @@ def box_lines(box: dict[str, object]) -> list[str]:
     """The lines of text a box shows: its name, then its formula line unless that is empty,
     then "in the Key" for a column that is part of its table's or its step's Key, then, for a
     partition column a write fills with one value, what it writes, such as
-    "writes region = 'EU'"."""
+    "writes region = 'EU'"; for a Python step, the line its function starts on."""
     key = KEY_LINE if box.get("in_key") else ""
-    return [line for line in (box["name"], formula_line(box), key, box.get("static", ""))
-            if line]
+    return [shown for shown in (box["name"], formula_line(box), key, box.get("static", ""),
+                                box.get("line", ""))
+            if shown]
 
 
 # The line a column that is part of a Key shows under its name and formula.
@@ -384,6 +389,28 @@ def _link_whole_tables(graph: Graph) -> None:
                 graph.arrow(*((whole, key) if written else (key, whole)), "value")
 
 
+def changed_in_python(step: PythonStep) -> str:
+    """What Lineage says of a Python step: where the function that made the change lives."""
+    return f"changed in Python by `{place(step)}`, {line(step)}"
+
+
+def _add_python_step(graph: Graph, step: PythonStep, index: int, name: str) -> list[str]:
+    """A Python step's one box, naming its function and where it lives, with an arrow in from
+    each column it read and out to each column of the table it wrote. It returns the boxes
+    that end there."""
+    key = graph.add(_box_key("python", index), kind="python", group=name,
+                    name="Python step", full=f"{name}: Python step",
+                    type=None, sql=changed_in_python(step).replace("`", ""),
+                    formula=place(step), line=line(step), calculated=False, statement=index,
+                    reads=set())
+    for table, column in step._reads:
+        graph.arrow(_table_box(graph, table, column), key, "value")
+    written = [_table_box(graph, step._writes, column) for column in step._writes._columns]
+    for target in written:
+        graph.arrow(key, target, "value")
+    return [key, *written]
+
+
 def _add_write(graph: Graph, s: Statement, index: int) -> list[str]:
     """Arrows from a write's outputs into its Saved table, and a box for each partition column
     it fills with one value, which says what it writes, such as "writes region = 'EU'"."""
@@ -399,13 +426,17 @@ def _add_write(graph: Graph, s: Statement, index: int) -> list[str]:
     return written
 
 
-def build_graph(ordered: list[tuple[Statement | UncheckedStatement, str]]) -> Graph:
+def build_graph(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
+                ) -> Graph:
     """Every box and arrow of the Statements, writers first, keeping what reaches an output."""
     graph, ends = Graph(), []
     groups = _derived_group_names(ordered)
     for index, (s, name) in enumerate(ordered):
         if isinstance(s, UncheckedStatement):
             ends += _add_unchecked(graph, s, index, name)
+            continue
+        if isinstance(s, PythonStep):
+            ends += _add_python_step(graph, s, index, name)
             continue
         for table in derived_tables(s):
             _add_step(graph, table._statement, index=index, kind="derived",
@@ -423,7 +454,7 @@ def build_graph(ordered: list[tuple[Statement | UncheckedStatement, str]]) -> Gr
     return graph
 
 
-def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement, str]]
+def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
                          ) -> dict[tuple[int, str], str]:
     """Each Derived table's group name: its own, plus "in <Statement>" when that name is
     taken by another passed Statement's Derived table, by a Statement or by a table."""
@@ -440,38 +471,43 @@ def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement, str
 # --- Putting the Statements in order ----------------------------------------------------------
 
 
-def _tables_read(s: Statement | UncheckedStatement) -> set[str]:
+def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     """The names of the real tables a Statement reads, itself or through its Derived tables,
-    or that an Unchecked statement's text reads."""
+    that an Unchecked statement's text reads, or that a Python step read."""
     if isinstance(s, UncheckedStatement):
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
+    if isinstance(s, PythonStep):
+        return python_tables_read(s)
     return {read.table._name for step in statements_within(s) for read in step._reads
             if read.table._statement is None}
 
 
-def _tables_written(s: Statement | UncheckedStatement) -> list[str]:
-    """The Saved table a Statement writes, or each table an Unchecked statement's text writes
-    or changes."""
+def _tables_written(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
+    """The Saved table a Statement writes, each table an Unchecked statement's text writes
+    or changes, or the table a Python step wrote."""
     if isinstance(s, UncheckedStatement):
         return list(dict.fromkeys(name for name, how in tables_read_and_written(s._text)
                                   if how == "writes"))
+    if isinstance(s, PythonStep):
+        return [s._writes._name]
     return [s._write._name] if s._write is not None else []
 
 
-def _derived_tables_of(s: Statement | UncheckedStatement) -> list[Table]:
-    """The Derived tables a Statement reads; an Unchecked statement has none the Toolbox
-    knows of."""
-    return [] if isinstance(s, UncheckedStatement) else derived_tables(s)
+def _derived_tables_of(s: Statement | UncheckedStatement | PythonStep) -> list[Table]:
+    """The Derived tables a Statement reads; an Unchecked statement and a Python step have
+    none the Toolbox knows of."""
+    return [] if isinstance(s, (UncheckedStatement, PythonStep)) else derived_tables(s)
 
 
-def in_order(named: list[tuple[Statement | UncheckedStatement, str]],
-             call: str | None = None) -> list[tuple[Statement | UncheckedStatement, str]]:
+def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+             call: str | None = None
+             ) -> list[tuple[Statement | UncheckedStatement | PythonStep, str]]:
     """The Statements with every writer before the Statements that read what it writes. An
-    Unchecked statement that reads a table it changes, as many do, waits only on others.
-    `call`, given by project.run_tables, names it in the refusal of a loop."""
+    Unchecked statement or a Python step that reads a table it changes, as many do, waits
+    only on others. `call`, given by project.run_tables, names it in the refusal of a loop."""
     reads = [_tables_read(s) for s, _ in named]
     needs = [{j for j, (w, _) in enumerate(named) if set(_tables_written(w)) & reads[i]
-              and not (j == i and isinstance(w, UncheckedStatement))}
+              and not (j == i and isinstance(w, (UncheckedStatement, PythonStep)))}
              for i in range(len(named))]
     placed = []
     while len(placed) < len(named):
@@ -493,7 +529,8 @@ def _in_the_loop(needs: list[set[int]], placed: list[int]) -> list[int]:
         stuck = kept
 
 
-def _refuse_loop(named: list[tuple[Statement | UncheckedStatement, str]], reads: list[set[str]],
+def _refuse_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+                 reads: list[set[str]],
                  stuck: list[int], call: str | None = None) -> NoReturn:
     """Refuse Statements that go round in a loop, naming each write and who reads it: to
     export_lineage, or, with `call`, to project.run_tables."""
@@ -638,17 +675,20 @@ def _tables_read_by(graph: Graph, condition: str) -> list[str]:
 def _copied_from(graph: Graph, key: str) -> list[str]:
     """The full names of the boxes a copied column comes from, nearest first.
 
-    A box that is a calculation has " (calculated)" after its name.
+    A box that is a calculation has " (calculated)" after its name. A Python step ends the
+    chain, since which columns it copied can't be told: its own section lists what it read.
     """
     chain, at = [], key
     while graph.parents(at, "value"):
         at = graph.parents(at, "value")[0]
         box = graph.boxes[at]
         chain.append(box["full"] + (" (calculated)" if box.get("calculated") else ""))
+        if box["kind"] == "python":
+            break
     return chain
 
 
-def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement, str]]
+def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
            ) -> list[dict[str, object]]:
     """One section per Statement, writers first: its calculated and copied columns, its Hive."""
     sections = []
@@ -656,6 +696,10 @@ def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement, str
         if isinstance(s, UncheckedStatement):
             sections.append({"name": name, "about": _about_unchecked(s), "calculated": [],
                              "copied": [], "sql": s._text, "unchecked": True})
+            continue
+        if isinstance(s, PythonStep):
+            sections.append({"name": name, "about": _about_python_step(s), "calculated": [],
+                             "copied": [], "python": changed_in_python(s)})
             continue
         mine = [k for k, box in graph.boxes.items() if box.get("statement") == index
                 and box["kind"] in ("derived", "output")]
@@ -674,7 +718,7 @@ def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement, str
 
 
 def _about(s: Statement, index: int,
-           ordered: list[tuple[Statement | UncheckedStatement, str]]) -> str:
+           ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]) -> str:
     """One sentence on how a Statement joins the others through Saved tables."""
     parts = []
     for table in sorted(_tables_read(s)):
@@ -708,6 +752,18 @@ def _about_unchecked(s: UncheckedStatement) -> str:
     elif written:
         text += f" It writes or changes {' and '.join(written)}."
     return text
+
+
+def _about_python_step(s: PythonStep) -> str:
+    """What a Python step's section says of it: that it is a change made in Python, which the
+    Toolbox can't see inside and never sent, and what it read and wrote."""
+    return ("A Python step: a change made in Python, outside any Statement, and saved by your "
+            "own call. The Toolbox can't see inside it, so its columns can't be followed "
+            f"through it, and it never moved its data. {about_python_step(s)}")
+
+
+# What a Python step's section says under its heading, Where it lives, after where.
+PYTHON_WHERE = "Open the function there to see what the change does."
 
 
 # --- The Markdown twin -----------------------------------------------------------------------
@@ -765,6 +821,10 @@ def _section_markdown(section: dict[str, object]) -> list[str]:
         lines += [section["about"], ""]
     if section.get("unchecked"):
         return lines + ["### Hive as submitted", "", "```sql", section["sql"], "```", ""]
+    if section.get("python"):
+        said = section["python"]
+        return lines + ["### Where it lives", "",
+                        f"{said[0].upper()}{said[1:]}. {PYTHON_WHERE}", ""]
     lines += ["### Calculated columns", "",
               "Every column that is calculated rather than copied, in the order it is "
               "calculated.", ""]
@@ -849,6 +909,12 @@ def report_html(sections: list[dict[str, object]]) -> str:
         if section.get("unchecked"):
             parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
             continue
+        if section.get("python"):
+            said = re.sub(r"`([^`]*)`", lambda found: f"<code>{found[1]}</code>",
+                          e(section["python"]))
+            parts.append(f"<h3>Where it lives</h3><p>{said[0].upper()}{said[1:]}. "
+                         f"{e(PYTHON_WHERE)}</p>")
+            continue
         parts.append("<h3>Calculated columns</h3>")
         parts += [_entry_html(entry) for entry in section["calculated"]]
         if not section["calculated"]:
@@ -881,9 +947,11 @@ def graph_data(graph: Graph) -> dict[str, list[dict[str, object]] | list[list[st
 
 
 def _drawn_kind(box: dict[str, object]) -> str:
-    """The kind the page's script draws a box as: an Unchecked statement's step is drawn as an
-    output, marked unchecked."""
-    return "output unchecked" if box["kind"] == "unchecked" else box["kind"]
+    """The kind the page's script draws a box as: an Unchecked statement's step and a Python
+    step are drawn as an output, marked unchecked or python."""
+    if box["kind"] in ("unchecked", "python"):
+        return f"output {box['kind']}"
+    return box["kind"]
 
 
 def _script_safe(data: dict[str, list[dict[str, object]] | list[list[str]]]) -> str:
@@ -945,14 +1013,19 @@ def _checked_out(place: Path, dot: Path) -> str:
 
 def calling_file(frame: FrameType) -> Path | None:
     """The script or notebook that called export_lineage, if it can be told."""
-    filename = frame.f_code.co_filename
+    return file_of(frame.f_code.co_filename)
+
+
+def file_of(filename: str) -> Path | None:
+    """The script or notebook that Python code comes from, by the file name Python gives it:
+    code run in a notebook's cell is named by the notebook, if it can be told."""
     if filename.startswith("<") or "ipykernel" in filename:
         notebook = os.environ.get("JPY_SESSION_NAME")
         return Path(notebook) if notebook else None
     return Path(filename)
 
 
-def statement_names(statements: list[Statement | UncheckedStatement],
+def statement_names(statements: list[Statement | UncheckedStatement | PythonStep],
                     frame: FrameType) -> list[str]:
     """The caller's variable name for each Statement, found by identity."""
     return [name_in(frame, s) or ("statement" if len(statements) == 1 else f"statement_{position}")
@@ -973,7 +1046,8 @@ def default_path(caller: Path | None, commit: str, names: list[str],
     return caller_folder(caller) / "lineage" / name
 
 
-def _table_folder_path(statements: list[Statement | UncheckedStatement], caller: Path | None,
+def _table_folder_path(statements: list[Statement | UncheckedStatement | PythonStep],
+                       caller: Path | None,
                        when: datetime.datetime) -> Path | None:
     """Inside a Project, the Table folder's lineage/{time}-{db}__{table}.html for the
     Statements, or None: the folder of the one Saved table they all write, or else of the
@@ -1007,7 +1081,8 @@ def caller_folder(caller: Path | None) -> Path:
 
 
 def _check_statements(statements: tuple[object, ...]
-                      ) -> tuple[list[Statement | UncheckedStatement], list[SessionSettings]]:
+                      ) -> tuple[list[Statement | UncheckedStatement | PythonStep],
+                                 list[SessionSettings]]:
     """The Statements passed, each once, and the names of the Session settings passed with
     them; anything else is refused."""
     if not statements:
@@ -1025,7 +1100,7 @@ def _check_statements(statements: tuple[object, ...]
             # An Admin statement changes a table, or copies its rows whole: left out.
             admin.append(s)
             continue
-        if not isinstance(s, (Statement, UncheckedStatement)) or (
+        if not isinstance(s, (Statement, UncheckedStatement, PythonStep)) or (
                 isinstance(s, Statement) and s._ddl is not None):
             refuse(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
@@ -1073,7 +1148,7 @@ def _html_path(to: str | os.PathLike[str]) -> Path:
     return path
 
 
-def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement,
+def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement | PythonStep,
                    to: str | Path | None = None) -> tuple[Path, Path]:
     """Write where each column comes from, as an HTML page and a Markdown twin.
 
@@ -1082,7 +1157,9 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     up its whole path; controls expand, collapse or hide each table, and switch to a grouped
     flowchart. The Markdown file needs no script: a Mermaid chart, a report on each
     calculated column, and the Hive. Pass several Statements and the drawing follows each
-    Saved table from the Statement that writes it to the ones that read it.
+    Saved table from the Statement that writes it to the ones that read it. An Unchecked
+    statement and a Python step (help(python_step)) are each drawn as one step it can't see
+    inside, with a section of the report of their own.
 
     The files go in a lineage/ folder beside your script or notebook, named by the time,
     your scripts' git commit, the file and the Statement's variable, such as
@@ -1171,6 +1248,7 @@ svg{width:100%;height:auto;cursor:grab;display:block}
 .n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6} .output rect{fill:#effaf0}
 .condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
 .unchecked rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2}
+.python rect{fill:#eaf6f6;stroke:#2b8a8a;stroke-width:2}
 .grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff} .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
@@ -1187,6 +1265,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
+<span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>Python step: changed in Python, saved by your own call</span>
 <span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
