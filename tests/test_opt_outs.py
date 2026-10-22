@@ -77,6 +77,11 @@ def test_a_full_join_off_the_key_warns_unless_many_matches_says_it_means_to() ->
         reading(FULL_JOIN(job_runs, ON=on, reads_all_partitions=True, many_matches=True))
 
 
+def test_unproven_key_is_true_or_false() -> None:
+    with pytest.raises(ValueError, match="unproven_key= is True or False"):
+        INSERT_INTO(job_teams, unproven_key="yes")
+
+
 def test_insert_into_lets_an_unproven_key_through_only_when_it_says_so() -> None:
     rows = [SELECT(jobs.job_id, jobs.team), FROM(job_runs),
             JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),

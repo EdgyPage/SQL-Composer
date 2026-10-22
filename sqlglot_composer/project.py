@@ -72,6 +72,7 @@ from typing import NoReturn
 
 import pandas as pd
 
+# unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import kinds, unchecked
 from .clauses import Statement
 from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook

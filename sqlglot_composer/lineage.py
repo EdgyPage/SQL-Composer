@@ -22,6 +22,7 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
+# unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import kinds, unchecked
 from .clauses import Statement, derived_tables
 from .conditions import Condition
