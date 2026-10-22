@@ -29,6 +29,7 @@ from sqlglot_composer import (
     admin,
     example_database,
     export_lineage,
+    notebooks,
     project,
     run,
     set_admin_log,
@@ -58,9 +59,8 @@ def registry(root: Path) -> list[dict[str, str]]:
 
 
 def cells(path: Path) -> list[tuple[str, str]]:
-    notebook = json.loads(path.read_text(encoding="utf-8"))
-    assert notebook["nbformat"] == 4
-    return [(cell["cell_type"], "".join(cell["source"])) for cell in notebook["cells"]]
+    assert json.loads(path.read_text(encoding="utf-8"))["nbformat"] == 4
+    return notebooks.read_cells(path)
 
 
 def log_text(root: Path) -> str:
@@ -518,9 +518,9 @@ def test_remove_block_refuses_while_something_imports_it(started: Path) -> None:
         "from building_blocks.runs_per_job import runs_per_job\n", encoding="utf-8")
     project.new_table("mart.daily_job_runs")
     notebook = started / "tables" / "mart__daily_job_runs" / "mart__daily_job_runs.ipynb"
-    found = json.loads(notebook.read_text(encoding="utf-8"))
-    found["cells"][2]["source"] = ["# logic\n", "from building_blocks import runs_per_job\n"]
-    notebook.write_text(json.dumps(found), encoding="utf-8")
+    found = notebooks.read_cells(notebook)
+    found[2] = ("code", "# logic\nfrom building_blocks import runs_per_job\n")
+    notebooks.write_notebook(notebook, found)
     with pytest.raises(ValueError, match=(
             "tables/mart__daily_job_runs/mart__daily_job_runs.ipynb and "
             "building_blocks/team_runs.py still import building_blocks/runs_per_job.py")):
@@ -529,9 +529,26 @@ def test_remove_block_refuses_while_something_imports_it(started: Path) -> None:
     # A name that only starts the same isn't an import of it.
     (started / "building_blocks" / "team_runs.py").write_text(
         "from building_blocks.runs_per_job_v2 import x\n", encoding="utf-8")
-    notebook.write_text(json.dumps({"cells": []}), encoding="utf-8")
+    notebooks.write_notebook(notebook, [])
     project.remove_block("runs_per_job")
     assert not (started / "building_blocks" / "runs_per_job.py").exists()
+
+
+def test_remove_block_passes_over_a_notebook_jupyter_cant_read(started: Path) -> None:
+    # remove_block only archives, so a broken notebook, which imports nothing, doesn't stop it.
+    project.new_block("runs_per_job")
+    project.new_table("mart.daily_job_runs")
+    notebook_of(started, "mart__daily_job_runs").write_text('{"cells": [', encoding="utf-8")
+    project.remove_block("runs_per_job")
+    assert not (started / "building_blocks" / "runs_per_job.py").exists()
+
+
+def test_a_cell_jupyter_keeps_as_one_string_is_read_as_its_text(tmp_path: Path) -> None:
+    path = tmp_path / "one_string.ipynb"
+    path.write_text(json.dumps({"cells": [{"cell_type": "code", "source": "# logic\nx = 1"}]}),
+                    encoding="utf-8")
+    assert notebooks.read_cells(path) == [("code", "# logic\nx = 1")]
+    assert notebooks.logic_cell(path) == "# logic\nx = 1"
 
 
 def test_remove_block_marks_removed_a_block_deleted_by_hand(started: Path) -> None:
@@ -1068,6 +1085,22 @@ def test_load_refuses_a_notebook_it_cant_find(two_tables: Path) -> None:
     with pytest.raises(FileNotFoundError,
                        match="there is no tables/mart__nope/mart__nope.ipynb"):
         project.load("mart.nope")
+
+
+@pytest.mark.parametrize(("text", "said"), [
+    ('{"cells": [{"cell_type": "code", "sou', "isn't JSON"),
+    ('{"metadata": {}, "nbformat": 4}', "has no cells"),
+])
+def test_load_refuses_a_notebook_jupyter_cant_read(
+        two_tables: Path, text: str, said: str) -> None:
+    notebook_of(two_tables, "mart__daily_runs").write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError) as refused:
+        project.load("mart.daily_runs")
+    message = " ".join(str(refused.value).split())
+    assert ('What happened: project.load("mart.daily_runs"): '
+            f"tables/mart__daily_runs/mart__daily_runs.ipynb {said}") in message
+    assert "Why it matters:" in message and "Usual fix:" in message
+    assert "Opt-out: none" in message
 
 
 @pytest.mark.parametrize(("logic", "said"), [
