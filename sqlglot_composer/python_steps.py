@@ -73,8 +73,10 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
     Where the function lives is read from the function itself: its file, from your Project's
     folder (or, outside a Project, the folder it is in), its name and its first line. Keep it
     in a file of building_blocks/, which project.new_block(...) makes, so its line stays put;
-    one defined in a notebook cell is named by its notebook when JupyterLab tells the Toolbox
-    the notebook's name, and otherwise as "in a notebook", and its line is a line of the cell.
+    one defined in a Table notebook's logic cell, as project.load runs it, is named by that
+    notebook; one defined in a cell you run is named by its notebook when JupyterLab tells the
+    Toolbox the notebook's name, and otherwise as "in a notebook"; its line is a line of the
+    cell.
     A lambda, or anything else that isn't a function written with def, is refused, since it
     has no name or file to find it by.
 
