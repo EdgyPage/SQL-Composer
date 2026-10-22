@@ -326,10 +326,14 @@ def unchecked_hive(text: str, *, returns_rows: bool) -> UncheckedStatement:
     -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
     SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24';
 
-    A Table reference's text drops into the Hive you write, in an f-string: a table's is its
-    name as FROM writes it, ops.jobs AS jobs, and a column's its table and name, jobs.job_id,
-    so the columns are spelt as the Table reference spells them. In a Project, from
-    references import ops gives the table as ops.jobs:
+    A Table reference's text drops into the Hive you write, in an f-string, so the names are
+    spelt as the Table reference spells them. A table's text is its name as FROM writes it,
+    ops.jobs AS jobs, for after FROM or JOIN; DESCRIBE and SHOW PARTITIONS take the name
+    alone, ops.jobs, which you write yourself. A column's is jobs.job_id, not ops.jobs.job_id:
+    Hive names a column by its table's name after AS, and refuses a three-part name in a
+    SELECT. In a Project, from references import ops gives the table as ops.jobs and the
+    column as ops.jobs.job_id, whose texts are the same. A table alone on a cell's last line
+    shows its repr instead, its name and its columns. Below, jobs is the Example database's:
 
     >>> by_hand = unchecked_hive(f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs}",
     ...                          returns_rows=True)

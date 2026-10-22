@@ -55,12 +55,14 @@ per_job = Table("mart.per_job", columns={"job_id": "bigint", "runs": "bigint", "
                 partitioned_by=["dt"], key=["job_id", "dt"], location=f"{BASE}/per_job")
 per_run = Table("mart.per_run", columns={"run_id": "bigint", "job_id": "bigint",
                                          "status": "string", "dt": "string"},
-                partitioned_by=["dt"], key=["run_id"])
+                partitioned_by=["dt"], key=["run_id"],
+                location=f"{BASE}/per_run")
 per_run_and_team = Table("mart.per_run_and_team", columns={
-    "run_id": "bigint", "team": "string", "dt": "string"}, partitioned_by=["dt"], key=["run_id"])
+    "run_id": "bigint", "team": "string", "dt": "string"}, partitioned_by=["dt"], key=["run_id"],
+    location=f"{BASE}/per_run_and_team")
 newest_per_job = Table("mart.newest_per_job", columns={
     "job_id": "bigint", "run_id": "bigint", "dt": "string"}, partitioned_by=["dt"],
-    key=["job_id"])
+    key=["job_id"], location=f"{BASE}/newest_per_job")
 no_key = Table("mart.no_key", columns={"job_id": "bigint", "status": "string", "dt": "string"},
                partitioned_by=["dt"], location=f"{BASE}/no_key")
 
@@ -100,7 +102,7 @@ def test_a_partition_column_the_write_names_is_left_out_of_the_key(
 
 def test_select_distinct_of_the_key_proves_it() -> None:
     keys = Table("mart.keys", columns={"job_id": "bigint", "dt": "string"},
-                 partitioned_by=["dt"], key=["job_id"])
+                 partitioned_by=["dt"], key=["job_id"], location=f"{BASE}/keys")
     statement(INSERT_OVERWRITE(keys, partition={"dt": DAY}), SELECT_DISTINCT(job_runs.job_id),
               FROM(job_runs), WHERE(on_the_day()))
 
@@ -137,7 +139,7 @@ def test_a_joined_tables_key_column_held_to_one_value_needs_no_match() -> None:
     """job_owners' Key is job_id and dt; with dt held to one value, job_id alone is enough."""
     owners = Table("mart.owners", columns={"run_id": "bigint", "owner": "string",
                                            "dt": "string"}, partitioned_by=["dt"],
-                   key=["run_id"])
+                   key=["run_id"], location=f"{BASE}/owners")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")  # JOIN can't see WHERE, so it still warns
         statement(INSERT_OVERWRITE(owners), SELECT(job_runs.run_id, job_owners.owner,
@@ -168,7 +170,8 @@ def test_a_join_that_repeats_rows_still_shows_the_key_when_its_own_key_decides_t
     and run_id, job_runs' Key, decides the job_id the two are joined on."""
     run_owner = Table("mart.run_owner", columns={"run_id": "bigint", "owner": "string",
                                                  "dt": "string"},
-                      partitioned_by=["dt"], key=["run_id", "dt"])
+                      partitioned_by=["dt"], key=["run_id", "dt"],
+                      location=f"{BASE}/run_owner")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         statement(INSERT_OVERWRITE(run_owner), SELECT(job_runs.run_id, job_owners.owner,
@@ -192,7 +195,7 @@ def test_a_cross_join_with_one_row_keeps_the_key() -> None:
                                        FROM(job_runs), WHERE(on_the_day())))
     shares = Table("mart.shares", columns={"run_id": "bigint", "minutes": "bigint",
                                            "dt": "string"}, partitioned_by=["dt"],
-                   key=["run_id"])
+                   key=["run_id"], location=f"{BASE}/shares")
     statement(INSERT_OVERWRITE(shares), SELECT(job_runs.run_id, total.minutes, job_runs.dt),
               FROM(job_runs),
               CROSS_JOIN(total), WHERE(on_the_day()))
@@ -232,7 +235,8 @@ def test_the_opt_out_lets_the_write_through() -> None:
 def test_grouping_by_more_than_the_key_is_refused() -> None:
     per_status = Table("mart.per_status", columns={"job_id": "bigint", "status": "string",
                                                    "runs": "bigint", "dt": "string"},
-                       partitioned_by=["dt"], key=["job_id"])
+                       partitioned_by=["dt"], key=["job_id"],
+                       location=f"{BASE}/per_status")
     said = refusal(INSERT_OVERWRITE(per_status, partition={"dt": DAY}),
                    SELECT(job_runs.job_id, job_runs.status, AS(count_rows(), "runs")),
                    FROM(job_runs), WHERE(on_the_day()), GROUP_BY(job_runs.job_id,

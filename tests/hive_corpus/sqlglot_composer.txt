@@ -3859,6 +3859,30 @@ GROUP BY
 ---
 
 
+== doc:admin.drop_partitions
+-- Statement 1: to_hive
+ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt <= '2025-01-31')
+-- Statement 1: show_hive
+-- admin.drop_partitions(mart.daily_runs, where=between(daily_runs.dt, "2025-01-01",
+-- "2025-01-31")) drops each Partition of mart.daily_runs where dt >= '2025-01-01' and dt <=
+-- '2025-01-31', every row of it, so no Statement reads it again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then those Partitions' files go too, and nothing brings them back.
+-- Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: the ones where dt >=
+-- '2025-01-01' and dt <= '2025-01-31' go.
+ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt <= '2025-01-31');
+-- Statement 2: to_hive
+ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt < '2025-02-01')
+-- Statement 2: show_hive
+-- admin.drop_partitions(mart.daily_runs, where=[at_least(daily_runs.dt, "2025-01-01"),
+-- less_than(daily_runs.dt, "2025-02-01")]) drops each Partition of mart.daily_runs where dt
+-- >= '2025-01-01' and dt < '2025-02-01', every row of it, so no Statement reads it again.
+-- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+-- Table reference asks: then those Partitions' files go too, and nothing brings them back.
+-- Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: the ones where dt >=
+-- '2025-01-01' and dt < '2025-02-01' go.
+ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt < '2025-02-01');
+
 == doc:admin.move_to_own_folder
 -- Statement 1: to_hive
 INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)
@@ -18838,14 +18862,6 @@ ValueError:
   What happened:  admin.drop_partitions(...) was given mart.job_teams, whose Table reference has no partitioned_by=.
   Why it matters: It drops whole Partitions, and a table with no partitioned_by= has none.
   Usual fix:      To keep fewer rows, write the table again with INSERT_OVERWRITE(job_teams), which replaces all its rows with the ones its Statement gives. To empty it, drop it with admin.drop_table(job_teams) and create it again, after admin.set_properties(job_teams) with purge=True in its Table reference, so its files go too.
-  Opt-out:        none - this one can't be switched off.
-
-== edge:admin:drop_partitions:refused:no_where
--- refused
-TypeError:
-  What happened:  admin.drop_partitions(mart.daily_runs, where=...) wasn't given where=.
-  Why it matters: where= says which Partitions to drop; dropping them all is dropping the table's rows, which admin.drop_table does.
-  Usual fix:      Pass the Partitions to drop, such as where=less_than(daily_runs.dt, ...).
   Opt-out:        none - this one can't be switched off.
 
 == edge:admin:drop_partitions:refused:not_a_partition_column

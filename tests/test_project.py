@@ -418,7 +418,9 @@ def test_add_references_writes_each_table_and_registers_it(started: Path) -> Non
     assert repr(report) == ("Wrote references/ops__jobs.py and references/ops__job_runs.py: "
                             "fill in their TODO lines.\n"
                             "Wrote references/ops.py: from references import ops gives "
-                            "ops.job_runs and ops.jobs.")
+                            "ops.job_runs and ops.jobs.\n"
+                            "Restart the kernel of a notebook that imported references, to "
+                            "see a table added since.")
 
 
 def test_add_references_names_three_files_or_more_as_a_sentence_does(started: Path) -> None:
@@ -652,7 +654,9 @@ def test_register_writes_the_database_module(started: Path) -> None:
     (started / "references" / "mart__job_days.py").write_text(JOB_DAYS, encoding="utf-8")
     assert repr(project.register("mart.job_days")) == (
         "Registered references/mart__job_days.py.\n"
-        "Wrote references/mart.py: from references import mart gives mart.job_days.")
+        "Wrote references/mart.py: from references import mart gives mart.job_days.\n"
+        "Restart the kernel of a notebook that imported references, to see a table added "
+        "since.")
     assert "- Files: registered references/mart__job_days.py; wrote references/mart.py\n" in (
         log_text(started))
 
@@ -696,6 +700,8 @@ def test_a_file_of_yours_named_like_a_database_module_is_never_written_over(
      "from references.class__jobs import jobs"),
     ("2024.jobs", "2024 starts with a digit",
      'importlib.import_module("references.2024__jobs").jobs'),
+    ("__main__.jobs", "__main__ starts and ends with two underscores, as the names Python "
+     "keeps for itself do", "from references.__main____jobs import jobs"),
 ])
 def test_a_database_python_cant_import_by_name_isnt_written(
         started: Path, name: str, said: str, instead: str) -> None:
@@ -715,8 +721,8 @@ def test_two_tables_of_one_database_by_one_name_leave_the_second_out(started: Pa
         'from sqlglot_composer import Table\n\njobs = Table("ops.jobs_copy", '
         'columns={"id": "int"})\n', encoding="utf-8")
     report = " ".join(repr(project.register("ops.jobs_copy")).split())
-    assert ("Left out of its Database's file: references/ops__jobs_copy.py, whose table is "
-            "called jobs as references/ops__jobs.py's is.") in report
+    assert ("Left out of its Database's file: references/ops__jobs_copy.py, which calls its "
+            "table jobs, as references/ops__jobs.py does too.") in report
     with on_the_path(started):
         from references import ops
     assert dir(ops) == ["jobs"]

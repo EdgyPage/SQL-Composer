@@ -6,10 +6,9 @@ is reached as ops.job_runs.run_id.
 Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
 (references/ops__run_alerts.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn't Python yet, or has a <...> still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a <...> still
+in it, as new_table writes one, is left out until it is filled in.
 """
 
 import difflib

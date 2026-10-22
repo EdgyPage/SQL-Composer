@@ -32,19 +32,19 @@ before the tables that read it.
 
 Each of add_references, new_table, register, remove_reference and refresh_reference_sheet
 writes the Database modules again from the Table references in references/: one file per
-Database, such as references/ops.py, never written by hand. A Table reference that isn't
-Python yet, or has a <...> still to fill in, is left out of it until it is filled in.
+Database, such as references/ops.py, never written by hand. A Table reference with a <...>
+still in it, as new_table writes one, is left out until it is filled in.
 
 None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
 Database module, which they write, is deleted, once no Table reference names its Database.
-add_references sends
-DESCRIBE through your query, and run_tables, given your execute, writes your tables; the rest
-never touch the warehouse. start, new_table, remove_table, remove_reference, register and
-add_references, the Project actions, each add an entry to admin/admin_log.md, the log that
-also keeps every Admin statement run inside the Project. check, refresh_reference_sheet, load
-and run_tables change none of your files but the Reference sheet and the Database modules, and
-add no entry of their own, though an Admin or Unchecked statement run_tables sends is logged, as run logs one
-anywhere.
+add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
+your tables; the rest never touch the warehouse. start, new_table, remove_table,
+remove_reference, register and add_references, the Project actions, each add an entry to
+admin/admin_log.md, the log that also keeps every Admin statement run inside the Project. The
+rest add no entry of their own: check and load change no file; refresh_reference_sheet writes
+the Reference sheet and the Database modules, and no other file; run_tables writes only your
+tables in the warehouse, though an Admin or Unchecked statement it sends is logged, as run
+logs one anywhere.
 """
 
 from __future__ import annotations
@@ -419,12 +419,14 @@ def remove_table(name: str) -> ProjectReport:
 
 
 def remove_reference(name: str) -> ProjectReport:
-    """Move a Table reference into admin/removed/, named by the time, deleting nothing.
+    """Move a Table reference into admin/removed/, deleting nothing of yours.
 
-    references/ops__jobs.py moves to a file such as admin/removed/20261021-093000-ops__jobs.py,
-    and its registry row is marked removed. It refuses while the table has a Table folder,
-    whose notebook imports the reference: remove_table first. A Table reference the registry
-    lists but that was deleted by hand only has its row marked.
+    references/ops__jobs.py moves to a file named by the time, such as
+    admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. Only
+    its Database's module, such as references/ops.py, which the Project actions write, is
+    deleted, once no Table reference is left in that Database. It refuses while the table has
+    a Table folder, whose notebook imports the reference: remove_table first. A Table
+    reference the registry lists but that was deleted by hand only has its row marked.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -517,6 +519,7 @@ def add_references(names: list[str],
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
+    Restart the kernel of a notebook that imported references, to see a table added since.
     """
     refuse_removed_arguments("add_references", removed, "query=")
     need_warehouse_call("project.add_references", "query", query, "It sends each table's "
@@ -699,6 +702,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
     Wrote references/ops.py: from references import ops gives ops.run_alerts.
+    Restart the kernel of a notebook that imported references, to see a table added since.
     >>> project.refresh_reference_sheet()
     Wrote references/reference_sheet.csv: 4 rows, 1 table.
     """
@@ -798,11 +802,12 @@ def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
     assigned = _simple_assignments(tree)
     aliases: dict[str, list[str]] = {}
     for target, value in assigned:
-        read = {node.attr for node in ast.walk(value) if isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Name) and node.value.id == variable}
-        if len(read) == 1:  # an Alias of one column, or a condition on it alone
+        columns_read = {node.attr for node in ast.walk(value)
+                        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                        and node.value.id == variable}
+        if len(columns_read) == 1:  # an Alias of one column, or a condition on it alone
             shown = target if isinstance(value, ast.Attribute) else f"{target} (a condition)"
-            aliases.setdefault(read.pop(), []).append(shown)
+            aliases.setdefault(columns_read.pop(), []).append(shown)
     key = values.get("key") or []
     key = [key] if isinstance(key, str) else list(key)
     partitions = values.get("partitioned_by") or []
@@ -845,10 +850,9 @@ DATABASE_TEXT = '''"""@DATABASE@@TITLE@
 
 @LISTED@
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn't Python yet, or has a <...> still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a <...> still
+in it, as new_table writes one, is left out until it is filled in.
 """
 
 import difflib
@@ -924,7 +928,8 @@ def _database_name_problem(root: Path, database: str) -> str | None:
     if keyword.iskeyword(database):
         return f"{database} is a word Python keeps for itself, so it can't be imported by name"
     if database.startswith("__") and database.endswith("__"):
-        return f"{database} is a name Python gives a meaning of its own"
+        return (f"{database} starts and ends with two underscores, as the names Python keeps "
+                "for itself do")
     module = root / "references" / f"{database}.py"
     if module.exists() and not _is_database_module(module):
         return (f"references/{database}.py is a file of yours, which the Project actions never "
@@ -972,8 +977,8 @@ def _write_databases(root: Path) -> tuple[list[str], list[str]]:
         database, variable, column = entry
         tables = databases.setdefault(database, {})
         if variable in tables:
-            left_out.append(f"references/{path.name}, whose table is called {variable} as "
-                            f"references/{tables[variable][0]}.py's is")
+            left_out.append(f"references/{path.name}, which calls its table {variable}, as "
+                            f"references/{tables[variable][0]}.py does too")
             continue
         tables[variable] = (path.stem, column)
     changed = []
@@ -997,16 +1002,27 @@ def _write_databases(root: Path) -> tuple[list[str], list[str]]:
         changed.append(f"wrote references/{database}.py")
         said.append(f"Wrote references/{database}.py: from references import {database} gives "
                     f"{_as_a_sentence([f'{database}.{name}' for name in sorted(tables)])}.")
+    if changed:
+        # Python keeps a module it has imported, so running the import again reads it no more.
+        said.append("Restart the kernel of a notebook that imported references, to see a table "
+                    "added since.")
+    _remove_databases(root, set(databases), changed, said)
+    if left_out:
+        said.append(f"Left out of its Database's file: {'; '.join(left_out)}. Give one of them "
+                    "another name, so each table of a Database has its own.")
+    return changed, said
+
+
+def _remove_databases(root: Path, databases: set[str], changed: list[str],
+                      said: list[str]) -> None:
+    """Remove each Database module in references/ whose Database no Table reference names
+    any more, adding to what changed, for the Admin log, and to the action's report."""
     for module in sorted((root / "references").glob("*.py")):
         if _is_database_module(module) and module.stem not in databases:
             module.unlink()
             changed.append(f"removed references/{module.name}")
             said.append(f"Removed references/{module.name}, since no Table reference left "
                         f"names the Database {module.stem}.")
-    if left_out:
-        said.append(f"Left out of its Database's file: {'; '.join(left_out)}. Give one of them "
-                    "another name, so each table of a Database has its own.")
-    return changed, said
 
 
 # --- load and run_tables ----------------------------------------------------------------------
@@ -1040,9 +1056,9 @@ def load(name: str) -> TableLogic:
     It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
     whose first line is # logic. That cell only imports and defines, and it defines write(),
     which takes nothing and gives what writes the table: a Statement, an Unchecked statement,
-    a Python step, or a list of them. In a notebook made from the saved_table Template, it defines create,
-    rows, preview and write, and load gives each of them (the functions and classes
-    only, not other names the cell sets). So another table's notebook can use this table's
+    a Python step, or a list of them. In a notebook made from the saved_table Template, it
+    defines create, rows, preview and write, and load gives each of them (the functions and
+    classes only, not other names the cell sets). So another table's notebook can use this table's
     write, for lineage across your tables, and run_tables can write every table in order. It
     reads the notebook file as last saved, and your references/ and building_blocks/ as they
     are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run,

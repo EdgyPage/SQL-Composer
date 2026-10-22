@@ -126,7 +126,8 @@ MISUSES = [
                  ValueError, "isn't a list of column names", id="table_key_5"),
     pytest.param(lambda: derived("x", statement(
         INSERT_OVERWRITE(Table("mart.d", columns={"team": "string", "dt": "string"},
-                               partitioned_by=["dt"]), partition={"dt": "2026-09-24"}),
+                               partitioned_by=["dt"], location="/data/your_team/mart.db/d"),
+                         partition={"dt": "2026-09-24"}),
         SELECT(jobs.team), FROM(jobs))),
                  ValueError, "was given a write", id="derived_write"),
     pytest.param(lambda: example_database.query("DESCRIBE ops.nope"), ValueError,

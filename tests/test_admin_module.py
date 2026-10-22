@@ -198,8 +198,15 @@ def test_drop_partitions_refuses_a_table_with_no_partitions() -> None:
 
 
 def test_drop_partitions_needs_where() -> None:
-    with pytest.raises(TypeError, match=r"wasn't given where=\."):
+    # where= is required: Python itself names it when it is left out.
+    with pytest.raises(TypeError, match="required keyword-only argument: 'where'"):
         admin.drop_partitions(region_runs)
+
+
+def test_drop_partitions_refuses_a_tuple_in_where_naming_the_list_it_takes() -> None:
+    with pytest.raises(ValueError, match=r"was given a tuple in where=") as refused:
+        admin.drop_partitions(region_runs, where=(equals(region_runs.region, "EU"),))
+    assert "as a list: where=[..., ...]" in str(refused.value)
 
 
 # --- add_columns -------------------------------------------------------------------------------

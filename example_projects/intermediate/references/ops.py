@@ -7,10 +7,9 @@ Its tables: job_events (references/ops__job_events.py), job_owners
 (references/ops__job_owners.py), region_budgets (references/ops__region_budgets.py),
 region_costs (references/ops__region_costs.py), team_notes (references/ops__team_notes.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn't Python yet, or has a <...> still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a <...> still
+in it, as new_table writes one, is left out until it is filled in.
 """
 
 import difflib

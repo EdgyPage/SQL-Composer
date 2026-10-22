@@ -84,9 +84,9 @@ def compute_statistics(t: Table, partition: dict[str, object] | None = None,
 
     A table with partitioned_by= is counted a Partition at a time, every Partition unless
     `partition` names some: partition={"dt": "2026-09-24"} counts the Partitions whose dt is
-    that value. Each key is one of the table's partition columns, and its value one value of
-    it; they are the first of its partitioned_by=, as Hive needs, so a table partitioned by
-    region, then dt, names its region first. A Saved table with no
+    that value. Each name in it is one of the table's partition columns, and its value one
+    value of it; they are the first of its partitioned_by=, as Hive needs, so a table
+    partitioned by region, then dt, names its region first. A Saved table with no
     partitioned_by= is counted whole, and takes no partition=.
 
     columns= counts columns too, other than the partition columns: how many different values

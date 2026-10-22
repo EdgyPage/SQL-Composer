@@ -130,7 +130,8 @@ def test_a_partition_column_compares_any_value_as_written(_label: str, value: st
 
 # A Saved table partitioned by a region, then a day, which a write may name.
 by_region = Table("mart.by_region", columns={"job_id": "bigint", "region": "string",
-                                             "dt": "string"}, partitioned_by=["region", "dt"])
+                                             "dt": "string"}, partitioned_by=["region", "dt"],
+                                             location="/data/your_team/mart.db/by_region")
 
 
 def _write_into(region: object) -> str:
@@ -244,7 +245,7 @@ def test_an_injection_payload_stays_one_value_in_a_whole_statement(
 
 def test_a_date_in_the_partition_of_a_write_is_written_as_its_day() -> None:
     saved = Table("mart.odd", columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-                  partitioned_by=["dt"])
+                  partitioned_by=["dt"], location="/data/your_team/mart.db/odd")
     hive = to_hive(statement(
         INSERT_OVERWRITE(saved, partition={"dt": datetime.date(2026, 9, 24)}),
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),

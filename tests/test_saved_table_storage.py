@@ -31,6 +31,7 @@ from sqlglot_composer import (
     count_rows,
     create_table,
     equals,
+    hive_settings,
     show_hive,
     statement,
     to_hive,
@@ -420,6 +421,34 @@ def test_the_folder_is_compared_as_written_with_nothing_added() -> None:
         "mart.relative_daily matches its Table reference.")
     assert "not at mart.db/relative_daily, the folder location= names" in str(
         check_table_reference(relative, query=at("hdfs://namenode:8020/mart.db/elsewhere")))
+
+
+def test_a_location_holding_a_hive_variable_is_noted_not_compared() -> None:
+    # Only the warehouse knows the variable's value, so the folder DESCRIBE FORMATTED gives
+    # can't be compared with location= as written: the verdict notes where the table is.
+    variable = Table("mart.variable_daily", columns={"job_id": "bigint", "runs": "bigint",
+                                                     "dt": "string"},
+                     partitioned_by=["dt"], location="${hivevar:root}/mart.db/variable_daily")
+    answer = formatted(location="hdfs://namenode:8020/data/your_team/mart.db/variable_daily")
+    verdict = check_table_reference(
+        variable, query=lambda hive: answer(hive.replace("variable_daily", "daily_runs")))
+    assert verdict.ok
+    assert str(verdict) == (
+        "mart.variable_daily matches its Table reference.\n"
+        "Notes:\n"
+        "  - location= holds a Hive variable, so its folder wasn't compared; the table is at "
+        "hdfs://namenode:8020/data/your_team/mart.db/variable_daily.")
+
+
+def test_help_says_how_a_location_holding_a_hive_variable_works() -> None:
+    call = 'run(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),'
+    for doc in (Table.__doc__, create_table.__doc__):
+        flat = " ".join(doc.split())
+        assert call in flat
+        assert "check_table_reference then notes the table's folder rather than comparing" in flat
+    # The call the docstrings show is one hive_settings takes.
+    assert to_hive(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}})) == (
+        "SET hivevar:root=/data/your_team")
 
 
 def test_a_managed_table_is_a_problem() -> None:

@@ -391,7 +391,8 @@ def test_a_full_join_from_a_partitioned_table_is_refused_at_its_where() -> None:
 
 per_run = Table("mart.per_run", columns={"run_id": "bigint", "status": "string",
                                          "dt": "string"},
-                partitioned_by=["dt"], key=["run_id"])
+                partitioned_by=["dt"], key=["run_id"],
+                location="/data/your_team/mart.db/per_run")
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
