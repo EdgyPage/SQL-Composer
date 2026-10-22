@@ -11051,7 +11051,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  run was given a Python step, which sends nothing.
   Why it matters: It sends Hive through your query or execute, and a Python step has none: python_step(...) only declares a change you make in Python and save with your own call, so Lineage can show it. The Toolbox never moves its data.
-  Usual fix:      Save the rows with your own call, as you do now, and pass the step to export_lineage(...) with your Statements. show_hive(step) prints a line saying what it is, and in a Table notebook&#x27;s write() project.run_tables passes over it.
+  Usual fix:      Save the rows with your own call, as you do now, and pass the step to export_lineage(...) with your Statements. show_hive(step) prints comment lines saying what it is, and in a Table notebook&#x27;s write() project.run_tables passes over it.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Save the rows with your own call, and pass the step to <code>export_lineage</code>.</p>
 <h5>Passing what the function gave back</h5>

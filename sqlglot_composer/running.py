@@ -228,7 +228,7 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) ->
     differently from how you would by hand, for example DATE_SUB(dt, 7) as
     DATE_ADD(dt, 7 * -1), which means the same. Given Session settings, it gives their SET
     lines, one to a line; given an Unchecked statement, its text as you wrote it. A Python
-    step has no Hive, so it is refused: show_hive prints a line saying what it is.
+    step has no Hive, so it is refused: show_hive prints comment lines saying what it is.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
@@ -294,8 +294,8 @@ def _refuse_a_python_step(call: str, why: str) -> NoReturn:
         why=f"{why}: python_step(...) only declares a change you make in Python and save with "
         "your own call, so Lineage can show it. The Toolbox never moves its data.",
         fix="Save the rows with your own call, as you do now, and pass the step to "
-        "export_lineage(...) with your Statements. show_hive(step) prints a line saying what "
-        "it is, and in a Table notebook's write() project.run_tables passes over it.",
+        "export_lineage(...) with your Statements. show_hive(step) prints comment lines saying "
+        "what it is, and in a Table notebook's write() project.run_tables passes over it.",
     )
 
 
