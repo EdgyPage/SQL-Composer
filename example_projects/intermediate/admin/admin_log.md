@@ -11,15 +11,15 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.add_references(["ops.job_events", "ops.job_owners", "ops.region_costs"], query=...)`
-- Tables named: ops.job_events, ops.job_owners, ops.region_costs
-- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py
+- Call: `project.add_references(["ops.job_events", "ops.job_owners", "ops.region_costs", "ops.region_budgets", "ops.team_notes"], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.new_table("mart.job_day_costs", template="incremental_load")`
+- Call: `project.new_table("mart.job_day_costs")`
 - Tables named: mart.job_day_costs
 - Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
 - Script: a notebook, at commit nogit
@@ -27,7 +27,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.new_table("mart.job_day_facts", template="as_of_lookup")`
+- Call: `project.new_table("mart.job_day_facts")`
 - Tables named: mart.job_day_facts
 - Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py
 - Script: a notebook, at commit nogit
@@ -35,7 +35,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.new_table("mart.team_days", template="weekly_rollup")`
+- Call: `project.new_table("mart.team_days")`
 - Tables named: mart.team_days
 - Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py
 - Script: a notebook, at commit nogit
@@ -46,5 +46,21 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 - Call: `project.new_table("mart.job_events_checks", template="quality_checks")`
 - Tables named: mart.job_events_checks
 - Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.budget_overruns")`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_notes")`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py
 - Script: a notebook, at commit nogit
 - Result: worked

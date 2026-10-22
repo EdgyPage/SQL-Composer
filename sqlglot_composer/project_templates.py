@@ -3,7 +3,8 @@
 A Template is a file with placeholders written <LIKE_THIS>. project.new_table fills in <DB>,
 <TABLE> and <NAME> (the database, the table, and the two joined by two underscores, such as
 mart__daily_job_runs); every other placeholder is yours to fill in, and Python stops at the
-first one left in, so a half-filled file can't run.
+first one left in, so a half-filled file can't run. Each Template's first lines list its
+placeholders, with an example of each.
 
 A Table notebook's Template is a .py file whose cells start with a "# %%" line, or
 "# %% [markdown]" for a text cell, whose lines each start with "# ". Every one has the same
@@ -22,10 +23,19 @@ TOOLBOX_VERSION = "7.0"
 def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str,
               lineage: str = "export_lineage(write())") -> str:
     """A Table notebook's Template: its text cell, then its five code cells, the logic and the
-    try-it cell its own, the others the same in every Template. `saves` says what the table's
-    Table reference lists, `fill_in` each placeholder of the notebook with an example."""
+    try-it cell its own, the others the same in every Template. `fill_in` lists each
+    placeholder of the notebook with an example, first; `saves` says what the table's Table
+    reference lists."""
     return f'''# %% [markdown]
 # # <DB>.<TABLE>
+#
+# Fill in every `<...>` in the code cells below, brackets and all: the notebook won't run with
+# one left. They are:
+{fill_in}
+#
+# Then fill in this table's Table reference, `references/<NAME>.py`: its `<...>` and TODO
+# lines.
+{saves}
 #
 # TODO: say in one line what one row of <DB>.<TABLE> is.
 #
@@ -33,14 +43,7 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 #
 # Made by `project.new_table("<DB>.<TABLE>", template="{name}")` from
 # `admin/templates/{name}.py`, which filled in the database, the table and its file's name,
-# <NAME>. Run the cells top to bottom, once you have filled in two things.
-#
-# First, this table's Table reference, `references/<NAME>.py`: its `<...>` and TODO lines.
-{saves}
-#
-# Then every `<...>` left in this notebook: the notebook won't run with one left. They are:
-#
-{fill_in}
+# <NAME>. Run the cells top to bottom once both are filled in.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
@@ -72,183 +75,53 @@ project.refresh_reference_sheet("<DB>.<TABLE>")
 '''
 
 
-# The placeholders of the table a Template reads, which every one but quality_checks has.
-_SOURCE_FILL_IN = '''\
-#   - `<SOURCE_NAME>` and `<SOURCE_TABLE>`: the table it reads, by its file in
-#     references/ and its name there, such as `ops__job_runs` and `job_runs`;
-#   - `<DATE_PARTITION>`: that table's partition column holding the day, such as `dt`;'''
-_DAY_FILL_IN = '''\
-#   - `<DAY>`: the day write() writes, one the table it reads has, in quotes, such as
-#     `"2026-09-24"`.'''
-# Why a write's rows select the day last, which every Template's rows() says.
-_DAY_LAST = '''\
-The day stays in GROUP_BY, so the days stay apart, and comes last in SELECT, as "dt":
-    INSERT_OVERWRITE writes each day's rows into that day's partition of this table,
-    replacing only the days the rows hold.'''
+# What every Table notebook Template says of READS, the rows its write() reads.
+_READS_FILL_IN = '''\
+#   - `<READS>`: which of its rows write() reads, as a condition on it, such as
+#     `equals(job_runs.dt, "2026-09-24")` or `equals(region_costs.region, "eu")`. On a
+#     partitioned table, it must filter one of its partition columns. A table that isn't
+#     partitioned can be read whole: delete the line `READS = <READS>` and each line
+#     `WHERE(READS),` instead;'''
+# What every Table notebook Template says of a partition column it writes, or doesn't.
+_PARTITION_FILL_IN = '''\
+#   - `<PARTITION_COLUMN>`: the column of the table it reads that fills this table's partition
+#     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
+#     naming `<PARTITION_COLUMN>` instead.'''
+# The comment above READS in every logic cell.
+_READS_COMMENT = '''\
+# The rows write() reads: change it to write others. A condition that calls something other
+# than equals, such as between or is_in, needs it added to the import above.'''
 
-DAILY_TABLE = _notebook(
-    "daily_table",
+SAVED_TABLE = _notebook(
+    "saved_table",
     about='''\
-# A table written a day at a time: each day's rows, worked out from a table it reads.''',
+# A Saved table worked out from a table it reads: a count per group of the rows READS picks.
+# It is partitioned however its Table reference says, or not at all.''',
     saves='''\
-# It lists the columns write() saves, as its SELECT names them: here <KEY_COLUMN>, typed as
-# the table read types it, and <COUNT_NAME>, a count, "bigint"; then "dt", the day, the
-# partition column. Give it key=[<KEY_COLUMN>, "dt"]: one row per <KEY_COLUMN> and day.''',
-    fill_in=_SOURCE_FILL_IN + '''
-#   - `<KEY_COLUMN>`: the column each row is for, such as `job_id`;
-#   - `<COUNT_NAME>`: the name of the count it saves, in quotes, such as `"runs"`;
-''' + _DAY_FILL_IN,
-    logic=f'''# logic
-# 2. The logic: imports, the day it writes, and functions only
-from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
-    count_rows, create_table, statement,
-)
-from references.<NAME> import <TABLE>  # this table's own Table reference
-# each table it reads, such as: from references.ops__job_runs import job_runs
-from references.<SOURCE_NAME> import <SOURCE_TABLE>
-
-DAY = <DAY>  # the day write() writes: change it to write another
-
-
-def create() -> Statement:
-    """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
-    return create_table(<TABLE>, may_exist=True)
-
-
-def rows(first_day: str, last_day: str) -> list[Clause]:
-    """The clauses every step below shares, so preview, write and backfill can never
-    disagree. {_DAY_LAST}"""
-    return [
-        SELECT(<SOURCE_TABLE>.<KEY_COLUMN>, AS(count_rows(), <COUNT_NAME>),
-               AS(<SOURCE_TABLE>.<DATE_PARTITION>, "dt")),
-        FROM(<SOURCE_TABLE>),
-        WHERE(between(<SOURCE_TABLE>.<DATE_PARTITION>, first_day, last_day)),
-        GROUP_BY(<SOURCE_TABLE>.<DATE_PARTITION>, <SOURCE_TABLE>.<KEY_COLUMN>),
-    ]
-
-
-def preview() -> Statement:
-    """Step 2: the rows write() would save, as a SELECT to run and check first."""
-    return statement(*rows(DAY, DAY))
-
-
-def write() -> Statement:
-    """Step 3: save DAY's rows, replacing whatever DAY held."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(DAY, DAY))
-
-
-def backfill(first_day: str, last_day: str) -> Statement:
-    """Step 4, when needed: save every day from first_day to last_day in one write,
-    replacing those days."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(first_day, last_day))
-''',
-    try_it='''show_hive([create(), write()])
-run(preview(), query=query)''',
-)
-
-INCREMENTAL_LOAD = _notebook(
-    "incremental_load",
-    about='''\
-# An incremental load: each run writes its day and the few days before it again, since rows
-# can come in a day or two late, such as a bill for a day already saved. A day written again
-# replaces itself, so a run sent twice does no harm.''',
-    saves='''\
-# It lists the columns write() saves, as its SELECT names them: here <KEY_COLUMN>, typed as
-# the table read types it, and <COUNT_NAME>, a count, "bigint"; then "dt", the day, the
-# partition column. Give it key=[<KEY_COLUMN>, "dt"]: one row per <KEY_COLUMN> and day.''',
-    fill_in=_SOURCE_FILL_IN + '''
-#   - `<KEY_COLUMN>`: the column each row is for, such as `job_id`;
-#   - `<COUNT_NAME>`: the name of the count it saves, in quotes, such as `"runs"`;
-#   - `<DAYS_REWRITTEN>`: how many days each run writes, its own included, such as `3`;
-''' + _DAY_FILL_IN,
-    logic=f'''# logic
-# 2. The logic: imports, the days it writes, and functions only
-import datetime
-
-from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
-    count_rows, create_table, statement,
-)
-from references.<NAME> import <TABLE>  # this table's own Table reference
-# each table it reads, such as: from references.ops__job_runs import job_runs
-from references.<SOURCE_NAME> import <SOURCE_TABLE>
-
-DAY = <DAY>  # the last day write() writes: change it to write another
-DAYS_REWRITTEN = <DAYS_REWRITTEN>  # each run writes DAY and the days just before it
-
-
-def first_day_written(day: str) -> str:
-    """The first day a run for `day` writes: with 3 days rewritten,
-    first_day_written("2026-09-24") is "2026-09-22"."""
-    first_day = datetime.date.fromisoformat(day) - datetime.timedelta(days=DAYS_REWRITTEN - 1)
-    return first_day.isoformat()
-
-
-def create() -> Statement:
-    """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
-    return create_table(<TABLE>, may_exist=True)
-
-
-def rows(first_day: str, last_day: str) -> list[Clause]:
-    """The clauses every step below shares. {_DAY_LAST}"""
-    return [
-        SELECT(<SOURCE_TABLE>.<KEY_COLUMN>, AS(count_rows(), <COUNT_NAME>),
-               AS(<SOURCE_TABLE>.<DATE_PARTITION>, "dt")),
-        FROM(<SOURCE_TABLE>),
-        WHERE(between(<SOURCE_TABLE>.<DATE_PARTITION>, first_day, last_day)),
-        GROUP_BY(<SOURCE_TABLE>.<DATE_PARTITION>, <SOURCE_TABLE>.<KEY_COLUMN>),
-    ]
-
-
-def preview() -> Statement:
-    """Step 2: the rows write() would save, as a SELECT to run and check first."""
-    return statement(*rows(first_day_written(DAY), DAY))
-
-
-def write_days(first_day: str, last_day: str) -> Statement:
-    """Every day from first_day to last_day, in one write: also a backfill, given an
-    earlier first_day."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(first_day, last_day))
-
-
-def write() -> Statement:
-    """Step 3, every run: the last DAYS_REWRITTEN days, ending on DAY, in one write."""
-    return write_days(first_day_written(DAY), DAY)
-''',
-    try_it='''show_hive([create(), write()])
-run(preview(), query=query)''',
-)
-
-WEEKLY_ROLLUP = _notebook(
-    "weekly_rollup",
-    about='''\
-# A table written a day at a time and read a week at a time: each day's totals are saved,
-# and week_totals adds the saved days up into weeks. A write fills one day, so the table holds
-# days, not weeks. Only numbers that add up, such as counts and sums, can be added up into
-# weeks; a count of different values can't.''',
-    saves='''\
-# It lists the columns write() saves, as its SELECT names them: here <GROUP_COLUMN>, typed as
-# the table read types it, and <TOTAL>, a sum: "bigint" for whole numbers, "double" for
-# others; then "dt", the day, the partition column. Give it key=[<GROUP_COLUMN>, "dt"].''',
-    fill_in=_SOURCE_FILL_IN + '''
+# It lists the columns write() saves, in the order its SELECT gives them: here
+# <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint", and
+# last its partition column, if it has one, also named in partitioned_by=[...]. Its Key is
+# the column each row is for, and the partition column if it has one, such as
+# key=["job_id", "region"].''',
+    fill_in='''\
+#   - `<SOURCE_NAME>` and `<SOURCE_TABLE>`: the table it reads, by its file in references/ and
+#     its name there, such as `ops__job_runs` and `job_runs`;
+''' + _READS_FILL_IN + '''
 #   - `<GROUP_COLUMN>`: the column each row is for, such as `job_id`;
-#   - `<NUMBER_COLUMN>`: the column of numbers to add up, such as `duration_mins`;
-#   - `<TOTAL>` and `<TOTAL_NAME>`: one name for the total, twice: without quotes,
-#     `<TOTAL>` reads the saved column back in week_totals, such as `minutes`; in quotes,
-#     `<TOTAL_NAME>` names it as write() saves it, such as `"minutes"`;
-''' + _DAY_FILL_IN,
+#   - `<COUNT_NAME>`: the name of the count it saves, in quotes, such as `"runs"`;
+''' + _PARTITION_FILL_IN,
     logic=f'''# logic
-# 2. The logic: imports, the day it writes, and functions only
+# 2. The logic: imports, the rows it reads, and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
-    create_table, statement, sum_of, week_start,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, count_rows,
+    create_table, equals, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
 from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
-DAY = <DAY>  # the day write() writes: change it to write another
+{_READS_COMMENT}
+READS = <READS>
 
 
 def create() -> Statement:
@@ -256,116 +129,39 @@ def create() -> Statement:
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day: str) -> list[Clause]:
-    """The day's totals per group: the clauses preview and write share. {_DAY_LAST}"""
+def rows() -> list[Clause]:
+    """The clauses preview and write share, so the two can never disagree: a count per group
+    of the rows READS picks.
+
+    A partitioned table's partition columns come last in SELECT, in its Table reference's
+    order, named as it names them: INSERT_OVERWRITE fills each Partition from the rows' own
+    values, and replaces only the Partitions they fill. They stay in GROUP_BY too, so each
+    Partition's rows stay apart.
+    """
     return [
-        SELECT(<SOURCE_TABLE>.<GROUP_COLUMN>,
-               AS(sum_of(<SOURCE_TABLE>.<NUMBER_COLUMN>), <TOTAL_NAME>),
-               AS(<SOURCE_TABLE>.<DATE_PARTITION>, "dt")),
+        SELECT(
+            <SOURCE_TABLE>.<GROUP_COLUMN>,  # what each row is for
+            AS(count_rows(), <COUNT_NAME>),
+            <SOURCE_TABLE>.<PARTITION_COLUMN>,  # this table's partition column, last
+        ),
         FROM(<SOURCE_TABLE>),
-        WHERE(between(<SOURCE_TABLE>.<DATE_PARTITION>, day, day)),
-        GROUP_BY(<SOURCE_TABLE>.<DATE_PARTITION>, <SOURCE_TABLE>.<GROUP_COLUMN>),
+        WHERE(READS),
+        GROUP_BY(
+            <SOURCE_TABLE>.<GROUP_COLUMN>,
+            <SOURCE_TABLE>.<PARTITION_COLUMN>,  # kept, so each Partition's rows stay apart
+        ),
     ]
 
 
 def preview() -> Statement:
     """Step 2: the rows write() would save, as a SELECT to run and check first."""
-    return statement(*rows(DAY))
+    return statement(*rows())
 
 
 def write() -> Statement:
-    """Step 3: save DAY's totals, replacing whatever DAY held."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(DAY))
-
-
-def week_totals(first_day: str, last_day: str) -> Statement:
-    """Each group's totals per week, read from the days this table saved, first_day to
-    last_day: the week is the Monday it starts on. dt is this table's partition column, the
-    day, as its Table reference names it."""
-    return statement(
-        SELECT(AS(week_start(<TABLE>.dt), "week"), <TABLE>.<GROUP_COLUMN>,
-               AS(sum_of(<TABLE>.<TOTAL>), <TOTAL_NAME>)),
-        FROM(<TABLE>),
-        WHERE(between(<TABLE>.dt, first_day, last_day)),
-        # GROUP_BY takes the SELECT's name for the week, "week"; the Hive writes the
-        # week_start(...) calculation out again there, as Hive needs it
-        GROUP_BY("week", <TABLE>.<GROUP_COLUMN>),
-    )
-''',
-    try_it='''show_hive([create(), write(), week_totals(DAY, DAY)])
-run(preview(), query=query)''',
-)
-
-AS_OF_LOOKUP = _notebook(
-    "as_of_lookup",
-    about='''\
-# A table that looks each row up as of its own day: each day's rows, counted per value a
-# snapshot table held for them on that day, such as the team that owned each job then.''',
-    saves='''\
-# It lists the columns write() saves, as its SELECT names them: here <LOOKED_UP_COLUMN>,
-# typed as the snapshot types it, and "row_count", a count, "bigint"; then "dt", the day, the
-# partition column. Give it key=[<LOOKED_UP_COLUMN>, "dt"].
-#
-# The snapshot's own Table reference must declare its Key too, such as key=["job_id", "dt"]:
-# its key column and its day, so that each row matches one snapshot row. Without it, the join
-# warns that a row may match several.''',
-    fill_in=_SOURCE_FILL_IN + '''
-#   - `<MATCH_COLUMN>`: its column holding the key looked up, such as `job_id`;
-#   - `<SNAPSHOT_NAME>` and `<SNAPSHOT>`: the snapshot table, one row per key per day, by its
-#     file in references/ and its name there, such as `ops__job_owners` and `job_owners`;
-#   - `<SNAPSHOT_MATCH_COLUMN>`, `<SNAPSHOT_DATE_PARTITION>` and `<LOOKED_UP_COLUMN>`: its
-#     key column, its day column, and the column looked up, such as `job_id`, `dt` and `team`;
-#   - `<DAY>`: the day write() writes, one both tables have, in quotes, such as
-#     `"2026-09-24"`.''',
-    logic=f'''# logic
-# 2. The logic: imports, the day it writes, and functions only
-from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
-    all_of, between, count_rows, create_table, equals, statement,
-)
-from references.<NAME> import <TABLE>  # this table's own Table reference
-# the rows looked up for, such as: from references.ops__job_runs import job_runs
-from references.<SOURCE_NAME> import <SOURCE_TABLE>
-# the snapshot, such as: from references.ops__job_owners import job_owners
-from references.<SNAPSHOT_NAME> import <SNAPSHOT>
-
-DAY = <DAY>  # the day write() writes: change it to write another
-
-
-def create() -> Statement:
-    """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
-    return create_table(<TABLE>, may_exist=True)
-
-
-def rows(day: str) -> list[Clause]:
-    """The day's rows per value looked up as of the day: the clauses preview and write
-    share. A row with no snapshot that day is counted under NULL. {_DAY_LAST}"""
-    return [
-        SELECT(<SNAPSHOT>.<LOOKED_UP_COLUMN>, AS(count_rows(), "row_count"),
-               AS(<SOURCE_TABLE>.<DATE_PARTITION>, "dt")),
-        FROM(<SOURCE_TABLE>),
-        # The snapshot's day goes in ON=, not WHERE: a WHERE on it would drop the rows LEFT_JOIN
-        # keeps for having no snapshot. Matching the days alone doesn't filter the snapshot's
-        # partition column, which every read of a partitioned table must, so between(...)
-        # filters it too.
-        LEFT_JOIN(<SNAPSHOT>, ON=all_of(  # all_of: every condition in it must hold
-            equals(<SNAPSHOT>.<SNAPSHOT_MATCH_COLUMN>, <SOURCE_TABLE>.<MATCH_COLUMN>),
-            equals(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, <SOURCE_TABLE>.<DATE_PARTITION>),
-            between(<SNAPSHOT>.<SNAPSHOT_DATE_PARTITION>, day, day),
-        )),
-        WHERE(between(<SOURCE_TABLE>.<DATE_PARTITION>, day, day)),
-        GROUP_BY(<SOURCE_TABLE>.<DATE_PARTITION>, <SNAPSHOT>.<LOOKED_UP_COLUMN>),
-    ]
-
-
-def preview() -> Statement:
-    """Step 2: the rows write() would save, as a SELECT to run and check first."""
-    return statement(*rows(DAY))
-
-
-def write() -> Statement:
-    """Step 3: save DAY's rows, replacing whatever DAY held."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(DAY))
+    """Step 3: save the rows, replacing the Partitions they fill, or the whole table if it
+    isn't partitioned: sent twice, it leaves the same rows, not twice as many."""
+    return statement(INSERT_OVERWRITE(<TABLE>), *rows())
 ''',
     try_it='''show_hive([create(), write()])
 run(preview(), query=query)''',
@@ -374,29 +170,32 @@ run(preview(), query=query)''',
 QUALITY_CHECKS = _notebook(
     "quality_checks",
     about='''\
-# Quality checks on a table you read. Each day, its row count is saved, so you can read the
-# days side by side and see one that looks too small; and checks run on any days you ask:
-# repeated_keys looks for a key with more than one row, and null_counts counts NULLs.''',
+# Quality checks on a table you read. The row count of each of its Partitions READS picks is
+# saved, so you can read them side by side and see one that looks too small; and checks run on
+# the same rows: repeated_keys looks for a key with more than one row, and null_counts counts
+# NULLs.''',
     saves='''\
-# It lists one column, "row_count", a count, "bigint"; then "dt", the day, the partition
-# column. Give it key=["dt"]: one row per day.''',
+# It lists one column, "row_count", a count, "bigint", then the partition column counted,
+# typed as the table checked types it, also named in partitioned_by=[...]. Give it that
+# partition column as its Key: one row per Partition counted.''',
     fill_in='''\
 #   - `<CHECKED_NAME>` and `<CHECKED>`: the table checked, by its file in references/ and
 #     its name there, such as `ops__job_events` and `job_events`;
-#   - `<DATE_PARTITION>`: its partition column holding the day, such as `dt`;
+''' + _READS_FILL_IN.replace("write() reads", "are checked") + '''
 #   - `<KEY_COLUMN>`: the column that picks out one row, such as `event_id`;
-''' + _DAY_FILL_IN,
+''' + _PARTITION_FILL_IN.replace("the table it reads", "the table checked"),
     logic=f'''# logic
-# 2. The logic: imports, the day it writes, and functions only
+# 2. The logic: imports, the rows it checks, and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, Clause, Column,
-    Statement, all_columns, between, count_rows, create_table, is_null, more_than, statement,
+    Statement, all_columns, count_rows, create_table, equals, is_null, more_than, statement,
 )
 from references.<NAME> import <TABLE>  # this table's own Table reference, of row counts
 # the table checked, such as: from references.ops__job_events import job_events
 from references.<CHECKED_NAME> import <CHECKED>
 
-DAY = <DAY>  # the day write() writes: change it to write another
+{_READS_COMMENT.replace("write() reads: change it to write others", "checked: change it to check others")}
+READS = <READS>
 
 
 def create() -> Statement:
@@ -404,32 +203,38 @@ def create() -> Statement:
     return create_table(<TABLE>, may_exist=True)
 
 
-def rows(day: str) -> list[Clause]:
-    """The day's row count: the clauses preview and write share. {_DAY_LAST}"""
+def rows() -> list[Clause]:
+    """The row count of each Partition READS picks: the clauses preview and write share. The
+    partition column comes last in SELECT, so INSERT_OVERWRITE writes each count into the
+    Partition of the same value, replacing only those."""
     return [
-        SELECT(AS(count_rows(), "row_count"), AS(<CHECKED>.<DATE_PARTITION>, "dt")),
+        SELECT(
+            AS(count_rows(), "row_count"),
+            <CHECKED>.<PARTITION_COLUMN>,  # the Partition counted: this table's partition column
+        ),
         FROM(<CHECKED>),
-        WHERE(between(<CHECKED>.<DATE_PARTITION>, day, day)),
-        GROUP_BY(<CHECKED>.<DATE_PARTITION>),
+        WHERE(READS),
+        GROUP_BY(<CHECKED>.<PARTITION_COLUMN>),
     ]
 
 
 def preview() -> Statement:
-    """Step 2: the row write() would save, as a SELECT to run and check first."""
-    return statement(*rows(DAY))
+    """Step 2: the rows write() would save, as a SELECT to run and check first."""
+    return statement(*rows())
 
 
 def write() -> Statement:
-    """Step 3: save DAY's row count, replacing whatever DAY held."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(DAY))
+    """Step 3: save the row counts, replacing the Partitions they fill."""
+    return statement(INSERT_OVERWRITE(<TABLE>), *rows())
 
 
-def repeated_keys(first_day: str, last_day: str) -> Statement:
-    """Each key that picks out more than one row on the days: it should find no rows."""
+def repeated_keys() -> Statement:
+    """Each key that picks out more than one of the rows READS picks: it should find no
+    rows."""
     return statement(
         SELECT(<CHECKED>.<KEY_COLUMN>, AS(count_rows(), "times_seen")),
         FROM(<CHECKED>),
-        WHERE(between(<CHECKED>.<DATE_PARTITION>, first_day, last_day)),
+        WHERE(READS),
         GROUP_BY(<CHECKED>.<KEY_COLUMN>),
         HAVING(more_than(count_rows(), 1)),  # tested once the rows of each key are counted
     )
@@ -441,24 +246,31 @@ def column_name(column: Column) -> str:
     return str(column).split(".")[-1]
 
 
-def null_counts(first_day: str, last_day: str) -> Statement:
-    """How many rows on the days hold NULL in each column, as one row: null_minutes counts
-    the rows whose minutes is NULL, and so on."""
+def null_counts() -> Statement:
+    """How many of the rows READS picks hold NULL in each column, as one row: null_minutes
+    counts the rows whose minutes is NULL, and so on."""
     counts = [AS(count_rows(where=is_null(column)), f"null_{{column_name(column)}}")
               for column in all_columns(<CHECKED>)]
     return statement(
         SELECT(*counts),
         FROM(<CHECKED>),
-        WHERE(between(<CHECKED>.<DATE_PARTITION>, first_day, last_day)),
+        WHERE(READS),
     )
 ''',
     try_it='''show_hive([create(), write()])
 run(preview(), query=query)
-run(repeated_keys(DAY, DAY), query=query)  # should have no rows
-run(null_counts(DAY, DAY), query=query)''',
+run(repeated_keys(), query=query)  # should have no rows
+run(null_counts(), query=query)''',
 )
 
 SAVED_TABLE_REFERENCE = '''"""<DB>.<TABLE> - TODO: say in one line what one row is.
+
+Fill in every <...> below, brackets and all: Python stops at one left in. They are:
+    <COLUMN> and <COLUMN_TYPE>: a column write() saves and its Hive type, each in quotes,
+        such as "job_id" and "bigint". Copy the line for each column, in the order write()
+        saves them, its partition columns last.
+    <LOCATION>: the table's own folder, in quotes, such as "/data/your_team/<DB>.db/<TABLE>".
+Then partitioned_by= and key=, and the TODO lines.
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
@@ -473,12 +285,11 @@ from sqlglot_composer import Table
 <TABLE> = Table(
     "<DB>.<TABLE>",
     columns={
-        <COLUMN>: <COLUMN_TYPE>,  # every column write() saves, in order, each in quotes
-        "dt": "string",  # the day, as yyyy-MM-dd: its partition column, last
+        <COLUMN>: <COLUMN_TYPE>,  # a line per column write() saves, its partition columns last
     },
-    partitioned_by=["dt"],  # its partition columns, in order, each also in columns
-    key=None,  # or the columns that pick out one row, such as ["job_id", "dt"]
-    location=<LOCATION>,  # its own folder, in quotes, such as "/data/your_team/<DB>.db/<TABLE>"
+    partitioned_by=[],  # its partition columns, in order, such as ["region"]: [] for none
+    key=None,  # the columns whose values name one row, such as ["job_id"]: None if none do
+    location=<LOCATION>,  # its own folder, in quotes
     descriptions={},  # optional: {"column": "what it holds"}, for the Reference sheet
 )
 
@@ -496,54 +307,58 @@ from sqlglot_composer import Table
 
 BUILDING_BLOCK = '''"""<BLOCK> - TODO: say in one line what one row of it is.
 
+Fill in every <...> below, brackets and all: Python stops at one left in. They are:
+    <BLOCK> and <BLOCK_NAME>: its name, as a name and in quotes, such as runs_per_job and
+        "runs_per_job": its file is building_blocks/<BLOCK>.py, named the same.
+    <SOURCE_NAME> and <SOURCE_TABLE>: the table it reads, by its file in references/ and its
+        name there, such as ops__job_runs and job_runs.
+    <GROUP_COLUMN>: the column each row is for, such as job_id.
+    <NUMBER_COLUMN>: a column of numbers to add up, such as duration_mins.
+    <TOTAL_NAME>: the name of what it adds up to, in quotes, such as "minutes".
+
 Why: TODO: which tables' notebooks read it, so they can never work it out two ways.
 
 Copied by hand from admin/templates/building_block.py into building_blocks/<BLOCK>.py. A
 Building block is a piece several notebooks share; this one is a Derived table, a Statement
 given a name, which each Statement reading it writes at its top, as WITH <BLOCK> AS (...). In a
-notebook's logic cell, import it and read it like a table:
+notebook's logic cell, import it, and read it like a table, given the rows it reads:
 
     from building_blocks.<BLOCK> import <BLOCK>
 
 
     def preview() -> Statement:
-        per_group = <BLOCK>(DAY, DAY)
+        per_group = <BLOCK>(READS)
         return statement(SELECT(per_group.<GROUP_COLUMN>, per_group.row_count),
                          FROM(per_group))
-
-Fill in every <...>:
-    <BLOCK> and <BLOCK_NAME>: its name, as a name and in quotes, such as minutes_per_job_day
-        and "minutes_per_job_day".
-    <SOURCE_NAME> and <SOURCE_TABLE>: the table it reads, by its file in references/ and its
-        name there, such as ops__job_runs and job_runs.
-    <GROUP_COLUMN>: the column each row is for, such as job_id.
-    <DATE_PARTITION>: the table's partition column holding the day, such as dt.
-    <NUMBER_COLUMN>: a column of numbers to add up, such as duration_mins.
-    <TOTAL_NAME>: the name of what it adds up to, in quotes, such as "minutes".
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Condition, Table, count_rows, derived, statement,
     sum_of,
 )
 from references.<SOURCE_NAME> import <SOURCE_TABLE>  # the Table reference it reads
 
 
-def <BLOCK>(first_day: str, last_day: str) -> Table:  # named as its file is
-    """One row per group and day from first_day to last_day: its rows, and its total."""
+def <BLOCK>(reads: Condition) -> Table:  # named as its file is
+    """One row per group of the rows `reads` picks: its rows, and its total.
+
+    `reads` is a condition on the table it reads, such as equals(job_runs.dt, "2026-09-24").
+    On a partitioned table, it must filter one of its partition columns.
+    """
     return derived(
         <BLOCK_NAME>,  # the name the Hive gives it
         statement(
             SELECT(
                 <SOURCE_TABLE>.<GROUP_COLUMN>,  # what each row is for
-                <SOURCE_TABLE>.<DATE_PARTITION>,  # the day, kept so that each day stays apart
+                # to keep each Partition's rows apart, add its partition column here and in
+                # GROUP_BY, such as job_runs.dt
                 AS(count_rows(), "row_count"),
                 # add a line like the next for each number to add up
                 AS(sum_of(<SOURCE_TABLE>.<NUMBER_COLUMN>), <TOTAL_NAME>),
             ),
             FROM(<SOURCE_TABLE>),
-            WHERE(between(<SOURCE_TABLE>.<DATE_PARTITION>, first_day, last_day)),
-            GROUP_BY(<SOURCE_TABLE>.<GROUP_COLUMN>, <SOURCE_TABLE>.<DATE_PARTITION>),
+            WHERE(reads),
+            GROUP_BY(<SOURCE_TABLE>.<GROUP_COLUMN>),
         ),
     )
 '''
@@ -551,10 +366,7 @@ def <BLOCK>(first_day: str, last_day: str) -> Table:  # named as its file is
 # Each Template by its name, as start() writes it into admin/templates/<name>.py. The Table
 # notebook Templates are the ones new_table's template= takes.
 NOTEBOOK_TEMPLATES = {
-    "daily_table": DAILY_TABLE,
-    "incremental_load": INCREMENTAL_LOAD,
-    "weekly_rollup": WEEKLY_ROLLUP,
-    "as_of_lookup": AS_OF_LOOKUP,
+    "saved_table": SAVED_TABLE,
     "quality_checks": QUALITY_CHECKS,
 }
 TEMPLATES = {

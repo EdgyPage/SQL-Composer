@@ -6,7 +6,7 @@
 # Why: once mart.daily_job_runs and mart.alerts_per_job have saved a day, each team's numbers
 # come from a few saved rows per job, not from every run and alert again.
 #
-# Made by `project.new_table("mart.team_day")` from `admin/templates/daily_table.py`, then
+# Made by `project.new_table("mart.team_day")` from `admin/templates/saved_table.py`, then
 # filled in. It reads the two Saved tables through their Table references, like any other
 # table, and ops.jobs for each job's team, so it is written after them: `run_tables` sends it
 # last. A job whose runs raised no alert has no row in mart.alerts_per_job, so LEFT_JOIN keeps
@@ -34,15 +34,16 @@ from warehouse import query
 # 2. The logic: imports, the day it writes, and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
-    all_of, between, create_table, equals, fill_null, statement, sum_of,
+    all_of, create_table, equals, fill_null, statement, sum_of,
 )
-from building_blocks.runs_per_job_day import runs_per_job_day
+from building_blocks.runs_per_job import runs_per_job
 from references.mart__alerts_per_job import alerts_per_job
 from references.mart__daily_job_runs import daily_job_runs
 from references.mart__team_day import team_day
+from references.ops__job_runs import job_runs
 from references.ops__jobs import jobs
 
-DAY = "2026-09-24"  # the day write() writes, the Example database's last day
+DAY = "2026-09-24"  # the dt write() writes: change it to write another
 
 
 def create() -> Statement:
@@ -50,13 +51,12 @@ def create() -> Statement:
     return create_table(team_day, may_exist=True)
 
 
-def rows(first_day: str, last_day: str) -> list[Clause]:
-    """The clauses every step below shares: each team's numbers per day of daily_job_runs,
-    the table in FROM, whose day comes last in SELECT: INSERT_OVERWRITE writes each day's rows
-    into that day's Partition of this table. The alerts are joined on their day as well as
-    their job, so each day's runs meet only that day's alerts; their days go in LEFT_JOIN's
-    ON=, not WHERE, since a WHERE on alerts_per_job would drop the jobs LEFT_JOIN keeps for
-    having no alert."""
+def rows() -> list[Clause]:
+    """The clauses preview and write share: each team's numbers on DAY, from daily_job_runs,
+    the table in FROM, whose dt comes last in SELECT: INSERT_OVERWRITE writes the rows into the
+    Partition their dt names. The alerts are joined on their dt as well as their job, so the
+    day's runs meet only that day's alerts; their dt goes in LEFT_JOIN's ON=, not WHERE, since
+    a WHERE on alerts_per_job would drop the jobs LEFT_JOIN keeps for having no alert."""
     return [
         SELECT(
             jobs.team,
@@ -72,42 +72,36 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
         LEFT_JOIN(alerts_per_job,
                   ON=all_of(equals(alerts_per_job.job_id, daily_job_runs.job_id),
                             equals(alerts_per_job.dt, daily_job_runs.dt),
-                            between(alerts_per_job.dt, first_day, last_day))),
-        WHERE(between(daily_job_runs.dt, first_day, last_day)),
+                            equals(alerts_per_job.dt, DAY))),
+        WHERE(equals(daily_job_runs.dt, DAY)),
         GROUP_BY(daily_job_runs.dt, jobs.team),
     ]
 
 
 def preview() -> Statement:
     """Step 2: the rows write() would save, as a SELECT to run and check first."""
-    return statement(*rows(DAY, DAY))
+    return statement(*rows())
 
 
 def write() -> Statement:
     """Step 3: save DAY's rows, once the two tables it reads have written DAY."""
-    return statement(INSERT_OVERWRITE(team_day), *rows(DAY, DAY))
-
-
-def backfill(first_day: str, last_day: str) -> Statement:
-    """Step 4, when needed, once the two tables it reads have backfilled the same days: every
-    day from first_day to last_day in one write."""
-    return statement(INSERT_OVERWRITE(team_day), *rows(first_day, last_day))
+    return statement(INSERT_OVERWRITE(team_day), *rows())
 
 
 def team_runs_from_job_runs(day: str) -> Statement:
     """Each team's runs, failed runs and minutes for a day, from ops.job_runs itself, through
     the Building block mart.daily_job_runs saves: so it runs on the Example database, and at
     work checks a day mart.daily_job_runs hasn't saved yet."""
-    per_job_day = runs_per_job_day(day, day)
+    per_job = runs_per_job(equals(job_runs.dt, day))
     return statement(
         SELECT(
             jobs.team,
-            AS(sum_of(per_job_day.runs), "runs"),
-            AS(sum_of(per_job_day.failed_runs), "failed_runs"),
-            AS(sum_of(per_job_day.minutes), "minutes"),
+            AS(sum_of(per_job.runs), "runs"),
+            AS(sum_of(per_job.failed_runs), "failed_runs"),
+            AS(sum_of(per_job.minutes), "minutes"),
         ),
-        FROM(per_job_day),
-        JOIN(jobs, ON=equals(jobs.job_id, per_job_day.job_id)),
+        FROM(per_job),
+        JOIN(jobs, ON=equals(jobs.job_id, per_job.job_id)),
         GROUP_BY(jobs.team),
     )
 

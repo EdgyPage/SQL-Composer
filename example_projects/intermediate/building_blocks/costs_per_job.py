@@ -1,4 +1,4 @@
-"""costs_per_job_day - each job's cost per day in cents, all regions added up.
+"""costs_per_job - each job's cost in cents per day billed, all regions added up.
 
 Why: mart.job_day_costs saves these numbers, and writing them once here means a check of a
 day, or another table, adds them up the same way.
@@ -33,7 +33,7 @@ def dashed(day: Column) -> Column:
                          hive_function("substr", day, 7, 2))
 
 
-def costs_per_job_day(first_day: str, last_day: str) -> Table:
+def costs_per_job(first_day: str, last_day: str) -> Table:
     """One row per job and day it was billed from first_day to last_day: its cost in cents.
 
     first_day and last_day are written like "2026-09-24", as everywhere else in the project,
@@ -44,7 +44,7 @@ def costs_per_job_day(first_day: str, last_day: str) -> Table:
     cost is known yet, which isn't the same as costing nothing.
     """
     return derived(
-        "costs_per_job_day",
+        "costs_per_job",
         statement(
             SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), "cost_cents"),
                    AS(dashed(region_costs.dt), "dt")),

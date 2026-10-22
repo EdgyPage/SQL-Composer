@@ -595,7 +595,7 @@ __STYLE__</style></head><body>
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
 then what it gives: its Hive (ready to paste into another program), its result on the Example
-database, or a file it writes. The Example database is seven made-up tables that ship inside the
+database, or a file it writes. The Example database is nine made-up tables that ship inside the
 Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
 2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were

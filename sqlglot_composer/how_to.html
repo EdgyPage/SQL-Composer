@@ -38,7 +38,7 @@ details summary{cursor:pointer;color:#555;margin:4px 0}
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
 then what it gives: its Hive (ready to paste into another program), its result on the Example
-database, or a file it writes. The Example database is seven made-up tables that ship inside the
+database, or a file it writes. The Example database is nine made-up tables that ship inside the
 Toolbox. Every Hive, result, refusal and Warning here comes from running the steps.</p>
 <p>The Example database holds two days of <code>ops.job_runs</code>, 2026-09-23 and
 2026-09-24 (the three tables the Intermediate how-tos use hold 14 days), and the steps here were
@@ -125,7 +125,7 @@ from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
-<p class="label">It writes 17 files</p>
+<p class="label">It writes 14 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -135,13 +135,10 @@ admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
 admin/run_tables.ipynb
-admin/templates/as_of_lookup.py
 admin/templates/building_block.py
-admin/templates/daily_table.py
-admin/templates/incremental_load.py
 admin/templates/quality_checks.py
+admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
-admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <p>This is the Project, beside the Toolbox you copied in, and what each part is for:</p>
 <ul><li>warehouse.py: your query and execute, written once, which every notebook imports from here;</li><li><code>admin/</code>: a notebook per Project action, which you run to make or remove a folder or file, such as new_table.ipynb; admin_log.md, the Admin log, every Project action, oldest first; registry.csv, every Table folder and Table reference made, and when; and <code>templates/</code>, the Templates a new Table notebook is made from;</li><li><code>references/</code>: a Table reference per table you read or write, and the Reference sheet;</li><li><code>building_blocks/</code>: the pieces several notebooks share;</li><li><code>tables/</code>: a Table folder per Saved table, holding its notebook and <code>lineage/</code>, its Lineage, a pair of files each time you export it.</li></ul>
@@ -347,7 +344,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
-<p class="label">It writes 17 files</p>
+<p class="label">It writes 14 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -357,13 +354,10 @@ admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
 admin/run_tables.ipynb
-admin/templates/as_of_lookup.py
 admin/templates/building_block.py
-admin/templates/daily_table.py
-admin/templates/incremental_load.py
 admin/templates/quality_checks.py
+admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
-admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <p>Every step here passes <code>query=example_database.query</code>, the Example database&#x27;s own query. At work, pass your own, <code>from warehouse import query</code>, and name your own tables.</p>
 <h5>See what the table says about itself</h5>
@@ -3013,7 +3007,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
-<p class="label">It writes 17 files</p>
+<p class="label">It writes 14 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -3023,13 +3017,10 @@ admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
 admin/run_tables.ipynb
-admin/templates/as_of_lookup.py
 admin/templates/building_block.py
-admin/templates/daily_table.py
-admin/templates/incremental_load.py
 admin/templates/quality_checks.py
+admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
-admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.</pre>
@@ -3089,7 +3080,7 @@ job_runs = Table(
 <p><code>project.new_table</code> takes the Saved table&#x27;s name. The admin notebook admin/new_table.ipynb holds this call, ready to fill in; calling it from any notebook of the Project does the same:</p>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
@@ -3121,6 +3112,13 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 <p class="label">It writes references/mart__daily_job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.daily_job_runs - TODO: say in one line what one row is.
 
+Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
+    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
+        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
+        saves them, its partition columns last.
+    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/daily_job_runs&quot;.
+Then partitioned_by= and key=, and the TODO lines.
+
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
 project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
@@ -3134,12 +3132,11 @@ from sqlglot_composer import Table
 daily_job_runs = Table(
     &quot;mart.daily_job_runs&quot;,
     columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # every column write() saves, in order, each in quotes
-        &quot;dt&quot;: &quot;string&quot;,  # the day, as yyyy-MM-dd: its partition column, last
+        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
     },
-    partitioned_by=[&quot;dt&quot;],  # its partition columns, in order, each also in columns
-    key=None,  # or the columns that pick out one row, such as [&quot;job_id&quot;, &quot;dt&quot;]
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes, such as &quot;/data/your_team/mart.db/daily_job_runs&quot;
+    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
+    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
+    location=&lt;LOCATION&gt;,  # its own folder, in quotes
     descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
 )
 
@@ -3156,9 +3153,9 @@ daily_job_runs = Table(
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__daily_job_runs/mart__daily_job_runs.ipynb</code> too.</p>
 <p>It made four things, and listed two of them, the Table folder and the Table reference, in the registry:</p>
-<ul><li>tables/mart__daily_job_runs/, the table&#x27;s Table folder, named after the database and the table joined by two underscores, as its Table reference is;</li><li>mart__daily_job_runs.ipynb in it, the Table notebook, from the Template daily_table, a table written a day at a time. <code>template=</code> picks another: <code>&quot;incremental_load&quot;</code>, which writes its last few days again on each run, <code>&quot;weekly_rollup&quot;</code>, <code>&quot;as_of_lookup&quot;</code> or <code>&quot;quality_checks&quot;</code>. The notebook&#x27;s text cell says what each <code>&lt;...&gt;</code> in it is for;</li><li>lineage/ beside it, empty until you export the table&#x27;s Lineage;</li><li>references/mart__daily_job_runs.py, its Table reference, shown above, with <code>&lt;...&gt;</code> and TODO lines to fill in: a Saved table doesn&#x27;t exist until you create it, so nothing can be asked of it.</li></ul>
+<ul><li>tables/mart__daily_job_runs/, the table&#x27;s Table folder, named after the database and the table joined by two underscores, as its Table reference is;</li><li>mart__daily_job_runs.ipynb in it, the Table notebook, from the Template saved_table, a Saved table worked out from a table it reads. <code>template=</code> picks another: <code>&quot;quality_checks&quot;</code>, which saves a table&#x27;s row counts and checks its rows. The notebook&#x27;s text cell starts with what each <code>&lt;...&gt;</code> in it is for;</li><li>lineage/ beside it, empty until you export the table&#x27;s Lineage;</li><li>references/mart__daily_job_runs.py, its Table reference, shown above, with <code>&lt;...&gt;</code> and TODO lines to fill in: a Saved table doesn&#x27;t exist until you create it, so nothing can be asked of it.</li></ul>
 <p>The notebook has five code cells, run top to bottom:</p>
-<p>1. the path lines and imports from <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, <code>DAY</code>, the day <code>write()</code> writes, and functions, each giving a Statement and running nothing: create, preview, write, and backfill, which writes a range of past days, as <a href="#backfill_a_range_of_days">Backfill a range of days</a> shows; 3. try it: each step&#x27;s Hive, then the day&#x27;s rows; 4. its Lineage, as <a href="#lineage_across_your_tables">Lineage across your tables</a> shows; 5. its rows in the Reference sheet, as <a href="#the_reference_sheet">The Reference sheet</a> shows.</p>
+<p>1. the path lines and imports from <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, <code>READS</code>, the rows <code>write()</code> reads, and functions, each giving a Statement and running nothing: create, rows, preview and write; 3. try it: each step&#x27;s Hive, then the day&#x27;s rows; 4. its Lineage, as <a href="#lineage_across_your_tables">Lineage across your tables</a> shows; 5. its rows in the Reference sheet, as <a href="#the_reference_sheet">The Reference sheet</a> shows.</p>
 <h5>Fill in its Table reference</h5>
 <p>Open references/mart__daily_job_runs.py in your editor and fill it in: what one row is, the columns <code>write()</code> saves with their types, then its partition column, the key, and the table&#x27;s own folder, as <a href="#describe_a_table_by_hand">Describe a table by hand</a> explains. Its key is <code>[&quot;job_id&quot;, &quot;dt&quot;]</code>: the table has a row per job every day, so a job&#x27;s rows are told apart by the day. This page has no editor, so this step writes the file filled in:</p>
 <pre class="python">from pathlib import Path
@@ -3195,13 +3192,13 @@ daily_job_runs = Table(
     location=&quot;/data/your_team/mart.db/daily_job_runs&quot;,
 )</pre>
 <h5>Fill in its notebook</h5>
-<p>Open the notebook in Jupyter and type over each <code>&lt;...&gt;</code> in its code cells: the table it reads, by its file in references/ and its variable, its partition column holding the day, the column each row is for, the name of the count, and the day <code>write()</code> writes. A name Python reads, such as the table&#x27;s variable, goes in bare; a value, such as the count&#x27;s name or the day, goes in quotes, as the notebook&#x27;s text cell says. This page has no Jupyter, so these lines do the same. A notebook is a JSON file, and each cell keeps its lines in its <code>&quot;source&quot;</code>:</p>
+<p>Open the notebook in Jupyter and type over each <code>&lt;...&gt;</code> in its code cells: the table it reads, by its file in references/ and its variable, the rows <code>write()</code> reads, as a condition on its partition column, the column each row is for, the name of the count, and the partition column that fills this table&#x27;s own. A name Python reads, such as the table&#x27;s variable, goes in bare; a value, such as the count&#x27;s name, goes in quotes, as the notebook&#x27;s text cell says. This page has no Jupyter, so these lines do the same. A notebook is a JSON file, and each cell keeps its lines in its <code>&quot;source&quot;</code>:</p>
 <pre class="python">import json
 path = Path(&quot;tables/mart__daily_job_runs/mart__daily_job_runs.ipynb&quot;)
 notebook = json.loads(path.read_text(encoding=&quot;utf-8&quot;))
 filled_in = {&quot;&lt;SOURCE_NAME&gt;&quot;: &quot;ops__job_runs&quot;, &quot;&lt;SOURCE_TABLE&gt;&quot;: &quot;job_runs&quot;,
-             &quot;&lt;DATE_PARTITION&gt;&quot;: &quot;dt&quot;, &quot;&lt;KEY_COLUMN&gt;&quot;: &quot;job_id&quot;,
-             &quot;&lt;COUNT_NAME&gt;&quot;: &#x27;&quot;runs&quot;&#x27;, &quot;&lt;DAY&gt;&quot;: &#x27;&quot;2026-09-24&quot;&#x27;}
+             &quot;&lt;READS&gt;&quot;: &#x27;equals(job_runs.dt, &quot;2026-09-24&quot;)&#x27;, &quot;&lt;GROUP_COLUMN&gt;&quot;: &quot;job_id&quot;,
+             &quot;&lt;COUNT_NAME&gt;&quot;: &#x27;&quot;runs&quot;&#x27;, &quot;&lt;PARTITION_COLUMN&gt;&quot;: &quot;dt&quot;}
 for cell in notebook[&quot;cells&quot;]:
     if cell[&quot;cell_type&quot;] == &quot;code&quot;:
         for placeholder, value in filled_in.items():
@@ -3212,28 +3209,32 @@ size = path.write_text(json.dumps(notebook, indent=1), encoding=&quot;utf-8&quot
 <pre class="python">from references.mart__daily_job_runs import daily_job_runs
 from references.ops__job_runs import job_runs
 
-DAY = &quot;2026-09-24&quot;  # the day write() writes: change it to write another
+READS = equals(job_runs.dt, &quot;2026-09-24&quot;)
 
-def rows(first_day: str, last_day: str) -&gt; list[Clause]:
-    &quot;&quot;&quot;The clauses every step below shares. The day stays in GROUP_BY, so the days
-    stay apart, and comes last in SELECT, as &quot;dt&quot;: INSERT_OVERWRITE writes each day&#x27;s rows
-    into that day&#x27;s partition of this table, replacing only the days the rows hold.&quot;&quot;&quot;
+def rows() -&gt; list[Clause]:
     return [
-        SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;), AS(job_runs.dt, &quot;dt&quot;)),
+        SELECT(
+            job_runs.job_id,  # what each row is for
+            AS(count_rows(), &quot;runs&quot;),
+            job_runs.dt,  # this table&#x27;s partition column, last
+        ),
         FROM(job_runs),
-        WHERE(between(job_runs.dt, first_day, last_day)),
-        GROUP_BY(job_runs.dt, job_runs.job_id),
+        WHERE(READS),
+        GROUP_BY(
+            job_runs.job_id,
+            job_runs.dt,  # kept, so each Partition&#x27;s rows stay apart
+        ),
     ]
 
 def write() -&gt; Statement:
-    &quot;&quot;&quot;Step 3: save DAY&#x27;s rows, replacing whatever DAY held.&quot;&quot;&quot;
-    return statement(INSERT_OVERWRITE(daily_job_runs), *rows(DAY, DAY))</pre>
+    return statement(INSERT_OVERWRITE(daily_job_runs), *rows())</pre>
+<p><code>READS</code> picks the rows <code>write()</code> reads: here one day&#x27;s Partition of <code>ops.job_runs</code>. The table is partitioned by dt, so a read must filter it; one that isn&#x27;t partitioned can be read whole, as the notebook&#x27;s text cell says.</p>
 <h5>Try its steps</h5>
 <p>In Jupyter, run the notebook&#x27;s cells top to bottom. Here, <code>project.load</code> runs its logic cell and gives back what it defines, as any notebook or admin notebook of the Project can:</p>
 <pre class="python">logic = project.load(&quot;mart.daily_job_runs&quot;)
 logic</pre>
-<p class="label">Python shows</p><pre class="output">The logic of mart.daily_job_runs: create, rows, preview, write, backfill.</pre>
-<p>Cell 3 prints the Hive of the steps that create the table and write <code>DAY</code>, then runs the preview, the rows the write would save:</p>
+<p class="label">Python shows</p><pre class="output">The logic of mart.daily_job_runs: create, rows, preview, write.</pre>
+<p>Cell 3 prints the Hive of the steps that create the table and write the rows <code>READS</code> picks, then runs the preview, the rows the write would save:</p>
 <pre class="python">text = show_hive([logic.create(), logic.write()])</pre>
 <p class="label">Hive, ready to paste</p><pre class="hive">-- 1 of 2
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
@@ -3258,10 +3259,10 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+  job_runs.dt = &#x27;2026-09-24&#x27;
 GROUP BY
-  job_runs.dt,
-  job_runs.job_id;</pre>
+  job_runs.job_id,
+  job_runs.dt;</pre>
 <pre class="python">run(logic.preview(), query=example_database.query)</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>runs</th><th>dt</th></tr>
@@ -3286,12 +3287,12 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+  job_runs.dt = &#x27;2026-09-24&#x27;
 GROUP BY
-  job_runs.dt,
-  job_runs.job_id;</pre>
+  job_runs.job_id,
+  job_runs.dt;</pre>
 <p class="label">Python shows</p><pre class="output">Printed 1 write in order, and sent nothing. Pass execute= to run them.</pre>
-<p>At work, you run the admin notebook admin/run_tables.ipynb, or your team&#x27;s scheduler does: it does this, then sends them with your query and execute, <code>project.run_tables(query=query, execute=execute)</code>, printing a line as each table is written. Each <code>write()</code> writes the day its notebook&#x27;s <code>DAY</code> names: change <code>DAY</code> to write another.</p>
+<p>At work, you run the admin notebook admin/run_tables.ipynb, or your team&#x27;s scheduler does: it does this, then sends them with your query and execute, <code>project.run_tables(query=query, execute=execute)</code>, printing a line as each table is written. Each <code>write()</code> writes the rows its notebook&#x27;s <code>READS</code> picks: change <code>READS</code> to write others.</p>
 <h4>Check it worked</h4>
 <p>The Table folder holds its notebook and lineage/, and the registry lists the folder and both Table references:</p>
 <pre class="python">sorted(path.name for path in Path(&quot;tables/mart__daily_job_runs&quot;).iterdir())</pre>
@@ -3306,7 +3307,7 @@ GROUP BY
 <p>A second Saved table, made and not yet filled in, still has every <code>&lt;...&gt;</code> of its Template. <code>project.load</code>, and so <code>project.run_tables</code>, refuses its logic cell, naming the first line to fill in:</p>
 <pre class="python">project.new_table(&quot;mart.alerts_per_job&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__alerts_per_job/: mart__alerts_per_job.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__alerts_per_job.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
@@ -3346,6 +3347,13 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 <p class="label">It writes references/mart__alerts_per_job.py</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_job - TODO: say in one line what one row is.
 
+Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
+    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
+        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
+        saves them, its partition columns last.
+    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/alerts_per_job&quot;.
+Then partitioned_by= and key=, and the TODO lines.
+
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
 project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
@@ -3359,12 +3367,11 @@ from sqlglot_composer import Table
 alerts_per_job = Table(
     &quot;mart.alerts_per_job&quot;,
     columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # every column write() saves, in order, each in quotes
-        &quot;dt&quot;: &quot;string&quot;,  # the day, as yyyy-MM-dd: its partition column, last
+        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
     },
-    partitioned_by=[&quot;dt&quot;],  # its partition columns, in order, each also in columns
-    key=None,  # or the columns that pick out one row, such as [&quot;job_id&quot;, &quot;dt&quot;]
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes, such as &quot;/data/your_team/mart.db/alerts_per_job&quot;
+    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
+    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
+    location=&lt;LOCATION&gt;,  # its own folder, in quotes
     descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
 )
 
@@ -3397,7 +3404,7 @@ alerts_per_job = Table(
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Open the notebook that is there instead. To start a table again, archive its folder first with <code>project.remove_table(&quot;mart.daily_job_runs&quot;)</code>, from admin/remove_table.ipynb, which moves it into admin/removed/ and logs it; never delete a Table folder by hand, or the registry lists a folder that isn&#x27;t there.</p>
 <h4>Next</h4>
-<ul><li>Write a range of past days of the table: <a href="#backfill_a_range_of_days">Backfill a range of days</a>.</li><li>Follow each of its columns back to the tables it reads, across the Project&#x27;s notebooks: <a href="#lineage_across_your_tables">Lineage across your tables</a>.</li><li>List its columns beside every other table&#x27;s: <a href="#the_reference_sheet">The Reference sheet</a>.</li><li>What each step&#x27;s Statement does, and how a Saved table is stored: <a href="#save_a_table">Save a table</a>.</li><li>The gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> entries.</li></ul>
+<ul><li>Write a range of past days of a table: <a href="#backfill_a_range_of_days">Backfill a range of days</a>.</li><li>Follow each of its columns back to the tables it reads, across the Project&#x27;s notebooks: <a href="#lineage_across_your_tables">Lineage across your tables</a>.</li><li>List its columns beside every other table&#x27;s: <a href="#the_reference_sheet">The Reference sheet</a>.</li><li>What each step&#x27;s Statement does, and how a Saved table is stored: <a href="#save_a_table">Save a table</a>.</li><li>The gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>to_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="backfill_a_range_of_days">
@@ -4514,7 +4521,7 @@ export_lineage(create_daily_job_runs, write_daily_job_runs, write_team_day,
 <h4>Steps</h4>
 <h5>Make two Saved tables, one reading the other</h5>
 <p>These steps need a Project with two filled-in Table notebooks: mart.daily_job_runs, each job&#x27;s runs a day, read from <code>ops.job_runs</code>, and mart.jobs_by_runs, read from it, how many jobs ran once, twice and so on each day. <a href="#add_a_saved_table">Add a Saved table</a> makes one, step by step; this page does its steps for both in one function, <code>add_table</code>, so the steps below start from two notebooks ready to run. In your own Project, which is started already, leave out <code>project.start()</code>: it refuses a folder that is a Project.</p>
-<p>mart.jobs_by_runs fills the Template&#x27;s <code>&lt;KEY_COLUMN&gt;</code> with runs and its <code>&lt;COUNT_NAME&gt;</code> with <code>&quot;jobs&quot;</code>: one row per number of runs a day, counting the jobs that ran that many times.</p>
+<p>mart.jobs_by_runs fills the Template&#x27;s <code>&lt;GROUP_COLUMN&gt;</code> with runs and its <code>&lt;COUNT_NAME&gt;</code> with <code>&quot;jobs&quot;</code>: one row per number of runs a day, counting the jobs that ran that many times.</p>
 <pre class="python">import json
 from pathlib import Path
 from sqlglot_composer import *
@@ -4522,7 +4529,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
-<p class="label">It writes 17 files</p>
+<p class="label">It writes 14 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -4532,13 +4539,10 @@ admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
 admin/run_tables.ipynb
-admin/templates/as_of_lookup.py
 admin/templates/building_block.py
-admin/templates/daily_table.py
-admin/templates/incremental_load.py
 admin/templates/quality_checks.py
+admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
-admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.</pre>
@@ -4615,8 +4619,8 @@ job_runs = Table(
 add_table(&quot;mart.daily_job_runs&quot;, {&quot;job_id&quot;: &quot;bigint&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
           [&quot;job_id&quot;, &quot;dt&quot;],
           {&quot;&lt;SOURCE_NAME&gt;&quot;: &quot;ops__job_runs&quot;, &quot;&lt;SOURCE_TABLE&gt;&quot;: &quot;job_runs&quot;,
-           &quot;&lt;DATE_PARTITION&gt;&quot;: &quot;dt&quot;, &quot;&lt;KEY_COLUMN&gt;&quot;: &quot;job_id&quot;, &quot;&lt;COUNT_NAME&gt;&quot;: &#x27;&quot;runs&quot;&#x27;,
-           &quot;&lt;DAY&gt;&quot;: &#x27;&quot;2026-09-24&quot;&#x27;})</pre>
+           &quot;&lt;READS&gt;&quot;: &#x27;equals(job_runs.dt, &quot;2026-09-24&quot;)&#x27;, &quot;&lt;GROUP_COLUMN&gt;&quot;: &quot;job_id&quot;,
+           &quot;&lt;COUNT_NAME&gt;&quot;: &#x27;&quot;runs&quot;&#x27;, &quot;&lt;PARTITION_COLUMN&gt;&quot;: &quot;dt&quot;})</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -4654,8 +4658,8 @@ daily_job_runs = Table(&#x27;mart.daily_job_runs&#x27;, columns={&#x27;job_id&#x
 <pre class="python">add_table(&quot;mart.jobs_by_runs&quot;, {&quot;runs&quot;: &quot;bigint&quot;, &quot;jobs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
           [&quot;runs&quot;, &quot;dt&quot;],
           {&quot;&lt;SOURCE_NAME&gt;&quot;: &quot;mart__daily_job_runs&quot;, &quot;&lt;SOURCE_TABLE&gt;&quot;: &quot;daily_job_runs&quot;,
-           &quot;&lt;DATE_PARTITION&gt;&quot;: &quot;dt&quot;, &quot;&lt;KEY_COLUMN&gt;&quot;: &quot;runs&quot;, &quot;&lt;COUNT_NAME&gt;&quot;: &#x27;&quot;jobs&quot;&#x27;,
-           &quot;&lt;DAY&gt;&quot;: &#x27;&quot;2026-09-24&quot;&#x27;})</pre>
+           &quot;&lt;READS&gt;&quot;: &#x27;equals(daily_job_runs.dt, &quot;2026-09-24&quot;)&#x27;, &quot;&lt;GROUP_COLUMN&gt;&quot;: &quot;runs&quot;,
+           &quot;&lt;COUNT_NAME&gt;&quot;: &#x27;&quot;jobs&quot;&#x27;, &quot;&lt;PARTITION_COLUMN&gt;&quot;: &quot;dt&quot;})</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -4719,10 +4723,10 @@ flowchart LR
   subgraph g1[&quot;write_daily_job_runs&quot;]
     n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n2[&quot;runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n4[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n4[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&quot;]
   end
   subgraph g2[&quot;filters on write_daily_job_runs&quot;]
-    n5{{&quot;WHERE in write_daily_job_runs&lt;br/&gt;&lt;small&gt;between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…&lt;/small&gt;&quot;}}
+    n5{{&quot;WHERE in write_daily_job_runs&lt;br/&gt;&lt;small&gt;equals(job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
   end
   subgraph g3[&quot;mart.daily_job_runs&quot;]
     n6[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
@@ -4756,9 +4760,9 @@ write_daily_job_runs.runs = count_rows()
 ```
 
 Rows that count:
-- WHERE in write_daily_job_runs: `between(job_runs.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- WHERE in write_daily_job_runs: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
 
-One value for each different `job_runs.dt` and `job_runs.job_id`.
+One value for each different `job_runs.job_id` and `job_runs.dt`.
 
 ### Copied columns
 
@@ -4771,7 +4775,7 @@ One value for each different `job_runs.dt` and `job_runs.job_id`.
 
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
-- write_daily_job_runs: Key (dt, job_id), since GROUP_BY makes one row for each dt, job_id.
+- write_daily_job_runs: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -4784,10 +4788,10 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+  job_runs.dt = &#x27;2026-09-24&#x27;
 GROUP BY
-  job_runs.dt,
-  job_runs.job_id
+  job_runs.job_id,
+  job_runs.dt
 ```
 
 ---
@@ -4821,10 +4825,10 @@ flowchart LR
   subgraph g1[&quot;write_daily_job_runs&quot;]
     n1[&quot;job_id&lt;br/&gt;&lt;small&gt;job_runs.job_id&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n2[&quot;runs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n4[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n4[&quot;dt&lt;br/&gt;&lt;small&gt;job_runs.dt&lt;/small&gt;&quot;]
   end
   subgraph g2[&quot;filters on write_daily_job_runs&quot;]
-    n5{{&quot;WHERE in write_daily_job_runs&lt;br/&gt;&lt;small&gt;between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…&lt;/small&gt;&quot;}}
+    n5{{&quot;WHERE in write_daily_job_runs&lt;br/&gt;&lt;small&gt;equals(job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
   end
   subgraph g3[&quot;mart.daily_job_runs&quot;]
     n6[&quot;mart.daily_job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
@@ -4834,10 +4838,10 @@ flowchart LR
   subgraph g4[&quot;write_jobs_by_runs&quot;]
     n9[&quot;runs&lt;br/&gt;&lt;small&gt;daily_job_runs.runs&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
     n10[&quot;jobs&lt;br/&gt;&lt;small&gt;count_rows()&lt;/small&gt;&quot;]
-    n11[&quot;dt&lt;br/&gt;&lt;small&gt;daily_job_runs.dt&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n11[&quot;dt&lt;br/&gt;&lt;small&gt;daily_job_runs.dt&lt;/small&gt;&quot;]
   end
   subgraph g5[&quot;filters on write_jobs_by_runs&quot;]
-    n12{{&quot;WHERE in write_jobs_by_runs&lt;br/&gt;&lt;small&gt;between(daily_job_runs.dt, #quot;2026-09-24#quot;, #quot;2…&lt;/small&gt;&quot;}}
+    n12{{&quot;WHERE in write_jobs_by_runs&lt;br/&gt;&lt;small&gt;equals(daily_job_runs.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
   end
   subgraph g6[&quot;mart.jobs_by_runs&quot;]
     n13[&quot;mart.jobs_by_runs.runs&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
@@ -4878,9 +4882,9 @@ write_daily_job_runs.runs = count_rows()
 ```
 
 Rows that count:
-- WHERE in write_daily_job_runs: `between(job_runs.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- WHERE in write_daily_job_runs: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
 
-One value for each different `job_runs.dt` and `job_runs.job_id`.
+One value for each different `job_runs.job_id` and `job_runs.dt`.
 
 ### Copied columns
 
@@ -4893,7 +4897,7 @@ One value for each different `job_runs.dt` and `job_runs.job_id`.
 
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
-- write_daily_job_runs: Key (dt, job_id), since GROUP_BY makes one row for each dt, job_id.
+- write_daily_job_runs: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - mart.daily_job_runs&#x27; Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -4906,10 +4910,10 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+  job_runs.dt = &#x27;2026-09-24&#x27;
 GROUP BY
-  job_runs.dt,
-  job_runs.job_id
+  job_runs.job_id,
+  job_runs.dt
 ```
 
 ## write_jobs_by_runs
@@ -4930,10 +4934,10 @@ write_jobs_by_runs.jobs = count_rows()
 ```
 
 Rows that count:
-- WHERE in write_daily_job_runs: `between(job_runs.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)`, which is `job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
-- WHERE in write_jobs_by_runs: `between(daily_job_runs.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
+- WHERE in write_daily_job_runs: `equals(job_runs.dt, &quot;2026-09-24&quot;)`, which is `job_runs.dt = &#x27;2026-09-24&#x27;` (reads ops.job_runs.dt)
+- WHERE in write_jobs_by_runs: `equals(daily_job_runs.dt, &quot;2026-09-24&quot;)`, which is `daily_job_runs.dt = &#x27;2026-09-24&#x27;` (reads mart.daily_job_runs.dt)
 
-One value for each different `daily_job_runs.dt` and `daily_job_runs.runs`.
+One value for each different `daily_job_runs.runs` and `daily_job_runs.dt`.
 
 ### Copied columns
 
@@ -4946,7 +4950,7 @@ One value for each different `daily_job_runs.dt` and `daily_job_runs.runs`.
 
 The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
 
-- write_jobs_by_runs: Key (dt, runs), since GROUP_BY makes one row for each dt, runs.
+- write_jobs_by_runs: Key (runs), since GROUP_BY makes one row for each runs, dt, with dt held to one value.
 - mart.jobs_by_runs&#x27; Key (runs, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -4959,10 +4963,10 @@ SELECT
   daily_job_runs.dt
 FROM mart.daily_job_runs AS daily_job_runs
 WHERE
-  daily_job_runs.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+  daily_job_runs.dt = &#x27;2026-09-24&#x27;
 GROUP BY
-  daily_job_runs.dt,
-  daily_job_runs.runs
+  daily_job_runs.runs,
+  daily_job_runs.dt
 ```
 
 ---
@@ -4973,7 +4977,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <pre class="python">markdown_file.name</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;20260925-090000-mart__jobs_by_runs.md&#x27;</pre>
 <p>The files go in this Table folder&#x27;s lineage/, named for its own table, mart.jobs_by_runs: one of the writes fills it, and the notebook works in its folder. The rule, whole: writes that all fill one table with a Table folder go in its lineage/, wherever you run them; writes of several tables go in the lineage/ of the Table folder you run them from, when one of them fills its table; any others go in a lineage/ folder where you are, named with your scripts&#x27; commit, as Common mistakes shows. The Markdown file, shown above, has a section for each write. The second&#x27;s first line says it reads mart.daily_job_runs, written by write_daily_job_runs above, so the tree of its <code>&quot;jobs&quot;</code> count goes on through the Saved table, back to <code>ops.job_runs</code>.</p>
-<p>In the notebook itself, cell 2 has already set DAY and defined the table&#x27;s own write(), so cell 4 only loads the tables it reads. The starter Example project&#x27;s mart.team_day notebook draws three tables this way.</p>
+<p>In the notebook itself, cell 2 has already set READS and defined the table&#x27;s own write(), so cell 4 only loads the tables it reads. The starter Example project&#x27;s mart.team_day notebook draws three tables this way.</p>
 <p><code>project.load</code> works from any notebook of the Project: it finds the Project&#x27;s folder by looking up from the folder you&#x27;re working in, and runs the named notebook&#x27;s logic cell there.</p>
 <h4>Check it worked</h4>
 <p>Each Table folder&#x27;s lineage/ holds its pair:</p>
@@ -5027,7 +5031,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
-<p class="label">It writes 17 files</p>
+<p class="label">It writes 14 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -5037,13 +5041,10 @@ admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
 admin/run_tables.ipynb
-admin/templates/as_of_lookup.py
 admin/templates/building_block.py
-admin/templates/daily_table.py
-admin/templates/incremental_load.py
 admin/templates/quality_checks.py
+admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
-admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;],
                        query=example_database.query)</pre>
@@ -5240,7 +5241,7 @@ with open(&quot;references/reference_sheet.csv&quot;, encoding=&quot;utf-8&quot;
 <p>A Saved table&#x27;s Table reference, as <code>project.new_table</code> writes it, holds <code>&lt;...&gt;</code> to fill in, so it isn&#x27;t Python yet and the sheet can&#x27;t read it. The sheet leaves it out, and says so:</p>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
@@ -5272,6 +5273,13 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 <p class="label">It writes references/mart__daily_job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.daily_job_runs - TODO: say in one line what one row is.
 
+Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
+    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
+        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
+        saves them, its partition columns last.
+    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/daily_job_runs&quot;.
+Then partitioned_by= and key=, and the TODO lines.
+
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
 project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
@@ -5285,12 +5293,11 @@ from sqlglot_composer import Table
 daily_job_runs = Table(
     &quot;mart.daily_job_runs&quot;,
     columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # every column write() saves, in order, each in quotes
-        &quot;dt&quot;: &quot;string&quot;,  # the day, as yyyy-MM-dd: its partition column, last
+        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
     },
-    partitioned_by=[&quot;dt&quot;],  # its partition columns, in order, each also in columns
-    key=None,  # or the columns that pick out one row, such as [&quot;job_id&quot;, &quot;dt&quot;]
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes, such as &quot;/data/your_team/mart.db/daily_job_runs&quot;
+    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
+    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
+    location=&lt;LOCATION&gt;,  # its own folder, in quotes
     descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
 )
 

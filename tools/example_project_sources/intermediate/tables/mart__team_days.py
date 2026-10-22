@@ -8,7 +8,8 @@
 # from a few saved rows per job; and a week's numbers come from 7 saved days, not from every
 # event and bill again.
 #
-# Made by `project.new_table("mart.team_days", template="weekly_rollup")`, then filled in. It
+# Made by `project.new_table("mart.team_days")` from `admin/templates/saved_table.py`, then
+# filled in, writing its last 3 days on each run, and with `week_totals`, a weekly rollup. It
 # reads the two Saved tables through their Table references, so it is written after them:
 # `run_tables` sends it last. A job's day with no row in mart.job_day_costs, since it wasn't
 # billed, keeps its events through LEFT_JOIN, with a NULL cost. `week_totals` adds the saved
@@ -39,7 +40,7 @@ from sqlglot_composer import (
     all_of, between, create_table, equals, statement, sum_of, week_start,
 )
 from building_blocks.days_rewritten import first_day_written
-from building_blocks.events_per_job_day import events_per_job_day
+from building_blocks.events_per_job import events_per_job
 from building_blocks.owner_on_day import owner_on_day
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
@@ -120,7 +121,7 @@ def team_day_from_job_events(day: str) -> Statement:
     themselves, through the Building blocks mart.job_day_facts saves: so it runs on the
     Example database. The costs are left out: ops.region_costs writes its days like 20260924,
     so it can't be joined on the day to ops.job_events."""
-    events = events_per_job_day(day, day)
+    events = events_per_job(day, day)
     return statement(
         SELECT(
             job_owners.team,

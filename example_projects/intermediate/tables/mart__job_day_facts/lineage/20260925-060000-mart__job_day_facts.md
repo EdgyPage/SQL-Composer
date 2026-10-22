@@ -12,23 +12,23 @@ flowchart LR
     n5["ops.job_events.event_type<br/><small>string</small>"]
     n7["ops.job_events.minutes<br/><small>int</small>"]
   end
-  subgraph g1["events_per_job_day"]
-    n1["events_per_job_day.job_id<br/><small>job_events.job_id</small><br/><small>in the Key</small>"]
-    n3["events_per_job_day.dt<br/><small>job_events.dt</small><br/><small>in the Key</small>"]
-    n4["events_per_job_day.events<br/><small>count_rows()</small>"]
-    n6["events_per_job_day.runs<br/><small>count_rows(where=equals(job_events.event_ty…</small>"]
-    n8["events_per_job_day.minutes<br/><small>fill_null(sum_of(job_events.minutes, where=…</small>"]
+  subgraph g1["events_per_job"]
+    n1["events_per_job.job_id<br/><small>job_events.job_id</small><br/><small>in the Key</small>"]
+    n3["events_per_job.dt<br/><small>job_events.dt</small><br/><small>in the Key</small>"]
+    n4["events_per_job.events<br/><small>count_rows()</small>"]
+    n6["events_per_job.runs<br/><small>count_rows(where=equals(job_events.event_ty…</small>"]
+    n8["events_per_job.minutes<br/><small>fill_null(sum_of(job_events.minutes, where=…</small>"]
   end
-  subgraph g2["filters on events_per_job_day"]
-    n9{{"WHERE in events_per_job_day<br/><small>between(job_events.dt, #quot;2026-09-22#quot;, #quot;2026-…</small>"}}
+  subgraph g2["filters on events_per_job"]
+    n9{{"WHERE in events_per_job<br/><small>between(job_events.dt, #quot;2026-09-22#quot;, #quot;2026-…</small>"}}
   end
   subgraph g3["written"]
-    n10["job_id<br/><small>events_per_job_day.job_id</small><br/><small>in the Key</small>"]
+    n10["job_id<br/><small>events_per_job.job_id</small><br/><small>in the Key</small>"]
     n12["team<br/><small>job_owners.team</small>"]
-    n13["events<br/><small>events_per_job_day.events</small>"]
-    n14["runs<br/><small>events_per_job_day.runs</small>"]
-    n15["minutes<br/><small>events_per_job_day.minutes</small>"]
-    n16["dt<br/><small>events_per_job_day.dt</small><br/><small>in the Key</small>"]
+    n13["events<br/><small>events_per_job.events</small>"]
+    n14["runs<br/><small>events_per_job.runs</small>"]
+    n15["minutes<br/><small>events_per_job.minutes</small>"]
+    n16["dt<br/><small>events_per_job.dt</small><br/><small>in the Key</small>"]
   end
   subgraph g4["ops.job_owners"]
     n11["ops.job_owners.team<br/><small>string</small>"]
@@ -80,46 +80,46 @@ It writes the Saved table mart.job_day_facts, replacing each partition its rows 
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `events_per_job_day.events`
+#### `events_per_job.events`
 
-Calculated in **events_per_job_day** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **events_per_job** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-events_per_job_day.events = count_rows()
+events_per_job.events = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in events_per_job_day: `between(job_events.dt, "2026-09-22", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-22' AND '2026-09-24'` (reads ops.job_events.dt)
+- WHERE in events_per_job: `between(job_events.dt, "2026-09-22", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-22' AND '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events_per_job_day.runs`
+#### `events_per_job.runs`
 
-Calculated in **events_per_job_day** as `count_rows(where=equals(job_events.event_type, "start"))`, which is `COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)`.
+Calculated in **events_per_job** as `count_rows(where=equals(job_events.event_type, "start"))`, which is `COUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)`.
 
 ```text
-events_per_job_day.runs = count_rows(where=equals(job_events.event_type, "start"))
+events_per_job.runs = count_rows(where=equals(job_events.event_type, "start"))
 └─ ops.job_events.event_type  (string)
 ```
 
 Rows that count:
-- WHERE in events_per_job_day: `between(job_events.dt, "2026-09-22", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-22' AND '2026-09-24'` (reads ops.job_events.dt)
+- WHERE in events_per_job: `between(job_events.dt, "2026-09-22", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-22' AND '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
-#### `events_per_job_day.minutes`
+#### `events_per_job.minutes`
 
-Calculated in **events_per_job_day** as `fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, ["finish", "fail"])), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)`.
+Calculated in **events_per_job** as `fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, ["finish", "fail"])), 0)`, which is `COALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)`.
 
 ```text
-events_per_job_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, ["finish", "fail"])), 0)
+events_per_job.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, ["finish", "fail"])), 0)
 ├─ ops.job_events.minutes  (int)
 └─ ops.job_events.event_type  (string)
 ```
 
 Rows that count:
-- WHERE in events_per_job_day: `between(job_events.dt, "2026-09-22", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-22' AND '2026-09-24'` (reads ops.job_events.dt)
+- WHERE in events_per_job: `between(job_events.dt, "2026-09-22", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-22' AND '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.job_id` and `job_events.dt`.
 
@@ -127,25 +127,25 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 
 | Output | Comes from |
 | --- | --- |
-| `job_id` | events_per_job_day.job_id ← ops.job_events.job_id |
+| `job_id` | events_per_job.job_id ← ops.job_events.job_id |
 | `team` | ops.job_owners.team |
-| `events` | events_per_job_day.events (calculated) |
-| `runs` | events_per_job_day.runs (calculated) ← ops.job_events.event_type |
-| `minutes` | events_per_job_day.minutes (calculated) ← ops.job_events.minutes |
-| `dt` | events_per_job_day.dt ← ops.job_events.dt |
+| `events` | events_per_job.events (calculated) |
+| `runs` | events_per_job.runs (calculated) ← ops.job_events.event_type |
+| `minutes` | events_per_job.minutes (calculated) ← ops.job_events.minutes |
+| `dt` | events_per_job.dt ← ops.job_events.dt |
 
 ### Keys
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- derived('events_per_job_day', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- written: Key (job_id, dt), since events_per_job_day's rows are told apart by job_id, dt.
+- derived('events_per_job', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
+- written: Key (job_id, dt), since events_per_job's rows are told apart by job_id, dt.
 - mart.job_day_facts' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
 ```sql
-WITH events_per_job_day AS (
+WITH events_per_job AS (
   SELECT
     job_events.job_id,
     job_events.dt,
@@ -166,16 +166,16 @@ WITH events_per_job_day AS (
 )
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt)
 SELECT
-  events_per_job_day.job_id,
+  events_per_job.job_id,
   job_owners.team,
-  events_per_job_day.events,
-  events_per_job_day.runs,
-  events_per_job_day.minutes,
-  events_per_job_day.dt
-FROM events_per_job_day
+  events_per_job.events,
+  events_per_job.runs,
+  events_per_job.minutes,
+  events_per_job.dt
+FROM events_per_job
 LEFT JOIN ops.job_owners AS job_owners
-  ON job_owners.job_id = events_per_job_day.job_id
-  AND job_owners.dt = events_per_job_day.dt
+  ON job_owners.job_id = events_per_job.job_id
+  AND job_owners.dt = events_per_job.dt
   AND job_owners.dt BETWEEN '2026-09-22' AND '2026-09-24'
 ```
 

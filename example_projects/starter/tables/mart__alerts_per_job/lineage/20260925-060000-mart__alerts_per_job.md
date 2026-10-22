@@ -15,7 +15,7 @@ flowchart LR
     n1["job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
     n2["alerts<br/><small>count_rows()</small>"]
     n4["high_alerts<br/><small>count_rows(where=equals(run_alerts.severity…</small>"]
-    n6["dt<br/><small>run_alerts.dt</small><br/><small>in the Key</small>"]
+    n6["dt<br/><small>run_alerts.dt</small>"]
   end
   subgraph g2["ops.run_alerts"]
     n3["ops.run_alerts.severity<br/><small>string</small>"]
@@ -23,8 +23,8 @@ flowchart LR
     n12["ops.run_alerts.run_id<br/><small>bigint</small>"]
   end
   subgraph g3["filters on written"]
-    n7{{"WHERE in written<br/><small>between(run_alerts.dt, #quot;2026-09-24#quot;, #quot;2026-…</small>"}}
-    n8{{"WHERE in written<br/><small>between(job_runs.dt, #quot;2026-09-23#quot;, #quot;2026-09…</small>"}}
+    n7{{"WHERE in written<br/><small>equals(run_alerts.dt, #quot;2026-09-24#quot;)</small>"}}
+    n8{{"WHERE in written<br/><small>is_in(job_runs.dt, [#quot;2026-09-23#quot;, #quot;2026-09-…</small>"}}
     n10{{"JOIN ON in written<br/><small>equals(job_runs.run_id, run_alerts.run_id)</small>"}}
   end
   subgraph g4["mart.alerts_per_job"]
@@ -67,8 +67,8 @@ written.alerts = count_rows()
 ```
 
 Rows that count:
-- WHERE in written: `between(run_alerts.dt, "2026-09-24", "2026-09-24")`, which is `run_alerts.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.run_alerts.dt)
-- WHERE in written: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in written: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in written: `is_in(job_runs.dt, ["2026-09-23", "2026-09-24"])`, which is `job_runs.dt IN ('2026-09-23', '2026-09-24')` (reads ops.job_runs.dt)
 - JOIN ON in written: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
 
 One value for each different `run_alerts.dt` and `job_runs.job_id`.
@@ -83,8 +83,8 @@ written.high_alerts = count_rows(where=equals(run_alerts.severity, "high"))
 ```
 
 Rows that count:
-- WHERE in written: `between(run_alerts.dt, "2026-09-24", "2026-09-24")`, which is `run_alerts.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.run_alerts.dt)
-- WHERE in written: `between(job_runs.dt, "2026-09-23", "2026-09-24")`, which is `job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'` (reads ops.job_runs.dt)
+- WHERE in written: `equals(run_alerts.dt, "2026-09-24")`, which is `run_alerts.dt = '2026-09-24'` (reads ops.run_alerts.dt)
+- WHERE in written: `is_in(job_runs.dt, ["2026-09-23", "2026-09-24"])`, which is `job_runs.dt IN ('2026-09-23', '2026-09-24')` (reads ops.job_runs.dt)
 - JOIN ON in written: `equals(job_runs.run_id, run_alerts.run_id)`, which is `job_runs.run_id = run_alerts.run_id` (reads ops.job_runs.run_id, ops.run_alerts.run_id)
 
 One value for each different `run_alerts.dt` and `job_runs.job_id`.
@@ -100,7 +100,7 @@ One value for each different `run_alerts.dt` and `job_runs.job_id`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- written: Key (dt, job_id), since GROUP_BY makes one row for each dt, job_id.
+- written: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
 - mart.alerts_per_job's Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -116,8 +116,7 @@ FROM ops.run_alerts AS run_alerts
 JOIN ops.job_runs AS job_runs
   ON job_runs.run_id = run_alerts.run_id
 WHERE
-  run_alerts.dt BETWEEN '2026-09-24' AND '2026-09-24'
-  AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+  run_alerts.dt = '2026-09-24' AND job_runs.dt IN ('2026-09-23', '2026-09-24')
 GROUP BY
   run_alerts.dt,
   job_runs.job_id

@@ -130,7 +130,7 @@ def test_the_exported_toolbox_docstring_shows_a_true_version(clean: Path) -> Non
 
 def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) -> None:
     section = readme(clean).split("### `example_database.py`\n", 1)[1]
-    assert section.count("The Example database: seven made-up tables") == 1
+    assert section.count("The Example database: nine made-up tables") == 1
 
 
 # The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
@@ -565,7 +565,7 @@ def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> No
 
 def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job_day.py",
+    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job.py",
           "\nfrom sqlglot_composer import", 'import pathlib\n'
           'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
@@ -620,13 +620,13 @@ def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
     source = dev_copy(tmp_path / "dev")
     # Run, it would leave a file behind, which the dry run's own check refuses: read first, the
     # socket stops it before anything runs.
-    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job_day.py",
+    spoil(source / "example_projects" / "starter" / "building_blocks" / "runs_per_job.py",
           "\nfrom sqlglot_composer import", 'import pathlib\nimport socket\n'
           'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     assert str(refused.value).startswith(NETWORK_REFUSAL)
-    assert "example_projects/starter/building_blocks/runs_per_job_day.py:" in str(refused.value)
+    assert "example_projects/starter/building_blocks/runs_per_job.py:" in str(refused.value)
     assert not list((tmp_path / "clean").rglob("left_behind.txt"))
 
 

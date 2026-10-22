@@ -135,7 +135,7 @@ ADMIN_NOTEBOOKS = {
         "folder or is in the registry. Never touches the warehouse: the new notebook's "
         "`create()` does that. Change the name, and `template=` to make it from another "
         "Template in `templates/`.",
-        ['project.new_table("mart.your_table", template="daily_table")'],
+        ['project.new_table("mart.your_table", template="saved_table")'],
     ),
     "remove_table": (
         "# Remove a table\n\nMoves a Table folder into `admin/removed/`, named by the time, "
@@ -279,12 +279,12 @@ def start() -> ProjectReport:
 # --- new_table --------------------------------------------------------------------------------
 
 
-def new_table(name: str, template: str = "daily_table") -> ProjectReport:
+def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     """Make a Table folder for a Saved table: its notebook, lineage/ and reference.
 
     `name` is the table's name in the warehouse, such as "mart.daily_job_runs". It makes
     tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from
-    admin/templates/daily_table.py (or the Template `template` names), and an empty lineage/;
+    admin/templates/saved_table.py (or the Template `template` names), and an empty lineage/;
     and references/mart__daily_job_runs.py, the table's Table reference to fill in, from
     admin/templates/saved_table_reference.py, unless that file is there already. In both,
     <DB>, <TABLE> and <NAME> are filled in; fill in every other <...> yourself. It registers
@@ -297,12 +297,12 @@ def new_table(name: str, template: str = "daily_table") -> ProjectReport:
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-    admin/templates/daily_table.py.
+    admin/templates/saved_table.py.
     Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
     """
     frame = callers_frame()
     call = _call("new_table", name, f", template={_quoted(template)}"
-                 if template != "daily_table" else "")
+                 if template != "saved_table" else "")
     root = _project(call)
     database, table, stem = _table_name(name, call)
     if keyword.iskeyword(table):
@@ -392,7 +392,7 @@ def remove_table(name: str) -> ProjectReport:
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-    admin/templates/daily_table.py.
+    admin/templates/saved_table.py.
     Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
     >>> project.remove_table("mart.daily_job_runs")  # the time it ran, as yyyymmdd-hhmmss
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
@@ -418,7 +418,7 @@ def remove_reference(name: str) -> ProjectReport:
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-    admin/templates/daily_table.py.
+    admin/templates/saved_table.py.
     Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
     >>> project.remove_table("mart.daily_job_runs")
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
@@ -821,8 +821,8 @@ def load(name: str) -> TableLogic:
     It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
     whose first line is # logic. That cell only imports and defines, and it defines write(),
     which takes nothing and gives what writes the table: a Statement, an Unchecked statement,
-    or a list of them. In a notebook made from the daily_table Template, it defines create,
-    rows, preview, write and backfill, and load gives each of them (the functions and classes
+    or a list of them. In a notebook made from the saved_table Template, it defines create,
+    rows, preview and write, and load gives each of them (the functions and classes
     only, not other names the cell sets). So another table's notebook can use this table's
     write, for lineage across your tables, and run_tables can write every table in order. It
     reads the notebook file as last saved, and your references/ and building_blocks/ as they
@@ -878,7 +878,7 @@ def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:
             why="write() is what writes the table: run_tables sends it, and another table's "
             "notebook reads it for lineage across your tables.",
             fix="Define write() in the logic cell, taking nothing and giving the Statement "
-            "that writes the table, as the daily_table Template does. CHANGES.md, under 7.0, "
+            "that writes the table, as the saved_table Template does. CHANGES.md, under 7.0, "
             "says how to turn a write_day(day) into it.",
             error=ValueError,
         )
@@ -917,7 +917,7 @@ def _checked_logic(root: Path, stem: str, call: str) -> str:
             why="load runs only the logic cell, the one that imports and defines the "
             "table's functions, so it never runs the cells that send Hive.",
             fix=f"Put {LOGIC} as the first line of the cell that defines write() and the "
-            "others, as the daily_table Template does.",
+            "others, as the saved_table Template does.",
             error=ValueError,
         )
     try:
@@ -941,7 +941,7 @@ def _checked_logic(root: Path, stem: str, call: str) -> str:
             why="Loading the logic would send its Hive to your warehouse, from wherever it is "
             "loaded, before you chose to.",
             fix="Keep the logic cell to imports and functions that build Statements, and call "
-            "run in another cell, as the daily_table Template's cell 3 does.",
+            "run in another cell, as the saved_table Template's cell 3 does.",
             error=ValueError,
         )
     return source
@@ -1049,7 +1049,7 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
         why="run_tables puts the tables in order by the tables each Statement reads and "
         "writes, so each write() gives a Statement, an Unchecked statement, or a list of "
         "them.",
-        fix="Make write() return the Statement that writes the table, as the daily_table "
+        fix="Make write() return the Statement that writes the table, as the saved_table "
         "Template's does; one that gives None has lost its return. For Hive you wrote by "
         "hand, return unchecked_hive(...). Session settings aren't a write: send them before "
         "project.run_tables, with run(hive_settings(...), execute=execute). They hold only "

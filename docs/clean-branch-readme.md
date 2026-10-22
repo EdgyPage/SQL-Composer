@@ -84,7 +84,7 @@ its page has none, says so: in yours, leave `project.start()` out.
 
 ## 3. A first Statement
 
-The Example database ships inside the Toolbox: seven made-up tables, a `query` that runs
+The Example database ships inside the Toolbox: nine made-up tables, a `query` that runs
 Statements on them, and an `execute` that prints what it is given and changes nothing, so you
 can practise without touching the warehouse.
 
@@ -227,20 +227,21 @@ Each result comes from the Example database or, where that can't run it, is comp
 ## Example projects
 
 An Example project is a Project made for the Example database's tables, laid out as yours is:
-everything in it was made by the `project` module's Project actions, then filled in by hand.
-`example_projects/` holds two:
+made by the `project` module's Project actions, then filled in by hand, with its Building
+blocks written by hand. `example_projects/` holds two:
 
-- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: two Saved tables written a
-  day at a time, and a third, each team's day, read from both, through a Building block and
-  Aliases.
-- `intermediate/`, on `ops.job_events`, `ops.job_owners` and `ops.region_costs`, which builds
-  on the starter project: four Saved tables, one from each of the other Table notebook
-  Templates. The three that count or add up rows write their last 3 days again on every run,
-  since rows can come in late; the quality checks write only their day.
+- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: two Saved tables
+  partitioned by day, and a third, each team's day, read from both, through a Building block
+  and Aliases, each made from the `saved_table` Template.
+- `intermediate/`, on `ops.job_events`, `ops.job_owners`, `ops.region_costs`,
+  `ops.region_budgets` and `ops.team_notes`, which builds on the starter project: six Saved
+  tables, among them an incremental load, an as-of lookup, a weekly rollup, quality checks
+  from the `quality_checks` Template, a table partitioned by region and written a region at a
+  time, and one with no partitions and no Key.
 
-Each project's `README.md` says what each folder holds and how to run it. Copy the
-`sqlglot_composer` folder into a project's folder first, as a Project holds it, then open its
-notebooks. The Example database can be read but not written, so a Table notebook's cell 3
+Each project's `README.md` says what each folder holds, how each file was made, and how to run
+it. Copy the `sqlglot_composer` folder into a project's folder first, as a Project holds it,
+then open its notebooks. The Example database can be read but not written, so a Table notebook's cell 3
 prints each write's Hive and runs only what reads the ops tables, and
 `admin/run_tables.ipynb`, with no execute, prints every write in order, writers first, and
 sends nothing (a dry run).
@@ -253,20 +254,18 @@ Example project is for reading, and copying it would bring its tables and its Ad
 A Template is the empty shape of one of your notebooks or files, to make a new one from. They
 ship inside the Toolbox, and `project.start()` copies them into your Project's
 `admin/templates`, where they are yours to edit, or to add your own beside.
-`project.new_table("mart.your_table", template="daily_table")` makes a Table folder's notebook
-from one, filling in the table's database and name. Every other placeholder, a word in angle
-brackets such as `<SOURCE_TABLE>`, is yours to replace, brackets and all; Python stops at one
-left in, so a notebook can't run half filled in. Each Template's first cell lists its
-placeholders, with an example of each.
+`project.new_table("mart.your_table")` makes a Table folder's notebook from the `saved_table`
+Template, and `template=` names another, filling in the table's database and name. Every other
+placeholder, a word in angle brackets such as `<SOURCE_TABLE>`, is yours to replace, brackets
+and all; Python stops at one left in, so a notebook can't run half filled in. Each Template's
+first lines list its placeholders, with an example of each.
 
 The Table notebook Templates, each a notebook of the same five code cells around its own logic:
 
-- `daily_table`: a table written a day at a time, from a table it reads.
-- `incremental_load`: each run writes its day and the few days before it again, for rows that
-  come in late.
-- `weekly_rollup`: a table written a day at a time and read a week at a time.
-- `as_of_lookup`: each row looked up in a snapshot table as of its own day.
-- `quality_checks`: a table's row count saved each day, and checks for repeated keys and NULLs.
+- `saved_table`: a Saved table worked out from a table it reads, with `create`, `rows`,
+  `preview` and `write`, partitioned however its Table reference says, or not at all.
+- `quality_checks`: the row count of each Partition of a table you read, saved, and checks for
+  repeated keys and NULLs.
 
 And two more, for files beside the notebooks:
 
