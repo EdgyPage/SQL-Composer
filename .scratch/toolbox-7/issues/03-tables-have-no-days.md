@@ -33,8 +33,7 @@ What exists (2026-10-21), from the inventory that day:
 A table with no days already creates, writes whole and shows in Lineage
 (`tests/test_write_no_day.py`).
 
-Before building, ask the user the map's two "Not yet specified" questions: what `check_key`
-reads of a partitioned table, and what Lineage draws for a write into partitions.
+The user settled the two open questions on 2026-10-21; the map's "No days" Notes hold them.
 
 ## Done when
 
@@ -73,7 +72,8 @@ reads of a partitioned table, and what Lineage draws for a write into partitions
   - A join onto a table with no Key keeps the repeated-rows Warning. Its message says
     `many_matches=True` is right when the user knows the match is one row, and no longer
     tells every table to declare a Key.
-  - `check_key` reads as the user settles.
+  - `check_key(t, query=..., where=None, reads_all_partitions=False)` reads what `where=`
+    picks, as the map says.
 - **Projects**:
   - `run_tables(tables=None, query=..., execute=...)` takes no day.
   - A Table notebook's logic defines `write()`, which takes nothing.
@@ -97,7 +97,8 @@ reads of a partitioned table, and what Lineage draws for a write into partitions
   - `admin.move_to_own_folder` copies a table whole or a partition at a time.
 - **Lineage**:
   - No text, arrow or legend speaks of days.
-  - A write into partitions is drawn as the user settles.
+  - A write into partitions adds no arrow; a static `partition={...}` is one line on the
+    write's box.
 - **The Reference sheet**: its `date_partition` column becomes `partition`, which is "yes" for
   each partition column.
 - The Example database, the Worked examples, the how-tos, the Example projects and the README
