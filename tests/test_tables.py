@@ -12,20 +12,25 @@ from types import ModuleType
 
 import pandas as pd
 import pytest
+from conftest import skip_unless_the_example_database_runs
 
 from sqlglot_composer import (
+    AS,
     Table,
     check_key,
     check_table_reference,
     create_table,
+    derived,
     FROM,
     SELECT,
     WHERE,
     equals,
     example_database,
     first_look,
+    run,
     statement,
     to_hive,
+    unchecked_hive,
     write_table_reference,
 )
 from sqlglot_composer.example_database import job_runs, jobs
@@ -92,6 +97,50 @@ def test_a_table_is_partitioned_by_any_columns_in_the_order_given() -> None:
 def test_a_table_name_must_be_a_hive_name() -> None:
     with pytest.raises(ValueError, match="isn't a table name"):
         Table("ops.t; drop", columns={"dt": "string"})
+
+
+# --- The text of a table and of a column -----------------------------------------------------
+
+
+def test_a_tables_text_is_as_from_writes_it_and_a_columns_as_select_does() -> None:
+    assert str(jobs) == f"{jobs}" == "ops.jobs AS jobs"
+    assert str(jobs.job_id) == f"{jobs.job_id}" == "jobs.job_id"
+    assert f"SELECT {jobs.job_id} FROM {jobs}" == "SELECT jobs.job_id FROM ops.jobs AS jobs"
+    # Its repr, what a notebook shows for it, stays the Table reference's.
+    assert repr(jobs) == "Table('ops.jobs', columns: job_id, job_name, team, region)"
+
+
+def test_a_second_name_and_a_derived_table_give_the_name_from_reads() -> None:
+    earlier = AS(job_runs, "earlier")
+    assert f"{earlier}" == "ops.job_runs AS earlier"
+    assert f"{earlier.run_id}" == "earlier.run_id"
+    latest = derived("latest", statement(SELECT(jobs.job_id), FROM(jobs)))
+    assert f"{latest}" == "latest"
+    assert f"{AS(latest, 'newest')}" == "latest AS newest"
+    assert f"{latest.job_id}" == "latest.job_id"
+
+
+def test_a_name_hive_needs_quoted_is_quoted_in_the_text() -> None:
+    odd = Table("ops.from", columns={"select": "string"})
+    assert f"{odd}" == "ops.`from` AS `from`"
+    assert f"{getattr(odd, 'select')}" == "`from`.`select`"
+
+
+def test_a_format_spec_works_on_a_table_and_a_column_as_on_a_str() -> None:
+    assert f"[{jobs.team:>12}]" == f"[{'jobs.team':>12}]" == "[   jobs.team]"
+    assert f"[{jobs:<20}]" == "[ops.jobs AS jobs    ]"
+    assert format(jobs.team, "^13") == "  jobs.team  "
+    with pytest.raises(ValueError):  # what a str gives for a spec for numbers
+        f"{jobs.team:d}"
+
+
+def test_the_text_of_a_table_and_its_columns_is_hive_that_runs() -> None:
+    skip_unless_the_example_database_runs()
+    by_hand = unchecked_hive(f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} "
+                             f"ORDER BY {jobs.job_id}", returns_rows=True)
+    rows = run(by_hand, query=example_database.query)
+    assert list(rows.columns) == ["job_id", "job_name"]
+    assert list(rows["job_id"]) == [1, 2, 3, 4]
 
 
 # --- write_table_reference -------------------------------------------------------------------
