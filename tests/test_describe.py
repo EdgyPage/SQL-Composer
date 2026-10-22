@@ -25,7 +25,7 @@ from sqlglot_composer.describe import (
 )
 from sqlglot_composer.tables import FILE_FORMATS
 
-COLUMNS = ["col_name", "data_type", "comment"]
+DESCRIBE_COLUMNS = ["col_name", "data_type", "comment"]
 
 # A table with a column comment, two partition columns and, for DESCRIBE FORMATTED, every
 # part of its storage the Toolbox reads.
@@ -101,7 +101,7 @@ def test_every_way_is_one_the_toolbox_has_met() -> None:
 
 @pytest.mark.parametrize("way", WAYS)
 def test_a_table_reference_is_printed_as_its_warehouse_prints_it(way: str) -> None:
-    expected = pd.DataFrame(PRINTED[way], columns=COLUMNS)
+    expected = pd.DataFrame(PRINTED[way], columns=DESCRIBE_COLUMNS)
     pd.testing.assert_frame_equal(printed(of_table(RUNS), way=way), expected)
     assert read("ops.runs", expected) == Description("ops.runs", RUNS._columns,
                                                      partitioned_by=["dt"])

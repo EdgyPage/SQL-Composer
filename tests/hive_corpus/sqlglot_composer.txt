@@ -17097,7 +17097,7 @@ GROUP BY
 ValueError:
   What happened:  INSERT_OVERWRITE(region_runs, partition=...) names region, but not dt, which comes before it in mart.region_runs's partitioned_by (dt, region).
   Why it matters: Hive takes the partition columns in order: the ones partition= names first, then the others by name alone. A column named after one left out can't be.
-  Usual fix:      Name dt too, or leave out the ones after it: the write fills each partition column it doesn't name from the rows' own values.
+  Usual fix:      Name dt too, or leave out the ones after it: then the write fills each partition column partition= doesn't name from the rows' own values.
   Opt-out:        none - this one can't be switched off.
 
 == edge:write:partitioned_by:refused:names_another_column
@@ -22750,7 +22750,7 @@ TypeError:
 TypeError:
   What happened:  compute_statistics(daily_runs, partition="2026-09-24"): partition= is a dict of partition columns and their values.
   Why it matters: It names Partitions by their partition columns: each column it names, with one value of it.
-  Usual fix:      Write it like compute_statistics(daily_runs, partition={"dt": ...}), or leave partition= out: compute_statistics counts every value of each partition column it doesn't name.
+  Usual fix:      Write it like compute_statistics(daily_runs, partition={"dt": ...}), or leave partition= out: then compute_statistics covers every value of each partition column partition= doesn't name.
   Opt-out:        none - this one can't be switched off.
 
 == edge:upkeep:compute_statistics:refused:names_a_later_column
@@ -22758,7 +22758,7 @@ TypeError:
 ValueError:
   What happened:  compute_statistics(region_runs, partition=...) names region, but not dt, which comes before it in mart.region_runs's partitioned_by (dt, region).
   Why it matters: Hive takes the partition columns in order: the ones partition= names first, then the others by name alone. A column named after one left out can't be.
-  Usual fix:      Name dt too, or leave out the ones after it: compute_statistics counts every value of each partition column it doesn't name.
+  Usual fix:      Name dt too, or leave out the ones after it: then compute_statistics covers every value of each partition column partition= doesn't name.
   Opt-out:        none - this one can't be switched off.
 
 == edge:upkeep:compute_statistics:refused:unpartitioned_given_a_partition

@@ -16,7 +16,7 @@ from sqlglot_composer import (
     first_look,
     write_table_reference,
 )
-from sqlglot_composer.describe import COLUMNS, StandIn
+from sqlglot_composer.describe import DESCRIBE_COLUMNS, StandIn
 
 
 def runs(**more: object) -> Table:
@@ -32,7 +32,7 @@ def holding(t: Table) -> StandIn:
 def nothing_listed(hive: str) -> pd.DataFrame:
     """A stand-in for `query` whose DESCRIBE lists no column, on purpose: no warehouse holding a
     table answers so, so the StandIn never does."""
-    return pd.DataFrame(columns=COLUMNS)
+    return pd.DataFrame(columns=DESCRIBE_COLUMNS)
 
 
 # --- An answer the tools can't use ---------------------------------------------------------
