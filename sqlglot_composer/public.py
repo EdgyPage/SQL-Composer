@@ -66,6 +66,7 @@ from .conditions import (
     starts_with,
 )
 from .lineage import export_lineage
+from .python_steps import PythonStep, python_step
 from .refusals import GuardRefused, LoadRefused
 from .running import run, set_load_limits, show_hive, to_hive
 from .stacking import (
@@ -212,6 +213,9 @@ __all__ = [
     "LoadRefused",
     # lineage.py
     "export_lineage",
+    # python_steps.py
+    "python_step",
+    "PythonStep",
     # unchecked.py
     "hive_settings",
     "unchecked_hive",
