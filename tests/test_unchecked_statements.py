@@ -145,9 +145,12 @@ def test_you_pick_the_call_whatever_the_text_says() -> None:
     assert sent == [("execute", "SELECT 1")]
 
 
-def test_returns_rows_is_gone() -> None:
-    with pytest.raises(TypeError, match="returns_rows"):
+def test_returns_rows_is_refused_saying_to_pick_the_call() -> None:
+    with pytest.raises(TypeError) as refused:
         unchecked_hive("SELECT 1", returns_rows=True)
+    message = " ".join(str(refused.value).split())
+    assert "unchecked_hive was given returns_rows=, which Toolbox 7.1 took out." in message
+    assert "run_query(s, query) if it gives back rows" in message
 
 
 @pytest.mark.needs_example_database

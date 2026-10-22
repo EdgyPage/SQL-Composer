@@ -33,13 +33,13 @@ def read_cells(path: Path, *, shown: str = "", call: str = "") -> list[tuple[str
         _refuse_unreadable(path, shown, call, "isn't JSON",
                            "It has been cut short, or written over by something other than "
                            "Jupyter.")
-    found = notebook.get("cells") if isinstance(notebook, dict) else None
-    if not isinstance(found, list) or not all(isinstance(cell, dict) for cell in found):
+    listed = notebook.get("cells") if isinstance(notebook, dict) else None
+    if not isinstance(listed, list) or not all(isinstance(cell, dict) for cell in listed):
         _refuse_unreadable(path, shown, call, "has no list of cells Jupyter can read",
                            "A notebook keeps its code in a list named cells, each a cell, and "
                            "this file has no such list.")
     # Jupyter keeps a cell's text as one string or as a list of lines: "".join reads both.
-    return [(cell.get("cell_type", ""), "".join(cell.get("source", []))) for cell in found]
+    return [(cell.get("cell_type", ""), "".join(cell.get("source", []))) for cell in listed]
 
 
 def logic_cell(path: Path, *, shown: str = "", call: str = "") -> str | None:

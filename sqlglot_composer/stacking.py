@@ -229,7 +229,7 @@ def _check_branch(call: str, position: int, s: object) -> None:
             f"FROM({s._alias})).",
             given=s, call=call,
         )
-    if kinds.kind(s) not in (kinds.READ, kinds.WRITE):
+    if not kinds.is_a_query(s):
         refuse(
             what=f"{which} is {s!r}, which isn't a Statement that reads a table.",
             why=f"{call} stacks the rows of Statements made by statement(...).",

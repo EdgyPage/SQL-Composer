@@ -1,9 +1,9 @@
 """Keeping reads and joins fast: repair_partitions, compute_statistics and explain.
 
-Each gives a Statement, sent with run_execute like any other change, and each is safe to send again. repair_partitions
-and compute_statistics change only what the warehouse keeps about one of your Saved tables,
-never a row of it; explain only reads. create_table(t, may_exist=True), in tables.py, is the
-fourth Statement of this kind.
+Each gives a Statement, sent with run_execute like any other change, and each is safe to send
+again. repair_partitions and compute_statistics change only what the warehouse keeps about one
+of your Saved tables, never a row of it; explain only reads. create_table(t, may_exist=True), in
+tables.py, is the fourth Statement of this kind.
 """
 
 from __future__ import annotations
@@ -276,9 +276,10 @@ def explain(s: Statement) -> Statement:
     return _upkeep(Node("Explain", this=_statement_tree(s)), kinds.PLAN)
 
 
-# The function that makes each Statement explain has no plan for, by its kind.
-_MADE_BY = {"Create": "create_table", "Repair": "repair_partitions",
-            "Analyze": "compute_statistics", "Explain": "explain"}
+# The function that makes each Statement explain has no plan for, by its kind; an upkeep
+# Statement's by the Hive it holds, MSCK REPAIR or ANALYZE.
+_MADE_BY = {kinds.CREATE: "create_table", kinds.PLAN: "explain"}
+_UPKEEP_MADE_BY = {"Repair": "repair_partitions", "Analyze": "compute_statistics"}
 
 
 def _need_explainable(s: object, frame: FrameType | None) -> None:
@@ -297,12 +298,14 @@ def _need_explainable(s: object, frame: FrameType | None) -> None:
             what=f"explain was given {s!r}.",
             why="Session settings have no plan: they change how Hive plans the Statements sent "
             "after them.",
-            fix="Send them with run_execute(...), then pass explain the Statement they're sent before.",
+            fix="Send them with run_execute(...), then pass explain the Statement they're sent "
+            "before.",
         )
     _need_statement(s, "explain", frame,
                     why="explain shows Hive's plan for one Statement made by statement(...).")
-    if kinds.kind(s) not in (kinds.READ, kinds.WRITE):
-        made_by = None if kinds.kind(s) == kinds.ADMIN else _MADE_BY.get(s._ddl.kind)
+    if not kinds.is_a_query(s):
+        made_by = (_UPKEEP_MADE_BY.get(s._ddl.kind) if kinds.kind(s) == kinds.UPKEEP
+                   else _MADE_BY.get(kinds.kind(s)))
         given = f"the Statement {made_by}(...) makes" if made_by else "an Admin statement"
         refuse(
             what=f"explain was given {given}, which isn't a query or a write.",

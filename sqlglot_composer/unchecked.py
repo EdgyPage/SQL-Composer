@@ -2,9 +2,10 @@
 
 hive_settings(...) gives the SET lines of a named set of Session settings, and
 unchecked_hive(...) wraps Hive you wrote by hand. Neither is a Statement, but to_hive,
-show_hive, run_execute and export_lineage accept them too, and run_query an Unchecked
-statement. Each run of an Unchecked statement, and of an Admin statement, adds an entry to the Admin log, a Markdown file set_admin_log can move;
-inside a Project, it is the Project's admin/admin_log.md, which logs its Project actions too.
+show_hive, run_execute and export_lineage accept them too, and run_query an Unchecked statement.
+Each run of an Unchecked statement, and of an Admin statement, adds an entry to the Admin log, a
+Markdown file set_admin_log can move; inside a Project, it is the Project's admin/admin_log.md,
+which logs its Project actions too.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from pathlib import Path
 from types import FrameType
 
 from . import kinds
-from .refusals import callers_frame, refuse, warn_at_callers_line
+from .refusals import callers_frame, refuse, refuse_removed_arguments, warn_at_callers_line
 
 TOOLBOX_VERSION = "7.1"
 
@@ -307,7 +308,7 @@ class UncheckedNote(UserWarning):
     """An Unchecked statement changes a table: the note says which admin function does it."""
 
 
-def unchecked_hive(text: str) -> UncheckedStatement:
+def unchecked_hive(text: str, **removed: object) -> UncheckedStatement:
     """Hive you write by hand, to send when no clause function writes it yet.
 
     >>> by_hand = unchecked_hive(
@@ -324,8 +325,8 @@ def unchecked_hive(text: str) -> UncheckedStatement:
     it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it for
     the one statement you need now, and keep using the clause functions for the rest. show_hive
     marks it, export_lineage draws it as one step it can't see inside, and each run of it adds
-    an entry to the Admin log (see set_admin_log), whose Unchecked statements are the list of
-    what the Toolbox should learn to write next.
+    an entry to the Admin log (help(set_admin_log) says where), whose Unchecked statements are
+    the list of what the Toolbox should learn to write next.
 
     Text that starts DROP, ALTER or TRUNCATE gets a note at your line, naming the admin
     function that does the same job with its checks, where one does. For example, Hive refuses
@@ -356,6 +357,15 @@ def unchecked_hive(text: str) -> UncheckedStatement:
     2       3  report_build
     3       4    cache_warm
     """
+    if "returns_rows" in removed:
+        refuse(
+            what="unchecked_hive was given returns_rows=, which Toolbox 7.1 took out.",
+            why="Since 7.1 you pick the call that sends it, by the function you call, so the "
+            "text needn't say.",
+            fix="Leave returns_rows= out, and send it with run_query(s, query) if it gives back "
+            "rows, or run_execute(s, execute) if it doesn't.",
+        )
+    refuse_removed_arguments("unchecked_hive", removed, unchecked_hive)
     if not isinstance(text, str):
         refuse(
             what=f"unchecked_hive was given {text!r}, which isn't Hive text.",
@@ -465,8 +475,8 @@ def set_admin_log(path: str | Path | None = None) -> Path | None:
     >>> set_admin_log()  # back to the usual place
 
     The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or
-    run_execute sends an Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and
-    its git commit, and whether it worked. It only ever adds to the file.
+    run_execute sends an Unchecked statement or an Admin statement: when, the call, the Hive
+    sent, the script and its git commit, and whether it worked. It only ever adds to the file.
 
     Left unset, the log is admin_log.md beside the script or notebook that sends it, or
     inside a Project the Project's admin/admin_log.md (help(project)). A path you give that

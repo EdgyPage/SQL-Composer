@@ -4,13 +4,12 @@ Why: every notebook in the Project reaches the warehouse through these two funct
 change to how you reach it is made here, once.
 
 You pick which one sends each Statement, by calling run_query(s, query) for what gives back
-rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write
-does. Replace each
-example_database call with your warehouse's own: the how-to Start a Project shows how to write
-them. Let the two share one session, so a Session setting sent through execute holds for what
-is sent after it, through either function; and let each raise when the warehouse reports a
-failure, since the Toolbox knows a step failed only when your function raises. It imports none
-of your own files, so any notebook or script of yours can import it.
+rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write does.
+Replace each example_database call with your warehouse's own: the how-to Start a Project shows
+how to write them. Let the two share one session, so a Session setting sent through execute
+holds for what is sent after it, through either function; and let each raise when the warehouse
+reports a failure, since the Toolbox knows a step failed only when your function raises. It
+imports none of your own files, so any notebook or script of yours can import it.
 """
 
 import pandas as pd

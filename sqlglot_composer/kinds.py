@@ -43,10 +43,10 @@ def kind(step: object) -> str | None:
     return marked if marked in SENT_BY else None
 
 
-def reads_rows(step: object) -> bool:
-    """Whether `step` is a Statement whose rows another can read: a read, not a write, a plan
-    or anything that changes a table."""
-    return kind(step) == READ
+def is_a_query(step: object) -> bool:
+    """Whether `step` is a query statement(...) made, a read or a write: not a plan, nor
+    anything else that creates, keeps up or changes a table."""
+    return kind(step) in (READ, WRITE)
 
 
 def sent_by(step: object) -> str | None:

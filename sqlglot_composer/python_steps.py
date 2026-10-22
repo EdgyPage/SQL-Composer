@@ -37,9 +37,10 @@ class PythonStep:
     >>> python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins], writes=hours)
     <Python step: add_hours in a notebook, line 1 of its cell; writes mart.run_hours>
 
-    It isn't a Statement, and has no Hive: run_query and run_execute refuse it, show_hive prints comment lines
-    saying what it is, and export_lineage draws it as one step. Make one with python_step(...). Write the
-    name in a type hint, to say that a function of yours gives back a Python step:
+    It isn't a Statement, and has no Hive: run_query and run_execute refuse it, show_hive prints
+    comment lines saying what it is, and export_lineage draws it as one step. Make one with
+    python_step(...). Write the name in a type hint, to say that a function of yours gives back
+    a Python step:
 
     >>> def hours_step() -> PythonStep:
     ...     return python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins],
@@ -98,13 +99,12 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
     A lambda, or anything else that isn't a function written with def, is refused, since it
     has no name or file to find it by.
 
-    It sends nothing. export_lineage draws it as one step it can't see inside, from the
-    columns it read to the table it wrote, with a section of the report naming the function,
-    such as "changed in Python by `building_blocks/margins.py:add_margin`, line 12".
-    show_hive prints comment lines saying what it is, run_query and run_execute refuse it,
-    and a Table notebook's
-    write() may give it beside its Statements: project.run_tables passes over it, but still
-    puts it in order.
+    It sends nothing. export_lineage draws it as one step it can't see inside, from the columns
+    it read to the table it wrote, with a section of the report naming the function, such as
+    "changed in Python by `building_blocks/margins.py:add_margin`, line 12". show_hive prints
+    comment lines saying what it is, run_query and run_execute refuse it, and a Table notebook's
+    write() may give it beside its Statements: project.run_tables passes over it, but still puts
+    it in order.
     """
     # A function wrapped by a decorator of yours lives where its own def is.
     function = inspect.unwrap(function) if callable(function) else function
