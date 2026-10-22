@@ -13,7 +13,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=...)`
 - Tables named: ops.jobs, ops.job_runs, ops.run_alerts
-- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -29,7 +29,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.new_table("mart.alerts_per_job")`
 - Tables named: mart.alerts_per_job
-- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py
+- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py; wrote references/mart.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -37,6 +37,6 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.new_table("mart.team_day")`
 - Tables named: mart.team_day
-- Files: created tables/mart__team_day/ (mart__team_day.ipynb, lineage/); created references/mart__team_day.py
+- Files: created tables/mart__team_day/ (mart__team_day.ipynb, lineage/); created references/mart__team_day.py; wrote references/mart.py
 - Script: a notebook, at commit nogit
 - Result: worked

@@ -40,6 +40,7 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
 >>> project.add_references(["ops.job_runs"], query=example_database.query)
 Wrote references/ops__job_runs.py: fill in its TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs.
 >>> def add_table(name: str, columns: dict[str, str], key: list[str],
 ...               filled_in: dict[str, str]) -> None:
 ...     project.new_table(name)

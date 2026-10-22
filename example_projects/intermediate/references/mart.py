@@ -1,0 +1,40 @@
+"""mart - a Database: written by the Project actions, never by hand.
+
+Why: `from references import mart` gives each of its Table references by its name, so a column
+is reached as mart.job_day_costs.job_id.
+
+Its tables: job_day_costs (references/mart__job_day_costs.py), job_day_facts
+(references/mart__job_day_facts.py), job_events_checks (references/mart__job_events_checks.py),
+team_days (references/mart__team_days.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn't Python yet, or has a <...> still to fill in, is left out
+until it is filled in.
+"""
+
+import difflib
+from typing import NoReturn
+
+from references.mart__job_day_costs import job_day_costs
+from references.mart__job_day_facts import job_day_facts
+from references.mart__job_events_checks import job_events_checks
+from references.mart__team_days import team_days
+
+# Its tables, by the names tab completion lists and a wrong name's message gives.
+_TABLES = ["job_day_costs", "job_day_facts", "job_events_checks", "team_days"]
+
+
+def __getattr__(name: str) -> NoReturn:
+    """A name that isn't one of its tables: say which tables it has, and the closest."""
+    if name.startswith("_"):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f" Did you mean {close[0]!r}?" if close else ""
+    raise AttributeError(f"mart has no table {name!r}.{hint} Its tables are: "
+                         f"{', '.join(_TABLES)}.", obj=None)
+
+
+def __dir__() -> list[str]:
+    """Its tables, so tab completion lists them."""
+    return list(_TABLES)

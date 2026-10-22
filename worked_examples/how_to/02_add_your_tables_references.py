@@ -72,12 +72,20 @@ the registry, admin/registry.csv; then it logs what it did in the Admin log:
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
 ...                        query=example_database.query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
 
 Each file is named after the database and the table joined by two underscores, `ops.jobs`
 giving ops__jobs.py, since a dot or a dash can't be in a name Python imports. The variable in
 it is named after the table alone, jobs. A table named like a word Python keeps for itself,
 such as class, gets t_ in front of its variable: `ops.class` would give ops__class.py, holding
 t_class.
+
+The second line is the file for the Database ops, the first part of each table's name:
+references/ops.py, which the Project actions write again each time a Table reference is added
+or archived, and you never edit. In a notebook of the Project, `from references import ops`
+gives each table by its name, `ops.jobs`, and each column as `ops.jobs.job_id`, so tab
+completion lists them at each dot. A file still to fill in joins it once it is filled in and
+`project.refresh_reference_sheet()` runs.
 
 Open references/ops__job_runs.py, which the page shows above. It imports `Table`, then makes
 one variable,
