@@ -7,7 +7,8 @@ Worked examples' scripts, which play a Table notebook's logic cell. Each Example
 Project, whose Levels are its own: Level 0 is `references/`, with `warehouse.py` beside it,
 Level 1
 `building_blocks/`, and Level 2 each Table notebook's logic cell, the code cell that starts
-`# logic`.
+`# logic`. A Database module, such as `references/ops.py`, is Level 0 too, and the one Level 0
+script that imports Level 0 scripts: its Database's Table references, each by its own file.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
 `references/` holds the Table reference of the Saved table they write. Besides the Levels,
 a script may import the standard library, what the Toolbox may import (pandas and numpy, from
@@ -27,6 +28,7 @@ from pathlib import Path
 
 import pytest
 
+from sqlglot_composer.project import DATABASE_TITLE
 from toolbox_registry import SHARED_IMPORTS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -98,8 +100,18 @@ def _imported(node: ast.AST) -> list[str] | None:
     return None
 
 
-def _problem(name: str, level: int, levels: dict[str, int] = IMPORTED_LEVELS) -> str | None:
+def is_database_module(path: Path) -> bool:
+    """Whether a file in references/ is a Database module, which the Project actions write."""
+    first = path.read_text(encoding="utf-8").splitlines()[0]
+    return first.startswith('"""') and first.endswith(DATABASE_TITLE)
+
+
+def _problem(name: str, level: int, levels: dict[str, int] = IMPORTED_LEVELS,
+             database_module: bool = False) -> str | None:
     top = name.split(".")[0]
+    # A Database module imports its Table references, each by its file, such as ops__jobs.
+    if database_module and top == "references" and "__" in name.partition(".")[2]:
+        return None
     if name.startswith("."):
         return f"{name} is a relative import; name the Level folder instead"
     if top == "sqlglot_composer":
@@ -115,13 +127,14 @@ def _problem(name: str, level: int, levels: dict[str, int] = IMPORTED_LEVELS) ->
     return f"{name} is neither a lower Level, the Toolbox, nor something the Toolbox may import"
 
 
-def level_problems(source: str, level: int,
-                   levels: dict[str, int] = IMPORTED_LEVELS) -> list[str]:
-    """Every import in a Level `level` script that breaks the Levels rule."""
+def level_problems(source: str, level: int, levels: dict[str, int] = IMPORTED_LEVELS,
+                   database_module: bool = False) -> list[str]:
+    """Every import in a Level `level` script that breaks the Levels rule. A Database module
+    may import Table references, though they are Level 0 as it is."""
     problems = []
     for node in ast.walk(ast.parse(source)):
         for name in _imported(node) or []:
-            problem = _problem(name, level, levels)
+            problem = _problem(name, level, levels, database_module)
             if problem:
                 problems.append(f"line {node.lineno}: {problem}")
     return problems
@@ -197,7 +210,34 @@ def test_there_are_both_example_projects_with_every_level() -> None:
 @pytest.mark.parametrize("script", project_scripts(), ids=_project_id)
 def test_an_example_projects_imports_point_only_downward(script: tuple[Path, int]) -> None:
     path, level = script
-    assert level_problems(path.read_text(encoding="utf-8"), level, PROJECT_LEVELS) == []
+    assert level_problems(path.read_text(encoding="utf-8"), level, PROJECT_LEVELS,
+                          is_database_module(path)) == []
+
+
+def test_each_example_project_has_its_database_modules() -> None:
+    for name in ("starter", "intermediate"):
+        modules = [path.name for path in (EXAMPLE_PROJECTS / name / "references").glob("*.py")
+                   if is_database_module(path)]
+        assert sorted(modules) == ["mart.py", "ops.py"], name
+
+
+def test_a_database_module_may_import_only_table_references() -> None:
+    """A Database module is Level 0, and may import the Table references, Level 0 too, but no
+    other Level 0 script, and nothing above."""
+    allowed = ("import difflib\n"
+               "from references.ops__jobs import jobs\n"
+               "from references.ops__job_runs import job_runs\n")
+    assert level_problems(allowed, 0, PROJECT_LEVELS, database_module=True) == []
+    for wrong, problem in [("from references import mart\n", "Level 0, not below Level 0"),
+                           ("from warehouse import query\n", "Level 0, not below Level 0"),
+                           ("from building_blocks.runs import runs\n", "Level 1")]:
+        (found,) = level_problems(wrong, 0, PROJECT_LEVELS, database_module=True)
+        assert problem in found
+    # A Table reference is no Database module: it may import no Table reference.
+    (found,) = level_problems("from references.ops__jobs import jobs\n", 0, PROJECT_LEVELS)
+    assert "Level 0, not below Level 0" in found
+    # A notebook's logic imports a Database module as it imports a Table reference.
+    assert level_problems("from references import ops\n", LOGIC_LEVEL, PROJECT_LEVELS) == []
 
 
 @pytest.mark.parametrize("cell", logic_cells(), ids=lambda cell: _project_id((cell[0], 0)))

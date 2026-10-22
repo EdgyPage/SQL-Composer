@@ -325,6 +325,23 @@ def unchecked_hive(text: str, *, returns_rows: bool) -> UncheckedStatement:
     >>> text = show_hive(by_hand)
     -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
     SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24';
+
+    A Table reference's text drops into the Hive you write, in an f-string: a table's is its
+    name as FROM writes it, ops.jobs AS jobs, and a column's its table and name, jobs.job_id,
+    so the columns are spelt as the Table reference spells them. In a Project, from
+    references import ops gives the table as ops.jobs:
+
+    >>> by_hand = unchecked_hive(f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs}",
+    ...                          returns_rows=True)
+    >>> text = show_hive(by_hand)
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;
+    >>> run(by_hand, query=example_database.query)
+       job_id      job_name
+    0       1  nightly_load
+    1       2  invoice_sync
+    2       3  report_build
+    3       4    cache_warm
     """
     if not isinstance(text, str):
         refuse(

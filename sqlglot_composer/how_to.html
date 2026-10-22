@@ -386,7 +386,8 @@ warehouse.py</pre>
 <p><code>project.add_references</code> takes a list of tables. For each, it sends those two commands through your query, turns what comes back into a Table reference file in <code>references/</code>, and adds it to the registry, admin/registry.csv; then it logs what it did in the Admin log:</p>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;],
                        query=example_database.query)</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.</pre>
+<p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -403,9 +404,48 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
 - Tables named: ops.jobs, ops.job_runs, ops.run_alerts
-- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes references/ops.py</p>
+<pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
+
+Why: `from references import ops` gives each of its Table references by its name, so a column
+is reached as ops.job_runs.run_id.
+
+Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
+(references/ops__run_alerts.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+from references.ops__run_alerts import run_alerts
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;job_runs&quot;, &quot;jobs&quot;, &quot;run_alerts&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;ops has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/ops__job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
@@ -496,6 +536,7 @@ run_alerts = Table(
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p>Each file is named after the database and the table joined by two underscores, <code>ops.jobs</code> giving ops__jobs.py, since a dot or a dash can&#x27;t be in a name Python imports. The variable in it is named after the table alone, jobs. A table named like a word Python keeps for itself, such as class, gets t_ in front of its variable: <code>ops.class</code> would give ops__class.py, holding t_class.</p>
+<p>The second line is the file for the Database ops, the first part of each table&#x27;s name: references/ops.py, which the Project actions write again each time a Table reference is added or archived, and you never edit. In a notebook of the Project, <code>from references import ops</code> gives each table by its name, <code>ops.jobs</code>, and each column as <code>ops.jobs.job_id</code>, so tab completion lists them at each dot. A file still to fill in joins it once it is filled in and <code>project.refresh_reference_sheet()</code> runs.</p>
 <p>Open references/ops__job_runs.py, which the page shows above. It imports <code>Table</code>, then makes one variable, <code>job_runs</code>:</p>
 <ul><li><code>columns</code> holds every column and its type;</li><li><code>partitioned_by=[&quot;dt&quot;]</code> comes from DESCRIBE&#x27;s <code># Partition Information</code> rows;</li><li>three lines say TODO: the line at the top that says what one row is, <code>key=None</code> and <code>does_not_add_up=[]</code>. The table can&#x27;t tell anyone those, so the file leaves them to you;</li><li><code>descriptions=</code> holds what each column holds, in words, from its comment in the warehouse, such as status&#x27;s <code>SUCCESS / FAILED / TEST, NULL while running</code>;</li><li>under the Aliases heading at the end, commented-out examples show how to add your own names for the table&#x27;s columns and conditions, as Fill in the TODOs, below, does.</li></ul>
 <h5>Fill in the TODOs</h5>
@@ -679,7 +720,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
 - Tables named: ops.jobs, ops.job_runs, ops.run_alerts
-- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -687,10 +728,50 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.scheduler_runs&quot;], query=...)`
 - Tables named: ops.jobs, ops.scheduler_runs
-- Files: created references/ops__scheduler_runs.py
+- Files: created references/ops__scheduler_runs.py; wrote references/ops.py
 - Skipped: ops.jobs (references/ops__jobs.py is there already)
 - Script: a notebook, at commit 1a2b3c4
 - Result: 1 of 2 written; SkippedTables named the rest, above</pre>
+<p class="label">It writes references/ops.py</p>
+<pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
+
+Why: `from references import ops` gives each of its Table references by its name, so a column
+is reached as ops.job_runs.run_id.
+
+Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
+(references/ops__run_alerts.py), scheduler_runs (references/ops__scheduler_runs.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+from references.ops__run_alerts import run_alerts
+from references.ops__scheduler_runs import scheduler_runs
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;job_runs&quot;, &quot;jobs&quot;, &quot;run_alerts&quot;, &quot;scheduler_runs&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;ops has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/ops__scheduler_runs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.scheduler_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
@@ -3033,7 +3114,8 @@ admin/templates/saved_table_reference.py
 admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.</pre>
+<p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -3050,9 +3132,45 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;], query=...)`
 - Tables named: ops.job_runs
-- Files: created references/ops__job_runs.py
+- Files: created references/ops__job_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes references/ops.py</p>
+<pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
+
+Why: `from references import ops` gives each of its Table references by its name, so a column
+is reached as ops.job_runs.run_id.
+
+Its tables: job_runs (references/ops__job_runs.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.ops__job_runs import job_runs
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;job_runs&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;ops has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/ops__job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
@@ -3108,7 +3226,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;], query=...)`
 - Tables named: ops.job_runs
-- Files: created references/ops__job_runs.py
+- Files: created references/ops__job_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -3308,7 +3426,8 @@ GROUP BY
 <pre class="python">project.new_table(&quot;mart.alerts_per_job&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__alerts_per_job/: mart__alerts_per_job.ipynb and lineage/, from
 admin/templates/daily_table.py.
-Wrote references/mart__alerts_per_job.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__alerts_per_job.py: fill in its &lt;...&gt; and TODO lines.
+Wrote references/mart.py: from references import mart gives mart.daily_job_runs.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -3325,7 +3444,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;], query=...)`
 - Tables named: ops.job_runs
-- Files: created references/ops__job_runs.py
+- Files: created references/ops__job_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -3341,9 +3460,45 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.new_table(&quot;mart.alerts_per_job&quot;)`
 - Tables named: mart.alerts_per_job
-- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py
+- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes references/mart.py</p>
+<pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
+
+Why: `from references import mart` gives each of its Table references by its name, so a column
+is reached as mart.daily_job_runs.job_id.
+
+Its tables: daily_job_runs (references/mart__daily_job_runs.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.mart__daily_job_runs import daily_job_runs
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;daily_job_runs&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;mart has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/mart__alerts_per_job.py</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_job - TODO: say in one line what one row is.
 
@@ -4542,7 +4697,8 @@ admin/templates/saved_table_reference.py
 admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.</pre>
+<p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -4559,9 +4715,45 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;], query=...)`
 - Tables named: ops.job_runs
-- Files: created references/ops__job_runs.py
+- Files: created references/ops__job_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes references/ops.py</p>
+<pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
+
+Why: `from references import ops` gives each of its Table references by its name, so a column
+is reached as ops.job_runs.run_id.
+
+Its tables: job_runs (references/ops__job_runs.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.ops__job_runs import job_runs
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;job_runs&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;ops has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/ops__job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
@@ -4634,7 +4826,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;], query=...)`
 - Tables named: ops.job_runs
-- Files: created references/ops__job_runs.py
+- Files: created references/ops__job_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -4673,7 +4865,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;], query=...)`
 - Tables named: ops.job_runs
-- Files: created references/ops__job_runs.py
+- Files: created references/ops__job_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -4689,9 +4881,45 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.new_table(&quot;mart.jobs_by_runs&quot;)`
 - Tables named: mart.jobs_by_runs
-- Files: created tables/mart__jobs_by_runs/ (mart__jobs_by_runs.ipynb, lineage/); created references/mart__jobs_by_runs.py
+- Files: created tables/mart__jobs_by_runs/ (mart__jobs_by_runs.ipynb, lineage/); created references/mart__jobs_by_runs.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes references/mart.py</p>
+<pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
+
+Why: `from references import mart` gives each of its Table references by its name, so a column
+is reached as mart.daily_job_runs.job_id.
+
+Its tables: daily_job_runs (references/mart__daily_job_runs.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.mart__daily_job_runs import daily_job_runs
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;daily_job_runs&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;mart has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/mart__jobs_by_runs.py</p>
 <pre class="python">from sqlglot_composer import Table
 
@@ -5048,7 +5276,8 @@ admin/templates/weekly_rollup.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;],
                        query=example_database.query)</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.</pre>
+<p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -5065,9 +5294,48 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
 - Tables named: ops.jobs, ops.job_runs, ops.run_alerts
-- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+<p class="label">It writes references/ops.py</p>
+<pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
+
+Why: `from references import ops` gives each of its Table references by its name, so a column
+is reached as ops.job_runs.run_id.
+
+Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
+(references/ops__run_alerts.py).
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
+until it is filled in.
+&quot;&quot;&quot;
+
+import difflib
+from typing import NoReturn
+
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+from references.ops__run_alerts import run_alerts
+
+# Its tables, by the names tab completion lists and a wrong name&#x27;s message gives.
+_TABLES = [&quot;job_runs&quot;, &quot;jobs&quot;, &quot;run_alerts&quot;]
+
+
+def __getattr__(name: str) -&gt; NoReturn:
+    &quot;&quot;&quot;A name that isn&#x27;t one of its tables: say which tables it has, and the closest.&quot;&quot;&quot;
+    if name.startswith(&quot;_&quot;):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f&quot; Did you mean {close[0]!r}?&quot; if close else &quot;&quot;
+    raise AttributeError(f&quot;ops has no table {name!r}.{hint} Its tables are: &quot;
+                         f&quot;{&#x27;, &#x27;.join(_TABLES)}.&quot;, obj=None)
+
+
+def __dir__() -&gt; list[str]:
+    &quot;&quot;&quot;Its tables, so tab completion lists them.&quot;&quot;&quot;
+    return list(_TABLES)</pre>
 <p class="label">It writes references/ops__job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;ops.job_runs - TODO: say in one line what one row is.&quot;&quot;&quot;
 from sqlglot_composer import Table
@@ -5259,7 +5527,7 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 - Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
 - Tables named: ops.jobs, ops.job_runs, ops.run_alerts
-- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 

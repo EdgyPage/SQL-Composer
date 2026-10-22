@@ -1365,6 +1365,13 @@ WHERE
 <p>A Saved table, one your Statements write into, also says how it is stored, which create_table writes and check_table_reference compares with the table. Of these, a Saved table needs only <code>location</code>; a table someone else owns has none of them:</p>
 <ul><li><code>location</code> is the table&#x27;s own folder, exactly as create_table writes it, such as &quot;/data/your_team/mart.db/daily_runs&quot;: the Toolbox adds nothing to it. Every Saved table is an external table: its files are yours, in that folder, and the warehouse only keeps a record of where. Two tables in one folder would read each other&#x27;s files, so a Saved table whose folder is another&#x27;s, or inside another&#x27;s, is refused.</li><li><code>purge=True</code> makes dropping the table delete its files too. purge=False keeps them in its folder, where a table created again reads them back: at once, or, for a partitioned table, its Partitions once repair_partitions(t) lists them; left out, the warehouse&#x27;s own choice, which keeps them, is neither written nor checked.</li><li><code>properties</code> holds any other table properties, the notes on a table the warehouse keeps by name, such as {&quot;made_by&quot;: &quot;daily_pipeline&quot;}.</li><li><code>stored_as</code> is the file format, &quot;ORC&quot; (the usual one) or &quot;PARQUET&quot;, and <code>compression</code> how its files are packed: &quot;SNAPPY&quot;, or ORC&#x27;s &quot;ZLIB&quot; or Parquet&#x27;s &quot;GZIP&quot;, among others.</li><li><code>bucketed_by</code> with <code>buckets</code> spreads each Partition&#x27;s rows into that many files by the values of those columns, and <code>sorted_by</code> sorts the rows in each, so a join on them can pair file with file. Leave them out unless the table is big and joined on those columns: changing them means writing the table again.</li></ul>
 <p>A column whose name is a Python word, such as <code>from</code>, is reached with getattr(t, &quot;from&quot;). You never type backticks: the Hive puts a name in them where it needs them, such as <code>from</code>, <code>any</code> or <code>two words</code>, and leaves a plain name, such as dt, as it is.</p>
+<p>A table&#x27;s text, in an f-string or from str(...), is the table as FROM writes it, and a column&#x27;s is the column as SELECT writes it, so both drop into Hive you write by hand, as help(unchecked_hive) shows. A format spec works on them as on a str:</p>
+<pre class="python">f&quot;SELECT {jobs.job_id} FROM {jobs}&quot;</pre>
+<p class="label">Python shows</p>
+<pre class="output">&#x27;SELECT jobs.job_id FROM ops.jobs AS jobs&#x27;</pre>
+<pre class="python">f&quot;[{jobs.team:&gt;12}]&quot;</pre>
+<p class="label">Python shows</p>
+<pre class="output">&#x27;[   jobs.team]&#x27;</pre>
 <pre class="python">job_runs</pre>
 <p class="label">Python shows</p>
 <pre class="output">Table(&#x27;ops.job_runs&#x27;, columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)</pre>
@@ -3318,7 +3325,30 @@ SET mapreduce.job.reduces=8;</pre>
 <p class="label">Python shows</p>
 <pre class="output">-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
 SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;;</pre>
-<p class="names">Toolbox names used: <code>unchecked_hive</code>, <code>show_hive</code></p>
+<p>A Table reference&#x27;s text drops into the Hive you write, in an f-string: a table&#x27;s is its name as FROM writes it, ops.jobs AS jobs, and a column&#x27;s its table and name, jobs.job_id, so the columns are spelt as the Table reference spells them. In a Project, from references import ops gives the table as ops.jobs:</p>
+<pre class="python">by_hand = unchecked_hive(f&quot;SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs}&quot;,
+                         returns_rows=True)</pre>
+<pre class="python">text = show_hive(by_hand)</pre>
+<p class="label">Python shows</p>
+<pre class="output">-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;</pre>
+<pre class="python">run(by_hand, query=example_database.query)</pre>
+<p class="label">Python shows</p>
+<pre class="output">   job_id      job_name
+0       1  nightly_load
+1       2  invoice_sync
+2       3  report_build
+3       4    cache_warm</pre>
+<p class="label">The Hive of the Statement given to run(...)</p>
+<pre class="hive">SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs</pre>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>job_name</th></tr>
+<tr><td>1</td><td>nightly_load</td></tr>
+<tr><td>2</td><td>invoice_sync</td></tr>
+<tr><td>3</td><td>report_build</td></tr>
+<tr><td>4</td><td>cache_warm</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>unchecked_hive</code>, <code>show_hive</code>, <code>run</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="set_admin_log">
 <h3><code>set_admin_log</code></h3>
@@ -3618,7 +3648,7 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <section class="entry" id="project.add_references">
 <h3><code>project.add_references</code></h3>
 <p class="why">Write a Table reference for each table into references/, skipping any it can&#x27;t.</p>
-<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>query</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix those names, then run add_references again with them alone.</p>
+<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>query</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix those names, then run add_references again with them alone. It also writes the Database module of each Database the tables are in, such as references/ops.py, so that in a notebook of the Project, from references import ops gives the table as ops.jobs, and a column of it as ops.jobs.job_id.</p>
 <pre class="python">from sqlglot_composer import example_database, project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3626,7 +3656,8 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
-<pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.</pre>
+<pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.</pre>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code></p>
 </section>
 <section class="entry" id="project.check">
@@ -3689,7 +3720,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <section class="entry" id="project.refresh_reference_sheet">
 <h3><code>project.refresh_reference_sheet</code></h3>
 <p class="why">Rebuild the Reference sheet: a row per column of every Table reference.</p>
-<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is a partition column or in the Key, its Aliases (each line below the Table(...) call that reads that column alone, such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, &quot;FAILED&quot;), shown as &quot;failed (a condition)&quot;), its description, and when the sheet was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t run yet, such as one with a &lt;...&gt; still to fill in, is left out (or, given its name, keeps its rows from before), and the report says so. It changes no other file, and isn&#x27;t logged: its exported_at column says when it was written.</p>
+<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is a partition column or in the Key, its Aliases (each line below the Table(...) call that reads that column alone, such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, &quot;FAILED&quot;), shown as &quot;failed (a condition)&quot;), its description, and when the sheet was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t run yet, such as one with a &lt;...&gt; still to fill in, is left out (or, given its name, keeps its rows from before), and the report says so. It also writes each Database module again, such as references/ops.py, which from references import ops reads, so run it once a Table reference is filled in. It changes no other file, and isn&#x27;t logged: its exported_at column says when it was written.</p>
 <pre class="python">from sqlglot_composer import example_database, project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3697,7 +3728,8 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
 <pre class="python">project.add_references([&quot;ops.run_alerts&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
-<pre class="output">Wrote references/ops__run_alerts.py: fill in its TODO lines.</pre>
+<pre class="output">Wrote references/ops__run_alerts.py: fill in its TODO lines.
+Wrote references/ops.py: from references import ops gives ops.run_alerts.</pre>
 <pre class="python">project.refresh_reference_sheet()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/reference_sheet.csv: 4 rows, 1 table.</pre>
