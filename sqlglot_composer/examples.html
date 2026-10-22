@@ -3591,7 +3591,7 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <h3><code>example_database.query</code></h3>
 <p class="why">Run Hive that gives back rows on the Example database, as a DataFrame, like your query</p>
 <p>at work.</p>
-<p>It answers SELECT, DESCRIBE, SHOW PARTITIONS and EXPLAIN, as far as its executor knows one; it refuses other reads it doesn&#x27;t know, such as SHOW TABLES, and the rest, which change something, run(...) sends to execute.</p>
+<p>It answers SELECT, DESCRIBE and SHOW PARTITIONS. It refuses an EXPLAIN, since its executor makes no plan, and other reads it doesn&#x27;t know, such as SHOW TABLES; the rest, which change something, run(...) sends to execute.</p>
 <pre class="python">example_database.query(&quot;DESCRIBE ops.jobs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">   col_name data_type comment
