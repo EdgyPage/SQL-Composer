@@ -266,26 +266,40 @@ def _need_statement(s: object, call: str, frame: FrameType | None, why: str,
 
     `frame` is the caller's, so the usual fix can name their own variable: a Derived table is
     wrapped in a Statement that reads it, and a list is sent one Statement at a time. `more`
-    is what the fix's call takes after the Statement, such as ", query=...".
+    is what the fix's call takes after the Statement, such as ", query=...". run_execute sends
+    only what changes something, so its fixes write the rows into a Saved table instead.
     """
     if isinstance(s, Statement):
         return
     name = name_in(frame, s) if frame is not None else None
+    writes = call == "run_execute"
     if isinstance(s, Table) and s._statement is not None:
         d = name or "d"
+        reads = (f"statement(INSERT_OVERWRITE(t), SELECT(all_columns({d})), FROM({d}))" if writes
+                 else f"statement(SELECT(all_columns({d})), FROM({d}))")
         fix = (f"A Derived table is a step for another Statement to read, so wrap it in the "
-               f"smallest Statement that reads it: {call}(statement(SELECT(all_columns({d})), "
-               f"FROM({d})){more})" + ("." if name else ", where d is the Derived table."))
+               f"smallest Statement that {'writes its rows' if writes else 'reads it'}: "
+               f"{call}({reads}{more})" + _where(name is None, writes))
     elif isinstance(s, (list, tuple)):
         fix = (f"Pass its Statements one at a time, with a loop: for step in "
                f"{name or 'steps'}: {call}(step{more}).")
     elif isinstance(s, str):
         fix = (f"Pass the Statement itself, made by statement(...): {call} writes its Hive "
                "for you.")
+    elif writes:
+        fix = ("Pass a Statement that writes, such as statement(INSERT_OVERWRITE(t), "
+               "SELECT(...), FROM(...)).")
     else:
         fix = "Pass statement(SELECT(...), FROM(...), ...)."
     refuse(what=f"{call} was given {s!r}, which isn't a Statement.", why=why, fix=fix,
            given=s, call=call)
+
+
+def _where(unnamed: bool, writes: bool) -> str:
+    """The end of a Derived table's fix: what its d and t stand for, if anything."""
+    meant = (["d is the Derived table"] if unnamed else []) + (
+        ["t is the Saved table to write"] if writes else [])
+    return f", where {' and '.join(meant)}." if meant else "."
 
 
 def _refuse_a_python_step(call: str, why: str) -> NoReturn:

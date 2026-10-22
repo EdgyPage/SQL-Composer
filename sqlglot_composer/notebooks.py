@@ -3,8 +3,8 @@
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
 actions use it, project.new_table to write a Table notebook from a Template, and project.load
 to read its logic cell. A notebook is read as its cells, each as (kind, text), kind being
-"code" or "markdown"; one Jupyter couldn't open either, as it isn't JSON or holds no cells, is
-refused, naming the file.
+"code" or "markdown"; one Jupyter couldn't open either, as it isn't JSON or has no list of
+cells it can read, is refused, naming the file. An empty list of cells is read as no cells.
 """
 
 from __future__ import annotations
@@ -35,9 +35,9 @@ def read_cells(path: Path, *, shown: str = "", call: str = "") -> list[tuple[str
                            "Jupyter.")
     found = notebook.get("cells") if isinstance(notebook, dict) else None
     if not isinstance(found, list) or not all(isinstance(cell, dict) for cell in found):
-        _refuse_unreadable(path, shown, call, "has no cells",
-                           "A notebook keeps its code in a list named cells, which this file "
-                           "lacks.")
+        _refuse_unreadable(path, shown, call, "has no list of cells Jupyter can read",
+                           "A notebook keeps its code in a list named cells, each a cell, and "
+                           "this file has no such list.")
     # Jupyter keeps a cell's text as one string or as a list of lines: "".join reads both.
     return [(cell.get("cell_type", ""), "".join(cell.get("source", []))) for cell in found]
 

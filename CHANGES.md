@@ -38,8 +38,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### Also new
 
-- **`project.load` refuses a notebook Jupyter couldn't open**, one that isn't JSON or holds no
-  cells, naming its file, where 7.0 stopped with Python's own JSON error.
+- **`project.load` refuses a notebook Jupyter couldn't open**, naming its file: one that isn't
+  JSON, where 7.0 stopped with Python's own JSON error, and one with no list of cells Jupyter
+  can read, where 7.0 said it had no logic cell, or stopped with a Python error.
 
 ## 7.0
 

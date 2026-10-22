@@ -52,7 +52,7 @@ entry to admin/admin_log.md, the log that also keeps every Admin statement run i
 Project. The rest add no entry of their own: check and load change no file;
 refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
 file; run_tables writes only your tables in the warehouse, though an Admin or Unchecked
-statement it sends is logged, as run logs one anywhere.
+statement it sends is logged, as run_execute logs one anywhere.
 """
 
 from __future__ import annotations

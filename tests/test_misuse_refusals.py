@@ -207,6 +207,17 @@ def test_run_query_given_a_derived_table_says_to_wrap_it_in_a_statement() -> Non
     assert sent[0].endswith("FROM per_team")
 
 
+def test_run_execute_given_a_derived_table_says_to_write_its_rows() -> None:
+    """run_execute sends only what changes something, so its fix is a write, not a read it
+    would refuse in turn."""
+    per_team = derived("per_team", teams())
+    with pytest.raises(TypeError) as refused:
+        run_execute(per_team, example_database.execute)
+    assert usual_fix(refused).endswith(
+        "run_execute(statement(INSERT_OVERWRITE(t), SELECT(all_columns(per_team)), "
+        "FROM(per_team)), execute), where t is the Saved table to write.")
+
+
 def test_a_derived_table_with_no_variable_name_is_called_d_in_the_fix() -> None:
     """Its name in the Hive isn't a Python name, so the fix doesn't paste it as one."""
     with pytest.raises(TypeError) as refused:

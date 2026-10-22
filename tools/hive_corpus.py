@@ -18,8 +18,8 @@ names:
 - `export_lineage`'s Markdown report of the case's Statements, without its dated last line,
   but for the Session settings it names.
 
-The cases are every docstring example that hands a Statement to `to_hive`, `run` or
-`export_lineage`; every Statement function of the Worked examples; the edge cases and the
+The cases are every docstring example that hands a Statement to `to_hive`, `run_query`,
+`run_execute` or `export_lineage`; every Statement function of the Worked examples; the edge cases and the
 generated Statements in `tests/hive_corpus_cases.py`; and the Table references of both.
 """
 

@@ -253,7 +253,7 @@ def explain(s: Statement) -> Statement:
       job_runs.dt = '2026-09-24'
 
     run_query(explain(s), query) gives back Hive's plan as text, which prints line by line. It is
-    the plan of exactly the Hive run_query(s, query) would send, with the LIMIT run adds when
+    the plan of exactly the Hive run_query(s, query) would send, with the LIMIT run_query adds when
     set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It
     only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows
     the write without making it; and it is safe to send again.

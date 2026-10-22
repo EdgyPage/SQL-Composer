@@ -7,8 +7,8 @@ Statement through but says why a number may come out wrong.
 Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a
 calculation with no name or None in a comparison, stops at that call. One that needs the whole
 Statement, like a GROUP_BY that leaves a column out or a read of a partitioned table that
-filters none of its partition columns, stops at statement(...). The row limit stops at run once
-the rows are back. A Warning shows at your own join's line. Every opt-out is a keyword on one of
+filters none of its partition columns, stops at statement(...). The row limit stops at run_query
+once the rows are back. A Warning shows at your own join's line. Every opt-out is a keyword on one of
 your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
