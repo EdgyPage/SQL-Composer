@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, NoReturn
 
 from . import kinds
 from .calculations import Ordering, ordered
-from .conditions import Condition, bounded_columns
+from .conditions import Condition, bounded_columns, conditions_in
 from .joins import (
     BOUNDED_IN_ON,
     ONLY_TESTS,
@@ -37,10 +37,12 @@ from .refusals import (
     guard_unnamed_calculation,
     guard_unproven_key,
     guard_write_lines_up,
+    is_count,
     load_limit_partition_bound,
     load_limit_order_by,
     refuse,
     refuse_what_another_folder_made,
+    repeated,
     warning_repeated_rows,
 )
 from .tables import (
@@ -300,7 +302,7 @@ def _outputs(items: tuple[object, ...], call: str) -> list[tuple[Column, str]]:
         refuse(what=f"{call} was given nothing to select.", why="A Statement returns columns.",
                fix="Name the columns, such as SELECT(job_runs.run_id, job_runs.status).")
     names = [name for _, name in outputs]
-    twice = sorted({name for name in names if names.count(name) > 1})
+    twice = repeated(names)
     if twice:
         refuse(
             what=f"{call} has more than one column called {', '.join(twice)}.",
@@ -752,19 +754,12 @@ def WHERE(*conditions: Condition | list[Condition]) -> Clause:
 
 
 def _conditions(items: tuple[object, ...], call: str) -> list[Condition]:
-    found = flattened(items)
-    for item in found:
-        if not isinstance(item, Condition):
-            refuse(
-                what=f"{call} was given {item!r}, which isn't a condition.",
-                why="It keeps rows by conditions made with functions such as equals(...).",
-                fix='Pass conditions, such as equals(job_runs.status, "FAILED").',
-                given=item, call=call,
-            )
-    if not found:
-        refuse(what=f"{call} was given no conditions.", why="It needs at least one.",
-               fix="Pass a condition, or leave the clause out.")
-    return found
+    # Flattened first: WHERE([], c) passes over the empty list, where any_of([], c) refuses it.
+    return conditions_in(
+        flattened(items), call,
+        why="It keeps rows by conditions made with functions such as equals(...).",
+        none_why="It needs at least one.",
+        none_fix="Pass a condition, or leave the clause out.")
 
 
 def GROUP_BY(*columns: Column | str | Subtotals | list[Column | str | Subtotals]) -> Clause:
@@ -885,7 +880,7 @@ def LIMIT(n: int) -> Clause:
     FROM ops.jobs AS jobs
     LIMIT 2
     """
-    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+    if not is_count(n):
         refuse(what=f"LIMIT({n!r}) needs a whole number of rows, 1 or more.",
                why="It is how many rows come back at most.", fix="Write it like LIMIT(20).",
                error=ValueError)
@@ -1195,7 +1190,7 @@ def derived_tables(s: Statement) -> list[Table]:
     """Every Derived table a Statement reads, directly or not, each after those it reads; a
     Stack's are those of each Statement it stacks."""
     found = []
-    for read in [read for step in (s._stack[1] if s._stack else [s]) for read in step._reads]:
+    for read in [read for step in stack_steps(s) for read in step._reads]:
         table = read.table
         if table._statement is None:
             continue
@@ -1205,9 +1200,29 @@ def derived_tables(s: Statement) -> list[Table]:
     return found
 
 
+def stack_steps(s: Statement) -> list[Statement]:
+    """The Statements a Stack stacks, or the Statement itself when it isn't a Stack."""
+    return list(s._stack[1]) if s._stack is not None else [s]
+
+
+def check_derived_names(call: str, tables: list[Table], why: str) -> None:
+    """Refuse two different Derived tables of one name among `tables`, which `call` reads:
+    `why` says why the names must differ."""
+    seen = {}
+    for table in tables:
+        if seen.get(table._name, table._statement) is not table._statement:
+            refuse(
+                what=f"{call}(...) reads two different Derived tables called {table._name!r}.",
+                why=why,
+                fix="Give one of them another name in derived(...).",
+                error=ValueError,
+            )
+        seen[table._name] = table._statement
+
+
 def _check_tables(s: Statement) -> None:
     aliases = [read.table._alias for read in s._reads]
-    twice = sorted({alias for alias in aliases if aliases.count(alias) > 1})
+    twice = repeated(aliases)
     if twice:
         refuse(
             what=f"statement(...) reads two tables called {', '.join(twice)}.",
@@ -1215,16 +1230,8 @@ def _check_tables(s: Statement) -> None:
             fix=f'Give one a second name with AS, such as AS({twice[0]}, "earlier").',
             error=ValueError,
         )
-    names = {}
-    for table in derived_tables(s):
-        if table._name in names and names[table._name] is not table._statement:
-            refuse(
-                what=f"statement(...) reads two different Derived tables called {table._name!r}.",
-                why="Each becomes a named part of the same Hive string, so the names must differ.",
-                fix="Give one of them another name in derived(...).",
-                error=ValueError,
-            )
-        names[table._name] = table._statement
+    check_derived_names("statement", derived_tables(s), why="Each becomes a named part of the "
+                        "same Hive string, so the names must differ.")
     used = set()
     for tree in _trees(s):
         used |= {column.table for column in tree.find_all("Column") if column.table}

@@ -13,6 +13,7 @@ from typing import NoReturn
 
 from .refusals import (
     guard_none_in_condition,
+    is_count,
     refuse,
 )
 from .tables import (
@@ -264,7 +265,7 @@ def last_n_days(column: Column, n: int) -> Condition:
     """
     call = f"last_n_days({python_text(column)}, {n!r})"
     column = _need_column(column, call)
-    if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+    if not is_count(n):
         refuse(
             what=f"{call}: n must be a whole number of days, 1 or more.",
             why="It counts back that many days from yesterday.",
@@ -416,26 +417,28 @@ def starts_with(column: Column, text: str) -> Condition:
     return _like("starts_with", column, text, lambda escaped: f"{escaped}%")
 
 
-def _conditions(items: list[object] | tuple[object, ...], call: str) -> list[Condition]:
+def conditions_in(items: list[object] | tuple[object, ...], call: str,
+                  why: str = "It combines conditions made by functions such as equals(...).",
+                  none_why: str = "It combines one or more conditions.",
+                  none_fix: str = "Pass at least one condition.") -> list[Condition]:
+    """The conditions `call` was given, lists opened; it refuses anything else, and a list
+    with none. `why` says what `call` does with them, as any_of(...) does by default;
+    `none_why` and `none_fix` say why it needs one, and what to pass."""
     found = []
     for item in items:
         if isinstance(item, (list, tuple)):
-            found.extend(_conditions(item, call))
+            found.extend(conditions_in(item, call, why, none_why, none_fix))
         elif isinstance(item, Condition):
             found.append(item)
         else:
             refuse(
                 what=f"{call} was given {item!r}, which isn't a condition.",
-                why="It combines conditions made by functions such as equals(...).",
+                why=why,
                 fix="Pass conditions, such as equals(job_runs.status, \"FAILED\").",
                 given=item, call=call,
             )
     if not found:
-        refuse(
-            what=f"{call} was given no conditions.",
-            why="It combines one or more conditions.",
-            fix="Pass at least one condition.",
-        )
+        refuse(what=f"{call} was given no conditions.", why=none_why, fix=none_fix)
     return found
 
 
@@ -445,7 +448,7 @@ def any_of(*conditions: Condition | list[Condition]) -> Condition:
     >>> any_of(equals(job_runs.status, "FAILED"), is_null(job_runs.status))
     job_runs.status = 'FAILED' OR job_runs.status IS NULL
     """
-    found = _conditions(conditions, "any_of(...)")
+    found = conditions_in(conditions, "any_of(...)")
     # A column is held to values by OR only when every part holds it.
     bounds = frozenset.intersection(*(c._bounds for c in found))
     tree = combined("Or", [c._tree.copy() for c in found])
@@ -464,7 +467,7 @@ def all_of(*conditions: Condition | list[Condition]) -> Condition:
     WHERE(...) already joins its conditions with AND, so all_of is needed only inside
     any_of(...) or in JOIN's ON=.
     """
-    found = _conditions(conditions, "all_of(...)")
+    found = conditions_in(conditions, "all_of(...)")
     tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)
     return Condition(tree, bounds=bounded_columns(found), keeps_unmatched=_kept_by_all(found))
 

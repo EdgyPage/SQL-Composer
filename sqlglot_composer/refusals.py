@@ -624,3 +624,13 @@ def load_limit_rows(rows: int, limit: int) -> None:
         opt_out="statement(..., returns_all_rows=True)",
         error=LoadRefused,
     )
+
+
+def is_count(value: object) -> bool:
+    """True when `value` is a whole number, 1 or more: True and False are not counts."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
+def repeated(items: list[str]) -> list[str]:
+    """The items given more than once, each once, sorted."""
+    return sorted({item for item in items if items.count(item) > 1})

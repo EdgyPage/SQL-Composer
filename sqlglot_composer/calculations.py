@@ -90,9 +90,14 @@ def _not_inside(call: str, inner: Column | Condition) -> None:
 
 def _aggregate(name: str, kind: str, column: object, where: object, *, adds_up: bool = True,
                because: str | None = None, distinct: bool = False,
-               over: object = None) -> Column:
+               over: object = None, column_adds_up: bool | None = None) -> Column:
+    """`kind` over `column`, made by the function `name`. `column_adds_up` is sum_of's and
+    average_of's adds_up=: given, the column must add up, unless it is True."""
     call = f"{name}({python_text(column)})"
     column = need_column(column, call)
+    if column_adds_up is not None:
+        guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because,
+                                column_adds_up)
     _not_inside(call, column)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
@@ -171,10 +176,7 @@ def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False
     ...                                            ORDER_BY=job_runs.run_id, rows=(None, 0)))
     SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     """
-    call = f"sum_of({python_text(column)})"
-    column = need_column(column, call)
-    guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
-    return _aggregate("sum_of", "Sum", column, where, over=over)
+    return _aggregate("sum_of", "Sum", column, where, over=over, column_adds_up=adds_up)
 
 
 def average_of(column: Column, where: Condition | None = None, adds_up: bool = False,
@@ -196,11 +198,8 @@ def average_of(column: Column, where: Condition | None = None, adds_up: bool = F
     ...                                                ORDER_BY=job_runs.run_id, rows=(-2, 0)))
     AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
     """
-    call = f"average_of({python_text(column)})"
-    column = need_column(column, call)
-    guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
     return _aggregate("average_of", "Avg", column, where, adds_up=False,
-                      because="an average", over=over)
+                      because="an average", over=over, column_adds_up=adds_up)
 
 
 def min_of(column: Column, where: Condition | None = None,
