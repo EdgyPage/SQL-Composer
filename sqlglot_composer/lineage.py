@@ -25,9 +25,7 @@ from typing import NoReturn
 from .clauses import Statement, derived_tables
 from .conditions import Condition
 from .keys import Keys, possessive, statement_keys, unproven, wanted_key
-from .python_steps import PythonStep, line, place
-from .python_steps import about as about_python_step
-from .python_steps import tables_read as python_tables_read
+from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
 from .refusals import refuse
 from .running import name_in, statements_within, to_hive
 from .stacking import STACK_HOW, nth
@@ -391,7 +389,7 @@ def _link_whole_tables(graph: Graph) -> None:
 
 def changed_in_python(step: PythonStep) -> str:
     """What Lineage says of a Python step: where the function that made the change lives."""
-    return f"changed in Python by `{place(step)}`, {line(step)}"
+    return f"changed in Python by `{step_place(step)}`, {step_line(step)}"
 
 
 def _add_python_step(graph: Graph, step: PythonStep, index: int, name: str) -> list[str]:
@@ -401,7 +399,7 @@ def _add_python_step(graph: Graph, step: PythonStep, index: int, name: str) -> l
     key = graph.add(_box_key("python", index), kind="python", group=name,
                     name="Python step", full=f"{name}: Python step",
                     type=None, sql=changed_in_python(step).replace("`", ""),
-                    formula=place(step), line=line(step), calculated=False, statement=index,
+                    formula=step_place(step), line=step_line(step), calculated=False, statement=index,
                     reads=set())
     for table, column in step._reads:
         graph.arrow(_table_box(graph, table, column), key, "value")
@@ -477,7 +475,7 @@ def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     if isinstance(s, UncheckedStatement):
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
     if isinstance(s, PythonStep):
-        return python_tables_read(s)
+        return step_tables_read(s)
     return {read.table._name for step in statements_within(s) for read in step._reads
             if read.table._statement is None}
 
@@ -759,7 +757,7 @@ def _about_python_step(s: PythonStep) -> str:
     Toolbox can't see inside and never sent, and what it read and wrote."""
     return ("A Python step: a change made in Python, outside any Statement, and saved by your "
             "own call. The Toolbox can't see inside it, so its columns can't be followed "
-            f"through it, and it never moved its data. {about_python_step(s)}")
+            f"through it, and it never moved its data. {step_about(s)}")
 
 
 # What a Python step's section says under its heading, Where it lives, after where.

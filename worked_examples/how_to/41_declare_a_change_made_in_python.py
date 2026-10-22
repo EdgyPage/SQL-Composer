@@ -19,7 +19,7 @@ can open that function and see what it does.
 
 ## Steps
 
-### Start a Project and write the change in a Building block
+### Start a Project and write the change in a file of building_blocks/
 
 Keep the function in a file of the Project's building_blocks/ folder, where its line stays put
 and any notebook can import it. This page writes the file for you; in your own Project, which
