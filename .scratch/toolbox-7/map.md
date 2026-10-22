@@ -218,6 +218,8 @@ Toolbox files and 198 times in 23 test files.
   DESCRIBE; a StandIn warehouse answers the Example database's and the tests'.
 - [14 Partitions named](issues/14-partitions-named.md): one partitions_named check;
   compute_statistics refuses what a write refuses.
+- [15 Usage tests and a ranking](issues/15-usage-tests-and-a-ranking.md): test_dead_code's three
+  lists; usage_report's call counts and unreached lines; cleanup-ranking.md orders 16 and 17.
 
 ## Not yet specified
 
