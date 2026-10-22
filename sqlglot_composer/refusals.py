@@ -390,7 +390,7 @@ def guard_kept_day_without_window(call: str, days: int, kept_by: str,
             fix=f"Keep only the day written where {date_column} is read, with "
             f"WHERE(equals({date_column}, day)), in place of the equals({kept_by}, ...) above. "
             "To write several days, send one Statement per day: for day in by_day(s): "
-            "run(day, send=...).",
+            "run(day, execute=...).",
             opt_out=None,
         )
     )
@@ -421,7 +421,7 @@ def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> NoR
     `windowed` is True when the Statement works out a Window, which may read earlier days on
     purpose: the fix then says how to keep the one day written.
     """
-    fix = "Send one Statement per day: for day in by_day(s): run(day, send=...)."
+    fix = "Send one Statement per day: for day in by_day(s): run(day, execute=...)."
     if windowed:
         fix = (f"If its Window reads earlier days on purpose, keep only the day written in the "
                f"Statement that writes, with WHERE(equals(the_derived_table.dt, day)) on the "
@@ -641,6 +641,49 @@ def refuse(what: str, why: str, fix: str, *, error: type[Exception] = TypeError,
     raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
+def refuse_removed_arguments(call: str, removed: dict[str, object], takes: str) -> None:
+    """Refuse what a public function's **removed caught: the send= that 7.0 replaced, or any
+    other name it doesn't take. `takes` names what it takes instead, such as "query=".
+    """
+    if not removed:
+        return
+    if "send" in removed:
+        refuse(
+            what=f"{call} was given send=, which Toolbox 7.0 replaced.",
+            why="Since 7.0 your warehouse.py holds two calls: query, which gives back rows as a "
+            "DataFrame, and execute, which gives back nothing. Each Toolbox function takes only "
+            "the ones it uses.",
+            fix=f"Pass {takes} instead, imported with from warehouse import query, execute. "
+            "CHANGES.md, under 7.0, says how to turn your send.py into warehouse.py.",
+        )
+    names = ", ".join(f"{name}=" for name in removed)
+    refuse(
+        what=f"{call} was given {names}, which it doesn't take.",
+        why=f"It takes {takes}, besides what it is about.",
+        fix=f"Leave {names} out, or check its spelling: help() on the function lists what it "
+        "takes.",
+    )
+
+
+def need_warehouse_call(call: str, name: str, given: object, why: str) -> None:
+    """Refuse a missing or wrong `query` or `execute`, which `call` needs for `why`."""
+    if given is None:
+        refuse(
+            what=f"{call} needs {name}=, and wasn't given it.",
+            why=why,
+            fix=f"Pass your own {name} function, imported with from warehouse import {name}, "
+            f"as {name}={name}.",
+        )
+    if not callable(given):
+        refuse(
+            what=f"{call}: {name}={given!r} isn't a function.",
+            why=f"{call} hands the Hive text to your own {name} function, which sends it.",
+            fix=f"Pass the function itself, without calling it: {name}={name}, not "
+            f"{name}={name}(...).",
+            given=given, call=call,
+        )
+
+
 def kind_name(value: object) -> str:
     """What kind of thing a value is, named with its library when it isn't Python's own, such
     as "a list" or "a polars DataFrame", so it is never mistaken for a pandas DataFrame."""
@@ -651,23 +694,23 @@ def kind_name(value: object) -> str:
 
 
 def refuse_what_isnt_a_dataframe(result: object) -> None:
-    """Refuse what a send gave back for a read when it isn't a pandas DataFrame, such as the
+    """Refuse what a query gave back for a read when it isn't a pandas DataFrame, such as the
     plain list of rows a query API gives."""
     if isinstance(result, pd.DataFrame):
         return
     if result is None:
-        given, start = "None", "End your send with return, giving back a DataFrame"
+        given, start = "None", "End your query with return, giving back a DataFrame"
     else:
         given = kind_name(result)
-        start = "Turn the rows into a DataFrame at the end of your send"
+        start = "Turn the rows into a DataFrame at the end of your query"
     raise TypeError(four_part_message(
-        what=f"Your send gave back {given}, where a pandas DataFrame goes.",
-        why="run hands you back what your send gives back, and you read the rows from it as "
+        what=f"Your query gave back {given}, where a pandas DataFrame goes.",
+        why="run hands you back what your query gives back, and you read the rows from it as "
         "from a pandas DataFrame, each column by its name.",
         fix=f"{start}. From a query API, it is pd.DataFrame(rows), which takes the column "
         "names from each row's keys when the API gives each row as a dict; when it gives each "
         "row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). "
-        "How-to 1, Start a Project, shows how to write your send.",
+        "How-to 1, Start a Project, shows how to write your query.",
         opt_out=None,
     ))
 
@@ -754,7 +797,7 @@ def load_limit_dates(call: str, full_name: str, days: int, cap: int,
     if reads_all_partitions or days <= cap:
         return
     if split_by_day:
-        fix = "Send one day at a time: for day in by_day(s): run(day, send=...)."
+        fix = "Send one day at a time: for day in by_day(s): run(day, query=...)."
     else:
         fix = (f"Narrow the between(...) or last_n_days(...) on {full_name}'s Date "
                f"partition, in WHERE or ON=, to {cap} or fewer days. by_day won't help: it "

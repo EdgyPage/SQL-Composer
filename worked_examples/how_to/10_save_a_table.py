@@ -17,8 +17,9 @@ work it out once a day and save it than to work it out again every time someone 
 table also keeps each day's rows as they were on the day they were written.
 
 The Example database can be read but not written to, so on this page each write shows its
-Hive, ready to paste, and the one step that tries to send a write shows the message the
-Example database stops it with. At work, `run` sends the same Statements to your warehouse.
+Hive, ready to paste, and a step that sends a write sends it to `example_database.execute`,
+which prints its first line and changes nothing. At work, `run` sends the same Statements to
+your warehouse, through your own execute.
 
 ## Steps
 
@@ -134,7 +135,7 @@ first, to see the rows the write would save. These are the runs that failed on 2
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
 ... )
->>> run(failed_on_the_day, send=example_database.send)
+>>> run(failed_on_the_day, query=example_database.query)
    run_id  job_id
 0     102       2
 
@@ -174,19 +175,15 @@ Three things to notice:
 
 ### Send it
 
-`run` sends a write as it sends a read. The Example database can't be written to, so here it
-stops, and says so:
+`run` sends a write through your execute, where a read goes through your query: a write gives
+back no rows, so `run` gives back None for it. The Example database can't be written to, so
+its execute prints the first line of the Hive and changes nothing:
 
->>> run(write_failed, send=example_database.send)
-Traceback (most recent call last):
-...
-ValueError:
-  What happened:  The Example database only reads, and can't be written to: it answers SELECT, DESCRIBE, SHOW PARTITIONS and SET.
-...
+>>> run(write_failed, execute=example_database.execute)
+execute: INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = '2026-09-24')
 
-At work, the same `run`, with your own send in place of `example_database.send`, writes the
-day, and gives back whatever your send returns for a write, usually an empty DataFrame. Send
-`create` first, once.
+At work, the same `run`, with your own execute in place of `example_database.execute`, writes
+the day. Send `create` first, once.
 
 ### Add rows to a day with INSERT_INTO
 
@@ -249,7 +246,7 @@ alert:
 ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(job_runs.dt, "2026-09-24"),
 ...           equals(run_alerts.severity, "high"), equals(job_runs.status, "SUCCESS")),
 ... )
->>> run(alerted_on_the_day, send=example_database.send)
+>>> run(alerted_on_the_day, query=example_database.query)
    run_id  job_id
 0     101       1
 
@@ -266,15 +263,17 @@ one list, in the order they are sent:
 >>> len(day_writes)
 2
 
-At work, a loop sends the day's writes in order. Here it is a function that takes your own
-send, written as in [Start a Project](#start_a_project); it isn't called on this page, since
-the Example database's send would refuse the writes:
+A loop sends the day's writes in order. Here it is a function that takes your own execute,
+written as in [Start a Project](#start_a_project); on this page the Example database's execute
+stands in for it, and prints the first line of each write:
 
 >>> from collections.abc import Callable
->>> import pandas as pd
->>> def send_day(day: str, send: Callable[[str], pd.DataFrame]) -> None:
+>>> def send_day(day: str, execute: Callable[[str], None]) -> None:
 ...     for write in write_day(day):
-...         run(write, send=send)
+...         run(write, execute=execute)
+>>> send_day("2026-09-24", execute=example_database.execute)
+execute: INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = '2026-09-24')
+execute: INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-24')
 
 [Backfill a range of days](#backfill_a_range_of_days) writes many days this way, and
 [Run a daily pipeline](#run_a_daily_pipeline) runs the day's steps every morning.
@@ -340,7 +339,7 @@ notebook, so you can see later what was dropped, when and by which script.
 A rebuild suits any change to the columns: one removed, renamed or given another type, as well
 as one added. A column only added after the others can instead be added in place, keeping the
 days already written, which read NULL in it until they are written again:
-`admin.add_columns(runs_to_review, send=...)`, as
+`admin.add_columns(runs_to_review, query=...)`, as
 [A pipeline of Saved tables](#a_pipeline_of_saved_tables) shows. For a table with a Date
 partition it writes CASCADE, so the days already there get the column too. Here the table is
 young and its days are written again from their sources anyway, so the rebuild is the simpler

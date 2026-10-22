@@ -34,19 +34,19 @@ folder that is a Project. This page has none, so it starts one:
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and send.py. Next: write your send in send.py.
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
 
-Every step here passes `send=example_database.send`, the Example database's own send. At work,
-pass your own, `from send import send`, and name your own tables.
+Every step here passes `query=example_database.query`, the Example database's own query. At
+work, pass your own, `from warehouse import query`, and name your own tables.
 
 ### See what the table says about itself
 
 A table in the warehouse can describe itself. The Hive command DESCRIBE lists its columns and
 their types, and SHOW PARTITIONS lists the days it holds. Neither reads a single row, so both
 are quick on the biggest table. Here is what DESCRIBE says of `ops.run_alerts`, sent straight
-through the Example database's send:
+through the Example database's query:
 
->>> example_database.send("DESCRIBE ops.run_alerts")
+>>> example_database.query("DESCRIBE ops.run_alerts")
                   col_name  data_type     comment
 0                 alert_id     bigint
 1                   run_id     bigint
@@ -65,11 +65,11 @@ on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under
 ### Write your tables' Table references
 
 `project.add_references` takes a list of tables. For each, it sends those two commands through
-your send, turns what comes back into a Table reference file in `references/`, and adds it to
+your query, turns what comes back into a Table reference file in `references/`, and adds it to
 the registry, admin/registry.csv; then it logs what it did in the Admin log:
 
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
-...                        send=example_database.send)
+...                        query=example_database.query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 
 Each file is named after the database and the table joined by two underscores, `ops.jobs`
@@ -157,7 +157,7 @@ here use its copy:
 `check_table_reference` asks the table for its columns again and compares them with the file.
 Run it after you edit a Table reference, and whenever the table may have changed:
 
->>> check_table_reference(job_runs, send=example_database.send)
+>>> check_table_reference(job_runs, query=example_database.query)
 ops.job_runs matches its Table reference.
 
 When something differs, it lists each problem with the line to change in the file. It never
@@ -170,7 +170,7 @@ The warehouse never checks a key: nothing stops two rows sharing one `job_runs.r
 `check_key` counts the rows for each key on the newest day the table holds, and lists any key
 that repeats:
 
->>> check_key(job_runs, send=example_database.send)
+>>> check_key(job_runs, query=example_database.query)
 ops.job_runs: the key (run_id) holds on 2026-09-24.
 
 ### Take a first look at the rows
@@ -191,7 +191,7 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-24'
 LIMIT 20;
->>> run(first_look(job_runs), send=example_database.send)
+>>> run(first_look(job_runs), query=example_database.query)
    run_id  job_id   status  duration_mins  avg_retry_secs          dt
 0     101       1  SUCCESS             10             1.0  2026-09-24
 1     102       2   FAILED             20             6.0  2026-09-24
@@ -229,7 +229,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = '2026-09-23';
->>> run(every_column, send=example_database.send)
+>>> run(every_column, query=example_database.query)
    run_id  job_id   status  duration_mins  avg_retry_secs          dt
 0      95       1  SUCCESS             12             2.0  2026-09-23
 1      96       2  SUCCESS             18             0.0  2026-09-23
@@ -280,9 +280,9 @@ Every Table folder and Table reference is registered, and each one registered is
 
 Once you've filled in a file's TODOs, both checks pass for its table:
 
->>> check_table_reference(job_runs, send=example_database.send)
+>>> check_table_reference(job_runs, query=example_database.query)
 ops.job_runs matches its Table reference.
->>> check_key(job_runs, send=example_database.send)
+>>> check_key(job_runs, query=example_database.query)
 ops.job_runs: the key (run_id) holds on 2026-09-24.
 
 ## Common mistakes
@@ -332,7 +332,7 @@ nothing stops it, and the total means nothing.
 writing it again would lose the key and the notes you added. A list that names a table
 already in `references/` writes the others, skips that one, and then stops, naming it:
 
->>> project.add_references(["ops.jobs", "ops.scheduler_runs"], send=example_database.send)
+>>> project.add_references(["ops.jobs", "ops.scheduler_runs"], query=example_database.query)
 Traceback (most recent call last):
 ...
 sqlglot_composer.project.SkippedTables:
@@ -356,7 +356,7 @@ looks right, but `check_key` shows the run_ids that repeat:
 ...     date_partition="dt",
 ...     key=["run_id"],
 ... )
->>> check_key(wrong_key, send=example_database.send)
+>>> check_key(wrong_key, query=example_database.query)
 ops.run_alerts: the key (run_id) repeats on 2026-09-24. Keys with more than one row:
  run_id  copies
     101       3

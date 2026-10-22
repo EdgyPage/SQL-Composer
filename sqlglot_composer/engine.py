@@ -262,7 +262,7 @@ def _refuse_missing_part(missing: str, error: Exception | None = None) -> NoRetu
         what=f"The Example database can't run this Hive: its executor has no {missing}.",
         why="The Example database runs Hive on sqlglot's own small executor, which knows only "
         "part of Hive. Hive at work knows all of it.",
-        fix="See the Hive with to_hive(...), and run it at work with your own send; or try "
+        fix="See the Hive with to_hive(...), and run it at work with your own query; or try "
         "the Statement here without that part.",
         opt_out=None,
     )) from error
@@ -280,7 +280,7 @@ def _refuse_unreadable(said: str, tables: dict[str, tuple[Table, list[tuple[obje
         "the Example database's small executor doesn't.",
         fix=f"Check the names: the tables are {listed}, and printing one, such as "
         "example_database.jobs, shows its columns. If they're right, see the Hive with "
-        "to_hive(...), and run it at work with your own send.",
+        "to_hive(...), and run it at work with your own query.",
         opt_out=None,
     )) from error
 
@@ -366,7 +366,7 @@ def _refuse_a_mix_up(mix_up: _MixUp) -> NoReturn:
         why="The Example database runs Hive on sqlglot's own small executor, which here would "
         f"read {would_read} where {asked_for} is asked for, and so give a wrong answer without "
         "saying so. Hive at work reads the right one.",
-        fix="See the Hive with to_hive(...), and run it at work with your own send. To try it "
+        fix="See the Hive with to_hive(...), and run it at work with your own query. To try it "
         f"here, rename {table}'s {column}: in the SELECT of derived(\"{table}\", ...), wrap "
         f'its {column} in AS(..., "{table}_{column}"), then read {table}.{table}_{column} in '
         f"ON= and wherever else you read {would_read}. A Table reference can't be renamed: "

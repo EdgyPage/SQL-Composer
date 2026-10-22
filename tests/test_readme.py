@@ -29,7 +29,7 @@ def test_the_readme_examples_run(
     runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE)
     report = []
     for block in BLOCKS[: number + 1]:
-        if "send=example_database.send" in block:
+        if "query=example_database.query" in block:
             skip_unless_the_example_database_runs()
         test = doctest.DocTestParser().get_doctest(block, shared, "README", None, 0)
         runner.run(test, out=report.append, clear_globs=False)

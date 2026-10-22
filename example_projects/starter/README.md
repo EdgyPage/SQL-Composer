@@ -16,7 +16,7 @@ It builds three Saved tables, each in a Table folder of its own:
 
 ```
 starter/
-├── send.py                  your send: here, the Example database's
+├── warehouse.py             your query and execute: here, the Example database's
 ├── admin/                   one notebook per Project action, and the Templates
 │   ├── admin_log.md         every Project action, in the order it ran
 │   ├── registry.csv         every Table folder and Table reference made, and when
@@ -43,7 +43,7 @@ Copy the `sqlglot_composer` folder into this folder first, as a Project holds it
 notebook in Jupyter and run its cells top to bottom: each Table notebook in `tables/`, or an
 admin notebook such as `admin/run_tables.ipynb`. The Example database can be read but not
 written, so a notebook's cell 3 prints each write's Hive and runs only the preview, and
-`run_tables`, with no send, prints every write in order, writers first, and sends nothing.
+`run_tables`, with no execute, prints every write in order, writers first, and sends nothing.
 
-At work, write your send in `send.py`, and `admin/run_tables.ipynb`'s last cell writes a day
-of every table.
+At work, write your query and execute in `warehouse.py`, and `admin/run_tables.ipynb`'s last
+cell writes a day of every table.

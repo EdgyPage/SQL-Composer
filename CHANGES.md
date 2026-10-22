@@ -10,6 +10,48 @@ built a day at a time, so some of your files change: each change below says how.
 ### To update from 6.x
 
 - **Copy the `sqlglot_composer` folder in over 6.1's**, and restart the kernel.
+- **`send.py` becomes `warehouse.py`, with two functions in place of `send`**: `query(hive)`,
+  which gives back rows as a pandas DataFrame, and `execute(hive)`, which gives back nothing, as
+  your work's API has a query call and an execute call. Make `warehouse.py` beside `send.py`:
+
+  ```python
+  import pandas as pd
+
+
+  def query(hive: str) -> pd.DataFrame:
+      """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+      ...  # what your send did for a SELECT
+
+
+  def execute(hive: str) -> None:
+      """Run a Hive string that changes something, such as a write, and give back nothing."""
+      ...  # your API's execute call
+  ```
+
+  then change each `from send import send` to `from warehouse import query, execute` (only the
+  ones the notebook uses), and delete `send.py`. `project.check()` reports a `send.py` left with
+  no `warehouse.py` beside it.
+- **Each `send=send` becomes the calls that function takes.** The Toolbox picks which one each
+  step goes to, so you never choose:
+  - `run(s, query=query, execute=execute)`: a read and `explain(s)` go to `query`; a write,
+    `create_table`, `repair_partitions`, `compute_statistics`, `hive_settings(...)` and the
+    Admin statements go to `execute`, and `run` gives back None for them, where it gave back
+    what your send did. Pass only the one a Statement needs, if you like: `run` refuses one it
+    needs and wasn't given, naming it.
+  - `query=query` alone: `check_key`, `check_table_reference`, `write_table_reference`,
+    `project.add_references`, `admin.add_columns` and `admin.move_to_own_folder`.
+  - `project.run_tables(day, query=query, execute=execute)`; with no `execute` it is the dry
+    run, as it was with no `send`.
+
+  `send=` anywhere is refused, with a message naming what to pass. These arguments are named
+  only: `run(s, query)` is Python's TypeError.
+- **`unchecked_hive(text, returns_rows=...)` says whether its text gives back rows**: `True`
+  sends it through `query` and gives back the DataFrame, as for a `SELECT` or `SHOW`; `False`
+  sends it through `execute`, as for an `ALTER` or `INSERT`. It has no default: the Toolbox
+  doesn't read the text, so it can't tell.
+- **`example_database.send` is now `example_database.query`**, which answers what it did but
+  `SET`; `example_database.execute` stands in for your execute, printing the first line of the
+  Hive it is given and changing nothing, since the Example database is never written to.
 
 ## 6.1
 

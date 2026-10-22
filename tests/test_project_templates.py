@@ -64,7 +64,7 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.chdir(tmp_path)
     project.start()
     project.add_references(["ops.job_runs", "ops.job_events", "ops.job_owners"],
-                           send=example_database.send)
+                           query=example_database.query)
     # The Key a user fills in: as_of_lookup's join to ops.job_owners names it.
     owners = tmp_path / "references" / "ops__job_owners.py"
     owners.write_text(owners.read_text(encoding="utf-8").replace(
@@ -129,7 +129,7 @@ def test_a_filled_notebooks_logic_writes_its_day(started: Path, template: str) -
     writes = written if isinstance(written, list) else [written]
     assert [to_hive(write).split("\n")[0] for write in writes][-1] == (
         f"INSERT OVERWRITE TABLE {name} PARTITION(dt = '{DAY}')")
-    preview = run(logic.preview(DAY), send=example_database.send)
+    preview = run(logic.preview(DAY), query=example_database.query)
     assert isinstance(preview, pd.DataFrame) and len(preview) > 0
 
 
@@ -150,8 +150,8 @@ def test_a_weekly_rollup_reads_its_saved_days_a_week_at_a_time(started: Path) ->
 def test_quality_checks_find_no_repeated_keys_on_the_example_database(started: Path) -> None:
     name, _ = filled_notebook(started, "quality_checks")
     logic = project.load(name)
-    assert len(run(logic.repeated_keys(DAY, DAY), send=example_database.send)) == 0
-    nulls = run(logic.null_counts(DAY, DAY), send=example_database.send)
+    assert len(run(logic.repeated_keys(DAY, DAY), query=example_database.query)) == 0
+    nulls = run(logic.null_counts(DAY, DAY), query=example_database.query)
     assert list(nulls.columns)[0] == "null_event_id"
 
 

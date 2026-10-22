@@ -17,7 +17,8 @@ mart.daily_job_runs and `ops.jobs`. Every morning, yesterday's day of both is wr
 counts first, then the team counts, which read them.
 
 The Example database can be read but not written to, so this page prints each step's Hive,
-and runs the list with a stand-in send that only shows what it would send.
+and runs the list through the Example database's execute, a stand-in for your own that only
+shows what it would send.
 
 ## Steps
 
@@ -165,28 +166,25 @@ Pasted into Hue or Beeline, this runs the whole day by hand, in the same order.
 ### Run the list
 
 `run` sends one Statement, so a short function sends the day's steps one after another, with
-whichever send it is given:
+whichever execute it is given. Every step changes a table, so `run` sends each through
+`execute`, which gives back nothing:
 
 >>> from collections.abc import Callable
->>> import pandas as pd
->>> def run_day(day: str, send: Callable[[str], pd.DataFrame]) -> None:
+>>> def run_day(day: str, execute: Callable[[str], None]) -> None:
 ...     for step in day_steps(day):
-...         run(step, send=send)
+...         run(step, execute=execute)
 
-Here no warehouse can be written to, so a stand-in send shows what `run_day` sends: it prints
-the first line of each step's Hive and gives back an empty DataFrame, as a send usually does
-for a write.
+Here no warehouse can be written to, so the Example database's execute stands in for yours,
+and shows what `run_day` sends: it prints the first line of each step's Hive and changes
+nothing.
 
->>> def print_first_line(hive: str) -> pd.DataFrame:
-...     print(hive.splitlines()[0])
-...     return pd.DataFrame()
->>> run_day("2026-09-24", send=print_first_line)
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
-INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
+>>> run_day("2026-09-24", execute=example_database.execute)
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
 
-At work it is the same call with your own send. If a step fails, `run` stops there with the
+At work it is the same call with your own execute. If a step fails, `run` stops there with the
 warehouse's message, and the steps after it aren't sent, so a team day is never written from
 job counts that weren't.
 
@@ -195,12 +193,12 @@ job counts that weren't.
 The day to write each morning is yesterday's, worked out from today's date:
 
 >>> import datetime
->>> def run_yesterday(send: Callable[[str], pd.DataFrame]) -> None:
+>>> def run_yesterday(execute: Callable[[str], None]) -> None:
 ...     yesterday = datetime.date.today() - datetime.timedelta(days=1)
-...     run_day(str(yesterday), send=send)
+...     run_day(str(yesterday), execute=execute)
 
 The last cell of a notebook you run every morning calls `run_yesterday`, giving it your own
-send. Keep `day_steps`, `run_day` and `run_yesterday` in a .py file of their own beside your
+execute. Keep `day_steps`, `run_day` and `run_yesterday` in a .py file of their own beside your
 notebook, and import them, so every notebook runs the same steps in the same order.
 
 ### Re-run a day safely
@@ -210,25 +208,25 @@ there, and INSERT OVERWRITE replaces the day, so sending a day twice leaves the 
 twice as many. To write a day again, after fixing a step or after a morning that failed
 halfway, run the whole day again:
 
->>> run_day("2026-09-23", send=print_first_line)
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
-INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-23')
+>>> run_day("2026-09-23", execute=example_database.execute)
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
+execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-23')
 
 Run the whole day, not just the step you fixed: a fixed job count changes the team counts
 that read it. For several days, run them oldest first, each day whole:
 
 >>> for day in ["2026-09-23", "2026-09-24"]:
-...     run_day(day, send=print_first_line)
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
-INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-23')
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
-CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
-INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
+...     run_day(day, execute=example_database.execute)
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
+execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-23')
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt = '2026-09-24')
 
 ## Check it worked
 
@@ -247,7 +245,7 @@ data team's job ran twice, and the finance team's jobs ran twice, one run failin
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
 ...     GROUP_BY(jobs.team),
 ... )
->>> run(team_runs, send=example_database.send)
+>>> run(team_runs, query=example_database.query)
       team  runs  failed_runs
 0     data     2            0
 1  finance     2            1
@@ -261,7 +259,7 @@ this. The same numbers mean both steps ran, in the right order.
 
 `run` sends one Statement, and refuses a list:
 
->>> run(steps, send=print_first_line)
+>>> run(steps, execute=example_database.execute)
 Traceback (most recent call last):
 ...
 TypeError:

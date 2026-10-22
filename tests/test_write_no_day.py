@@ -179,7 +179,7 @@ def test_by_day_refuses_a_write_with_no_days() -> None:
                   WHERE(DAYS), GROUP_BY(jobs.team))
     with pytest.raises(ValueError, match="mart.team_runs, which has no Date partition") as refused:
         by_day(s)
-    assert "run(s, send=...)" in str(refused.value)
+    assert "run(s, execute=...)" in str(refused.value)
 
 
 # --- Lineage ---------------------------------------------------------------------------------

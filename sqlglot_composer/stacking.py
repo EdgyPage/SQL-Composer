@@ -80,7 +80,7 @@ def UNION_ALL(*statements: Statement | list[Statement],
     FROM ops.run_alerts AS run_alerts
     WHERE
       run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
-    >>> run(UNION_ALL(failed, alerted), send=example_database.send)
+    >>> run(UNION_ALL(failed, alerted), query=example_database.query)
        run_id
     0     101
     1     102
@@ -108,7 +108,7 @@ def UNION(*statements: Statement | list[Statement],
     ...     FROM(run_alerts),
     ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )
-    >>> run(UNION(failed, alerted), send=example_database.send)
+    >>> run(UNION(failed, alerted), query=example_database.query)
        run_id
     0     101
     1     102
@@ -139,7 +139,7 @@ def INTERSECT(*statements: Statement | list[Statement],
     ...     FROM(run_alerts),
     ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )
-    >>> run(INTERSECT(failed, alerted), send=example_database.send)
+    >>> run(INTERSECT(failed, alerted), query=example_database.query)
        run_id
     0     102
     """
@@ -182,7 +182,7 @@ def EXCEPT(*statements: Statement | list[Statement],
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
-    >>> run(EXCEPT(alerted, failed), send=example_database.send)
+    >>> run(EXCEPT(alerted, failed), query=example_database.query)
        run_id
     0     101
     """

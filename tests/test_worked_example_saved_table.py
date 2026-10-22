@@ -45,8 +45,8 @@ def test_the_two_writes_fill_the_day_with_the_runs_to_review() -> None:
     alerted = high & set(day.run_id[day.status == "SUCCESS"])
     assert (failed, alerted) == ({102}, {101})
 
-    written = example_database.send(select_part(example.failed_runs()))
-    added = example_database.send(select_part(example.alerted_runs()))
+    written = example_database.query(select_part(example.failed_runs()))
+    added = example_database.query(select_part(example.alerted_runs()))
     assert set(written.run_id) == failed
     assert set(added.run_id) == alerted
 

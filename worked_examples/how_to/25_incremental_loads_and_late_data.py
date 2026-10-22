@@ -74,7 +74,7 @@ your own notebook today is your real today, so on the Example database it finds 
 ...     WHERE(last_n_days(job_events.dt, 3)),
 ...     GROUP_BY(job_events.dt, job_events.job_id),
 ... )
->>> run(preview, send=example_database.send)
+>>> run(preview, query=example_database.query)
            dt  job_id  starts  finishes
 0  2026-09-22       1       1         1
 1  2026-09-22       2       1         1
@@ -150,15 +150,14 @@ GROUP BY
   job_events.job_id;
 
 The Example database can't be written to, so the writes stop here. At work, a function sends
-them in order through your own send, and you call it once a day, `load_last_days(send)`, as
+them in order through your own execute, and you call it once a day, `load_last_days(execute)`, as
 [Run a daily pipeline](#run_a_daily_pipeline) does for one day:
 
     from collections.abc import Callable
-    import pandas as pd
 
-    def load_last_days(send: Callable[[str], pd.DataFrame]) -> None:
+    def load_last_days(execute: Callable[[str], None]) -> None:
         for day in rewrite_last_days(3):
-            run(day, send=send)
+            run(day, execute=execute)
 
 ### Why sending a day again is safe
 

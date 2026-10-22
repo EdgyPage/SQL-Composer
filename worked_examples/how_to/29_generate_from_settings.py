@@ -43,12 +43,12 @@ of `ops.job_runs` is an average, which must never be added up, so its setting li
 ### Generate a Table reference for each table
 
 A Table reference needs each column and its type. Rather than type them, ask the table, as
-[Add your tables' references](#add_your_tables_references) does: your send runs DESCRIBE, which lists
+[Add your tables' references](#add_your_tables_references) does: your query runs DESCRIBE, which lists
 the columns, one per row, each with its name in `"col_name"` and its type in `"data_type"`.
 After them it lists the partition columns again, under a heading row starting with `#`, often
 after an empty row, so stop at the first such row:
 
->>> example_database.send("DESCRIBE ops.region_costs")
+>>> example_database.query("DESCRIBE ops.region_costs")
                   col_name  data_type                       comment
 0                   job_id     bigint
 1               cost_cents     bigint  NULL until the bill comes in
@@ -67,8 +67,8 @@ too:
 >>> from collections.abc import Callable
 >>> import pandas as pd
 >>> def table_reference(setting: dict[str, str | list[str]],
-...                     send: Callable[[str], pd.DataFrame]) -> Table:
-...     described = send("DESCRIBE " + setting["table"])
+...                     query: Callable[[str], pd.DataFrame]) -> Table:
+...     described = query("DESCRIBE " + setting["table"])
 ...     columns = {}
 ...     for name, data_type in zip(described["col_name"], described["data_type"]):
 ...         if not name or name.startswith("#"):
@@ -77,7 +77,7 @@ too:
 ...     return Table(setting["table"], columns=columns, date_partition="dt",
 ...                  key=setting["key"], does_not_add_up=setting.get("does_not_add_up", []),
 ...                  date_format=setting.get("date_format"))
->>> tables = {setting["table"]: table_reference(setting, example_database.send)
+>>> tables = {setting["table"]: table_reference(setting, example_database.query)
 ...           for setting in settings}
 >>> tables["ops.region_costs"]
 Table('ops.region_costs', columns: job_id, cost_cents, region, dt)
@@ -86,8 +86,8 @@ Check what you generated, as you would a Table reference you wrote: each still m
 table, and each key holds.
 
 >>> for t in tables.values():
-...     print(check_table_reference(t, send=example_database.send))
-...     print(check_key(t, send=example_database.send))
+...     print(check_table_reference(t, query=example_database.query))
+...     print(check_key(t, query=example_database.query))
 ops.job_runs matches its Table reference.
 ops.job_runs: the key (run_id) holds on 2026-09-24.
 ops.job_events matches its Table reference.
@@ -165,7 +165,7 @@ GROUP BY
 
 Run each in a loop, and keep each result under its table's name:
 
->>> results = {name: run(totals, send=example_database.send)
+>>> results = {name: run(totals, query=example_database.query)
 ...            for name, totals in daily.items()}
 >>> results["ops.region_costs"]
          dt  row_count  total_cost_cents

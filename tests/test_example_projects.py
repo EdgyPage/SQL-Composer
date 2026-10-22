@@ -170,8 +170,8 @@ def test_a_backfill_writes_each_day_what_write_day_writes(inside: Callable[..., 
     logic_of = logic(inside, "starter", "mart.daily_job_runs")
     for day, write in zip(DAYS, logic_of.backfill(*DAYS), strict=True):
         assert f"PARTITION(dt = '{day}')" in to_hive(write)
-        same(example_database.send(without_the_write(to_hive(write))),
-             example_database.send(without_the_write(to_hive(logic_of.write_day(day)))))
+        same(example_database.query(without_the_write(to_hive(write))),
+             example_database.query(without_the_write(to_hive(logic_of.write_day(day)))))
 
 
 @pytest.mark.parametrize(("name", "reader", "read"), [
@@ -274,7 +274,7 @@ def team_day_on(day: str, with_costs: bool = True) -> pd.DataFrame:
 @pytest.mark.parametrize("day", DAYS)
 def test_daily_job_runs_previews_each_jobs_runs(inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "starter", "mart.daily_job_runs").preview(day)
-    same(run(preview, send=example_database.send), runs_on(day))
+    same(run(preview, query=example_database.query), runs_on(day))
 
 
 @pytest.mark.needs_example_database
@@ -282,7 +282,7 @@ def test_daily_job_runs_previews_each_jobs_runs(inside: Callable[..., Path], day
 def test_alerts_per_job_previews_each_jobs_alerts(
         inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "starter", "mart.alerts_per_job").preview(day)
-    same(run(preview, send=example_database.send), alerts_on(day))
+    same(run(preview, query=example_database.query), alerts_on(day))
 
 
 @pytest.mark.needs_example_database
@@ -290,14 +290,14 @@ def test_alerts_per_job_previews_each_jobs_alerts(
 def test_team_day_groups_each_teams_runs_from_job_runs(
         inside: Callable[..., Path], day: str) -> None:
     check = logic(inside, "starter", "mart.team_day").team_runs_from_job_runs(day)
-    same(run(check, send=example_database.send), team_runs_on(day))
+    same(run(check, query=example_database.query), team_runs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_job_day_costs_previews_each_jobs_cost(inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "intermediate", "mart.job_day_costs").preview(day)
-    same(run(preview, send=example_database.send), costs_on(day))
+    same(run(preview, query=example_database.query), costs_on(day))
 
 
 @pytest.mark.needs_example_database
@@ -305,14 +305,14 @@ def test_job_day_costs_previews_each_jobs_cost(inside: Callable[..., Path], day:
 def test_job_day_facts_previews_each_jobs_day_with_its_team_then(
         inside: Callable[..., Path], day: str) -> None:
     preview = logic(inside, "intermediate", "mart.job_day_facts").preview(day)
-    same(run(preview, send=example_database.send), facts_on(day))
+    same(run(preview, query=example_database.query), facts_on(day))
 
 
 @pytest.mark.needs_example_database
 def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
         inside: Callable[..., Path]) -> None:
     logic_of = logic(inside, "intermediate", "mart.job_day_facts")
-    teams = {day: run(logic_of.preview(day), send=example_database.send).set_index("job_id")
+    teams = {day: run(logic_of.preview(day), query=example_database.query).set_index("job_id")
              .team.get(3) for day in ("2026-09-14", "2026-09-18")}
     assert teams == {"2026-09-14": "data", "2026-09-18": "finance"}
 
@@ -322,7 +322,7 @@ def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
 def test_team_days_groups_each_teams_day_from_job_events(
         inside: Callable[..., Path], day: str) -> None:
     check = logic(inside, "intermediate", "mart.team_days").team_day_from_job_events(day)
-    same(run(check, send=example_database.send), team_day_on(day, with_costs=False))
+    same(run(check, query=example_database.query), team_day_on(day, with_costs=False))
 
 
 @pytest.mark.needs_example_database
@@ -337,13 +337,13 @@ def test_team_days_previews_each_teams_day_from_both_saved_tables(
                                                    "mart.job_day_costs"), [day])}
     preview = logic(inside, "intermediate", "mart.team_days").preview(day)
     hive = standing_in(to_hive(preview), saved)
-    same(example_database.send(hive), team_day_on(day))
+    same(example_database.query(hive), team_day_on(day))
 
 
 @pytest.mark.needs_example_database
 def test_the_quality_checks_find_no_repeated_event(inside: Callable[..., Path]) -> None:
     checks = logic(inside, "intermediate", "mart.job_events_checks")
-    assert len(run(checks.repeated_keys("2026-09-11", DAY), send=example_database.send)) == 0
+    assert len(run(checks.repeated_keys("2026-09-11", DAY), query=example_database.query)) == 0
     events = example_rows("job_events")
-    counted = run(checks.preview(DAY), send=example_database.send)
+    counted = run(checks.preview(DAY), query=example_database.query)
     assert list(counted.row_count) == [len(events[events.dt == DAY])]

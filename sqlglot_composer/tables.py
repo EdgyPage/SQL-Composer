@@ -36,7 +36,9 @@ from .refusals import (
     guard_not_a_number,
     guard_time_of_day,
     kind_name,
+    need_warehouse_call,
     refuse,
+    refuse_removed_arguments,
 )
 from .trees import (
     ARITHMETIC,
@@ -806,7 +808,7 @@ PURGE = "external.table.purge"
 SHARING = ("two tables in one folder read each other's files, and an INSERT OVERWRITE of a "
            "day in one can delete the other's files for that day.")
 # The fix for a table that isn't at its own folder: ticket 04's admin module moves it.
-MOVE_IT = "move it with admin.move_to_own_folder(t, send=...)"
+MOVE_IT = "move it with admin.move_to_own_folder(t, query=...)"
 # The fix for a table at its own folder whose layout the Toolbox doesn't write: the move's copy
 # would go to that same folder, so the table is written again there.
 WRITE_IT_AGAIN = ("it is at its own folder already, so write it again there: give its Table "
@@ -1109,7 +1111,7 @@ def first_look(t: Table) -> Statement:
     """A first look at a table: all its columns, and 20 of yesterday's rows.
 
     It is an ordinary Statement, bounded to the day before today like any other, so it is
-    safe to run on a big table. Send it with run(first_look(t), send=...).
+    safe to run on a big table. Send it with run(first_look(t), query=...).
 
     >>> print(to_hive(first_look(job_runs)))
     SELECT
@@ -1145,7 +1147,7 @@ class Verdict:
     found:
 
     >>> def key_holds(t: Table) -> Verdict:
-    ...     return check_key(t, send=example_database.send)
+    ...     return check_key(t, query=example_database.query)
     >>> verdict = key_holds(jobs)
     >>> verdict.ok
     True
@@ -1163,29 +1165,24 @@ class Verdict:
     __str__ = __repr__
 
 
-def _ask(send: object, hive: str, call: str) -> pd.DataFrame:
-    """Send DESCRIBE or SHOW PARTITIONS, and refuse an answer that can't be read."""
-    if not callable(send):
-        refuse(
-            what=f"{call}: send={send!r} isn't a function.",
-            why="It sends DESCRIBE and SHOW PARTITIONS to the warehouse, and reads what the "
-            "warehouse prints back.",
-            fix="Pass your own function, which takes a Hive string and returns a DataFrame, "
-            "such as send=example_database.send.",
-        )
-    frame = send(hive)
+def _ask(query: object, hive: str, call: str) -> pd.DataFrame:
+    """Send DESCRIBE or SHOW PARTITIONS through `query`, and refuse an answer that can't be
+    read."""
+    need_warehouse_call(call, "query", query, "It sends DESCRIBE and SHOW PARTITIONS to the "
+                        "warehouse, and reads what the warehouse prints back.")
+    frame = query(hive)
     if not isinstance(frame, pd.DataFrame):
         refuse(
-            what=f"{call}: send gave back "
+            what=f"{call}: query gave back "
             f"{'None' if frame is None else kind_name(frame)} for {hive}.",
             why="It reads what the warehouse prints, as a pandas DataFrame.",
-            fix="Make send return the warehouse's answer as a DataFrame, as run(...) needs too.",
+            fix="Make your query return the warehouse's answer as a DataFrame, as run(...) needs too.",
         )
     if len(frame.columns) == 0:
         refuse(
-            what=f"{call}: send gave back a DataFrame with no columns for {hive}.",
+            what=f"{call}: query gave back a DataFrame with no columns for {hive}.",
             why="It reads what the warehouse prints, and there is nothing in it to read.",
-            fix="Make send return the warehouse's answer as it prints it.",
+            fix="Make your query return the warehouse's answer as it prints it.",
             error=ValueError,
         )
     return frame
@@ -1211,11 +1208,11 @@ def _cell(row: tuple[object, ...], at: int) -> str:
     return "" if text in ("None", "nan") else text
 
 
-def _describe(name: str, send: object, call: str, formatted: bool = False) -> Described:
+def _describe(name: str, query: object, call: str, formatted: bool = False) -> Described:
     """Send DESCRIBE, or DESCRIBE FORMATTED: the columns with types, their comments, the
     partition columns, and, formatted, the table's details and properties."""
     command = "DESCRIBE FORMATTED" if formatted else "DESCRIBE"
-    frame = _ask(send, f"{command} {hive_text(table_node(name))}", call)
+    frame = _ask(query, f"{command} {hive_text(table_node(name))}", call)
     found = Described()
     # The columns come first; each header after them, bar the partition list's own column
     # header, starts a section, and only the partition sections name partition columns.
@@ -1267,9 +1264,9 @@ def _read_detail(found: Described, label: str, column: str, kind: str, comment: 
         found.properties[kind] = comment
 
 
-def _newest_partition_value(name: str, column: str, send: object, call: str) -> str | None:
+def _newest_partition_value(name: str, column: str, query: object, call: str) -> str | None:
     """Send SHOW PARTITIONS and return the newest value of one partition column."""
-    frame = _ask(send, f"SHOW PARTITIONS {hive_text(table_node(name))}", call)
+    frame = _ask(query, f"SHOW PARTITIONS {hive_text(table_node(name))}", call)
     values = []
     for text in frame.iloc[:, 0]:
         for part in str(text).split("/"):
@@ -1294,11 +1291,11 @@ def _day_format_of(value: str | None) -> str | None:
     return None
 
 
-def write_table_reference(name: str, send: Callable[[str], pd.DataFrame],
-                          folder: str | Path | None = None) -> Path:
+def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | None = None,
+                          folder: str | Path | None = None, **removed: object) -> Path:
     '''Write a table's Table reference as a file, such as ops__run_alerts.py.
 
-    It sends DESCRIBE and SHOW PARTITIONS through your `send` (they read the table's
+    It sends DESCRIBE and SHOW PARTITIONS through your `query` (they read the table's
     description, never its rows) and writes the file in `folder`, such as "references", or in
     the folder you're working in when folder is left out. The file is imported as
     `from ops__run_alerts import run_alerts`, or `from references.ops__run_alerts import
@@ -1309,13 +1306,13 @@ def write_table_reference(name: str, send: Callable[[str], pd.DataFrame],
     newest day SHOW PARTITIONS lists gives the Date partition's date_format. The Date partition
     is looked for in the first partition column only: a table partitioned first by something
     else, such as a region, gets date_partition=None and a TODO naming its partition columns.
-    Name the one that holds the days, and check_table_reference(t, send=...) then gives the
+    Name the one that holds the days, and check_table_reference(t, query=...) then gives the
     line its date_format needs, if any. It never guesses
     the key or which columns don't add up: those are TODOs for you. Below the Table reference,
     under its Aliases heading, you can add your own names for its columns and conditions, as
     its examples show. The file is yours from then on, and this refuses to overwrite it.
 
-    >>> path = write_table_reference("ops.run_alerts", send=example_database.send)
+    >>> path = write_table_reference("ops.run_alerts", query=example_database.query)
     >>> path.name
     'ops__run_alerts.py'
     >>> print(path.read_text())
@@ -1350,6 +1347,8 @@ def write_table_reference(name: str, send: Callable[[str], pd.DataFrame],
     #     <alias> = equals(run_alerts.severity, <value>)
     <BLANKLINE>
     '''
+    refuse_removed_arguments("write_table_reference", removed, "query=")
+    need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE and SHOW PARTITIONS through your query, and reads what comes back.")
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
         refuse(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
@@ -1361,7 +1360,7 @@ def write_table_reference(name: str, send: Callable[[str], pd.DataFrame],
         refuse(
             what=f"write_table_reference({name!r}, ...) has no database name.",
             why="The file is named for the database and the table, such as ops__job_runs.py, "
-            "and the Table reference reads the table wherever your send runs.",
+            "and the Table reference reads the table wherever your query runs.",
             fix=f'Write the database first, like "ops.{name}".',
             error=ValueError,
         )
@@ -1385,20 +1384,20 @@ def write_table_reference(name: str, send: Callable[[str], pd.DataFrame],
             why="A Table reference is yours once written, and rewriting it would lose "
             "your key, filters and notes.",
             fix="Edit that file, or check it against the table with "
-            "check_table_reference(t, send=...).",
+            "check_table_reference(t, query=...).",
             error=FileExistsError,
         )
     call = f"write_table_reference({name!r}, ...)"
-    described = _describe(name, send, call)
+    described = _describe(name, query, call)
     columns, comments, partitions = described.columns, described.comments, described.partitions
     if not columns:
         refuse(
             what=f"{call}: DESCRIBE {name} listed no columns.",
             why="A Table reference is written from the table's columns.",
-            fix="Check the table's name, and that send returns what DESCRIBE prints.",
+            fix="Check the table's name, and that your query returns what DESCRIBE prints.",
             error=ValueError,
         )
-    date_lines = _date_partition_lines(name, partitions, send, call)
+    date_lines = _date_partition_lines(name, partitions, query, call)
     module = path.stem if folder is None else f"{Path(folder).name}.{path.stem}"
     path.write_text(_reference_text(name, variable, columns, comments, date_lines, module),
                     encoding="utf-8")
@@ -1410,14 +1409,14 @@ def _folder_name(folder: str | Path | None) -> str:
     return "the folder you're working in" if folder is None else f"the folder {str(folder)!r}"
 
 
-def _date_partition_lines(name: str, partitions: list[str], send: Callable[[str], object],
+def _date_partition_lines(name: str, partitions: list[str], query: Callable[[str], object],
                           call: str) -> list[str]:
     if not partitions:
         return ["    date_partition=None,"]
     first = partitions[0]
     also = f"  # TODO check: also partitioned by {', '.join(partitions[1:])}" if len(
         partitions) > 1 else ""
-    newest = _newest_partition_value(name, first, send, call)
+    newest = _newest_partition_value(name, first, query, call)
     if newest is None:
         return [f'    date_partition="{first}",  # TODO check: no days yet; once it has one, '
                 "run check_table_reference"]
@@ -1534,7 +1533,8 @@ def need_saved_table(t: object, what: str) -> Table:
     return t
 
 
-def check_key(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
+def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
+              **removed: object) -> Verdict:
     """Check on the newest day that no two rows share the Table reference's key.
 
     JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table
@@ -1542,19 +1542,21 @@ def check_key(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
     This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows
     with no day), and shows at most 20 keys that repeat.
 
-    >>> check_key(job_runs, send=example_database.send)
+    >>> check_key(job_runs, query=example_database.query)
     ops.job_runs: the key (run_id) holds on 2026-09-24.
 
     A wrong key shows the keys that repeat:
 
     >>> alerts = Table("ops.run_alerts", columns={"alert_id": "bigint", "run_id": "bigint",
     ...     "severity": "string", "dt": "string"}, date_partition="dt", key=["run_id"])
-    >>> check_key(alerts, send=example_database.send)
+    >>> check_key(alerts, query=example_database.query)
     ops.run_alerts: the key (run_id) repeats on 2026-09-24. Keys with more than one row:
      run_id  copies
         101       3
         103       2
     """
+    refuse_removed_arguments("check_key", removed, "query=")
+    need_warehouse_call("check_key", "query", query, "It counts repeated keys with a query, which gives back rows.")
     from .calculations import count_rows
     from .clauses import AS, FROM, GROUP_BY, HAVING, LIMIT, SELECT, WHERE, statement
     from .conditions import equals, more_than
@@ -1572,7 +1574,7 @@ def check_key(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
     clauses = [SELECT(key, AS(count_rows(), "copies")), FROM(t)]
     when = ""
     if t._date_partition is not None:
-        newest = _newest_partition_value(t._name, t._date_partition, send, "check_key(...)")
+        newest = _newest_partition_value(t._name, t._date_partition, query, "check_key(...)")
         if newest is None:
             return Verdict(False, [f"{t._name}: SHOW PARTITIONS found no days to check."])
         day = t._column(t._date_partition)
@@ -1582,11 +1584,11 @@ def check_key(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
             return Verdict(False, [
                 f"{t._name}: the newest {t._date_partition}, {newest!r}, isn't written like "
                 f"{_date_format_text(t)}, so the key wasn't checked. "
-                "check_table_reference(t, send=...) gives the line to change."])
+                "check_table_reference(t, query=...) gives the line to change."])
         clauses.append(WHERE(equals(day, newest)))
         when = f" on {newest}"
     clauses += [GROUP_BY(key), HAVING(more_than(count_rows(), 1)), LIMIT(20)]
-    repeats = run(statement(*clauses), send=send)
+    repeats = run(statement(*clauses), query=query)
     listed = ", ".join(t._key)
     if len(repeats) == 0:
         return Verdict(True, [f"{t._name}: the key ({listed}) holds{when}."])
@@ -1600,14 +1602,15 @@ def _same_type(first: str, second: str) -> bool:
     return "".join(first.lower().split()) == "".join(second.lower().split())
 
 
-def check_table_reference(t: Table, send: Callable[[str], pd.DataFrame]) -> Verdict:
+def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
+                          **removed: object) -> Verdict:
     """Compare a Table reference with its table as it is now, and list what differs.
 
-    It sends DESCRIBE and SHOW PARTITIONS through your `send`, and lists problems (which make
+    It sends DESCRIBE and SHOW PARTITIONS through your `query`, and lists problems (which make
     Statements wrong) and notes (which may not matter), each with the line to change in the
     Table reference file. The columns and their types come from DESCRIBE, and the Date
     partition's date_format is checked against the newest day SHOW PARTITIONS lists. It never
-    edits the file and never refuses anything: a table the warehouse can't describe, or a send
+    edits the file and never refuses anything: a table the warehouse can't describe, or a query
     that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
 
     For one of your Saved tables, one with location=, it sends DESCRIBE FORMATTED instead, and
@@ -1615,15 +1618,15 @@ def check_table_reference(t: Table, send: Callable[[str], pd.DataFrame]) -> Verd
     after the day and its Buckets, and purge, compression and properties where the Table
     reference gives them. A table that isn't in its own folder under location= is a problem,
     as a table made by hand in a folder it shares with others is: two tables in one folder
-    read each other's files, and an overwrite of a day in one can delete the other's. admin.move_to_own_folder(t, send=...) moves it. DESCRIBE FORMATTED describes one
+    read each other's files, and an overwrite of a day in one can delete the other's. admin.move_to_own_folder(t, query=...) moves it. DESCRIBE FORMATTED describes one
     table at a time, so another table that put its files in this table's own folder is
     reported when that other table is checked: check each of your Saved tables.
 
-    >>> check_table_reference(job_runs, send=example_database.send)
+    >>> check_table_reference(job_runs, query=example_database.query)
     ops.job_runs matches its Table reference.
     >>> old_jobs = Table("ops.jobs", columns={"job_id": "int", "job_name": "string",
     ...     "owner": "string", "team": "string"}, date_partition=None, key=["job_id"])
-    >>> check_table_reference(old_jobs, send=example_database.send)
+    >>> check_table_reference(old_jobs, query=example_database.query)
     ops.jobs differs from its Table reference.
     Problems:
       - job_id is bigint in the table: change its line to "job_id": "bigint",
@@ -1631,22 +1634,24 @@ def check_table_reference(t: Table, send: Callable[[str], pd.DataFrame]) -> Verd
     Notes:
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
     """
+    refuse_removed_arguments("check_table_reference", removed, "query=")
+    need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE and SHOW PARTITIONS through your query, and reads what comes back.")
     t = _real_table(t, "check_table_reference(...)")
     saved = t._location is not None
     command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"
     try:
-        described = _describe(t._name, send, "check_table_reference(...)", formatted=saved)
+        described = _describe(t._name, query, "check_table_reference(...)", formatted=saved)
     except Exception as error:  # it reports, and never raises: see the docstring
         return Verdict(False, [f"{t._name}: {command} failed, so nothing was compared. Check "
-                               "the table's name, and that send works. It said:",
+                               "the table's name, and that your query works. It said:",
                                *_said(error)])
     columns, partitions = described.columns, described.partitions
     if not columns:
         return Verdict(False, [f"{t._name}: {command} listed no columns, so nothing was "
-                               "compared. Check the table's name, and that send returns what "
+                               "compared. Check the table's name, and that your query returns what "
                                f"{command} prints."])
     problems, notes = _column_differences(t, columns)
-    date_problems, date_notes = _date_partition_problems(t, partitions, send)
+    date_problems, date_notes = _date_partition_problems(t, partitions, query)
     problems += date_problems
     notes += date_notes
     if saved:
@@ -1689,7 +1694,7 @@ def _column_differences(t: Table, columns: dict[str, str]) -> tuple[list[str], l
 
 
 def _date_partition_problems(t: Table, partitions: list[str],
-                             send: Callable[[str], object]) -> tuple[list[str], list[str]]:
+                             query: Callable[[str], object]) -> tuple[list[str], list[str]]:
     """The problems, and the notes, from checking the Date partition and its newest day."""
     if t._date_partition is None:
         return [], []
@@ -1698,7 +1703,7 @@ def _date_partition_problems(t: Table, partitions: list[str],
         return [f"{t._date_partition} is no longer a partition column: change the line to "
                 f"date_partition={now},"], []
     try:
-        newest = _newest_partition_value(t._name, t._date_partition, send,
+        newest = _newest_partition_value(t._name, t._date_partition, query,
                                          "check_table_reference(...)")
     except Exception as error:  # check_table_reference reports, and never raises
         said = " ".join(" ".join(_said(error)).split())
@@ -1749,7 +1754,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
     if "location" not in details:
         # Not a note: nothing below was compared, so the table can't be said to match.
         return ["DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check "
-                "that send returns everything DESCRIBE FORMATTED prints."], []
+                "that your query returns everything DESCRIBE FORMATTED prints."], []
     problems = []
     managed = "MANAGED" in (details.get("table type") or details.get("type") or "").upper()
     # A table the move can take to its own folder, writing it again as its Table reference
@@ -1897,7 +1902,7 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     """The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.
 
     A Saved table is one your Statements write into. Send it once with
-    run(create_table(t), send=...). The table is external: its files are yours, in its own
+    run(create_table(t), execute=...). The table is external: its files are yours, in its own
     folder under the Table reference's location=, and the warehouse only keeps a record of
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
     reference with no location= is refused. Every column needs a type Hive has, spelled as
@@ -1906,7 +1911,7 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     already exists, the warehouse refuses to create it again. Without that refusal, you could
     edit the Table reference, send this again, and think the table had changed when it hadn't.
     Compare the two with
-    check_table_reference(t, send=...); add new columns with admin.add_columns(t, send=...),
+    check_table_reference(t, query=...); add new columns with admin.add_columns(t, query=...),
     or, to start the table again, drop it with admin.drop_table(t) (from sqlglot_composer
     import admin).
     may_exist=True sends CREATE EXTERNAL TABLE IF NOT EXISTS, which leaves an existing table

@@ -46,7 +46,7 @@ running a Statement with a Window stops with this message:
 
 >>> run(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
 ...                                            "minutes_before")),
-...               FROM(job_events), WHERE(*week_finished)), send=example_database.send)
+...               FROM(job_events), WHERE(*week_finished)), query=example_database.query)
 Traceback (most recent call last):
 ...
 RuntimeError:
@@ -81,7 +81,7 @@ FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN '2026-09-18' AND '2026-09-24'
   AND job_events.event_type = 'finish';
->>> run(with_before, send=example_database.send)
+>>> run(with_before, query=example_database.query)
     job_id          dt  minutes  minutes_before  change
 0        1  2026-09-18       14             NaN     NaN
 1        1  2026-09-19       11            14.0    -3.0
@@ -114,7 +114,7 @@ run the rank after both, as job 1's two runs of 12 minutes do: both 3, then 5 fo
 ...     FROM(job_events),
 ...     WHERE(*week_finished),
 ... )
->>> run(ranked, send=example_database.send)
+>>> run(ranked, query=example_database.query)
     job_id          dt  minutes  longest_first
 0        1  2026-09-18       14              1
 1        1  2026-09-19       11              5
@@ -154,7 +154,7 @@ and no `rows=`, the Window is the whole job:
 >>> text = show_hive(last_three)
 SELECT
 ...
->>> run(last_three, send=example_database.send)
+>>> run(last_three, query=example_database.query)
     job_id          dt  minutes  last_3_runs  week_minutes
 0        1  2026-09-18       14           14            82
 1        1  2026-09-19       11           25            82
@@ -185,7 +185,7 @@ it:
 ...     FROM(changes),
 ...     WHERE(more_than(changes.change, 0)),
 ... )
->>> run(slower, send=example_database.send)
+>>> run(slower, query=example_database.query)
    job_id          dt  change
 0       1  2026-09-20       1
 1       1  2026-09-21       1
@@ -225,13 +225,13 @@ WITH week AS (
 ...
 
 The Example database can't be written to, so the write stops here. At work, a function sends
-one such Statement for each day, oldest first, through your own send:
+one such Statement for each day, oldest first, through your own execute:
 
     from collections.abc import Callable
 
-    def write_changes(days: list[str], send: Callable[[str], pd.DataFrame]) -> None:
+    def write_changes(days: list[str], execute: Callable[[str], None]) -> None:
         for day in days:
-            run(changes_on(day), send=send)
+            run(changes_on(day), execute=execute)
 
 `by_day` can't split a Statement whose Window looks across days: see Common mistakes.
 
@@ -253,8 +253,8 @@ its cost from `ops.region_costs`. Add up each per job, with a Statement each:
 ...     WHERE(between(region_costs.dt, "20260918", "20260924")),
 ...     GROUP_BY(region_costs.job_id),
 ... )
->>> minutes = run(minutes_per_job, send=example_database.send)
->>> costs = run(cost_per_job, send=example_database.send)
+>>> minutes = run(minutes_per_job, query=example_database.query)
+>>> costs = run(cost_per_job, query=example_database.query)
 
 `.merge` puts the two side by side, matching rows on `"job_id"`. `how="outer"` keeps a job that
 only one of them has, and `validate="one_to_one"` stops the merge if `"job_id"` repeats on
@@ -280,7 +280,7 @@ is quicker to write and to change.
 Only each job's first run of the week has no run before it, so of three jobs, three rows have
 NaN. And the merge kept one row per job:
 
->>> runs = run(with_before, send=example_database.send)
+>>> runs = run(with_before, query=example_database.query)
 >>> int(runs["minutes_before"].isna().sum())
 3
 >>> per_job["job_id"].is_unique
@@ -347,7 +347,7 @@ per day, so adding them up gives far too much:
 ...     FROM(region_costs),
 ...     WHERE(between(region_costs.dt, "20260918", "20260924")),
 ... )
->>> daily_costs = run(daily_cost, send=example_database.send)
+>>> daily_costs = run(daily_cost, query=example_database.query)
 >>> repeated = minutes.merge(daily_costs, on="job_id")
 >>> int(repeated["minutes"].sum()), int(minutes["minutes"].sum())
 (1035, 194)
@@ -386,7 +386,7 @@ def finished_runs() -> pd.DataFrame:
     job_events = example_database.job_events
     rows = run(statement(SELECT(all_columns(job_events)), FROM(job_events),
                          WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"))),
-               send=example_database.send)
+               query=example_database.query)
     rows = rows[rows["event_type"] == "finish"]
     return rows.sort_values(["job_id", "dt"]).reset_index(drop=True)
 

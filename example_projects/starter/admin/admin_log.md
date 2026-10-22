@@ -5,13 +5,13 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.start()`
-- Files: created admin/, references/, building_blocks/, tables/, send.py
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], send=...)`
+- Call: `project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=...)`
 - Tables named: ops.jobs, ops.job_runs, ops.run_alerts
 - Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py
 - Script: a notebook, at commit nogit

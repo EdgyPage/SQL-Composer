@@ -70,7 +70,7 @@ def every_run() -> pd.DataFrame:
     return run(
         statement(SELECT(all_columns(job_runs)), FROM(job_runs),
                   WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY))),
-        send=example_database.send,
+        query=example_database.query,
     )
 
 

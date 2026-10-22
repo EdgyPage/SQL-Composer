@@ -504,7 +504,7 @@ def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
     JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn't, since it keeps the
     small table's unmatched rows too. It is written as a hint after SELECT, as below: a
     comment, /*+ ... */, that Hive reads as a request. Send the Session setting "map_joins"
-    first, with run(hive_settings("map_joins"), send=...): Hive ignores the hint without it.
+    first, with run(hive_settings("map_joins"), execute=...): Hive ignores the hint without it.
     You rarely need the hint, though: with "map_joins" sent, Hive makes map joins by itself,
     from the tables' sizes and statistics. Ask for it only for a table you know is small:
     copied to every worker, a big one can run them out of memory.
@@ -927,7 +927,7 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False) -> Clause:
     adding to it, so a day can safely be sent again; to add rows to a day instead, use
     INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after
     it), a day that now comes back empty may keep its old rows (HIVE-18702). After editing a
-    Saved table's Table reference, check it with check_table_reference(t, send=...).
+    Saved table's Table reference, check it with check_table_reference(t, query=...).
 
     When the Saved table's Table reference declares a Key, the write is refused unless the
     Toolbox can see that each row it writes has a Key of its own, since Hive never checks one:
@@ -943,9 +943,9 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False) -> Clause:
     that day keeps what it held. Filling a Partition from the rows needs Hive's dynamic
     partitioning switched on, the Session setting the Toolbox calls "dynamic_partitions",
     whose two SET lines show_hive prints ahead of such a write. Send them with
-    run(hive_settings("dynamic_partitions"), send=send) before the first such write: the
-    warehouse keeps them for as long as send's connection lasts, and sending them again does
-    no harm.
+    run(hive_settings("dynamic_partitions"), execute=execute) before the first such write:
+    the warehouse keeps them for as long as your execute's connection lasts, and sending them
+    again does no harm.
 
     A Saved table with no days, date_partition=None, is written whole: INSERT_OVERWRITE
     replaces every row it holds with the Statement's rows, and its Hive names no PARTITION.
@@ -1016,7 +1016,7 @@ def INSERT_INTO(table: Table, unproven_key: bool = False) -> Clause:
     the same INSERT_INTO twice adds its rows twice, so to redo a day, start again from its
     INSERT_OVERWRITE. A Saved table's Key is checked as INSERT_OVERWRITE checks it, on the rows
     this write adds: rows the day holds already may share a Key with them, which
-    check_key(t, send=...) finds once the day is written. Below, a day of failed runs gets the
+    check_key(t, query=...) finds once the day is written. Below, a day of failed runs gets the
     runs with a high alert added, each run once, by its Key, run_id.
 
     >>> run_alerts = example_database.run_alerts
@@ -1087,7 +1087,7 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     """Assemble clause functions, in SQL order, into a Statement.
 
     It runs the Guards and Load limits that need the whole Statement. to_hive(s) gives the
-    Hive string, and run(s, send=...) sends it. returns_all_rows=True drops the automatic
+    Hive string, and run(s, query=...) sends it. returns_all_rows=True drops the automatic
     LIMIT, if set_load_limits(rows=...) has set one.
 
     >>> print(to_hive(statement(

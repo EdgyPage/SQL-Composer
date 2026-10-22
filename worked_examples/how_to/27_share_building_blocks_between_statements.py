@@ -59,7 +59,7 @@ it. Over two days:
 
 >>> recent_starts = starts_between("2026-09-23", "2026-09-24")
 >>> run(statement(SELECT(all_columns(recent_starts)), FROM(recent_starts)),
-...     send=example_database.send)
+...     query=example_database.query)
    job_id          dt
 0       1  2026-09-23
 1       1  2026-09-24
@@ -134,7 +134,7 @@ SELECT
 FROM unfinished_runs
 JOIN ops.jobs AS jobs
   ON jobs.job_id = unfinished_runs.job_id;
->>> run(runs_to_look_at, send=example_database.send)
+>>> run(runs_to_look_at, query=example_database.query)
        job_name          dt
 0  invoice_sync  2026-09-24
 1  report_build  2026-09-18
@@ -160,7 +160,7 @@ per event. The block is that list:
 ...     SELECT(jobs.job_id, jobs.job_name),
 ...     FROM(jobs),
 ...     JOIN(started, ON=equals(started.job_id, jobs.job_id)),
-... ), send=example_database.send)
+... ), query=example_database.query)
    job_id      job_name
 0       1  nightly_load
 1       2  invoice_sync
@@ -174,7 +174,7 @@ cache_warm never ran:
 ...     FROM(jobs),
 ...     LEFT_JOIN(started, ON=equals(started.job_id, jobs.job_id)),
 ...     WHERE(is_null(started.job_id)),
-... ), send=example_database.send)
+... ), query=example_database.query)
    job_id    job_name
 0       4  cache_warm
 
@@ -203,11 +203,11 @@ and hands it over.
 Each run either finished or didn't, so the finished runs and the unfinished ones add up to all
 of them. Read each block alone:
 
->>> len(run(statement(SELECT(all_columns(starts)), FROM(starts)), send=example_database.send))
+>>> len(run(statement(SELECT(all_columns(starts)), FROM(starts)), query=example_database.query))
 28
->>> len(run(statement(SELECT(all_columns(finishes)), FROM(finishes)), send=example_database.send))
+>>> len(run(statement(SELECT(all_columns(finishes)), FROM(finishes)), query=example_database.query))
 26
->>> len(run(runs_to_look_at, send=example_database.send))
+>>> len(run(runs_to_look_at, query=example_database.query))
 2
 
 28 runs started, 26 finished, and 2 didn't.
@@ -293,7 +293,7 @@ rows match, and keeps every job.
 ...                                     between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...               many_matches=True),
 ...     WHERE(is_null(job_events.job_id)),
-... ), send=example_database.send)
+... ), query=example_database.query)
    job_id    job_name
 0       4  cache_warm
 

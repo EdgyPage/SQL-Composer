@@ -17,17 +17,17 @@
 # same way, from ops.job_runs itself. Its lineage, cell 4, draws all three tables, from
 # ops.job_runs and ops.run_alerts to here, through the other two notebooks' logic.
 #
-# The code cells: 1 the Project and your send; 2 the logic, which starts `# logic`; 3 try it;
+# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet.
 
 # %%
-# 1. The Project, your send, and a day to try things on
+# 1. The Project, your query, and a day to try things on
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
 from sqlglot_composer import export_lineage, project, run, show_hive
-from send import send
+from warehouse import query
 
 DAY = "2026-09-24"  # the Example database's last day
 
@@ -111,7 +111,7 @@ def team_runs_from_job_runs(day: str) -> Statement:
 # %%
 # 3. Try it: the Hive of each step, then each team's runs from ops.job_runs
 show_hive([create(), write_day(DAY)])
-run(team_runs_from_job_runs(DAY), send=send)
+run(team_runs_from_job_runs(DAY), query=query)
 
 # %%
 # 4. Lineage: the three tables together, in a new pair in lineage/ named by the time and this

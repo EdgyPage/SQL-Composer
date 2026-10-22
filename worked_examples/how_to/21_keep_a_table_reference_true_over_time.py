@@ -30,18 +30,18 @@ reads a column as the wrong type.
 
 ### Check a Table reference against its table
 
-`check_table_reference` takes a Table reference and your send. It sends two queries that read
+`check_table_reference` takes a Table reference and your query. It sends two queries that read
 the table's description, never its rows: DESCRIBE, which lists the columns and their types,
 and SHOW PARTITIONS, which lists the days the table holds. Then it compares them with the
 Table reference:
 
->>> check_table_reference(example_database.job_runs, send=example_database.send)
+>>> check_table_reference(example_database.job_runs, query=example_database.query)
 ops.job_runs matches its Table reference.
 
 This is what the warehouse's DESCRIBE answers, here from the Example database: the columns
 and their types, then the partition columns again, under a heading of their own:
 
->>> described = example_database.send("DESCRIBE ops.job_runs")
+>>> described = example_database.query("DESCRIBE ops.job_runs")
 >>> described[["col_name", "data_type"]]
                   col_name  data_type
 0                   run_id     bigint
@@ -82,9 +82,9 @@ Toolbox refuses `sum_of` on them. `job_runs.avg_retry_secs` is an average per ru
 
 Say the team that owns `ops.job_runs` replaces `"avg_retry_secs"` with `"retries"`, the number of
 times each run was retried, and makes `"duration_mins"` a `"bigint"`, since some runs got very
-long. The Example database's tables never change, so a stand-in send plays the warehouse after
+long. The Example database's tables never change, so a stand-in query plays the warehouse after
 that change: it answers DESCRIBE with the new columns, and passes every other query on to the
-Example database's send.
+Example database's query.
 
 >>> after_the_change = pd.DataFrame(
 ...     [("run_id", "bigint", ""),
@@ -99,16 +99,16 @@ Example database's send.
 ...      ("dt", "string", "")],
 ...     columns=["col_name", "data_type", "comment"],
 ... )
->>> def send_after_the_change(hive: str) -> pd.DataFrame:
+>>> def query_after_the_change(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("DESCRIBE"):
 ...         return after_the_change
-...     return example_database.send(hive)
+...     return example_database.query(hive)
 
 ### Check it again
 
 The same check, against the changed table, now lists what differs:
 
->>> check_table_reference(job_runs, send=send_after_the_change)
+>>> check_table_reference(job_runs, query=query_after_the_change)
 ops.job_runs differs from its Table reference.
 Problems:
   - duration_mins is bigint in the table: change its line to "duration_mins": "bigint",
@@ -145,7 +145,7 @@ Make each change it lists. `"avg_retry_secs"` goes from `columns={...}`, and fro
 ...     date_partition="dt",
 ...     key=["run_id"],
 ... )
->>> check_table_reference(job_runs, send=send_after_the_change)
+>>> check_table_reference(job_runs, query=query_after_the_change)
 ops.job_runs matches its Table reference.
 
 ### Let the Toolbox find the Statements to change
@@ -172,13 +172,13 @@ it, in the middle of a run.
 A Table reference can say how its days are written with `date_format=...`; left out, as in
 every Table reference so far, it is `"%Y-%m-%d"`, as in 2026-09-25. The check also reads the
 newest day SHOW PARTITIONS lists, and checks it is written that way. Say the team starts
-writing new days as 20260925 rather than 2026-09-25. Another stand-in send plays that, answering SHOW PARTITIONS with the new day:
+writing new days as 20260925 rather than 2026-09-25. Another stand-in query plays that, answering SHOW PARTITIONS with the new day:
 
->>> def send_with_a_new_day(hive: str) -> pd.DataFrame:
+>>> def query_with_a_new_day(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("SHOW PARTITIONS"):
 ...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24", "dt=20260925"]})
-...     return example_database.send(hive)
->>> check_table_reference(example_database.job_runs, send=send_with_a_new_day)
+...     return example_database.query(hive)
+>>> check_table_reference(example_database.job_runs, query=query_with_a_new_day)
 ops.job_runs differs from its Table reference.
 Problems:
   - the newest dt, '20260925', isn't written like date_format='%Y-%m-%d', the usual one: change the line to date_format="%Y%m%d",
@@ -191,27 +191,27 @@ older days again the new way.
 ### Check every Table reference at once
 
 A loop checks every table your notebooks read. At work, it is one cell of a notebook you run
-every week, with your own send and your own Table references. A notebook shows what a cell's
+every week, with your own query and your own Table references. A notebook shows what a cell's
 last line gives, but inside a loop nothing is shown unless you `print` it:
 
 >>> for table in [example_database.jobs, example_database.job_runs, example_database.run_alerts]:
-...     print(check_table_reference(table, send=example_database.send))
+...     print(check_table_reference(table, query=example_database.query))
 ops.jobs matches its Table reference.
 ops.job_runs matches its Table reference.
 ops.run_alerts matches its Table reference.
 
 In a Project, as [Start a Project](#start_a_project) makes one, the Table references are the
-files in references/, and the send is yours in send.py. Keep the loop in a notebook of its own
+files in references/, and the query is yours in warehouse.py. Keep the loop in a notebook of its own
 in the Project's folder, such as weekly_checks.ipynb, and run it every Monday:
 
     from sqlglot_composer import check_table_reference
     from references.ops__jobs import jobs
     from references.ops__job_runs import job_runs
     from references.ops__run_alerts import run_alerts
-    from send import send
+    from warehouse import query
 
     for table in [jobs, job_runs, run_alerts]:
-        print(check_table_reference(table, send=send))
+        print(check_table_reference(table, query=query))
 
 Add a line for each table the Project reads, as you add its Table reference. When a check
 finds a Problem, change the file, then refresh the table's rows in the Reference sheet, as
@@ -223,9 +223,9 @@ The updated Table reference matches the changed table, and its key still holds: 
 of the newest day share a `"run_id"`. `check_table_reference` doesn't look at the key, so check
 it with `check_key`, which counts rows per key on the newest day:
 
->>> check_table_reference(job_runs, send=send_after_the_change)
+>>> check_table_reference(job_runs, query=query_after_the_change)
 ops.job_runs matches its Table reference.
->>> check_key(job_runs, send=send_after_the_change)
+>>> check_key(job_runs, query=query_after_the_change)
 ops.job_runs: the key (run_id) holds on 2026-09-24.
 
 ## Common mistakes
@@ -235,7 +235,7 @@ ops.job_runs: the key (run_id) holds on 2026-09-24.
 `check_table_reference` checks a Table reference, so it takes the Table reference itself, not
 the table's name:
 
->>> check_table_reference("ops.job_runs", send=example_database.send)
+>>> check_table_reference("ops.job_runs", query=example_database.query)
 Traceback (most recent call last):
 ...
 TypeError:
@@ -266,17 +266,17 @@ ValueError:
 
 ### Reading a failed check as a changed table
 
-When the send itself fails, say the warehouse can't be reached, the check doesn't stop with
-an error: it says so, and compares nothing. A stand-in send that fails plays that here:
+When the query itself fails, say the warehouse can't be reached, the check doesn't stop with
+an error: it says so, and compares nothing. A stand-in query that fails plays that here:
 
->>> def send_that_fails(hive: str) -> pd.DataFrame:
+>>> def query_that_fails(hive: str) -> pd.DataFrame:
 ...     raise ConnectionError("the warehouse can't be reached")
->>> check_table_reference(job_runs, send=send_that_fails)
-ops.job_runs: DESCRIBE failed, so nothing was compared. Check the table's name, and that send works. It said:
+>>> check_table_reference(job_runs, query=query_that_fails)
+ops.job_runs: DESCRIBE failed, so nothing was compared. Check the table's name, and that your query works. It said:
     ConnectionError:
     the warehouse can't be reached
 
-Nothing about the table is known from this: fix the send, or the table's name, and check again.
+Nothing about the table is known from this: fix the query, or the table's name, and check again.
 
 ## Next
 

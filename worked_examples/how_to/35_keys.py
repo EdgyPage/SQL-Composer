@@ -205,7 +205,7 @@ The Toolbox's check sees how the rows are made; `check_key` counts the rows them
 newest day the table holds. Run it on a Saved table after its first writes, and on any table
 you join to by its Key. On the Example database's `ops.job_runs`:
 
->>> check_key(job_runs, send=example_database.send)
+>>> check_key(job_runs, query=example_database.query)
 ops.job_runs: the key (run_id) holds on 2026-09-24.
 
 ## Common mistakes

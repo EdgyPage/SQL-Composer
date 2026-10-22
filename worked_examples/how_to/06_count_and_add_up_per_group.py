@@ -40,7 +40,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(all_runs, send=example_database.send)
+>>> run(all_runs, query=example_database.query)
    runs  minutes
 0     9      180
 
@@ -75,7 +75,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id;
->>> run(per_job, send=example_database.send)
+>>> run(per_job, query=example_database.query)
    job_id  runs  minutes  shortest  longest
 0       1     4       67         5       40
 1       2     3       53        15       20
@@ -106,7 +106,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id;
->>> run(failures, send=example_database.send)
+>>> run(failures, query=example_database.query)
    job_id  runs  failed_runs
 0       1     4            0
 1       2     3            1
@@ -142,7 +142,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id;
->>> run(days_per_job, send=example_database.send)
+>>> run(days_per_job, query=example_database.query)
    job_id  runs  days_with_runs
 0       1     4               2
 1       2     3               2
@@ -171,7 +171,7 @@ WHERE
 GROUP BY
   job_runs.job_id,
   job_runs.dt;
->>> run(per_job_day, send=example_database.send)
+>>> run(per_job_day, query=example_database.query)
    job_id          dt  runs
 0       1  2026-09-23     2
 1       1  2026-09-24     2
@@ -203,7 +203,7 @@ GROUP BY
   job_runs.job_id
 HAVING
   COUNT(*) >= 3;
->>> run(busy_jobs, send=example_database.send)
+>>> run(busy_jobs, query=example_database.query)
    job_id  runs
 0       1     4
 1       2     3
@@ -238,7 +238,7 @@ GROUP BY
 ORDER BY
   minutes DESC
 LIMIT 2;
->>> run(top_two, send=example_database.send)
+>>> run(top_two, query=example_database.query)
    job_id  minutes
 0       1       67
 1       3       60
@@ -256,9 +256,9 @@ order.
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
-... ), send=example_database.send)
+... ), query=example_database.query)
 >>> in_pandas = every_run.groupby("job_id")["duration_mins"].sum().to_dict()
->>> from_hive = run(per_job, send=example_database.send)
+>>> from_hive = run(per_job, query=example_database.query)
 >>> in_pandas == dict(zip(from_hive["job_id"], from_hive["minutes"]))
 True
 
@@ -363,7 +363,7 @@ query too big for it, where a Guard protects the answer from a wrong number. For
 `LIMIT(2)` or however many you want. To sort every row, sort in pandas once the
 result is back:
 
->>> run(per_job, send=example_database.send).sort_values("minutes", ascending=False)
+>>> run(per_job, query=example_database.query).sort_values("minutes", ascending=False)
    job_id  runs  minutes  shortest  longest
 0       1     4       67         5       40
 2       3     2       60        30       30

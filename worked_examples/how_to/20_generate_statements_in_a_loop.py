@@ -44,7 +44,7 @@ in one query:
 ...           equals(job_runs.status, "FAILED")),
 ...     GROUP_BY(jobs.team),
 ... )
->>> run(failed_per_team, send=example_database.send)
+>>> run(failed_per_team, query=example_database.query)
       team  failed_runs
 0  finance            2
 
@@ -74,7 +74,7 @@ team:
 >>> per_team = {}
 >>> for team in ["data", "finance", "web"]:
 ...     per_team[team] = team_failures(team)
->>> run(per_team["finance"], send=example_database.send)
+>>> run(per_team["finance"], query=example_database.query)
    run_id      job_name          dt
 0      97  report_build  2026-09-23
 1     102  invoice_sync  2026-09-24
@@ -82,7 +82,7 @@ team:
 Run each, and save each team's result in its own CSV file:
 
 >>> for team in per_team:
-...     result = run(per_team[team], send=example_database.send)
+...     result = run(per_team[team], query=example_database.query)
 ...     result.to_csv(f"failed_runs_{team}.csv", index=False)
 
 A team with no failed runs gets a file with only the column names, so every team gets a file
@@ -158,7 +158,7 @@ Loop over a dict of the tables, by name, and add each table's name to its result
 >>> results = []
 >>> for name, table in tables.items():
 ...     result = run(rows_per_day(table, "2026-09-23", "2026-09-24"),
-...                  send=example_database.send)
+...                  query=example_database.query)
 ...     result.insert(0, "table", name)
 ...     results.append(result)
 >>> pd.concat(results, ignore_index=True)
@@ -201,7 +201,7 @@ The loop builds and runs each check, and gathers one row per check:
 >>> for name, setting in CHECKS.items():
 ...     check = matching_rows(setting["table"], setting["column"], setting["value"],
 ...                           "2026-09-24")
-...     result = run(check, send=example_database.send)
+...     result = run(check, query=example_database.query)
 ...     found.append({"check": name, "matching": result["matching"][0]})
 >>> pd.DataFrame(found)
          check  matching
@@ -217,7 +217,7 @@ json module, with each table's name looked up in a dict like `tables` above.
 
 The per-team Statements together find the same failed runs as the one grouped Statement: two.
 
->>> sum(len(run(team_statement, send=example_database.send))
+>>> sum(len(run(team_statement, query=example_database.query))
 ...     for team_statement in per_team.values())
 2
 

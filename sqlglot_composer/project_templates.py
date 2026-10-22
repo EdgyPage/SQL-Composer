@@ -7,7 +7,7 @@ first one left in, so a half-filled file can't run.
 
 A Table notebook's Template is a .py file whose cells start with a "# %%" line, or
 "# %% [markdown]" for a text cell, whose lines each start with "# ". Every one has the same
-five code cells: 1 the Project and your send, 2 the logic, 3 try it, 4 its lineage, 5 its rows
+five code cells: 1 the Project and your query, 2 the logic, 3 try it, 4 its lineage, 5 its rows
 in the Reference sheet; they differ in the logic. The copies in admin/templates/ are yours:
 edit one, or add your own beside them, and the next project.new_table(...) uses it. Editing a
 Template changes only the notebooks made after.
@@ -41,19 +41,19 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 #
 {fill_in}
 #
-# The code cells: 1 the Project and your send; 2 the logic, which starts `# logic`; 3 try it;
+# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
 # `project.load("<DB>.<TABLE>")` can run it from anywhere else, for lineage across your
 # tables and for `admin/run_tables.ipynb`.
 
 # %%
-# 1. The Project, your send, and a day to try things on
+# 1. The Project, your query, and a day to try things on
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
 from sqlglot_composer import export_lineage, project, run, show_hive
-from send import send
+from warehouse import query
 
 DAY = <DAY>  # a day to try the cells on, in quotes, such as "2026-09-24"
 
@@ -139,7 +139,7 @@ def backfill(first_day: str, last_day: str) -> list[Statement]:
     return by_day(statement(INSERT_OVERWRITE(<TABLE>), *rows(first_day, last_day)))
 ''',
     try_it='''show_hive([create(), write_day(DAY)])
-run(preview(DAY), send=send)''',
+run(preview(DAY), query=query)''',
 )
 
 INCREMENTAL_LOAD = _notebook(
@@ -211,7 +211,7 @@ def write_day(day: str) -> list[Statement]:
     return write_days(first_day_written(day), day)
 ''',
     try_it='''show_hive([create(), *write_day(DAY)])
-run(preview(DAY), send=send)''',
+run(preview(DAY), query=query)''',
     lineage="export_lineage(*write_day(DAY))",
 )
 
@@ -285,7 +285,7 @@ def week_totals(first_day: str, last_day: str) -> Statement:
     )
 ''',
     try_it='''show_hive([create(), write_day(DAY), week_totals(DAY, DAY)])
-run(preview(DAY), send=send)''',
+run(preview(DAY), query=query)''',
 )
 
 AS_OF_LOOKUP = _notebook(
@@ -355,7 +355,7 @@ def write_day(day: str) -> Statement:
     return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
 ''',
     try_it='''show_hive([create(), write_day(DAY)])
-run(preview(DAY), send=send)''',
+run(preview(DAY), query=query)''',
 )
 
 QUALITY_CHECKS = _notebook(
@@ -438,9 +438,9 @@ def null_counts(first_day: str, last_day: str) -> Statement:
     )
 ''',
     try_it='''show_hive([create(), write_day(DAY)])
-run(preview(DAY), send=send)
-run(repeated_keys(DAY, DAY), send=send)  # should have no rows
-run(null_counts(DAY, DAY), send=send)''',
+run(preview(DAY), query=query)
+run(repeated_keys(DAY, DAY), query=query)  # should have no rows
+run(null_counts(DAY, DAY), query=query)''',
 )
 
 SAVED_TABLE_REFERENCE = '''"""<DB>.<TABLE> - TODO: say in one line what one row is.

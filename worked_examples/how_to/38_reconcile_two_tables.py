@@ -60,7 +60,7 @@ SELECT
 FROM ops.job_owners AS job_owners
 WHERE
   job_owners.dt = '2026-09-17';
->>> run(only_in_jobs, send=example_database.send)
+>>> run(only_in_jobs, query=example_database.query)
    job_id     team
 0       3  finance
 
@@ -70,7 +70,7 @@ The same two Statements the other way round give what `ops.job_owners` held that
 doesn't:
 
 >>> only_in_owners = EXCEPT(teams_on("2026-09-17"), teams_today)
->>> run(only_in_owners, send=example_database.send)
+>>> run(only_in_owners, query=example_database.query)
    job_id  team
 0       3  data
 
@@ -88,7 +88,7 @@ other counts as matching. So count each Statement's rows too:
 >>> def rows_of(s: Statement) -> pd.DataFrame:
 ...     counted = derived("counted", s)
 ...     return run(statement(SELECT(AS(count_rows(), "rows")), FROM(counted)),
-...                send=example_database.send)
+...                query=example_database.query)
 >>> rows_of(teams_today)
    rows
 0     4
@@ -101,11 +101,11 @@ other counts as matching. So count each Statement's rows too:
 On 2026-09-24, after report_build's move, `ops.job_owners` agrees with `ops.jobs`: both ways
 come back empty.
 
->>> run(EXCEPT(teams_today, teams_on("2026-09-24")), send=example_database.send)
+>>> run(EXCEPT(teams_today, teams_on("2026-09-24")), query=example_database.query)
 Empty DataFrame
 Columns: [job_id, team]
 Index: []
->>> run(EXCEPT(teams_on("2026-09-24"), teams_today), send=example_database.send)
+>>> run(EXCEPT(teams_on("2026-09-24"), teams_today), query=example_database.query)
 Empty DataFrame
 Columns: [job_id, team]
 Index: []

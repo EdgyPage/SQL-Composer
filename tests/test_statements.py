@@ -34,21 +34,25 @@ from sqlglot_composer import (
     by_day,
     count_distinct,
     count_rows,
+    create_table,
     derived,
     descending,
     equals,
+    explain,
     first_look,
     hive_function,
+    hive_settings,
     is_in,
     last_n_days,
     row_number,
+    run,
     set_load_limits,
     statement,
     sum_of,
     to_hive,
     week_start,
 )
-from sqlglot_composer import writing
+from sqlglot_composer import admin, writing
 from sqlglot_composer.trees import HIVE_FUNCTION_ARGUMENTS
 from sqlglot_composer.example_database import job_runs, jobs, run_alerts
 
@@ -571,3 +575,103 @@ def test_order_by_an_output_name_with_a_limit() -> None:
                              GROUP_BY(jobs.team), ORDER_BY(descending("job_count"), jobs.team),
                              LIMIT(2)))
     assert "ORDER BY\n  job_count DESC,\n  jobs.team ASC\nLIMIT 2" in hive
+
+
+# --- run: which of your two calls each Statement goes to --------------------------------------
+
+saved_runs = Table("mart.saved_runs", columns={"job_id": "bigint", "dt": "string"},
+                   date_partition="dt", location="/data/your_team/tables")
+
+
+def recording() -> tuple[Callable[[str], pd.DataFrame], Callable[[str], None],
+                         list[tuple[str, str]]]:
+    """A query and an execute that keep each Hive they are given, with which of them it went
+    to: the query gives back one line of a plan, the execute nothing."""
+    sent = []
+
+    def query(hive: str) -> pd.DataFrame:
+        sent.append(("query", hive))
+        return pd.DataFrame({"plan": ["STAGE DEPENDENCIES:"]})
+
+    def execute(hive: str) -> None:
+        sent.append(("execute", hive))
+
+    return query, execute, sent
+
+
+def one_day_read() -> Statement:
+    return statement(SELECT(job_runs.run_id), FROM(job_runs),
+                     WHERE(equals(job_runs.dt, "2026-09-24")))
+
+
+def test_run_sends_a_read_to_query_and_gives_back_its_rows() -> None:
+    query, execute, sent = recording()
+    rows = run(one_day_read(), query=query, execute=execute)
+    assert rows["plan"].tolist() == ["STAGE DEPENDENCIES:"]
+    assert sent == [("query", to_hive(one_day_read()))]
+
+
+def test_run_sends_explain_to_query_and_gives_back_the_plan() -> None:
+    query, execute, sent = recording()
+    assert run(explain(one_day_read()), query=query, execute=execute) == "STAGE DEPENDENCIES:"
+    assert sent == [("query", to_hive(explain(one_day_read())))]
+
+
+@pytest.mark.parametrize("make", [
+    pytest.param(lambda: by_day(backfill())[0], id="write"),
+    pytest.param(lambda: create_table(saved_runs), id="create_table"),
+    pytest.param(lambda: admin.drop_table(saved_runs), id="admin_drop_table"),
+])
+def test_run_sends_what_changes_a_table_to_execute_and_gives_back_none(
+        make: Callable[[], Statement]) -> None:
+    query, execute, sent = recording()
+    assert run(make(), query=query, execute=execute) is None
+    assert sent == [("execute", to_hive(make()))]
+
+
+def test_run_sends_each_session_setting_to_execute() -> None:
+    query, execute, sent = recording()
+    assert run(hive_settings("dynamic_partitions"), query=query, execute=execute) is None
+    assert sent == [("execute", "SET hive.exec.dynamic.partition=true"),
+                    ("execute", "SET hive.exec.dynamic.partition.mode=nonstrict")]
+
+
+@pytest.mark.parametrize("make, needed", [
+    pytest.param(one_day_read, "query", id="read"),
+    pytest.param(lambda: explain(one_day_read()), "query", id="explain"),
+    pytest.param(lambda: by_day(backfill())[0], "execute", id="write"),
+    pytest.param(lambda: create_table(saved_runs), "execute", id="create_table"),
+    pytest.param(lambda: hive_settings("map_joins"), "execute", id="session_settings"),
+])
+def test_run_refuses_a_step_whose_call_it_wasnt_given_naming_it(
+        make: Callable[[], object], needed: str) -> None:
+    query, execute, sent = recording()
+    other = {"execute": execute} if needed == "query" else {"query": query}
+    with pytest.raises(TypeError) as refused:
+        run(make(), **other)
+    message = str(refused.value)
+    assert f"run needs {needed}=, and wasn't given it." in message
+    assert f"from warehouse import {needed}" in message
+    assert sent == []
+
+
+def test_run_refuses_send_naming_query_and_execute() -> None:
+    sent = []
+    with pytest.raises(TypeError) as refused:
+        run(one_day_read(), send=sent.append)
+    message = str(refused.value)
+    assert "run was given send=, which Toolbox 7.0 replaced." in message
+    assert ("Pass query= and execute= instead, imported with from warehouse import query, "
+            "execute.") in message
+    assert "CHANGES.md" in message
+    assert sent == []
+
+
+def test_run_refuses_a_keyword_it_doesnt_take() -> None:
+    query, execute, sent = recording()
+    with pytest.raises(TypeError) as refused:
+        run(one_day_read(), query=query, querry=query)
+    message = str(refused.value)
+    assert "run was given querry=, which it doesn't take." in message
+    assert "It takes query= and execute=" in message
+    assert sent == []

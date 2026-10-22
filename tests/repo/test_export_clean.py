@@ -576,19 +576,20 @@ def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
 
 NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network, but the "
                    "Toolbox, its Example projects and its Templates reach nothing but the "
-                   "user's send. tools/offline_policy.py found, as main would hold it, line 1 "
-                   "being the export's stamp:\n")
+                   "user's query and execute. tools/offline_policy.py found, as main would "
+                   "hold it, line 1 being the export's stamp:\n")
 
 
 def test_an_example_project_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    spoil(source / "example_projects" / "starter" / "send.py",
-          '"""send - runs', 'import requests\n"""send - runs')
+    spoil(source / "example_projects" / "starter" / "warehouse.py",
+          '"""warehouse - ', 'import requests\n"""warehouse - ')
     with pytest.raises(export_clean.ExportRefused) as refused:
         export_clean.build(source, tmp_path / "clean", WHEN)
     # Line 2 on main: the export's stamp is line 1.
     assert str(refused.value).startswith(
-        NETWORK_REFUSAL + "  example_projects/starter/send.py:2 network: import requests\n")
+        NETWORK_REFUSAL
+        + "  example_projects/starter/warehouse.py:2 network: import requests\n")
 
 
 def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path) -> None:

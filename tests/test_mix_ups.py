@@ -82,7 +82,7 @@ def _one_day(*clauses: Clause) -> Statement:
     (lambda: to_hive(OTHERS_STATEMENT), "to_hive", "a Statement"),
     (lambda: by_day(OTHERS_STATEMENT), "by_day", "a Statement"),
     (lambda: export_lineage(OTHERS_STATEMENT), "export_lineage", "a Statement"),
-    (lambda: check_key(OTHERS_TABLE, send=example_database.send), "check_key",
+    (lambda: check_key(OTHERS_TABLE, query=example_database.query), "check_key",
      "a Table reference"),
 ], ids=["FROM", "JOIN", "JOIN ON", "FROM a Derived table", "all_columns", "SELECT", "AS", "WHERE", "GROUP_BY",
         "ORDER_BY", "equals column", "equals value", "arithmetic", "sum_of",

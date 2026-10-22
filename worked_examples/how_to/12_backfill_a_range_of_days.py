@@ -90,7 +90,7 @@ the rows the backfill would save, one per job and day:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.dt, job_runs.job_id),
 ... )
->>> run(preview, send=example_database.send)
+>>> run(preview, query=example_database.query)
            dt  job_id  runs  failed_runs
 0  2026-09-23       1     2            0
 1  2026-09-23       2     2            0
@@ -146,14 +146,17 @@ GROUP BY
 ### Send them in order
 
 From a notebook, send each write in turn with `run`, oldest first. At work, a loop does it,
-here a function that takes your own send, written as in [Start a Project](#start_a_project).
-It isn't called on this page, since the Example database's send would refuse the writes:
+here a function that takes your own execute, written as in [Start a Project](#start_a_project).
+On this page the Example database's execute stands in for it: it prints the first line of
+each write and changes nothing:
 
 >>> from collections.abc import Callable
->>> import pandas as pd
->>> def send_backfill(writes: list[Statement], send: Callable[[str], pd.DataFrame]) -> None:
+>>> def send_backfill(writes: list[Statement], execute: Callable[[str], None]) -> None:
 ...     for write in writes:
-...         run(write, send=send)
+...         run(write, execute=execute)
+>>> send_backfill(days, execute=example_database.execute)
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
 
 Each write is an INSERT OVERWRITE, which replaces its day. So if the loop stops halfway, say
 on a network error, send it again from the day that failed, or from the start: a day written
@@ -200,7 +203,7 @@ with the same counts from `ops.job_runs`, which the Example database can show he
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.dt),
 ... )
->>> run(runs_per_day, send=example_database.send)
+>>> run(runs_per_day, query=example_database.query)
            dt  runs
 0  2026-09-23     5
 1  2026-09-24     4

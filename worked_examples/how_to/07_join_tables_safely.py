@@ -37,7 +37,7 @@ A table's key is the columns that pick out one of its rows, as its Table referen
 
 `check_key` checks a key holds on the table itself:
 
->>> check_key(jobs, send=example_database.send)
+>>> check_key(jobs, query=example_database.query)
 ops.jobs: the key (job_id) holds.
 
 ### Join on the other table's key
@@ -63,7 +63,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = job_runs.job_id
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(runs_with_team, send=example_database.send)
+>>> run(runs_with_team, query=example_database.query)
    run_id  job_id     team  duration_mins
 0      95       1     data             12
 1      96       2  finance             18
@@ -84,7 +84,7 @@ Nine runs in, nine rows out. Counting per team after this join is safe:
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(jobs.team),
 ... )
->>> run(per_team, send=example_database.send)
+>>> run(per_team, query=example_database.query)
       team  runs  minutes
 0     data     4       67
 1  finance     5      113
@@ -113,7 +113,7 @@ JOIN ops.run_alerts AS run_alerts
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
   AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(runs_with_alerts, send=example_database.send)
+>>> run(runs_with_alerts, query=example_database.query)
    run_id  duration_mins  alert_id
 0      97             30         1
 1      97             30         2
@@ -150,7 +150,7 @@ JOIN ops.run_alerts AS run_alerts
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
   AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(careless_total, send=example_database.send)
+>>> run(careless_total, query=example_database.query)
    minutes  alerts
 0      210       9
 
@@ -207,7 +207,7 @@ LEFT JOIN alerts_per_run
   ON alerts_per_run.run_id = job_runs.run_id
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(runs_and_alerts, send=example_database.send)
+>>> run(runs_and_alerts, query=example_database.query)
    run_id  duration_mins  alerts
 0      95             12       0
 1      96             18       0
@@ -249,7 +249,7 @@ LEFT JOIN alerts_per_run
   ON alerts_per_run.run_id = job_runs.run_id
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(fixed_total, send=example_database.send)
+>>> run(fixed_total, query=example_database.query)
    minutes  alerts
 0      180       9
 
@@ -287,7 +287,7 @@ SELECT
 FROM ops.jobs AS jobs
 LEFT JOIN runs_per_job
   ON runs_per_job.job_id = jobs.job_id;
->>> run(every_job, send=example_database.send)
+>>> run(every_job, query=example_database.query)
    job_id      job_name  runs
 0       1  nightly_load     4
 1       2  invoice_sync     3
@@ -326,7 +326,7 @@ LEFT JOIN runs_per_job
   ON runs_per_job.job_id = jobs.job_id
 WHERE
   runs_per_job.job_id IS NULL;
->>> run(never_ran, send=example_database.send)
+>>> run(never_ran, query=example_database.query)
    job_id    job_name
 0       4  cache_warm
 
@@ -340,10 +340,10 @@ totals. Count the runs of the two days on their own, then after the join:
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(runs_alone, send=example_database.send)
+>>> run(runs_alone, query=example_database.query)
    runs  minutes
 0     9      180
->>> len(run(runs_and_alerts, send=example_database.send))
+>>> len(run(runs_and_alerts, query=example_database.query))
 9
 
 Nine runs and 180 minutes alone, and nine rows after the fixed join, whose total,
@@ -364,7 +364,7 @@ make the Warning go away, it leaves the total just as wrong, and now nothing say
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           between(run_alerts.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(silenced, send=example_database.send)
+>>> run(silenced, query=example_database.query)
    minutes
 0      210
 

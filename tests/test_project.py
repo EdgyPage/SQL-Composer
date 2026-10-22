@@ -68,7 +68,7 @@ def log_text(root: Path) -> str:
 
 def test_start_lays_out_a_project(started: Path) -> None:
     assert sorted(path.name for path in started.iterdir()) == [
-        "admin", "building_blocks", "references", "send.py", "tables"]
+        "admin", "building_blocks", "references", "tables", "warehouse.py"]
     assert sorted(path.name for path in (started / "admin").iterdir()) == sorted(
         ["admin_log.md", "registry.csv", "templates"]
         + [f"{name}.ipynb" for name in ADMIN_NOTEBOOKS])
@@ -90,20 +90,38 @@ def test_each_admin_notebook_puts_the_project_on_the_path_and_parses(started: Pa
                 ast.parse(text)
 
 
-def test_send_py_sends_to_the_example_database_until_you_change_it(started: Path) -> None:
-    text = (started / "send.py").read_text(encoding="utf-8")
-    ast.parse(text)
-    assert "return example_database.send(hive)  # at work: your warehouse's call" in text
+def test_warehouse_py_reaches_the_example_database_until_you_change_it(started: Path) -> None:
+    text = (started / "warehouse.py").read_text(encoding="utf-8")
+    assert text == project.WAREHOUSE_TEXT
+    defined = {node.name: node for node in ast.parse(text).body
+               if isinstance(node, ast.FunctionDef)}
+    assert sorted(defined) == ["execute", "query"]
+    assert ast.unparse(defined["query"].returns) == "pd.DataFrame"
+    assert ast.unparse(defined["execute"].returns) == "None"
+    assert "return example_database.query(hive)  # at work: your warehouse's query call" in text
+    assert "    example_database.execute(hive)  # at work: your warehouse's execute call" in text
+
+
+def test_start_says_to_write_the_query_and_execute(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    set_admin_log()
+    assert " ".join(repr(project.start()).split()) == (
+        "Started a Project in the folder you're working in: admin/, references/, "
+        "building_blocks/, tables/ and warehouse.py. Next: write your query and execute in "
+        "warehouse.py.")
 
 
 def test_start_logs_a_project_action(started: Path) -> None:
     assert ("## 2026-10-21 09:30:00, Project action\n\n- Call: `project.start()`\n"
-            "- Files: created admin/, references/, building_blocks/, tables/, send.py\n"
+            "- Files: created admin/, references/, building_blocks/, tables/, warehouse.py\n"
             in log_text(started))
 
 
+# send.py, a Project's file before 7.0, is refused too: the folder holds a Project already.
 @pytest.mark.parametrize("there",
-                         ["admin", "references", "building_blocks", "tables", "send.py"])
+                         ["admin", "references", "building_blocks", "tables", "warehouse.py",
+                          "send.py"])
 def test_start_refuses_a_folder_that_has_any_of_its_parts(
         there: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
@@ -325,6 +343,16 @@ def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
         "mark it removed with project.remove_table(...) or project.remove_reference(...).")
 
 
+def test_check_reports_a_send_py_with_no_warehouse_py(started: Path) -> None:
+    """A Project from before 7.0 holds send.py, whose one send Toolbox 7.0 split in two."""
+    (started / "warehouse.py").rename(started / "send.py")
+    assert repr(project.check()) == (
+        "send.py is from before 7.0, and there is no warehouse.py: write your query and "
+        "execute in\na new warehouse.py, as CHANGES.md's 7.0 says, then delete send.py.")
+    (started / "warehouse.py").write_text(project.WAREHOUSE_TEXT, encoding="utf-8")
+    assert "send.py" not in repr(project.check())
+
+
 def test_check_changes_nothing(started: Path) -> None:
     (started / "references" / "ops__jobs.py").write_text("# by hand", encoding="utf-8")
     before = log_text(started)
@@ -354,17 +382,18 @@ def test_register_refuses_when_there_is_nothing_to_adopt(started: Path) -> None:
 
 
 def failing_on(missing: str) -> Callable[..., pd.DataFrame]:
-    """The Example database's send, but a table it doesn't have fails, as a warehouse's does."""
-    def send(hive: str) -> pd.DataFrame:
+    """The Example database's query, but a table it doesn't have fails, as a warehouse's
+    does."""
+    def query(hive: str) -> pd.DataFrame:
         if missing in hive:
             raise RuntimeError(f"Table not found: {missing}")
-        return example_database.send(hive)
+        return example_database.query(hive)
 
-    return send
+    return query
 
 
 def test_add_references_writes_each_table_and_registers_it(started: Path) -> None:
-    report = project.add_references(["ops.jobs", "ops.job_runs"], send=example_database.send)
+    report = project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     assert sorted(path.name for path in (started / "references").iterdir()) == [
         "ops__job_runs.py", "ops__jobs.py"]
     assert "from references.ops__jobs import jobs, <alias>" in (
@@ -377,7 +406,7 @@ def test_add_references_writes_each_table_and_registers_it(started: Path) -> Non
 
 def test_add_references_names_three_files_or_more_as_a_sentence_does(started: Path) -> None:
     report = project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
-                                    send=example_database.send)
+                                    query=example_database.query)
     assert repr(report) == ("Wrote references/ops__jobs.py, references/ops__job_runs.py and "
                             "references/ops__run_alerts.py: fill in their TODO lines.")
 
@@ -386,7 +415,7 @@ def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started: 
     (started / "references" / "ops__jobs.py").write_text("# mine", encoding="utf-8")
     with pytest.raises(project.SkippedTables) as skipped:
         project.add_references(["ops.jobs", "ops.job_ownres", "jobs", "ops.run_alerts"],
-                               send=failing_on("ops.job_ownres"))
+                               query=failing_on("ops.job_ownres"))
     message = " ".join(str(skipped.value).split())
     assert ("add_references skipped 3 of 4 tables: ops.jobs (references/ops__jobs.py is there "
             "already); ops.job_ownres (DESCRIBE failed: RuntimeError: Table not found: "
@@ -399,16 +428,25 @@ def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started: 
     assert [row["table"] for row in registry(started)] == ["ops.run_alerts"]
     log = log_text(started)
     assert ('- Call: `project.add_references(["ops.jobs", "ops.job_ownres", "jobs", '
-            '"ops.run_alerts"], send=...)`\n') in log
+            '"ops.run_alerts"], query=...)`\n') in log
     assert "- Files: created references/ops__run_alerts.py\n" in log
     assert ("- Skipped: ops.jobs (references/ops__jobs.py is there already); "
             "ops.job_ownres") in log
     assert "- Result: 1 of 4 written; SkippedTables named the rest, above\n" in log
 
 
+def test_add_references_refuses_send_naming_query(started: Path) -> None:
+    with pytest.raises(TypeError) as refused:
+        project.add_references(["ops.jobs"], send=example_database.query)
+    message = str(refused.value)
+    assert "add_references was given send=, which Toolbox 7.0 replaced." in message
+    assert "Pass query= instead" in message
+    assert list((started / "references").iterdir()) == []
+
+
 def test_add_references_refuses_a_name_where_a_list_goes(started: Path) -> None:
     with pytest.raises(ValueError, match="names isn't a list of tables"):
-        project.add_references("ops.jobs", send=example_database.send)
+        project.add_references("ops.jobs", query=example_database.query)
 
 
 # --- The Reference sheet ----------------------------------------------------------------------
@@ -421,7 +459,7 @@ def sheet(root: Path) -> list[dict[str, str]]:
 
 
 def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started: Path) -> None:
-    project.add_references(["ops.job_runs"], send=example_database.send)
+    project.add_references(["ops.job_runs"], query=example_database.query)
     reference = started / "references" / "ops__job_runs.py"
     text = reference.read_text(encoding="utf-8").replace("key=None,", 'key=["run_id"],')
     reference.write_text(text + "minutes = job_runs.duration_mins\n"
@@ -445,7 +483,7 @@ def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started: Path
 
 def test_refreshing_one_table_replaces_only_its_rows(
         started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    project.add_references(["ops.jobs", "ops.run_alerts"], send=example_database.send)
+    project.add_references(["ops.jobs", "ops.run_alerts"], query=example_database.query)
     project.refresh_reference_sheet()
     later = datetime.datetime(2026, 10, 22, 8, 0, 0)
     monkeypatch.setattr(toolbox_module("project"), "_now", lambda: later)
@@ -463,7 +501,7 @@ def test_refreshing_one_table_replaces_only_its_rows(
 
 def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started: Path) -> None:
     project.new_table("mart.daily_job_runs")
-    project.add_references(["ops.jobs"], send=example_database.send)
+    project.add_references(["ops.jobs"], query=example_database.query)
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.\n"
         "Left out, since it can't be read yet: references/mart__daily_job_runs.py. Fill in "
@@ -471,7 +509,7 @@ def test_a_reference_still_to_fill_in_is_left_out_of_the_sheet(started: Path) ->
 
 
 def test_a_named_refresh_keeps_the_rows_of_a_file_that_cant_be_read(started: Path) -> None:
-    project.add_references(["ops.jobs"], send=example_database.send)
+    project.add_references(["ops.jobs"], query=example_database.query)
     project.refresh_reference_sheet()
     reference = started / "references" / "ops__jobs.py"
     reference.write_text(reference.read_text(encoding="utf-8") + "oops = <ALIAS>" + "\n",
@@ -485,7 +523,7 @@ def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started: Pa
     """A Toolbox refusal from inside add_references is one line of the error, not a second
     four-part message inside the first."""
     with pytest.raises(project.SkippedTables) as skipped:
-        project.add_references(["ops.empty"], send=lambda hive: pd.DataFrame(
+        project.add_references(["ops.empty"], query=lambda hive: pd.DataFrame(
             columns=["col_name", "data_type", "comment"]))
     message = str(skipped.value)
     assert message.count("What happened:") == 1
@@ -543,7 +581,7 @@ def write_day(day):
     )
 
 # %%
-run(write_day("2026-09-24"), send=send)
+run(write_day("2026-09-24"), execute=execute)
 """
 TEAM_LOGIC = """# %%
 # logic
@@ -572,7 +610,7 @@ def two_tables(started: Path) -> Path:
     templates = started / "admin" / "templates"
     (templates / "daily.py").write_text(DAILY_LOGIC, encoding="utf-8")
     (templates / "team.py").write_text(TEAM_LOGIC, encoding="utf-8")
-    project.add_references(["ops.job_runs"], send=example_database.send)
+    project.add_references(["ops.job_runs"], query=example_database.query)
     project.new_table("mart.daily_runs", template="daily")
     project.new_table("mart.team_runs", template="team")
     (started / "references" / "mart__daily_runs.py").write_text(DAILY_RUNS, encoding="utf-8")
@@ -609,8 +647,8 @@ def test_load_refuses_a_notebook_it_cant_find(two_tables: Path) -> None:
 @pytest.mark.parametrize(("logic", "said"), [
     ("x = 1\n", "has no cell whose first line is # logic"),
     ("# logic\nfrom references.<SOURCE> import x\n", "isn't Python yet, at its line 2"),
-    ("# logic\nfrom sqlglot_composer import run\nrun(1, send=print)\n", "calls run"),
-    ("# logic\nfrom sqlglot_composer import run as go\ngo(1, send=print)\n", "calls run"),
+    ("# logic\nfrom sqlglot_composer import run\nrun(1, execute=print)\n", "calls run"),
+    ("# logic\nfrom sqlglot_composer import run as go\ngo(1, execute=print)\n", "calls run"),
     ("# logical next steps\nx = 1\n", "has no cell whose first line is # logic"),
 ])
 def test_load_refuses_a_logic_cell_it_cant_run_safely(
@@ -622,34 +660,52 @@ def test_load_refuses_a_logic_cell_it_cant_run_safely(
         project.load("mart.odd")
 
 
-def test_run_tables_with_no_send_prints_each_write_writers_first(
+def test_run_tables_with_no_execute_prints_each_write_writers_first(
         two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
     report = project.run_tables("2026-09-24", tables=["mart.team_runs", "mart.daily_runs"])
     printed = capsys.readouterr().out
     daily = printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs")
     team = printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs")
     assert daily < team
-    assert repr(report) == ("Printed 2 writes in order, and sent nothing. Pass send= to run "
-                            "them.")
+    assert repr(report) == ("Printed 2 writes in order, and sent nothing. Pass execute= to "
+                            "run them.")
 
 
-def test_run_tables_sends_every_registered_table_in_order(two_tables: Path) -> None:
+def test_run_tables_sends_every_registered_table_to_execute_in_order(two_tables: Path) -> None:
     sent = []
-    report = project.run_tables("2026-09-24", send=sent.append)
+    report = project.run_tables("2026-09-24", query=lambda hive: sent.append(hive) or "rows",
+                                execute=sent.append)
     assert [hive.split("\n")[0] for hive in sent] == [
         "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')",
         "INSERT OVERWRITE TABLE mart.team_runs PARTITION(dt = '2026-09-24')"]
     assert repr(report) == "Wrote 2026-09-24 of 2 tables, in order."
 
 
+def test_run_tables_refuses_send_naming_query_and_execute(
+        two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    sent = []
+    with pytest.raises(TypeError) as refused:
+        project.run_tables("2026-09-24", send=sent.append)
+    message = str(refused.value)
+    assert "run_tables was given send=, which Toolbox 7.0 replaced." in message
+    assert "Pass query= and execute= instead" in message
+    assert sent == []
+    assert capsys.readouterr().out == ""
+
+
+def test_run_tables_refuses_a_keyword_it_doesnt_take(two_tables: Path) -> None:
+    with pytest.raises(TypeError, match="run_tables was given excute=, which it doesn't take"):
+        project.run_tables("2026-09-24", excute=print)
+
+
 def test_run_tables_stops_at_the_first_that_fails(
         two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    def send(hive: str) -> None:
+    def execute(hive: str) -> None:
         if "mart.team_runs" in hive.split("\n")[0]:
             raise RuntimeError("the warehouse said no")
 
     with pytest.raises(RuntimeError, match="the warehouse said no"):
-        project.run_tables("2026-09-24", send=send)
+        project.run_tables("2026-09-24", execute=execute)
     assert capsys.readouterr().out == (
         "1 of 2: mart.daily_runs  worked\n"
         "2 of 2: mart.team_runs   failed: see below. The tables after it weren't written.\n")
@@ -762,6 +818,6 @@ def test_an_admin_statement_run_inside_a_project_logs_in_its_admin_folder(
     monkeypatch.chdir(started / "tables")
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "dt": "string"},
               date_partition="dt", location="/data/your_team/tables")
-    run(admin.drop_table(t), send=lambda hive: None)
+    run(admin.drop_table(t), execute=lambda hive: None)
     assert "## 2026-10-21 09:30:00, Admin statement\n" in log_text(started)
     assert not (started / "tables" / "admin_log.md").exists()

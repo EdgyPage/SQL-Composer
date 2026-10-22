@@ -8,7 +8,7 @@ A Project is the folder you work in, laid out the same way every time:
 
     your_project/
     ├── sqlglot_composer/    the Toolbox, copied in
-    ├── send.py              your send, written once: every notebook does from send import send
+    ├── warehouse.py         your query and execute, written once: each notebook imports them
     ├── admin/               the Project actions' notebooks, run once each time you need one
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
     │   ├── registry.csv     every Table folder and Table reference a Project action made
@@ -29,7 +29,7 @@ a Table notebook's logic from anywhere in the Project, and run_tables writes a d
 table, each before the tables that read it.
 
 None of them deletes a file: what they remove moves into admin/removed/. add_references sends
-DESCRIBE through your send, and run_tables, given your send, writes your tables; the rest
+DESCRIBE through your query, and run_tables, given your execute, writes your tables; the rest
 never touch the warehouse. start, new_table, remove_table, remove_reference, register and
 add_references, the Project actions, each add an entry to admin/admin_log.md, the log that
 also keeps every Admin statement run inside the Project. check, refresh_reference_sheet, load
@@ -57,7 +57,7 @@ import pandas as pd
 
 from .clauses import Statement
 from .project_templates import TEMPLATES
-from .refusals import callers_frame, refuse
+from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, _code, _script_line, _write_entry
 
@@ -71,7 +71,9 @@ REGISTRY = Path("admin") / "registry.csv"
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
 FOLDERS = ("admin", "references", "building_blocks", "tables")
-SEND = "send.py"
+WAREHOUSE = "warehouse.py"
+# The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
+OLD_SEND = "send.py"
 # The registry's columns: what a Project action made (a Table folder or a Table reference),
 # the table, when it was made, and when it was archived, empty while it is in use.
 REGISTRY_COLUMNS = ["kind", "table", "created_at", "removed_at"]
@@ -86,14 +88,16 @@ REFERENCE_SHEET = Path("references") / "reference_sheet.csv"
 SHEET_COLUMNS = ["table", "column", "type", "date_partition", "in_key", "aliases",
                  "description", "exported_at"]
 
-SEND_TEXT = '''"""send - runs a Hive string on your warehouse and gives back a pandas DataFrame.
+WAREHOUSE_TEXT = '''"""warehouse - your two calls to the warehouse, query and execute.
 
-Why: every notebook in the Project sends its Statements through this one function, so a change
-to how you reach the warehouse is made here, once.
+Why: every notebook in the Project reaches the warehouse through these two functions, so a
+change to how you reach it is made here, once.
 
-Replace example_database.send(hive) with your warehouse's call: how-to 1, Start a Project,
-shows how to write it. It imports none of your own files, so any notebook or script of yours
-can import it.
+The Toolbox picks which one each Statement goes to: query for what gives back rows, as a
+SELECT does, and execute for what changes something, as a write does. Replace each example_database call with your warehouse's own: how-to 1, Start a Project, shows
+how to write them. Let the two share one connection, so a Session setting execute sends holds
+for the Statements query sends after it. It imports none of your own files, so any notebook or
+script of yours can import it.
 """
 
 import pandas as pd
@@ -101,9 +105,14 @@ import pandas as pd
 from sqlglot_composer import example_database
 
 
-def send(hive: str) -> pd.DataFrame:
-    """Run a Hive string and give back a pandas DataFrame."""
-    return example_database.send(hive)  # at work: your warehouse's call
+def query(hive: str) -> pd.DataFrame:
+    """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+    return example_database.query(hive)  # at work: your warehouse's query call
+
+
+def execute(hive: str) -> None:
+    """Run a Hive string that changes something, such as a write, and give back nothing."""
+    example_database.execute(hive)  # at work: your warehouse's execute call
 '''
 
 # The first code cell of every admin notebook: the Project folder, one up, on Python's path.
@@ -135,13 +144,13 @@ ADMIN_NOTEBOOKS = {
     ),
     "add_references": (
         "# Add references\n\nWrites one Table reference per table into `references/`, "
-        "named `<db>__<table>.py`, from the table's DESCRIBE, sent through your send. A table "
+        "named `<db>__<table>.py`, from the table's DESCRIBE, sent through your query. A table "
         "already there, or one DESCRIBE can't read, is skipped; the rest are still written, "
         "and one error at the end names every table skipped, and why. Then fill in each file's "
         "TODO lines and add your Aliases.",
-        ["from send import send",
+        ["from warehouse import query",
          'project.add_references([\n    "ops.your_table",\n    "ops.another_table",\n], '
-         "send=send)"],
+         "query=query)"],
     ),
     "refresh_reference_sheet": (
         "# Refresh the Reference sheet\n\nRebuilds `references/reference_sheet.csv` from "
@@ -153,12 +162,13 @@ ADMIN_NOTEBOOKS = {
     "run_tables": (
         "# Run the tables\n\nWrites a day of every table: each Table notebook's "
         "`write_day(day)`, read from its logic cell with `project.load`, each before the "
-        "tables that read it. First, with no `send`, it prints each Hive in that order and "
-        "sends nothing; then, with your send, it sends them. `tables=` picks some; leave it "
+        "tables that read it. First, with no `execute`, it prints each Hive in that order "
+        "and sends nothing; then, with your query and execute, it sends them. `tables=` picks some; leave it "
         "out for every Table folder the registry lists.",
         ['DAY = "2026-10-20"  # the day to write, as your tables write their days',
-         "project.run_tables(DAY)  # first, with no send: prints each Hive, sends nothing",
-         "# from send import send\n# project.run_tables(DAY, send=send)"],
+         "project.run_tables(DAY)  # first, with no execute: prints each Hive, sends nothing",
+         "# from warehouse import query, execute\n"
+         "# project.run_tables(DAY, query=query, execute=execute)"],
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder or Table "
@@ -171,14 +181,15 @@ ADMIN_NOTEBOOKS = {
         "from here so each lands in `admin/admin_log.md`. `show_hive` prints what each changes "
         "and what can't be undone, before its Hive. Uncomment one, check its `show_hive`, then "
         "`run` it.",
-        ["from sqlglot_composer import admin, run, show_hive\nfrom send import send",
+        ["from sqlglot_composer import admin, run, show_hive\n"
+         "from warehouse import query, execute",
          "# your table's file and its name, as in references/:\n"
          "# from references.mart__your_table import your_table\n"
-         "# drop = admin.drop_table(your_table)\n# show_hive(drop)\n# run(drop, send=send)",
+         "# drop = admin.drop_table(your_table)\n# show_hive(drop)\n# run(drop, execute=execute)",
          '# old_days = admin.drop_days(your_table, before="2025-10-01")\n'
-         "# show_hive(old_days)\n# run(old_days, send=send)",
-         "# new_columns = admin.add_columns(your_table, send=send)  # once its Table reference "
-         "lists them\n# show_hive(new_columns)\n# run(new_columns, send=send)"],
+         "# show_hive(old_days)\n# run(old_days, execute=execute)",
+         "# new_columns = admin.add_columns(your_table, query=query)  # once its Table "
+         "reference lists them\n# show_hive(new_columns)\n# run(new_columns, execute=execute)"],
     ),
 }
 
@@ -200,16 +211,17 @@ def start() -> ProjectReport:
     """Make a Project in the folder you're working in, once, from a notebook there.
 
     The folder holds the Toolbox's folder, sqlglot_composer, and the notebook you run this
-    from. start() makes admin/, references/, building_blocks/, tables/ and send.py beside them:
+    from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside
+    them:
     admin/ gets a notebook for each Project action, the Templates in admin/templates/, an
     empty registry and the Admin log, whose first entry is this one. It refuses a folder that
-    has any of them already, or that is inside a Project. Then write your send in send.py, and
-    make your first Table folder from admin/new_table.ipynb.
+    has any of them already, or that is inside a Project. Then write your query and execute in
+    warehouse.py, and make your first Table folder from admin/new_table.ipynb.
 
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     """
     frame = callers_frame()
     here = _working_folder()
@@ -227,7 +239,7 @@ def start() -> ProjectReport:
             error=FileExistsError,
         )
     there = [f"{name}/" for name in FOLDERS if (here / name).exists()]
-    there += [SEND] if (here / SEND).exists() else []
+    there += [name for name in (WAREHOUSE, OLD_SEND) if (here / name).exists()]
     if there:
         refuse(
             what=f"project.start(): {', '.join(there)} {'is' if len(there) == 1 else 'are'} "
@@ -249,13 +261,13 @@ def start() -> ProjectReport:
                         [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
                          *[("code", cell) for cell in cells]])
     _write_registry(here, [])
-    (here / SEND).write_text(SEND_TEXT, encoding="utf-8")
+    (here / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
     _log(here, "project.start()", [],
-         [f"created {', '.join(f'{name}/' for name in FOLDERS)}, {SEND}"], frame)
+         [f"created {', '.join(f'{name}/' for name in FOLDERS)}, {WAREHOUSE}"], frame)
     return ProjectReport([
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
-        "tables/ and send.py. Next: write your send in send.py.",
+        "tables/ and warehouse.py. Next: write your query and execute in warehouse.py.",
     ])
 
 
@@ -277,7 +289,7 @@ def new_table(name: str, template: str = "daily_table") -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/daily_table.py.
@@ -372,7 +384,7 @@ def remove_table(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/daily_table.py.
@@ -398,7 +410,7 @@ def remove_reference(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/daily_table.py.
@@ -463,32 +475,35 @@ class SkippedTables(Exception):
 
 
 def add_references(names: list[str],
-                   send: Callable[[str], pd.DataFrame]) -> ProjectReport:
+                   *, query: Callable[[str], pd.DataFrame] | None = None,
+                   **removed: object) -> ProjectReport:
     """Write a Table reference for each table into references/, skipping any it can't.
 
     `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
     "ops.job_runs"]. Each is written as write_table_reference writes one, into
     references/<db>__<table>.py, and registered. A table whose file is there already, a name not
     written as database.table, and a table whose DESCRIBE (the command that lists its columns)
-    fails through your `send` are each skipped, and the rest still written. It logs them all in
+    fails through your `query` are each skipped, and the rest still written. It logs them all in
     one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why.
     Fix those names, then run add_references again with them alone.
 
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
-    >>> project.add_references(["ops.jobs", "ops.job_runs"], send=example_database.send)
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     """
+    refuse_removed_arguments("add_references", removed, "query=")
+    need_warehouse_call("project.add_references", "query", query, "It sends each table's DESCRIBE through your query.")
     frame = callers_frame()
-    call = f"project.add_references({_quoted_list(names)}, send=...)"
+    call = f"project.add_references({_quoted_list(names)}, query=...)"
     root = _project(call)
     if isinstance(names, str) or not isinstance(names, (list, tuple)) or not names:
         refuse(
             what=f"{call}: names isn't a list of tables.",
             why="It writes a Table reference for each table in the list.",
-            fix='Write it as a list, such as project.add_references(["ops.jobs"], send=send).',
+            fix='Write it as a list, such as project.add_references(["ops.jobs"], query=query).',
             error=ValueError,
         )
     files, said = [], []
@@ -501,8 +516,8 @@ def add_references(names: list[str],
             said.append(f"{name} ({file} is there already)")
             continue
         try:
-            write_table_reference(name, send=send, folder=root / "references")
-        # Whatever the send raises, the table is reported, and the rest still written.
+            write_table_reference(name, query=query, folder=root / "references")
+        # Whatever the query raises, the table is reported, and the rest still written.
         except Exception as error:  # noqa: BLE001
             said.append(f"{name} (DESCRIBE failed: {type(error).__name__}: {_first(error)})")
             continue
@@ -561,7 +576,7 @@ def register(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.register("ops.jobs")
@@ -591,7 +606,7 @@ def check() -> ProjectReport:
     """Report each Table folder or Table reference that the registry gets wrong.
 
     It reports any the registry doesn't list, and any it lists that isn't there, and changes
-    nothing.
+    nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -600,7 +615,7 @@ def check() -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.check()
@@ -624,6 +639,10 @@ def check() -> ProjectReport:
         lines.append(f"Registered, but not there: {', '.join(missing)}. Put each back, or")
         lines.append("mark it removed with project.remove_table(...) or "
                      "project.remove_reference(...).")
+    if (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
+        lines.append(f"{OLD_SEND} is from before 7.0, and there is no {WAREHOUSE}: write your "
+                     "query and execute in")
+        lines.append(f"a new {WAREHOUSE}, as CHANGES.md's 7.0 says, then delete {OLD_SEND}.")
     return ProjectReport(lines or ["Every Table folder and Table reference is registered, "
                                    "and each one registered is there."])
 
@@ -647,8 +666,8 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
-    >>> project.add_references(["ops.run_alerts"], send=example_database.send)
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
     >>> project.refresh_reference_sheet()
     Wrote references/reference_sheet.csv: 4 rows, 1 table.
@@ -807,7 +826,7 @@ def load(name: str) -> TableLogic:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("admin/templates/plain.py").write_text(
     ...     "# %%\n# logic\ndef write_day(day: str) -> str:\n    return day\n")
@@ -895,8 +914,9 @@ def _logic_cell(notebook: Path) -> str | None:
     return None
 
 
-def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
-               tables: list[str] | str | None = None) -> ProjectReport:
+def run_tables(day: str, *, query: Callable[[str], pd.DataFrame] | None = None,
+               execute: Callable[[str], None] | None = None,
+               tables: list[str] | str | None = None, **removed: object) -> ProjectReport:
     """Write a day of every table, each before the tables that read it.
 
     Each table's write_day(day) comes from its notebook's logic cell, through load; one that
@@ -905,9 +925,10 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
     as Session settings, is refused before anything is sent. They run in the order lineage
     draws them: a table is written before any table that reads it, and a loop, two tables
     each reading the other, is refused. `tables` names some, such as ["mart.team_day"]; left
-    out, it is every Table folder the registry lists. With no `send` it prints each one's
+    out, it is every Table folder the registry lists. With no `execute` it prints each one's
     Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
-    sends nothing: a dry run, to read before you send. With your send, it sends each in turn,
+    sends nothing: a dry run, to read before you send. With your execute, and your query for
+    a step that reads rows, it sends each in turn,
     printing a line as each one works, and stops at the first that fails: the tables after
     it aren't written. It adds no entry of its own to the Admin log, since what it writes is
     in the warehouse, not your files; a write_day that gives an Admin or Unchecked statement is
@@ -916,14 +937,15 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and send.py. Next: write your send in send.py.
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.run_tables("2026-10-20")
     No Table folder to run: make one with project.new_table(...).
     """
+    refuse_removed_arguments("run_tables", removed, "query= and execute=")
     from .lineage import in_order  # lineage imports what imports this
     from .running import run, show_hive
 
-    sent = ", send=..." if send is not None else ""
+    sent = ", query=..., execute=..." if execute is not None else ""
     call = f"project.run_tables({_quoted(day)}{sent})"
     root = _project(call)
     if tables is None:
@@ -937,16 +959,16 @@ def run_tables(day: str, send: Callable[[str], pd.DataFrame] | None = None,
     for name in tables:
         named += [(write, name) for write in _writes_of(name, day, call)]
     ordered = in_order(named, call=call)
-    if send is None:
+    if execute is None:
         for position, (write, name) in enumerate(ordered, start=1):
             print(f"-- {position} of {len(ordered)}: {name}")
             show_hive(write)
         return ProjectReport([f"Printed {len(ordered)} write{'s' * (len(ordered) != 1)} in "
-                              "order, and sent nothing. Pass send= to run them."])
+                              "order, and sent nothing. Pass execute= to run them."])
     width = max(len(name) for _, name in ordered)
     for position, (write, name) in enumerate(ordered, start=1):
         try:
-            run(write, send=send)
+            run(write, query=query, execute=execute)
         except Exception:
             print(f"{position} of {len(ordered)}: {name:<{width}}  failed: see below. The "
                   "tables after it weren't written.")
@@ -994,8 +1016,8 @@ def _refuse_a_write(call: str, name: str, day: str, gave: str, given: object) ->
         fix="Make write_day return the Statement that writes the day, as the daily_table "
         "Template's does; one that gives None has lost its return. For Hive you wrote by "
         "hand, return unchecked_hive(...). Session settings aren't a write: send them before "
-        "project.run_tables, with run(hive_settings(...), send=send). They hold only while "
-        "your send keeps one session (help(hive_settings)).",
+        "project.run_tables, with run(hive_settings(...), execute=execute). They hold only "
+        "while your execute keeps one session (help(hive_settings)).",
         given=given, call=call,
     )
 

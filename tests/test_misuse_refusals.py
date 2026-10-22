@@ -98,8 +98,10 @@ MISUSES = [
                  "isn't a function name", id="hive_function_name"),
     pytest.param(lambda: to_hive(42), TypeError, "isn't a Statement", id="to_hive_42"),
     pytest.param(lambda: by_day(42), TypeError, "isn't a Statement", id="by_day_42"),
-    pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs)), send=None), TypeError,
-                 "send isn't a function", id="run_send_none"),
+    pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs))), TypeError,
+                 "run needs query=, and wasn't given it", id="run_no_query"),
+    pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs)), query=5), TypeError,
+                 "run: query=5 isn't a function", id="run_query_5"),
     pytest.param(lambda: job_runs.duration_mins + "a", TypeError, "+ was used with 'a'",
                  id="plus_text"),
     pytest.param(lambda: export_lineage(), TypeError, "was given no Statement",
@@ -124,15 +126,16 @@ MISUSES = [
                                date_partition="dt")),
         SELECT(jobs.team), FROM(jobs))),
                  ValueError, "was given a write", id="derived_write"),
-    pytest.param(lambda: example_database.send("DESCRIBE ops.nope"), ValueError,
+    pytest.param(lambda: example_database.query("DESCRIBE ops.nope"), ValueError,
                  "The Example database has no table 'ops.nope'", id="example_database_table"),
     pytest.param(lambda: contains(jobs.team, 5), TypeError, "needs a string to look for",
                  id="contains_5"),
     pytest.param(lambda: equals(jobs.team, ["a", "b"]), TypeError, "isn't a single value",
                  id="equals_a_list"),
-    pytest.param(lambda: run(teams(), send=lambda hive: [("data",), ("finance",)]), TypeError,
-                 "Your send gave back a list, where a pandas DataFrame goes", id="run_send_list"),
-    pytest.param(lambda: run(to_hive(teams()), send=example_database.send), TypeError,
+    pytest.param(lambda: run(teams(), query=lambda hive: [("data",), ("finance",)]), TypeError,
+                 "Your query gave back a list, where a pandas DataFrame goes",
+                 id="run_query_list"),
+    pytest.param(lambda: run(to_hive(teams()), query=example_database.query), TypeError,
                  "run was given 'SELECT", id="run_hive_text"),
 ]
 
@@ -190,33 +193,33 @@ def usual_fix(refused: pytest.ExceptionInfo) -> str:
 def test_run_given_a_derived_table_says_to_wrap_it_in_a_statement() -> None:
     per_team = derived("per_team", teams())
     with pytest.raises(TypeError) as refused:
-        run(per_team, send=example_database.send)
+        run(per_team, query=example_database.query)
     assert "run was given derived('per_team'" in str(refused.value)
     assert "statement(SELECT(all_columns(per_team)), FROM(per_team))" in usual_fix(refused)
     # The fix it gives is a Statement that reads the Derived table.
     sent = []
     run(statement(SELECT(all_columns(per_team)), FROM(per_team)),
-        send=lambda hive: sent.append(hive) or pd.DataFrame({"team": []}))
+        query=lambda hive: sent.append(hive) or pd.DataFrame({"team": []}))
     assert sent[0].endswith("FROM per_team")
 
 
 def test_a_derived_table_with_no_variable_name_is_called_d_in_the_fix() -> None:
     """Its name in the Hive isn't a Python name, so the fix doesn't paste it as one."""
     with pytest.raises(TypeError) as refused:
-        run(derived("per_team", teams()), send=example_database.send)
+        run(derived("per_team", teams()), query=example_database.query)
     assert usual_fix(refused).endswith(
-        "run(statement(SELECT(all_columns(d)), FROM(d)), send=...), where d is the Derived "
+        "run(statement(SELECT(all_columns(d)), FROM(d)), query=...), where d is the Derived "
         "table.")
 
 
 def test_run_given_a_list_says_to_send_each_in_turn() -> None:
     steps = [teams(), teams()]
     with pytest.raises(TypeError, match=r"run was given \[") as refused:
-        run(steps, send=example_database.send)
+        run(steps, query=example_database.query)
     assert "for step in steps:" in usual_fix(refused)
 
 
-# --- what a send gives back ------------------------------------------------------------------
+# --- what a query gives back -----------------------------------------------------------------
 
 
 class _OtherLibrarysDataFrame:
@@ -233,20 +236,21 @@ _OtherLibrarysDataFrame.__module__ = "polars.dataframe.frame"
     pytest.param({"team": ["data"]}, "a dict", id="a_dict"),
     pytest.param(_OtherLibrarysDataFrame(), "a polars DataFrame", id="another_librarys_dataframe"),
 ])
-def test_a_send_that_doesnt_give_back_a_dataframe_is_refused(answer: object, said: str) -> None:
+def test_a_query_that_doesnt_give_back_a_dataframe_is_refused(answer: object, said: str) -> None:
     with pytest.raises(TypeError) as refused:
-        run(teams(), send=lambda hive: answer)
+        run(teams(), query=lambda hive: answer)
     message = str(refused.value)
-    assert f"Your send gave back {said}, where a pandas DataFrame goes." in message
+    assert f"Your query gave back {said}, where a pandas DataFrame goes." in message
     assert "pd.DataFrame(rows)" in usual_fix(refused)
     assert "columns=" in usual_fix(refused)
 
 
-def test_a_write_isnt_refused_for_what_its_send_gives_back() -> None:
-    """A write has been carried out once its send returns, so what comes back isn't read."""
+def test_a_write_isnt_refused_for_what_its_execute_gives_back() -> None:
+    """A write goes to execute, whose result is never read: run gives back None whatever it
+    gave."""
     owners = Table("mart.job_owners", columns=dict(job_owners._columns), date_partition="dt",
                    location="/data/your_team/tables")
-    assert run(create_table(owners, may_exist=True), send=lambda hive: None) is None
+    assert run(create_table(owners, may_exist=True), execute=lambda hive: "anything") is None
 
 
 # --- a calculation's name where a column goes ------------------------------------------------

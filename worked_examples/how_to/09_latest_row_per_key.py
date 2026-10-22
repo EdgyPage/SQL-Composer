@@ -48,7 +48,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id;
->>> run(careless, send=example_database.send)
+>>> run(careless, query=example_database.query)
    job_id  run_id   status
 0       1     104     TEST
 1       2     102  SUCCESS
@@ -86,7 +86,7 @@ The Example database runs only part of Hive, and not `row_number`. Pasted into y
 notebook, running a Statement that reads `numbered`, here and in
 the steps below, stops with this message:
 
->>> run(statement(SELECT(all_columns(numbered)), FROM(numbered)), send=example_database.send)
+>>> run(statement(SELECT(all_columns(numbered)), FROM(numbered)), query=example_database.query)
 Traceback (most recent call last):
 ...
 RuntimeError:
@@ -117,7 +117,7 @@ SELECT
   numbered.status,
   numbered.newest_first
 FROM numbered;
->>> run(numbering, send=example_database.send)
+>>> run(numbering, query=example_database.query)
    job_id  run_id   status  newest_first
 0       1      95  SUCCESS             4
 1       1      99     TEST             3
@@ -158,7 +158,7 @@ SELECT
 FROM numbered
 WHERE
   numbered.newest_first = 1;
->>> run(latest, send=example_database.send)
+>>> run(latest, query=example_database.query)
    job_id  run_id   status
 0       1     104  SUCCESS
 1       2     102   FAILED
@@ -208,7 +208,7 @@ SELECT
 FROM ranked
 WHERE
   ranked.longest_first <= 2;
->>> run(top_two, send=example_database.send)
+>>> run(top_two, query=example_database.query)
    job_id  run_id  duration_mins
 0       1      95             12
 1       1     104             40
@@ -227,7 +227,7 @@ Check that each job comes back once: one row per job, as many rows as jobs that 
 On the Example database this run stops, as above; `newest` here is the pandas result. At work
 the Statement runs, and the check is the same.
 
->>> newest = run(latest, send=example_database.send)
+>>> newest = run(latest, query=example_database.query)
 >>> newest["job_id"].is_unique
 True
 
@@ -250,7 +250,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id;
->>> largest = run(newest_ids, send=example_database.send)
+>>> largest = run(newest_ids, query=example_database.query)
 >>> dict(zip(largest["job_id"], largest["run_id"])) == dict(zip(newest["job_id"], newest["run_id"]))
 True
 
@@ -294,7 +294,7 @@ run, not its newest. Nothing stops it:
 ...     FROM(oldest_first),
 ...     WHERE(equals(oldest_first.position, 1)),
 ... )
->>> run(first_runs, send=example_database.send)
+>>> run(first_runs, query=example_database.query)
    job_id  run_id   status
 0       1      95  SUCCESS
 1       2      96  SUCCESS
@@ -347,7 +347,7 @@ def every_run() -> pd.DataFrame:
     job_runs = example_database.job_runs
     return run(statement(SELECT(all_columns(job_runs)), FROM(job_runs),
                          WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"))),
-               send=example_database.send)
+               query=example_database.query)
 
 
 def numbered_runs(by: list[str], largest_first: bool) -> pd.DataFrame:

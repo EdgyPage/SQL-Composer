@@ -31,9 +31,9 @@ writes three, and gives `ops.job_runs` two Aliases, as you would in your editor:
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and send.py. Next: write your send in send.py.
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
-...                        send=example_database.send)
+...                        query=example_database.query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 >>> reference = Path("references/ops__job_runs.py")
 >>> text = reference.read_text(encoding="utf-8").replace(

@@ -69,8 +69,9 @@ reviewer looks for anything the commit made untrue and adds one open item per fi
 
 ## Offline
 
-The Toolbox reaches nothing but the user's `send`, and the rest of the repo reaches only this
-computer, as ADR 0004 records; `docs/offline-audit.md` is the audit behind it.
+The Toolbox reaches nothing but the user's `query` and `execute`, and the rest of the repo
+reaches only this computer, as ADR 0004 records (ADR 0012 split `send` in two);
+`docs/offline-audit.md` is the audit behind it.
 
 - `tools/offline_policy.py` is the policy reader, the one reader of that policy, and its
   `ALLOWED` lists the reviewed sites. A new entry needs a reason and the user's OK: ask before

@@ -37,8 +37,8 @@ mart.jobs_by_runs fills the Template's `<KEY_COLUMN>` with runs and its `<COUNT_
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and send.py. Next: write your send in send.py.
->>> project.add_references(["ops.job_runs"], send=example_database.send)
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+>>> project.add_references(["ops.job_runs"], query=example_database.query)
 Wrote references/ops__job_runs.py: fill in its TODO lines.
 >>> def add_table(name: str, columns: dict[str, str], key: list[str],
 ...               filled_in: dict[str, str]) -> None:

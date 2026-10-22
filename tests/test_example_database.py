@@ -36,17 +36,17 @@ from sqlglot_composer.example_database import job_runs, jobs, run_alerts
 
 
 def test_describe_lists_the_partition_columns_again_like_hive() -> None:
-    frame = example_database.send("DESCRIBE ops.job_runs")
+    frame = example_database.query("DESCRIBE ops.job_runs")
     assert list(frame.col_name) == ["run_id", "job_id", "status", "duration_mins",
                                     "avg_retry_secs", "dt", "", "# Partition Information",
                                     "# col_name", "dt"]
 
 
 def test_show_partitions_lists_the_days() -> None:
-    frame = example_database.send("SHOW PARTITIONS ops.run_alerts")
+    frame = example_database.query("SHOW PARTITIONS ops.run_alerts")
     assert list(frame.partition) == ["dt=2026-09-23", "dt=2026-09-24"]
     with pytest.raises(ValueError, match="not a partitioned table"):
-        example_database.send("SHOW PARTITIONS ops.jobs")
+        example_database.query("SHOW PARTITIONS ops.jobs")
 
 
 @pytest.mark.parametrize("hive", [
@@ -58,9 +58,33 @@ def test_show_partitions_lists_the_days() -> None:
     "DROP TABLE IF EXISTS ops.jobs",
     "CREATE TABLE ops.more (a INT)",
 ])
-def test_it_cant_be_written_to(hive: str) -> None:
-    with pytest.raises(ValueError, match="can't be written to"):
-        example_database.send(hive)
+def test_its_query_only_reads(hive: str) -> None:
+    with pytest.raises(ValueError, match=r"(?s)only reads.*run\(s, execute=example_database"
+                       r"\.execute\)"):
+        example_database.query(hive)
+
+
+def test_its_query_doesnt_answer_a_session_setting() -> None:
+    """A SET line changes the session and gives back no rows: run sends it to execute."""
+    with pytest.raises(ValueError, match="only reads"):
+        example_database.query("SET hive.exec.dynamic.partition=true")
+
+
+@pytest.mark.needs_example_database
+def test_its_execute_prints_the_first_line_and_changes_nothing(
+        capsys: pytest.CaptureFixture[str]) -> None:
+    before = len(example_database.query("SELECT job_id FROM ops.jobs"))
+    assert example_database.execute(
+        "  INSERT OVERWRITE TABLE ops.jobs\nSELECT 1 AS job_id") is None
+    assert capsys.readouterr().out == "execute: INSERT OVERWRITE TABLE ops.jobs\n"
+    assert len(example_database.query("SELECT job_id FROM ops.jobs")) == before
+
+
+@pytest.mark.parametrize("given", [5, None, "", "   "])
+def test_its_execute_takes_only_hive_text(given: object) -> None:
+    with pytest.raises(TypeError,
+                       match=r"(?s)isn't Hive text.*run\(s, execute=example_database.execute\)"):
+        example_database.execute(given)
 
 
 @pytest.mark.parametrize("hive", [
@@ -114,7 +138,7 @@ def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
         FROM(job_runs),
         WHERE(last_n_days(job_runs.dt, 2)),
         GROUP_BY(job_runs.status),
-    ), send=example_database.send)
+    ), query=example_database.query)
     # A missing status read as None: pandas 3 shows missing text as NaN, which equals nothing.
     records = [{name: None if pd.isna(value) else value for name, value in record.items()}
                for record in frame.to_dict("records")]
@@ -138,8 +162,8 @@ def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
         )
     fixed = statement(SELECT(AS(sum_of(job_runs.duration_mins), "minutes")), FROM(job_runs),
                       WHERE(day))
-    assert run(careless, send=example_database.send).minutes[0] == 150
-    assert run(fixed, send=example_database.send).minutes[0] == 100
+    assert run(careless, query=example_database.query).minutes[0] == 150
+    assert run(fixed, query=example_database.query).minutes[0] == 100
 
 
 @pytest.mark.needs_example_database
@@ -151,7 +175,7 @@ def test_left_join_keeps_the_job_that_never_ran() -> None:
                                       last_n_days(job_runs.dt, 2)), many_matches=True),
         GROUP_BY(jobs.job_name),
     )
-    result = run(s, send=example_database.send).set_index("job_name").ok.to_dict()
+    result = run(s, query=example_database.query).set_index("job_name").ok.to_dict()
     assert result == {"nightly_load": 3, "invoice_sync": 1, "report_build": 1, "cache_warm": 0}
 
 
@@ -159,7 +183,7 @@ def test_left_join_keeps_the_job_that_never_ran() -> None:
 def test_count_distinct_is_right_on_the_executor() -> None:
     s = statement(SELECT(AS(count_distinct(job_runs.status), "statuses")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
-    assert run(s, send=example_database.send).statuses[0] == 3
+    assert run(s, query=example_database.query).statuses[0] == 3
     assert "COUNT(DISTINCT job_runs.status)" in to_hive(s)
 
 
@@ -178,7 +202,7 @@ def test_count_distinct_is_right_on_the_executor() -> None:
 def test_an_underscore_or_percent_is_matched_as_itself(condition: Condition,
                                                        names: list[str]) -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs), WHERE(condition))
-    assert list(run(s, send=example_database.send).job_name) == names
+    assert list(run(s, query=example_database.query).job_name) == names
 
 
 # --- What it refuses ---------------------------------------------------------------------------
@@ -194,7 +218,7 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition: Condition,
 ])
 def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive: str) -> None:
     with pytest.raises(RuntimeError) as refused:
-        example_database.send(hive)
+        example_database.query(hive)
     message = str(refused.value)
     for part in ("What happened:", "Why it matters:", "Usual fix:", "Opt-out:"):
         assert part in message
@@ -205,17 +229,17 @@ def test_a_query_it_cant_run_is_refused_in_four_parts_naming_the_tables(hive: st
 @pytest.mark.parametrize("hive", ["DESCRIBE mart.jobs", "SHOW PARTITIONS mart.job_runs"])
 def test_a_table_in_another_database_isnt_described(hive: str) -> None:
     with pytest.raises(ValueError, match="The Example database has no table '"):
-        example_database.send(hive)
+        example_database.query(hive)
 
 
 @pytest.mark.parametrize("given", [5, None, statement(SELECT(jobs.team), FROM(jobs))])
-def test_send_takes_only_hive_text(given: int | Statement | None) -> None:
+def test_its_query_takes_only_hive_text(given: int | Statement | None) -> None:
     with pytest.raises(TypeError,
-                       match=r"(?s)isn't Hive text.*run\(s, send=example_database.send\)"):
-        example_database.send(given)
+                       match=r"(?s)isn't Hive text.*run\(s, query=example_database.query\)"):
+        example_database.query(given)
 
 
 @pytest.mark.needs_example_database
 def test_a_tables_name_is_read_whatever_its_case() -> None:
-    assert list(example_database.send("DESCRIBE OPS.Jobs").col_name)[:2] == ["job_id", "job_name"]
-    assert len(example_database.send("SELECT job_id FROM OPS.jobs")) == 4
+    assert list(example_database.query("DESCRIBE OPS.Jobs").col_name)[:2] == ["job_id", "job_name"]
+    assert len(example_database.query("SELECT job_id FROM OPS.jobs")) == 4

@@ -55,7 +55,7 @@ GROUP BY
     jobs.team,
     ()
   );
->>> run(runs_per_job, send=example_database.send)
+>>> run(runs_per_job, query=example_database.query)
       team      job_name  runs  minutes
 0      NaN           NaN     4      100
 1     data           NaN     2       50
@@ -87,7 +87,7 @@ A column can be empty in a real row too. On 2026-09-23 one run was still going, 
 ...     WHERE(equals(job_runs.dt, "2026-09-23")),
 ...     GROUP_BY(rollup(job_runs.status)),
 ... )
->>> run(runs_per_status, send=example_database.send)
+>>> run(runs_per_status, query=example_database.query)
     status  subtotal  runs
 0      NaN         0     1
 1      NaN         1     5
@@ -111,7 +111,7 @@ else, so the first row is the running run, and the second the grand total of all
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
 ...     GROUP_BY(rollup(jobs.team, jobs.job_name)),
 ... )
->>> run(labelled, send=example_database.send)
+>>> run(labelled, query=example_database.query)
          team           job  runs
 0        data     every job     2
 1        data  nightly_load     2
@@ -139,7 +139,7 @@ like the rows it totals, so the Toolbox refuses it.
 ...     GROUP_BY(rollup(jobs.team, jobs.job_name)),
 ...     HAVING(is_total(jobs.job_name)),
 ... )
->>> run(team_totals, send=example_database.send)
+>>> run(team_totals, query=example_database.query)
       team job_name  runs
 0      NaN      NaN     4
 1     data      NaN     2
@@ -166,7 +166,7 @@ Each team's subtotal is its jobs' runs added up, and the grand total all of them
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
 ...     GROUP_BY(jobs.team),
 ... )
->>> run(runs_per_team, send=example_database.send)
+>>> run(runs_per_team, query=example_database.query)
       team  runs
 0     data     2
 1  finance     2
@@ -180,7 +180,7 @@ Each team's subtotal is its jobs' runs added up, and the grand total all of them
 Each run is counted in its job's row, its team's subtotal and the grand total, so adding up the
 whole `"runs"` column in pandas counts every run three times:
 
->>> int(run(runs_per_job, send=example_database.send)["runs"].sum())
+>>> int(run(runs_per_job, query=example_database.query)["runs"].sum())
 12
 
 Add up only the rows that aren't subtotals, or read the grand total's own row.
@@ -257,7 +257,7 @@ def runs_on(day: str) -> pd.DataFrame:
     database can run."""
     return run(statement(SELECT(all_columns(job_runs), jobs.team, jobs.job_name),
                          FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
-                         WHERE(equals(job_runs.dt, day))), send=example_database.send)
+                         WHERE(equals(job_runs.dt, day))), query=example_database.query)
 
 
 def _rollup(rows: pd.DataFrame, columns: list[str],

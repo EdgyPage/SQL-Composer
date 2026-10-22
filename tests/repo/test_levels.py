@@ -4,7 +4,8 @@ and on each Example project in `example_projects/`.
 A script imports only from lower Levels and from the Toolbox, never from a higher or equal
 Level. Level 0 is `references/`, Level 1 `building_blocks/` and Level 2 `statements/`, the
 Worked examples' scripts, which play a Table notebook's logic cell. Each Example project is a
-Project, whose Levels are its own: Level 0 is `references/`, with `send.py` beside it, Level 1
+Project, whose Levels are its own: Level 0 is `references/`, with `warehouse.py` beside it,
+Level 1
 `building_blocks/`, and Level 2 each Table notebook's logic cell, the code cell that starts
 `# logic`.
 Most Worked examples read the Example database's Table references, inside the Toolbox;
@@ -36,8 +37,9 @@ LEVELS = {"references": 0, "building_blocks": 1, "statements": 2}
 ABOVE_THE_LEVELS = 3
 # Each name a script imports its Level's scripts by, with that Level.
 IMPORTED_LEVELS = dict(LEVELS)
-# A Project's Levels, by the name each is imported by: send.py is Level 0, beside references/.
-PROJECT_LEVELS = {"references": 0, "send": 0, "building_blocks": 1}
+# A Project's Levels, by the name each is imported by: warehouse.py is Level 0, beside
+# references/.
+PROJECT_LEVELS = {"references": 0, "warehouse": 0, "building_blocks": 1}
 LOGIC_LEVEL = 2
 # The seven demonstrations decided in "What does the Example database demonstrate?".
 DEMONSTRATIONS = [
@@ -61,13 +63,13 @@ def projects() -> list[Path]:
 
 def project_scripts() -> list[tuple[Path, int]]:
     """Every script of every Example project, its Table references, its Building blocks and
-    its send.py, with its Level. admin/templates/ holds Templates, not scripts."""
+    its warehouse.py, with its Level. admin/templates/ holds Templates, not scripts."""
     found = []
     for project in projects():
         for folder in ("references", "building_blocks"):
             found += [(path, PROJECT_LEVELS[folder])
                       for path in sorted((project / folder).glob("*.py"))]
-        found.append((project / "send.py", 0))
+        found.append((project / "warehouse.py", 0))
     return found
 
 
@@ -208,10 +210,10 @@ def test_an_example_projects_script_gives_a_title_and_why(script: tuple[Path, in
     check_title_and_why(script[0])
 
 
-def test_a_projects_send_sits_at_level_0() -> None:
-    """send.py is Level 0, so any notebook may import it, and it may import no Level."""
-    assert (EXAMPLE_PROJECTS / "starter" / "send.py", 0) in project_scripts()
-    assert level_problems("from send import send\n", 1, PROJECT_LEVELS) == []
+def test_a_projects_warehouse_sits_at_level_0() -> None:
+    """warehouse.py is Level 0, so any notebook may import it, and it may import no Level."""
+    assert (EXAMPLE_PROJECTS / "starter" / "warehouse.py", 0) in project_scripts()
+    assert level_problems("from warehouse import query, execute\n", 1, PROJECT_LEVELS) == []
     (found,) = level_problems("from references.ops__jobs import jobs\n", 0, PROJECT_LEVELS)
     assert "Level 0, not below Level 0" in found
 

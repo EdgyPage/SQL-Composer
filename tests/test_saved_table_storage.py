@@ -253,12 +253,12 @@ def formatted(location: str = "hdfs://namenode:8020/data/your_team/tables/mart/d
               input_format: str = ORC_INPUT, partitions: tuple[str, ...] = ("dt",),
               buckets: int = -1, bucket_columns: str = "[]", sort_columns: str = "[]",
               one_line: bool = False) -> Callable[[str], pd.DataFrame]:
-    """A stand-in for `send` at work, answering DESCRIBE FORMATTED for mart.daily_runs as Hive 3
+    """A stand-in for `query` at work, answering DESCRIBE FORMATTED for mart.daily_runs as Hive 3
     prints it, or as some warehouses do, with the table properties on one line, and SHOW
     PARTITIONS with one day."""
     columns = [("job_id", "bigint"), ("runs", "bigint")]
 
-    def send(hive: str) -> pd.DataFrame:
+    def query(hive: str) -> pd.DataFrame:
         if hive.startswith("SHOW PARTITIONS"):
             return pd.DataFrame({"partition": ["dt=2026-09-24"]})
         assert hive == "DESCRIBE FORMATTED mart.daily_runs", hive
@@ -293,11 +293,11 @@ def formatted(location: str = "hdfs://namenode:8020/data/your_team/tables/mart/d
                      ("", "serialization.format", "1")]
         return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
 
-    return send
+    return query
 
 
-def checked(send: Callable[[str], pd.DataFrame], **storage: object) -> str:
-    return str(check_table_reference(saved(**storage), send=send))
+def checked(query: Callable[[str], pd.DataFrame], **storage: object) -> str:
+    return str(check_table_reference(saved(**storage), query=query))
 
 
 @pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
@@ -310,7 +310,7 @@ def test_a_saved_table_stored_as_its_reference_says_matches(one_line: bool) -> N
 
 @pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
 def test_every_storage_option_is_compared(one_line: bool) -> None:
-    send = formatted(one_line=one_line, parameters=[("external.table.purge", "true"),
+    query = formatted(one_line=one_line, parameters=[("external.table.purge", "true"),
                                               ("parquet.compression", "SNAPPY"),
                                               ("made_by", "runs")],
                      input_format=PARQUET_INPUT, partitions=("dt", "region"), buckets=8,
@@ -321,9 +321,9 @@ def test_every_storage_option_is_compared(one_line: bool) -> None:
               date_partition="dt", location=BASE, purge=True, properties={"made_by": "runs"},
               stored_as="PARQUET", compression="SNAPPY", partitioned_by=["region"],
               bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"])
-    assert str(check_table_reference(t, send=send)) == (
+    assert str(check_table_reference(t, query=query)) == (
         "mart.daily_runs matches its Table reference.")
-    assert checked(send) == (
+    assert checked(query) == (
         "mart.daily_runs differs from its Table reference.\n"
         "Problems:\n"
         '  - the table is stored as PARQUET: change the line to stored_as="PARQUET",\n'
@@ -345,7 +345,7 @@ def test_a_folder_that_isnt_its_own_is_a_problem_pointing_to_move_to_own_folder(
         "/data/your_team/tables/mart/daily_runs. A folder that isn't a table's own may hold "
         "other tables' files: two tables in one folder read each other's files, and an "
         "INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it "
-        "with admin.move_to_own_folder(t, send=...).")
+        "with admin.move_to_own_folder(t, query=...).")
 
 
 SHARED = "hdfs://namenode:8020/data/your_team/shared"
@@ -366,7 +366,7 @@ def test_a_layout_the_move_cant_fix_at_its_own_folder_is_written_again_there(
             "admin.drop_table(t), create it with create_table(t), and write its days again "
             "from their source.") in at_its_own
     shared = checked(formatted(location=SHARED, **answer))
-    assert shared.count("admin.move_to_own_folder(t, send=...)") == 2
+    assert shared.count("admin.move_to_own_folder(t, query=...)") == 2
     assert "write it again there" not in shared
 
 
@@ -407,7 +407,7 @@ def test_buckets_the_reference_names_but_the_table_hasnt_are_a_problem() -> None
             checked(formatted(), bucketed_by=["job_id"], buckets=4))
 
 
-def test_a_send_that_gives_no_location_leaves_the_storage_uncompared() -> None:
+def test_a_query_that_gives_no_location_leaves_the_storage_uncompared() -> None:
     def describe_only(hive: str) -> pd.DataFrame:
         if hive.startswith("SHOW"):
             return pd.DataFrame({"partition": ["dt=2026-09-24"]})
@@ -420,4 +420,4 @@ def test_a_send_that_gives_no_location_leaves_the_storage_uncompared() -> None:
         "mart.daily_runs differs from its Table reference.\n"
         "Problems:\n"
         "  - DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check that "
-        "send returns everything DESCRIBE FORMATTED prints.")
+        "your query returns everything DESCRIBE FORMATTED prints.")

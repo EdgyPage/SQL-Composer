@@ -1,7 +1,8 @@
 """PreToolUse hook: no Edit, Write or NotebookEdit that would leave network code in the repo.
 
-The Toolbox reaches nothing but the user's `send`. This works out the file's text as the edit
-would leave it and judges it with `tools/offline_policy.py`, the one reader of that policy:
+The Toolbox reaches nothing but the user's `query` and `execute`. This works out the file's
+text as the edit would leave it and judges it with `tools/offline_policy.py`, the one reader of
+that policy:
 
 - **Write:** the new content.
 - **Edit:** the file on disk (empty if there is none) with `old_string` replaced by
@@ -69,15 +70,15 @@ LONGEST_LINE = 160
 MOST_FINDINGS = 20
 
 WAY_THROUGH = (
-    "The Toolbox reaches nothing but the user's `send`, and the repo's other code reaches "
-    "nothing outside this computer except at the sites `tools/offline_policy.py`'s ALLOWED "
+    "The Toolbox reaches nothing but the user's `query` and `execute`, and the repo's other "
+    "code reaches nothing outside this computer except at the sites `tools/offline_policy.py`'s ALLOWED "
     "lists. If this site is reviewed and needed, it goes in ALLOWED with a reason, and only "
     "with the user's OK: ask them first."
 )
 NOTHING_ALLOWED = (
     "Users copy this folder's files into their own work, so nothing in it may reach the "
     "network, start a process or run code it builds, and `tools/offline_policy.py`'s ALLOWED "
-    "doesn't apply here. The Toolbox reaches nothing but the user's `send`."
+    "doesn't apply here. The Toolbox reaches nothing but the user's `query` and `execute`."
 )
 
 

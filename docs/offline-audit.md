@@ -12,7 +12,9 @@ apply to the repo, and the runtime trap, `_refuse_the_network`, lives in `tests/
 The Toolbox is one folder (ADR 0009): what this audit says of `composer_core/` is true of
 `sqlglot_composer/`, where its files now are. On 2026-10-21 a code audit read the repo, its
 history, `.git/` and `.venv` for malicious code again, at 6.0's libraries: see
-`docs/code-audit.md`.
+`docs/code-audit.md`. Since 7.0 (ADR 0012) the user's one `send` is two functions of theirs,
+`query`, which gives back rows, and `execute`, which gives back nothing: this audit names them
+where it named `send`.
 
 Read: the Composer core, both Editions, `tools/`, `tests/`, `.claude/hooks/`, the CI workflow,
 the Worked examples, Example projects and Templates, every page, and the installed libraries:
@@ -26,8 +28,8 @@ didn't read either; the tests run them under the same trap too.
 
 - **No malicious code**, no webhooks, no telemetry, and nothing obfuscated or encoded.
 - **Nothing reaches the internet.** Nothing in the repo contacts another computer when it runs.
-- **The one way out is the user's `send`**, by design: the Toolbox builds Hive text and hands it
-  to the user's own function, which sends it to their warehouse.
+- **The only ways out are the user's `query` and `execute`**, by design: the Toolbox builds Hive
+  text and hands it to the user's own functions, which send it to their warehouse.
 - What was left before the redesign was a set of local or by-design seams (R1-R8 below), library
   code the Toolbox never reaches, and nothing to stop a future edit adding network code. Each is
   now closed or held, or left open on purpose and said so.
@@ -76,22 +78,29 @@ list can't go stale. A new entry needs a reason and the user's OK (`docs/agents/
 
 ## The risks, one by one
 
-### R1. The user's `send`: the one way out (by design)
+### R1. The user's `query` and `execute`: the only ways out (by design)
 
-`composer_core/running.py:406-407`, in `run(s, send)`:
+`sqlglot_composer/running.py`, in `run(s, query=..., execute=...)` (until 7.0, a single
+`send(text)` stood here):
 
 ```python
 text = to_hive(s)
-result = send(text)
+...
+execute(text)  # a write, CREATE, MSCK, ANALYZE or Admin statement
+...
+result = query(text)  # a read
 ```
 
-- **What it is.** `send` is the user's own function from a Hive string to a DataFrame. At work
-  it calls the query API, or `spark.sql(hive).toPandas()`; `example_database.send` runs the
-  Example database instead, on this computer.
-- **Risk.** By design. What `send` reaches is the user's choice, not the Toolbox's.
+- **What it is.** `query` and `execute` are the user's own functions, in their Project's
+  `warehouse.py`: `query` takes a Hive string and gives back a DataFrame, `execute` takes one
+  and gives back nothing. At work they call the query API; `example_database.query` runs the
+  Example database instead, on this computer, and `example_database.execute` only prints.
+- **Risk.** By design. What `query` and `execute` reach is the user's choice, not the
+  Toolbox's.
 - **What holds it.** `running.py` is Toolbox code, so the reader refuses any network code in it
-  and `ALLOWED` has no entry for it: the Toolbox can call `send`, and nothing else. No runtime
-  trap goes into the user's own Python, since `send` needs the network there (ADR 0004).
+  and `ALLOWED` has no entry for it: the Toolbox can call `query` and `execute`, and nothing
+  else. No runtime trap goes into the user's own Python, since `query` and `execute` need the
+  network there (ADR 0004).
 
 ### R2. Spark Composer's Example database (local only)
 
@@ -253,7 +262,7 @@ can't tell the Toolbox from its libraries; the reader reads the source instead.
   open any http(s) or ftp string given to a `read_*` function:
   `req_info = urllib.request.Request(filepath_or_buffer, headers=storage_options)` then
   `with urlopen(req_info) as req:`. The Toolbox makes DataFrames, uses `pd.Timestamp`,
-  `pd.NA` and `pd.NaT`, and reads the DataFrames `send` returns (their columns, rows and
+  `pd.NA` and `pd.NaT`, and reads the DataFrames `query` returns (their columns, rows and
   length). It calls no `read_*` and reads no file through pandas.
 - **numpy.** `numpy/lib/_datasource.py:327-337` opens a URL path with
   `with urlopen(path) as openedurl:`, reached through `DataSource`, `loadtxt` and `genfromtxt`.
@@ -300,4 +309,5 @@ can't tell the Toolbox from its libraries; the reader reads the source instead.
 - **A Python a test starts** (with subprocess) doesn't carry the tests' trap, apart from the
   Example database's process, which installs its own. Nor do Python workers the Spark Java starts
   for Python UDFs, which the Example database doesn't use.
-- **The user's own Python** carries no trap, since `send` needs the network (ADR 0004).
+- **The user's own Python** carries no trap, since `query` and `execute` need the network
+  (ADR 0004).

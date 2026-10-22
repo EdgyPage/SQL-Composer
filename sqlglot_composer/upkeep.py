@@ -43,7 +43,7 @@ def repair_partitions(t: Table) -> Statement:
     reads a folder missing from it. A folder goes missing from the list when files reach the
     table's folder without a write: when create_table makes a table again where an old one's
     files stayed, because it was dropped without purge=True, or when someone copies files in.
-    run(repair_partitions(t), send=...) adds each day folder it finds to the list. It only
+    run(repair_partitions(t), execute=...) adds each day folder it finds to the list. It only
     adds: it deletes no file and no day, so it is safe to send again.
 
     It takes only one of your Saved tables, a Table reference with location= and a Date
@@ -75,7 +75,7 @@ def compute_statistics(t: Table, day: str | datetime.date | None = None,
     Hive picks how to join a table from its statistics: how many rows and bytes each day
     holds. Without them it guesses, and may sort two big tables to join them even when
     copying a small one to every worker would do; the Session setting "map_joins" lets Hive
-    choose to copy it. run(compute_statistics(t, day), send=...) reads the day's files,
+    choose to copy it. run(compute_statistics(t, day), execute=...) reads the day's files,
     counts them again and keeps the new count in place of the old, so it is safe to send
     again; it changes no row. The Session setting "statistics_on_write", sent before your
     writes, has each write count its day as it writes it; compute_statistics is for the days
@@ -134,7 +134,7 @@ def _day_counted(t: Table, day: object) -> str:
             what=f"compute_statistics({t._alias}, {day!r}) was given several days.",
             why="It counts one day at a time, each a Statement of its own.",
             fix=f"Count each day in a loop: for day in days: run(compute_statistics("
-            f"{t._alias}, day), send=...).",
+            f"{t._alias}, day), execute=...).",
         )
     found = as_date(day, t._column(t._date_partition), f"compute_statistics({t._alias}, ...)",
                     compared=False)
@@ -192,8 +192,8 @@ def _column_name(t: Table, column: object) -> str:
 def explain(s: Statement) -> Statement:
     """The EXPLAIN Statement: Hive's plan for running a Statement, without running it.
 
-    run(explain(s), send=...) gives back Hive's plan as text, which prints line by line. It is
-    the plan of exactly the Hive run(s, send=...) would send, with the LIMIT run adds when
+    run(explain(s), query=...) gives back Hive's plan as text, which prints line by line. It is
+    the plan of exactly the Hive run(s, query=...) would send, with the LIMIT run adds when
     set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It
     only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows
     the write without making it; and it is safe to send again.
@@ -241,7 +241,8 @@ def _need_explainable(s: object, frame: FrameType | None) -> None:
             what="explain was given an Unchecked statement.",
             why="explain shows Hive's plan for a Statement it wrote itself, and Hive written by "
             "hand is sent as written.",
-            fix='Write EXPLAIN at the start of its text: unchecked_hive("EXPLAIN ...").',
+            fix="Write EXPLAIN at the start of its text: "
+            'unchecked_hive("EXPLAIN ...", returns_rows=True).',
         )
     if isinstance(s, SessionSettings):
         refuse(

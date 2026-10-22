@@ -803,7 +803,7 @@ def _submitted(s: Statement, name: str) -> tuple[str, str]:
     days = by_day(s)
     return to_hive(days[0]), (
         f"This write covers {len(days)} days, and a write fills one day at a time: send "
-        f"it with `for day in by_day({name}): run(day, send=...)`. This is the first day's "
+        f"it with `for day in by_day({name}): run(day, execute=...)`. This is the first day's "
         "Hive.")
 
 

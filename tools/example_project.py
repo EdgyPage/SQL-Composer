@@ -2,7 +2,7 @@
 
 An Example project, such as `example_projects/starter/` or `example_projects/intermediate/`, is
 a Project: admin/, references/, building_blocks/, a Table folder per Saved table it builds, and
-send.py. Every file of it is written by this tool, the way a user makes their own:
+warehouse.py. Every file of it is written by this tool, the way a user makes their own:
 
     python tools/example_project.py --project intermediate
     python tools/example_project.py --project starter --into <folder>
@@ -28,7 +28,7 @@ time, the commit and the calling script are pinned, as if a notebook ran everyth
 PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
 version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
 until this is run again. It runs no SELECT, only DESCRIBE and SHOW PARTITIONS, which
-add_references sends.
+add_references sends through the Example database's query.
 """
 
 from __future__ import annotations
@@ -267,7 +267,7 @@ def _add_references(name: str, folder: Path) -> None:
     """Write the Example database's Table references, then fill in their TODO lines."""
     from sqlglot_composer import example_database, project
 
-    project.add_references(list(FILLED_IN[name]), send=example_database.send)
+    project.add_references(list(FILLED_IN[name]), query=example_database.query)
     for table, filling in FILLED_IN[name].items():
         path = folder / "references" / f"{project.table_stem(table)}.py"
         path.write_text(filled_in(path.read_text(encoding="utf-8"), table, filling),

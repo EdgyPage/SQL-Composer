@@ -36,23 +36,40 @@ Toolbox doesn't need it: see [Example projects](#example-projects). The
 
 ## 2. Start a Project
 
-A Project is the folder your work lives in: the Toolbox, your send, your tables' Table
-references, the Building blocks your notebooks share, and a folder per Saved table. Open a
+A Project is the folder your work lives in: the Toolbox, your query and execute, your tables'
+Table references, the Building blocks your notebooks share, and a folder per Saved table. Open a
 notebook in the Project's folder, and lay it out with one call:
 
 ```python
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and send.py. Next: write your send in send.py.
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
 ```
 
 Import from `sqlglot_composer`, at its top level, never from a file inside it. The Toolbox
-never connects to anything itself: it writes Hive as text, and `run` hands that text to a
-function of yours, `send`, which runs it and gives back a pandas DataFrame. Write it once, in
-`send.py`: for example, `def send(hive: str) -> pd.DataFrame: return
-pd.DataFrame(my_api.query(hive))`, which runs the Hive through your team's query API. Every notebook imports it with
-`from send import send`.
+never connects to anything itself: it writes Hive as text, and `run` hands that text to one of
+two functions of yours, in `warehouse.py`: `query`, which runs Hive that gives back rows, such as
+a SELECT, and gives them back as a pandas DataFrame, and `execute`, which runs Hive that changes
+something, such as a write, and gives back nothing. The Toolbox picks which one each Statement
+goes to. Write them once, in place of the Example database's calls `project.start()` put there:
+for example, through your team's query API,
+
+```python
+import pandas as pd
+
+import my_api  # your team's query API
+
+
+def query(hive: str) -> pd.DataFrame:
+    return pd.DataFrame(my_api.query(hive))
+
+
+def execute(hive: str) -> None:
+    my_api.execute(hive)
+```
+
+A notebook imports the ones it uses, as in `from warehouse import query, execute`.
 
 Make and remove Table folders and Table references with the `project` module's Project
 actions, such as `project.new_table(...)`, never by hand in your file explorer: each is
@@ -61,14 +78,15 @@ holds a notebook per Project action, such as `new_table.ipynb`, ready to fill in
 from any notebook of the Project does just the same.
 
 The how-to [Start a Project](../sqlglot_composer/how_to.html#start_a_project) walks through what
-each folder is for, your send, the lines a notebook deeper in the Project starts with, and the
-mistakes people make first. A later how-to that starts a Project of its own, since its page
-has none, says so: in yours, leave `project.start()` out.
+each folder is for, your query and execute, the lines a notebook deeper in the Project starts
+with, and the mistakes people make first. A later how-to that starts a Project of its own, since
+its page has none, says so: in yours, leave `project.start()` out.
 
 ## 3. A first Statement
 
-The Example database ships inside the Toolbox: seven made-up tables, and a `send` that runs
-Statements on them, so you can practise without touching the warehouse.
+The Example database ships inside the Toolbox: seven made-up tables, a `query` that runs
+Statements on them, and an `execute` that prints what it is given and changes nothing, so you
+can practise without touching the warehouse.
 
 ```python
 >>> from sqlglot_composer import statement, SELECT, FROM, WHERE, equals, to_hive, example_database
@@ -87,12 +105,12 @@ WHERE
   job_runs.dt = '2026-09-24'
 ```
 
-`run(first, send=...)` sends the Hive through a `send`. On the Example database, its own `send`
-runs it:
+`run(first, query=...)` sends the Hive through a `query`, since `first` reads rows. On the
+Example database, its own `query` runs it:
 
 ```python
 >>> from sqlglot_composer import run
->>> run(first, send=example_database.send)
+>>> run(first, query=example_database.query)
    run_id   status
 0     101  SUCCESS
 1     102   FAILED
@@ -121,7 +139,7 @@ How-to: [Build a first Statement and paste its Hive](../sqlglot_composer/how_to.
 
 A Statement reads your tables through their Table references: each table's columns, their
 types, its Date partition (the date column it is stored by, a day at a time) and its Key (the
-columns that name one row). `project.add_references(["your_db.your_table", ...], send=send)`
+columns that name one row). `project.add_references(["your_db.your_table", ...], query=query)`
 asks each table for its columns and writes its file into `references/`; you fill in what it
 can't know, and add Aliases, your own names for its columns and conditions. A notebook then
 imports one as `from references.your_db__your_table import your_table`.
@@ -149,8 +167,8 @@ Toolbox has no `UPDATE`, `DELETE`, `MERGE` or `TRUNCATE`: a day is written again
 
 In a Project, `project.new_table("mart.your_table")` gives each Saved table a Table folder in
 `tables/`, holding its notebook, made from a Template, and writes its Table reference for you
-to fill in. `project.run_tables(day, send=send)` then writes a day of every table, each after
-the tables it reads.
+to fill in. `project.run_tables(day, query=query, execute=execute)` then writes a day of every
+table, each after the tables it reads.
 
 How-tos: [Save a table](../sqlglot_composer/how_to.html#save_a_table),
 [Add a Saved table](../sqlglot_composer/how_to.html#add_a_saved_table),
@@ -172,7 +190,7 @@ How-tos: [Lineage of one Statement](../sqlglot_composer/how_to.html#lineage_of_o
 ## 8. Keep the Project in order
 
 Your files sit in three Levels, each importing only from those below it: the Table references
-and `send.py`, then the Building blocks, then each Table notebook's logic.
+and `warehouse.py`, then the Building blocks, then each Table notebook's logic.
 `project.check()` reports any Table folder or Table reference the registry doesn't list, or
 lists but isn't there; `project.remove_table(...)` archives a Table folder in
 admin/removed/ rather than deleting it; and a notebook you run every week checks each Table
@@ -223,8 +241,8 @@ Each project's `README.md` says what each folder holds and how to run it. Copy t
 `sqlglot_composer` folder into a project's folder first, as a Project holds it, then open its
 notebooks. The Example database can be read but not written, so a Table notebook's cell 3
 prints each write's Hive and runs only what reads the ops tables, and
-`admin/run_tables.ipynb`, with no send, prints every write in order, writers first, and sends
-nothing (a dry run).
+`admin/run_tables.ipynb`, with no execute, prints every write in order, writers first, and
+sends nothing (a dry run).
 
 To start a Project of your own, start it with `project.start()` rather than copying one: an
 Example project is for reading, and copying it would bring its tables and its Admin log.

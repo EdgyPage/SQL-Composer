@@ -30,7 +30,7 @@ partitioned by: the warehouse keeps each region's rows in a folder of their own,
 in a folder inside that. The Example database's `ops.region_costs` holds each job's cost in
 cents, partitioned by region, then by day:
 
->>> example_database.send("DESCRIBE ops.region_costs")
+>>> example_database.query("DESCRIBE ops.region_costs")
                   col_name  data_type                       comment
 0                   job_id     bigint
 1               cost_cents     bigint  NULL until the bill comes in
@@ -45,7 +45,7 @@ cents, partitioned by region, then by day:
 SHOW PARTITIONS lists each folder, one row each. The last five show both regions, and days
 written as `20260924`, the year, then the month, then the day, with nothing between:
 
->>> partitions = example_database.send("SHOW PARTITIONS ops.region_costs")
+>>> partitions = example_database.query("SHOW PARTITIONS ops.region_costs")
 >>> partitions.tail(5)
                 partition
 13  region=eu/dt=20260924
@@ -56,10 +56,10 @@ written as `20260924`, the year, then the month, then the day, with nothing betw
 
 ### Write its Table reference
 
-`write_table_reference` sends the same two commands through your send and writes the Table
+`write_table_reference` sends the same two commands through your query and writes the Table
 reference for you, as ops__region_costs.py in the folder you're working in:
 
->>> path = write_table_reference("ops.region_costs", send=example_database.send)
+>>> path = write_table_reference("ops.region_costs", query=example_database.query)
 
 Look at its line starting `date_partition=`. The Date partition is the one column of days that
 every Statement must bound at both ends, and `write_table_reference` looks for it in the first
@@ -97,7 +97,7 @@ matches, copy it into ops__region_costs.py and import it from there in every not
 
 `check_table_reference` compares the Table reference with the table as it is now:
 
->>> check_table_reference(region_costs, send=example_database.send)
+>>> check_table_reference(region_costs, query=example_database.query)
 ops.region_costs matches its Table reference.
 Notes:
   - the table is also partitioned by region, which a Statement may bound too.
@@ -106,7 +106,7 @@ It matches. The note is about region: it is a partition too, so a Statement that
 region can say so and read fewer folders, as the last step shows. The Toolbox doesn't ask you
 to, since a region isn't a day. `check_key` checks your key on the newest day:
 
->>> check_key(region_costs, send=example_database.send)
+>>> check_key(region_costs, query=example_database.query)
 ops.region_costs: the key (job_id, region, dt) holds on 20260924.
 
 ### Bound its days
@@ -129,7 +129,7 @@ WHERE
   region_costs.dt BETWEEN '20260918' AND '20260924'
 GROUP BY
   region_costs.region;
->>> run(cost_per_region, send=example_database.send)
+>>> run(cost_per_region, query=example_database.query)
   region  cost_cents
 0     eu        1610
 1     us         450
@@ -162,7 +162,7 @@ WHERE
   region_costs.region = 'eu' AND region_costs.dt BETWEEN '20260918' AND '20260924'
 GROUP BY
   region_costs.job_id;
->>> run(eu_cost_per_job, send=example_database.send)
+>>> run(eu_cost_per_job, query=example_database.query)
    job_id  cost_cents
 0       1         820
 1       2         790
@@ -176,7 +176,7 @@ which `sum_of` writes, leaves a NULL out, so job 2's week adds up the four days 
 table does, `'20260918'`. The two Statements also agree: eu's jobs add up to eu's cost in the
 first one, 1610.
 
->>> eu_jobs = run(eu_cost_per_job, send=example_database.send)
+>>> eu_jobs = run(eu_cost_per_job, query=example_database.query)
 >>> int(eu_jobs["cost_cents"].sum())
 1610
 
@@ -190,7 +190,7 @@ Here is the reference as `write_table_reference` left it:
 
 >>> unfinished = Table("ops.region_costs", columns={"job_id": "bigint",
 ...     "cost_cents": "bigint", "region": "string", "dt": "string"}, date_partition=None)
->>> check_table_reference(unfinished, send=example_database.send)
+>>> check_table_reference(unfinished, query=example_database.query)
 ops.region_costs matches its Table reference.
 Notes:
   - the table is partitioned by region, dt: if one holds days, name it in date_partition=...
@@ -204,7 +204,7 @@ and adds up all 14 days:
 ...     FROM(unfinished),
 ...     GROUP_BY(unfinished.region),
 ... )
->>> run(every_day, send=example_database.send)
+>>> run(every_day, query=example_database.query)
   region  cost_cents
 0     eu        3460
 1     us        1160
@@ -219,7 +219,7 @@ Without `date_format=`, the Toolbox expects days written the usual way, like `20
 
 >>> without_format = Table("ops.region_costs", columns={"job_id": "bigint",
 ...     "cost_cents": "bigint", "region": "string", "dt": "string"}, date_partition="dt")
->>> check_table_reference(without_format, send=example_database.send)
+>>> check_table_reference(without_format, query=example_database.query)
 ops.region_costs differs from its Table reference.
 Problems:
   - the newest dt, '20260924', isn't written like date_format='%Y-%m-%d', the usual one: change the line to date_format="%Y%m%d",

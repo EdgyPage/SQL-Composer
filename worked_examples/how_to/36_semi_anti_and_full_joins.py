@@ -43,7 +43,7 @@ Join the alerts to find the runs that raised one, and a run comes out once for e
 ...          many_matches=True),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> run(repeated, send=example_database.send)
+>>> run(repeated, query=example_database.query)
    run_id   status
 0      97   FAILED
 1      97   FAILED
@@ -78,7 +78,7 @@ LEFT SEMI JOIN ops.run_alerts AS run_alerts
   AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
->>> run(with_an_alert, send=example_database.send)
+>>> run(with_an_alert, query=example_database.query)
    run_id   status
 0      97   FAILED
 1     101  SUCCESS
@@ -118,7 +118,7 @@ LEFT JOIN ops.run_alerts AS run_alerts
   AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND run_alerts.run_id IS NULL;
->>> run(no_alert, send=example_database.send)
+>>> run(no_alert, query=example_database.query)
    run_id   status
 0      95  SUCCESS
 1      96  SUCCESS
@@ -148,7 +148,7 @@ LEFT JOIN ops.job_runs AS job_runs
   AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 WHERE
   job_runs.job_id IS NULL;
->>> run(never_ran, send=example_database.send)
+>>> run(never_ran, query=example_database.query)
    job_id    job_name
 0       4  cache_warm
 
@@ -205,7 +205,7 @@ SELECT
 FROM recorded
 FULL JOIN started
   ON started.run_id = recorded.run_id;
->>> run(both_records, send=example_database.send)
+>>> run(both_records, query=example_database.query)
    run_id                   found
 0      95                 in both
 1      96                 in both
@@ -233,7 +233,7 @@ the runs only one side holds:
 ...     FULL_JOIN(started, ON=equals(started.run_id, recorded.run_id)),
 ...     WHERE(any_of(is_null(recorded.run_id), is_null(started.run_id))),
 ... )
->>> run(differences, send=example_database.send)
+>>> run(differences, query=example_database.query)
    in_job_runs  in_scheduler_runs
 0          NaN              100.0
 1         99.0                NaN
@@ -254,7 +254,10 @@ reads as a request. Hive ignores the hint unless the Session setting "map_joins"
 first, since one of its lines sets hive.ignore.mapjoin.hint to false, so send it before the
 Statement:
 
->>> run(hive_settings("map_joins"), send=example_database.send)
+>>> run(hive_settings("map_joins"), execute=example_database.execute)
+execute: SET hive.auto.convert.join=true
+execute: SET hive.auto.convert.join.noconditionaltask=true
+execute: SET hive.ignore.mapjoin.hint=false
 >>> per_team = statement(
 ...     SELECT(jobs.team, AS(count_rows(), "runs")),
 ...     FROM(job_runs),
@@ -273,7 +276,7 @@ WHERE
   job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   jobs.team;
->>> run(per_team, send=example_database.send)
+>>> run(per_team, query=example_database.query)
       team  runs
 0     data     4
 1  finance     5
@@ -293,10 +296,10 @@ Every run either has an alert or hasn't, so the runs `SEMI_JOIN` keeps and the r
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... )
->>> len(run(every_run, send=example_database.send))
+>>> len(run(every_run, query=example_database.query))
 9
->>> alerted = len(run(with_an_alert, send=example_database.send))
->>> not_alerted = len(run(no_alert, send=example_database.send))
+>>> alerted = len(run(with_an_alert, query=example_database.query))
+>>> not_alerted = len(run(no_alert, query=example_database.query))
 >>> alerted + not_alerted
 9
 
@@ -393,9 +396,9 @@ def with_an_alert_in_pandas() -> pd.DataFrame:
     job_runs, run_alerts = example_database.job_runs, example_database.run_alerts
     runs = run(statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
                          WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"))),
-               send=example_database.send)
+               query=example_database.query)
     alerted = run(statement(SELECT(run_alerts.run_id), FROM(run_alerts),
                             WHERE(between(run_alerts.dt, "2026-09-23", "2026-09-24"))),
-                  send=example_database.send)
+                  query=example_database.query)
     kept = runs[runs["run_id"].isin(alerted["run_id"])]
     return kept.sort_values("run_id").reset_index(drop=True)

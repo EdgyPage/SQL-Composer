@@ -1,9 +1,9 @@
 """The offline policy: read the repo's code for anything that could reach the network.
 
-The Toolbox works offline. It builds Hive text and hands it to the user's own `send`, the one way
-out, and nothing else in the repo opens a connection. This is the one reader of that rule: the
-hook, the tests and the export all call it, and it holds the allowlist, `ALLOWED`. It only reads
-text. It never imports or runs the code it reads.
+The Toolbox works offline. It builds Hive text and hands it to the user's own `query` and
+`execute`, the only ways out, and nothing else in the repo opens a connection. This is the one
+reader of that rule: the hook, the tests and the export all call it, and it holds the
+allowlist, `ALLOWED`. It only reads text. It never imports or runs the code it reads.
 
 What it looks for, in a Python file, by walking its syntax tree:
 
