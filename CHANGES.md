@@ -53,8 +53,8 @@ built a day at a time, so some of your files change: each change below says how.
   sends it through `query` and gives back the DataFrame, as for a `SELECT` or `SHOW`; `False`
   sends it through `execute`, as for an `ALTER` or `INSERT`. It has no default: the Toolbox
   doesn't read the text, so it can't tell.
-- **`example_database.send` is now `example_database.query`**, which answers SELECT, DESCRIBE
-  and SHOW PARTITIONS as `send` did; a `SET` goes to `example_database.execute`, which stands
+- **`example_database.send` is now `example_database.query`**, which answers SELECT, DESCRIBE,
+  SHOW PARTITIONS and EXPLAIN as `send` did; a `SET` goes to `example_database.execute`, which stands
   in for your execute, printing the first line of the Hive it is given and changing nothing,
   since the Example database is never written to.
 
