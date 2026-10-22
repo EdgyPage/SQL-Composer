@@ -76,6 +76,13 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 - **Kept**: external tables only, ORC unless the reference says Parquet, no TRUNCATE or MERGE.
 - **Changed**: `repair_partitions` and `compute_statistics(t, partition={...})` work on any
   partitioned table; `admin.drop_partitions(t, where=...)` replaces `admin.drop_days`.
+- **`check_key` reads what `where=` picks** (the user, 2026-10-21, asked when 03 was
+  planned): `check_key(t, query=..., where=...)`. On a partitioned table, leaving `where=`
+  out is refused as any unbounded read is, unless `reads_all_partitions=True`; an
+  unpartitioned table is checked whole.
+- **Lineage draws nothing extra for a write into partitions** (the user, 2026-10-21):
+  partition columns are traced as any copied or calculated column is, and a static
+  `partition={...}` is one line on the write's box, such as "writes region = EU".
 - **Day helpers stay as plain helpers**: `last_n_days`, `between`, `week_start` and
   `month_start` on any date column, compared as written.
 
@@ -153,12 +160,7 @@ Toolbox files and 198 times in 23 test files.
 
 ## Not yet specified
 
-- **`check_key` on a partitioned table** (03): today it checks the newest day. Without days it
-  could check the whole table, which may be large, or take `where=` to narrow it. Ask the user
-  when 03 is claimed.
-- **What Lineage draws for a write into partitions** (03): today a dotted "day written" arrow
-  from the day. Without days it could draw one from each partition column a static
-  `partition={...}` names, or nothing. Ask the user when 03 is claimed.
+- Nothing.
 
 ## Out of scope
 
