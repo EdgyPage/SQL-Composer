@@ -23,7 +23,9 @@ flat folder of Table references feeding a Reference sheet) is charted through
 `.scratch/toolbox-6/map.md`; read its Notes before working one of its tickets. Toolbox 6.1 (type
 hints on every function, and Statement, Column and Condition made public) is charted through
 `.scratch/toolbox-6-1/map.md`; read its Notes, which set the hint style, before working one of its
-tickets.
+tickets. Toolbox 7.0 (query and execute in place of send, tables with no days, Databases, Python
+steps, and the docs reworked into one story) is charted through `.scratch/toolbox-7/map.md`; read
+its Notes before working one of its tickets.
 
 ## Checks
 
