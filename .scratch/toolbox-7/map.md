@@ -36,7 +36,7 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 
 ### Toolbox 7.1: tickets 09 to 11
 
-- **09 to 11 are Toolbox 7.1**, the user's call (2026-10-22): "Make sure this is version 7.1".
+- **09 to 14 are Toolbox 7.1** (12 to 14 the user's "Do candidates 3 and 4 and 5", the same day), the user's call (2026-10-22): "Make sure this is version 7.1".
   7.0 is dev as d3c0a93 left it, and stays as CHANGES.md's `## 7.0` says; 09 raises the version
   to 7.1 and writes CHANGES.md's `## 7.1`, with "To update from 7.0".
 
@@ -158,6 +158,12 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
   architecture review's candidate 1, built with 09.
 - [11 One notebook reader](issues/11-one-notebook-reader.md): the architecture review's
   candidate 2; load's refusal of a broken notebook.
+- [12 Project file kinds](issues/12-project-file-kinds.md): the architecture review's
+  candidate 3; the registry and each kind of Project file in one module.
+- [13 A Table description](issues/13-table-description.md): candidate 4; DESCRIBE read once,
+  printed for stand-ins, and a stand-in warehouse from Table references.
+- [14 Partitions named](issues/14-partitions-named.md): candidate 5; one check of partition=,
+  so compute_statistics refuses what a write refuses.
 
 The order is the user's (2026-10-21): one at a time, each blocked by the one before, since 02 to
 06 share `project.py`, `running.py`, `tables.py` and the Templates, and 07 writes about the shape
