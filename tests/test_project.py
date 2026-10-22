@@ -1089,7 +1089,8 @@ def test_load_refuses_a_notebook_it_cant_find(two_tables: Path) -> None:
 
 @pytest.mark.parametrize(("text", "said"), [
     ('{"cells": [{"cell_type": "code", "sou', "isn't JSON"),
-    ('{"metadata": {}, "nbformat": 4}', "has no cells"),
+    ('{"metadata": {}, "nbformat": 4}', "has no list of cells Jupyter can read"),
+    ('{"cells": [1]}', "has no list of cells Jupyter can read"),
 ])
 def test_load_refuses_a_notebook_jupyter_cant_read(
         two_tables: Path, text: str, said: str) -> None:
