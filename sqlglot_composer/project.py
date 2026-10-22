@@ -121,13 +121,12 @@ Why: every notebook in the Project reaches the warehouse through these two funct
 change to how you reach it is made here, once.
 
 You pick which one sends each Statement, by calling run_query(s, query) for what gives back
-rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write
-does. Replace each
-example_database call with your warehouse's own: the how-to Start a Project shows how to write
-them. Let the two share one session, so a Session setting sent through execute holds for what
-is sent after it, through either function; and let each raise when the warehouse reports a
-failure, since the Toolbox knows a step failed only when your function raises. It imports none
-of your own files, so any notebook or script of yours can import it.
+rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write does.
+Replace each example_database call with your warehouse's own: the how-to Start a Project shows
+how to write them. Let the two share one session, so a Session setting sent through execute
+holds for what is sent after it, through either function; and let each raise when the warehouse
+reports a failure, since the Toolbox knows a step failed only when your function raises. It
+imports none of your own files, so any notebook or script of yours can import it.
 """
 
 import pandas as pd
@@ -1515,12 +1514,12 @@ def _checked_logic(root: Path, stem: str, call: str) -> str:
             error=ValueError,
         )
     senders = ("run_query", "run_execute")
-    names_of_run = set(senders) | {alias.asname for node in ast.walk(tree)
+    names_of_senders = set(senders) | {alias.asname for node in ast.walk(tree)
                                    if isinstance(node, ast.ImportFrom)
                                    for alias in node.names
                                    if alias.name in senders and alias.asname}
     called = next((_called(node) for node in ast.walk(tree)
-                   if isinstance(node, ast.Call) and _called(node) in names_of_run), None)
+                   if isinstance(node, ast.Call) and _called(node) in names_of_senders), None)
     if called is not None:
         refuse(
             what=f"{call}: the logic cell of {shown} calls {called}.",
@@ -1547,22 +1546,24 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     No Table folder to run: make one with project.new_table(...).
 
     Each table's write() comes from its notebook's logic cell, through load; one that gives a
-    list, such as a write per region, sends each in turn. Each write() gives Statements, an
-    Admin statement among them, Unchecked statements or Python steps: anything else, such as
-    Session settings, is refused before anything is sent. A Python step (help(python_step))
-    sends nothing, so it is passed over, and its table isn't written: run its own notebook,
-    whose call saves the rows. They run in the order lineage draws them: a
+    list, such as a write per region, sends each in turn. Each write() gives Statements that
+    write, an Admin statement among them, Unchecked statements or Python steps: anything else,
+    such as Session settings, is refused before anything is sent. A Python step
+    (help(python_step)) sends nothing, so it is passed over, and its table isn't written: run
+    its own notebook, whose call saves the rows. They run in the order lineage draws them: a
     table is written before any table that reads it, and a loop, two tables each reading the
     other, is refused. `tables` names some, such as ["mart.team_day"]; left out, it is every
-    Table folder the registry lists. With no `execute` it prints each one's Hive in that
-    order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read
-    before you send. With your execute, it sends the Session setting "dynamic_partitions" first when a write fills Partitions from its rows,
-    then each in turn, printing a line as each one works, and stops at the first that fails: the
-    tables after it aren't written. It adds no entry of its own to the Admin log, since what it
-    writes is in the warehouse, not your files; a write() that gives an Admin or Unchecked
-    statement is logged by run_execute, as anywhere else. Everything a write() gives is sent
-    through your execute, so one that gives a read is refused before anything is sent.
+    Table folder the registry lists. With no `execute` it prints each one's Hive in that order,
+    headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you
+    send. With your execute, it sends the Session setting "dynamic_partitions" first when a
+    write fills Partitions from its rows, then each in turn, printing a line as each one works,
+    and stops at the first that fails: the tables after it aren't written. It adds no entry of
+    its own to the Admin log, since what it writes is in the warehouse, not your files; a
+    write() that gives an Admin or Unchecked statement is logged by run_execute, as anywhere
+    else. Everything a write() gives is sent through your execute, so one that gives a read is
+    refused before anything is sent.
     """
+    _refuse_query_given(removed)
     refuse_removed_arguments("run_tables", removed, run_tables)
     from .lineage import in_order  # lineage imports what imports this
     from .running import run_execute, settings_needed
@@ -1600,6 +1601,17 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
             raise
         print(f"{shown}  worked")
     return ProjectReport(_ran(ordered))
+
+
+def _refuse_query_given(removed: dict[str, object]) -> None:
+    """Refuse the query= run_tables took until 7.1: everything it sends goes through execute."""
+    if "query" in removed:
+        refuse(
+            what="project.run_tables was given query=, which Toolbox 7.1 took out.",
+            why="Everything a write() gives changes a table, so run_tables sends it all through "
+            "your execute, and reads nothing.",
+            fix="Leave query= out: project.run_tables(execute=execute).",
+        )
 
 
 def _dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]

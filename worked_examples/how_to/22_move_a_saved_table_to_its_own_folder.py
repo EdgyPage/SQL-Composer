@@ -141,8 +141,9 @@ Partition from the rows' own dt, so sent twice it is written once.
 Once both steps have run, `admin.check_the_copy` counts each Partition's rows in both tables,
 through your query, and stops the move with a message, before anything is dropped, if any
 Partition differs or is missing from the copy. When they match, it gives back the steps that
-finish the move. The stand-in query answers the count with no row, as the warehouse does when
-every Partition matches:
+finish the move. The comparison's Hive starts `WITH old_counts`, as its entry in the Admin
+log shows. The stand-in query answers it with no row, as the warehouse does when every
+Partition matches:
 
 >>> def query_after_the_copy(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("WITH old_counts"):  # the count of each Partition's rows
@@ -224,10 +225,11 @@ again, now describing the moved table:
 >>> check_table_reference(job_day_facts, query=query_after_the_move)
 mart.job_day_facts matches its Table reference.
 
-The check made sure each Partition holds as many rows in the new table as in the old. You can also check a Partition against where its rows come from. The Example database
-doesn't hold mart.job_day_facts, but its notebook's preview() gives the rows its write()
-saves, from the tables the Example database does hold. `project.load` gives a Table notebook's
-logic, its functions, as [Save a table](#save_a_table) shows:
+The check made sure each Partition holds as many rows in the new table as in the old. You can
+also check a Partition against where its rows come from. The Example database doesn't hold
+mart.job_day_facts, but its notebook's preview() gives the rows its write() saves, from the
+tables the Example database does hold. `project.load` gives a Table notebook's logic, its
+functions, as [Save a table](#save_a_table) shows:
 
 >>> logic = project.load("mart.job_day_facts")  # -> the notebook's functions
 >>> logic

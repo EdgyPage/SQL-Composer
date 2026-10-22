@@ -166,13 +166,12 @@ Why: every notebook in the Project reaches the warehouse through these two funct
 change to how you reach it is made here, once.
 
 You pick which one sends each Statement, by calling run_query(s, query) for what gives back
-rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write
-does. Replace each
-example_database call with your warehouse&#x27;s own: the how-to Start a Project shows how to write
-them. Let the two share one session, so a Session setting sent through execute holds for what
-is sent after it, through either function; and let each raise when the warehouse reports a
-failure, since the Toolbox knows a step failed only when your function raises. It imports none
-of your own files, so any notebook or script of yours can import it.
+rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write does.
+Replace each example_database call with your warehouse&#x27;s own: the how-to Start a Project shows
+how to write them. Let the two share one session, so a Session setting sent through execute
+holds for what is sent after it, through either function; and let each raise when the warehouse
+reports a failure, since the Toolbox knows a step failed only when your function raises. It
+imports none of your own files, so any notebook or script of yours can import it.
 &quot;&quot;&quot;
 
 import pandas as pd
@@ -12607,7 +12606,7 @@ SELECT
 FROM mart.job_day_facts AS job_day_facts;</pre>
 <p>The new table is made at the folder the Table reference names, under a name of its own while the old table still has the table&#x27;s name. The copy is one INSERT OVERWRITE, which fills each Partition from the rows&#x27; own dt, so sent twice it is written once.</p>
 <h5>Check the copy, then finish</h5>
-<p>Once both steps have run, <code>admin.check_the_copy</code> counts each Partition&#x27;s rows in both tables, through your query, and stops the move with a message, before anything is dropped, if any Partition differs or is missing from the copy. When they match, it gives back the steps that finish the move. The stand-in query answers the count with no row, as the warehouse does when every Partition matches:</p>
+<p>Once both steps have run, <code>admin.check_the_copy</code> counts each Partition&#x27;s rows in both tables, through your query, and stops the move with a message, before anything is dropped, if any Partition differs or is missing from the copy. When they match, it gives back the steps that finish the move. The comparison&#x27;s Hive starts <code>WITH old_counts</code>, as its entry in the Admin log shows. The stand-in query answers it with no row, as the warehouse does when every Partition matches:</p>
 <pre class="python">def query_after_the_copy(hive: str) -&gt; pd.DataFrame:
     if hive.startswith(&quot;WITH old_counts&quot;):  # the count of each Partition&#x27;s rows
         return pd.DataFrame(columns=[&quot;dt&quot;, &quot;old_rows&quot;, &quot;copied_rows&quot;])

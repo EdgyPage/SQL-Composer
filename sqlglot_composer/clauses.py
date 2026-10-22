@@ -217,7 +217,7 @@ class Statement:
         self._stack = None
 
     def __repr__(self) -> str:
-        if kinds.kind(self) not in (kinds.READ, kinds.WRITE):
+        if not kinds.is_a_query(self):
             return "<Statement - print(to_hive(s)) shows it>"
         if self._stack is not None:
             call, branches = self._stack
@@ -1501,7 +1501,7 @@ def derived(name: str, statement: Statement) -> Table:
                why="The name is how the SQL calls it.",
                fix='Use letters, digits and _, such as derived("latest", ...).',
                error=ValueError)
-    if kinds.kind(statement) not in (kinds.READ, kinds.WRITE):
+    if not kinds.is_a_query(statement):
         refuse(what=f"derived({name!r}, ...) was given {statement!r}.",
                why="derived names a Statement made by statement(...).",
                fix="Pass statement(SELECT(...), FROM(...), ...).",

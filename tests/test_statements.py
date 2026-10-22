@@ -673,6 +673,27 @@ def test_each_refuses_the_other_call_by_name_naming_the_function_that_takes_it(
     assert sent == []
 
 
+def test_each_refuses_your_other_function_by_its_name_before_sending() -> None:
+    """Your execute given to run_query, or your query to run_execute, is known by its name."""
+    sent = []
+
+    def query(hive: str) -> pd.DataFrame:
+        sent.append(hive)
+        return pd.DataFrame()
+
+    def execute(hive: str) -> None:
+        sent.append(hive)
+
+    with pytest.raises(TypeError) as refused:
+        run_query(one_day_read(), execute)
+    message = " ".join(str(refused.value).split())
+    assert "run_query was given your execute function where your query goes." in message
+    assert "To send through your execute, call run_execute(s, execute)." in message
+    with pytest.raises(TypeError, match="run_execute was given your query function"):
+        run_execute(backfill(), query)
+    assert sent == []
+
+
 @pytest.mark.parametrize("call, needed", [(run_query, "query"), (run_execute, "execute")])
 def test_each_refuses_a_missing_call_naming_it(call: Callable[..., object],
                                                needed: str) -> None:

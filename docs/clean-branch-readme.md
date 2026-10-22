@@ -78,8 +78,8 @@ The Toolbox never connects to anything itself: it writes Hive as text, and hands
 one of two functions of yours, in `warehouse.py`. `query` runs Hive that gives back rows, such
 as a SELECT, and gives them back as a pandas DataFrame; `execute` runs Hive that changes
 something, such as a write, and gives back nothing. You pick which one sends a Statement, by
-calling `run_query(s, query)` or `run_execute(s, execute)`. `project.start()` wrote them to run on the Example database; at work, write them over
-your team's API, once:
+calling `run_query(s, query)` or `run_execute(s, execute)`. `project.start()` wrote them to run
+on the Example database; at work, write them over your team's API, once:
 
 ```python
 import pandas as pd

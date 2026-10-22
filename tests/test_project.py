@@ -1210,6 +1210,16 @@ def test_run_tables_refuses_send_naming_query_and_execute(
     assert capsys.readouterr().out == ""
 
 
+def test_run_tables_refuses_query_which_7_1_took_out(two_tables: Path) -> None:
+    sent = []
+    with pytest.raises(TypeError) as refused:
+        project.run_tables(query=sent.append, execute=sent.append)
+    message = " ".join(str(refused.value).split())
+    assert "project.run_tables was given query=, which Toolbox 7.1 took out." in message
+    assert "project.run_tables(execute=execute)" in message
+    assert sent == []
+
+
 def test_run_tables_refuses_a_keyword_it_doesnt_take(two_tables: Path) -> None:
     with pytest.raises(TypeError, match="run_tables was given excute=, which it doesn't take"):
         project.run_tables(excute=print)

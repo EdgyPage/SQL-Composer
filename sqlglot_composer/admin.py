@@ -4,13 +4,13 @@ It isn't brought by `from sqlglot_composer import *`. Import it by name:
 
     from sqlglot_composer import admin
 
-Each function makes an Admin statement, an ordinary Statement that run_execute(s, execute)
-sends like any other; admin.move_to_own_folder makes a list of them, sent one at a time, and
+Each function makes an Admin statement, an ordinary Statement that run_execute(s, execute) sends
+like any other; admin.move_to_own_folder makes a list of them, sent one at a time, and
 admin.check_the_copy compares the counts through your query before it gives the steps that
-finish the move. show_hive prints, before an Admin statement's Hive, what it changes, what can't be undone,
-and what to check first. Each refuses a table that isn't one of your Saved tables: a Table
-reference with no location= is a table someone else owns. Each run of one adds an entry to the
-Admin log (help(set_admin_log)).
+finish the move. show_hive prints, before an Admin statement's Hive, what it changes, what can't
+be undone, and what to check first. Each refuses a table that isn't one of your Saved tables: a
+Table reference with no location= is a table someone else owns. Each run of one adds an entry to
+the Admin log (help(set_admin_log)).
 """
 
 from __future__ import annotations
@@ -526,7 +526,7 @@ _MOVING = "_moving"
 
 def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
                        **removed: object) -> list[Statement]:
-    """Move a Saved table to a folder of its own: a list of Statements to run.
+    """Move a Saved table to a folder of its own: the move's first two Statements.
 
     >>> import pandas as pd
     >>> from sqlglot_composer import admin
@@ -577,17 +577,19 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
     - drop the old table;
     - give the copy the table's name: its files stay at its own folder.
 
-    So the move takes two Statements, the check, then three more, or two for a managed table.
-    Each can be sent again until the old table is dropped: if one fails, fix what it says, and
-    send them again from the first.
-    The drop comes only from admin.check_the_copy, so it can't be sent before the comparison. The rows are copied as the old table reads them, so where two
-    tables shared a folder, each read the other's rows too: check them first, or write the
+    So this gives two Statements, and admin.check_the_copy three more, or two for a managed
+    table. Each can be sent again until the old table is dropped: if one fails, fix what it
+    says, and send them again from the first. The drop comes only from admin.check_the_copy,
+    once the copy holds every row. The rows are copied as the old table reads them, so where
+    two tables shared a folder, each read the other's rows too: check them first, or write the
     table again from its source instead. It refuses a table that isn't one of your Saved
     tables, one already at its own folder, and one that lacks a column of its Table reference.
     The Example database is never written to, so it doesn't run the steps.
 
-    show_hive(moves) prints both steps, and at work the move is sent in turn:
+    show_hive(moves) prints both steps, and at work the move is sent in turn, after the
+    Session setting the copy needs:
 
+        run_execute(hive_settings("dynamic_partitions"), execute)
         for step in moves:
             run_execute(step, execute)
         for step in admin.check_the_copy(daily_runs, query=query):
@@ -672,7 +674,7 @@ def _copy_of(t: Table) -> Table:
 def _numbered(call: str, steps: list[Statement]) -> list[Statement]:
     """The steps, each an Admin statement the Admin log names by `call` and its place."""
     for number, step in enumerate(steps):
-        step._kind = kinds.ADMIN
+        step._kind = kinds.ADMIN  # the move's first step is create_table's, marked a create
         step._admin_call = f"{call}[{number}]"
     return steps
 
