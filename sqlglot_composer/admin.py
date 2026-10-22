@@ -752,7 +752,8 @@ def _copy_step(t: Table, copy_of: Table) -> Statement:
     partitions = partition_columns(t)
     columns = [column for column in t._columns if column not in partitions] + partitions
     # PARTITION(region, dt): none named, so each is filled from the rows.
-    partition = partitions_named(t).tree
+    partition = partitions_named(t, None, "admin.move_to_own_folder",
+                                 "then the copy fills each partition column from the rows").tree
     select = Node("Select", outputs=[_column(t, column) for column in columns],
                   source=table_node(t._name, alias=t._alias))
     tree = Node("Insert", target=table_node(copy_of._name, partition=partition), select=select,

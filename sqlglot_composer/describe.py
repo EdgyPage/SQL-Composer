@@ -30,7 +30,7 @@ if TYPE_CHECKING:  # tables.py imports this file
 TOOLBOX_VERSION = "7.1"
 
 # The three columns a warehouse prints DESCRIBE in, and the header Hive repeats them in.
-COLUMNS = ["col_name", "data_type", "comment"]
+DESCRIBE_COLUMNS = ["col_name", "data_type", "comment"]
 COLUMNS_HEADER = ("# col_name", "data_type", "comment")
 # The ways a warehouse prints DESCRIBE: Hive 3's own, with its details labelled with a colon and
 # a table property on each line; a compact way, with no comment where there is none and the table
@@ -38,12 +38,15 @@ COLUMNS_HEADER = ("# col_name", "data_type", "comment")
 # partitioning as one row per column.
 WAYS = ("hive3", "compact", "partitioning")
 
-# DESCRIBE's headers: the partition list and its own column header, the partitioning a newer
-# kind of table lists, and DESCRIBE FORMATTED's sections about the table itself.
-PARTITION_INFORMATION = "# partition information"
+# DESCRIBE's headers, as Hive prints them: the partition list and its own column header, the
+# partitioning a newer kind of table lists, and DESCRIBE FORMATTED's sections about the table
+# itself. read knows each whatever its case.
+PARTITION_INFORMATION = "# Partition Information"
 COLUMN_HEADER = "# col_name"
-PARTITIONING = "# partitioning"
-DETAILS = ("# detailed table information", "# storage information")
+PARTITIONING = "# Partitioning"
+DETAILED_INFORMATION = "# Detailed Table Information"
+STORAGE_INFORMATION = "# Storage Information"
+DETAILS = (DETAILED_INFORMATION.lower(), STORAGE_INFORMATION.lower())
 # The InputFormat each file format create_table writes is read with.
 INPUT_FORMATS = {
     "ORC": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
@@ -160,7 +163,7 @@ def read(name: str, frame: pd.DataFrame) -> Description:
             continue
         if column:
             _read_column(columns, descriptions, partitioned_by, section, column, kind, comment)
-    buckets = _number(details.get("num buckets", ""))
+    buckets = _bucket_count(details.get("num buckets", ""))
     table_type = details.get("table type") or details.get("type") or ""
     return Description(
         name, columns, descriptions=descriptions, partitioned_by=partitioned_by,
@@ -177,13 +180,13 @@ def _read_column(columns: dict[str, str], descriptions: dict[str, str],
     """Keep one line of DESCRIBE's columns, or of its partitions: a column, its type and its
     comment, or a newer kind of table's partitioning, such as Part 0 with dt."""
     # DESCRIBE FORMATTED in Hive lists a partition column only under its partitions.
-    if column not in columns and section in ("columns", PARTITION_INFORMATION):
+    if column not in columns and section in ("columns", PARTITION_INFORMATION.lower()):
         columns[column] = kind
         if comment:
             descriptions[column] = comment
-    if section == PARTITION_INFORMATION:
+    if section == PARTITION_INFORMATION.lower():
         partitioned_by.append(column)
-    elif section == PARTITIONING and SIMPLE_NAME.fullmatch(kind):
+    elif section == PARTITIONING.lower() and SIMPLE_NAME.fullmatch(kind):
         partitioned_by.append(kind)
 
 
@@ -205,7 +208,7 @@ def _read_detail(details: dict[str, str], properties: dict[str, str], label: str
         properties[kind] = comment
 
 
-def _number(text: str) -> int | None:
+def _bucket_count(text: str) -> int | None:
     """The number of Buckets DESCRIBE FORMATTED lists, or None for none: Hive lists -1."""
     try:
         number = int(text)
@@ -277,7 +280,7 @@ def printed(described: Description, formatted: bool = False,
         rows = _compact_columns(described, way)
         if formatted:
             rows += _compact_details(described)
-    return pd.DataFrame(rows, columns=COLUMNS)
+    return pd.DataFrame(rows, columns=DESCRIBE_COLUMNS)
 
 
 def _hive_columns(described: Description,
@@ -286,7 +289,7 @@ def _hive_columns(described: Description,
     formatted, the table's own columns under a header, then the partition columns only under
     theirs, each part followed by a blank row."""
     partitions = described.partitioned_by
-    listed = [("", None, None), ("# Partition Information", None, None), COLUMNS_HEADER,
+    listed = [("", None, None), (PARTITION_INFORMATION, None, None), COLUMNS_HEADER,
               *[_hive_column(described, column) for column in partitions]]
     if not formatted:
         return ([_hive_column(described, column) for column in described.columns]
@@ -302,7 +305,7 @@ def _hive_column(described: Description, column: str) -> tuple[str, str | None, 
 
 def _hive_details(described: Description) -> list[tuple[str, str | None, str | None]]:
     """DESCRIBE FORMATTED's details, as Hive prints them."""
-    rows = [("# Detailed Table Information", None, None),
+    rows = [(DETAILED_INFORMATION, None, None),
             ("Database:", described.name.rpartition(".")[0], None)]
     if described.location is not None:
         rows.append(("Location:", described.location, None))
@@ -311,7 +314,7 @@ def _hive_details(described: Description) -> list[tuple[str, str | None, str | N
     if described.properties:
         rows += [("Table Parameters:", None, None),
                  *[("", name, value) for name, value in described.properties.items()]]
-    rows += [("", None, None), ("# Storage Information", None, None)]
+    rows += [("", None, None), (STORAGE_INFORMATION, None, None)]
     if described.stored_as is not None:
         rows.append(("InputFormat:", _input_format(described.stored_as), None))
     sorted_by = ", ".join(f"Order(col:{column}, order:1)" for column in described.sorted_by)
@@ -329,10 +332,10 @@ def _compact_columns(described: Description,
             for column, kind in described.columns.items()]
     partitions = described.partitioned_by
     if partitions and way == "partitioning":
-        rows += [("", "", ""), ("# Partitioning", "", ""),
+        rows += [("", "", ""), (PARTITIONING, "", ""),
                  *[(f"Part {number}", column, "") for number, column in enumerate(partitions)]]
     elif partitions:
-        rows += [("# Partition Information", "", ""), COLUMNS_HEADER,
+        rows += [(PARTITION_INFORMATION, "", ""), COLUMNS_HEADER,
                  *[(column, described.columns[column], described.descriptions.get(column))
                    for column in partitions]]
     return rows
@@ -342,7 +345,7 @@ def _compact_details(described: Description) -> list[tuple[str, str | None, str 
     """DESCRIBE FORMATTED's details, the compact way: labels with no colon, and the table
     properties on one line."""
     database, _, table = described.name.rpartition(".")
-    rows = [("", "", ""), ("# Detailed Table Information", "", ""), ("Database", database, ""),
+    rows = [("", "", ""), (DETAILED_INFORMATION, "", ""), ("Database", database, ""),
             ("Table", table, ""), ("Type", "MANAGED" if described.managed else "EXTERNAL", "")]
     if described.location is not None:
         rows.append(("Location", described.location, ""))

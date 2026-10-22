@@ -32,7 +32,7 @@ from sqlglot_composer import (
     unchecked_hive,
     write_table_reference,
 )
-from sqlglot_composer.describe import COLUMNS, WAYS, StandIn
+from sqlglot_composer.describe import DESCRIBE_COLUMNS, WAYS, StandIn
 from sqlglot_composer.example_database import job_runs, jobs
 
 
@@ -275,7 +275,7 @@ def test_a_section_after_the_partitions_is_not_read_as_partitions(
     monkeypatch.chdir(tmp_path)
 
     def query(hive: str) -> pd.DataFrame:
-        return pd.DataFrame(WITH_DEFAULT_VALUES, columns=COLUMNS)
+        return pd.DataFrame(WITH_DEFAULT_VALUES, columns=DESCRIBE_COLUMNS)
 
     text = write_table_reference("ops.runs", query=query).read_text(encoding="utf-8")
     assert 'partitioned_by=["dt"],\n' in text

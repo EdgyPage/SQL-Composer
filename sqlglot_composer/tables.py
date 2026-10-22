@@ -1665,13 +1665,13 @@ class NamedPartitions:
         self.values = values
 
 
-def partitions_named(t: Table, partition: object = None, call: str = "",
-                     left_out: str = "") -> NamedPartitions:
+def partitions_named(t: Table, partition: object, call: str, left_out: str
+                     ) -> NamedPartitions:
     """The one check of partition={...}, which a write and compute_statistics both take: each
     name a partition column of `t`, together the first of its partitioned_by, each with one
-    value. None, or leaving it out, names no Partition, so each partition column is by its name
-    alone. `call` and `left_out` word the refusals: the function given partition=, such as
-    "INSERT_OVERWRITE", and what it does with a partition column partition= doesn't name."""
+    value. None names no Partition, so each partition column is by its name alone. `call` and
+    `left_out` word the refusals: the function given partition=, such as "INSERT_OVERWRITE",
+    and what it does with a partition column partition= doesn't name, after "then"."""
     columns = t._partitioned_by
     if partition is None:
         named = {}
