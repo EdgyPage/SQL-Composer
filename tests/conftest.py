@@ -26,7 +26,6 @@ import datetime
 import html
 import importlib
 import inspect
-import json
 import re
 import sys
 from collections.abc import Iterator
@@ -157,8 +156,8 @@ def run_admin_notebook(notebook: Path, cells: list[str] | None = None,
     was, and the Project's modules are put away, so another test can import its own.
     """
     if cells is None:
-        found = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
-        cells = ["".join(cell["source"]) for cell in found if cell["cell_type"] == "code"]
+        cells = [text for kind, text in toolbox_module("notebooks").read_cells(notebook)
+                 if kind == "code"]
     folder = notebook.parent
     (folder / f"{NOTEBOOK_CELLS}.py").write_text("\n\n".join(cells) + "\n", encoding="utf-8")
     with project_on_the_path(folder, ("references", "building_blocks", "warehouse",

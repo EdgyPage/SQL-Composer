@@ -22,12 +22,12 @@ Example gallery shows, and so does every script of an Example project.
 from __future__ import annotations
 
 import ast
-import json
 import sys
 from pathlib import Path
 
 import pytest
 
+from sqlglot_composer.notebooks import logic_cell
 from sqlglot_composer.project import DATABASE_TITLE
 from toolbox_registry import SHARED_IMPORTS
 
@@ -80,10 +80,9 @@ def logic_cells() -> list[tuple[Path, str]]:
     found = []
     for project in projects():
         for notebook in sorted((project / "tables").glob("*/*.ipynb")):
-            cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
-            found += [(notebook, "".join(cell["source"])) for cell in cells
-                      if cell["cell_type"] == "code"
-                      and "".join(cell["source"]).startswith("# logic\n")]
+            logic = logic_cell(notebook)
+            if logic is not None:
+                found.append((notebook, logic))
     return found
 
 

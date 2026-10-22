@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import csv
 import datetime
-import json
 import re
 import shutil
 import subprocess
@@ -40,6 +39,7 @@ from sqlglot_composer import (
     between,
     equals,
     example_database,
+    notebooks,
     project,
     run,
     set_admin_log,
@@ -195,7 +195,7 @@ def test_the_check_references_notebooks_last_cell_checks_a_partitioned_tables_ke
         projects: dict[str, Path], capsys: pytest.CaptureFixture[str]) -> None:
     set_admin_log()
     notebook = projects["starter"] / "admin" / "check_references.ipynb"
-    code = [text for kind, text in notebook_cells(notebook) if kind == "code"]
+    code = [text for kind, text in notebooks.read_cells(notebook) if kind == "code"]
     last = "\n".join(line.removeprefix("# ") for line in code[-1].splitlines()
                      if line.startswith("# from") or line.startswith("# print"))
     capsys.readouterr()
@@ -203,11 +203,6 @@ def test_the_check_references_notebooks_last_cell_checks_a_partitioned_tables_ke
                               capsys=capsys)
     assert said == ("ops.job_runs matches its Table reference.\n"
                     "ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.\n")
-
-
-def notebook_cells(path: Path) -> list[tuple[str, str]]:
-    return [(cell["cell_type"], "".join(cell["source"]))
-            for cell in json.loads(path.read_text(encoding="utf-8"))["cells"]]
 
 
 @pytest.mark.parametrize("name", example_project.PROJECTS)

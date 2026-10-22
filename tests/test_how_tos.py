@@ -642,11 +642,11 @@ The file `tables/ops__little/ops__little.ipynb`, after you fill it in:
     # logic
     WRITES = "ops.little"
 
->>> import json
->>> notebook = json.loads(Path("tables/ops__little/ops__little.ipynb").read_text())
->>> [cell["cell_type"] for cell in notebook["cells"]]
+>>> from sqlglot_composer import notebooks
+>>> cells = notebooks.read_cells(Path("tables/ops__little/ops__little.ipynb"))
+>>> [kind for kind, _ in cells]
 ['markdown', 'code']
->>> print("".join(notebook["cells"][1]["source"]))
+>>> print(cells[1][1])
 # logic
 WRITES = "ops.little"
 
@@ -708,8 +708,9 @@ Next: write your two functions, query and execute, in warehouse.py.
 >>> from pathlib import Path
 >>> notebook = Path("tables/mart__little/mart__little.ipynb")
 >>> notebook.parent.mkdir(parents=True)
->>> project._write_notebook(notebook, [("markdown", "# mart.little"),
-...                                    ("code", "READS = <READS>")])
+>>> from sqlglot_composer import notebooks
+>>> notebooks.write_notebook(notebook, [("markdown", "# mart.little"),
+...                                     ("code", "READS = <READS>")])
 
 The file `tables/mart__little/mart__little.ipynb`, as project.new_table wrote it:
 
