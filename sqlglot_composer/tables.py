@@ -1606,7 +1606,7 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
       'parquet.compression'='SNAPPY'
     )
     """
-    from .clauses import Statement  # here, not at the top: clauses.py imports this file
+    from .upkeep import ddl_statement  # here, not at the top: upkeep.py imports this file
 
     t = _real_table(t, "create_table(...)")
     untyped = [column for column, kind in t._columns.items() if not kind]
@@ -1617,7 +1617,7 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
             fix=f'Give each one its Hive type, such as {json.dumps(untyped[0])}: "string".',
             error=ValueError,
         )
-    partitions = partition_columns(t)
+    partitions = t._partitioned_by
     columns = [column_definition(t, c) for c in t._columns if c not in partitions]
     partitioned_by = [column_definition(t, c) for c in partitions]
     if t._location is None:
@@ -1629,23 +1629,21 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
             'location="/data/your_team/mart.db/daily_runs".',
             error=ValueError,
         )
-    properties = [] if t._purge is None else [(PURGE, "true" if t._purge else "false")]
+    return ddl_statement(kinds.CREATE, Node(
+        "Create", target=table_node(t._name), columns=columns, partitioned_by=partitioned_by,
+        exists=may_exist, bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),
+        buckets=t._buckets, stored_as=t._stored_as, location=t._location,
+        properties=property_pairs(t), key=t._key))
+
+
+def property_pairs(t: Table) -> list[tuple[str, str]]:
+    """A Saved table's table properties as its Table reference gives them, each (name,
+    value): purge= as external.table.purge, compression= by its file format's name for it,
+    then properties=."""
+    pairs = [] if t._purge is None else [(PURGE, "true" if t._purge else "false")]
     if t._compression is not None:
-        properties.append((FILE_FORMATS[t._stored_as][0], t._compression))
-    properties += list(t._properties.items())
-    s = Statement()
-    s._kind = kinds.CREATE
-    s._ddl = Node("Create", target=table_node(t._name), columns=columns,
-                  partitioned_by=partitioned_by, exists=may_exist,
-                  bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),
-                  buckets=t._buckets, stored_as=t._stored_as, location=t._location,
-                  properties=properties, key=t._key)
-    return s
-
-
-def partition_columns(t: Table) -> list[str]:
-    """The columns a table is partitioned by, in order: its partitioned_by=."""
-    return list(t._partitioned_by)
+        pairs.append((FILE_FORMATS[t._stored_as][0], t._compression))
+    return pairs + list(t._properties.items())
 
 
 class NamedPartitions:

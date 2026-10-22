@@ -32,6 +32,7 @@ keeps a Derived table's Keys for the joins that read it, and Lineage shows them.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, NamedTuple
 
 from .writing import hive_text
@@ -195,13 +196,27 @@ def _left_join_match(read: Clause) -> tuple[set[tuple[str, str]] | None, set[str
 
 def _reduced(entries: list[tuple[str, Node]], facts: _Facts) -> list[str]:
     """The names of `entries`, (output name, tree), less each one the others decide."""
-    kept = list(entries)
-    for entry in reversed(entries):
-        others = [other for other in kept if other is not entry]
+    def decided(entry: tuple[str, Node], others: list[tuple[str, Node]]) -> bool:
         known = facts.decided({_plain(tree) for _, tree in others if _plain(tree)})
-        if facts.tree_decided(entry[1], known):
+        return facts.tree_decided(entry[1], known)
+
+    return [name for name, _ in _less_decided(entries, decided, id)]
+
+
+def _less_decided(items: list[tuple[str, Node | str]],
+                  decided: Callable[[tuple[str, Node | str], list[tuple[str, Node | str]]], bool],
+                  key: Callable[[tuple[str, Node | str]], object],
+                  ) -> list[tuple[str, Node | str]]:
+    """`items`, less each one the others kept decide, tried from the last, so that of two that
+    decide each other the first stays. An item's others are those whose `key` differs from its
+    own: with key=id, two equal items are tried one at a time, as for a GROUP_BY that names a
+    column twice; with the item as its own key, together, as for a Key that names one twice."""
+    kept = list(items)
+    for item in reversed(items):
+        others = [other for other in kept if key(other) != key(item)]
+        if decided(item, others):
             kept = others
-    return [name for name, _ in kept]
+    return kept
 
 
 # --- A Statement's Keys ----------------------------------------------------------------------
@@ -318,7 +333,12 @@ def _row_keys(s: Statement, facts: _Facts) -> Keys:
     found, lost = [], None
     for key in keys_of(first):
         columns = [(first._alias, column) for column in key]
-        names, missing = _named(_less_decided(columns + added, facts), [], facts)
+        # Less each column the others decide, as a joined run's run_id decides the job_id it
+        # was joined on.
+        kept = _less_decided(columns + added,
+                             lambda column, others: column in facts.decided(set(others)),
+                             lambda column: column)
+        names, missing = _named(kept, [], facts)
         told_apart = f"{possessive(first._alias)} rows are told apart by {_listed(key)}"
         if missing is None:
             held = [column for column in key if (first._alias, column) in facts.fixed]
@@ -329,17 +349,6 @@ def _row_keys(s: Statement, facts: _Facts) -> Keys:
                 f"{told_apart}, and SELECT leaves out {missing[0]}.{missing[1]}")
     found += _row_number_keys(s, facts)
     return Keys(_once(found), None if found else lost)
-
-
-def _less_decided(columns: list[tuple[str, str]], facts: _Facts) -> list[tuple[str, str]]:
-    """The columns, each (table alias, column), less each one the others decide, as a joined
-    run's run_id decides the job_id it was joined on."""
-    kept = list(columns)
-    for column in reversed(columns):
-        others = [other for other in kept if other != column]
-        if column in facts.decided(set(others)):
-            kept = others
-    return kept
 
 
 def _row_number_keys(s: Statement, facts: _Facts) -> list[Found]:
