@@ -233,10 +233,16 @@ def every_day(first_day: str, last_day: str) -> list[str]:
 
 def rows_of_days(module: TableLogic, first_day: str, last_day: str) -> Statement:
     """The SELECT the module's write would send for the days first_day to last_day: the
-    clauses its rows() gives, which its preview() and write() share for their own DAY. A
-    rows() that takes one day is given first_day."""
+    clauses its rows() gives, which its preview() and write() share. A rows() that takes one
+    day is given first_day; one that takes nothing reads its logic cell's DAY, which is set to
+    first_day, the one day it writes, as a user changes it to write another."""
     toolbox = toolbox_module()
-    days = (first_day, last_day)[:len(inspect.signature(module.rows).parameters)]
+    parameters = inspect.signature(module.rows).parameters
+    if not parameters:
+        assert first_day == last_day, "a rows() that takes nothing writes one day"
+        module.rows.__globals__["DAY"] = first_day
+        return toolbox.statement(*module.rows())
+    days = (first_day, last_day)[:len(parameters)]
     return toolbox.statement(*module.rows(*days))
 
 

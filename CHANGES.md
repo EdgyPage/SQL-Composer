@@ -116,6 +116,29 @@ built a day at a time, so some of your files change: each change below says how.
   stays `jobs.job_id`, and both now take a format spec, as `f"{jobs.job_id:>20}"`, as a str
   does. A table on a cell's last line still shows as `Table('ops.jobs', columns: ...)`;
   `print(jobs)` prints its Hive text.
+- **Two Table notebook Templates are left: `saved_table` and `quality_checks`.**
+  `daily_table`, `incremental_load`, `weekly_rollup` and `as_of_lookup` are gone, and
+  `project.new_table(...)` makes a notebook from `saved_table` unless `template=` names
+  another. `saved_table` defines `create`, `rows`, `preview` and `write`, takes no day, and
+  writes a table partitioned however its Table reference says, or not at all; `READS`, a
+  condition at the top of its logic cell, picks the rows `write()` reads. `quality_checks`
+  checks the rows its `READS` picks, so its `repeated_keys()` and `null_counts()` take no days.
+  A Project's own copies in `admin/templates/` stay as they are until you delete them, and
+  `new_table` still makes notebooks from them: delete the four that are gone. To get the new
+  ones, run `project.start()` in an empty folder beside a copy of `sqlglot_composer`, and copy
+  the files of its `admin/templates/` into yours: `new_table` with no `template=` looks for
+  `saved_table.py` there, and refuses, naming the Templates it found, until it is. Notebooks
+  already made from the old Templates keep working.
+- **The `saved_table_reference` and `building_block` Templates hold no day either**, and each
+  Template's first lines list its placeholders. The Saved table's Table reference starts
+  `partitioned_by=[]` and `key=None`, for you to fill in; the Building block takes `reads`, a
+  condition, in place of a first and last day.
+- **The Example database has nine tables**: `ops.region_budgets`, each job's budget for a
+  day's cost, partitioned by region alone, and `ops.team_notes`, the notes each team wrote,
+  not partitioned and with no Key, join the seven. Nothing in your files changes.
+- **The Example projects are made from the new Templates**: the intermediate one builds six
+  Saved tables, among them one partitioned by region and one with no partitions and no Key.
+  Their Building blocks are `runs_per_job`, `costs_per_job` and `events_per_job`.
 
 ### New
 

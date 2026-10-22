@@ -1,13 +1,14 @@
 # The starter Example project
 
 A Project made for the Example database's tables `ops.jobs`, `ops.job_runs` and
-`ops.run_alerts`, laid out as yours is: everything here was made by the `project` module's
-Project actions, then filled in by hand, as you fill in your own.
+`ops.run_alerts`, laid out as yours is.
 
-It builds three Saved tables, each in a Table folder of its own:
+It builds three Saved tables, each in a Table folder of its own, each made from the
+`saved_table` Template and partitioned by dt, the day, as `ops.job_runs` and `ops.run_alerts`
+are:
 
 - `mart.daily_job_runs`: each job's runs, failed runs and minutes per day, from a Building
-  block, `building_blocks/runs_per_job_day.py`;
+  block, `building_blocks/runs_per_job.py`;
 - `mart.alerts_per_job`: each job's alerts and high alerts per day;
 - `mart.team_day`: each team's day, read from the two tables above and `ops.jobs`, so it is
   written after them.
@@ -22,16 +23,30 @@ starter/
 │   ├── registry.csv         every Table folder and Table reference made, and when
 │   └── templates/           the Templates new_table makes notebooks from
 ├── references/              a Table reference per table, and the Reference sheet
-│   ├── ops__jobs.py, ops__job_runs.py, ops__run_alerts.py   add_references wrote these
+│   ├── ops__jobs.py, ops__job_runs.py, ops__run_alerts.py
 │   ├── mart__daily_job_runs.py, mart__alerts_per_job.py, mart__team_day.py
 │   └── reference_sheet.csv
 ├── building_blocks/
-│   └── runs_per_job_day.py
+│   └── runs_per_job.py
 └── tables/                  a Table folder per Saved table
     ├── mart__daily_job_runs/  its notebook, and lineage/, its past Lineage
     ├── mart__alerts_per_job/
     └── mart__team_day/
 ```
+
+## How each file was made
+
+- `project.start()` made `admin/`, its notebooks and `templates/`, and `warehouse.py`, which
+  is left as `start` writes it.
+- `project.add_references(...)` wrote `references/ops__*.py` from each table's DESCRIBE; each
+  file's TODO lines were then filled in by hand, and Aliases written below the Table reference.
+- `project.new_table(...)` made each Table folder, its notebook and its Table reference,
+  `references/mart__*.py`; each notebook and Table reference was then filled in by hand.
+- `building_blocks/runs_per_job.py` and this README were written by hand: no Project action
+  makes them.
+- Each notebook's lineage cell exported its `lineage/` pair, and
+  `project.refresh_reference_sheet()` wrote `references/reference_sheet.csv`.
+- `admin/admin_log.md` and `admin/registry.csv` hold what each Project action did, as it ran.
 
 `references/ops__job_runs.py` and `references/ops__run_alerts.py` end with Aliases, names
 written by hand below the Table reference: `minutes` and `failed` for ops.job_runs, read by
@@ -46,4 +61,4 @@ written, so a notebook's cell 3 prints each write's Hive and runs only the previ
 `run_tables`, with no execute, prints every write in order, writers first, and sends nothing.
 
 At work, write your query and execute in `warehouse.py`, and `admin/run_tables.ipynb`'s last
-cell writes every table: each notebook's `write()`, which writes the day its `DAY` names.
+cell writes every table: each notebook's `write()`, which writes the dt its `DAY` names.

@@ -1,6 +1,6 @@
 """The Example projects in `example_projects/`: Projects that are current, whose Table
-notebooks' logic loads and writes each table, and whose rows give the numbers pandas gives for
-the same rows, day by day.
+notebooks' logic loads and writes each table, into the Partitions its rows fill, a Partition it
+names, or whole, and whose rows give the numbers pandas gives for the same rows.
 
 Each project is written again by `tools/example_project.py` into a temporary folder and
 compared with the committed one, file by file, line endings aside. The rest runs on a copy of
@@ -33,7 +33,14 @@ from conftest import (
     standing_in,
     without_the_write,
 )
-from sqlglot_composer import example_database, project, run, set_admin_log, to_hive
+from sqlglot_composer import (
+    example_database,
+    project,
+    run,
+    set_admin_log,
+    statement,
+    to_hive,
+)
 from sqlglot_composer.project import TableLogic
 
 DAY = "2026-09-24"
@@ -160,15 +167,23 @@ def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
 # --- Each Table notebook's logic ------------------------------------------------------------
 
 
+# How each Saved table is written: the Partitions its rows fill, a Partition named, or whole.
+WRITTEN = {"mart.budget_overruns": " PARTITION(region = 'eu')", "mart.job_notes": ""}
+
+
 @pytest.mark.parametrize(("name", "table"), [
     (name, table) for name in example_project.PROJECTS
     for table, _ in example_project.SAVED_TABLES[name]])
 def test_each_notebooks_logic_writes_its_table(
         inside: Callable[..., Path], name: str, table: str) -> None:
     logic_of = logic(inside, name, table)
-    written = to_hive(logic_of.write())
-    # Each day's rows go into that day's partition, dt filled from the rows.
-    assert f"INSERT OVERWRITE TABLE {table} PARTITION(dt)\n" in written
+    writes = logic_of.write()
+    # A write() may give a list, a write per region: the first is the one preview() shows.
+    written = to_hive(writes[0] if isinstance(writes, list) else writes)
+    # Most fill dt from their rows; mart.budget_overruns names its region, and mart.job_notes,
+    # which isn't partitioned, is written whole.
+    partition = WRITTEN.get(table, " PARTITION(dt)")
+    assert f"INSERT OVERWRITE TABLE {table}{partition}\n" in written
     # The preview is the SELECT the write sends.
     assert without_the_write(written) == to_hive(logic_of.preview())
 
@@ -181,16 +196,24 @@ def test_an_incremental_table_writes_its_last_3_days(inside: Callable[..., Path]
 
 
 @pytest.mark.needs_example_database
-def test_a_backfill_writes_each_day_what_a_write_of_the_day_writes(
+def test_a_write_of_several_days_writes_each_day_what_a_write_of_the_day_writes(
         inside: Callable[..., Path]) -> None:
-    """A backfill is one write of every day it names: the rows a write of each day alone
-    saves, put together, which the Example database shows."""
-    logic_of = logic(inside, "starter", "mart.daily_job_runs")
-    write = to_hive(logic_of.backfill(*DAYS))
-    assert "INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)\n" in write
+    """A write of several days is one write: the rows a write of each day alone saves, put
+    together, which the Example database shows."""
+    logic_of = logic(inside, "intermediate", "mart.job_day_facts")
+    days = ["2026-09-22", "2026-09-23", DAY]
+    write = to_hive(logic_of.write_days(days[0], days[-1]))
+    assert "INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt)\n" in write
     order = ["dt", "job_id"]
     same(example_database.query(without_the_write(write)).sort_values(order),
-         previewed_days(logic_of, list(DAYS)).sort_values(order))
+         previewed_days(logic_of, days).sort_values(order))
+
+
+def test_a_write_per_region_names_each_regions_partition(inside: Callable[..., Path]) -> None:
+    writes = logic(inside, "intermediate", "mart.budget_overruns").write()
+    assert [to_hive(write).split("\n")[0] for write in writes] == [
+        "INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'eu')",
+        "INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'us')"]
 
 
 @pytest.mark.parametrize(("name", "reader", "read"), [
@@ -359,7 +382,44 @@ def test_team_days_previews_each_teams_day_from_both_saved_tables(
 @pytest.mark.needs_example_database
 def test_the_quality_checks_find_no_repeated_event(inside: Callable[..., Path]) -> None:
     checks = logic(inside, "intermediate", "mart.job_events_checks")
-    assert len(run(checks.repeated_keys("2026-09-11", DAY), query=example_database.query)) == 0
+    assert len(run(checks.repeated_keys(), query=example_database.query)) == 0
     events = example_rows("job_events")
     counted = run(checks.preview(), query=example_database.query)
     assert list(counted.row_count) == [len(events[events.dt == DAY])]
+
+
+def overruns_in(region: str) -> pd.DataFrame:
+    """Each job's budget in the region, its days of costs and the days over budget, over the
+    Example database's 14 days, in pandas: a NULL cost is never over."""
+    costs = example_rows("region_costs")
+    budgets = example_rows("region_budgets")
+    joined = costs[costs.region == region].merge(budgets[budgets.region == region][
+        ["job_id", "budget_cents"]], on="job_id")
+    joined = joined.assign(over=joined.cost_cents > joined.budget_cents)
+    return (joined.groupby(["job_id", "budget_cents"])
+            .agg(days=("dt", "size"), days_over=("over", "sum")).reset_index())
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("region", ["eu", "us"])
+def test_budget_overruns_counts_each_jobs_days_over_budget(
+        inside: Callable[..., Path], region: str) -> None:
+    logic_of = logic(inside, "intermediate", "mart.budget_overruns")
+    same(run(statement(*logic_of.rows(region)), query=example_database.query),
+         overruns_in(region))
+
+
+@pytest.mark.needs_example_database
+def test_job_notes_puts_each_note_beside_each_job_its_team_owned_that_day(
+        inside: Callable[..., Path]) -> None:
+    got = run(logic(inside, "intermediate", "mart.job_notes").preview(),
+              query=example_database.query)
+    owners = example_rows("job_owners")
+    expected = example_rows("team_notes").merge(
+        owners, left_on=["team", "written_on"], right_on=["team", "dt"])
+    expected = expected[["job_id", "team", "note", "written_on"]]
+    order = ["job_id", "written_on", "note"]
+    same(got.sort_values(order), expected.sort_values(order))
+    # A note is about every job its team owned that day: report_build was data's until
+    # 2026-09-18, so the note of 2026-09-15 names it beside nightly_load.
+    assert sorted(got[got.written_on == "2026-09-15"].job_id) == [1, 3]

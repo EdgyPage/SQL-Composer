@@ -8,13 +8,13 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 flowchart LR
   subgraph g0["written"]
     n0["row_count<br/><small>count_rows()</small>"]
-    n2["dt<br/><small>job_events.dt</small><br/><small>in the Key</small>"]
+    n2["dt<br/><small>job_events.dt</small>"]
   end
   subgraph g1["ops.job_events"]
     n1["ops.job_events.dt<br/><small>string</small>"]
   end
   subgraph g2["filters on written"]
-    n3{{"WHERE in written<br/><small>between(job_events.dt, #quot;2026-09-24#quot;, #quot;2026-…</small>"}}
+    n3{{"WHERE in written<br/><small>equals(job_events.dt, #quot;2026-09-24#quot;)</small>"}}
   end
   subgraph g3["mart.job_events_checks"]
     n4["mart.job_events_checks.row_count<br/><small>bigint</small>"]
@@ -45,7 +45,7 @@ written.row_count = count_rows()
 ```
 
 Rows that count:
-- WHERE in written: `between(job_events.dt, "2026-09-24", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.job_events.dt)
+- WHERE in written: `equals(job_events.dt, "2026-09-24")`, which is `job_events.dt = '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.dt`.
 
@@ -59,7 +59,7 @@ One value for each different `job_events.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- written: Key (dt), since GROUP_BY makes one row for each dt.
+- written: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.
 - mart.job_events_checks' Key (dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -71,7 +71,7 @@ SELECT
   job_events.dt
 FROM ops.job_events AS job_events
 WHERE
-  job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'
+  job_events.dt = '2026-09-24'
 GROUP BY
   job_events.dt
 ```

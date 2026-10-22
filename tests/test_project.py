@@ -76,8 +76,8 @@ def test_start_lays_out_a_project(started: Path) -> None:
         ["admin_log.md", "registry.csv", "templates"]
         + [f"{name}.ipynb" for name in ADMIN_NOTEBOOKS])
     assert sorted(path.name for path in (started / "admin" / "templates").iterdir()) == [
-        "as_of_lookup.py", "building_block.py", "daily_table.py", "incremental_load.py",
-        "quality_checks.py", "saved_table_reference.py", "weekly_rollup.py"]
+        "building_block.py", "quality_checks.py", "saved_table.py",
+        "saved_table_reference.py"]
     assert registry(started) == []
     assert (started / "admin" / "registry.csv").read_text(encoding="utf-8") == (
         "kind,table,created_at,removed_at\n")
@@ -165,7 +165,9 @@ def test_new_table_makes_a_table_folder_and_a_reference(started: Path) -> None:
     assert list((folder / "lineage").iterdir()) == []
     found = cells(folder / "mart__daily_job_runs.ipynb")
     assert [kind for kind, _ in found] == ["markdown"] + ["code"] * 5
-    assert found[0][1].startswith("# mart.daily_job_runs\n\nTODO: say in one line")
+    # The placeholders to fill in come first.
+    assert found[0][1].startswith("# mart.daily_job_runs\n\nFill in every `<...>`")
+    assert "TODO: say in one line what one row of mart.daily_job_runs is." in found[0][1]
     logic = found[2][1]
     assert logic.startswith("# logic\n")
     assert "from references.mart__daily_job_runs import daily_job_runs" in logic
@@ -181,7 +183,7 @@ def test_new_table_makes_a_table_folder_and_a_reference(started: Path) -> None:
         ("reference", "mart.daily_job_runs", "2026-10-21 09:30:00", "")]
     assert repr(report) == (
         "Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from\n"
-        "admin/templates/daily_table.py.\n"
+        "admin/templates/saved_table.py.\n"
         "Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.")
     assert ('- Call: `project.new_table("mart.daily_job_runs")`\n'
             "- Tables named: mart.daily_job_runs\n"
@@ -230,12 +232,12 @@ def test_new_table_refuses_a_table_the_registry_lists(started: Path) -> None:
 
 
 @pytest.mark.parametrize(("name", "template", "error", "said"), [
-    ("daily_job_runs", "daily_table", ValueError, "isn't a table's name with its database"),
-    ("mart.daily-runs", "daily_table", ValueError, "isn't a table's name with its database"),
-    ("mart.class", "daily_table", ValueError, "a word Python keeps for itself"),
+    ("daily_job_runs", "saved_table", ValueError, "isn't a table's name with its database"),
+    ("mart.daily-runs", "saved_table", ValueError, "isn't a table's name with its database"),
+    ("mart.class", "saved_table", ValueError, "a word Python keeps for itself"),
     ("mart.daily_job_runs", "dialy_table", FileNotFoundError,
-     "(?s)there is no Table notebook Template 'dialy_table'.*Use one of: 'as_of_lookup', "
-     "'daily_table', 'incremental_load', 'quality_checks', 'weekly_rollup',"),
+     "(?s)there is no Table notebook Template 'dialy_table'.*Use one of: 'quality_checks', "
+     "'saved_table',"),
     ("mart.daily_job_runs", "building_block", FileNotFoundError,
      "there is no Table notebook Template 'building_block'"),
 ])
