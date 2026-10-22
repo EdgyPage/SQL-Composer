@@ -49,7 +49,7 @@ daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
 @pytest.fixture
 def log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """The Admin log, in a folder of its own, with the time each entry is made pinned."""
-    monkeypatch.setattr(toolbox_module("unchecked"), "_now",
+    monkeypatch.setattr(toolbox_module("unchecked"), "now",
                         lambda: datetime.datetime(2026, 10, 15, 14, 30, 5))
     return set_admin_log(tmp_path / "admin_log.md")
 

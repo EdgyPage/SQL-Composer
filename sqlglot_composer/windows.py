@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import NoReturn
 
-from .calculations import Ordering, _need_column, ordered
+from .calculations import Ordering, need_column, ordered
 from .conditions import Condition
 from .refusals import refuse
 from .tables import Column, made_by, python_text
@@ -215,7 +215,7 @@ def _columns_of(items: object, keyword: str, call: str) -> list[Column | Orderin
         target = item._target if sorted_down else item
         if isinstance(target, str):
             _no_name(call, keyword, items)
-        no_window_inside(call, _need_column(target, call))
+        no_window_inside(call, need_column(target, call))
     return found
 
 
@@ -431,7 +431,7 @@ def _shifted(name: str, column: object, over: object, keyword: str, by: object) 
     """lag's or lead's Column: the value `by` rows back or ahead of each row in its group;
     `keyword` is back or ahead."""
     call = f"{name}({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     no_window_inside(call, column)
     _whole_number(by, f"{keyword}={by!r}", call, f"how many rows {keyword} to look",
                   f"{keyword}=2")
@@ -471,7 +471,7 @@ def lead(column: Column, *, over: Window, ahead: int = 1) -> Column:
 
 def _end_value(name: str, column: object, over: object) -> Column:
     call = f"{name}({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     no_window_inside(call, column)
     tree = windowed(Node("WindowCall", name=name, args=[column._tree.copy()]), over, call,
                     VALUE)
@@ -509,12 +509,13 @@ def last_value(column: Column, *, over: Window) -> Column:
 
 def refuse_a_window_in(place: str, part: Column | Condition) -> NoReturn:
     """Refuse a Window in WHERE, HAVING, ON= or GROUP_BY of the Statement that works it out."""
+    shows = "help(row_number)"
     if numbers_rows(part._tree):
         made, worked_out, fix_it = "numbers rows", "Rows are numbered", "Number the rows"
-        use, shows = "the number", "help(row_number)"
+        use = "the number"
     else:
         made, worked_out = "looks across rows through a Window", "Windows are worked out"
-        fix_it, use, shows = "Work it out", "it", "help(row_number)"
+        fix_it, use = "Work it out", "it"
     refuse(
         what=f"{place} has {part!r}, which {made}.",
         why=f"{worked_out} last, after the rows are picked and grouped, so Hive can't use "

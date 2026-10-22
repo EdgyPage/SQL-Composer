@@ -87,6 +87,7 @@ from .describe import StandIn
 from .engine import run_query
 from .refusals import refuse
 from .tables import Table
+from .unchecked import SAID
 
 TOOLBOX_VERSION = "7.1"
 
@@ -462,19 +463,13 @@ _DESCRIBED = StandIn(*[table for table, _ in _TABLES.values()], partitions={
     if table._partitioned_by})
 
 
-# A string in single or double quotes, a name in backticks, or a comment to the end of its
-# line: what a query says, as opposed to what it is. Whichever starts first wins, as when Hive
-# reads it, so a -- inside a string is part of the string.
-_SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
-
-
 def _outside_brackets(text: str) -> str:
     """The Hive with its comments, quoted text and everything inside brackets blanked out.
 
     What is left is the query itself: a window's OVER (...) and a Derived table's
     WITH ... AS (...) are inside brackets, and a string can say anything.
     """
-    said = _SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
+    said = SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
     depth, outside = 0, []
     for character in said:
         depth += {"(": 1, ")": -1}.get(character, 0)

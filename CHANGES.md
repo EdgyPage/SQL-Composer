@@ -20,13 +20,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   anything to the other call; each refuses your other function given in its own's place, such
   as `run_query(s, execute)`, knowing it by its name. `run` is gone. Each takes your call
   second, by name or not: `run_query(s, query)` and `run_query(s, query=query)` are the same.
-- **`unchecked_hive(text)` takes no `returns_rows=`**, and refuses it, saying so: your text
-  goes through whichever you call, `run_query` for Hive that gives back rows, as a `SELECT` or `SHOW` does,
-  `run_execute` for the rest, as an `ALTER` or `INSERT` does. The Toolbox doesn't read the text
-  to choose, so a `SELECT` sent with `run_execute` goes to your execute.
-- **`project.run_tables(execute=execute)` takes no `query=`**, and refuses it. Everything a `write()` gives is
-  sent through your execute, so a read there is refused, naming the notebook, before anything
-  is sent. With no `execute` it is the dry run, as before.
+- **`unchecked_hive(text)` takes no `returns_rows=`**: your text goes through whichever you
+  call, `run_query` for Hive that gives back rows, as a `SELECT` or `SHOW` does, `run_execute`
+  for the rest, as an `ALTER` or `INSERT` does. The Toolbox doesn't read the text to choose, so
+  a `SELECT` sent with `run_execute` goes to your execute.
+- **`project.run_tables(execute=execute)` takes no `query=`.** Everything a `write()` gives is
+  sent through your execute, so a read there is refused, naming the notebook, before anything is
+  sent. With no `execute` it is the dry run, as before.
 - **`admin.move_to_own_folder` gives the move's first two steps**: create the copy, and copy the
   rows into it. `admin.check_the_copy(t, query=query)` then compares the rows of the two,
   Partition by Partition, through your query, and stops the move if any differs; once they

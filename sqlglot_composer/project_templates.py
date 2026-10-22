@@ -21,8 +21,8 @@ from __future__ import annotations
 TOOLBOX_VERSION = "7.1"
 
 
-def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str,
-              lineage: str = "export_lineage(write())") -> str:
+def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str
+              ) -> str:
     """A Table notebook's Template: its text cell, then its five code cells, the logic and the
     try-it cell its own, the others the same in every Template. `fill_in` lists each
     placeholder of the notebook with an example, first; `saves` says what the table's Table
@@ -71,7 +71,7 @@ from warehouse import query
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
-{lineage}
+export_lineage(write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/<NAME>.py

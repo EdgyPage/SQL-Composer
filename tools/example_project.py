@@ -218,10 +218,9 @@ def _does_not_add_up_line(columns: dict[str, str]) -> str:
 def pin(sqlglot_composer: ModuleType) -> None:
     """Pin what would differ between computers: the time, the commit, the calling script (a
     notebook, as a user runs it) and the version the lineage names."""
-    from sqlglot_composer import lineage, project, unchecked
+    from sqlglot_composer import lineage, unchecked
 
-    for module in (lineage, project, unchecked):
-        module._now = lambda: PINNED_TIME
+    unchecked.now = lambda: PINNED_TIME
     lineage.scripts_commit = lambda _folder: PINNED_COMMIT
     lineage.calling_file = lambda _frame: None
     lineage._version = lambda: f"sqlglot Composer {sqlglot_composer.TOOLBOX_VERSION}"

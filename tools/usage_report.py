@@ -6,8 +6,9 @@ Run from the repo's top, on dev only (coverage is in requirements-dev.txt, not r
 
 It runs the whole suite once, in this Python, and writes .scratch/toolbox-7/usage-report.md:
 each function of sqlglot_composer/ the suite called, with how many times, most first, and, file
-by file, the lines no test reached (a function never called shows only there). A function called often is a busy path, where a
-simpler shape removes the most chances of a bug; a line nothing reaches is dead, or untested.
+by file, the lines no test reached (a function never called shows only there). A function
+called often is a busy path, where a simpler shape removes the most chances of a bug; a line
+nothing reaches is dead, or untested.
 Tests that start a second Python, such as the Example projects' and the export's, aren't
 counted: their calls happen in that other Python.
 """

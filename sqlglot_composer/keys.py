@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from .writing import hive_text
 from .joins import ONLY_TESTS
 from .tables import Table
-from .trees import Node, has_aggregate, has_window
+from .trees import Node, and_parts, has_aggregate, has_window
 
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
@@ -89,12 +89,6 @@ def possessive(name: str) -> str:
 # --- What a Statement holds to one value, and which columns it sets equal --------------------
 
 
-def _and_parts(tree: Node) -> list[Node]:
-    if tree.kind != "And":
-        return [tree]
-    return [part for side in tree.flatten() for part in _and_parts(side)]
-
-
 def _plain(tree: Node) -> tuple[str, str] | None:
     """(table alias, column) for a column of a table, or None for anything else."""
     if tree.kind == "Column" and tree.table:
@@ -116,7 +110,7 @@ class _Facts:
         conditions = s._where + [read.on for read in s._reads if read._name == "JOIN"]
         self.one_value, self.same = set(), {}
         for condition in conditions:
-            for part in _and_parts(condition._tree):
+            for part in and_parts(condition._tree):
                 self._read_equals(part)
         self.left_joins = self._left_joins()
         self.fixed = self.decided(set())
@@ -184,7 +178,7 @@ def _left_join_match(read: Clause) -> tuple[set[tuple[str, str]] | None, set[str
     None when ON= tests other tables in any other way, since then they alone don't decide it."""
     alias = read.table._alias
     needed, matched = set(), set()
-    for part in _and_parts(read.on._tree):
+    for part in and_parts(read.on._tree):
         columns = _columns(part)
         others = [column for column in columns if column[0] != alias]
         if not others:
@@ -289,9 +283,9 @@ def _keeps(read: Clause, facts: _Facts) -> str | None:
     alias = table._alias
     matched = {column for a, column in facts.fixed if a == alias}
     if read._name != "CROSS_JOIN":
-        from .clauses import _matched_columns  # here: clauses.py imports this file
+        from .clauses import matched_columns  # here: clauses.py imports this file
 
-        matched |= set(_matched_columns(table, read.on))
+        matched |= set(matched_columns(table, read.on))
     if any(set(key) <= matched for key in keys_of(table)):
         return None
     if read._name == "CROSS_JOIN":

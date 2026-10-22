@@ -37,15 +37,10 @@ READ_BY_NAME = {"TOOLBOX_VERSION", "__all__"}
 
 # Defined and used nowhere, each to go with ticket 16 of .scratch/toolbox-7/map.md. The test
 # fails on a name missing from here, and on a name here that is used again or gone.
-KNOWN_DEAD = {
-    ("sqlglot_composer/tables.py", "DATE_FORMAT"),
-    ("tools/hive_corpus.py", "cases_in"),
-}
+KNOWN_DEAD: set[tuple[str, str]] = set()
 
 # Private names one file reaches in another, each for a reason. A new one fails the test;
 # so does one listed here that no file reaches any more.
-TICKET_16 = "used across Toolbox files: ticket 16 takes its underscore off"
-ONE_CLOCK = "patched to pin the time: ticket 16 makes it one clock, patched once"
 PRIVATE_SEAMS = {
     # Tests and tools reach these on purpose.
     ("checks", "_PAGES"): "the self-check's pages, which its test names",
@@ -61,34 +56,10 @@ PRIVATE_SEAMS = {
     ("writing", "_REPLAY"): "the replay table a sqlglot check reads",
     ("writing", "_writes_struct_colons"): "swapped by a sqlglot check for an old sqlglot",
     ("lineage", "_version"): "pinned by the page tools so pages don't name a dev version",
-    ("lineage", "_now"): ONE_CLOCK,
-    ("project", "_now"): ONE_CLOCK,
-    ("unchecked", "_now"): ONE_CLOCK,
-    ("calculations", "_need_column"): TICKET_16,
-    ("clauses", "_flatten"): TICKET_16,
-    ("clauses", "_matched_columns"): TICKET_16,
-    ("clauses", "_resolve_group_by"): TICKET_16,
-    ("engine", "_INSTALL_NEWER"): TICKET_16,
-    ("running", "_need_statement"): TICKET_16,
-    ("running", "_statement_tree"): TICKET_16,
-    ("unchecked", "_code"): TICKET_16,
-    ("unchecked", "_script_line"): TICKET_16,
-    ("unchecked", "_write_entry"): TICKET_16,
 }
 
 # Keywords of a public function nothing passes yet: each wants a test (ticket 16).
-UNTESTED_KEYWORDS = {
-    ("ANTI_JOIN", "reads_all_partitions"),
-    ("CROSS_JOIN", "reads_all_partitions"),
-    ("SEMI_JOIN", "reads_all_partitions"),
-    ("FULL_JOIN", "many_matches"),
-    ("INSERT_INTO", "unproven_key"),
-    ("UNION", "returns_all_rows"),
-    ("INTERSECT", "returns_all_rows"),
-    ("EXCEPT", "returns_all_rows"),
-    ("average_of", "adds_up"),
-    ("min_of", "where"),
-}
+UNTESTED_KEYWORDS: set[tuple[str, str]] = set()
 
 
 def _python_files() -> list[Path]:

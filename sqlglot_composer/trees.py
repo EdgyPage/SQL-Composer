@@ -501,6 +501,14 @@ def _bracketed_connector(node: Node) -> Node:
     return Node("Paren", this=node) if node.kind in CONNECTORS else node
 
 
+def and_parts(tree: Node) -> list[Node]:
+    """The conditions an AND joins, an AND in brackets inside it, as from all_of(...) inside
+    all_of(...), joined the same way."""
+    if tree.kind != "And":
+        return [tree]
+    return [part for side in tree.flatten() for part in and_parts(side)]
+
+
 def is_aggregate(node: Node) -> bool:
     """True when this Node itself adds rows up: COUNT, SUM, ... or an aggregate hive_function."""
     return node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"])

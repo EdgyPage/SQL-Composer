@@ -99,7 +99,6 @@ from sqlglot_composer import (  # noqa: E402
     example_database,
     lineage,
     notebooks,
-    project,
     unchecked,
 )
 from sqlglot_composer.clauses import Statement  # noqa: E402
@@ -684,9 +683,7 @@ def times_pinned() -> Iterator[None]:
     Without a notebook's name in the environment, a lineage is named as from a notebook.
     """
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
-    with (mock.patch.object(lineage, "_now", lambda: LINEAGE_TIME),
-          mock.patch.object(project, "_now", lambda: LINEAGE_TIME),
-          mock.patch.object(unchecked, "_now", lambda: LINEAGE_TIME),
+    with (mock.patch.object(unchecked, "now", lambda: LINEAGE_TIME),
           mock.patch.object(lineage, "scripts_commit", lambda folder: LINEAGE_COMMIT),
           mock.patch.object(lineage, "_version", lambda: version),
           mock.patch.dict(os.environ)):

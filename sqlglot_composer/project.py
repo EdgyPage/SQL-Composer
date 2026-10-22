@@ -59,7 +59,6 @@ from __future__ import annotations
 
 import ast
 import csv
-import datetime
 import importlib
 import inspect
 import keyword
@@ -73,7 +72,7 @@ from typing import NoReturn
 
 import pandas as pd
 
-from . import kinds
+from . import kinds, unchecked
 from .clauses import Statement
 from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook
 from .project_files import (
@@ -96,7 +95,7 @@ from .project_templates import TEMPLATES
 from .python_steps import PythonStep
 from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
 from .tables import TABLE_NAME, write_table_reference
-from .unchecked import UncheckedStatement, _code, _script_line, _write_entry, hive_settings
+from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
 TOOLBOX_VERSION = "7.1"
 
@@ -542,7 +541,7 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
         if not registry.listed(REFERENCE, name):
             rows.append(REFERENCE)
         report.append(f"Wrote {reference_shown}: fill in its <...> and TODO lines.")
-    registry.add([(kind, name) for kind in rows], _now())
+    registry.add([(kind, name) for kind in rows], unchecked.now())
     changed, said = _write_databases(root)
     _log(root, call, [name], made + changed, frame)
     return ProjectReport(report + said)
@@ -638,12 +637,12 @@ def _remove(root: Path, kind: FileKind, name: str, call: str,
                 f"and {kind.named_as}.",
                 error=FileNotFoundError,
             )
-        registry.mark_removed(kind, name, _now())
+        registry.mark_removed(kind, name, unchecked.now())
         _log(root, call, [name], [f"{shown} wasn't there: marked its registry row removed"],
              frame)
         return ProjectReport([f"{shown} wasn't there, so only its registry row is marked "
                               "removed."])
-    now = _now()
+    now = unchecked.now()
     moved = kind.archive(root, stem, now)
     registry.mark_removed(kind, name, now)
     changed, said = _write_databases(root) if kind.writes_databases else ([], [])
@@ -713,7 +712,7 @@ def new_block(name: str) -> ProjectReport:
     # A Template from before 7.0 also has <BLOCK_NAME>, the name in quotes.
     fills = {"<BLOCK>": name, "<BLOCK_NAME>": f'"{name}"'}
     path.write_text(_filled(template.read_text(encoding="utf-8"), fills), encoding="utf-8")
-    registry.add([(BUILDING_BLOCK, name)], _now())
+    registry.add([(BUILDING_BLOCK, name)], unchecked.now())
     _log(root, call, [], [f"created {shown}"], frame)
     return ProjectReport([f"Wrote {shown}, from admin/templates/{BLOCK_TEMPLATE}.py:",
                           "fill in its <...> and TODO lines."])
@@ -863,7 +862,7 @@ def add_references(names: list[str],
         files.append(file)
         if not registry.listed(REFERENCE, name):
             listed.append((REFERENCE, name))
-    registry.add(listed, _now())
+    registry.add(listed, unchecked.now())
     result = "worked" if not said else (
         f"{len(files)} of {len(names)} written; SkippedTables named the rest, above")
     changed, databases = _write_databases(root)
@@ -957,7 +956,7 @@ def register(name: str) -> ProjectReport:
             "adopts each.",
             error=ValueError,
         )
-    registry.add([(kind, name) for kind in adopted], _now())
+    registry.add([(kind, name) for kind in adopted], unchecked.now())
     changed, said = (_write_databases(root) if any(kind.writes_databases for kind in adopted)
                      else ([], []))
     _log(root, call, tables, [f"registered {kind.shown(stem)}" for kind in adopted] + changed,
@@ -1046,7 +1045,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     """
     call = f"project.refresh_reference_sheet({_quoted(name) if name is not None else ''})"
     root = _project(call)
-    now = f"{_now():%Y-%m-%d %H:%M:%S}"
+    now = f"{unchecked.now():%Y-%m-%d %H:%M:%S}"
     if name is None:
         paths = table_references(root)
         kept = []
@@ -1550,7 +1549,6 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     else. Everything a write() gives is sent through your execute, so one that gives a read is
     refused before anything is sent.
     """
-    _refuse_query_given(removed)
     refuse_removed_arguments("run_tables", removed, run_tables)
     from .lineage import in_order  # lineage imports what imports this
     from .running import run_execute, settings_needed
@@ -1587,17 +1585,6 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
             raise
         print(f"{shown}  worked")
     return ProjectReport(_ran(ordered))
-
-
-def _refuse_query_given(removed: dict[str, object]) -> None:
-    """Refuse the query= run_tables took until 7.1: everything it sends goes through execute."""
-    if "query" in removed:
-        refuse(
-            what="project.run_tables was given query=, which Toolbox 7.1 took out.",
-            why="Everything a write() gives changes a table, so run_tables sends it all through "
-            "your execute, and reads nothing.",
-            fix="Leave query= out: project.run_tables(execute=execute).",
-        )
 
 
 def _dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
@@ -1667,11 +1654,6 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
 # --- Pieces they share ------------------------------------------------------------------------
 
 
-def _now() -> datetime.datetime:
-    """The time a Project action is made at."""
-    return datetime.datetime.now()
-
-
 def project_folder(folder: Path) -> Path | None:
     """The Project `folder` is in, or is: the nearest folder up holding admin/registry.csv."""
     for place in [folder, *folder.parents]:
@@ -1693,14 +1675,14 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame: F
     add_references logs what it wrote and skipped, then refuses."""
     from .lineage import calling_file  # lineage imports what imports this
 
-    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {_code(call)}"]
+    lines = ["", f"## {unchecked.now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {inline_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines.append(f"- Files: {'; '.join(files) or 'none changed'}")
     if skipped:
         lines.append(f"- Skipped: {'; '.join(skipped)}")
-    lines += [_script_line(calling_file(frame)), f"- Result: {result}", ""]
-    _write_entry(project_log(project), lines)
+    lines += [script_line(calling_file(frame)), f"- Result: {result}", ""]
+    write_entry(project_log(project), lines)
 
 
 def _quoted(value: object) -> str:

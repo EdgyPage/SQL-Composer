@@ -46,8 +46,7 @@ ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project",
 @pytest.fixture
 def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A Project just started in a folder of its own, the time pinned, the Admin log unmoved."""
-    for module in ("project", "unchecked"):
-        monkeypatch.setattr(toolbox_module(module), "_now", lambda: NOW)
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: NOW)
     set_admin_log()
     monkeypatch.chdir(tmp_path)
     project.start()
@@ -809,7 +808,7 @@ def test_refreshing_one_table_replaces_only_its_rows(
     project.add_references(["ops.jobs", "ops.run_alerts"], query=example_database.query)
     project.refresh_reference_sheet()
     later = datetime.datetime(2026, 10, 22, 8, 0, 0)
-    monkeypatch.setattr(toolbox_module("project"), "_now", lambda: later)
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: later)
     reference = started / "references" / "ops__run_alerts.py"
     reference.write_text(reference.read_text(encoding="utf-8").replace(
         '"severity": "low / high"', '"severity": "low, high or critical"'), encoding="utf-8")
@@ -1265,16 +1264,6 @@ def test_run_tables_refuses_send_naming_query_and_execute(
     assert capsys.readouterr().out == ""
 
 
-def test_run_tables_refuses_query_which_7_1_took_out(two_tables: Path) -> None:
-    sent = []
-    with pytest.raises(TypeError) as refused:
-        project.run_tables(query=sent.append, execute=sent.append)
-    message = " ".join(str(refused.value).split())
-    assert "project.run_tables was given query=, which Toolbox 7.1 took out." in message
-    assert "project.run_tables(execute=execute)" in message
-    assert sent == []
-
-
 def test_run_tables_refuses_a_keyword_it_doesnt_take(two_tables: Path) -> None:
     with pytest.raises(TypeError, match="run_tables was given excute=, which it doesn't take"):
         project.run_tables(excute=print)
@@ -1401,7 +1390,7 @@ def test_lineage_crosses_table_folders_through_load(
 
 def test_one_write_s_lineage_goes_in_its_table_folder_named_by_the_time(
         two_tables: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(toolbox_module("lineage"), "_now", lambda: NOW)
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: NOW)
     monkeypatch.chdir(two_tables / "admin")
     html_file, markdown_file = export_lineage(project.load("mart.daily_runs").write())
     folder = two_tables / "tables" / "mart__daily_runs" / "lineage"

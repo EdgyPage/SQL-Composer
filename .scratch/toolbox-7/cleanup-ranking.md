@@ -50,3 +50,22 @@ high").
   `describe.py:205`, `tables.py:289, 426, 1518`, `trees.py:201`, `refusals.py:478, 634`,
   `project.py:1125-1128, 1232, 1564`, `stacking.py:40`, `admin.py:101, 308`. Each is either
   deleted (can't happen), tested (can, but no test), or left with a reason.
+
+### What ticket 16 found in those lines
+
+- Dead, and gone: `refusals.arguments_of`'s "no arguments" branch (every caller passes a function
+  that takes some), and `windows.refuse_a_window_in` setting `shows` the same in both branches.
+- Not dead, untested refusals: `clauses.py:922` (`unproven_key=` not a bool, not the
+  `_real_table` call the exploration thought), `clauses.py:1220` (two tables one alias),
+  `admin.py:232, 239, 405, 685`, `stacking.py:385, 544, 565-570`, `tables.py:842, 906, 1074,
+  1270`, each `_no_operator` but `<`, the reversed arithmetic (`__radd__`, `__rsub__`,
+  `__rtruediv__`).
+- Not dead, rare edges: keys.py's (a Key column the SELECT drops, row_number over a
+  calculation, partition={...} naming every column), `describe.py:205` (a comma inside a
+  property's value), `project.py:1125-1128, 1232` (a Table reference Python can't read
+  plainly), `project.py:1564` (`run_tables(tables="mart.x")`, a name alone), `lineage.py:665`
+  (a box seen twice), `stacking.py:40` (11th to 13th).
+- Not dead, other computers: checks.py (a broken or mixed Toolbox folder), engine.py and
+  writing.py (other sqlglot versions), lineage.py:985-1010 (no git, no commits).
+- Kept: checks.py's pre-6.0 stamp, `"Composer core"`, so a 5.x file left in a folder is still
+  named as another folder's when someone skipped 6.0.

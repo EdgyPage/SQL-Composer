@@ -18,7 +18,7 @@ from pathlib import Path
 from types import FrameType
 
 from . import kinds
-from .refusals import callers_frame, refuse, refuse_removed_arguments, warn_at_callers_line
+from .refusals import callers_frame, refuse, warn_at_callers_line
 
 TOOLBOX_VERSION = "7.1"
 
@@ -308,7 +308,7 @@ class UncheckedNote(UserWarning):
     """An Unchecked statement changes a table: the note says which admin function does it."""
 
 
-def unchecked_hive(text: str, **removed: object) -> UncheckedStatement:
+def unchecked_hive(text: str) -> UncheckedStatement:
     """Hive you write by hand, to send when no clause function writes it yet.
 
     >>> by_hand = unchecked_hive(
@@ -357,15 +357,6 @@ def unchecked_hive(text: str, **removed: object) -> UncheckedStatement:
     2       3  report_build
     3       4    cache_warm
     """
-    if "returns_rows" in removed:
-        refuse(
-            what="unchecked_hive was given returns_rows=, which Toolbox 7.1 took out.",
-            why="Since 7.1 you pick the call that sends it, by the function you call, so the "
-            "text needn't say.",
-            fix="Leave returns_rows= out, and send it with run_query(s, query) if it gives back "
-            "rows, or run_execute(s, execute) if it doesn't.",
-        )
-    refuse_removed_arguments("unchecked_hive", removed, unchecked_hive)
     if not isinstance(text, str):
         refuse(
             what=f"unchecked_hive was given {text!r}, which isn't Hive text.",
@@ -388,7 +379,7 @@ def unchecked_hive(text: str, **removed: object) -> UncheckedStatement:
 
 def unchecked_text(unchecked: UncheckedStatement) -> str:
     """What show_hive prints for an Unchecked statement: a comment marking it, then its Hive."""
-    said = _SAID.sub(lambda found: found.group() if found.group().startswith("--") else "''",
+    said = SAID.sub(lambda found: found.group() if found.group().startswith("--") else "''",
                      unchecked._text)
     # After a comment on the last line, a ; would be part of the comment.
     end = "\n;" if "--" in said.splitlines()[-1] else ";"
@@ -402,7 +393,7 @@ UNCHECKED_MARK = ("-- Unchecked statement, written by hand: no Guard, Warning or
 
 # A string in quotes, a name in backticks, or a comment: what Hive text says, as opposed to
 # what it does. Whichever starts first wins, as when Hive reads it.
-_SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
+SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
 
 
 def _what_it_does(text: str) -> str:
@@ -413,7 +404,7 @@ def _what_it_does(text: str) -> str:
         if said.startswith("`"):
             return said[1:-1].replace("``", "`")
         return "" if said.startswith("--") else "''"
-    return _SAID.sub(blank, text).upper()
+    return SAID.sub(blank, text).upper()
 
 
 # The admin function that does each job, as the note writes its call, and what the text that
@@ -563,14 +554,14 @@ def _append(kind: str, call: str, hive: str, frame: FrameType, result: str) -> N
                                   else caller_folder(caller) / "admin_log.md")
     tables = tables_named(hive)
     fence = "`" * max(3, _longest_backticks(hive) + 1)
-    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, {kind}", "", f"- Call: {_code(call)}"]
+    lines = ["", f"## {now():%Y-%m-%d %H:%M:%S}, {kind}", "", f"- Call: {inline_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
-    lines += [_script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
-    _write_entry(path, lines)
+    lines += [script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
+    write_entry(path, lines)
 
 
-def _script_line(caller: Path | None) -> str:
+def script_line(caller: Path | None) -> str:
     """An entry's Script line: the script or notebook that ran, and its git commit."""
     from .lineage import caller_folder, scripts_commit  # it imports this file
 
@@ -578,7 +569,7 @@ def _script_line(caller: Path | None) -> str:
     return f"- Script: {script}, at commit {scripts_commit(caller_folder(caller))}"
 
 
-def _write_entry(path: Path, lines: list[str]) -> None:
+def write_entry(path: Path, lines: list[str]) -> None:
     """Add an entry's lines to the end of the Admin log at `path`, its heading first if new."""
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
@@ -593,15 +584,16 @@ def _longest_backticks(text: str) -> int:
     return max((len(run) for run in re.findall(r"`+", text)), default=0)
 
 
-def _code(text: str) -> str:
+def inline_code(text: str) -> str:
     """Markdown inline code, with a fence that survives backticks inside it."""
     fence = "`" * (_longest_backticks(text) + 1)
     pad = " " if text.startswith("`") or text.endswith("`") else ""
     return f"{fence}{pad}{text}{pad}{fence}"
 
 
-def _now() -> datetime.datetime:
-    """The time an entry is made."""
+def now() -> datetime.datetime:
+    """The time now: an Admin log entry's, a Project action's and an exported lineage's, from
+    this one clock, which the page tools and tests pin by patching unchecked.now."""
     return datetime.datetime.now()
 
 

@@ -307,12 +307,6 @@ def cannot_write() -> str | None:
     return None
 
 
-def cases_in(text: str) -> dict[str, str]:
-    """A golden corpus, case by case: each case's id, and what it shows."""
-    blocks = text.split("\n" + CASE_MARK)[1:]
-    return {block.split("\n", 1)[0]: block for block in blocks}
-
-
 def main() -> int:
     reason = cannot_write()
     if reason is not None:

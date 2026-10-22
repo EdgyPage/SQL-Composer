@@ -52,7 +52,7 @@ from .tables import (
     partitions_named,
     python_text,
 )
-from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
+from .trees import Node, SIMPLE_NAME, and_parts, has_aggregate, has_window, is_aggregate
 from .writing import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
@@ -275,11 +275,11 @@ def AS(expression: Column | Table, name: str) -> Named | Table:
 # --- Clause functions ----------------------------------------------------------------------
 
 
-def _flatten(items: list[object] | tuple[object, ...]) -> list[object]:
+def flattened(items: list[object] | tuple[object, ...]) -> list[object]:
     found = []
     for item in items:
         if isinstance(item, (list, tuple)):
-            found.extend(_flatten(item))
+            found.extend(flattened(item))
         else:
             found.append(item)
     return found
@@ -287,7 +287,7 @@ def _flatten(items: list[object] | tuple[object, ...]) -> list[object]:
 
 def _outputs(items: tuple[object, ...], call: str) -> list[tuple[Column, str]]:
     outputs = []
-    for item in _flatten(items):
+    for item in flattened(items):
         if isinstance(item, Named):
             outputs.append((item._column, item._name))
         elif isinstance(item, Column) and item._name is not None:
@@ -411,17 +411,9 @@ def _need_on(on: object, call: str, table: Table) -> Condition:
     return on
 
 
-def _and_parts(tree: Node) -> list[Node]:
-    """The conditions an AND joins, an AND in brackets inside it, as from all_of(...) inside
-    all_of(...), joined the same way."""
-    if tree.kind != "And":
-        return [tree]
-    return [part for side in tree.flatten() for part in _and_parts(side)]
-
-
-def _matched_columns(table: Table, on: Condition) -> list[str]:
+def matched_columns(table: Table, on: Condition) -> list[str]:
     """The columns of `table` that ON= pins with an equals joined by AND at its top."""
-    parts = _and_parts(on._tree)
+    parts = and_parts(on._tree)
     matched = set()
     for part in parts:
         if part.kind != "EQ":
@@ -475,7 +467,7 @@ def _join(call: str, table: object, on: object, many_matches: bool,
     on = _need_on(on, call, table)
     need_broadcast_true_or_false(call, table, broadcast)
     _refuse_a_column_compared_with_itself(call, table, on)
-    matched = _matched_columns(table, on)
+    matched = matched_columns(table, on)
     if call not in ONLY_TESTS and not any(set(key) <= set(matched) for key in keys_of(table)):
         warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
                               derived=table._statement is not None,
@@ -760,7 +752,7 @@ def WHERE(*conditions: Condition | list[Condition]) -> Clause:
 
 
 def _conditions(items: tuple[object, ...], call: str) -> list[Condition]:
-    found = _flatten(items)
+    found = flattened(items)
     for item in found:
         if not isinstance(item, Condition):
             refuse(
@@ -800,7 +792,7 @@ def GROUP_BY(*columns: Column | str | Subtotals | list[Column | str | Subtotals]
     """
     from .stacking import Subtotals  # here: stacking.py imports this file
 
-    items = _flatten(columns)
+    items = flattened(columns)
     if not items:
         refuse(what="GROUP_BY was given nothing to group by.", why="It needs a column.",
                fix='Pass columns or output names, such as GROUP_BY(job_runs.status, "week").')
@@ -869,7 +861,7 @@ def ORDER_BY(*columns: Column | str | Ordering | list[Column | str | Ordering],
     ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there
     may not be kept, so a Statement that reads it can't rely on that order.
     """
-    items = _flatten(columns)
+    items = flattened(columns)
     if not items:
         refuse(what="ORDER_BY was given nothing to sort by.", why="It needs a column.",
                fix='Pass columns, output names or descending(...), such as '
@@ -1184,7 +1176,7 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     return s
 
 
-def _resolve_group_by(s: Statement, items: list[Column | str]) -> list[Column]:
+def resolve_group_by(s: Statement, items: list[Column | str]) -> list[Column]:
     by_name = {name: column for column, name in s._outputs}
     resolved = []
     for item in items:

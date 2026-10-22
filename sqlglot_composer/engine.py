@@ -57,7 +57,7 @@ _IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
 # What to install where an older sqlglot writes something wrong: the one the Toolbox is tested on,
 # or a newer one in its range.
-_INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
+INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
                   f'"sqlglot>={_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the '
                   f"kernel. {_NO_INSTALLING}")
 
@@ -173,7 +173,7 @@ def _executor_ready() -> None:
     raise RuntimeError(four_part_message(
         what=what,
         why="An executor that counts COUNT(DISTINCT ...) wrong says nothing about it.",
-        fix=f"{_INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
+        fix=f"{INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
         "still shows a Statement's Hive.",
         opt_out=None,
     ))

@@ -15,7 +15,7 @@ from types import FrameType
 from . import kinds
 from .clauses import Statement
 from .refusals import arguments_of, refuse, refuse_removed_arguments
-from .running import _need_statement, _statement_tree
+from .running import need_statement, statement_tree
 from .tables import (
     Column,
     Table,
@@ -219,7 +219,7 @@ def explain(s: Statement) -> Statement:
     write itself.
     """
     _need_explainable(s, inspect.currentframe().f_back)
-    return _upkeep(Node("Explain", this=_statement_tree(s)), kinds.PLAN)
+    return _upkeep(Node("Explain", this=statement_tree(s)), kinds.PLAN)
 
 
 # The function that makes each Statement explain has no plan for, by its kind; an upkeep
@@ -247,7 +247,7 @@ def _need_explainable(s: object, frame: FrameType | None) -> None:
             fix="Send them with run_execute(...), then pass explain the Statement they're sent "
             "before.",
         )
-    _need_statement(s, "explain", frame,
+    need_statement(s, "explain", frame,
                     why="explain shows Hive's plan for one Statement made by statement(...).")
     if not kinds.is_a_query(s):
         made_by = (_UPKEEP_MADE_BY.get(s._ddl.kind) if kinds.kind(s) == kinds.UPKEEP
