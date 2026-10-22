@@ -114,8 +114,8 @@ def code_and_prose(path: Path) -> tuple[list[str], list[str]]:
             if not isinstance(part, str):
                 code.append(part.source)
                 continue
-            for paragraph in how_to_page.paragraphs(part):
-                if how_to_page.is_code(paragraph):
+            for paragraph in example_gallery.paragraphs(part):
+                if example_gallery.is_code(paragraph):
                     code.append(paragraph)
                 else:
                     spans += re.findall(r"`([^`]+)`", paragraph)
