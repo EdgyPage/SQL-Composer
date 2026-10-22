@@ -4,7 +4,7 @@
 #     .venv/Scripts/python -m pip install -r requirements-dev.txt
 #
 # The Toolbox needs the standard library, pandas and numpy, which work already has, and sqlglot.
-# pytest and ruff are for `dev` only.
+# pytest, ruff and coverage are for `dev` only; coverage is read by tools/usage_report.py.
 
 # sqlglot Composer's pin. It supports sqlglot 25.24.2 up to (not including) 31; CI also runs the
 # suite on 25.24.2, the bottom of that range.
@@ -23,3 +23,4 @@ pytz==2026.5
 
 pytest==9.0.2
 ruff==0.15.17
+coverage==7.17.0
