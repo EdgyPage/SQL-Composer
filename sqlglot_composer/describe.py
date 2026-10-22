@@ -241,7 +241,9 @@ def of_table(t: Table, *, location: str | None = None, managed: bool = False,
              stored_as: str | None = None, lacking: tuple[str, ...] = ()) -> Description:
     """The Description of the table a Table reference describes, as create_table makes it, but
     for what the warehouse's table has otherwise: another `location`, `managed`, another file
-    format, `stored_as`, or none of the columns `lacking`."""
+    format, `stored_as`, or none of the columns `lacking`. Each column's comment is its
+    `descriptions=` entry, which create_table never writes: a stand-in shows them, as the
+    Example database's DESCRIBE does."""
     from .tables import FILE_FORMATS, PURGE  # here, not at the top: tables.py imports this file
 
     partitions = [column for column in t._partitioned_by if column not in lacking]
