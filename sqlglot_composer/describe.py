@@ -247,15 +247,11 @@ def of_table(t: Table, *, location: str | None = None, managed: bool = False,
     format, `stored_as`, or none of the columns `lacking`. Each column's comment is its
     `descriptions=` entry, which create_table never writes: a stand-in shows them, as the
     Example database's DESCRIBE does."""
-    from .tables import FILE_FORMATS, PURGE  # here, not at the top: tables.py imports this file
+    from .tables import property_pairs  # here, not at the top: tables.py imports this file
 
     partitions = [column for column in t._partitioned_by if column not in lacking]
     own = [column for column in t._columns if column not in t._partitioned_by + list(lacking)]
     columns = {column: t._columns[column] or "" for column in own + partitions}
-    properties = {} if t._purge is None else {PURGE: "true" if t._purge else "false"}
-    if t._compression is not None:
-        properties[FILE_FORMATS[t._stored_as][0]] = t._compression
-    properties.update(t._properties)
     return Description(
         t._name, columns,
         descriptions={column: text for column, text in t._descriptions.items()
@@ -263,7 +259,7 @@ def of_table(t: Table, *, location: str | None = None, managed: bool = False,
         partitioned_by=partitions, location=location or t._location, managed=managed,
         stored_as=stored_as or t._stored_as, buckets=t._buckets,
         bucketed_by=[column.lower() for column in t._bucketed_by],
-        sorted_by=[column.lower() for column in t._sorted_by], properties=properties)
+        sorted_by=[column.lower() for column in t._sorted_by], properties=dict(property_pairs(t)))
 
 
 def printed(described: Description, formatted: bool = False,
