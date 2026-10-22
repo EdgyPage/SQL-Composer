@@ -1,7 +1,7 @@
 # query and execute replace send
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 01
 Size: M
 
@@ -55,3 +55,54 @@ DESCRIBE and SHOW PARTITIONS; one Admin check reads a result (`_counts_match`, `
   - **How-to**: "such as your own query and execute".
 - CLAUDE.md's Definition of done, the beginner reader included: `send`'s contract was where the
   user stopped and read the code.
+
+## Answer
+
+Built 2026-10-21 on dev (c898236; reviews' fixes 7f37816).
+
+- A Project holds `warehouse.py` with `query(hive) -> pd.DataFrame` and `execute(hive) -> None`;
+  `project.start()` writes it and refuses a folder holding it or a `send.py`; `project.check()`
+  reports a `send.py` with no `warehouse.py`. Its docstring and how-to 01 say both calls raise
+  when the warehouse fails, and share one session.
+- `run(s, *, query=None, execute=None)` picks the call: a read and explain(s) go to `query`; a
+  write, create_table, the upkeep Statements, Session settings and the Admin statements to
+  `execute` (run gives back None), but for `admin.move_to_own_folder`'s count step, which reads
+  through `query`. A step whose call wasn't passed is refused, naming it.
+- `unchecked_hive(text, *, returns_rows: bool)`, no default; returns_rows=True's rows are
+  checked as a read's are.
+- `query=` (keyword only) on check_key, check_table_reference, write_table_reference,
+  project.add_references, admin.add_columns and admin.move_to_own_folder; run_tables takes
+  both, and is the dry run with no `execute`. Each takes `**removed`, so `send=` is the
+  Toolbox's refusal naming what to pass, and any other unknown keyword a refusal too. `query`
+  defaults to None where it is needed, so a 6.x call with `send=` meets that refusal before
+  Python's missing-argument TypeError; a missing `query` is refused by `need_warehouse_call`.
+- `example_database.query` answers SELECT, DESCRIBE and SHOW PARTITIONS; `example_database.execute`
+  prints the Hive's first line and changes nothing; `example_database.send` is gone.
+- Converted: every how-to, Worked example, test, tool, Template, admin notebook, Example
+  project, the README template, the offline audit, the offline hook's text and CLAUDE.md.
+  New tests cover the routing, the refusals, returns_rows, start() and check().
+- CHANGES.md `## 7.0` "To update from 6.x": warehouse.py, each `send=`, returns_rows=, the
+  Example database. CONTEXT.md: Warehouse, Level and How-to as the ticket says.
+
+## Reviews
+
+- Spec (2026-10-21): nothing missing. Answered: the refusal of any unknown keyword, the bool
+  check on returns_rows, and execute's refusal of non-text are the Toolbox's usual checks; the
+  README's warehouse.py block is what its step needs to stay true; ADR 0004's body stays as
+  history, its Status pointing to 0012; run_tables with only `query` is the dry run, as its
+  report says ("Pass execute= to run them").
+- Standards (2026-10-21): no breach. Fixed: the long lines this ticket added, and
+  check_table_reference's "never refuses anything". Answered: `query=None` and `**removed` stay,
+  since without them a 6.x `send=` call meets Python's TypeError instead of the Toolbox's
+  refusal; run's branches stay plain, one per kind of step, as the standards prefer.
+- Beginner reader (2026-10-21), costliest stops and what changed: nothing said the two calls
+  must raise on a failure (now how-to 01, warehouse.py and CHANGES say so); CHANGES said every
+  Admin statement goes to execute (now names the move's count step, and so do run's and the
+  admin module's docstrings: drift D223, D224); example_database.query claimed EXPLAIN and its
+  refusal sent a SHOW to execute (now it says which reads it answers, and tells a read from a
+  write). Also fixed: "a query" for the user's function now says `query` function; the session
+  sentence; the not-a-function refusal names the kind instead of printing the value; run's
+  return line; unchecked_hive's "can't tell"; CHANGES's "but SET". Left: the Callable paragraph
+  in how-to 01 (ticket 07 rewrites the how-tos), `run(s, query)` positional stays Python's
+  TypeError (CHANGES says so), and "Opt-out: none" is the house format.
+- Drift: c898236 opened D223 and D224, closed by 7f37816.
