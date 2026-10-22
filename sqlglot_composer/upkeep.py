@@ -20,7 +20,6 @@ from .tables import (
     Column,
     Table,
     need_saved_table,
-    partition_columns,
     partitions_named,
     table_node,
 )
@@ -35,7 +34,10 @@ _COUNTS_THE_REST = ("then compute_statistics covers every value of each partitio
                     "given none")
 
 
-def _upkeep(tree: Node, kind: str = kinds.UPKEEP) -> Statement:
+def ddl_statement(kind: str, tree: Node) -> Statement:
+    """A Statement of `kind`, as kinds.py names it, that is a tree ready to write, with none
+    of a query's parts: an upkeep Statement, explain(...)'s, create_table's or an Admin
+    statement."""
     s = Statement()
     s._kind = kind
     s._ddl = tree
@@ -72,7 +74,7 @@ def repair_partitions(t: Table) -> Statement:
             fix="Leave it out: the table needs no repair.",
             error=ValueError,
         )
-    return _upkeep(Node("Repair", target=table_node(t._name)))
+    return ddl_statement(kinds.UPKEEP, Node("Repair", target=table_node(t._name)))
 
 
 def compute_statistics(
@@ -132,13 +134,14 @@ def compute_statistics(
     t = need_saved_table(t, "compute_statistics(...)")
     counted = partitions_named(t, partition, "compute_statistics", _COUNTS_THE_REST)
     target = table_node(t._name, partition=counted.tree)
-    return _upkeep(Node("Analyze", target=target, columns=_columns_counted(t, columns)))
+    return ddl_statement(kinds.UPKEEP, Node("Analyze", target=target,
+                                             columns=_columns_counted(t, columns)))
 
 
 def _columns_counted(t: Table, columns: object) -> list[str]:
     """The columns FOR COLUMNS names: none, every column but the partition columns, or
     those named."""
-    counted = [column for column in t._columns if column not in partition_columns(t)]
+    counted = [column for column in t._columns if column not in t._partitioned_by]
     if columns is False or columns is None:
         return []
     if columns is True:
@@ -219,7 +222,7 @@ def explain(s: Statement) -> Statement:
     write itself.
     """
     _need_explainable(s, inspect.currentframe().f_back)
-    return _upkeep(Node("Explain", this=statement_tree(s)), kinds.PLAN)
+    return ddl_statement(kinds.PLAN, Node("Explain", this=statement_tree(s)))
 
 
 # The function that makes each Statement explain has no plan for, by its kind; an upkeep
