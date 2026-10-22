@@ -17,19 +17,20 @@ from typing import NoReturn
 import pandas as pd
 
 from . import _FOLDER, kinds, writing
-from .clauses import Clause, Statement, derived_tables
+from .clauses import Clause, Statement, derived_tables, stack_steps
 from .conditions import Condition
 from .joins import HOW, anti_join_tests, broadcast
 from .python_steps import PythonStep, python_step_text
 from .refusals import (
     arguments_of,
+    is_count,
     load_limit_rows,
     need_warehouse_call,
     refuse,
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
-from .stacking import STACK_HOW, stack_steps
+from .stacking import STACK_HOW
 from .tables import Column, Table, source, table_node
 from .trees import Node, combined
 from .unchecked import (
@@ -70,7 +71,7 @@ def set_load_limits(rows: int | None = None, **removed: object) -> dict[str, int
             fix=f"Leave dates= out: it takes {arguments_of(set_load_limits)}, and nothing else.",
         )
     refuse_removed_arguments("set_load_limits", removed, set_load_limits)
-    if rows is not None and (isinstance(rows, bool) or not isinstance(rows, int) or rows < 1):
+    if rows is not None and not is_count(rows):
         refuse(
             what=f"set_load_limits(rows={rows!r}): a limit must be a whole number, 1 or more, "
             "or None for no limit.",

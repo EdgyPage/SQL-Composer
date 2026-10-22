@@ -34,9 +34,11 @@ from .refusals import (
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
+    is_count,
     need_warehouse_call,
     refuse,
     refuse_removed_arguments,
+    repeated,
 )
 from .trees import (
     ARITHMETIC,
@@ -826,15 +828,7 @@ def _checked_properties(name: str, properties: object,
 
 def _check_partitions(t: Table) -> None:
     """Refuse a partitioned_by= that names a column twice, or one that holds no plain value."""
-    twice = sorted({column for column in t._partitioned_by
-                    if t._partitioned_by.count(column) > 1})
-    if twice:
-        refuse(
-            what=f"Table({t._name!r}): partitioned_by= names {twice[0]!r} twice.",
-            why="Each column goes in it once.",
-            fix=f"Name {twice[0]!r} once in partitioned_by=.",
-            error=ValueError,
-        )
+    _names_once(t, "partitioned_by", t._partitioned_by)
     for column in t._partitioned_by:
         if (t._columns[column] or "").strip().lower().startswith(("array", "map", "struct")):
             refuse(
@@ -846,17 +840,22 @@ def _check_partitions(t: Table) -> None:
             )
 
 
+def _names_once(t: Table, argument: str, names: list[str]) -> None:
+    """Refuse an `argument`= such as partitioned_by= that names a column twice."""
+    twice = repeated(names)
+    if twice:
+        refuse(
+            what=f"Table({t._name!r}): {argument}= names {twice[0]!r} twice.",
+            why="Each column goes in it once.",
+            fix=f"Name {twice[0]!r} once in {argument}=.",
+            error=ValueError,
+        )
+
+
 def _check_buckets(t: Table) -> None:
     """Refuse Buckets that create_table couldn't write."""
     for argument, names in (("bucketed_by", t._bucketed_by), ("sorted_by", t._sorted_by)):
-        twice = sorted({column for column in names if names.count(column) > 1})
-        if twice:
-            refuse(
-                what=f"Table({t._name!r}): {argument}= names {twice[0]!r} twice.",
-                why="Each column goes in it once.",
-                fix=f"Name {twice[0]!r} once in {argument}=.",
-                error=ValueError,
-            )
+        _names_once(t, argument, names)
         # A Bucket holds the columns inside the files, so a Partition can't be one.
         inside = [column for column in names if column in t._partitioned_by]
         if inside:
@@ -883,8 +882,7 @@ def _check_buckets(t: Table) -> None:
             "\"], buckets=8, or remove the ones you gave.",
             error=ValueError,
         )
-    if has_buckets and (isinstance(t._buckets, bool) or not isinstance(t._buckets, int)
-                        or t._buckets < 1):
+    if has_buckets and not is_count(t._buckets):
         refuse(
             what=f"Table({t._name!r}): buckets={t._buckets!r} isn't a whole number, 1 or more.",
             why="buckets= is how many files each Partition's rows are spread into.",
