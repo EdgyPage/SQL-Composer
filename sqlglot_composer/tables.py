@@ -1420,7 +1420,9 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     table that isn't at the folder location= names is a problem, as a table made by hand in a
     folder it shares with others is: two tables in one folder read each other's files, and an
     overwrite of a Partition in one can delete the other's.
-    admin.move_to_own_folder(t, query=...) moves it. DESCRIBE FORMATTED describes one
+    admin.move_to_own_folder(t, query=...) moves it. A location= holding a Hive variable, such
+    as ${hivevar:root}, is noted rather than compared, since the warehouse reports the folder
+    the variable stood for. DESCRIBE FORMATTED describes one
     table at a time, so another table that put its files in this table's own folder is
     reported when that other table is checked: check each of your Saved tables.
 
