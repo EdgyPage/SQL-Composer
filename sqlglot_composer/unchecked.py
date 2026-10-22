@@ -53,6 +53,9 @@ _SETTING_NAME = re.compile(r"[A-Za-z0-9_.:\-]+")
 class SessionSettings:
     """The SET lines of one or more named sets, made by hive_settings(...).
 
+    >>> hive_settings("map_joins")
+    <Session settings map_joins - show_hive(...) shows their SET lines>
+
     It isn't a Statement, but run sends it, one line at a time, and show_hive shows it. Make
     one with hive_settings(...). Write the name in a type hint, to say that a function of
     yours gives back Session settings:
@@ -76,6 +79,10 @@ def hive_settings(*names: str,
                   sets: dict[str, dict[str, str | int | float | bool]] | None = None
                   ) -> SessionSettings:
     """The SET lines of Session settings, by name, to send before your Statements.
+
+    >>> print(to_hive(hive_settings("dynamic_partitions")))
+    SET hive.exec.dynamic.partition=true
+    SET hive.exec.dynamic.partition.mode=nonstrict
 
     Hive keeps a Session setting for the rest of the session, so send them first, then your
     Statements: run(hive_settings(...), execute=...) sends each SET line through your execute,
@@ -110,9 +117,6 @@ def hive_settings(*names: str,
     that project.new_block("hive_sets") makes, written over its Template's code. True and
     False are written true and false.
 
-    >>> print(to_hive(hive_settings("dynamic_partitions")))
-    SET hive.exec.dynamic.partition=true
-    SET hive.exec.dynamic.partition.mode=nonstrict
     >>> HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True, "mapreduce.job.reduces": 8}}
     >>> text = show_hive(hive_settings("map_joins", "nightly", sets=HIVE_SETTINGS))
     -- Session settings: map_joins, nightly, sent one line at a time
@@ -273,6 +277,9 @@ def settings_text(settings: SessionSettings) -> str:
 class UncheckedStatement:
     """Hive written by hand, made by unchecked_hive(...).
 
+    >>> unchecked_hive("SELECT COUNT(*) AS runs FROM ops.job_runs", returns_rows=True)
+    <Unchecked statement - show_hive(...) shows its Hive>
+
     It isn't a Statement, but run sends it and show_hive shows it, marked as unchecked. Make
     one with unchecked_hive(...). Write the name in a type hint, to say that a function of
     yours gives back an Unchecked statement:
@@ -299,6 +306,13 @@ class UncheckedNote(UserWarning):
 def unchecked_hive(text: str, *, returns_rows: bool) -> UncheckedStatement:
     """Hive you write by hand, for run to send when no clause function writes it yet.
 
+    >>> by_hand = unchecked_hive(
+    ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'",
+    ...     returns_rows=True)
+    >>> text = show_hive(by_hand)
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24';
+
     Say whether it gives back rows: returns_rows=True sends it through your query, which gives
     them back as a DataFrame, as a SELECT or SHOW does; returns_rows=False sends it through
     your execute, which gives back nothing, as an ALTER or INSERT does. You say which: there is
@@ -319,13 +333,6 @@ def unchecked_hive(text: str, *, returns_rows: bool) -> UncheckedStatement:
     Write one command in each: send several as several unchecked_hive(...), one after the
     other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
     since after the comment it would be part of it.
-
-    >>> by_hand = unchecked_hive(
-    ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'",
-    ...     returns_rows=True)
-    >>> text = show_hive(by_hand)
-    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
-    SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24';
 
     A Table reference's text drops into the Hive you write, in an f-string, so the names are
     spelt as the Table reference spells them. A table's text is its name as FROM writes it,
@@ -463,6 +470,10 @@ _admin_log = {"path": None}
 def set_admin_log(path: str | Path | None = None) -> Path | None:
     """Set where the Admin log is written, such as "logs/admin_log.md".
 
+    >>> set_admin_log("logs/admin_log.md").name
+    'admin_log.md'
+    >>> set_admin_log()  # back to the usual place
+
     The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an
     Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and
     its git commit, and whether it worked. It only ever adds to the file.
@@ -473,10 +484,6 @@ def set_admin_log(path: str | Path | None = None) -> Path | None:
     script or notebook that calls set_admin_log. Call it at the top of each notebook or
     pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the
     default.
-
-    >>> set_admin_log("logs/admin_log.md").name
-    'admin_log.md'
-    >>> set_admin_log()  # back to the usual place
     """
     if path is None:
         _admin_log["path"] = None

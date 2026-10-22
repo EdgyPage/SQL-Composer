@@ -320,7 +320,8 @@ from sqlglot_composer import Table
 
 BUILDING_BLOCK = '''"""<BLOCK> - TODO: say in one line what one row of it is.
 
-Fill in every <...> below, brackets and all: Python stops at one left in. They are:
+Fill in every <...> in the code below this text, brackets and all: Python stops at one left
+in. They are:
     <SOURCE_NAME> and <SOURCE_TABLE>: the table it reads, by its file in references/ and its
         name there, such as ops__job_runs and job_runs.
     <GROUP_COLUMN>: the column each row is for, such as job_id.
@@ -332,7 +333,8 @@ Why: TODO: which tables' notebooks read it, so they can never work it out two wa
 project.new_block("<BLOCK>") wrote this file from admin/templates/building_block.py. A
 Building block is a piece several notebooks share; this one is a Derived table, a Statement
 given a name, which each Statement reading it writes at its top, as WITH <BLOCK> AS (...). In a
-notebook's logic cell, import it, and read it like a table, given the rows it reads:
+notebook's logic cell, import it, and read it like a table, given the rows it reads, such
+as READS, the condition at the top of a saved_table notebook's logic cell:
 
     from building_blocks.<BLOCK> import <BLOCK>
 

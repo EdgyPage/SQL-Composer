@@ -21,8 +21,10 @@ from references.ops__region_budgets import region_budgets
 from references.ops__region_costs import region_costs
 from references.ops__team_notes import team_notes
 
-# Its tables, by the names tab completion lists and a wrong name's message gives.
-_TABLES = ["job_events", "job_owners", "region_budgets", "region_costs", "team_notes"]
+# Its tables, by the names tab completion lists and a wrong name's message gives: the names
+# `from references.ops import *` gives, too.
+__all__ = ["job_events", "job_owners", "region_budgets", "region_costs", "team_notes"]
+_TABLES = __all__
 
 
 def __getattr__(name: str) -> NoReturn:

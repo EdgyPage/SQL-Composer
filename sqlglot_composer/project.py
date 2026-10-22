@@ -25,7 +25,8 @@ A Project is the folder you work in, laid out the same way every time:
             ├── mart__daily_job_runs.ipynb
             └── lineage/
 
-You make two things by hand: the Project's folder, and the copy of sqlglot_composer in it.
+You make three things by hand: the Project's folder, the copy of sqlglot_composer in it, and
+the notebook you run start() from.
 start() makes the rest of the layout, once, and the Project actions make every file in it.
 new_table makes a Table folder and remove_table archives one; new_block makes a Building block
 and remove_block archives one; add_references writes Table references in bulk,
@@ -59,6 +60,7 @@ from __future__ import annotations
 import ast
 import csv
 import datetime
+import importlib
 import inspect
 import json
 import keyword
@@ -119,7 +121,7 @@ change to how you reach it is made here, once.
 
 The Toolbox picks which one each Statement goes to: query for what gives back rows, as a
 SELECT does, and execute for what changes something, as a write does. Replace each
-example_database call with your warehouse's own: how-to 1, Start a Project, shows how to write
+example_database call with your warehouse's own: the how-to Start a Project shows how to write
 them. Let the two share one session, so a Session setting sent through execute holds for what
 is sent after it, through either function; and let each raise when the warehouse reports a
 failure, since the Toolbox knows a step failed only when your function raises. It imports none
@@ -221,9 +223,10 @@ ADMIN_NOTEBOOKS = {
         "registers it. Its name is a Python name, such as `runs_per_job`, and a notebook's "
         "logic cell imports it by that name: `from building_blocks.runs_per_job import "
         "runs_per_job`. Refuses a name already taken. Never touches the warehouse. Change the "
-        "name, then fill in the new file's `<...>` and TODO lines. The last cell archives a "
-        "Building block into `admin/removed/`, once no notebook imports it.",
-        ['project.new_block("your_block")',
+        "name, uncomment the line and run it, then fill in the new file's `<...>` and TODO "
+        "lines. The last cell archives a Building block into `admin/removed/`, once no "
+        "notebook imports it.",
+        ['# project.new_block("your_block")',
          '# project.remove_block("your_block")'],
     ),
     "add_references": (
@@ -267,8 +270,11 @@ ADMIN_NOTEBOOKS = {
         "# Check the Table references\n\nCompares every Table reference in `references/` "
         "with its table in the warehouse, through your query, and prints what differs, with "
         "the line to change. Then it checks the Key of each table that has one: that no two "
-        "rows share it. It changes nothing in the warehouse. It reads each table from the "
-        "Reference sheet, which the first cell refreshes from `references/`: its columns, "
+        "rows share it. It changes nothing in the warehouse; its first cell refreshes the "
+        "Reference sheet, so it writes `references/reference_sheet.csv` and the Database "
+        "modules again, and no other file. A Saved table you haven't created yet reports "
+        "that DESCRIBE failed, as each of the Example projects' does: that is expected. It "
+        "reads each table from the Reference sheet: its columns, "
         "their types, its partition columns and its Key. A partitioned table's Key isn't "
         "checked here, since that would read every Partition, and a Saved table's storage, "
         "its folder and file format, isn't in the sheet: the last cell checks each on the "
@@ -312,6 +318,11 @@ class ProjectReport:
 def start() -> ProjectReport:
     """Make a Project in the folder you're working in, once, from a notebook there.
 
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+
     The folder holds the Toolbox's folder, sqlglot_composer, and the notebook you run this
     from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside
     them:
@@ -320,14 +331,22 @@ def start() -> ProjectReport:
     has any of them already, or that is inside a Project. Then write your query and execute in
     warehouse.py, and make your first Table folder from admin/new_table.ipynb.
 
-    >>> from sqlglot_composer import project
+    Run again in a Project, from a notebook in its folder, it adds what the Project lacks of
+    what start() makes, and changes nothing else: an admin notebook or a Template this
+    Toolbox ships that isn't there, as after you copy in a newer sqlglot_composer, or one
+    deleted by mistake, and warehouse.py if there is none. It never writes over a file of
+    yours, and logs what it added:
+
+    >>> import os
+    >>> os.remove("admin/new_block.ipynb")
     >>> project.start()
-    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    This folder is a Project already. Added what it lacked: admin/new_block.ipynb.
     """
     frame = callers_frame()
     here = _working_folder()
     inside = project_folder(here)
+    if inside == here:
+        return _complete(here, frame)
     if inside is not None:
         refuse(
             what="project.start() was run inside a Project: "
@@ -373,20 +392,42 @@ def start() -> ProjectReport:
     ])
 
 
+def _complete(root: Path, frame: FrameType) -> ProjectReport:
+    """Add to a Project what start() makes and it lacks, writing over nothing."""
+    added = []
+    for name in FOLDERS[1:]:
+        if not (root / name).exists():
+            (root / name).mkdir()
+            added.append(f"{name}/")
+    templates = root / "admin" / "templates"
+    templates.mkdir(exist_ok=True)
+    for name, text in TEMPLATES.items():
+        path = templates / f"{name}.py"
+        if not path.exists():
+            path.write_text(text, encoding="utf-8")
+            added.append(f"admin/templates/{name}.py")
+    for name, (about, cells) in ADMIN_NOTEBOOKS.items():
+        path = root / "admin" / f"{name}.ipynb"
+        if not path.exists():
+            _write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
+                                   *[("code", cell) for cell in cells]])
+            added.append(f"admin/{name}.ipynb")
+    if not (root / WAREHOUSE).exists():
+        (root / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
+        added.append(f"{WAREHOUSE}: write your query and execute in it")
+    if not added:
+        return ProjectReport(["This folder is a Project already, and lacks nothing start() "
+                              "makes."])
+    _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
+    return ProjectReport([f"This folder is a Project already. Added what it lacked: "
+                          f"{', '.join(added)}."])
+
+
 # --- new_table --------------------------------------------------------------------------------
 
 
 def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     """Make a Table folder for a Saved table: its notebook, lineage/ and reference.
-
-    `name` is the table's name in the warehouse, such as "mart.daily_job_runs". It makes
-    tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from
-    admin/templates/saved_table.py (or the Template `template` names), and an empty lineage/;
-    and references/mart__daily_job_runs.py, the table's Table reference to fill in, from
-    admin/templates/saved_table_reference.py, unless that file is there already. In both,
-    <DB>, <TABLE> and <NAME> are filled in; fill in every other <...> yourself. It registers
-    both and logs them. It refuses a table that has a Table folder, or that the registry lists,
-    and never touches the warehouse: the notebook's create() makes the table.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -396,6 +437,15 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
     Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
+
+    `name` is the table's name in the warehouse, such as "mart.daily_job_runs". It makes
+    tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from
+    admin/templates/saved_table.py (or the Template `template` names), and an empty lineage/;
+    and references/mart__daily_job_runs.py, the table's Table reference to fill in, from
+    admin/templates/saved_table_reference.py, unless that file is there already. In both,
+    <DB>, <TABLE> and <NAME> are filled in; fill in every other <...> yourself. It registers
+    both and logs them. It refuses a table that has a Table folder, or that the registry lists,
+    and never touches the warehouse: the notebook's create() makes the table.
     """
     frame = callers_frame()
     call = _call("new_table", name, f", template={_quoted(template)}"
@@ -478,12 +528,6 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
 def remove_table(name: str) -> ProjectReport:
     """Move a Table folder into admin/removed/, named by the time, deleting nothing.
 
-    tables/mart__daily_job_runs/ moves, whole, to a folder such as
-    admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked
-    removed. The table stays in the warehouse, and its Table reference in references/: drop
-    the table with admin.drop_table, and archive the reference with remove_reference. A
-    Table folder the registry lists but that was deleted by hand only has its row marked.
-
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
@@ -494,6 +538,12 @@ def remove_table(name: str) -> ProjectReport:
     Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
     >>> project.remove_table("mart.daily_job_runs")  # the time it ran, as yyyymmdd-hhmmss
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
+
+    tables/mart__daily_job_runs/ moves, whole, to a folder such as
+    admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked
+    removed. The table stays in the warehouse, and its Table reference in references/: drop
+    the table with admin.drop_table, and archive the reference with remove_reference. A
+    Table folder the registry lists but that was deleted by hand only has its row marked.
     """
     frame = callers_frame()
     call = _call("remove_table", name)
@@ -504,13 +554,6 @@ def remove_table(name: str) -> ProjectReport:
 
 def remove_reference(name: str) -> ProjectReport:
     """Move a Table reference into admin/removed/, deleting nothing of yours.
-
-    references/ops__jobs.py moves to a file named by the time, such as
-    admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. Only
-    its Database's module, such as references/ops.py, which the Project actions write, is
-    deleted, once no Table reference is left in that Database. It refuses while the table has
-    a Table folder, whose notebook imports the reference: remove_table first. A Table
-    reference the registry lists but that was deleted by hand only has its row marked.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -524,6 +567,13 @@ def remove_reference(name: str) -> ProjectReport:
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
     >>> project.remove_reference("mart.daily_job_runs")
     Moved references/mart__daily_job_runs.py to admin/removed/...-mart__daily_job_runs.py.
+
+    references/ops__jobs.py moves to a file named by the time, such as
+    admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. Only
+    its Database's module, such as references/ops.py, which the Project actions write, is
+    deleted, once no Table reference is left in that Database. It refuses while the table has
+    a Table folder, whose notebook imports the reference: remove_table first. A Table
+    reference the registry lists but that was deleted by hand only has its row marked.
     """
     frame = callers_frame()
     call = _call("remove_reference", name)
@@ -582,6 +632,14 @@ def _remove(root: Path, kind: str, name: str, call: str,
 def new_block(name: str) -> ProjectReport:
     """Make a Building block, building_blocks/<name>.py, from its Template.
 
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.new_block("runs_per_job")
+    Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
+    fill in its <...> and TODO lines.
+
     `name` is the Building block's name, a Python name such as "runs_per_job": its file is
     building_blocks/runs_per_job.py, and a notebook's logic cell imports it by that name, as
     from building_blocks.runs_per_job import runs_per_job. The file is made from
@@ -591,14 +649,6 @@ def new_block(name: str) -> ProjectReport:
     registers the file and logs it. It refuses a name already taken, by a file in
     building_blocks/ or by the registry, and a name Python can't import, and never touches
     the warehouse.
-
-    >>> from sqlglot_composer import project
-    >>> project.start()
-    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
-    >>> project.new_block("runs_per_job")
-    Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
-    fill in its <...> and TODO lines.
     """
     frame = callers_frame()
     call = _call("new_block", name)
@@ -629,8 +679,8 @@ def new_block(name: str) -> ProjectReport:
             what=f"{call}: there is no admin/templates/{BLOCK_TEMPLATE}.py to make it from.",
             why="A Building block is made from the Project's own Template, which start() "
             "wrote into admin/templates/.",
-            fix="Put it back: run project.start() in an empty folder beside a copy of "
-            f"sqlglot_composer, and copy its admin/templates/{BLOCK_TEMPLATE}.py into yours.",
+            fix="Put it back with project.start(), run again in this Project: it adds the "
+            "Templates and admin notebooks the Project lacks, and changes nothing else.",
             error=FileNotFoundError,
         )
     # A Template from before 7.0 also has <BLOCK_NAME>, the name in quotes.
@@ -646,12 +696,6 @@ def new_block(name: str) -> ProjectReport:
 def remove_block(name: str) -> ProjectReport:
     """Move a Building block into admin/removed/, named by the time, deleting nothing.
 
-    building_blocks/runs_per_job.py moves to a file such as
-    admin/removed/20261021-093000-runs_per_job.py, and its registry row is marked removed. It
-    refuses while a Table notebook or another Building block imports it, naming each, since
-    each would stop at that import: change them first. A Building block the registry lists
-    but that was deleted by hand only has its row marked.
-
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
@@ -661,6 +705,12 @@ def remove_block(name: str) -> ProjectReport:
     fill in its <...> and TODO lines.
     >>> project.remove_block("runs_per_job")  # the time it ran, as yyyymmdd-hhmmss
     Moved building_blocks/runs_per_job.py to admin/removed/...-runs_per_job.py.
+
+    building_blocks/runs_per_job.py moves to a file such as
+    admin/removed/20261021-093000-runs_per_job.py, and its registry row is marked removed. It
+    refuses while a Table notebook or another Building block imports it, naming each, since
+    each would stop at that import: change them first. A Building block the registry lists
+    but that was deleted by hand only has its row marked.
     """
     frame = callers_frame()
     call = _call("remove_block", name)
@@ -733,6 +783,15 @@ def add_references(names: list[str],
                    **removed: object) -> ProjectReport:
     """Write a Table reference for each table into references/, skipping any it can't.
 
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+    Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
+    Restart the kernel of a notebook that imported references, to see a table added since.
+
     `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
     "ops.job_runs"]. Each is written as write_table_reference writes one, into
     references/<db>__<table>.py, and registered. A table whose file is there already, a name not
@@ -743,17 +802,8 @@ def add_references(names: list[str],
     Database module of each Database the tables are in, such as references/ops.py, so that in
     a notebook of the Project, from references import ops gives the table as ops.jobs, and a
     column of it as ops.jobs.job_id.
-
-    >>> from sqlglot_composer import example_database, project
-    >>> project.start()
-    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
-    >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
-    Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
-    Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
-    Restart the kernel of a notebook that imported references, to see a table added since.
     """
-    refuse_removed_arguments("add_references", removed, "query=")
+    refuse_removed_arguments("add_references", removed, add_references)
     need_warehouse_call("project.add_references", "query", query, "It sends each table's "
                         "DESCRIBE through your query.")
     frame = callers_frame()
@@ -828,15 +878,6 @@ def _quoted_list(names: object) -> str:
 def register(name: str) -> ProjectReport:
     """Adopt a Table folder, Table reference or Building block made by hand.
 
-    check() then stops reporting it.
-
-    Given a table's name, such as "ops.jobs", it adds a registry row for tables/ops__jobs/ and
-    for references/ops__jobs.py, whichever is there and isn't registered yet. Given a
-    Building block's name, such as "runs_per_job", it adds one for
-    building_blocks/runs_per_job.py: a Building block written by hand, as before 7.0, is
-    adopted so, since new_block refuses a name already taken. It logs what it adopted, and
-    refuses when there is nothing to adopt.
-
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
@@ -848,6 +889,16 @@ def register(name: str) -> ProjectReport:
     >>> _ = Path("building_blocks/runs_per_job.py").write_text("# written by hand")
     >>> project.register("runs_per_job")
     Registered building_blocks/runs_per_job.py.
+
+    check() then stops reporting it.
+
+    Given a table's name, such as "ops.jobs", it adds a registry row for tables/ops__jobs/ and
+    for references/ops__jobs.py, whichever is there and isn't registered yet. Given a
+    Building block's name, a name with no dot such as "runs_per_job", it adds one for
+    building_blocks/runs_per_job.py: that is how a Building block written by hand before 7.0
+    joins the registry, since new_block refuses a name already taken. It logs what it adopted,
+    and
+    refuses when there is nothing to adopt.
     """
     frame = callers_frame()
     call = _call("register", name)
@@ -883,14 +934,6 @@ def register(name: str) -> ProjectReport:
 def check() -> ProjectReport:
     """Report what the registry gets wrong, and the call that mends each.
 
-    It reports any the registry doesn't list, and any it lists that isn't there, each with
-    the call that mends it, and changes nothing. It also reports a send.py from before 7.0
-    with no warehouse.py beside it.
-
-    One made by hand, such as a reference file copied in, is adopted with register(...). One
-    moved or deleted by hand is put back, or has its registry row marked removed with
-    remove_table, remove_reference or remove_block.
-
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
@@ -900,6 +943,15 @@ def check() -> ProjectReport:
     >>> project.check()
     Not registered, made by hand. Adopt each with the call beside it:
       references/ops__jobs.py: project.register("ops.jobs")
+
+    It reports each Table folder, Table reference and Building block the registry doesn't
+    list, and each it lists that isn't there, each with
+    the call that mends it, and changes nothing. It also reports a send.py from before 7.0
+    with no warehouse.py beside it.
+
+    One made by hand, such as a reference file copied in, is adopted with register(...). One
+    moved or deleted by hand is put back, or has its registry row marked removed with
+    remove_table, remove_reference or remove_block.
     """
     root = _project("project.check()")
     rows = _registry(root)
@@ -937,6 +989,17 @@ def check() -> ProjectReport:
 def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.add_references(["ops.run_alerts"], query=example_database.query)
+    Wrote references/ops__run_alerts.py: fill in its TODO lines.
+    Wrote references/ops.py: from references import ops gives ops.run_alerts.
+    Restart the kernel of a notebook that imported references, to see a table added since.
+    >>> project.refresh_reference_sheet()
+    Wrote references/reference_sheet.csv: 4 rows, 1 table.
+
     Each row gives the table, the column, its type, "yes" when it is a partition column or in
     the Key, its Aliases (each line below the Table(...) call that reads that column alone,
     such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, "FAILED"),
@@ -948,17 +1011,6 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     which from references import ops reads, so run it once a Table reference is filled in.
     It changes no other file, and isn't logged: its exported_at column says when it was
     written.
-
-    >>> from sqlglot_composer import example_database, project
-    >>> project.start()
-    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
-    >>> project.add_references(["ops.run_alerts"], query=example_database.query)
-    Wrote references/ops__run_alerts.py: fill in its TODO lines.
-    Wrote references/ops.py: from references import ops gives ops.run_alerts.
-    Restart the kernel of a notebook that imported references, to see a table added since.
-    >>> project.refresh_reference_sheet()
-    Wrote references/reference_sheet.csv: 4 rows, 1 table.
     """
     call = f"project.refresh_reference_sheet({_quoted(name) if name is not None else ''})"
     root = _project(call)
@@ -1114,8 +1166,10 @@ from typing import NoReturn
 
 @IMPORTS@
 
-# Its tables, by the names tab completion lists and a wrong name's message gives.
-_TABLES = [@NAMES@]
+# Its tables, by the names tab completion lists and a wrong name's message gives: the names
+# `from references.@DATABASE@ import *` gives, too.
+__all__ = [@NAMES@]
+_TABLES = __all__
 
 
 def __getattr__(name: str) -> NoReturn:
@@ -1264,6 +1318,10 @@ def _write_databases(root: Path) -> tuple[list[str], list[str]]:
     if left_out:
         said.append(f"Left out of its Database's file: {'; '.join(left_out)}. Give one of them "
                     "another name, so each table of a Database has its own.")
+    if changed:
+        # A notebook that imported references before sees the new files only once Python
+        # looks at the folder again.
+        importlib.invalidate_caches()
     return changed, said
 
 
@@ -1307,20 +1365,6 @@ class TableLogic:
 def load(name: str) -> TableLogic:
     r"""A Table notebook's logic, its functions by name, from anywhere in the Project.
 
-    It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
-    whose first line is # logic. That cell only imports and defines, and it defines write(),
-    which takes nothing and gives what writes the table: a Statement, an Unchecked statement,
-    a Python step, or a list of them. In a notebook made from the saved_table Template, it
-    defines create, rows, preview and write, and load gives each of them (the functions and
-    classes only, not other names the cell sets). So another table's notebook can use this table's
-    write, for lineage across your tables, and run_tables can write every table in order. It
-    reads the notebook file as last saved, and your references/ and building_blocks/ as they
-    are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run,
-    which would send Hive just by loading, one with a <...> still to fill in, and one that
-    defines no write() taking nothing.
-
-    In the example, a one-line Template stands in for a notebook of yours:
-
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
@@ -1334,6 +1378,20 @@ def load(name: str) -> TableLogic:
     The logic of mart.daily_job_runs: write.
     >>> logic.write()
     'what writes it'
+
+    It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
+    whose first line is # logic. That cell only imports and defines, and it defines write(),
+    which takes nothing and gives what writes the table: a Statement, an Unchecked statement,
+    a Python step, or a list of them. In a notebook made from the saved_table Template, it
+    defines create, rows, preview and write, and load gives each of them (the functions and
+    classes only, not other names the cell sets). So another table's notebook can use this table's
+    write, for lineage across your tables, and run_tables can write every table in order. It
+    reads the notebook file as last saved, and your references/ and building_blocks/ as they
+    are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run,
+    which would send Hive just by loading, one with a <...> still to fill in, and one that
+    defines no write() taking nothing.
+
+    In the example above, a one-line Template stands in for a notebook of yours.
     """
     call = f"project.load({_quoted(name)})"
     root = _project(call)
@@ -1461,6 +1519,13 @@ def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
                tables: list[str] | str | None = None, **removed: object) -> ProjectReport:
     """Write every table, each before the tables that read it.
 
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.run_tables()
+    No Table folder to run: make one with project.new_table(...).
+
     Each table's write() comes from its notebook's logic cell, through load; one that gives a
     list, such as a write per region, sends each in turn. Each write() gives Statements, an
     Admin statement among them, Unchecked statements or Python steps: anything else, such as
@@ -1477,15 +1542,8 @@ def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
     tables after it aren't written. It adds no entry of its own to the Admin log, since what it
     writes is in the warehouse, not your files; a write() that gives an Admin or Unchecked
     statement is logged by run, as anywhere else.
-
-    >>> from sqlglot_composer import project
-    >>> project.start()
-    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
-    >>> project.run_tables()
-    No Table folder to run: make one with project.new_table(...).
     """
-    refuse_removed_arguments("run_tables", removed, "query= and execute=")
+    refuse_removed_arguments("run_tables", removed, run_tables)
     from .lineage import in_order  # lineage imports what imports this
     from .running import run, settings_needed
 

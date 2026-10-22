@@ -1150,6 +1150,19 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
                    to: str | Path | None = None) -> tuple[Path, Path]:
     """Write where each column comes from, as an HTML page and a Markdown twin.
 
+    >>> runs_per_team = statement(
+    ...     SELECT(jobs.team, AS(count_rows(), "runs")),
+    ...     FROM(job_runs),
+    ...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+    ...     WHERE(last_n_days(job_runs.dt, 2)),
+    ...     GROUP_BY(jobs.team),
+    ... )
+    >>> html_file, markdown_file = export_lineage(runs_per_team)
+    >>> html_file.parent.name, html_file.name
+    ('lineage', '..._lineage_notebook_runs_per_team.html')
+    >>> markdown_file.name
+    '..._lineage_notebook_runs_per_team.md'
+
     The HTML draws every step: the table columns, each Derived table and the outputs, with
     the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box to light
     up its whole path; controls expand, collapse or hide each table, and switch to a grouped
@@ -1169,19 +1182,6 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     tables passed from a Table notebook, when one of them writes that notebook's table: its
     lineage across tables. Any others go beside your script or notebook, as above. to= names
     the HTML file instead. It returns the two paths, HTML first.
-
-    >>> runs_per_team = statement(
-    ...     SELECT(jobs.team, AS(count_rows(), "runs")),
-    ...     FROM(job_runs),
-    ...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
-    ...     WHERE(last_n_days(job_runs.dt, 2)),
-    ...     GROUP_BY(jobs.team),
-    ... )
-    >>> html_file, markdown_file = export_lineage(runs_per_team)
-    >>> html_file.parent.name, html_file.name
-    ('lineage', '..._lineage_notebook_runs_per_team.html')
-    >>> markdown_file.name
-    '..._lineage_notebook_runs_per_team.md'
     """
     statements, settings = _check_statements(statements)
     frame = inspect.currentframe().f_back

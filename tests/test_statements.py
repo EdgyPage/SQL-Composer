@@ -653,5 +653,5 @@ def test_run_refuses_a_keyword_it_doesnt_take() -> None:
         run(one_day_read(), query=query, querry=query)
     message = str(refused.value)
     assert "run was given querry=, which it doesn't take." in message
-    assert "It takes query= and execute=" in message
+    assert "It takes s, query= and execute=, and nothing else." in message
     assert sent == []

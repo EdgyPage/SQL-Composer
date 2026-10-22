@@ -1,8 +1,7 @@
-"""mart.team_day - one row per team and day: runs, failed runs, minutes, alerts.
+"""mart.team_day - one row per team and day: runs, failed runs and minutes.
 
-Why: its notebook saves each team's day here, made from what mart.daily_job_runs and
-mart.alerts_per_job saved, so a Statement about teams reads a few rows instead of every run and
-alert.
+Why: its notebook saves each team's day here, made from what mart.daily_job_runs saved, so a
+Statement about teams reads a few rows instead of every run.
 
 project.new_table wrote this file from admin/templates/saved_table_reference.py; it was
 filled in by hand, since the table doesn't exist until its notebook's create() makes it.
@@ -17,8 +16,6 @@ team_day = Table(
         "runs": "bigint",
         "failed_runs": "bigint",
         "minutes": "bigint",
-        "alerts": "bigint",
-        "high_alerts": "bigint",
         "dt": "string",
     },
     partitioned_by=["dt"],
@@ -26,7 +23,6 @@ team_day = Table(
     location="/data/your_team/mart.db/team_day",  # its own folder
     descriptions={
         "team": "the team that owns the jobs",
-        "alerts": "0 when the team's runs raised none",
         "dt": "the day, as yyyy-MM-dd",
     },
 )

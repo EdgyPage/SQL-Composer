@@ -130,8 +130,8 @@ built a day at a time, so some of your files change: each change below says how.
   checks the rows its `READS` picks, so its `repeated_keys()` and `null_counts()` take no days.
   A Project's own copies in `admin/templates/` stay as they are until you delete them, and
   `new_table` still makes notebooks from them: delete the four that are gone. To get the new
-  ones, run `project.start()` in an empty folder beside a copy of `sqlglot_composer`, and copy
-  the files of its `admin/templates/` into yours: `new_table` with no `template=` looks for
+  ones, run `project.start()` again in your Project: it adds the Templates and admin notebooks
+  the Project lacks, and changes nothing else. `new_table` with no `template=` looks for
   `saved_table.py` there, and refuses, naming the Templates it found, until it is. Notebooks
   already made from the old Templates keep working.
 - **The `saved_table_reference` and `building_block` Templates hold no day either**, and each
@@ -155,13 +155,34 @@ built a day at a time, so some of your files change: each change below says how.
   `project.new_block` can't adopt one: it refuses a name already taken, so as never to write
   over your file. `check()` now gives the call that mends each thing it reports, one to a line,
   such as `references/ops__jobs.py: project.register("ops.jobs")`.
+- **`project.start()`, run again in a Project, adds what the Project lacks** of what `start()`
+  makes, such as an admin notebook or a Template a newer Toolbox ships, and writes over nothing.
 - **Two new admin notebooks, `new_block.ipynb` and `check_references.ipynb`.** `project.start()`
-  writes them into a new Project's `admin/`. For yours, run `project.start()` in an empty
-  folder beside a copy of `sqlglot_composer`, and copy the two from its `admin/` into yours.
+  writes them into a new Project's `admin/`. For yours, run `project.start()` again in your
+  Project, which adds them and changes nothing else.
   `new_block` makes a Building block from your own `admin/templates/building_block.py`, 6.x's
   among them, filling in its `<BLOCK>` and `<BLOCK_NAME>`.
 
 ### New
+
+- **The how-tos are one story, then a menu: 26 where there were 41.** The README's eight
+  steps are the eight Getting started how-tos, in order, each going on from the Project the one
+  before left, through the Starter Example project: Start a Project, Add your tables'
+  references, Build and run a first Statement, Count, join and stay safe, Share Building
+  blocks, Save a table, Follow Lineage, and Keep the Project in order. The 18 Intermediate
+  how-tos are a menu, each starting from the Intermediate Example project. How-tos that
+  covered the same job are one now, and each job is done one way.
+- **The README holds a map of every file of a Project**: its path, the Project action that
+  makes it, and what you fill in. You make three things by hand: the Project's folder, the copy
+  of `sqlglot_composer` in it, and the notebook you run `start()` from.
+- **The chain of types is shown first**, in the README and atop the how-to page: a Table
+  reference gives a Table, its attribute a Column, a test a Condition, the clause functions
+  Clauses, `statement(...)` a Statement, `to_hive(...)` the Hive as text and `run(...)` a
+  DataFrame. Each how-to labels the type of each value its steps make, as `# -> Statement`.
+- **A how-to shows a file you edit as it is after the edit**, under a heading naming its path,
+  where it changed files with code before. A how-to is named by its title, never by a number.
+- **Every public name's help opens with an example call**, right after its first line, and a
+  refusal of an argument a function doesn't take lists the arguments it does.
 
 - **`project.new_block("runs_per_job")` makes a Building block**: it writes
   `building_blocks/runs_per_job.py` from your Project's `admin/templates/building_block.py`,

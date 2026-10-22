@@ -1,5 +1,18 @@
 """The Example database: nine made-up tables, and a query and execute to try them.
 
+>>> runs = example_database.job_runs
+>>> run(statement(
+...     SELECT(runs.run_id, runs.status, runs.duration_mins),
+...     FROM(runs),
+...     WHERE(equals(runs.dt, "2026-09-23")),
+... ), query=example_database.query)
+   run_id   status  duration_mins
+0      95  SUCCESS             12
+1      96  SUCCESS             18
+2      97   FAILED             30
+3      98      NaN             15
+4      99     TEST              5
+
 Its tables are of the three kinds you meet at work: `jobs` and `team_notes` aren't
 partitioned, `region_budgets` is partitioned by region alone, and the other six are
 partitioned by a day, `region_costs` by region and then a day. Every table but `team_notes`
@@ -38,19 +51,6 @@ Statement, it says why.
 Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
 ORDER_BY, its rows are sorted by its first column, then its second, and so on, with NULL first.
 At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.
-
->>> runs = example_database.job_runs
->>> run(statement(
-...     SELECT(runs.run_id, runs.status, runs.duration_mins),
-...     FROM(runs),
-...     WHERE(equals(runs.dt, "2026-09-23")),
-... ), query=example_database.query)
-   run_id   status  duration_mins
-0      95  SUCCESS             12
-1      96  SUCCESS             18
-2      97   FAILED             30
-3      98      NaN             15
-4      99     TEST              5
 
 `region_budgets` is partitioned by region, so a read names the regions it reads; `team_notes`
 isn't partitioned, so a read of it is never limited:

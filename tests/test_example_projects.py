@@ -36,6 +36,9 @@ from conftest import (
     without_the_write,
 )
 from sqlglot_composer import (
+    all_of,
+    between,
+    equals,
     example_database,
     project,
     run,
@@ -80,6 +83,20 @@ def inside(projects: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> Callab
 def logic(inside: Callable[..., Path], name: str, table: str) -> TableLogic:
     inside(name)
     return project.load(table)
+
+
+def reading_the_day(inside: Callable[..., Path], table: str, day: str) -> TableLogic:
+    """The logic of a starter notebook, its READS changed to read `day`, as a user changes it
+    to write another day."""
+    logic_of = logic(inside, "starter", table)
+    jobs_runs, alerts = example_database.job_runs, example_database.run_alerts
+    before = (datetime.date.fromisoformat(day) - datetime.timedelta(days=1)).isoformat()
+    reads = {"mart.alerts_per_severity": equals(alerts.dt, day),
+             "mart.daily_job_runs": equals(jobs_runs.dt, day),
+             "mart.alerts_per_job": all_of(equals(alerts.dt, day),
+                                           between(jobs_runs.dt, before, day))}
+    logic_of.rows.__globals__["READS"] = reads[table]
+    return logic_of
 
 
 def day_rows(logic_of: TableLogic, day: str) -> pd.DataFrame:
@@ -205,7 +222,7 @@ def test_each_table_has_its_lineage_named_by_the_time(name: str) -> None:
 def test_a_tables_lineage_across_tables_draws_the_tables_it_reads() -> None:
     lineage = (ROOT / "example_projects" / "starter" / "tables" / "mart__team_day" / "lineage" /
                "20260925-060000-mart__team_day.md").read_text(encoding="utf-8")
-    assert "ops.job_runs" in lineage and "ops.run_alerts" in lineage
+    assert "ops.job_runs" in lineage and "mart.daily_job_runs" in lineage
 
 
 def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
@@ -213,12 +230,13 @@ def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
     with open(path, encoding="utf-8", newline="") as sheet:
         rows = list(csv.DictReader(sheet))
     assert sorted({row["table"] for row in rows}) == [
-        "mart.alerts_per_job", "mart.daily_job_runs", "mart.team_day", "ops.job_runs",
-        "ops.jobs", "ops.run_alerts"]
+        "mart.alerts_per_job", "mart.alerts_per_severity", "mart.daily_job_runs",
+        "mart.team_day", "ops.job_runs", "ops.jobs", "ops.run_alerts"]
     # Each Saved table is partitioned by its day, dt, and nothing else.
     assert {(row["table"], row["column"]) for row in rows if row["partition"] == "yes"
             and row["table"].startswith("mart.")} == {
-        ("mart.alerts_per_job", "dt"), ("mart.daily_job_runs", "dt"), ("mart.team_day", "dt")}
+        ("mart.alerts_per_job", "dt"), ("mart.alerts_per_severity", "dt"),
+        ("mart.daily_job_runs", "dt"), ("mart.team_day", "dt")}
     aliases = {(row["table"], row["column"]): row["aliases"] for row in rows if row["aliases"]}
     assert aliases == {("ops.job_runs", "duration_mins"): "minutes",
                        ("ops.job_runs", "status"): "failed (a condition)",
@@ -278,7 +296,7 @@ def test_a_write_per_region_names_each_regions_partition(inside: Callable[..., P
 
 
 @pytest.mark.parametrize(("name", "reader", "read"), [
-    ("starter", "mart.team_day", ["mart.daily_job_runs", "mart.alerts_per_job"]),
+    ("starter", "mart.team_day", ["mart.daily_job_runs"]),
     ("intermediate", "mart.team_days", ["mart.job_day_costs", "mart.job_day_facts"]),
 ])
 def test_run_tables_prints_each_write_writers_first(
@@ -376,21 +394,34 @@ def team_day_on(day: str, with_costs: bool = True) -> pd.DataFrame:
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_daily_job_runs_previews_each_jobs_runs(inside: Callable[..., Path], day: str) -> None:
-    same(day_rows(logic(inside, "starter", "mart.daily_job_runs"), day), runs_on(day))
+    same(day_rows(reading_the_day(inside, "mart.daily_job_runs", day), day),
+         runs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_alerts_per_job_previews_each_jobs_alerts(
         inside: Callable[..., Path], day: str) -> None:
-    same(day_rows(logic(inside, "starter", "mart.alerts_per_job"), day), alerts_on(day))
+    same(day_rows(reading_the_day(inside, "mart.alerts_per_job", day), day),
+         alerts_on(day))
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("day", DAYS)
+def test_alerts_per_severity_previews_each_severitys_alerts(
+        inside: Callable[..., Path], day: str) -> None:
+    alerts = example_rows("run_alerts")
+    expected = (alerts[alerts.dt == day].groupby("severity")
+                .agg(alerts=("alert_id", "size")).reset_index())
+    same(day_rows(reading_the_day(inside, "mart.alerts_per_severity", day), day), expected)
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_team_day_groups_each_teams_runs_from_job_runs(
         inside: Callable[..., Path], day: str) -> None:
-    check = logic(inside, "starter", "mart.team_day").team_runs_from_job_runs(day)
+    check = logic(inside, "starter", "mart.team_day").team_runs_from_job_runs(
+        equals(example_database.job_runs.dt, day))
     same(run(check, query=example_database.query), team_runs_on(day))
 
 

@@ -100,7 +100,8 @@ def test_a_keyword_a_tool_doesnt_take_is_refused() -> None:
         check_key(runs(), query=answering(), quiery=answering())
     message = str(refused.value)
     assert "check_key was given quiery=, which it doesn't take." in message
-    assert "It takes query=" in message
+    assert ("It takes t, query=, where= and reads_all_partitions=, and nothing else."
+            in message)
 
 
 def test_a_describe_with_no_columns_is_refused_by_write_table_reference(

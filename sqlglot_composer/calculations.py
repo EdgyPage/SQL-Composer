@@ -122,12 +122,12 @@ def _over(tree: Node, over: object, call: str, adds_up: bool,
 def count_rows(where: Condition | None = None, over: Window | None = None) -> Column:
     """The number of rows, or of the rows where a condition holds.
 
-    over=window(...) counts the rows of each row's Window, beside each row: see help(window).
-
     >>> count_rows()
     COUNT(*)
     >>> count_rows(where=equals(job_runs.status, "FAILED"))
     COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END)
+
+    over=window(...) counts the rows of each row's Window, beside each row: see help(window).
     """
     call = "count_rows(...)"
     tree = _only_where(Node("Star"), where, call, then=number("1"))
@@ -139,11 +139,11 @@ def count_rows(where: Condition | None = None, over: Window | None = None) -> Co
 def count_distinct(column: Column, where: Condition | None = None) -> Column:
     """The number of different values in a column, leaving out NULL.
 
-    A distinct count doesn't add up: counts for two days can't be added to give the count
-    for both, since a value seen on both days would be counted twice.
-
     >>> count_distinct(job_runs.job_id)
     COUNT(DISTINCT job_runs.job_id)
+
+    A distinct count doesn't add up: counts for two days can't be added to give the count
+    for both, since a value seen on both days would be counted twice.
     """
     return _aggregate("count_distinct", "Count", column, where, adds_up=False,
                       because="a distinct count", distinct=True)
@@ -152,6 +152,11 @@ def count_distinct(column: Column, where: Condition | None = None) -> Column:
 def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False,
            over: Window | None = None) -> Column:
     """The total of a column, or of its rows where a condition holds.
+
+    >>> sum_of(job_runs.duration_mins)
+    SUM(job_runs.duration_mins)
+    >>> sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))
+    SUM(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END)
 
     It refuses a column made by an average, a division or a distinct count, or one its Table
     reference lists in does_not_add_up, since adding those up gives a wrong total. Pass
@@ -162,10 +167,6 @@ def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False
     and needs no GROUP_BY. That total doesn't add up again: a group's total repeated on each of
     its rows, or running totals that overlap, added up, count rows more than once.
 
-    >>> sum_of(job_runs.duration_mins)
-    SUM(job_runs.duration_mins)
-    >>> sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))
-    SUM(CASE WHEN job_runs.status = 'FAILED' THEN job_runs.duration_mins END)
     >>> sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
     ...                                            ORDER_BY=job_runs.run_id, rows=(None, 0)))
     SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
@@ -180,6 +181,9 @@ def average_of(column: Column, where: Condition | None = None, adds_up: bool = F
                over: Window | None = None) -> Column:
     """The average of a column that isn't a division, an average or a distinct count.
 
+    >>> average_of(job_runs.duration_mins)
+    AVG(job_runs.duration_mins)
+
     An average itself doesn't add up: the average of two daily averages isn't the average
     over both days. Keep sum_of(...) and count_rows(where=is_not_null(...)) of the column,
     since AVG leaves NULL out, and divide after your own GROUP_BY. Like sum_of, it refuses a
@@ -188,8 +192,6 @@ def average_of(column: Column, where: Condition | None = None, adds_up: bool = F
     over=window(...) gives each row the average of its Window's rows, such as a moving
     average, and keeps every row; see help(window).
 
-    >>> average_of(job_runs.duration_mins)
-    AVG(job_runs.duration_mins)
     >>> average_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
     ...                                                ORDER_BY=job_runs.run_id, rows=(-2, 0)))
     AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
@@ -205,10 +207,10 @@ def min_of(column: Column, where: Condition | None = None,
            over: Window | None = None) -> Column:
     """The smallest value in a column.
 
-    over=window(...) gives each row the smallest of its Window's rows; see help(window).
-
     >>> min_of(job_runs.duration_mins)
     MIN(job_runs.duration_mins)
+
+    over=window(...) gives each row the smallest of its Window's rows; see help(window).
     """
     return _aggregate("min_of", "Min", column, where, over=over)
 
@@ -217,10 +219,10 @@ def max_of(column: Column, where: Condition | None = None,
            over: Window | None = None) -> Column:
     """The largest value in a column.
 
-    over=window(...) gives each row the largest of its Window's rows; see help(window).
-
     >>> max_of(job_runs.duration_mins)
     MAX(job_runs.duration_mins)
+
+    over=window(...) gives each row the largest of its Window's rows; see help(window).
     """
     return _aggregate("max_of", "Max", column, where, over=over)
 
@@ -286,16 +288,16 @@ def _call(name: str, *args: Node) -> Node:
 def week_start(column: Column) -> Column:
     """The Monday that starts each date's week, to group days into weeks.
 
+    >>> week_start(job_runs.dt)
+    CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
+
     Hive has no function for the Monday of a week, so this takes the first Monday after the
-    day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven
+    day a week earlier: in the example above, DATE_ADD(job_runs.dt, 7 * -1) is the day seven
     days before. The result is text, a day like "2026-09-21": CAST(... AS STRING) makes it
     text wherever the query runs, even on a warehouse whose NEXT_DAY gives a date, so a Saved
     table's column for it is always typed "string". It works on any column of dates, a
     partition column or not, whose days are written as Hive's date functions read them, like
     "2026-09-25".
-
-    >>> week_start(job_runs.dt)
-    CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     column = _need_column(column, "week_start(...)")
     week_ago = _call("date_sub", column._tree.copy(), number("7"))
@@ -306,13 +308,13 @@ def week_start(column: Column) -> Column:
 def month_start(column: Column) -> Column:
     """The first day of each date's month, to group days into months.
 
+    >>> month_start(job_runs.dt)
+    CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
+
     The result is text, a day like "2026-09-01": CAST(... AS STRING) makes it text wherever
     the query runs, even on a warehouse whose TRUNC gives a date, so a Saved table's column for
     it is always typed "string". Like week_start, it works on any column of dates written like
     "2026-09-25".
-
-    >>> month_start(job_runs.dt)
-    CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
     """
     column = _need_column(column, "month_start(...)")
     tree = Node("Cast", this=_call("trunc", column._tree.copy(), string("MM")), to="STRING")
@@ -321,6 +323,9 @@ def month_start(column: Column) -> Column:
 
 class Ordering:
     """A column to sort by from largest to smallest, made by descending(...).
+
+    >>> descending(job_runs.dt)
+    descending(job_runs.dt)
 
     A column given as it is sorts from smallest to largest, and needs no Ordering. Make one
     with descending(...), never Ordering(). Write the name in a type hint, to say that
@@ -341,6 +346,15 @@ class Ordering:
 
 def descending(column: Column | str) -> Ordering:
     """Sort by a column from largest to smallest, in ORDER_BY or a Window's ORDER_BY.
+
+    >>> print(to_hive(statement(SELECT(jobs.job_name), FROM(jobs),
+    ...                         ORDER_BY(descending(jobs.job_name)), LIMIT(2))))
+    SELECT
+      jobs.job_name
+    FROM ops.jobs AS jobs
+    ORDER BY
+      jobs.job_name DESC
+    LIMIT 2
 
     Pass a column; in ORDER_BY(...), the name of an output column as a string works too, but
     not in window(...) or row_number(...), which can't see the names given in SELECT.
@@ -367,6 +381,9 @@ def ordered(item: object, call: str) -> Node:
 def hive_function(name: str, *args: Column | str | int | float | datetime.date) -> Column:
     """Call a Hive function the Toolbox doesn't wrap, with your text quoted for you.
 
+    >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
+    REGEXP_REPLACE(jobs.job_name, '_', ' ')
+
     The Toolbox writes the function's name in capitals, and writes the call in its usual form:
     sometimes by another name that does the same, as COALESCE for nvl, or without an
     argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1
@@ -385,9 +402,6 @@ def hive_function(name: str, *args: Column | str | int | float | datetime.date) 
       ntile and row_number, the refusal names the Toolbox's own function, such as lag(...),
       which takes a window(...); for the others, such as percent_rank, it says to work it out
       in pandas.
-
-    >>> hive_function("regexp_replace", jobs.job_name, "_", " ")
-    REGEXP_REPLACE(jobs.job_name, '_', ' ')
     """
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
         refuse(

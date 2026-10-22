@@ -1,4 +1,4 @@
-# Lineage: written
+# Lineage: write_job_day_costs
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
@@ -19,7 +19,7 @@ flowchart LR
   subgraph g2["filters on costs_per_job"]
     n6{{"WHERE in costs_per_job<br/><small>between(region_costs.dt, #quot;20260922#quot;, #quot;20260…</small>"}}
   end
-  subgraph g3["written"]
+  subgraph g3["write_job_day_costs"]
     n7["job_id<br/><small>costs_per_job.job_id</small><br/><small>in the Key</small>"]
     n8["cost_cents<br/><small>costs_per_job.cost_cents</small>"]
     n9["dt<br/><small>costs_per_job.dt</small><br/><small>in the Key</small>"]
@@ -42,7 +42,7 @@ flowchart LR
   n6 -.->|filters| g1
 ```
 
-## written
+## write_job_day_costs
 
 It writes the Saved table mart.job_day_costs, replacing each partition its rows fill.
 
@@ -89,7 +89,7 @@ Rows that count:
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('costs_per_job', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- written: Key (job_id, dt), since costs_per_job's rows are told apart by job_id, dt.
+- write_job_day_costs: Key (job_id, dt), since costs_per_job's rows are told apart by job_id, dt.
 - mart.job_day_costs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted

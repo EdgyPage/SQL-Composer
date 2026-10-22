@@ -1,4 +1,4 @@
-# Lineage: written
+# Lineage: write_job_events_checks
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
@@ -6,15 +6,15 @@ Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draw
 
 ```mermaid
 flowchart LR
-  subgraph g0["written"]
+  subgraph g0["write_job_events_checks"]
     n0["row_count<br/><small>count_rows()</small>"]
     n2["dt<br/><small>job_events.dt</small>"]
   end
   subgraph g1["ops.job_events"]
     n1["ops.job_events.dt<br/><small>string</small>"]
   end
-  subgraph g2["filters on written"]
-    n3{{"WHERE in written<br/><small>equals(job_events.dt, #quot;2026-09-24#quot;)</small>"}}
+  subgraph g2["filters on write_job_events_checks"]
+    n3{{"WHERE in write_job_events_checks<br/><small>equals(job_events.dt, #quot;2026-09-24#quot;)</small>"}}
   end
   subgraph g3["mart.job_events_checks"]
     n4["mart.job_events_checks.row_count<br/><small>bigint</small>"]
@@ -27,7 +27,7 @@ flowchart LR
   n3 -.->|filters| g0
 ```
 
-## written
+## write_job_events_checks
 
 It writes the Saved table mart.job_events_checks, replacing each partition its rows fill.
 
@@ -37,15 +37,15 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `row_count`
 
-Calculated in **written** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **write_job_events_checks** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-written.row_count = count_rows()
+write_job_events_checks.row_count = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in written: `equals(job_events.dt, "2026-09-24")`, which is `job_events.dt = '2026-09-24'` (reads ops.job_events.dt)
+- WHERE in write_job_events_checks: `equals(job_events.dt, "2026-09-24")`, which is `job_events.dt = '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.dt`.
 
@@ -59,7 +59,7 @@ One value for each different `job_events.dt`.
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- written: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.
+- write_job_events_checks: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.
 - mart.job_events_checks' Key (dt) holds: each row written has its own.
 
 ### Hive as submitted

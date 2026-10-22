@@ -29,6 +29,7 @@ from . import _FOLDER
 from .writing import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
+    arguments_of,
     guard_control_character,
     guard_none_in_condition,
     guard_not_a_number,
@@ -130,6 +131,11 @@ def _no_operator(symbol: str, instead: str) -> NoReturn:
 
 class Column:
     """One column of a table, or a calculation made from columns.
+
+    >>> job_runs.duration_mins
+    job_runs.duration_mins
+    >>> sum_of(job_runs.duration_mins)
+    SUM(job_runs.duration_mins)
 
     A Table reference's columns are its attributes, such as `job_runs.status`, and the
     calculation functions, such as sum_of(...), give back a Column too. Arithmetic works with
@@ -451,6 +457,11 @@ def _descriptions(name: str, value: object) -> dict[str, str]:
 class Table:
     """A Table reference: a table's columns, its partition columns and its key.
 
+    >>> run_alerts = Table("ops.run_alerts", partitioned_by=["dt"], key=["alert_id"],
+    ...     columns={"alert_id": "bigint", "severity": "string", "dt": "string"})
+    >>> run_alerts
+    Table('ops.run_alerts', columns: alert_id, severity, dt)
+
     Its columns become attributes, so `job_runs.status` is checked when your script runs:
     a typo stops with the list of real columns. Write one per table, generated once by
     write_table_reference(...) and then yours to edit.
@@ -657,13 +668,12 @@ def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:
             what=f"Table({name!r}) was given {gone[0]}=, which Toolbox 7.0 replaced.",
             why="Since 7.0 a table is partitioned by any columns, or none, and no column is a "
             "day to the Toolbox: partitioned_by= lists them, and a date is compared as it is "
-            "written.",
+            f"written. Table takes {arguments_of(Table)}.",
             fix='Write partitioned_by=["dt"] where it said date_partition="dt", leave it out '
             "where it said date_partition=None, and remove date_format=. CHANGES.md, under "
             "7.0, says more.",
         )
-    refuse_removed_arguments(f"Table({name!r})", removed, "columns= and the names help(Table) "
-                             "lists")
+    refuse_removed_arguments(f"Table({name!r})", removed, Table)
 
 
 # --- A Saved table's storage -----------------------------------------------------------------
@@ -955,10 +965,6 @@ def _columns_of(t: object, call: str) -> list[Column]:
 def first_look(t: Table) -> Statement:
     """A first look at a table: all its columns, and 20 of its rows.
 
-    It is an ordinary Statement, with LIMIT 20. A partitioned table is read with
-    reads_all_partitions=True: Hive stops reading once it has 20 rows, so it is safe on a big
-    table too. Send it with run(first_look(t), query=...).
-
     >>> print(to_hive(first_look(job_runs)))
     SELECT
       job_runs.run_id,
@@ -969,6 +975,10 @@ def first_look(t: Table) -> Statement:
       job_runs.dt
     FROM ops.job_runs AS job_runs
     LIMIT 20
+
+    It is an ordinary Statement, with LIMIT 20. A partitioned table is read with
+    reads_all_partitions=True: Hive stops reading once it has 20 rows, so it is safe on a big
+    table too. Send it with run(first_look(t), query=...).
     """
     from .clauses import FROM, LIMIT, SELECT, statement
 
@@ -981,6 +991,9 @@ def first_look(t: Table) -> Statement:
 
 class Verdict:
     """What check_key(...) or check_table_reference(...) found, ready to print.
+
+    >>> check_key(jobs, query=example_database.query)
+    ops.jobs: the key (job_id) holds.
 
     Its `ok` is True when the check found nothing wrong, and printing it shows what it found.
     Make one with check_key(...) or check_table_reference(...), never Verdict(). Write the
@@ -1108,6 +1121,10 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
                           folder: str | Path | None = None, **removed: object) -> Path:
     '''Write a table's Table reference as a file, such as ops__run_alerts.py.
 
+    >>> path = write_table_reference("ops.run_alerts", query=example_database.query)
+    >>> path.name
+    'ops__run_alerts.py'
+
     It sends DESCRIBE through your `query` (it reads the table's description, never its
     rows) and writes the file in `folder`, such as "references", or in
     the folder you're working in when folder is left out. The file is imported as
@@ -1119,11 +1136,9 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     the columns DESCRIBE lists the table as partitioned by become its partitioned_by=. It
     never guesses the key or which columns don't add up: those are TODOs for you. Below the Table reference,
     under its Aliases heading, you can add your own names for its columns and conditions, as
-    its examples show. The file is yours from then on, and this refuses to overwrite it.
+    its examples show. The file is yours from then on, and this refuses to overwrite it. The
+    file it wrote:
 
-    >>> path = write_table_reference("ops.run_alerts", query=example_database.query)
-    >>> path.name
-    'ops__run_alerts.py'
     >>> print(path.read_text())
     """ops.run_alerts - TODO: say in one line what one row is."""
     from sqlglot_composer import Table
@@ -1156,7 +1171,7 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     #     <alias> = equals(run_alerts.severity, <value>)
     <BLANKLINE>
     '''
-    refuse_removed_arguments("write_table_reference", removed, "query=")
+    refuse_removed_arguments("write_table_reference", removed, write_table_reference)
     need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE through "
                         "your query, and reads what comes back.")
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
@@ -1317,16 +1332,16 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
               **removed: object) -> Verdict:
     """Check that no two rows share a table's key, on the rows where= picks.
 
+    >>> check_key(job_runs, query=example_database.query,
+    ...           where=equals(job_runs.dt, "2026-09-24"))
+    ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
+
     JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table
     to check its rows, and the warehouse never enforces one. This counts the rows per key and
     shows at most 20 keys that repeat. A partitioned table is checked on the rows `where`
     picks, such as where=equals(job_runs.dt, "2026-09-24"), since every Partition at once may
     be more than you want to read; reads_all_partitions=True checks them all. A table that
     isn't partitioned is checked whole.
-
-    >>> check_key(job_runs, query=example_database.query,
-    ...           where=equals(job_runs.dt, "2026-09-24"))
-    ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 
     A wrong key shows the keys that repeat:
 
@@ -1338,7 +1353,7 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
         101       3
         103       2
     """
-    refuse_removed_arguments("check_key", removed, "query=")
+    refuse_removed_arguments("check_key", removed, check_key)
     need_warehouse_call("check_key", "query", query, "It counts repeated keys with a query, "
                         "which gives back rows.")
     from .calculations import count_rows
@@ -1407,6 +1422,9 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
                           **removed: object) -> Verdict:
     """Compare a Table reference with its table as it is now, and list what differs.
 
+    >>> check_table_reference(job_runs, query=example_database.query)
+    ops.job_runs matches its Table reference.
+
     It sends DESCRIBE through your `query`, and lists problems (which make Statements wrong)
     and notes (which may not matter), each with the line to change in the Table reference
     file. The columns, their types and the columns the table is partitioned by come from
@@ -1426,8 +1444,8 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     table at a time, so another table that put its files in this table's own folder is
     reported when that other table is checked: check each of your Saved tables.
 
-    >>> check_table_reference(job_runs, query=example_database.query)
-    ops.job_runs matches its Table reference.
+    A Table reference that differs gets the line to change for each difference:
+
     >>> old_jobs = Table("ops.jobs", columns={"job_id": "int", "job_name": "string",
     ...     "owner": "string", "team": "string"}, key=["job_id"])
     >>> check_table_reference(old_jobs, query=example_database.query)
@@ -1438,7 +1456,7 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     Notes:
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
     """
-    refuse_removed_arguments("check_table_reference", removed, "query=")
+    refuse_removed_arguments("check_table_reference", removed, check_table_reference)
     need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE through "
                         "your query, and reads what comes back.")
     t = _real_table(t, "check_table_reference(...)")
@@ -1656,6 +1674,20 @@ def _buckets_problems(t: Table, described: Described) -> list[str]:
 def create_table(t: Table, may_exist: bool = False) -> Statement:
     """The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.
 
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/daily_runs")
+    >>> print(to_hive(create_table(daily_runs)))
+    CREATE EXTERNAL TABLE mart.daily_runs (
+      job_id BIGINT,
+      runs BIGINT
+    )
+    PARTITIONED BY (
+      dt STRING
+    )
+    STORED AS ORC
+    LOCATION '/data/your_team/mart.db/daily_runs'
+
     A Saved table is one your Statements write into. Send it once with
     run(create_table(t), execute=...). The table is external: its files are yours, in its own
     folder, the Table reference's location=, and the warehouse only keeps a record of
@@ -1682,20 +1714,6 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     A Table reference with a Key, such as key=["job_id", "dt"], gets
     PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
     reads the table and never checks: the Toolbox checks the Key itself, before each write.
-
-    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/mart.db/daily_runs")
-    >>> print(to_hive(create_table(daily_runs)))
-    CREATE EXTERNAL TABLE mart.daily_runs (
-      job_id BIGINT,
-      runs BIGINT
-    )
-    PARTITIONED BY (
-      dt STRING
-    )
-    STORED AS ORC
-    LOCATION '/data/your_team/mart.db/daily_runs'
 
     A table partitioned by region, then by day, in Parquet files, whose files go when it is
     dropped:

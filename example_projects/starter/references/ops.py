@@ -18,8 +18,10 @@ from references.ops__job_runs import job_runs
 from references.ops__jobs import jobs
 from references.ops__run_alerts import run_alerts
 
-# Its tables, by the names tab completion lists and a wrong name's message gives.
-_TABLES = ["job_runs", "jobs", "run_alerts"]
+# Its tables, by the names tab completion lists and a wrong name's message gives: the names
+# `from references.ops import *` gives, too.
+__all__ = ["job_runs", "jobs", "run_alerts"]
+_TABLES = __all__
 
 
 def __getattr__(name: str) -> NoReturn:

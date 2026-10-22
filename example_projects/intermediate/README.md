@@ -33,47 +33,37 @@ those tables read. `mart.job_events_checks` checks only the dt its `READS` names
 the rows in on the day it runs, and a check written again later would hide what was missing
 then.
 
-## What each folder holds
+## Every file of this Project
 
-```
-intermediate/
-├── warehouse.py             your query and execute: here, the Example database's
-├── admin/                   a notebook per Project action or check, and the Templates
-├── references/              a Table reference per table, and the Reference sheet
-│   ├── ops__job_events.py, ops__job_owners.py, ops__region_costs.py,
-│   │   ops__region_budgets.py, ops__team_notes.py
-│   ├── mart__job_day_costs.py, mart__job_day_facts.py, mart__team_days.py,
-│   │   mart__job_events_checks.py, mart__budget_overruns.py, mart__job_notes.py
-│   └── reference_sheet.csv
-├── building_blocks/         costs_per_job.py, days_rewritten.py,
-│                            events_per_job.py, owner_on_day.py
-└── tables/                  a Table folder per Saved table, each with its lineage/
-```
+The file map of Start a Project, the first step of the download's README, filled in: each
+file, the Project action that made it, and what was filled in by hand.
 
-## How each file was made
+| Path | Made by | What was filled in |
+|---|---|---|
+| `intermediate/`, this Project's folder | by hand | nothing |
+| `sqlglot_composer/` | you: copy it in from the download, before you run anything | nothing: never edit a file inside it |
+| the notebook `project.start()` was run from | by hand, in Jupyter; not kept here | nothing |
+| `warehouse.py` | `project.start()` | nothing: it is left as `start` writes it, running on the Example database |
+| `admin/`: add_references, change_a_saved_table, check_project, check_references, new_block, new_table, refresh_reference_sheet, remove_table and run_tables, each an .ipynb | `project.start()` | nothing |
+| `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action added an entry | nothing |
+| `admin/registry.csv`, the registry | `project.start()`, then each Project action that made a Table folder, a Table reference or a Building block added a row | nothing |
+| `admin/templates/`, the Templates | `project.start()` | nothing |
+| `references/ops__job_events.py`, `references/ops__job_owners.py`, `references/ops__region_costs.py`, `references/ops__region_budgets.py` and `references/ops__team_notes.py` | `project.add_references([...], query=query)` | their TODO lines, and an Alias, `ends_a_run`, the events that end a run, for ops.job_events, read by `building_blocks/events_per_job.py` |
+| `references/mart__job_day_costs.py`, `references/mart__job_day_facts.py`, `references/mart__team_days.py`, `references/mart__job_events_checks.py`, `references/mart__budget_overruns.py` and `references/mart__job_notes.py` | `project.new_table(...)` | their `<...>` and TODO lines |
+| `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
+| `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
+| `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |
+| `tables/mart__job_day_costs/mart__job_day_costs.ipynb`, and the same for each of the other five Saved tables | `project.new_table("mart.job_day_costs")`, and so on; `template="quality_checks"` for mart.job_events_checks | its `<...>` lines |
+| `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
+| admin/removed/, what is archived | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)` | nothing: nothing is archived here, so there is none yet |
 
-- `project.start()` made `admin/`, its notebooks and `templates/`, and `warehouse.py`, which
-  is left as `start` writes it.
-- `project.add_references(...)` wrote `references/ops__*.py` from each table's DESCRIBE; each
-  file's TODO lines were then filled in by hand, and an Alias written below one.
-- `project.new_table(...)` made each Table folder, its notebook and its Table reference,
-  `references/mart__*.py`; each notebook and Table reference was then filled in by hand.
-- `project.new_block(...)` made each file in `building_blocks/` from the `building_block`
-  Template, one Building block to a file; each was then filled in by hand. `days_rewritten.py`
-  and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code
-  was written over.
-- This README was written by hand, as an Example project's own note: a Project of yours needs
-  none.
-- Each notebook's lineage cell exported its `lineage/` pair, and
-  `project.refresh_reference_sheet()` wrote `references/reference_sheet.csv`.
-- `admin/admin_log.md` and `admin/registry.csv` hold what each Project action did, as it ran.
+This README was written by hand, as an Example project's own note: a Project of yours needs
+none.
 
 `ops.region_costs` is partitioned by region, then dt, which `add_references` read from the
 table into `references/ops__region_costs.py`, and writes its days like 20260924:
 `building_blocks/costs_per_job.py` writes them like 2026-09-24, as the project's other
 tables do.
-`references/ops__job_events.py` ends with an Alias, `ends_a_run`, the events that end a run,
-which `building_blocks/events_per_job.py` reads.
 
 ## Running it
 

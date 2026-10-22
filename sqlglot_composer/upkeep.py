@@ -12,7 +12,7 @@ import inspect
 from types import FrameType
 
 from .clauses import Statement
-from .refusals import refuse, refuse_removed_arguments
+from .refusals import arguments_of, refuse, refuse_removed_arguments
 from .running import _need_statement, _statement_tree
 from .tables import (
     Column,
@@ -38,6 +38,12 @@ def _upkeep(tree: Node) -> Statement:
 def repair_partitions(t: Table) -> Statement:
     """The MSCK REPAIR TABLE Statement, which finds a Saved table's Partitions.
 
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/daily_runs")
+    >>> print(to_hive(repair_partitions(daily_runs)))
+    MSCK REPAIR TABLE mart.daily_runs
+
     The warehouse keeps a list of each table's Partitions, the folders inside its own that it
     reads, such as dt=2026-09-24 or region=EU/dt=2026-09-24, and never reads a folder missing
     from it. A folder goes missing from the list when files reach the table's folder without a
@@ -48,12 +54,6 @@ def repair_partitions(t: Table) -> Statement:
 
     It takes only one of your Saved tables, a Table reference with location= and
     partitioned_by=. The Example database can't run it, as its tables are made up and fixed.
-
-    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/mart.db/daily_runs")
-    >>> print(to_hive(repair_partitions(daily_runs)))
-    MSCK REPAIR TABLE mart.daily_runs
     """
     t = need_saved_table(t, "repair_partitions(...)")
     if not t._partitioned_by:
@@ -72,6 +72,12 @@ def compute_statistics(t: Table, partition: dict[str, object] | None = None,
                        columns: bool | list[Column | str] = False,
                        **removed: object) -> Statement:
     """The ANALYZE TABLE Statement, which counts a Saved table's rows again.
+
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/daily_runs")
+    >>> print(to_hive(compute_statistics(daily_runs)))
+    ANALYZE TABLE mart.daily_runs PARTITION(dt) COMPUTE STATISTICS
 
     Hive picks how to join a table from its statistics: how many rows and bytes it holds, in
     each of its Partitions. Without them it guesses, and may sort two big tables to join them
@@ -98,11 +104,6 @@ def compute_statistics(t: Table, partition: dict[str, object] | None = None,
     It takes only one of your Saved tables, a Table reference with location=. The Example
     database can't run it, as its tables are made up and fixed.
 
-    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/mart.db/daily_runs")
-    >>> print(to_hive(compute_statistics(daily_runs)))
-    ANALYZE TABLE mart.daily_runs PARTITION(dt) COMPUTE STATISTICS
     >>> print(to_hive(compute_statistics(daily_runs, partition={"dt": "2026-09-24"})))
     ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
     >>> print(to_hive(compute_statistics(daily_runs, partition={"dt": "2026-09-24"},
@@ -115,11 +116,12 @@ def compute_statistics(t: Table, partition: dict[str, object] | None = None,
         refuse(
             what="compute_statistics(...) was given day=, which Toolbox 7.0 replaced.",
             why="A table's Partitions are its own, of any kind, so the Partitions to count are "
-            "named by their partition columns.",
+            "named by their partition columns. It takes "
+            f"{arguments_of(compute_statistics)}.",
             fix='Pass partition={...} instead, such as partition={"dt": "2026-09-24"}, or '
             "leave it out to count every Partition.",
         )
-    refuse_removed_arguments("compute_statistics", removed, "partition= and columns=")
+    refuse_removed_arguments("compute_statistics", removed, compute_statistics)
     t = need_saved_table(t, "compute_statistics(...)")
     target = table_node(t._name, partition=_partitions_counted(t, partition))
     return _upkeep(Node("Analyze", target=target, columns=_columns_counted(t, columns)))
@@ -238,6 +240,17 @@ def _column_name(t: Table, column: object) -> str:
 def explain(s: Statement) -> Statement:
     """The EXPLAIN Statement: Hive's plan for running a Statement, without running it.
 
+    >>> print(to_hive(explain(statement(
+    ...     SELECT(job_runs.run_id),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24")),
+    ... ))))
+    EXPLAIN SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24'
+
     run(explain(s), query=...) gives back Hive's plan as text, which prints line by line. It is
     the plan of exactly the Hive run(s, query=...) would send, with the LIMIT run adds when
     set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It
@@ -257,17 +270,6 @@ def explain(s: Statement) -> Statement:
     On the Example database, explain gives no plan: it runs its queries on a small executor of
     its own, which makes none, and says so. It refuses explain of a write as it refuses the
     write itself.
-
-    >>> print(to_hive(explain(statement(
-    ...     SELECT(job_runs.run_id),
-    ...     FROM(job_runs),
-    ...     WHERE(equals(job_runs.dt, "2026-09-24")),
-    ... ))))
-    EXPLAIN SELECT
-      job_runs.run_id
-    FROM ops.job_runs AS job_runs
-    WHERE
-      job_runs.dt = '2026-09-24'
     """
     _need_explainable(s, inspect.currentframe().f_back)
     return _upkeep(Node("Explain", this=_statement_tree(s)))

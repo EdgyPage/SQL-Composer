@@ -8,9 +8,10 @@
 # counts alerts.
 #
 # Made by `project.new_table("mart.alerts_per_job")` from `admin/templates/saved_table.py`, then
-# filled in. A run can raise an alert after midnight, so ops.job_runs is read from the day
-# before as well: an alert counts on the day it was raised, whichever of the two days its run
-# is in. Each alert joins its run on run_id, ops.job_runs' Key, so it is counted once.
+# filled in. Its rows join each alert to its run, for the run's job, so READS filters both
+# tables. A run can raise an alert after midnight, so ops.job_runs is read from the day before
+# as well: an alert counts on the day it was raised, whichever of the two days its run is in.
+# Each alert joins its run on run_id, ops.job_runs' Key, so it is counted once.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet.
@@ -26,23 +27,20 @@ from warehouse import query
 
 # %%
 # logic
-# 2. The logic: imports, the day it writes, and functions only
-import datetime
-
+# 2. The logic: imports, the rows it reads, and functions only
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, Clause, Statement, count_rows,
-    create_table, equals, is_in, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, Clause, Statement, all_of,
+    between, count_rows, create_table, equals, statement,
 )
 from references.mart__alerts_per_job import alerts_per_job
 from references.ops__job_runs import job_runs
 from references.ops__run_alerts import high, run_alerts  # high: an Alias, severity is "high"
 
-DAY = "2026-09-24"  # the dt write() writes: change it to write another
-
-
-def day_before(day: str) -> str:
-    """The day before `day`, written the same way: day_before("2026-09-24") is "2026-09-23"."""
-    return (datetime.date.fromisoformat(day) - datetime.timedelta(days=1)).isoformat()
+# The rows write() reads: change it to write others. It reads two tables, so it filters
+# both: the alerts raised on a day, and the runs of that day and the day before, since a run
+# can raise an alert after midnight.
+READS = all_of(equals(run_alerts.dt, "2026-09-24"),
+               between(job_runs.dt, "2026-09-23", "2026-09-24"))
 
 
 def create() -> Statement:
@@ -51,17 +49,16 @@ def create() -> Statement:
 
 
 def rows() -> list[Clause]:
-    """The clauses preview and write share: each job's alerts raised on DAY. dt comes last in
-    SELECT, as run_alerts.dt, the day each alert was raised: INSERT_OVERWRITE writes the rows
-    into the Partition their dt names. job_runs is read on the day before DAY too, since an
-    alert can come the day after its run."""
+    """The clauses preview and write share: each job's alerts for each dt of the alerts READS
+    picks. dt comes last in SELECT, as run_alerts.dt, the day each alert was raised:
+    INSERT_OVERWRITE writes the rows into the Partitions their dt names."""
     return [
         SELECT(job_runs.job_id, AS(count_rows(), "alerts"),
                AS(count_rows(where=high), "high_alerts"), run_alerts.dt),
         FROM(run_alerts),
         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
-        WHERE(equals(run_alerts.dt, DAY), is_in(job_runs.dt, [day_before(DAY), DAY])),
-        GROUP_BY(run_alerts.dt, job_runs.job_id),
+        WHERE(READS),
+        GROUP_BY(job_runs.job_id, run_alerts.dt),
     ]
 
 
@@ -71,11 +68,11 @@ def preview() -> Statement:
 
 
 def write() -> Statement:
-    """Step 3: save DAY's rows, replacing whatever DAY's Partition held."""
+    """Step 3: save the rows, replacing whatever the Partitions they fill held."""
     return statement(INSERT_OVERWRITE(alerts_per_job), *rows())
 
 # %%
-# 3. Try it: the Hive of each step, then the day's rows
+# 3. Try it: the Hive of each step, then the rows
 show_hive([create(), write()])
 run(preview(), query=query)
 

@@ -18,9 +18,11 @@ and so do the stops of the import self-check in checks.py.
 
 from __future__ import annotations
 
+import inspect
 import os
 import sys
 import warnings
+from collections.abc import Callable
 from types import FrameType
 from typing import NoReturn
 
@@ -37,11 +39,6 @@ TOOLBOX_VERSION = "7.0"
 class GuardRefused(Exception):
     """A Guard stopped a Statement that would silently give a wrong answer.
 
-    The message says what happened, why the number would come out wrong and the usual fix.
-    When the Guard has an opt-out, it also gives the keyword to paste if you really mean it;
-    when it has none, it says so. It is raised at your own line. To catch it, import it with
-    the rest, as `from sqlglot_composer import GuardRefused`.
-
     >>> SELECT(count_rows())
     Traceback (most recent call last):
     ...
@@ -50,15 +47,16 @@ class GuardRefused(Exception):
       Why it matters: Without a name, the warehouse makes one up, such as _c0 or count(1), and that is the name pandas would show you.
       Usual fix:      Name it with AS, as in SELECT(AS(count_rows(), "runs")).
       Opt-out:        none - a calculation always needs a name.
+
+    The message says what happened, why the number would come out wrong and the usual fix.
+    When the Guard has an opt-out, it also gives the keyword to paste if you really mean it;
+    when it has none, it says so. It is raised at your own line. To catch it, import it with
+    the rest, as `from sqlglot_composer import GuardRefused`.
     """
 
 
 class LoadRefused(Exception):
     """A Load limit stopped a Statement that would read or return too much.
-
-    The message says what happened, why the cluster or the notebook would stall, the usual
-    fix, and the opt-out keyword to paste if you really mean it. To catch it, import it with
-    the rest, as `from sqlglot_composer import LoadRefused`.
 
     >>> statement(SELECT(job_runs.run_id), FROM(job_runs))
     Traceback (most recent call last):
@@ -68,6 +66,10 @@ class LoadRefused(Exception):
       Why it matters: The warehouse would read every Partition the table holds, which can stall the cluster for everyone.
       Usual fix:      Filter one of them in WHERE, as in WHERE(equals(job_runs.dt, ...)), or with is_in, between or last_n_days.
       Opt-out:        FROM(job_runs, reads_all_partitions=True)
+
+    The message says what happened, why the cluster or the notebook would stall, the usual
+    fix, and the opt-out keyword to paste if you really mean it. To catch it, import it with
+    the rest, as `from sqlglot_composer import LoadRefused`.
     """
 
 
@@ -462,27 +464,48 @@ def refuse(what: str, why: str, fix: str, *, error: type[Exception] = TypeError,
     raise error(four_part_message(what=what, why=why, fix=fix, opt_out=None))
 
 
-def refuse_removed_arguments(call: str, removed: dict[str, object], takes: str) -> None:
+def arguments_of(function: Callable[..., object]) -> str:
+    """Every argument `function` takes, as you would pass it, such as "t, query= and where=".
+
+    The thing it is about, its first argument when that is passed by place, is named alone, as
+    the t of check_key(t, query=...); each other argument with its =. A **removed catch-all
+    isn't one of them.
+    """
+    parameters = [parameter for parameter in inspect.signature(function).parameters.values()
+                  if parameter.kind is not parameter.VAR_KEYWORD]
+    names = [f"{parameter.name}=" for parameter in parameters]
+    first = parameters[0] if parameters else None
+    if first and first.kind is first.POSITIONAL_OR_KEYWORD and first.default is first.empty:
+        names[0] = first.name
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def refuse_removed_arguments(call: str, removed: dict[str, object],
+                             takes: Callable[..., object]) -> None:
     """Refuse what a public function's **removed caught: the send= that 7.0 replaced, or any
-    other name it doesn't take. `takes` names what it takes instead, such as "query=".
+    other name it doesn't take. `takes` is the function itself, whose arguments the message
+    names.
     """
     if not removed:
         return
+    arguments = arguments_of(takes)
     if "send" in removed:
+        warehouse = " and ".join(f"{name}=" for name in ("query", "execute")
+                                 if name in inspect.signature(takes).parameters)
         refuse(
             what=f"{call} was given send=, which Toolbox 7.0 replaced.",
             why="Since 7.0 your warehouse.py holds two calls: query, which gives back rows as a "
             "DataFrame, and execute, which gives back nothing. Each Toolbox function takes only "
-            "the ones it uses.",
-            fix=f"Pass {takes} instead, imported with from warehouse import query, execute. "
+            f"the ones it uses: this one takes {arguments}.",
+            fix=f"Pass {warehouse} instead, imported with from warehouse import query, execute. "
             "CHANGES.md, under 7.0, says how to turn your send.py into warehouse.py.",
         )
     names = ", ".join(f"{name}=" for name in removed)
     refuse(
         what=f"{call} was given {names}, which it doesn't take.",
-        why=f"It takes {takes}, besides what it is about.",
-        fix=f"Leave {names} out, or check its spelling: help() on the function lists what it "
-        "takes.",
+        why=f"It takes {arguments}, and nothing else.",
+        fix=f"Leave {names} out, or check its spelling: help() on the function says what each "
+        "of its arguments is for.",
     )
 
 
@@ -531,7 +554,7 @@ def refuse_what_isnt_a_dataframe(result: object) -> None:
         fix=f"{start}. From a query API, it is pd.DataFrame(rows), which takes the column "
         "names from each row's keys when the API gives each row as a dict; when it gives each "
         "row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). "
-        "How-to 1, Start a Project, shows how to write your query.",
+        "The how-to Start a Project shows how to write your query.",
         opt_out=None,
     ))
 
