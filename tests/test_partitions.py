@@ -32,6 +32,7 @@ from sqlglot_composer import (
     at_least,
     at_most,
     between,
+    compute_statistics,
     count_rows,
     derived,
     equals,
@@ -334,24 +335,27 @@ def test_a_column_partition_names_is_selected_as_an_extra_column() -> None:
                  id="an_empty_dict"),
     pytest.param(["region"], TypeError, "partition= is a dict", id="not_a_dict"),
 ])
-@pytest.mark.parametrize("write", [INSERT_OVERWRITE, INSERT_INTO])
+@pytest.mark.parametrize("call", [INSERT_OVERWRITE, INSERT_INTO, compute_statistics])
 def test_partition_refuses_what_doesnt_name_its_first_columns_values(
-        write: Callable[..., object], partition: object, error: type[Exception],
+        call: Callable[..., object], partition: object, error: type[Exception],
         said: str) -> None:
+    # A write and compute_statistics check partition= alike, with the same refusals.
     with pytest.raises(error) as refused:
-        write(region_runs, partition=partition)
+        call(region_runs, partition=partition)
     assert said in " ".join(str(refused.value).split())
-    assert f"{write.__name__}(region_runs, partition=" in str(refused.value)
+    assert f"{call.__name__}(region_runs, partition=" in str(refused.value)
 
 
-def test_partition_on_an_unpartitioned_table_is_refused() -> None:
+@pytest.mark.parametrize("call", [INSERT_OVERWRITE, INSERT_INTO, compute_statistics])
+def test_partition_on_an_unpartitioned_table_is_refused(call: Callable[..., object]) -> None:
     saved = Table("mart.job_teams", columns={"job_id": "bigint", "team": "string"},
                   location="/data/your_team/mart.db/job_teams")
     with pytest.raises(ValueError) as refused:
-        INSERT_OVERWRITE(saved, partition={"team": "data"})
-    message = str(refused.value)
-    assert "INSERT_OVERWRITE(job_teams, partition=...): mart.job_teams isn't partitioned." in message
-    assert "Leave partition= out: the write fills the whole table." in message
+        call(saved, partition={"team": "data"})
+    message = " ".join(str(refused.value).split())
+    assert (f"{call.__name__}(job_teams, partition=...): mart.job_teams isn't partitioned."
+            in message)
+    assert f"Leave partition= out, as in {call.__name__}(job_teams)" in message
 
 
 # --- Writes: the Key -------------------------------------------------------------------------

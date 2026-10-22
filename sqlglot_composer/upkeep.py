@@ -8,6 +8,7 @@ tables.py, is the fourth Statement of this kind.
 
 from __future__ import annotations
 
+import datetime
 import inspect
 from types import FrameType
 
@@ -18,15 +19,20 @@ from .running import _need_statement, _statement_tree
 from .tables import (
     Column,
     Table,
-    literal,
     need_saved_table,
     partition_columns,
-    python_text,
+    partitions_named,
     table_node,
 )
 from .trees import Node
 
 TOOLBOX_VERSION = "7.1"
+
+
+# What compute_statistics does with a partition column its partition= doesn't name, for the
+# refusals.
+_COUNTS_THE_REST = ("compute_statistics counts every value of each partition column it "
+                    "doesn't name")
 
 
 def _upkeep(tree: Node, kind: str = kinds.UPKEEP) -> Statement:
@@ -69,9 +75,9 @@ def repair_partitions(t: Table) -> Statement:
     return _upkeep(Node("Repair", target=table_node(t._name)))
 
 
-def compute_statistics(t: Table, partition: dict[str, object] | None = None,
-                       columns: bool | list[Column | str] = False,
-                       **removed: object) -> Statement:
+def compute_statistics(
+        t: Table, partition: dict[str, str | int | float | bool | datetime.date] | None = None,
+        columns: bool | list[Column | str] = False, **removed: object) -> Statement:
     """The ANALYZE TABLE Statement, which counts a Saved table's rows again.
 
     >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
@@ -124,69 +130,9 @@ def compute_statistics(t: Table, partition: dict[str, object] | None = None,
         )
     refuse_removed_arguments("compute_statistics", removed, compute_statistics)
     t = need_saved_table(t, "compute_statistics(...)")
-    target = table_node(t._name, partition=_partitions_counted(t, partition))
+    counted = partitions_named(t, partition, "compute_statistics", _COUNTS_THE_REST)
+    target = table_node(t._name, partition=counted.tree)
     return _upkeep(Node("Analyze", target=target, columns=_columns_counted(t, columns)))
-
-
-def _partitions_counted(t: Table, partition: object) -> Node | None:
-    """ANALYZE's PARTITION(...): each partition column, as `column = value` where `partition`
-    names it and by its name where it doesn't; None for an unpartitioned table."""
-    call = f"compute_statistics({t._alias}, partition=...)"
-    if partition is not None and not isinstance(partition, dict):
-        refuse(
-            what=f"compute_statistics({t._alias}, {python_text(partition)}) wasn't given a "
-            "dict for partition=.",
-            why="partition= names the Partitions to count, from each partition column to its "
-            "value.",
-            fix='Write it as a dict, such as partition={"dt": "2026-09-24"}, or leave it out '
-            "to count every Partition.",
-        )
-    if not t._partitioned_by:
-        if partition:
-            refuse(
-                what=f"{call}: {t._name} has no partitioned_by=, and was given "
-                f"partition={python_text(list(partition))}.",
-                why="A table with no Partitions is counted whole, with none to pick.",
-                fix=f"Leave partition= out: compute_statistics({t._alias}).",
-                error=ValueError,
-            )
-        return None
-    named = partition or {}
-    for name, value in named.items():
-        if name not in t._partitioned_by:
-            refuse(
-                what=f"{call}: {python_text(name)} isn't one of {t._name}'s partition columns.",
-                why="partition= names Partitions by the columns the table is partitioned by.",
-                fix=f"Name some of: {', '.join(t._partitioned_by)}.",
-                error=ValueError,
-            )
-        if value is None:
-            refuse(
-                what=f"{call}: the value of {name} is None.",
-                why="partition= names Partitions by one value of each column it gives.",
-                fix=f"Give {name} a value, or leave it out to count every value of it.",
-                error=ValueError,
-            )
-    leading = t._partitioned_by[:len(named)]
-    if set(named) != set(leading):
-        refuse(
-            what=f"{call} names {', '.join(named)}, but not the partition columns before it: "
-            f"{t._name} is partitioned by {', '.join(t._partitioned_by)}.",
-            why="Hive takes the values of a table's first partition columns, then the rest by "
-            "name, so a value can't follow a column given by its name alone.",
-            fix=f"Name {', '.join(leading)} too, or only the first of them: "
-            f"partition={{{python_text(t._partitioned_by[0])}: ...}}.",
-            error=ValueError,
-        )
-    parts = []
-    for name in t._partitioned_by:
-        column = Node("Column", name=name)
-        if name in named:
-            value = literal(named[name], call=call, column=t._column(name),
-                            position=f"the value of {name}", in_condition=False)
-            column = Node("EQ", this=column, expression=value)
-        parts.append(column)
-    return Node("Partition", expressions=parts)
 
 
 def _columns_counted(t: Table, columns: object) -> list[str]:
