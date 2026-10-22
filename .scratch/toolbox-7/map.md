@@ -36,7 +36,7 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 
 ### Toolbox 7.1: tickets 09 to 11
 
-- **09 to 14 are Toolbox 7.1** (12 to 14 the user's "Do candidates 3 and 4 and 5", the same day), the user's call (2026-10-22): "Make sure this is version 7.1".
+- **09 to 18 are Toolbox 7.1** (15 to 18 the user's cleanup, "7.1 is the most current version"; 12 to 14 the user's "Do candidates 3 and 4 and 5", the same day), the user's call (2026-10-22): "Make sure this is version 7.1".
   7.0 is dev as d3c0a93 left it, and stays as CHANGES.md's `## 7.0` says; 09 raises the version
   to 7.1 and writes CHANGES.md's `## 7.1`, with "To update from 7.0".
 
@@ -164,6 +164,13 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
   printed for stand-ins, and a stand-in warehouse from Table references.
 - [14 Partitions named](issues/14-partitions-named.md): candidate 5; one check of partition=,
   so compute_statistics refuses what a write refuses.
+- [15 Usage tests and a ranking](issues/15-usage-tests-and-a-ranking.md): a dead-code scan as a
+  test, a usage report (coverage, dev only), and a ranking by usage and simplification.
+- [16 Dead and stale code out](issues/16-dead-and-stale-code-out.md): dead names, the 7.0-only
+  refusals, copied helpers, dead checks; tests for untested opt-outs.
+- [17 Compress the ranked shapes](issues/17-compress-the-ranked-shapes.md): shared helpers for
+  the repeated shapes, highest usage first.
+- [18 tools/ shared pieces](issues/18-tools-shared-pieces.md): optional, low usage.
 
 The order is the user's (2026-10-21): one at a time, each blocked by the one before, since 02 to
 06 share `project.py`, `running.py`, `tables.py` and the Templates, and 07 writes about the shape
