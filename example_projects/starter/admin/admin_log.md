@@ -19,6 +19,13 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.new_block("runs_per_job")`
+- Files: created building_blocks/runs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_table("mart.daily_job_runs")`
 - Tables named: mart.daily_job_runs
 - Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py

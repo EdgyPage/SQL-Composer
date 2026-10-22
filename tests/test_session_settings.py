@@ -1,7 +1,7 @@
 """Session settings: hive_settings(...) gives the SET lines of a named set, run sends them.
 
 Map family 3 and ADR 0006. A set is one the Toolbox ships, each documented with why, or one of
-the user's own, kept in their settings.py as HIVE_SETTINGS and passed as sets=. The SET lines
+the user's own, kept in a dict such as HIVE_SETTINGS and passed as sets=. The SET lines
 aren't a Statement, but run, show_hive and export_lineage take them as they take one: run sends
 each line as a call of its own, show_hive prints them, and export_lineage names them in its
 footers.

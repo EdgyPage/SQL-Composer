@@ -71,8 +71,9 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
 
     Where the function lives is read from the function itself: its file, from your Project's
     folder (or, outside a Project, the folder it is in), its name and its first line. Keep it
-    in a file of building_blocks/ so its line stays put; one defined in a notebook cell is named
-    by its notebook, and its line is a line of the cell. A lambda, or anything else that isn't
+    in a Building block, a file of building_blocks/ that project.new_block(...) makes, so its
+    line stays put; one defined in a notebook cell is named by its notebook, and its line is a
+    line of the cell. A lambda, or anything else that isn't
     a function written with def, is refused, since it has no name or file to find it by.
 
     It sends nothing. export_lineage draws it as one step it can't see inside, from the
@@ -184,8 +185,8 @@ def _need_a_function(function: object) -> None:
         refuse(
             what="python_step was given a lambda.",
             why=f"{why} A lambda has no name to find it by.",
-            fix="Write the change as a function with def and a name, in a file of "
-            f"building_blocks/, and pass it: {_EXAMPLE}.",
+            fix="Write the change as a function with def and a name, in a Building block "
+            f"(project.new_block(...) makes one), and pass it: {_EXAMPLE}.",
             error=ValueError,
         )
     if inspect.isfunction(function):
@@ -206,8 +207,8 @@ def _need_a_function(function: object) -> None:
     refuse(
         what=what,
         why=why,
-        fix="Write the change as a function of your own, with def and a name, in a file of "
-        f"building_blocks/, and pass it: {_EXAMPLE}.",
+        fix="Write the change as a function of your own, with def and a name, in a Building "
+        f"block (project.new_block(...) makes one), and pass it: {_EXAMPLE}.",
         given=function, call="python_step",
     )
 

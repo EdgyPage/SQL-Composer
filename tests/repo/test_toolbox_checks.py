@@ -5,7 +5,7 @@
 - every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md, at the repo's top, has a
   section for it;
 - the public names are exactly the list below, so a name is added or removed only here, and
-  so are the admin module's, which the star import leaves out;
+  so are the admin module's and the project module's, which the star import leaves out;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
 - requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
   pinned to the version requirements-dev.txt pins;
@@ -72,6 +72,11 @@ PUBLIC_NAMES = [
 # days, so drop_partitions replaced drop_days and by_day left the names above.
 ADMIN_NAMES = ["drop_table", "drop_partitions", "add_columns", "set_properties",
                "move_to_own_folder"]
+# The project module's names, `from sqlglot_composer import project`, as decided in Toolbox
+# 6.0's ticket 06. Toolbox 7.0, ticket 06: new_block and remove_block, for Building blocks.
+PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_block",
+                 "add_references", "remove_reference", "register", "check",
+                 "refresh_reference_sheet", "load", "run_tables"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER
@@ -99,6 +104,12 @@ def test_the_admin_modules_names_are_the_decided_ones() -> None:
     assert sqlglot_composer.admin.__all__ == ADMIN_NAMES
     for name in ADMIN_NAMES:
         assert callable(getattr(sqlglot_composer.admin, name)), name
+
+
+def test_the_project_modules_names_are_the_decided_ones() -> None:
+    assert sqlglot_composer.project.__all__ == PROJECT_NAMES
+    for name in PROJECT_NAMES:
+        assert callable(getattr(sqlglot_composer.project, name)), name
 
 
 def test_each_toolbox_file_imports_only_what_toolbox_folder_allows() -> None:
