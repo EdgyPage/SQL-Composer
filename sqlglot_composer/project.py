@@ -62,7 +62,6 @@ import csv
 import datetime
 import importlib
 import inspect
-import json
 import keyword
 import re
 import shutil
@@ -77,6 +76,7 @@ import pandas as pd
 
 from . import kinds
 from .clauses import Statement
+from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
 from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
@@ -381,9 +381,9 @@ def start() -> ProjectReport:
     for name, text in TEMPLATES.items():
         (templates / f"{name}.py").write_text(text, encoding="utf-8")
     for name, (about, cells) in ADMIN_NOTEBOOKS.items():
-        _write_notebook(here / "admin" / f"{name}.ipynb",
-                        [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
-                         *[("code", cell) for cell in cells]])
+        write_notebook(here / "admin" / f"{name}.ipynb",
+                       [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
+                        *[("code", cell) for cell in cells]])
     _write_registry(here, [])
     (here / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
     _log(here, "project.start()", [],
@@ -413,8 +413,8 @@ def _complete(root: Path, frame: FrameType) -> ProjectReport:
     for name, (about, cells) in ADMIN_NOTEBOOKS.items():
         path = root / "admin" / f"{name}.ipynb"
         if not path.exists():
-            _write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
-                                   *[("code", cell) for cell in cells]])
+            write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
+                                  *[("code", cell) for cell in cells]])
             added.append(f"admin/{name}.ipynb")
     # A Project from before 7.0 holds send.py: its calls go into warehouse.py by hand.
     before_7 = (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists()
@@ -519,8 +519,8 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     fills = {"<DB>": database, "<TABLE>": table, "<NAME>": stem}
     folder.mkdir(parents=True)
     (folder / "lineage").mkdir()
-    _write_notebook(folder / f"{stem}.ipynb",
-                    _template_cells(_filled(template_path.read_text(encoding="utf-8"), fills)))
+    write_notebook(folder / f"{stem}.ipynb",
+                   template_cells(_filled(template_path.read_text(encoding="utf-8"), fills)))
     made = [f"created tables/{stem}/ ({stem}.ipynb, lineage/)"]
     rows = [TABLE_FOLDER]
     report = [f"Made tables/{stem}/: {stem}.ipynb and lineage/, from",
@@ -782,11 +782,10 @@ def _importers(root: Path, name: str) -> list[str]:
     found = []
     for notebook in sorted((root / "tables").glob("*/*.ipynb")):
         try:
-            cells = json.loads(notebook.read_text(encoding="utf-8")).get("cells", [])
+            cells = read_cells(notebook)
         except ValueError:  # a notebook Jupyter can't read either imports nothing
             continue
-        if any(cell.get("cell_type") == "code" and imports.search("".join(cell.get("source", [])))
-               for cell in cells):
+        if any(kind == "code" and imports.search(text) for kind, text in cells):
             found.append(notebook.relative_to(root).as_posix())
     found += [f"building_blocks/{block.name}"
               for block in sorted((root / "building_blocks").glob("*.py"))
@@ -1367,8 +1366,6 @@ def _remove_databases(root: Path, databases: set[str], changed: list[str],
 
 # --- load and run_tables ----------------------------------------------------------------------
 
-# The first line of a Table notebook's logic cell.
-LOGIC = "# logic"
 # The folders of a Project whose modules a logic cell imports, read again by each load.
 OWN_MODULES = ("references", "building_blocks")
 # What load names the module a logic cell runs as, before the table's name: a function the
@@ -1496,7 +1493,7 @@ def _checked_logic(root: Path, stem: str, call: str) -> str:
             "<db>__<table>. Make one with project.new_table(...).",
             error=FileNotFoundError,
         )
-    source = _logic_cell(notebook)
+    source = logic_cell(notebook, shown=shown, call=call)
     if source is None:
         refuse(
             what=f"{call}: {shown} has no cell whose first line is {LOGIC}.",
@@ -1535,16 +1532,6 @@ def _checked_logic(root: Path, stem: str, call: str) -> str:
             error=ValueError,
         )
     return source
-
-
-def _logic_cell(notebook: Path) -> str | None:
-    """The source of a notebook's logic cell: the code cell whose first line is # logic."""
-    for cell in json.loads(notebook.read_text(encoding="utf-8")).get("cells", []):
-        source = "".join(cell.get("source", []))
-        lines = source.strip().splitlines()
-        if cell.get("cell_type") == "code" and lines and lines[0].strip() == LOGIC:
-            return source
-    return None
 
 
 def run_tables(*, execute: Callable[[str], None] | None = None,
@@ -1781,41 +1768,6 @@ def _is_notebook_template(path: Path) -> bool:
     """Whether a file in admin/templates/ is a Table notebook's Template: one in cells."""
     return path.is_file() and any(line.startswith("# %%") for line in
                                   path.read_text(encoding="utf-8").splitlines())
-
-
-def _template_cells(text: str) -> list[tuple[str, str]]:
-    """A Template's cells, as (kind, text): each starts at a "# %%" line, and a
-    "# %% [markdown]" cell's lines lose their "# "."""
-    cells: list[tuple[str, list[str]]] = []
-    for line in text.splitlines():
-        if line.startswith("# %%"):
-            cells.append(("markdown" if "[markdown]" in line else "code", []))
-        elif cells:
-            kind, lines = cells[-1]
-            if kind == "markdown":
-                line = line[2:] if line.startswith("# ") else line.removeprefix("#")
-            lines.append(line)
-    return [(kind, "\n".join(lines).strip("\n")) for kind, lines in cells]
-
-
-def _write_notebook(path: Path, cells: list[tuple[str, str]]) -> None:
-    """Write a Jupyter notebook as the plain JSON Jupyter reads, its cells not yet run."""
-    def cell(kind: str, text: str) -> dict[str, object]:
-        lines = text.splitlines(keepends=True)
-        if kind == "markdown":
-            return {"cell_type": "markdown", "metadata": {}, "source": lines}
-        return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
-                "source": lines}
-
-    notebook = {
-        "cells": [cell(kind, text) for kind, text in cells],
-        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python",
-                                    "name": "python3"},
-                     "language_info": {"name": "python"}},
-        "nbformat": 4,
-        "nbformat_minor": 4,
-    }
-    path.write_text(json.dumps(notebook, indent=1) + "\n", encoding="utf-8")
 
 
 def _archive(root: Path, path: Path, stem: str) -> Path:

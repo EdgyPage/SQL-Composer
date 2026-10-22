@@ -36,6 +36,11 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `run_execute`. For a Project made with 7.0, change each `run` in your own notebooks, and in
   your copies of the Templates in `admin/templates/`, as above.
 
+### Also new
+
+- **`project.load` refuses a notebook Jupyter couldn't open**, one that isn't JSON or holds no
+  cells, naming its file, where 7.0 stopped with Python's own JSON error.
+
 ## 7.0
 
 7.0 changes how the Toolbox reaches your warehouse and drops its assumption that tables are

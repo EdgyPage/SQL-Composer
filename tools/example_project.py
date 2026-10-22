@@ -268,10 +268,9 @@ def _add_building_blocks(name: str, folder: Path) -> None:
 def _add_saved_tables(name: str, folder: Path) -> None:
     """Make each Saved table's Table folder, then fill in its Table reference and its notebook
     from the project's hand-written sources."""
-    from sqlglot_composer import project
-    # Private, since a user fills a notebook in by hand in Jupyter, where this tool writes the
-    # source's cells over the Template's in one go.
-    from sqlglot_composer.project import _template_cells, _write_notebook
+    # The notebook reader and writer, which isn't for a user, since a user fills a notebook in
+    # by hand in Jupyter, where this tool writes the source's cells over the Template's in one go.
+    from sqlglot_composer import notebooks, project
 
     source = SOURCES / name
     for table, template in SAVED_TABLES[name]:
@@ -280,7 +279,8 @@ def _add_saved_tables(name: str, folder: Path) -> None:
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
         notebook = (source / "tables" / f"{stem}.py").read_text(encoding="utf-8")
-        _write_notebook(folder / "tables" / stem / f"{stem}.ipynb", _template_cells(notebook))
+        notebooks.write_notebook(folder / "tables" / stem / f"{stem}.ipynb",
+                                 notebooks.template_cells(notebook))
     shutil.copyfile(source / "README.md", folder / "README.md")
 
 
