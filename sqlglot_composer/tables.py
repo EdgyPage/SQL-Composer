@@ -1692,7 +1692,7 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
     partitioned_by order, with its value as a Hive literal."""
     columns = t._partitioned_by
     example = f'{call}({t._alias}, partition={{"{columns[0] if columns else "dt"}": ...}})'
-    if not isinstance(partition, dict) or not partition:
+    if not isinstance(partition, dict):
         refuse(
             what=f"{call}({t._alias}, partition={python_text(partition)}): partition= is a dict "
             "of partition columns and their values.",
@@ -1700,6 +1700,14 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
             "one value of it.",
             fix=f"Write it like {example}, or leave partition= out: {left_out}.",
             given=partition, call=call,
+        )
+    if not partition:
+        refuse(
+            what=f"{call}({t._alias}, partition={{}}) names no Partition.",
+            why="partition= names Partitions by their partition columns, each with one value, "
+            "and an empty dict gives none.",
+            fix=f"Name one, as in {example}, or leave partition= out: {left_out}.",
+            error=ValueError,
         )
     if not columns:
         refuse(
@@ -1722,23 +1730,28 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
     first = columns[:len(partition)]
     skipped = [name for name in first if name not in partition]
     if skipped:
+        later = [name for name in columns
+                 if name in partition and columns.index(name) > columns.index(skipped[0])]
         refuse(
             what=f"{call}({t._alias}, partition=...) names {', '.join(partition)}, but not "
             f"{', '.join(skipped)}, which comes before it in {t._name}'s partitioned_by "
             f"({', '.join(columns)}).",
-            why="Hive takes the partition columns in order: the ones partition= names first, "
-            "then the others by name alone. A column named after one left out can't be.",
-            fix=f"Name {', '.join(skipped)} too, or leave out the ones after it: {left_out}.",
+            why="Hive takes the partition columns in order: first the ones partition= gives a "
+            "value, then the others by name alone, so a column after one with no value can't "
+            "have one either.",
+            fix=f"Give {', '.join(skipped)} a value too, or leave {', '.join(later)} out as "
+            f"well: {left_out}.",
             error=ValueError,
         )
     named = {}
     for name in first:
         value = partition[name]
         if value is None or isinstance(value, Column):
+            given = "None" if value is None else f"the column {python_text(value)}"
             refuse(
-                what=f"{call}({t._alias}, partition=...) gives {name} {python_text(value)}.",
-                why="partition= names one value of each column it gives, written into the Hive "
-                "as it is.",
+                what=f"{call}({t._alias}, partition=...) gives {name} {given}, not a value.",
+                why="partition= names one Partition of each column it gives, by a value Hive "
+                "writes as it is, such as 'EU' or 20260924: a column, or None, names none.",
                 fix=f"Give {name} a value, such as a string or a number, or leave {name} out: "
                 f"{left_out}.",
                 error=ValueError,
