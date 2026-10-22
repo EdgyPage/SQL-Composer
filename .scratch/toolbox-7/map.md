@@ -139,6 +139,9 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 - [05 Databases and the text of a table](issues/05-databases-and-the-text-of-a-table.md)
 - [06 new_block and check_references](issues/06-new-block-and-check-references.md)
 - [07 The docs rework](issues/07-the-docs-rework.md)
+- [06 new_block and check_references](issues/06-new-block-and-check-references.md): new_block and
+  remove_block; register adopts a hand-made block; start() run again adds what a Project lacks;
+  check_references.ipynb reads the Reference sheet.
 - [08 Python steps](issues/08-python-steps.md)
 
 The order is the user's (2026-10-21): one at a time, each blocked by the one before, since 02 to
