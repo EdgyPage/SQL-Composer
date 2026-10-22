@@ -141,18 +141,20 @@ The Statement here counts each team's runs, and their failed runs, over two days
 files and gives back their paths, the HTML page first. Nothing is sent to the warehouse: the
 Lineage is worked out from the Statement alone.
 
-Where the files go, and their names, take one of two forms, each starting with the time it ran,
-such as `20260925-090000` for 09:00:00 on 2026-09-25, so each export gets a name of its own
-and the ones before stay as they were:
+Where the files go, and their names, take one of two forms. Each name starts with `<time>`,
+the time it ran, such as `20260925-090000` for 09:00:00 on 2026-09-25, so each export gets a
+name of its own and the ones before stay as they were. The HTML page and the Markdown file
+share the name, ending `.html` and `.md`:
 
 - a Statement exported outside a Table notebook, as here, goes in a folder named lineage
-  beside the notebook you run it from, at the Project's top for a notebook there. Its name
-  goes on with the git commit of your scripts, here pinned to `1a2b3c4` (`"nogit"` outside a
-  git repository), then "lineage", the notebook's name, `"notebook"` where the steps don't run
-  in a saved one, and the name of the variable that holds the Statement, here `team_runs`. So
-  put a Statement in a variable with a meaningful name before you export it;
-- a write of a Saved table goes in its Table folder's lineage/, wherever you run it, and its
-  name goes on with the table alone, such as `20260925-090000-mart__daily_job_runs.md`, as the
+  beside the notebook you run it from, at the Project's top for a notebook there, named
+  `<time>_<commit>_lineage_<notebook>_<variable>.md`: `<commit>` is the git commit of your
+  scripts, here pinned to `1a2b3c4` (`"nogit"` outside a git repository), `<notebook>` the
+  notebook's name (`"notebook"` where the steps don't run in a saved one), and `<variable>` the
+  name of the variable that holds the Statement, here `team_runs`. So put a Statement in a
+  variable with a meaningful name before you export it;
+- a write of a Saved table goes in its Table folder's lineage/, wherever you run it, named
+  `<time>-<database>__<table>.md`, such as `20260925-090000-mart__daily_job_runs.md`, as the
   next step shows.
 
 `to=`, such as `to="lineage/team_runs.html"`, names the files instead, replacing the last.
@@ -281,7 +283,8 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     project.refresh_reference_sheet("mart.daily_job_runs")
 
 Cell 4 exports the table's Lineage. Here, `project.load` gives the notebook's logic, as its
-cell 2 does when it runs; the write goes in a variable with a meaningful name first:
+cell 2 does when it runs: an object with one attribute per function of the logic cell, such
+as `daily.write`. The write goes in a variable with a meaningful name first:
 
 >>> daily = project.load("mart.daily_job_runs")  # -> the notebook's functions
 >>> write_daily_job_runs = daily.write()  # -> Statement
@@ -298,7 +301,10 @@ draws the Building block as a group of its own, named `"runs_per_job"` as the bl
 ### Draw a table that reads another Saved table
 
 mart.team_day adds up each team's day from what mart.daily_job_runs saved. It reads the Saved
-table through its Table reference, like any other table:
+table through its Table reference, like any other table. Its notebook below is shortened from
+the Starter Example project's, whose cell 3 also runs a function of its logic,
+team_runs_from_job_runs, each team's day worked out from ops.job_runs itself, so that it runs
+on the Example database:
 
 >>> project.new_table("mart.team_day")
 Made tables/mart__team_day/: mart__team_day.ipynb and lineage/, from
@@ -407,9 +413,11 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     project.refresh_reference_sheet("mart.team_day")
 
 Its Lineage alone would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads
-the logic of the table it reads, and passes both writes. Jupyter runs a notebook in its own
-folder, so the steps move there first, as opening the notebook would, then do what cell 4
-does:
+the logic of the table it reads, and passes both writes. One write goes in its own Table
+folder's lineage/ wherever you run it, but with several writes the folder you run from decides
+where they go: the lineage/ of the Table folder you run them from, when one of them fills its
+table, or else beside your notebook. Jupyter runs a notebook in its own folder, so the steps
+move there first, as opening the notebook would, then do what cell 4 does:
 
 >>> os.chdir("tables/mart__team_day")
 >>> team = project.load("mart.team_day")  # -> the notebook's functions
@@ -419,9 +427,7 @@ does:
 >>> markdown_file.name  # -> str
 '20260925-090000-mart__team_day.md'
 
-The files go in this Table folder's lineage/, named for its own table: writes of several tables
-go in the lineage/ of the Table folder you run them from, when one of them fills its table.
-The order you pass them in doesn't matter: `export_lineage` puts each write before the ones
+The files go in this Table folder's lineage/, named for its own table. The order you pass them in doesn't matter: `export_lineage` puts each write before the ones
 that read the Saved table it fills. The Markdown file has a section for each write. The
 second's first line says it reads mart.daily_job_runs, written by write_daily_job_runs above,
 so the tree of the team's `"failed_runs"` goes on through the Saved table, and the Building
@@ -433,7 +439,9 @@ one place.
 `project.run_tables` writes every table in the order the Lineage draws them: a table before any
 table that reads it, found from each write's Hive. With your query and execute, from
 warehouse.py, which here hold the Example database's, it sends each in turn, and the Example
-database's execute prints the first line of each:
+database's execute prints the first line of each. It takes query= as well as execute=, since
+a write() may give an Admin statement or an Unchecked statement, and one that reads rows goes
+to your query:
 
 >>> os.chdir("../..")
 >>> project.run_tables(query=query, execute=execute)
@@ -446,6 +454,9 @@ execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt)
 Wrote 2 tables, in order.
 
 mart.team_day goes after mart.daily_job_runs, so it reads the rows that were just written.
+mart.daily_job_runs's write starts `WITH runs_per_job AS (`, not INSERT: its rows come from
+the Building block, a Derived table, which the Hive writes at its top, ahead of the INSERT
+OVERWRITE that reads it.
 
 ### Declare a change made in pandas, in a Table notebook
 
