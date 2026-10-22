@@ -163,6 +163,15 @@ Toolbox files and 198 times in 23 test files.
   holds query and execute; run picks one per step (the move's count step reads through query);
   returns_rows= has no default; `send=` is refused by `**removed`; both calls raise on failure.
 
+- [03 Tables have no days](issues/03-tables-have-no-days.md): partitioned_by= for any table; a
+  read filters one partition column; writes dynamic or partition={...}; Key optional;
+  run_tables() and write(); location= as written; every write needs a Saved table.
+- [05 Databases and the text of a table](issues/05-databases-and-the-text-of-a-table.md): one
+  generated module per Database, references/<db>.py (not one __init__.py), so a broken reference
+  breaks only its Database; str(table) is `ops.jobs AS jobs`.
+- [08 Python steps](issues/08-python-steps.md): python_step(fn, reads=, writes=) declares a
+  pandas change; Lineage names its file, function and line; run_tables passes over it; how-to 41.
+
 ## Not yet specified
 
 - Nothing.

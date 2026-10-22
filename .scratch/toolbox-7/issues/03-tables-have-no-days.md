@@ -1,7 +1,7 @@
 # Tables have no days
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 02
 Size: XL
 
@@ -129,3 +129,42 @@ The user settled the two open questions on 2026-10-21; the map's "No days" Notes
   - **Statistics**: "about a table's Partitions and their columns".
   - **Template**: "the tables, columns, values and names".
 - CLAUDE.md's Definition of done, the beginner reader included.
+
+## Answer
+
+Built 2026-10-21 on dev (000319d; review fixes da4e0bb and the batch after the merges).
+
+- `Table(name, columns, *, partitioned_by=None, key=None, ...)`: `date_partition=` and
+  `date_format=` are refused, naming `partitioned_by=`; `partitioned_by=` is any table's, with no
+  `location=` needed. `location=` is the table's own folder exactly as written.
+- Conditions note the columns they hold to values (`_bounds`); a read of a partitioned table
+  must filter one of its partition columns, opt-out `reads_all_partitions=True`.
+  `set_load_limits(dates=)` is refused.
+- Writes: `PARTITION(<columns>)` dynamic from the rows, or `partition={...}` naming the first
+  ones; show_hive prints the "dynamic_partitions" settings, and `project.run_tables` sends them
+  once. The day Guards and `by_day` are gone. A Key names one row; a table with no Key is written
+  unchecked; `check_key(t, query=, where=, reads_all_partitions=)`.
+- `admin.drop_partitions(t, where=...)`, `compute_statistics(t, partition=...)` (named columns
+  the leading ones), `repair_partitions` on any partitioned table; `admin.move_to_own_folder`
+  copies a table whole with one dynamic write — one write covers every Partition, so a
+  partition at a time wasn't needed (the ticket's "or a partition at a time" left out).
+- Lineage: no day arrow; a static partition is a line "writes region = 'EU'".
+- `project.run_tables()` runs each notebook's `write()`; the Reference sheet's column is
+  `partition`. The Templates' day placeholders went with ticket 04, which replaced them.
+- Built in two waves of parallel helpers (Toolbox by file groups, then tests, how-tos, tools);
+  tests/test_by_day_splits.py and tests/test_date_partition_days.py removed,
+  tests/test_partitions.py (51 tests) and tests/test_unpartitioned_writes.py added.
+
+## Reviews
+
+- Spec (2026-10-21): Templates' day placeholders (ticket 04's); move copies whole (answered
+  above); CHANGES still showing run_tables(day) (fixed).
+- Standards (2026-10-21): `<DATE_PARTITION>` placeholders (ticket 04 renamed them
+  `<PARTITION_COLUMN>`); two `_write_clause`s (running's renamed `_the_write`); drop_partitions'
+  `where=None` (now required); duplicated partition= checks left plain, as the standards prefer.
+- Beginner reader (2026-10-21), costliest stops: a `${...}` location failed check_table_reference
+  (now a note, and help(Table) says how to send the SET); a write could overwrite another team's
+  partitioned table (every write now needs a Saved table, as ADR 0007 says); how-to 10's Key "of
+  a day", "partition column last", and hive_settings' day wording (how-tos left for 07, the rest
+  fixed).
+- Drift: 000319d opened D229-D231, closed by da4e0bb.
