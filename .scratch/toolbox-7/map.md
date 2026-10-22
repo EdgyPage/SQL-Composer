@@ -159,6 +159,9 @@ Toolbox files and 198 times in 23 test files.
 - [01 Version 7.0 and the ADRs](issues/01-version-7-0-and-the-adrs.md): 7.0 everywhere the
   current version is named; ADRs 0011 and 0012 in, 0004, 0005 and 0007 pointing to them;
   CHANGES `## 7.0` waits for the later tickets.
+- [02 query and execute replace send](issues/02-query-and-execute-replace-send.md): warehouse.py
+  holds query and execute; run picks one per step (the move's count step reads through query);
+  returns_rows= has no default; `send=` is refused by `**removed`; both calls raise on failure.
 
 ## Not yet specified
 

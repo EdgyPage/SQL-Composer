@@ -1,7 +1,7 @@
 # Tables have no days
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 02
 Size: XL
 
