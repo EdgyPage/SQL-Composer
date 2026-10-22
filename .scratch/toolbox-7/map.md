@@ -222,6 +222,8 @@ Toolbox files and 198 times in 23 test files.
   lists; usage_report's call counts and unreached lines; cleanup-ranking.md orders 16 and 17.
 - [16 Dead and stale code out](issues/16-dead-and-stale-code-out.md): dead names and branches out,
   the 7.0-only refusals out, one clock, one and_parts, nine underscores off, opt-outs tested.
+- [17 Compress the ranked shapes](issues/17-compress-the-ranked-shapes.md): about 25 copies of a shape
+  made one each, behaviour-identical; −90 lines of code; the walkers left for refusal order.
 
 ## Not yet specified
 
