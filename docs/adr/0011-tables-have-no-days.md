@@ -41,7 +41,7 @@ So in 7.0:
 - Every Table reference that names `date_partition=`, and every notebook that defines
   `write_day(day)`, changes: 7.0 is a major version, and its change notes say how. Passing
   `date_partition=` is refused, naming `partitioned_by=`.
-- A read that bounded only its date now passes when it filters any partition column, so the read
+- A read that bounded only its date now passes when it filters any partition column, so the Load
   limit protects less of a table partitioned by several columns.
 - Should a day-at-a-time workflow come back, it is written with `partition={...}` in the user's
   own loop, not in the Toolbox.
