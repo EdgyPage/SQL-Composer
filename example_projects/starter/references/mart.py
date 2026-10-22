@@ -6,10 +6,9 @@ is reached as mart.alerts_per_job.job_id.
 Its tables: alerts_per_job (references/mart__alerts_per_job.py), daily_job_runs
 (references/mart__daily_job_runs.py), team_day (references/mart__team_day.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn't Python yet, or has a <...> still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a <...> still
+in it, as new_table writes one, is left out until it is filled in.
 """
 
 import difflib

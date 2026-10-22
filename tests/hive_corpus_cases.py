@@ -935,7 +935,6 @@ def _drop_partitions_cases() -> dict[str, Callable[..., list[Statement]]]:
         "admin:drop_partitions:any_value": lambda: [_dropping_before(_saved(), "2025/01/01")],
         "admin:drop_partitions:refused:unpartitioned": lambda: [admin.drop_partitions(
             job_teams, where=equals(job_teams.team, "data"))],
-        "admin:drop_partitions:refused:no_where": lambda: [admin.drop_partitions(daily_runs)],
         "admin:drop_partitions:refused:not_a_partition_column": lambda: [
             admin.drop_partitions(daily_runs, where=more_than(daily_runs.runs, 3))],
         "admin:drop_partitions:refused:any_of": lambda: [admin.drop_partitions(

@@ -78,6 +78,10 @@ built a day at a time, so some of your files change: each change below says how.
   in `partition={...}`. A write may read from any table. `by_day` is gone, and so are the
   Guards that kept a write to one day: to write some Partitions at a time, loop over the
   values yourself, with `partition={...}` or a WHERE that picks them.
+- **A write into a table someone else owns is refused**, as ADR 0007 says: `INSERT_OVERWRITE(t)`
+  and `INSERT_INTO(t)` take only your Saved tables, those with `location=`, where 6.x let
+  through a write into a table with a day and no `location=`. Give each table you write a
+  `location=` of its own folder.
 - **Not every table has a Key.** A Key no longer drops its day: it names one row of the table.
   A table with no Key is written unchecked. `check_key(t, query=query, where=...)` checks the
   rows `where=` picks, or, with `reads_all_partitions=True`, every Partition; it no longer reads
@@ -89,8 +93,9 @@ built a day at a time, so some of your files change: each change below says how.
 - **`location=` is the table's own folder, as written.** The Toolbox adds nothing to it, so a
   reference that said `location="/data/your_team/tables"` for `mart.daily_runs` now says
   `location="/data/your_team/tables/mart/daily_runs"`, where 6.x put it, or the folder you
-  choose. It needn't start with `/`, so `${hivevar:root}/mart.db/daily_runs` is fine. Two
-  Saved tables still can't share a folder.
+  choose. It needn't start with `/`, so `${hivevar:root}/mart.db/daily_runs` is fine: send its
+  `SET` first, with `hive_settings`, and `check_table_reference` notes such a table's folder
+  rather than comparing it. Two Saved tables still can't share a folder.
 - **Upkeep and the admin module.** `admin.drop_days(t, before=...)` becomes
   `admin.drop_partitions(t, where=less_than(t.dt, "2025-10-01"))`, from conditions on its
   partition columns. `compute_statistics(t, day)` becomes `compute_statistics(t, partition={...})`,
@@ -138,7 +143,8 @@ built a day at a time, so some of your files change: each change below says how.
   not partitioned and with no Key, join the seven. Nothing in your files changes.
 - **The Example projects are made from the new Templates**: the intermediate one builds six
   Saved tables, among them one partitioned by region and one with no partitions and no Key.
-  Their Building blocks are `runs_per_job`, `costs_per_job` and `events_per_job`.
+  Three of their Building blocks are renamed: `runs_per_job_day`, `costs_per_job_day` and
+  `events_per_job_day` are now `runs_per_job`, `costs_per_job` and `events_per_job`.
 
 ### New
 
@@ -149,7 +155,7 @@ built a day at a time, so some of your files change: each change below says how.
   box, from the columns it read to the table it wrote, with a section naming the function, its
   file from your Project's folder and its first line, such as "changed in Python by
   `building_blocks/margins.py:add_margin`, line 12"; a function defined in a notebook cell is
-  named by its notebook. A lambda, or anything that isn't a function written with def, is
+  named by its notebook, when JupyterLab tells the Toolbox its name. A lambda, or anything that isn't a function written with def, is
   refused. `run` refuses the step, `show_hive` prints comment lines saying what it is, and a
   Table notebook's `write()` may give it beside its Statements: `project.run_tables` puts it
   in order and passes over it. `PythonStep` is the name a type hint uses. The how-to "Declare a

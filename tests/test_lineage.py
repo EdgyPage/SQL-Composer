@@ -445,7 +445,8 @@ def test_a_write_that_looks_back_traces_its_partition_column_as_any_column(
     events_before = Table("mart.events_before", partitioned_by=["dt"],
                           key=["event_id", "dt"],
                           columns={"event_id": "bigint", "minutes_before": "int",
-                                   "dt": "string"})
+                                   "dt": "string"},
+                                   location="/data/your_team/mart.db/events_before")
     write_events = statement(INSERT_OVERWRITE(events_before),
                              SELECT(with_before.event_id, with_before.minutes_before,
                                     with_before.dt),
@@ -604,7 +605,7 @@ def test_a_write_over_several_days_shows_its_hive_whole(tmp_path: Path) -> None:
 
 region_runs = Table("mart.region_runs", partitioned_by=["region", "dt"],
                     columns={"job_id": "bigint", "runs": "bigint", "region": "string",
-                             "dt": "string"})
+                             "dt": "string"}, location="/data/your_team/mart.db/region_runs")
 
 
 def test_a_static_partition_is_one_line_on_the_saved_tables_box(tmp_path: Path) -> None:
@@ -666,7 +667,8 @@ def test_a_saved_table_no_statement_writes_is_an_ordinary_table(tmp_path: Path) 
 
 
 alerts_per_job = Table("mart.alerts_per_job", partitioned_by=["dt"], key=["job_id", "dt"],
-                       columns={"job_id": "bigint", "alerts": "bigint", "dt": "string"})
+                       columns={"job_id": "bigint", "alerts": "bigint", "dt": "string"},
+                       location="/data/your_team/mart.db/alerts_per_job")
 
 
 def html_entry(page: str, name: str, group: str) -> str:
@@ -721,7 +723,8 @@ job_events = example_database.job_events
 job_owners = example_database.job_owners
 job_day_facts = Table("mart.job_day_facts", partitioned_by=["dt"], key=["job_id", "dt"],
                       columns={"job_id": "bigint", "team": "string", "events": "bigint",
-                               "dt": "string"})
+                               "dt": "string"},
+                               location="/data/your_team/mart.db/job_day_facts")
 
 
 def write_job_day_facts() -> Statement:
@@ -770,7 +773,8 @@ def test_a_writes_bound_on_a_joined_tables_day_is_listed_by_a_later_reader(
     the bound on job_owners.dt decides which rows the write saves, so a later reader of many
     days lists it, as it lists the write's other conditions."""
     team_day = Table("mart.team_day", partitioned_by=["dt"], key=["team", "dt"],
-                     columns={"team": "string", "events": "bigint", "dt": "string"})
+                     columns={"team": "string", "events": "bigint", "dt": "string"},
+                     location="/data/your_team/mart.db/team_day")
     team_day_step = statement(
         INSERT_OVERWRITE(team_day),
         SELECT(job_owners.team, AS(sum_of(job_day_facts.events), "events"),
@@ -839,7 +843,8 @@ def test_a_left_join_decides_every_column_when_a_condition_reads_its_table(
 
 def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:
     other = Table("mart.other_runs", partitioned_by=["dt"],
-                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                  location="/data/your_team/mart.db/other_runs")
     one = statement(INSERT_OVERWRITE(other),
                     SELECT(daily_runs.job_id, daily_runs.runs, daily_runs.dt),
                     FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
@@ -855,7 +860,8 @@ def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:
 
 def test_the_loop_refusal_names_only_the_statements_in_the_loop() -> None:
     other = Table("mart.other_runs", partitioned_by=["dt"],
-                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                  location="/data/your_team/mart.db/other_runs")
     one = statement(INSERT_OVERWRITE(other),
                     SELECT(daily_runs.job_id, daily_runs.runs, daily_runs.dt),
                     FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
@@ -1059,7 +1065,8 @@ def test_the_report_says_where_a_step_lost_its_key(tmp_path: Path) -> None:
 
 def test_the_report_says_whether_a_writes_key_holds(tmp_path: Path) -> None:
     daily = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id", "dt"],
-                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+                  columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                  location="/data/your_team/mart.db/daily_runs")
     fill = statement(INSERT_OVERWRITE(daily),
                      SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
                      FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")),

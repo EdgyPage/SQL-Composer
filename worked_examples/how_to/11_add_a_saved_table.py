@@ -35,6 +35,7 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
 >>> project.add_references(["ops.job_runs"], query=example_database.query)
 Wrote references/ops__job_runs.py: fill in its TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs.
+Restart the kernel of a notebook that imported references, to see a table added since.
 
 ### Make its Table folder
 
@@ -265,6 +266,7 @@ Made tables/mart__alerts_per_job/: mart__alerts_per_job.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__alerts_per_job.py: fill in its <...> and TODO lines.
 Wrote references/mart.py: from references import mart gives mart.daily_job_runs.
+Restart the kernel of a notebook that imported references, to see a table added since.
 >>> project.load("mart.alerts_per_job")
 Traceback (most recent call last):
 ...

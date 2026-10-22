@@ -180,7 +180,7 @@ def partition_node(table: Table, static: dict[str, Node]) -> Node | None:
         for column in table._partitioned_by])
 
 
-def _write_clause(s: Statement) -> Clause:
+def _the_write(s: Statement) -> Clause:
     """The INSERT_OVERWRITE or INSERT_INTO clause of a write."""
     return next(clause for clause in s._clauses if clause._place() == "INSERT")
 
@@ -190,7 +190,7 @@ def _write_tree(s: Statement) -> Node:
     its rows fill, and those partition={...} names, or the whole of a table that isn't
     partitioned."""
     table = s._write
-    partition = partition_node(table, _write_clause(s).partition)
+    partition = partition_node(table, _the_write(s).partition)
     return Node("Insert", target=table_node(table._name, partition=partition),
                 select=_select_tree(s), overwrite=s._replaces_rows)
 

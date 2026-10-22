@@ -121,6 +121,7 @@ joined to `ops.jobs` on its whole Key, `jobs.job_id`, which keeps one row for ea
 ...     columns={"job_id": "bigint", "run_id": "bigint", "team": "string", "dt": "string"},
 ...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/mart.db/newest_run",
 ... )
 >>> def write_newest(day: str) -> Statement:
 ...     numbered = derived("numbered", statement(
@@ -220,6 +221,7 @@ A GROUP_BY with one more column makes one row for each pair, not for each Key:
 ...     columns={"job_id": "bigint", "status": "string", "runs": "bigint", "dt": "string"},
 ...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/mart.db/job_status",
 ... )
 >>> statement(
 ...     INSERT_OVERWRITE(job_status, partition={"dt": "2026-09-24"}),
@@ -248,6 +250,7 @@ with two alerts comes out twice:
 ...     columns={"run_id": "bigint", "severity": "string", "dt": "string"},
 ...     partitioned_by=["dt"],
 ...     key=["run_id", "dt"],
+...     location="/data/your_team/mart.db/run_and_alert",
 ... )
 >>> statement(
 ...     INSERT_OVERWRITE(run_and_alert, partition={"dt": "2026-09-24"}),

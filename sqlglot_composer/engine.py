@@ -278,8 +278,9 @@ def _refuse_unreadable(said: str, tables: dict[str, tuple[Table, list[tuple[obje
         why="Most often a table, column or hive_function(...) name is spelt wrong, which your "
         "warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but "
         "the Example database's small executor doesn't.",
-        fix=f"Check the names: the tables are {listed}, and printing one, such as "
-        "example_database.jobs, shows its columns. If they're right, see the Hive with "
+        fix=f"Check the names: the tables are {listed}, and all_columns(...) of one, such as "
+        "all_columns(example_database.jobs), lists its columns, as the table alone on a "
+        "cell's last line does. If they're right, see the Hive with "
         "to_hive(...), and run it at work with your own query.",
         opt_out=None,
     )) from error

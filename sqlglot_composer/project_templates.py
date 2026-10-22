@@ -91,6 +91,18 @@ _PARTITION_FILL_IN = '''\
 _READS_COMMENT = '''\
 # The rows write() reads: change it to write others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.'''
+# What quality_checks says of READS and of the partition column, and above READS: the same,
+# for the rows it checks. Written out in full, so a rewording of one can't miss the other.
+_CHECKED_READS_FILL_IN = '''#   - `<READS>`: which of its rows are checked, as a condition on it, such as
+#     `equals(job_runs.dt, "2026-09-24")` or `equals(region_costs.region, "eu")`. On a
+#     partitioned table, it must filter one of its partition columns. A table that isn't
+#     partitioned can be read whole: delete the line `READS = <READS>` and each line
+#     `WHERE(READS),` instead;'''
+_CHECKED_PARTITION_FILL_IN = '''#   - `<PARTITION_COLUMN>`: the column of the table checked that fills this table's partition
+#     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
+#     naming `<PARTITION_COLUMN>` instead.'''
+_CHECKED_READS_COMMENT = '''# The rows checked: change it to check others. A condition that calls something other
+# than equals, such as between or is_in, needs it added to the import above.'''
 
 SAVED_TABLE = _notebook(
     "saved_table",
@@ -181,9 +193,9 @@ QUALITY_CHECKS = _notebook(
     fill_in='''\
 #   - `<CHECKED_NAME>` and `<CHECKED>`: the table checked, by its file in references/ and
 #     its name there, such as `ops__job_events` and `job_events`;
-''' + _READS_FILL_IN.replace("write() reads", "are checked") + '''
+''' + _CHECKED_READS_FILL_IN + '''
 #   - `<KEY_COLUMN>`: the column that picks out one row, such as `event_id`;
-''' + _PARTITION_FILL_IN.replace("the table it reads", "the table checked"),
+''' + _CHECKED_PARTITION_FILL_IN,
     logic=f'''# logic
 # 2. The logic: imports, the rows it checks, and functions only
 from sqlglot_composer import (
@@ -194,7 +206,7 @@ from references.<NAME> import <TABLE>  # this table's own Table reference, of ro
 # the table checked, such as: from references.ops__job_events import job_events
 from references.<CHECKED_NAME> import <CHECKED>
 
-{_READS_COMMENT.replace("write() reads: change it to write others", "checked: change it to check others")}
+{_CHECKED_READS_COMMENT}
 READS = <READS>
 
 

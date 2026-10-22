@@ -381,7 +381,7 @@ def test_a_derived_table_keeps_its_sources_key_when_it_only_filters() -> None:
 
 def test_a_write_cant_be_a_derived_table() -> None:
     daily = Table("mart.daily", columns={"runs": "bigint", "dt": "string"},
-                  partitioned_by=["dt"])
+                  partitioned_by=["dt"], location="/data/your_team/mart.db/daily")
     write = statement(INSERT_OVERWRITE(daily), SELECT(AS(count_rows(), "runs"), job_runs.dt),
                       FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")),
                       GROUP_BY(job_runs.dt))
@@ -409,6 +409,7 @@ daily_runs = Table(
     "mart.daily_runs",
     columns={"job_id": "bigint", "runs": "bigint", "minutes": "bigint", "dt": "string"},
     partitioned_by=["dt"],
+    location="/data/your_team/mart.db/daily_runs",
 )
 
 
@@ -493,7 +494,7 @@ def test_a_statement_has_one_write_at_most() -> None:
 def test_a_write_from_an_unpartitioned_table_names_its_partition_or_fills_it_from_the_rows(
 ) -> None:
     per_day = Table("mart.per_day", columns={"jobs": "bigint", "dt": "string"},
-                    partitioned_by=["dt"])
+                    partitioned_by=["dt"], location="/data/your_team/mart.db/per_day")
     named = statement(INSERT_OVERWRITE(per_day, partition={"dt": "2026-09-24"}),
                       SELECT(AS(count_rows(), "jobs")), FROM(jobs))
     assert to_hive(named) == (
@@ -502,7 +503,8 @@ def test_a_write_from_an_unpartitioned_table_names_its_partition_or_fills_it_fro
         "  COUNT(*) AS jobs\n"
         "FROM ops.jobs AS jobs")
     per_team = Table("mart.per_team", columns={"jobs": "bigint", "team": "string"},
-                     partitioned_by=["team"], key=["team"])
+                     partitioned_by=["team"], key=["team"],
+                     location="/data/your_team/mart.db/per_team")
     filled = statement(INSERT_OVERWRITE(per_team), SELECT(jobs.team, AS(count_rows(), "jobs")),
                        FROM(jobs), GROUP_BY(jobs.team))
     assert to_hive(filled) == (

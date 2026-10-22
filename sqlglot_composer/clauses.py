@@ -903,9 +903,9 @@ def _write_clause(call: str, table: object, unproven_key: object,
             fix="Pass the Saved table's own Table reference.",
             error=ValueError,
         )
-    if not table._partitioned_by:
-        # Written whole, a table someone else owns would lose every row it holds.
-        need_saved_table(table, f"{call}({table._alias})")
+    # Only your own Saved tables are written: ADR 0007. A table someone else owns would lose
+    # the rows, or the Partitions, the write replaces.
+    need_saved_table(table, f"{call}({table._alias})")
     return Clause(call, table=table, unproven_key=unproven_key,
                   partition=_static_partition(call, table, partition))
 
@@ -1030,13 +1030,18 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
     partition= says where the rows go, and WHERE which rows are read: keep them the same.
 
     When the Saved table's Table reference declares a Key, the write is refused unless the
-    Toolbox can see that each row it writes has a Key of its own, since Hive never checks one:
-    a GROUP_BY over the Key's columns, a SELECT_DISTINCT, a row_number(...) kept at 1 for each
-    Key in a Derived table, or reading a table by its own Key, each join matching its joined
-    table's whole Key. A column partition= names is one value, so a Key that holds it needs
-    only its other columns. unproven_key=True writes it anyway, for rows that are one per Key
-    for a reason the Toolbox can't see. A table with no Key is written unchecked. Below,
-    GROUP_BY makes one row for each job_id:
+    Toolbox can see that each row it writes has a Key of its own, since Hive never checks one.
+    It sees that from any of these:
+
+    - a GROUP_BY over the Key's columns;
+    - a SELECT_DISTINCT;
+    - a row_number(...) kept at 1 for each Key, in a Derived table;
+    - reading a table by its own Key, each join matching its joined table's whole Key.
+
+    A column partition= names is one value, so a Key that holds it needs only its other
+    columns. unproven_key=True writes it anyway, for rows that are one per Key for a reason the
+    Toolbox can't see. A table with no Key is written unchecked. Below, GROUP_BY makes one row
+    for each job_id:
 
     >>> print(to_hive(statement(
     ...     INSERT_OVERWRITE(daily_runs, partition={"dt": "2026-09-24"}),
@@ -1105,7 +1110,8 @@ def INSERT_INTO(table: Table, unproven_key: bool = False,
 
     >>> run_alerts = example_database.run_alerts
     >>> runs_to_review = Table("mart.runs_to_review", partitioned_by=["dt"], key=["run_id"],
-    ...     columns={"run_id": "bigint", "dt": "string"})
+    ...     columns={"run_id": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/runs_to_review")
     >>> print(to_hive(statement(
     ...     INSERT_INTO(runs_to_review, partition={"dt": "2026-09-24"}),
     ...     SELECT_DISTINCT(run_alerts.run_id),

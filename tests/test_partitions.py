@@ -60,7 +60,8 @@ orders = Table("ops.orders", columns={"order_id": "bigint", "customer": "string"
 region_runs = Table("mart.region_runs",
                     columns={"job_id": "bigint", "runs": "bigint", "region": "string",
                              "dt": "string"},
-                    partitioned_by=["region", "dt"], key=["job_id", "region", "dt"])
+                    partitioned_by=["region", "dt"], key=["job_id", "region", "dt"],
+                    location="/data/your_team/mart.db/region_runs")
 """A Saved table partitioned by region, then dt."""
 
 ON_ORDER = equals(sales.order_id, orders.order_id)
@@ -265,6 +266,18 @@ def test_a_dynamic_write_leaving_out_a_partition_column_is_refused() -> None:
         statement(INSERT_OVERWRITE(region_runs),
                   SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
                   FROM(job_runs), WHERE(TWO_DAYS), GROUP_BY(job_runs.job_id, job_runs.dt))
+
+
+def test_a_write_into_a_partitioned_table_someone_else_owns_is_refused() -> None:
+    # ADR 0007: only your own Saved tables are written. A write into someone else's
+    # partitioned table would replace, or add to, Partitions that are theirs; ops.job_runs
+    # has partitioned_by= and no location=.
+    for write in (INSERT_OVERWRITE, INSERT_INTO):
+        with pytest.raises(ValueError, match=r"was given ops.job_runs, which isn't one of your "
+                           "Saved tables: its Table reference has no location="):
+            write(job_runs)
+        with pytest.raises(ValueError, match="isn't one of your Saved tables"):
+            write(job_runs, partition={"dt": "2026-09-24"})
 
 
 # --- Writes: partition={...} -----------------------------------------------------------------

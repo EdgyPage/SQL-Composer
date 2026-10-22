@@ -483,7 +483,11 @@ class Table:
       "/data/your_team/mart.db/daily_runs": the Toolbox adds nothing to it. Every Saved table
       is an external table: its files are yours, in that folder, and the warehouse only keeps
       a record of where. Two tables in one folder would read each other's files, so a Saved
-      table whose folder is another's, or inside another's, is refused.
+      table whose folder is another's, or inside another's, is refused. A location such as
+      "${hivevar:root}/mart.db/daily_runs" holds a Hive variable: send its SET first, with
+      run(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),
+      execute=...), and check_table_reference then notes the table's folder rather than
+      comparing it.
     - `purge=True` makes dropping the table delete its files too. purge=False keeps them in
       its folder, where a table created again reads them back: at once, or, for a
       partitioned table, its Partitions once repair_partitions(t) lists them; left out, the
@@ -501,14 +505,21 @@ class Table:
     You never type backticks: the Hive puts a name in them where it needs them, such
     as `from`, `any` or `two words`, and leaves a plain name, such as dt, as it is.
 
-    A table's text, in an f-string or from str(...), is the table as FROM writes it, and a
-    column's is the column as SELECT writes it, so both drop into Hive you write by hand, as
-    help(unchecked_hive) shows. A format spec works on them as on a str:
+    A table's text, in an f-string or from str(...), is the table as FROM writes it, ops.jobs
+    AS jobs, for after FROM or JOIN in Hive you write by hand; DESCRIBE and SHOW PARTITIONS
+    take the name alone, ops.jobs, which you write yourself. A column's text is the column as
+    SELECT writes it, jobs.job_id, not ops.jobs.job_id, even where you reach it as
+    ops.jobs.job_id: Hive names a column by its table's name after AS, and refuses a
+    three-part name in a SELECT. help(unchecked_hive) shows them in use. A format spec works
+    on them as on a str:
 
     >>> f"SELECT {jobs.job_id} FROM {jobs}"
     'SELECT jobs.job_id FROM ops.jobs AS jobs'
     >>> f"[{jobs.team:>12}]"
     '[   jobs.team]'
+
+    A table alone on a cell's last line shows its repr, its name and its columns, and a column
+    its text:
 
     >>> job_runs
     Table('ops.job_runs', columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)
@@ -1508,7 +1519,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
         # Not a note: nothing below was compared, so the table can't be said to match.
         return ["DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check "
                 "that your query returns everything DESCRIBE FORMATTED prints."], []
-    problems = []
+    problems, notes = [], []
     managed = "MANAGED" in (details.get("table type") or details.get("type") or "").upper()
     # A table the move can take to its own folder, writing it again as its Table reference
     # says; one at its own folder already is written again there instead.
@@ -1521,7 +1532,8 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
                         f"own: {MOVE_IT}, which copies its rows into a table create_table "
                         "makes.")
     else:
-        problems += _location_problems(t, details["location"])
+        location_problems, notes = _location_problems(t, details["location"])
+        problems += location_problems
     stored_as = _stored_as(details.get("inputformat", ""))
     if stored_as is not None and stored_as != t._stored_as:
         problems.append(f"the table is stored as {stored_as}: change the line to "
@@ -1532,7 +1544,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
                            fix is MOVE_IT else "."))
     problems += _property_problems(t, properties)
     problems += _buckets_problems(t, described)
-    return problems, []
+    return problems, notes
 
 
 def _property_problems(t: Table, properties: dict[str, str]) -> list[str]:
@@ -1565,15 +1577,19 @@ def _property_problems(t: Table, properties: dict[str, str]) -> list[str]:
     return problems
 
 
-def _location_problems(t: Table, location: str) -> list[str]:
-    """A problem when the table isn't at the folder its Table reference's location= names:
-    none when it is."""
+def _location_problems(t: Table, location: str) -> tuple[list[str], list[str]]:
+    """The problems, and the notes, from comparing the folder the table is at with the one
+    its Table reference's location= names: a problem when it isn't there, none when it is,
+    and a note when location= holds a Hive variable, whose value only the warehouse knows."""
+    if "${" in t._location:
+        return [], [f"location= holds a Hive variable, so its folder wasn't compared; the "
+                    f"table is at {location}."]
     if _same_folder(location, t._location):
-        return []
+        return [], []
     return [f"it is at {location}, not at {t._location}, the folder location= names: change "
             f'the line to location="{location}", if that is the own folder of the table. '
             f"A folder that isn't a table's own may hold other tables' files: {SHARING} "
-            f"{MOVE_IT[0].upper()}{MOVE_IT[1:]}."]
+            f"{MOVE_IT[0].upper()}{MOVE_IT[1:]}."], []
 
 
 def _same_folder(found: str, wanted: str) -> bool:
@@ -1642,7 +1658,11 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     run(create_table(t), execute=...). The table is external: its files are yours, in its own
     folder, the Table reference's location=, and the warehouse only keeps a record of
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
-    reference with no location= is refused. Every column needs a type Hive has, spelled as
+    reference with no location= is refused. A location= holding a Hive variable, such as
+    "${hivevar:root}/mart.db/daily_runs", needs its SET sent first, with
+    run(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),
+    execute=...), and check_table_reference then notes the table's folder rather than
+    comparing it. Every column needs a type Hive has, spelled as
     DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
     and a struct whose names are reserved words, and says what to write. If the table
     already exists, the warehouse refuses to create it again. Without that refusal, you could

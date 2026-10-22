@@ -66,20 +66,23 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
     change them with a function of your own, and save them to a table with your own call, as
     your work's API does. The Toolbox moves none of that data. python_step tells it what
     happened, so the Lineage of your tables doesn't stop at the gap: `function` is the function
-    that made the change, `reads` the columns it read (a Table reference stands for every one
-    of its columns), and `writes` the table its rows were saved to.
+    that made the change, `reads` the columns of the table the rows came from that the function
+    uses or carries through to the rows it saves (a Table reference stands for every one of its
+    columns), and `writes` the table its rows were saved to.
 
     Where the function lives is read from the function itself: its file, from your Project's
     folder (or, outside a Project, the folder it is in), its name and its first line. Keep it
     in a file of building_blocks/ so its line stays put; one defined in a notebook cell is named
-    by its notebook, and its line is a line of the cell. A lambda, or anything else that isn't
-    a function written with def, is refused, since it has no name or file to find it by.
+    by its notebook when JupyterLab tells the Toolbox the notebook's name, and otherwise as "in
+    a notebook", and its line is a line of the cell. A lambda, or anything else that isn't a
+    function written with def, is refused, since it has no name or file to find it by.
 
     It sends nothing. export_lineage draws it as one step it can't see inside, from the
     columns it read to the table it wrote, with a section of the report naming the function,
     such as "changed in Python by `building_blocks/margins.py:add_margin`, line 12".
     show_hive prints comment lines saying what it is, run refuses it, and a Table notebook's
-    write() may give it beside its Statements: project.run_tables passes over it, but still puts it in order.
+    write() may give it beside its Statements: project.run_tables passes over it, but still
+    puts it in order.
 
     >>> import pandas as pd
     >>> def add_hours(runs: pd.DataFrame) -> pd.DataFrame:

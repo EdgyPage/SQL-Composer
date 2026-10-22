@@ -80,12 +80,12 @@ condition on that table alone, so Statements can say it shorter or plainer.
 _Avoid_: nickname, shortcut, synonym
 
 **Level**:
-One of three tiers of the user's own scripts. A script imports only from lower Levels and from the
-Toolbox, never from a higher or equal Level. In a Project, the Table references and the
-warehouse calls are Level 0, as is each Database module, the one Level 0 script that imports
-Level 0 scripts (its Database's Table references), the Building blocks Level 1, and each Table
-notebook's logic Level 2. What runs the Statements of many Table notebooks in order sits above the three Levels, so it
-may read all of them.
+One of three tiers of the user's own scripts. A script imports only from lower Levels and
+from the Toolbox, never from a higher or equal Level. In a Project, the Table references and
+the warehouse calls are Level 0, as is each Database module, the one Level 0 script that
+imports Level 0 scripts (its Database's Table references), the Building blocks Level 1, and
+each Table notebook's logic Level 2. What runs the Statements of many Table notebooks in order
+sits above the three Levels, so it may read all of them.
 _Avoid_: layer, tier, stage
 
 **Table reference**:
@@ -97,8 +97,8 @@ _Avoid_: table config, schema file, declaration, model, standard query
 A named group of tables in the warehouse, the first part of a table's name (`ops` in
 `ops.jobs`). In a Project, each Database the Table references name is one Python object whose
 attributes are its tables, so a column is reached as `ops.jobs.job_id`: its Database module,
-`references/ops.py`, which the Project actions write, never by hand, and
-`from references import ops` imports.
+`references/ops.py`, which the Project actions and refresh_reference_sheet write, never by
+hand, and `from references import ops` imports.
 _Avoid_: schema, namespace
 
 **Key**:

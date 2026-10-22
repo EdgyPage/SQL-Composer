@@ -73,6 +73,7 @@ daily_runs = Table(
     "mart.daily_runs",
     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
     partitioned_by=["dt"],
+    location="/data/your_team/mart.db/daily_runs",
 )
 
 
@@ -326,7 +327,8 @@ def test_guard_write_lines_up_wants_the_partition_columns_of_a_write_from_its_ro
 
 
 daily_runs_by_job = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id", "dt"],
-                          columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
+                          columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+                          location="/data/your_team/mart.db/daily_runs")
 
 
 def runs_written(**opt_out: bool) -> Statement:

@@ -381,7 +381,8 @@ warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;],
                        query=example_database.query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.</pre>
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -410,10 +411,9 @@ is reached as ops.job_runs.run_id.
 Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
 (references/ops__run_alerts.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -735,10 +735,9 @@ is reached as ops.job_runs.run_id.
 Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
 (references/ops__run_alerts.py), scheduler_runs (references/ops__scheduler_runs.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -3106,7 +3105,8 @@ admin/templates/saved_table_reference.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs.</pre>
+Wrote references/ops.py: from references import ops gives ops.job_runs.
+Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -3134,10 +3134,9 @@ is reached as ops.job_runs.run_id.
 
 Its tables: job_runs (references/ops__job_runs.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -3428,7 +3427,8 @@ GROUP BY
 <p class="label">Python shows</p><pre class="output">Made tables/mart__alerts_per_job/: mart__alerts_per_job.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__alerts_per_job.py: fill in its &lt;...&gt; and TODO lines.
-Wrote references/mart.py: from references import mart gives mart.daily_job_runs.</pre>
+Wrote references/mart.py: from references import mart gives mart.daily_job_runs.
+Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -3472,10 +3472,9 @@ is reached as mart.daily_job_runs.job_id.
 
 Its tables: daily_job_runs (references/mart__daily_job_runs.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -4702,7 +4701,8 @@ admin/templates/saved_table_reference.py
 warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__job_runs.py: fill in its TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs.</pre>
+Wrote references/ops.py: from references import ops gives ops.job_runs.
+Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -4730,10 +4730,9 @@ is reached as ops.job_runs.run_id.
 
 Its tables: job_runs (references/ops__job_runs.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -4896,10 +4895,9 @@ is reached as mart.daily_job_runs.job_id.
 
 Its tables: daily_job_runs (references/mart__daily_job_runs.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -5278,7 +5276,8 @@ warehouse.py</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;],
                        query=example_database.query)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.</pre>
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -5307,10 +5306,9 @@ is reached as ops.job_runs.run_id.
 Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py), run_alerts
 (references/ops__run_alerts.py).
 
-add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
-actions, write this file again from the Table references in references/, so a change made here
-is lost. A Table reference that isn&#x27;t Python yet, or has a &lt;...&gt; still to fill in, is left out
-until it is filled in.
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
+in it, as new_table writes one, is left out until it is filled in.
 &quot;&quot;&quot;
 
 import difflib
@@ -9967,6 +9965,7 @@ GROUP BY
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;run_id&quot;: &quot;bigint&quot;, &quot;team&quot;: &quot;string&quot;, &quot;dt&quot;: &quot;string&quot;},
     partitioned_by=[&quot;dt&quot;],
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/mart.db/newest_run&quot;,
 )
 def write_newest(day: str) -&gt; Statement:
     numbered = derived(&quot;numbered&quot;, statement(
@@ -10162,6 +10161,7 @@ print(keys.split(&quot;###&quot;)[0].strip())</pre>
     columns={&quot;job_id&quot;: &quot;bigint&quot;, &quot;status&quot;: &quot;string&quot;, &quot;runs&quot;: &quot;bigint&quot;, &quot;dt&quot;: &quot;string&quot;},
     partitioned_by=[&quot;dt&quot;],
     key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/mart.db/job_status&quot;,
 )
 statement(
     INSERT_OVERWRITE(job_status, partition={&quot;dt&quot;: &quot;2026-09-24&quot;}),
@@ -10183,6 +10183,7 @@ statement(
     columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;severity&quot;: &quot;string&quot;, &quot;dt&quot;: &quot;string&quot;},
     partitioned_by=[&quot;dt&quot;],
     key=[&quot;run_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/your_team/mart.db/run_and_alert&quot;,
 )
 statement(
     INSERT_OVERWRITE(run_and_alert, partition={&quot;dt&quot;: &quot;2026-09-24&quot;}),

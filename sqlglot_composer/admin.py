@@ -158,7 +158,7 @@ def drop_table(t: Table) -> Statement:
     return _admin_statement(call, about, Node("Drop", target=table_node(t._name)))
 
 
-def drop_partitions(t: Table, *, where: Condition | list[Condition] | None = None) -> Statement:
+def drop_partitions(t: Table, *, where: Condition | list[Condition]) -> Statement:
     """Drop some of a Saved table's Partitions: an ALTER TABLE Statement.
 
     Each Partition of the table that `where` picks goes: every row of it, so no Statement
@@ -192,6 +192,17 @@ def drop_partitions(t: Table, *, where: Condition | list[Condition] | None = Non
     -- Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: the ones where dt <
     -- '2025-10-01' go.
     ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-10-01');
+
+    DROP PARTITION has no BETWEEN, so between(...) becomes its two ends; a list's conditions
+    are all written in the brackets, each of which must hold:
+
+    >>> print(to_hive(admin.drop_partitions(daily_runs,
+    ...     where=between(daily_runs.dt, "2025-01-01", "2025-01-31"))))
+    ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt <= '2025-01-31')
+    >>> print(to_hive(admin.drop_partitions(daily_runs,
+    ...     where=[at_least(daily_runs.dt, "2025-01-01"),
+    ...            less_than(daily_runs.dt, "2025-02-01")])))
+    ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt < '2025-02-01')
     """
     t = need_saved_table(t, "admin.drop_partitions(...)")
     if not t._partitioned_by:
@@ -207,15 +218,14 @@ def drop_partitions(t: Table, *, where: Condition | list[Condition] | None = Non
             error=ValueError,
         )
     call = f"admin.drop_partitions({t._name}, where=...)"
-    if where is None:
+    if isinstance(where, tuple):
         refuse(
-            what=f"{call} wasn't given where=.",
-            why="where= says which Partitions to drop; dropping them all is dropping the "
-            "table's rows, which admin.drop_table does.",
-            fix=f'Pass the Partitions to drop, such as where=less_than({t._alias}.'
-            f'{t._partitioned_by[0]}, ...).',
+            what=f"{call} was given a tuple in where=.",
+            why="where= is a condition, or a list of conditions that must all hold.",
+            fix="Write the conditions in square brackets, as a list: where=[..., ...].",
+            error=ValueError,
         )
-    conditions = list(where) if isinstance(where, (list, tuple)) else [where]
+    conditions = list(where) if isinstance(where, list) else [where]
     for condition in conditions:
         if not isinstance(condition, Condition):
             refuse(
