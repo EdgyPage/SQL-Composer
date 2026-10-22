@@ -346,11 +346,16 @@ def test_partition_refuses_what_doesnt_name_its_first_columns_values(
 
 
 @pytest.mark.parametrize("call", [INSERT_OVERWRITE, INSERT_INTO, compute_statistics])
-def test_partition_on_an_unpartitioned_table_is_refused(call: Callable[..., object]) -> None:
+@pytest.mark.parametrize("partition", [{"team": "data"}, {}, ["team"]],
+                         ids=["a_name", "an_empty_dict", "not_a_dict"])
+def test_partition_on_an_unpartitioned_table_is_refused(call: Callable[..., object],
+                                                        partition: object) -> None:
+    """Whatever partition= is, a table with no partition columns is refused as that first,
+    so no example names a column it doesn't have."""
     saved = Table("mart.job_teams", columns={"job_id": "bigint", "team": "string"},
                   location="/data/your_team/mart.db/job_teams")
     with pytest.raises(ValueError) as refused:
-        call(saved, partition={"team": "data"})
+        call(saved, partition=partition)
     message = " ".join(str(refused.value).split())
     assert (f"{call.__name__}(job_teams, partition=...): mart.job_teams isn't partitioned."
             in message)
