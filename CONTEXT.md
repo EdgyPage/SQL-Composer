@@ -114,9 +114,11 @@ whether the check found nothing wrong.
 _Avoid_: unique key, id, partition key
 
 **Building block**:
-A Level 1 piece of a Statement - a filter, a join or a sub-query - reused across Statements.
-In a Project, each is a file of its own in the building_blocks folder, named as it is, which a
-Project action makes from a Template.
+A Level 1 piece of the user's own code reused across notebooks: most often a piece of a
+Statement - a filter, a join or a sub-query - and sometimes what a Statement needs beside it,
+such as the function a Python step names or a named set of Session settings. In a Project, each
+is a file of its own in the building_blocks folder, named as it is, which a Project action makes
+from a Template.
 _Avoid_: fragment, component, snippet, helper
 
 **Statement**:
