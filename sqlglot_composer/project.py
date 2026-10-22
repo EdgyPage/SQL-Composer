@@ -64,7 +64,6 @@ import importlib
 import inspect
 import keyword
 import re
-import shutil
 import sys
 import textwrap
 from collections.abc import Callable
@@ -77,6 +76,22 @@ import pandas as pd
 from . import kinds
 from .clauses import Statement
 from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook
+from .project_files import (
+    BUILDING_BLOCK,
+    DATABASE_TITLE,
+    KINDS,
+    REFERENCE,
+    REGISTRY,
+    TABLE_FOLDER,
+    FileKind,
+    Registry,
+    is_database_module,
+    kinds_named_by,
+    start_registry,
+    table_notebook,
+    table_references,
+    table_stem,
+)
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
 from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
@@ -89,21 +104,12 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables"]
 
-# The file a folder is a Project by: start() writes it, and only a Project has it.
-REGISTRY = Path("admin") / "registry.csv"
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
 FOLDERS = ("admin", "references", "building_blocks", "tables")
 WAREHOUSE = "warehouse.py"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
-# The registry's columns: what a Project action made (a Table folder, a Table reference or a
-# Building block), the table (or the Building block's name, such as runs_per_job), when it was
-# made, and when it was archived, empty while it is in use.
-REGISTRY_COLUMNS = ["kind", "table", "created_at", "removed_at"]
-TABLE_FOLDER = "table_folder"
-REFERENCE = "reference"
-BUILDING_BLOCK = "building_block"
 # The Template a Building block is made from, in admin/templates/.
 BLOCK_TEMPLATE = "building_block"
 # The Template a Saved table's Table reference is made from.
@@ -383,7 +389,7 @@ def start() -> ProjectReport:
         write_notebook(here / "admin" / f"{name}.ipynb",
                        [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
                         *[("code", cell) for cell in cells]])
-    _write_registry(here, [])
+    start_registry(here)
     (here / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
     _log(here, "project.start()", [],
          [f"created {', '.join(f'{name}/' for name in FOLDERS)}, {WAREHOUSE}"], frame)
@@ -481,19 +487,20 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
             f'"{database}.{table}_table".',
             error=ValueError,
         )
-    folder = root / "tables" / stem
+    folder, shown = TABLE_FOLDER.path(root, stem), TABLE_FOLDER.shown(stem)
     if folder.exists():
         refuse(
-            what=f"{call}: tables/{stem}/ is already there, so nothing was made.",
+            what=f"{call}: {shown} is already there, so nothing was made.",
             why="A Table folder is made once, and making it again would write over your "
             "notebook and its lineage.",
-            fix=f"Open tables/{stem}/{stem}.ipynb. To start the table again, archive the "
+            fix=f"Open {table_notebook(stem)}. To start the table again, archive the "
             f'folder first with project.remove_table("{name}").',
             error=FileExistsError,
         )
-    if _in_use(root, TABLE_FOLDER, name):
+    registry = Registry(root)
+    if registry.listed(TABLE_FOLDER, name):
         refuse(
-            what=f"{call}: the registry lists a Table folder for {name}, though tables/{stem}/ "
+            what=f"{call}: the registry lists a Table folder for {name}, though {shown} "
             "isn't there.",
             why="Its folder was moved or deleted by hand, and making a new one would hide "
             "that.",
@@ -518,24 +525,24 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     fills = {"<DB>": database, "<TABLE>": table, "<NAME>": stem}
     folder.mkdir(parents=True)
     (folder / "lineage").mkdir()
-    write_notebook(folder / f"{stem}.ipynb",
+    write_notebook(root / table_notebook(stem),
                    template_cells(_filled(template_path.read_text(encoding="utf-8"), fills)))
-    made = [f"created tables/{stem}/ ({stem}.ipynb, lineage/)"]
+    made = [f"created {shown} ({stem}.ipynb, lineage/)"]
     rows = [TABLE_FOLDER]
-    report = [f"Made tables/{stem}/: {stem}.ipynb and lineage/, from",
+    report = [f"Made {shown}: {stem}.ipynb and lineage/, from",
               f"admin/templates/{template}.py."]
-    reference = root / "references" / f"{stem}.py"
+    reference, reference_shown = REFERENCE.path(root, stem), REFERENCE.shown(stem)
     if reference.exists():
-        made.append(f"kept references/{stem}.py, already there")
-        report.append(f"Kept references/{stem}.py, which was there already.")
+        made.append(f"kept {reference_shown}, already there")
+        report.append(f"Kept {reference_shown}, which was there already.")
     else:
         reference.write_text(_filled(reference_template.read_text(encoding="utf-8"), fills),
                              encoding="utf-8")
-        made.append(f"created references/{stem}.py")
-        if not _in_use(root, REFERENCE, name):
+        made.append(f"created {reference_shown}")
+        if not registry.listed(REFERENCE, name):
             rows.append(REFERENCE)
-        report.append(f"Wrote references/{stem}.py: fill in its <...> and TODO lines.")
-    _add_rows(root, rows, name)
+        report.append(f"Wrote {reference_shown}: fill in its <...> and TODO lines.")
+    registry.list_it(rows, name, _now())
     changed, said = _write_databases(root)
     _log(root, call, [name], made + changed, frame)
     return ProjectReport(report + said)
@@ -568,7 +575,7 @@ def remove_table(name: str) -> ProjectReport:
     frame = callers_frame()
     call = _call("remove_table", name)
     root = _project(call)
-    _, _, stem = _table_name(name, call)
+    _table_name(name, call)
     return _remove(root, TABLE_FOLDER, name, call, frame)
 
 
@@ -600,10 +607,10 @@ def remove_reference(name: str) -> ProjectReport:
     call = _call("remove_reference", name)
     root = _project(call)
     _, _, stem = _table_name(name, call)
-    if (root / "tables" / stem).exists():
+    if TABLE_FOLDER.path(root, stem).exists():
         refuse(
-            what=f"{call}: tables/{stem}/ is still there, and its notebook imports "
-            f"references/{stem}.py.",
+            what=f"{call}: {TABLE_FOLDER.shown(stem)} is still there, and its notebook imports "
+            f"{REFERENCE.shown(stem)}.",
             why="Without its Table reference, the table's notebook would stop at its first "
             "import.",
             fix=f'Archive the Table folder first, with project.remove_table("{name}").',
@@ -612,37 +619,33 @@ def remove_reference(name: str) -> ProjectReport:
     return _remove(root, REFERENCE, name, call, frame)
 
 
-def _remove(root: Path, kind: str, name: str, call: str,
+def _remove(root: Path, kind: FileKind, name: str, call: str,
             frame: FrameType) -> ProjectReport:
     """Archive a Table folder, Table reference or Building block, mark its registry row
     removed, and log it.
     One the registry lists that was deleted by hand has only its row marked; one neither
     there nor listed is refused."""
-    stem = name.replace(".", "__", 1)
-    shown = _shown(kind, stem)
-    path = root / shown.rstrip("/")
-    if not path.exists():
-        if not _in_use(root, kind, name):
-            named_as = ("the files in building_blocks/ are named as the Building block is, "
-                        "such as runs_per_job.py" if kind == BUILDING_BLOCK else
-                        "the files in references/ are named <db>__<table>.py")
+    stem = kind.stem(name)
+    shown = kind.shown(stem)
+    registry = Registry(root)
+    if not kind.path(root, stem).exists():
+        if not registry.listed(kind, name):
             refuse(
                 what=f"{call}: there is no {shown} to remove, and the registry lists none.",
-                why=f"It archives a {_KINDS[kind]} that is there, or marks one the registry "
+                why=f"It archives a {kind.label} that is there, or marks one the registry "
                 "lists removed.",
                 fix="Check the name: admin/check_project.ipynb lists what the registry knows, "
-                f"and {named_as}.",
+                f"and {kind.named_as}.",
                 error=FileNotFoundError,
             )
-        _mark_removed(root, kind, name)
+        registry.mark_removed(kind, name, _now())
         _log(root, call, [name], [f"{shown} wasn't there: marked its registry row removed"],
              frame)
         return ProjectReport([f"{shown} wasn't there, so only its registry row is marked "
                               "removed."])
-    archived = _archive(root, path, stem)
-    _mark_removed(root, kind, name)
-    moved = f"admin/removed/{archived.name}{'/' if kind == TABLE_FOLDER else ''}"
-    changed, said = _write_databases(root) if kind == REFERENCE else ([], [])
+    moved = kind.archive(root, stem, _now())
+    registry.mark_removed(kind, name, _now())
+    changed, said = _write_databases(root) if kind.writes_databases else ([], [])
     _log(root, call, [name], [f"moved {shown} to {moved}", *changed], frame)
     return ProjectReport([f"Moved {shown} to {moved}.", *said])
 
@@ -676,8 +679,8 @@ def new_block(name: str) -> ProjectReport:
     call = _call("new_block", name)
     root = _project(call)
     _block_name(name, call)
-    shown = _shown(BUILDING_BLOCK, name)
-    if (root / shown).exists():
+    shown, path = BUILDING_BLOCK.shown(name), BUILDING_BLOCK.path(root, name)
+    if path.exists():
         refuse(
             what=f"{call}: {shown} is already there, so nothing was made.",
             why="A Building block is made once, and making it again would write over your "
@@ -686,7 +689,8 @@ def new_block(name: str) -> ProjectReport:
             f'again, archive it first with project.remove_block("{name}").',
             error=FileExistsError,
         )
-    if _in_use(root, BUILDING_BLOCK, name):
+    registry = Registry(root)
+    if registry.listed(BUILDING_BLOCK, name):
         refuse(
             what=f"{call}: the registry lists a Building block {name}, though {shown} isn't "
             "there.",
@@ -707,9 +711,8 @@ def new_block(name: str) -> ProjectReport:
         )
     # A Template from before 7.0 also has <BLOCK_NAME>, the name in quotes.
     fills = {"<BLOCK>": name, "<BLOCK_NAME>": f'"{name}"'}
-    (root / shown).write_text(_filled(template.read_text(encoding="utf-8"), fills),
-                              encoding="utf-8")
-    _add_rows(root, [BUILDING_BLOCK], name)
+    path.write_text(_filled(template.read_text(encoding="utf-8"), fills), encoding="utf-8")
+    registry.list_it([BUILDING_BLOCK], name, _now())
     _log(root, call, [], [f"created {shown}"], frame)
     return ProjectReport([f"Wrote {shown}, from admin/templates/{BLOCK_TEMPLATE}.py:",
                           "fill in its <...> and TODO lines."])
@@ -743,7 +746,7 @@ def remove_block(name: str) -> ProjectReport:
     if importers:
         refuse(
             what=f"{call}: {_as_a_sentence(importers)} still "
-            f"{'imports' if len(importers) == 1 else 'import'} {_shown(BUILDING_BLOCK, name)}.",
+            f"{'imports' if len(importers) == 1 else 'import'} {BUILDING_BLOCK.shown(name)}.",
             why="Without the Building block, each would stop at its import.",
             fix=f"Take the import of {name} out of each, and what reads it, then remove it.",
             error=ValueError,
@@ -779,15 +782,15 @@ def _importers(root: Path, name: str) -> list[str]:
     imports = re.compile(rf"\bbuilding_blocks\.{name}\b"
                          rf"|\bfrom\s+building_blocks\s+import\b[^\n]*\b{name}\b")
     found = []
-    for notebook in sorted((root / "tables").glob("*/*.ipynb")):
+    for notebook in sorted((root / TABLE_FOLDER.folder).glob("*/*.ipynb")):
         try:
             cells = read_cells(notebook)
         except ValueError:  # a notebook Jupyter can't read either imports nothing
             continue
         if any(kind == "code" and imports.search(text) for kind, text in cells):
             found.append(notebook.relative_to(root).as_posix())
-    found += [f"building_blocks/{block.name}"
-              for block in sorted((root / "building_blocks").glob("*.py"))
+    found += [block.relative_to(root).as_posix()
+              for block in sorted((root / BUILDING_BLOCK.folder).glob("*.py"))
               if block.stem != name and imports.search(block.read_text(encoding="utf-8"))]
     return found
 
@@ -840,23 +843,25 @@ def add_references(names: list[str],
             error=ValueError,
         )
     files, said = [], []
+    registry = Registry(root)
     for name in names:
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name) or "." not in name:
             said.append(f"{name!r} (not written as database.table, such as ops.jobs)")
             continue
-        file = f"references/{table_stem(name)}.py"
-        if (root / file).exists():
+        stem = REFERENCE.stem(name)
+        file = REFERENCE.shown(stem)
+        if REFERENCE.path(root, stem).exists():
             said.append(f"{name} ({file} is there already)")
             continue
         try:
-            write_table_reference(name, query=query, folder=root / "references")
+            write_table_reference(name, query=query, folder=root / REFERENCE.folder)
         # Whatever the query raises, the table is reported, and the rest still written.
         except Exception as error:  # noqa: BLE001
             said.append(f"{name} (DESCRIBE failed: {type(error).__name__}: {_first(error)})")
             continue
         files.append(file)
-        if not _in_use(root, REFERENCE, name):
-            _add_rows(root, [REFERENCE], name)
+        if not registry.listed(REFERENCE, name):
+            registry.list_it([REFERENCE], name, _now())
     result = "worked" if not said else (
         f"{len(files)} of {len(names)} written; SkippedTables named the rest, above")
     changed, databases = _write_databases(root)
@@ -929,15 +934,16 @@ def register(name: str) -> ProjectReport:
     root = _project(call)
     if isinstance(name, str) and "." not in name:
         _block_name(name, call)
-        stem, kinds, tables = name, (BUILDING_BLOCK,), []
-        there = f"{_shown(BUILDING_BLOCK, name)} is"
     else:
-        _, _, stem = _table_name(name, call)
-        kinds, tables = (TABLE_FOLDER, REFERENCE), [name]
-        there = f"tables/{stem}/ and references/{stem}.py are each"
-    adopted = [(kind, _shown(kind, stem)) for kind in kinds
-               if (root / _shown(kind, stem).rstrip("/")).exists()
-               and not _in_use(root, kind, name)]
+        _table_name(name, call)
+    named = kinds_named_by(name)
+    stem = named[0].stem(name)
+    tables = [name] if named[0].by_table else []
+    there = f"{' and '.join(kind.shown(stem) for kind in named)} " + (
+        "are each" if len(named) > 1 else "is")
+    registry = Registry(root)
+    adopted = [kind for kind in named
+               if kind.path(root, stem).exists() and not registry.listed(kind, name)]
     if not adopted:
         refuse(
             what=f"{call}: nothing to register: {there} either registered already or not "
@@ -949,10 +955,12 @@ def register(name: str) -> ProjectReport:
             "adopts each.",
             error=ValueError,
         )
-    _add_rows(root, [kind for kind, _ in adopted], name)
+    registry.list_it(adopted, name, _now())
     changed, said = _write_databases(root) if tables else ([], [])
-    _log(root, call, tables, [f"registered {path}" for _, path in adopted] + changed, frame)
-    return ProjectReport([f"Registered {' and '.join(path for _, path in adopted)}.", *said])
+    _log(root, call, tables, [f"registered {kind.shown(stem)}" for kind in adopted] + changed,
+         frame)
+    return ProjectReport([f"Registered {' and '.join(kind.shown(stem) for kind in adopted)}.",
+                          *said])
 
 
 def check() -> ProjectReport:
@@ -979,26 +987,21 @@ def check() -> ProjectReport:
     remove_table, remove_reference or remove_block.
     """
     root = _project("project.check()")
-    rows = _registry(root)
-    listed = {(row["kind"], row["table"]) for row in rows if not row["removed_at"]}
-    on_disk = {(TABLE_FOLDER, path.name) for path in (root / "tables").iterdir()
-               if path.is_dir()}
-    on_disk |= {(REFERENCE, path.stem) for path in _table_references(root)}
-    on_disk |= {(BUILDING_BLOCK, path.stem) for path in (root / "building_blocks").glob("*.py")
-                if path.name != "__init__.py"}
-    named = {(kind, table.replace(".", "__", 1)): table for kind, table in listed}
+    registry = Registry(root)
+    # Each (kind, stem) the registry lists, with the name it lists it by, and each on disk.
+    named = {(kind, kind.stem(name)): name for kind in KINDS for name in registry.in_force(kind)}
+    on_disk = {(kind, stem) for kind in KINDS for stem in kind.found(root)}
     lines = []
-    unlisted = sorted(on_disk - set(named), key=lambda found: _shown(*found))
+    unlisted = sorted(on_disk - set(named), key=lambda found: found[0].shown(found[1]))
     if unlisted:
         lines.append("Not registered, made by hand. Adopt each with the call beside it:")
-        lines += [f"  {_shown(kind, stem)}: project.register("
-                  f"{_quoted(stem if kind == BUILDING_BLOCK else stem.replace('__', '.', 1))})"
+        lines += [f"  {kind.shown(stem)}: project.register({_quoted(kind.name_of(stem))})"
                   for kind, stem in unlisted]
-    missing = sorted(set(named) - on_disk, key=lambda found: _shown(*found))
+    missing = sorted(set(named) - on_disk, key=lambda found: found[0].shown(found[1]))
     if missing:
         lines.append("Registered, but not there. Put each back, or mark it removed with the "
                      "call beside it:")
-        lines += [f"  {_shown(kind, stem)}: project.{_REMOVES[kind]}"
+        lines += [f"  {kind.shown(stem)}: project.{kind.remover}"
                   f"({_quoted(named[kind, stem])})" for kind, stem in missing]
     if (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
         lines.append(f"{OLD_SEND} is from before 7.0, and there is no {WAREHOUSE}: write your "
@@ -1042,14 +1045,14 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     root = _project(call)
     now = f"{_now():%Y-%m-%d %H:%M:%S}"
     if name is None:
-        paths = _table_references(root)
+        paths = table_references(root)
         kept = []
     else:
         _, _, stem = _table_name(name, call)
-        path = root / "references" / f"{stem}.py"
+        path = REFERENCE.path(root, stem)
         if not path.is_file():
             refuse(
-                what=f"{call}: there is no references/{stem}.py to read.",
+                what=f"{call}: there is no {REFERENCE.shown(stem)} to read.",
                 why="The Reference sheet is read from the Table references in references/.",
                 fix="Check the name, or leave it out to rebuild the whole sheet.",
                 error=FileNotFoundError,
@@ -1061,7 +1064,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     for path in paths:
         read = _reference_rows(path, now)
         if read is None:
-            left_out.append(f"references/{path.name}")
+            left_out.append(path.relative_to(root).as_posix())
         else:
             # The table's rows before, by the name it is called by or the one its file gives.
             kept = [row for row in kept if row["table"] not in (name, read[0]["table"])]
@@ -1168,9 +1171,6 @@ def _called(call: ast.Call) -> str | None:
 
 # --- Databases --------------------------------------------------------------------------------
 
-# The end of a Database module's first line: the Project actions know a file in references/ by
-# it as one they wrote, theirs to write again or remove.
-DATABASE_TITLE = " - a Database: written by the Project actions, never by hand."
 # A placeholder a Template leaves to fill in, such as <LOCATION>.
 PLACEHOLDER = re.compile(r"<[A-Z][A-Z0-9_]*>")
 # A Database module, such as references/ops.py, with @DATABASE@ and the rest filled in. Its
@@ -1214,21 +1214,6 @@ def __dir__() -> list[str]:
 '''
 
 
-def _is_database_module(path: Path) -> bool:
-    """Whether a file in references/ is a Database module the Project actions wrote, by its
-    first line."""
-    with open(path, encoding="utf-8", errors="replace") as file:
-        first = file.readline().rstrip("\n")
-    return first.startswith('"""') and first.endswith(DATABASE_TITLE)
-
-
-def _table_references(root: Path) -> list[Path]:
-    """Every file in references/ but the Database modules: the Table references, and any
-    other file of yours there."""
-    return sorted(path for path in (root / "references").glob("*.py")
-                  if path.name != "__init__.py" and not _is_database_module(path))
-
-
 def _database_entry(path: Path) -> tuple[str, str, str | None] | None:
     """A Table reference's Database, the variable its file gives the table, and its first
     column that is a Python name, read without running it. None for a file a Database module
@@ -1265,7 +1250,7 @@ def _database_name_problem(root: Path, database: str) -> str | None:
         return (f"{database} starts and ends with two underscores, as the names Python keeps "
                 "for itself do")
     module = root / "references" / f"{database}.py"
-    if module.exists() and not _is_database_module(module):
+    if module.exists() and not is_database_module(module):
         return (f"references/{database}.py is a file of yours, which the Project actions never "
                 "write over")
     if (root / "references" / database).exists():
@@ -1304,7 +1289,7 @@ def _write_databases(root: Path) -> tuple[list[str], list[str]]:
     written or removed, and each that couldn't be, with how to import its tables instead."""
     databases: dict[str, dict[str, tuple[str, str | None]]] = {}
     said, left_out = [], []
-    for path in _table_references(root):
+    for path in table_references(root):
         entry = _database_entry(path)
         if entry is None:
             continue
@@ -1356,7 +1341,7 @@ def _remove_databases(root: Path, databases: set[str], changed: list[str],
     """Remove each Database module in references/ whose Database no Table reference names
     any more, adding to what changed, for the Admin log, and to the action's report."""
     for module in sorted((root / "references").glob("*.py")):
-        if _is_database_module(module) and module.stem not in databases:
+        if is_database_module(module) and module.stem not in databases:
             module.unlink()
             changed.append(f"removed references/{module.name}")
             said.append(f"Removed references/{module.name}, since no Table reference left "
@@ -1430,7 +1415,7 @@ def load(name: str) -> TableLogic:
     module_name = f"{LOGIC_OF}{name}"
     namespace = {"__name__": module_name}
     exec(source, namespace)
-    _check_write(namespace, f"tables/{stem}/{stem}.ipynb", call)
+    _check_write(namespace, table_notebook(stem), call)
     functions = {key: value for key, value in namespace.items()
                  if callable(value) and getattr(value, "__module__", None) == module_name}
     functions["write"] = namespace["write"]  # also when it is imported from elsewhere
@@ -1443,8 +1428,7 @@ def logic_notebook(module: str) -> str | None:
     module."""
     if not module.startswith(LOGIC_OF):
         return None
-    stem = table_stem(module.removeprefix(LOGIC_OF))
-    return f"tables/{stem}/{stem}.ipynb"
+    return table_notebook(table_stem(module.removeprefix(LOGIC_OF)))
 
 
 def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:
@@ -1482,7 +1466,7 @@ def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:
 def _checked_logic(root: Path, stem: str, call: str) -> str:
     """A Table notebook's logic cell, refused if it isn't there, isn't Python yet, or calls
     run_query or run_execute, under any name it is imported as."""
-    shown = f"tables/{stem}/{stem}.ipynb"
+    shown = table_notebook(stem)
     notebook = root / shown
     if not notebook.is_file():
         refuse(
@@ -1572,8 +1556,7 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
             else "project.run_tables()")
     root = _project(call)
     if tables is None:
-        tables = [row["table"] for row in _registry(root)
-                  if row["kind"] == TABLE_FOLDER and not row["removed_at"]]
+        tables = Registry(root).in_force(TABLE_FOLDER)
     if isinstance(tables, str):
         tables = [tables]
     if not tables:
@@ -1749,12 +1732,6 @@ def _project(call: str) -> Path:
     return root
 
 
-def table_stem(name: str) -> str:
-    """A table's name as its files and folders are named, mart__daily_runs for
-    mart.daily_runs."""
-    return name.replace(".", "__", 1)
-
-
 def _table_name(name: object, call: str) -> tuple[str, str, str]:
     """The database, the table, and the two as one name for files, such as mart__daily_runs."""
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name) or "." not in name:
@@ -1766,7 +1743,7 @@ def _table_name(name: object, call: str) -> tuple[str, str, str]:
             error=ValueError,
         )
     database, table = name.split(".")
-    return database, table, f"{database}__{table}"
+    return database, table, table_stem(name)
 
 
 def _filled(text: str, fills: dict[str, str]) -> str:
@@ -1780,63 +1757,3 @@ def _is_notebook_template(path: Path) -> bool:
     """Whether a file in admin/templates/ is a Table notebook's Template: one in cells."""
     return path.is_file() and any(line.startswith("# %%") for line in
                                   path.read_text(encoding="utf-8").splitlines())
-
-
-def _archive(root: Path, path: Path, stem: str) -> Path:
-    """Move a Table folder or Table reference into admin/removed/, named by the time."""
-    removed = root / "admin" / "removed"
-    removed.mkdir(exist_ok=True)
-    target = removed / f"{_now():%Y%m%d-%H%M%S}-{stem}{path.suffix}"
-    shutil.move(str(path), str(target))
-    return target
-
-
-def _registry(root: Path) -> list[dict[str, str]]:
-    """The registry's rows, oldest first."""
-    with open(root / REGISTRY, encoding="utf-8", newline="") as registry:
-        return list(csv.DictReader(registry))
-
-
-def _write_registry(root: Path, rows: list[dict[str, str]]) -> None:
-    with open(root / REGISTRY, "w", encoding="utf-8", newline="") as registry:
-        writer = csv.DictWriter(registry, REGISTRY_COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def _in_use(root: Path, kind: str, name: str) -> bool:
-    """Whether the registry lists `kind` for the table `name`, not archived."""
-    return any(row["kind"] == kind and row["table"] == name and not row["removed_at"]
-               for row in _registry(root))
-
-
-def _add_rows(root: Path, kinds: list[str], name: str) -> None:
-    now = f"{_now():%Y-%m-%d %H:%M:%S}"
-    _write_registry(root, _registry(root) + [
-        {"kind": kind, "table": name, "created_at": now, "removed_at": ""} for kind in kinds])
-
-
-def _mark_removed(root: Path, kind: str, name: str) -> None:
-    """Mark the registry's row for `kind` of `name` archived, if it lists one."""
-    rows = _registry(root)
-    now = f"{_now():%Y-%m-%d %H:%M:%S}"
-    for row in rows:
-        if row["kind"] == kind and row["table"] == name and not row["removed_at"]:
-            row["removed_at"] = now
-    _write_registry(root, rows)
-
-
-# What each kind of registry row is called in a message.
-_KINDS = {TABLE_FOLDER: "Table folder", REFERENCE: "Table reference",
-          BUILDING_BLOCK: "Building block"}
-# The Project action that marks each kind of registry row removed.
-_REMOVES = {TABLE_FOLDER: "remove_table", REFERENCE: "remove_reference",
-            BUILDING_BLOCK: "remove_block"}
-
-
-def _shown(kind: str, stem: str) -> str:
-    """A Table folder, Table reference or Building block's path in the Project, as messages
-    show it."""
-    if kind == BUILDING_BLOCK:
-        return f"building_blocks/{stem}.py"
-    return f"tables/{stem}/" if kind == TABLE_FOLDER else f"references/{stem}.py"
