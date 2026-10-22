@@ -28,6 +28,7 @@ from .unchecked import logged_run
 from .conditions import Condition
 from .writing import hive_statement, hive_text
 from .refusals import (
+    in_words,
     need_warehouse_call,
     refuse,
     refuse_removed_arguments,
@@ -383,7 +384,7 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
     definitions = [hive_text(column_definition(t, column, call)) for column in new]
     hive = f"ALTER TABLE {_name(t)} ADD COLUMNS {_listed(definitions)}"
     named, them, its = (
-        f"the columns {', '.join(new[:-1])} and {new[-1]}", "them", "their") if len(new) > 1 else (
+        f"the columns {in_words(new)}", "them", "their") if len(new) > 1 else (
         f"the column {new[0]}", "it", "its")
     about = [f"{call} adds {named} to {t._name}, after its other columns. The rows already "
              f"there read NULL in {them} until they are written again."]

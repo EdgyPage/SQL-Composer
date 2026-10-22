@@ -77,45 +77,45 @@ class RepeatedRowsWarning(UserWarning):
     """A join may repeat rows, so sums and counts over them may come out too big."""
 
 
+def _stop(what: str, why: str, fix: str, opt_out: str | None,
+          error: type[Exception] = GuardRefused) -> NoReturn:
+    """Stop with a Guard's four-part message, or, given error=LoadRefused, a Load limit's."""
+    raise error(four_part_message(what=what, why=why, fix=fix, opt_out=opt_out))
+
+
 # --- Guards: each refuses a wrong answer --------------------------------------------------
 
 
 def guard_unnamed_calculation(calculation: str) -> NoReturn:
     """A calculation in SELECT needs a name. No opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"SELECT has a calculation with no name: {calculation}.",
-            why="Without a name, the warehouse makes one up, such as _c0 or count(1), and "
-            "that is the name pandas would show you.",
-            fix='Name it with AS, as in SELECT(AS(count_rows(), "runs")).',
-            opt_out="none - a calculation always needs a name.",
-        )
+    _stop(
+        what=f"SELECT has a calculation with no name: {calculation}.",
+        why="Without a name, the warehouse makes one up, such as _c0 or count(1), and "
+        "that is the name pandas would show you.",
+        fix='Name it with AS, as in SELECT(AS(count_rows(), "runs")).',
+        opt_out="none - a calculation always needs a name.",
     )
 
 
 def guard_none_in_condition(call: str) -> NoReturn:
     """None in a comparison matches nothing. No opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} compares with None.",
-            why="In SQL nothing is equal to NULL, not even NULL, so this would match no rows "
-            "and quietly give an empty or wrong result.",
-            fix="Use is_null(column) or is_not_null(column) to find missing values.",
-            opt_out=None,
-        )
+    _stop(
+        what=f"{call} compares with None.",
+        why="In SQL nothing is equal to NULL, not even NULL, so this would match no rows "
+        "and quietly give an empty or wrong result.",
+        fix="Use is_null(column) or is_not_null(column) to find missing values.",
+        opt_out=None,
     )
 
 
 def guard_not_a_number(call: str, position: str, value: object) -> NoReturn:
     """NaN and infinity can't be written as numbers in the Hive. No opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call}: {position} is {value!r}.",
-            why="There is no way to write NaN or infinity as a number in the Hive: inf would "
-            "be read as a column's name, and NaN has no spelling at all.",
-            fix="Drop NaN and infinite values first, for example with pandas' dropna().",
-            opt_out=None,
-        )
+    _stop(
+        what=f"{call}: {position} is {value!r}.",
+        why="There is no way to write NaN or infinity as a number in the Hive: inf would "
+        "be read as a column's name, and NaN has no spelling at all.",
+        fix="Drop NaN and infinite values first, for example with pandas' dropna().",
+        opt_out=None,
     )
 
 
@@ -127,31 +127,27 @@ CONTROL_CHARACTERS = {"\x07": ("a bell", "a"), "\x0c": ("a form feed", "f"),
 def guard_control_character(call: str, position: str, character: str) -> NoReturn:
     """A value holding a control character Hive would read as a letter. No opt-out."""
     name, letter = CONTROL_CHARACTERS[character]
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call}: {position} holds {name}, {character!r}, which is what \\{letter} "
-            "gives in a Python string.",
-            why=f"The Toolbox would write it as \\{letter}, which the warehouse reads back as "
-            f"the plain letter {letter}, so the value would quietly be a different one.",
-            fix=f"If you typed \\{letter} in a string, such as a Windows path, put r before "
-            "the quotes, as in r'D:\\logs\\alerts', or double the backslash. If the "
-            "character is really in your data, take it out of the value first.",
-            opt_out=None,
-        )
+    _stop(
+        what=f"{call}: {position} holds {name}, {character!r}, which is what \\{letter} "
+        "gives in a Python string.",
+        why=f"The Toolbox would write it as \\{letter}, which the warehouse reads back as "
+        f"the plain letter {letter}, so the value would quietly be a different one.",
+        fix=f"If you typed \\{letter} in a string, such as a Windows path, put r before "
+        "the quotes, as in r'D:\\logs\\alerts', or double the backslash. If the "
+        "character is really in your data, take it out of the value first.",
+        opt_out=None,
     )
 
 
 def guard_time_of_day(call: str, value: object) -> NoReturn:
     """A time of day, compared with a column that isn't a timestamp. No opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} has a time of day: {value!r}.",
-            why="The Toolbox writes a date as its day, like '2026-09-25', and would have to "
-            "drop the time, so the comparison would not mean what you wrote.",
-            fix="Pass the day only (value.date()), or type the column as \"timestamp\" in "
-            "its Table reference.",
-            opt_out=None,
-        )
+    _stop(
+        what=f"{call} has a time of day: {value!r}.",
+        why="The Toolbox writes a date as its day, like '2026-09-25', and would have to "
+        "drop the time, so the comparison would not mean what you wrote.",
+        fix="Pass the day only (value.date()), or type the column as \"timestamp\" in "
+        "its Table reference.",
+        opt_out=None,
     )
 
 
@@ -191,17 +187,15 @@ def guard_unsafe_regrouping(call: str, column: str, reason: str | None, adds_up:
     """
     if adds_up or reason is None:
         return
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} adds up {column}, which is {reason}.",
-            why=_REGROUPING_WHY.get(
-                reason, "Averages, ratios and distinct counts don't add up: the average of "
-                "daily averages is not the weekly average, and a user seen on two days would be "
-                "counted twice."),
-            fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
-            # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
-            opt_out=f"{call[:-1]}, adds_up=True)",
-        )
+    _stop(
+        what=f"{call} adds up {column}, which is {reason}.",
+        why=_REGROUPING_WHY.get(
+            reason, "Averages, ratios and distinct counts don't add up: the average of "
+            "daily averages is not the weekly average, and a user seen on two days would be "
+            "counted twice."),
+        fix=_REGROUPING_FIXES.get(reason, _REGROUPING_FIX_FOR_A_LISTED_COLUMN),
+        # The call with its opt-out added: "sum_of(x)" becomes "sum_of(x, adds_up=True)".
+        opt_out=f"{call[:-1]}, adds_up=True)",
     )
 
 
@@ -237,14 +231,12 @@ def guard_missing_group_by(place: str, columns: list[str], grouped: bool,
                 "with WHERE(equals(..., 1)); help(row_number) shows how.")
     elif place == "ORDER_BY":
         fix += ' Or sort by an output name, such as ORDER_BY(descending("runs")).'
-    raise GuardRefused(
-        four_part_message(
-            what=what,
-            why="Each output row is one group, so a column that isn't grouped has no single "
-            "value to show. Hive would refuse the Statement.",
-            fix=fix,
-            opt_out=None,
-        )
+    _stop(
+        what=what,
+        why="Each output row is one group, so a column that isn't grouped has no single "
+        "value to show. Hive would refuse the Statement.",
+        fix=fix,
+        opt_out=None,
     )
 
 
@@ -252,15 +244,13 @@ def guard_left_join_then_where(table: str, condition: str, keeps_only_matches: b
     """A WHERE on a LEFT_JOIN's table throws away the rows the LEFT_JOIN kept."""
     if keeps_only_matches:
         return
-    raise GuardRefused(
-        four_part_message(
-            what=f"WHERE has {condition}, a condition on {table}, which LEFT_JOIN brought in.",
-            why=f"LEFT_JOIN keeps rows with no match in {table}, but those rows have NULL "
-            "there, so this WHERE throws them away again. The result is an ordinary JOIN.",
-            fix=f"Move the condition into LEFT_JOIN({table}, ON=...), next to the join "
-            "condition, so it only decides which rows match.",
-            opt_out=f"LEFT_JOIN({table}, ON=..., keeps_only_matches=True)",
-        )
+    _stop(
+        what=f"WHERE has {condition}, a condition on {table}, which LEFT_JOIN brought in.",
+        why=f"LEFT_JOIN keeps rows with no match in {table}, but those rows have NULL "
+        "there, so this WHERE throws them away again. The result is an ordinary JOIN.",
+        fix=f"Move the condition into LEFT_JOIN({table}, ON=...), next to the join "
+        "condition, so it only decides which rows match.",
+        opt_out=f"LEFT_JOIN({table}, ON=..., keeps_only_matches=True)",
     )
 
 
@@ -269,44 +259,38 @@ def guard_full_join_then_where(joined: str, table: str, condition: str,
     """A WHERE on a FULL_JOIN's tables throws away the rows FULL_JOIN kept with no match."""
     if keeps_only_matches:
         return
-    raise GuardRefused(
-        four_part_message(
-            what=f"WHERE has {condition}, a condition on {table}, and FULL_JOIN({joined}) keeps "
-            "the rows of both sides that have no match.",
-            why=f"A row with no match in {table} has NULL in every {table} column, so this "
-            "WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.",
-            fix="Pick each side's rows, and filter its partition columns, in a derived(...) "
-            "table of its own, then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps "
-            "the rows with no match on that side.",
-            opt_out=f"FULL_JOIN({joined}, ON=..., keeps_only_matches=True)",
-        )
+    _stop(
+        what=f"WHERE has {condition}, a condition on {table}, and FULL_JOIN({joined}) keeps "
+        "the rows of both sides that have no match.",
+        why=f"A row with no match in {table} has NULL in every {table} column, so this "
+        "WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.",
+        fix="Pick each side's rows, and filter its partition columns, in a derived(...) "
+        "table of its own, then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps "
+        "the rows with no match on that side.",
+        opt_out=f"FULL_JOIN({joined}, ON=..., keeps_only_matches=True)",
     )
 
 
 def guard_cross_join(call: str, table: str) -> NoReturn:
     """A join without ON pairs every row with every row. CROSS_JOIN is the opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call}({table}) has no ON=.",
-            why=f"Without ON, every row is paired with every row of {table}, which "
-            "multiplies the rows and every sum and count over them.",
-            fix=f"Say how the rows match, as in {call}({table}, ON=equals(...)).",
-            opt_out=f"CROSS_JOIN({table}), if you really mean every row with every row.",
-        )
+    _stop(
+        what=f"{call}({table}) has no ON=.",
+        why=f"Without ON, every row is paired with every row of {table}, which "
+        "multiplies the rows and every sum and count over them.",
+        fix=f"Say how the rows match, as in {call}({table}, ON=equals(...)).",
+        opt_out=f"CROSS_JOIN({table}), if you really mean every row with every row.",
     )
 
 
 def guard_order_by_in_derived_table(name: str) -> NoReturn:
     """ORDER_BY without LIMIT inside a Derived table may not be kept. No opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
-            why="The warehouse may not keep the order of rows inside a Derived table (Hive "
-            "never does), so any order you rely on later may not be there.",
-            fix="Sort in the outermost Statement, or number the rows with row_number(...) "
-            "and keep the ones you want.",
-            opt_out=None,
-        )
+    _stop(
+        what=f"derived({name!r}, ...) has ORDER_BY but no LIMIT.",
+        why="The warehouse may not keep the order of rows inside a Derived table (Hive "
+        "never does), so any order you rely on later may not be there.",
+        fix="Sort in the outermost Statement, or number the rows with row_number(...) "
+        "and keep the ones you want.",
+        opt_out=None,
     )
 
 
@@ -318,33 +302,29 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
         problems.append("it leaves out " + ", ".join(missing))
     if extra:
         problems.append("it also selects " + ", ".join(extra))
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call}: " + ", and ".join(problems) + ".",
-            why="The warehouse fills a table's columns by position, not by name, so a missing or extra "
-            "column would put values in the wrong columns.",
-            fix=f"SELECT every column of {table}'s Table reference, each under its own name, "
-            "except a partition column the write names in partition={...}. The Toolbox puts "
-            "them in the right order, its partition columns last.",
-            opt_out=None,
-        )
+    _stop(
+        what=f"{call}: " + ", and ".join(problems) + ".",
+        why="The warehouse fills a table's columns by position, not by name, so a missing or extra "
+        "column would put values in the wrong columns.",
+        fix=f"SELECT every column of {table}'s Table reference, each under its own name, "
+        "except a partition column the write names in partition={...}. The Toolbox puts "
+        "them in the right order, its partition columns last.",
+        opt_out=None,
     )
 
 
 def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
     """A write into a Saved table with a Key must show each row has one of its own."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} can't show that each row it writes has a Key ({', '.join(key)}) of "
-            f"its own: {why}.",
-            why="Hive never checks a Key, so rows that share one would be saved without a "
-            "word, and every join and count that trusts the Key would repeat them.",
-            fix="Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, "
-            "or keep row_number(...) at 1 for each Key in a Derived table, and join only on "
-            "each joined table's whole Key. The how-to on Keys shows each.",
-            opt_out=f"{call[:-1]}, unproven_key=True), if each row has a Key of its own for a "
-            "reason the Toolbox can't see.",
-        )
+    _stop(
+        what=f"{call} can't show that each row it writes has a Key ({', '.join(key)}) of "
+        f"its own: {why}.",
+        why="Hive never checks a Key, so rows that share one would be saved without a "
+        "word, and every join and count that trusts the Key would repeat them.",
+        fix="Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, "
+        "or keep row_number(...) at 1 for each Key in a Derived table, and join only on "
+        "each joined table's whole Key. The how-to on Keys shows each.",
+        opt_out=f"{call[:-1]}, unproven_key=True), if each row has a Key of its own for a "
+        "reason the Toolbox can't see.",
     )
 
 
@@ -439,7 +419,7 @@ def refuse_what_another_folder_made(value: object, call: str) -> None:
     if getattr(value, "_statement", None) is not None:  # a Table made by derived(...)
         called = "Derived table"
     article = "an" if called[0] in "aeiou" else "a"
-    raise TypeError(four_part_message(
+    refuse(
         what=f"{call} was given {article} {called} made by the {made_by} folder, which isn't "
         f"part of the Toolbox you imported, {this}.",
         why="Each Toolbox folder's objects work only with its own functions, so the "
@@ -447,8 +427,7 @@ def refuse_what_another_folder_made(value: object, call: str) -> None:
         fix=f"In the file the {called} came from, change `from {made_by} import` to "
         f"`from {this} import`. If the {made_by} folder is left over from an earlier version, "
         "delete it.",
-        opt_out=None,
-    ))
+    )
 
 
 def refuse(what: str, why: str, fix: str, *, error: type[Exception] = TypeError,
@@ -477,7 +456,15 @@ def arguments_of(function: Callable[..., object]) -> str:
     first = parameters[0]
     if first.kind is first.POSITIONAL_OR_KEYWORD and first.default is first.empty:
         names[0] = first.name
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+    return in_words(names)
+
+
+def in_words(items: list[str], last: str = "and") -> str:
+    """Items as a sentence lists them: "a", "a and b", or "a, b and c"; with last="or",
+    "a, b or c"."""
+    if len(items) < 2:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} {last} {items[-1]}"
 
 
 def refuse_removed_arguments(call: str, removed: dict[str, object],
@@ -490,8 +477,8 @@ def refuse_removed_arguments(call: str, removed: dict[str, object],
         return
     arguments = arguments_of(takes)
     if "send" in removed:
-        warehouse = " and ".join(f"{name}=" for name in ("query", "execute")
-                                 if name in inspect.signature(takes).parameters)
+        warehouse = in_words([f"{name}=" for name in ("query", "execute")
+                              if name in inspect.signature(takes).parameters])
         if not warehouse:
             refuse(
                 what=f"{call} was given send=, which Toolbox 7.0 replaced.",
@@ -554,7 +541,7 @@ def refuse_what_isnt_a_dataframe(result: object) -> None:
     else:
         given = kind_name(result)
         start = "Turn the rows into a DataFrame at the end of your query"
-    raise TypeError(four_part_message(
+    refuse(
         what=f"Your query gave back {given}, where a pandas DataFrame goes.",
         why="run_query hands you back what your query gives back, and you read the rows from it as "
         "from a pandas DataFrame, each column by its name.",
@@ -562,8 +549,7 @@ def refuse_what_isnt_a_dataframe(result: object) -> None:
         "names from each row's keys when the API gives each row as a dict; when it gives each "
         "row as a tuple, pass the column names it gives too: pd.DataFrame(rows, columns=names). "
         "The how-to Start a Project shows how to write your query.",
-        opt_out=None,
-    ))
+    )
 
 
 # --- Load limits: each protects the cluster or the notebook --------------------------------
@@ -595,15 +581,14 @@ def load_limit_partition_bound(call: str, table: str, full_name: str,
     else:
         fix = (f"Filter one of them in WHERE, as in WHERE(equals({column}, ...)), or with "
                "is_in, between or last_n_days.")
-    raise LoadRefused(
-        four_part_message(
-            what=f"{call} reads {full_name}, but filters none of its partition columns: "
-            f"{', '.join(partitioned_by)}.",
-            why="The warehouse would read every Partition the table holds, which can stall the "
-            "cluster for everyone.",
-            fix=fix,
-            opt_out=f"{call[:-1]}, reads_all_partitions=True)",
-        )
+    _stop(
+        what=f"{call} reads {full_name}, but filters none of its partition columns: "
+        f"{', '.join(partitioned_by)}.",
+        why="The warehouse would read every Partition the table holds, which can stall the "
+        "cluster for everyone.",
+        fix=fix,
+        opt_out=f"{call[:-1]}, reads_all_partitions=True)",
+        error=LoadRefused,
     )
 
 
@@ -611,18 +596,17 @@ def load_limit_order_by(sorts_everything: bool) -> None:
     """ORDER_BY without LIMIT sorts the whole result before any of it comes back."""
     if sorts_everything:
         return
-    raise LoadRefused(
-        four_part_message(
-            what="ORDER_BY has no LIMIT.",
-            why="Sorting the whole result makes the warehouse put every row in order before "
-            "any comes back, which is slow on a big result; pandas can sort the rows once you "
-            "have them.",
-            fix="Sort in pandas after run_query(...), with df.sort_values(...). For a top N, add "
-            "LIMIT(n).",
-            opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
-            "to derived(...), where the order of rows may not be kept anyway, so this "
-            "refusal can't be switched off there.",
-        )
+    _stop(
+        what="ORDER_BY has no LIMIT.",
+        why="Sorting the whole result makes the warehouse put every row in order before "
+        "any comes back, which is slow on a big result; pandas can sort the rows once you "
+        "have them.",
+        fix="Sort in pandas after run_query(...), with df.sort_values(...). For a top N, add "
+        "LIMIT(n).",
+        opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
+        "to derived(...), where the order of rows may not be kept anyway, so this "
+        "refusal can't be switched off there.",
+        error=LoadRefused,
     )
 
 
@@ -630,14 +614,13 @@ def load_limit_rows(rows: int, limit: int) -> None:
     """With an automatic LIMIT set, a result that fills it may have been cut short."""
     if rows < limit:
         return
-    raise LoadRefused(
-        four_part_message(
-            what=f"run_query(...) got back {rows} rows, exactly the automatic LIMIT set by "
-            "set_load_limits(rows=...).",
-            why="The result was probably cut short, so anything computed from it would be "
-            "missing rows.",
-            fix="Narrow the Statement with more WHERE, or read it in parts, such as a "
-            "Partition at a time.",
-            opt_out="statement(..., returns_all_rows=True)",
-        )
+    _stop(
+        what=f"run_query(...) got back {rows} rows, exactly the automatic LIMIT set by "
+        "set_load_limits(rows=...).",
+        why="The result was probably cut short, so anything computed from it would be "
+        "missing rows.",
+        fix="Narrow the Statement with more WHERE, or read it in parts, such as a "
+        "Partition at a time.",
+        opt_out="statement(..., returns_all_rows=True)",
+        error=LoadRefused,
     )

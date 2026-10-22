@@ -94,7 +94,8 @@ from .project_files import (
 )
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
-from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
+from .refusals import (callers_frame, in_words, need_warehouse_call, refuse,
+                       refuse_removed_arguments)
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
@@ -746,7 +747,7 @@ def remove_block(name: str) -> ProjectReport:
     importers = _importers(root, name)
     if importers:
         refuse(
-            what=f"{call}: {_as_a_sentence(importers)} still "
+            what=f"{call}: {in_words(importers)} still "
             f"{'imports' if len(importers) == 1 else 'import'} {BUILDING_BLOCK.shown(name)}.",
             why="Without the Building block, each would stop at its import.",
             fix=f"Take the import of {name} out of each, and what reads it, then remove it.",
@@ -875,14 +876,14 @@ def add_references(names: list[str],
             + "; ".join(said) + ".",
             why="Each table is written or skipped on its own, so one name that is wrong or "
             "already there never stops the rest"
-            + (f": {_as_a_sentence(files)} {'was' if len(files) == 1 else 'were'} written."
+            + (f": {in_words(files)} {'was' if len(files) == 1 else 'were'} written."
                if files else "."),
             fix="Fix each name skipped as wrong or whose DESCRIBE failed, then run "
             "add_references again with those names alone; a table whose file is there "
             "already needs nothing. Each is in admin/admin_log.md.",
             error=SkippedTables,
         )
-    return ProjectReport([f"Wrote {_as_a_sentence(files)}: fill in their TODO lines."
+    return ProjectReport([f"Wrote {in_words(files)}: fill in their TODO lines."
                           if len(files) > 1 else
                           f"Wrote {files[0]}: fill in its TODO lines.", *databases])
 
@@ -1046,7 +1047,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     """
     call = f"project.refresh_reference_sheet({_quoted(name) if name is not None else ''})"
     root = _project(call)
-    now = f"{unchecked.now():%Y-%m-%d %H:%M:%S}"
+    now = f"{unchecked.now():{unchecked.TIME_SHOWN}}"
     if name is None:
         paths = table_references(root)
         kept = []
@@ -1087,11 +1088,6 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
                       + (", and its rows from before are kept until then." if name is not None
                          and had_rows else "."))
     return ProjectReport(report + _write_databases(root)[1])
-
-
-def _as_a_sentence(items: list[str]) -> str:
-    """Items as a sentence lists them: "a", "a and b", or "a, b and c"."""
-    return " and ".join([", ".join(items[:-1]), items[-1]]) if len(items) > 1 else items[0]
 
 
 def _sheet(root: Path) -> list[dict[str, str]]:
@@ -1323,7 +1319,7 @@ def _write_databases(root: Path) -> tuple[list[str], list[str]]:
         module.write_text(text, encoding="utf-8")
         changed.append(f"wrote references/{database}.py")
         said.append(f"Wrote references/{database}.py: from references import {database} gives "
-                    f"{_as_a_sentence([f'{database}.{name}' for name in sorted(tables)])}.")
+                    f"{in_words([f'{database}.{name}' for name in sorted(tables)])}.")
     if changed:
         # Python keeps a module it has imported, so running the import again reads it no more.
         said.append("Restart the kernel of a notebook that imported references, to see a table "
@@ -1457,7 +1453,7 @@ def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:
     if needed:
         refuse(
             what=f"{call}: the write() in the logic cell of {shown} needs "
-            f"{_as_a_sentence(needed)} given to it.",
+            f"{in_words(needed)} given to it.",
             why="run_tables calls each table's write() with nothing, so a write that needs a "
             "value can't be sent.",
             fix="Make write() take nothing: put a value it needs, such as a day, in a "
@@ -1676,7 +1672,7 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame: F
     add_references logs what it wrote and skipped, then refuses."""
     from .lineage import calling_file  # lineage imports what imports this
 
-    lines = ["", f"## {unchecked.now():%Y-%m-%d %H:%M:%S}, Project action", "", f"- Call: {inline_code(call)}"]
+    lines = ["", f"## {unchecked.now():{unchecked.TIME_SHOWN}}, Project action", "", f"- Call: {inline_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines.append(f"- Files: {'; '.join(files) or 'none changed'}")
