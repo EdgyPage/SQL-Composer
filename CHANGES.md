@@ -102,6 +102,21 @@ built a day at a time, so some of your files change: each change below says how.
 - **The Reference sheet's `date_partition` column is now `partition`**, "yes" for each column
   the table is partitioned by.
 
+### New
+
+- **A Python step declares a change you make in pandas**, so Lineage shows where it lives:
+  pull the rows with a Statement, change them with a function of yours, save them with your
+  own call, then `python_step(add_margin, reads=[sales.price, sales.cost], writes=margins)`.
+  It sends nothing, and the Toolbox never moves its data. `export_lineage` draws it as one
+  box, from the columns it read to the table it wrote, with a section naming the function, its
+  file from your Project's folder and its first line, such as "changed in Python by
+  `building_blocks/margins.py:add_margin`, line 12"; a function defined in a notebook cell is
+  named by its notebook. A lambda, or anything that isn't a function written with def, is
+  refused. `run` refuses the step, `show_hive` prints comment lines saying what it is, and a
+  Table notebook's `write()` may give it beside its Statements: `project.run_tables` puts it
+  in order and passes over it. `PythonStep` is the name a type hint uses. The how-to "Declare a
+  change made in Python" walks through one.
+
 ## 6.1
 
 Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder in over 6.0's.
