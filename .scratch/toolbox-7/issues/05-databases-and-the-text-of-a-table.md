@@ -1,7 +1,7 @@
 # Databases and the text of a table
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 04
 Size: M
 
@@ -46,3 +46,36 @@ What exists (2026-10-21):
   its tables, so a column is reached as `ops.jobs.job_id`." Its _Avoid_ is `schema, namespace`.
 - CHANGES.md says how to start using it: run `refresh_reference_sheet` once.
 - CLAUDE.md's Definition of done, the beginner reader included.
+
+## Answer
+
+Built 2026-10-21 in a worktree (77789fc), merged into dev as f9ca974.
+
+- One generated module per Database, `references/<db>.py`, in place of the ticket's single
+  `references/__init__.py`, a decision of the main session: `references` stays a namespace
+  package, so a half-filled or broken Table reference breaks only its own Database's module, not
+  every import from `references`. `from references import ops` gives the module, `ops.jobs` the
+  Table, `ops.jobs.job_id` the Column; tab completion through the module's attributes and
+  `__dir__`; a wrong table name gets the Toolbox-style message with a close match (a wrong
+  Database is Python's ImportError: a namespace package can't intercept it).
+- Written by add_references, new_table, register, remove_reference and
+  refresh_reference_sheet, from references that parse and hold no `<...>`; check(), the sheet
+  and the registry skip them (recognised by their first line). A Database name Python can't
+  import gets no file, and the report says how to import its references instead.
+- `str(table)` is `ops.jobs AS jobs` (an alias, or a Derived table's name); a Column's stays
+  `jobs.job_id`; both take a format spec. unchecked_hive's docstring runs one.
+- Levels: a Database module is Level 0 and imports only Table references (test_levels and
+  CONTEXT's Level entry say so).
+
+## Reviews
+
+- Spec (2026-10-21): the per-module departure judged as decided; no worked example writes
+  `ops.jobs.job_id` into a Statement yet (ticket 07's how-tos do).
+- Standards (2026-10-21): no breach; long lines, two awkward messages and a rebound variable
+  fixed in the review batch; `__format__` repeated on Table and Column left plain.
+- Beginner reader (2026-10-21), costliest stops: `from references import ops` introduced but
+  never used, and Aliases need the per-file import (ticket 07); "still to fill in" against the
+  report (now "a <...> still in it"); a stale import after an action (the report now says to
+  re-run the import); why `jobs.job_id` and not `ops.jobs.job_id`, and a table's text being for
+  FROM/JOIN (now said in Table's and unchecked_hive's docstrings).
+- Drift: f9ca974 opened D233-D235, fixed in the review batch.
