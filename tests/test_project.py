@@ -11,10 +11,13 @@ reads, so each one's code cells are parsed here as Python.
 from __future__ import annotations
 
 import ast
+import contextlib
 import csv
 import datetime
+import importlib
 import json
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pandas as pd
@@ -405,20 +408,23 @@ def failing_on(missing: str) -> Callable[..., pd.DataFrame]:
 def test_add_references_writes_each_table_and_registers_it(started: Path) -> None:
     report = project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     assert sorted(path.name for path in (started / "references").iterdir()) == [
-        "ops__job_runs.py", "ops__jobs.py"]
+        "ops.py", "ops__job_runs.py", "ops__jobs.py"]
     assert "from references.ops__jobs import jobs, <alias>" in (
         started / "references" / "ops__jobs.py").read_text(encoding="utf-8")
     assert [(row["kind"], row["table"]) for row in registry(started)] == [
         ("reference", "ops.jobs"), ("reference", "ops.job_runs")]
     assert repr(report) == ("Wrote references/ops__jobs.py and references/ops__job_runs.py: "
-                            "fill in their TODO lines.")
+                            "fill in their TODO lines.\n"
+                            "Wrote references/ops.py: from references import ops gives "
+                            "ops.job_runs and ops.jobs.")
 
 
 def test_add_references_names_three_files_or_more_as_a_sentence_does(started: Path) -> None:
     report = project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
                                     query=example_database.query)
-    assert repr(report) == ("Wrote references/ops__jobs.py, references/ops__job_runs.py and "
-                            "references/ops__run_alerts.py: fill in their TODO lines.")
+    assert repr(report).splitlines()[0] == (
+        "Wrote references/ops__jobs.py, references/ops__job_runs.py and "
+        "references/ops__run_alerts.py: fill in their TODO lines.")
 
 
 def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started: Path) -> None:
@@ -439,7 +445,7 @@ def test_add_references_skips_what_it_cant_write_and_finishes_the_list(started: 
     log = log_text(started)
     assert ('- Call: `project.add_references(["ops.jobs", "ops.job_ownres", "jobs", '
             '"ops.run_alerts"], query=...)`\n') in log
-    assert "- Files: created references/ops__run_alerts.py\n" in log
+    assert "- Files: created references/ops__run_alerts.py; wrote references/ops.py\n" in log
     assert ("- Skipped: ops.jobs (references/ops__jobs.py is there already); "
             "ops.job_ownres") in log
     assert "- Result: 1 of 4 written; SkippedTables named the rest, above\n" in log
@@ -545,6 +551,173 @@ def test_a_describe_refused_by_the_toolbox_is_named_by_what_happened(started: Pa
 def test_refreshing_a_table_with_no_reference_is_refused(started: Path) -> None:
     with pytest.raises(FileNotFoundError, match="there is no references/ops__jobs.py to read"):
         project.refresh_reference_sheet("ops.jobs")
+
+
+# --- Databases --------------------------------------------------------------------------------
+
+JOB_DAYS = """from sqlglot_composer import Table
+
+job_days = Table(
+    "mart.job_days",
+    columns={"job_id": "bigint", "tags": "array<string>", "dt": "string"},
+    partitioned_by=["dt"],
+    location="/data/your_team/mart.db/job_days",
+)
+"""
+
+
+@contextlib.contextmanager
+def on_the_path(root: Path) -> Iterator[None]:
+    """The Project on Python's path, as a notebook of it has it, and its references/ forgotten
+    after, so another test can write its own."""
+    sys.path.insert(0, str(root))
+    importlib.invalidate_caches()
+    try:
+        yield
+    finally:
+        sys.path.remove(str(root))
+        for module in [module for module in sys.modules
+                       if module.split(".")[0] == "references"]:
+            del sys.modules[module]
+
+
+def test_a_database_gives_its_tables_and_their_columns(started: Path) -> None:
+    project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    with on_the_path(started):
+        from references import ops
+    assert repr(ops.jobs) == repr(example_database.jobs)
+    assert repr(ops.jobs.job_id) == "jobs.job_id"
+    # Tab completion lists its tables, and nothing else.
+    assert dir(ops) == ["job_runs", "jobs"]
+    assert f"SELECT {ops.jobs.job_id} FROM {ops.jobs}" == (
+        "SELECT jobs.job_id FROM ops.jobs AS jobs")
+
+
+def test_a_name_a_database_doesnt_have_names_the_tables_it_has(started: Path) -> None:
+    project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    with on_the_path(started):
+        from references import ops
+    with pytest.raises(AttributeError) as wrong:
+        ops.jbos
+    assert str(wrong.value) == (
+        "ops has no table 'jbos'. Did you mean 'jobs'? Its tables are: job_runs, jobs.")
+    with pytest.raises(AttributeError, match="jobs has no column 'jbo_id'. Did you mean"):
+        ops.jobs.jbo_id
+
+
+def test_a_database_module_says_what_it_is_and_lists_its_tables(started: Path) -> None:
+    project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    text = (started / "references" / "ops.py").read_text(encoding="utf-8")
+    assert text.splitlines()[0] == (
+        '"""ops - a Database: written by the Project actions, never by hand.')
+    assert ("Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py)."
+            in " ".join(text.split()))
+    assert ("from references.ops__job_runs import job_runs\n"
+            "from references.ops__jobs import jobs\n") in text
+
+
+def test_check_and_the_reference_sheet_leave_a_database_module_out(started: Path) -> None:
+    project.add_references(["ops.jobs"], query=example_database.query)
+    assert repr(project.check()) == ("Every Table folder and Table reference is registered, "
+                                     "and each one registered is there.")
+    assert repr(project.refresh_reference_sheet()) == (
+        "Wrote references/reference_sheet.csv: 4 rows, 1 table.")
+    assert [row["table"] for row in registry(started)] == ["ops.jobs"]
+
+
+def test_a_reference_still_to_fill_in_joins_its_database_once_filled_in(started: Path) -> None:
+    report = project.new_table("mart.job_days")
+    assert "references/mart.py" not in repr(report)
+    assert not (started / "references" / "mart.py").exists()
+    (started / "references" / "mart__job_days.py").write_text(JOB_DAYS, encoding="utf-8")
+    # A column's type may hold < and >, as array<string> does: it is no <...> to fill in.
+    assert repr(project.refresh_reference_sheet("mart.job_days")).splitlines()[1] == (
+        "Wrote references/mart.py: from references import mart gives mart.job_days.")
+    with on_the_path(started):
+        from references import mart
+    assert dir(mart) == ["job_days"]
+
+
+def test_a_reference_with_a_placeholder_left_in_text_is_left_out(started: Path) -> None:
+    (started / "references" / "mart__job_days.py").write_text(
+        JOB_DAYS.replace('"/data/your_team/mart.db/job_days"', '"<LOCATION>"'),
+        encoding="utf-8")
+    project.register("mart.job_days")
+    assert not (started / "references" / "mart.py").exists()
+
+
+def test_register_writes_the_database_module(started: Path) -> None:
+    (started / "references" / "mart__job_days.py").write_text(JOB_DAYS, encoding="utf-8")
+    assert repr(project.register("mart.job_days")) == (
+        "Registered references/mart__job_days.py.\n"
+        "Wrote references/mart.py: from references import mart gives mart.job_days.")
+    assert "- Files: registered references/mart__job_days.py; wrote references/mart.py\n" in (
+        log_text(started))
+
+
+def test_remove_reference_writes_the_database_again_and_removes_it_once_empty(
+        started: Path) -> None:
+    project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+    assert repr(project.remove_reference("ops.jobs")).splitlines()[1] == (
+        "Wrote references/ops.py: from references import ops gives ops.job_runs.")
+    with on_the_path(started):
+        from references import ops
+    assert dir(ops) == ["job_runs"]
+    assert repr(project.remove_reference("ops.job_runs")).splitlines()[1] == (
+        "Removed references/ops.py, since no Table reference left names the Database ops.")
+    assert not (started / "references" / "ops.py").exists()
+    assert "; removed references/ops.py\n" in log_text(started)
+
+
+def test_an_unchanged_database_module_isnt_written_again(started: Path) -> None:
+    project.add_references(["ops.jobs"], query=example_database.query)
+    assert repr(project.refresh_reference_sheet()) == (
+        "Wrote references/reference_sheet.csv: 4 rows, 1 table.")
+    project.new_table("mart.daily_job_runs")  # its reference has a <...> still to fill in
+    assert log_text(started).count("wrote references/ops.py") == 1
+
+
+def test_a_file_of_yours_named_like_a_database_module_is_never_written_over(
+        started: Path) -> None:
+    (started / "references" / "ops.py").write_text("# mine\n", encoding="utf-8")
+    report = repr(project.add_references(["ops.jobs"], query=example_database.query))
+    assert " ".join(report.split()).endswith(
+        "Didn't write references/ops.py, for the Database ops: references/ops.py is a file of "
+        "yours, which the Project actions never write over. Import each of its tables from its "
+        "own file instead, such as from references.ops__jobs import jobs.")
+    project.remove_reference("ops.jobs")
+    assert (started / "references" / "ops.py").read_text(encoding="utf-8") == "# mine\n"
+
+
+@pytest.mark.parametrize(("name", "said", "instead"), [
+    ("class.jobs", "class is a word Python keeps for itself",
+     "from references.class__jobs import jobs"),
+    ("2024.jobs", "2024 starts with a digit",
+     'importlib.import_module("references.2024__jobs").jobs'),
+])
+def test_a_database_python_cant_import_by_name_isnt_written(
+        started: Path, name: str, said: str, instead: str) -> None:
+    stem = project.table_stem(name)
+    (started / "references" / f"{stem}.py").write_text(
+        f'from sqlglot_composer import Table\n\njobs = Table("{name}", columns={{"id": "int"}})\n',
+        encoding="utf-8")
+    report = " ".join(repr(project.register(name)).split())
+    assert f"Didn't write references/{name.split('.')[0]}.py" in report
+    assert said in report and f"such as {instead}." in report
+    assert sorted(path.name for path in (started / "references").iterdir()) == [f"{stem}.py"]
+
+
+def test_two_tables_of_one_database_by_one_name_leave_the_second_out(started: Path) -> None:
+    project.add_references(["ops.jobs"], query=example_database.query)
+    (started / "references" / "ops__jobs_copy.py").write_text(
+        'from sqlglot_composer import Table\n\njobs = Table("ops.jobs_copy", '
+        'columns={"id": "int"})\n', encoding="utf-8")
+    report = " ".join(repr(project.register("ops.jobs_copy")).split())
+    assert ("Left out of its Database's file: references/ops__jobs_copy.py, whose table is "
+            "called jobs as references/ops__jobs.py's is.") in report
+    with on_the_path(started):
+        from references import ops
+    assert dir(ops) == ["jobs"]
 
 
 # --- load, run_tables and lineage ------------------------------------------------------------

@@ -94,6 +94,21 @@ built a day at a time, so some of your files change: each change below says how.
   and `admin.move_to_own_folder` copies a table whole.
 - **The Reference sheet's `date_partition` column is now `partition`**, "yes" for each column
   the table is partitioned by.
+- **Each Database has a file of its own in `references/`, so `from references import ops`
+  gives `ops.jobs`, and `ops.jobs.job_id` its column**, with tab completion at each dot. To
+  write them in a Project from 6.x, run `project.refresh_reference_sheet()` once, from
+  `admin/refresh_reference_sheet.ipynb`; from then on `add_references`, `new_table`,
+  `register`, `remove_reference` and `refresh_reference_sheet` write them again from your Table
+  references, so never edit one. A Table reference still to fill in joins its Database's file
+  once it is filled in and the sheet refreshed. A Database whose name Python can't import,
+  such as `class`, gets no file, and the report says how to import its tables instead. Your
+  `from references.ops__jobs import jobs` lines keep working.
+- **A table's text is its Hive, as FROM writes it**: `str(jobs)` and `f"{jobs}"` give
+  `ops.jobs AS jobs`, where they gave `Table('ops.jobs', columns: ...)`, so
+  `f"SELECT {jobs.job_id} FROM {jobs}"` is Hive `unchecked_hive` can send. A column's text
+  stays `jobs.job_id`, and both now take a format spec, as `f"{jobs.job_id:>20}"`, as a str
+  does. A table on a cell's last line still shows as `Table('ops.jobs', columns: ...)`;
+  `print(jobs)` prints its Hive text.
 
 ## 6.1
 

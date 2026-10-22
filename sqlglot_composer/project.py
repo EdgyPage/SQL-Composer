@@ -14,7 +14,9 @@ A Project is the folder you work in, laid out the same way every time:
     │   ├── registry.csv     every Table folder and Table reference a Project action made
     │   ├── templates/       the Templates new_table makes notebooks from: yours to edit
     │   └── removed/         what remove_table and remove_reference archived
-    ├── references/          a Table reference per table, such as ops__job_runs.py
+    ├── references/          a Table reference per table, such as ops__job_runs.py, and a
+    │                        Database module per Database, such as ops.py: from references
+    │                        import ops gives ops.job_runs, and ops.job_runs.status a column
     ├── building_blocks/     pieces several tables' notebooks share
     └── tables/              a Table folder per Saved table you build
         └── mart__daily_job_runs/
@@ -28,13 +30,20 @@ rebuilds references/reference_sheet.csv, a row per column of every Table referen
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
 before the tables that read it.
 
-None of them deletes a file: what they remove moves into admin/removed/. add_references sends
+Each of add_references, new_table, register, remove_reference and refresh_reference_sheet
+writes the Database modules again from the Table references in references/: one file per
+Database, such as references/ops.py, never written by hand. A Table reference that isn't
+Python yet, or has a <...> still to fill in, is left out of it until it is filled in.
+
+None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
+Database module, which they write, is deleted, once no Table reference names its Database.
+add_references sends
 DESCRIBE through your query, and run_tables, given your execute, writes your tables; the rest
 never touch the warehouse. start, new_table, remove_table, remove_reference, register and
 add_references, the Project actions, each add an entry to admin/admin_log.md, the log that
 also keeps every Admin statement run inside the Project. check, refresh_reference_sheet, load
-and run_tables change none of your files but the Reference sheet, and add no entry of their
-own, though an Admin or Unchecked statement run_tables sends is logged, as run logs one
+and run_tables change none of your files but the Reference sheet and the Database modules, and
+add no entry of their own, though an Admin or Unchecked statement run_tables sends is logged, as run logs one
 anywhere.
 """
 
@@ -49,6 +58,7 @@ import keyword
 import re
 import shutil
 import sys
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 from types import FrameType
@@ -159,7 +169,9 @@ ADMIN_NOTEBOOKS = {
         "# Refresh the Reference sheet\n\nRebuilds `references/reference_sheet.csv` from "
         "every file in `references/`: one row per column, with its type, whether it is a "
         "partition column or in the Key, its Aliases and its description. A Table notebook's "
-        "last cell refreshes only its own table's rows.",
+        "last cell refreshes only its own table's rows. It also writes each Database's file "
+        "again, such as `references/ops.py`, so that `from references import ops` gives "
+        "`ops.jobs`: run it once a Table reference is filled in.",
         ["project.refresh_reference_sheet()"],
     ),
     "run_tables": (
@@ -370,8 +382,9 @@ def new_table(name: str, template: str = "daily_table") -> ProjectReport:
             rows.append(REFERENCE)
         report.append(f"Wrote references/{stem}.py: fill in its <...> and TODO lines.")
     _add_rows(root, rows, name)
-    _log(root, call, [name], made, frame)
-    return ProjectReport(report)
+    changed, said = _write_databases(root)
+    _log(root, call, [name], made + changed, frame)
+    return ProjectReport(report + said)
 
 
 # --- remove_table and remove_reference --------------------------------------------------------
@@ -467,8 +480,9 @@ def _remove(root: Path, kind: str, name: str, call: str,
     archived = _archive(root, path, stem)
     _mark_removed(root, kind, name)
     moved = f"admin/removed/{archived.name}{'/' if kind == TABLE_FOLDER else ''}"
-    _log(root, call, [name], [f"moved {shown} to {moved}"], frame)
-    return ProjectReport([f"Moved {shown} to {moved}."])
+    changed, said = _write_databases(root) if kind == REFERENCE else ([], [])
+    _log(root, call, [name], [f"moved {shown} to {moved}", *changed], frame)
+    return ProjectReport([f"Moved {shown} to {moved}.", *said])
 
 
 # --- add_references ---------------------------------------------------------------------------
@@ -490,7 +504,10 @@ def add_references(names: list[str],
     written as database.table, and a table whose DESCRIBE (the command that lists its columns)
     fails through your `query` are each skipped, and the rest still written. It logs them all in
     one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why.
-    Fix those names, then run add_references again with them alone.
+    Fix those names, then run add_references again with them alone. It also writes the
+    Database module of each Database the tables are in, such as references/ops.py, so that in
+    a notebook of the Project, from references import ops gives the table as ops.jobs, and a
+    column of it as ops.jobs.job_id.
 
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
@@ -498,6 +515,7 @@ def add_references(names: list[str],
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+    Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
     """
     refuse_removed_arguments("add_references", removed, "query=")
     need_warehouse_call("project.add_references", "query", query, "It sends each table's "
@@ -532,8 +550,9 @@ def add_references(names: list[str],
             _add_rows(root, [REFERENCE], name)
     result = "worked" if not said else (
         f"{len(files)} of {len(names)} written; SkippedTables named the rest, above")
-    _log(root, call, [str(name) for name in names], [f"created {file}" for file in files],
-         frame, said, result)
+    changed, databases = _write_databases(root)
+    _log(root, call, [str(name) for name in names],
+         [f"created {file}" for file in files] + changed, frame, said, result)
     if said:
         refuse(
             what=f"add_references skipped {len(said)} of {len(names)} tables: "
@@ -549,7 +568,7 @@ def add_references(names: list[str],
         )
     return ProjectReport([f"Wrote {_as_a_sentence(files)}: fill in their TODO lines."
                           if len(files) > 1 else
-                          f"Wrote {files[0]}: fill in its TODO lines."])
+                          f"Wrote {files[0]}: fill in its TODO lines.", *databases])
 
 
 def _first(error: Exception) -> str:
@@ -604,8 +623,9 @@ def register(name: str) -> ProjectReport:
             error=ValueError,
         )
     _add_rows(root, [kind for kind, _ in adopted], name)
-    _log(root, call, [name], [f"registered {path}" for _, path in adopted], frame)
-    return ProjectReport([f"Registered {' and '.join(path for _, path in adopted)}."])
+    changed, said = _write_databases(root)
+    _log(root, call, [name], [f"registered {path}" for _, path in adopted] + changed, frame)
+    return ProjectReport([f"Registered {' and '.join(path for _, path in adopted)}.", *said])
 
 
 def check() -> ProjectReport:
@@ -633,7 +653,7 @@ def check() -> ProjectReport:
     listed = {(row["kind"], row["table"]) for row in rows if not row["removed_at"]}
     on_disk = {(TABLE_FOLDER, path.name) for path in (root / "tables").iterdir()
                if path.is_dir()}
-    on_disk |= {(REFERENCE, path.stem) for path in (root / "references").glob("*.py")}
+    on_disk |= {(REFERENCE, path.stem) for path in _table_references(root)}
     named = {(kind, table.replace(".", "__", 1)): table for kind, table in listed}
     unlisted = sorted(_shown(kind, stem) for kind, stem in on_disk - set(named))
     missing = sorted(_shown(kind, stem) for kind, stem in set(named) - on_disk)
@@ -666,8 +686,10 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     sheet is read from the files in references/, never from the warehouse. Given a table's
     name, it replaces only that table's rows. A file that doesn't run yet, such as one with a
     <...> still to fill in, is left out (or, given its name, keeps its rows from before), and
-    the report says so. It changes no other file, and isn't logged: its exported_at column
-    says when it was written.
+    the report says so. It also writes each Database module again, such as references/ops.py,
+    which from references import ops reads, so run it once a Table reference is filled in.
+    It changes no other file, and isn't logged: its exported_at column says when it was
+    written.
 
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
@@ -675,6 +697,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
+    Wrote references/ops.py: from references import ops gives ops.run_alerts.
     >>> project.refresh_reference_sheet()
     Wrote references/reference_sheet.csv: 4 rows, 1 table.
     """
@@ -682,8 +705,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     root = _project(call)
     now = f"{_now():%Y-%m-%d %H:%M:%S}"
     if name is None:
-        paths = sorted(path for path in (root / "references").glob("*.py")
-                       if path.name != "__init__.py")
+        paths = _table_references(root)
         kept = []
     else:
         _, _, stem = _table_name(name, call)
@@ -721,7 +743,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
                       "holds a Table(...) call, then refresh again"
                       + (", and its rows from before are kept until then." if name is not None
                          and had_rows else "."))
-    return ProjectReport(report)
+    return ProjectReport(report + _write_databases(root)[1])
 
 
 def _as_a_sentence(items: list[str]) -> str:
@@ -737,17 +759,18 @@ def _sheet(root: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(sheet))
 
 
-def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
-    """The Reference sheet's rows for one Table reference file, read without running it: its
-    Table(...) call's name, columns, partition columns, Key and descriptions, and the Aliases
-    below it that read one column. None for a file that doesn't parse or has no Table(...)."""
+def _read_reference(path: Path) -> tuple[ast.Module, str, dict[str, ast.expr],
+                                          dict[str, object]] | None:
+    """A Table reference file read without running it: its tree, the variable its Table(...)
+    call is given to, the call's arguments, and the values of those written out, its name,
+    columns, partition columns, Key and descriptions. None for a file that doesn't parse, or
+    has no Table(...) call whose name and columns are written out."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (SyntaxError, ValueError):
         return None
-    assigned = _simple_assignments(tree)
-    found = next(((target, value) for target, value in assigned if isinstance(value, ast.Call)
-                  and _called(value) == "Table"), None)
+    found = next(((target, value) for target, value in _simple_assignments(tree)
+                  if isinstance(value, ast.Call) and _called(value) == "Table"), None)
     if found is None:
         return None
     variable, table_call = found
@@ -760,6 +783,18 @@ def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
         return None
     if not isinstance(values.get("name"), str) or not isinstance(values.get("columns"), dict):
         return None
+    return tree, variable, arguments, values
+
+
+def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
+    """The Reference sheet's rows for one Table reference file, read without running it: its
+    Table(...) call's name, columns, partition columns, Key and descriptions, and the Aliases
+    below it that read one column. None for a file that doesn't parse or has no Table(...)."""
+    read = _read_reference(path)
+    if read is None:
+        return None
+    tree, variable, _, values = read
+    assigned = _simple_assignments(tree)
     aliases: dict[str, list[str]] = {}
     for target, value in assigned:
         read = {node.attr for node in ast.walk(value) if isinstance(node, ast.Attribute)
@@ -791,6 +826,186 @@ def _called(call: ast.Call) -> str | None:
     """The name a call calls, such as Table for Table(...) or sqlglot_composer.Table(...)."""
     function = call.func
     return function.id if isinstance(function, ast.Name) else getattr(function, "attr", None)
+
+
+# --- Databases --------------------------------------------------------------------------------
+
+# The end of a Database module's first line: the Project actions know a file in references/ by
+# it as one they wrote, theirs to write again or remove.
+DATABASE_TITLE = " - a Database: written by the Project actions, never by hand."
+# A placeholder a Template leaves to fill in, such as <LOCATION>.
+PLACEHOLDER = re.compile(r"<[A-Z][A-Z0-9_]*>")
+# A Database module, such as references/ops.py, with @DATABASE@ and the rest filled in. Its
+# __getattr__ and __dir__ are what Python calls for a name the module doesn't have and for
+# the names tab completion lists.
+DATABASE_TEXT = '''"""@DATABASE@@TITLE@
+
+@WHY@
+
+@LISTED@
+
+add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
+actions, write this file again from the Table references in references/, so a change made here
+is lost. A Table reference that isn't Python yet, or has a <...> still to fill in, is left out
+until it is filled in.
+"""
+
+import difflib
+from typing import NoReturn
+
+@IMPORTS@
+
+# Its tables, by the names tab completion lists and a wrong name's message gives.
+_TABLES = [@NAMES@]
+
+
+def __getattr__(name: str) -> NoReturn:
+    """A name that isn't one of its tables: say which tables it has, and the closest."""
+    if name.startswith("_"):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f" Did you mean {close[0]!r}?" if close else ""
+    raise AttributeError(f"@DATABASE@ has no table {name!r}.{hint} Its tables are: "
+                         f"{', '.join(_TABLES)}.", obj=None)
+
+
+def __dir__() -> list[str]:
+    """Its tables, so tab completion lists them."""
+    return list(_TABLES)
+'''
+
+
+def _is_database_module(path: Path) -> bool:
+    """Whether a file in references/ is a Database module the Project actions wrote, by its
+    first line."""
+    with open(path, encoding="utf-8", errors="replace") as file:
+        first = file.readline().rstrip("\n")
+    return first.startswith('"""') and first.endswith(DATABASE_TITLE)
+
+
+def _table_references(root: Path) -> list[Path]:
+    """Every file in references/ but the Database modules: the Table references, and any
+    other file of yours there."""
+    return sorted(path for path in (root / "references").glob("*.py")
+                  if path.name != "__init__.py" and not _is_database_module(path))
+
+
+def _database_entry(path: Path) -> tuple[str, str, str | None] | None:
+    """A Table reference's Database, the variable its file gives the table, and its first
+    column that is a Python name, read without running it. None for a file a Database module
+    leaves out: one that isn't Python yet, has no Table(...) call, names a table with no
+    Database, or holds a <...> to fill in (in any text but its docstring and its columns'
+    types, which may hold < and >, as array<string> does)."""
+    read = _read_reference(path)
+    if read is None:
+        return None
+    tree, variable, arguments, values = read
+    database, dot, _ = str(values["name"]).partition(".")
+    if not dot:
+        return None
+    skipped = {id(node) for node in arguments["columns"].values} if isinstance(
+        arguments["columns"], ast.Dict) else set()
+    if ast.get_docstring(tree, clean=False) is not None:
+        skipped.add(id(tree.body[0].value))
+    if any(isinstance(node, ast.Constant) and isinstance(node.value, str)
+           and id(node) not in skipped and PLACEHOLDER.search(node.value)
+           for node in ast.walk(tree)):
+        return None
+    column = next((str(name) for name in values["columns"] if str(name).isidentifier()
+                   and not keyword.iskeyword(str(name))), None)
+    return database, variable, column
+
+
+def _database_name_problem(root: Path, database: str) -> str | None:
+    """Why a Database module can't be written for `database`, or None when it can."""
+    if not database.isidentifier():
+        return f"{database} starts with a digit, so Python can't import it by name"
+    if keyword.iskeyword(database):
+        return f"{database} is a word Python keeps for itself, so it can't be imported by name"
+    if database.startswith("__") and database.endswith("__"):
+        return f"{database} is a name Python gives a meaning of its own"
+    module = root / "references" / f"{database}.py"
+    if module.exists() and not _is_database_module(module):
+        return (f"references/{database}.py is a file of yours, which the Project actions never "
+                "write over")
+    if (root / "references" / database).exists():
+        return (f"references/{database}/ is a folder of yours, which Python would import in "
+                "its place")
+    return None
+
+
+def _database_text(database: str, tables: dict[str, tuple[str, str | None]]) -> str:
+    """A Database module's text: `tables` maps each variable to its file's name in references/
+    and its first column that is a Python name."""
+    names = sorted(tables)
+    first, (_, column) = names[0], tables[names[0]]
+    example = f"{database}.{first}" + (f".{column}" if column else ".<column>")
+    listed = ", ".join(f"{name} (references/{tables[name][0]}.py)" for name in names)
+    fills = {
+        "@WHY@": textwrap.fill(f"Why: `from references import {database}` gives each of its "
+                               "Table references by its name, so a column is reached as "
+                               f"{example}.", 95),
+        "@LISTED@": textwrap.fill(f"Its tables: {listed}.", 95),
+        "@DATABASE@": database, "@TITLE@": DATABASE_TITLE,
+        "@IMPORTS@": "\n".join(f"from references.{tables[name][0]} import {name}"
+                               for name in names),
+        "@NAMES@": ", ".join(f'"{name}"' for name in names),
+    }
+    text = DATABASE_TEXT
+    for placeholder, value in fills.items():
+        text = text.replace(placeholder, value)
+    return text
+
+
+def _write_databases(root: Path) -> tuple[list[str], list[str]]:
+    """Write each Database module in references/ again, one per Database the Table references
+    name, holding those that can be imported, and remove one whose Database has none left.
+    Gives what changed, for the Admin log, and the lines the action's report adds: each module
+    written or removed, and each that couldn't be, with how to import its tables instead."""
+    databases: dict[str, dict[str, tuple[str, str | None]]] = {}
+    said, left_out = [], []
+    for path in _table_references(root):
+        entry = _database_entry(path)
+        if entry is None:
+            continue
+        database, variable, column = entry
+        tables = databases.setdefault(database, {})
+        if variable in tables:
+            left_out.append(f"references/{path.name}, whose table is called {variable} as "
+                            f"references/{tables[variable][0]}.py's is")
+            continue
+        tables[variable] = (path.stem, column)
+    changed = []
+    for database, tables in sorted(databases.items()):
+        problem = _database_name_problem(root, database)
+        if problem is not None:
+            variable = sorted(tables)[0]
+            stem = tables[variable][0]
+            # A file named for a Database that starts with a digit can't be named in an import.
+            example = (f"from references.{stem} import {variable}" if stem.isidentifier() else
+                       f'importlib.import_module("references.{stem}").{variable}')
+            said.append(f"Didn't write references/{database}.py, for the Database {database}: "
+                        f"{problem}. Import each of its tables from its own file instead, such "
+                        f"as {example}.")
+            continue
+        module = root / "references" / f"{database}.py"
+        text = _database_text(database, tables)
+        if module.is_file() and module.read_text(encoding="utf-8") == text:
+            continue
+        module.write_text(text, encoding="utf-8")
+        changed.append(f"wrote references/{database}.py")
+        said.append(f"Wrote references/{database}.py: from references import {database} gives "
+                    f"{_as_a_sentence([f'{database}.{name}' for name in sorted(tables)])}.")
+    for module in sorted((root / "references").glob("*.py")):
+        if _is_database_module(module) and module.stem not in databases:
+            module.unlink()
+            changed.append(f"removed references/{module.name}")
+            said.append(f"Removed references/{module.name}, since no Table reference left "
+                        f"names the Database {module.stem}.")
+    if left_out:
+        said.append(f"Left out of its Database's file: {'; '.join(left_out)}. Give one of them "
+                    "another name, so each table of a Database has its own.")
+    return changed, said
 
 
 # --- load and run_tables ----------------------------------------------------------------------

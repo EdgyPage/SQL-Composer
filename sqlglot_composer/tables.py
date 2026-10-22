@@ -158,6 +158,14 @@ class Column:
     def __repr__(self) -> str:
         return hive_text(self._tree)
 
+    def __str__(self) -> str:
+        """Its Hive text, such as jobs.job_id, for an f-string of Hive written by hand."""
+        return hive_text(self._tree)
+
+    def __format__(self, spec: str) -> str:
+        """Its Hive text, formatted as a str is, so f"{jobs.job_id:>20}" pads it."""
+        return format(str(self), spec)
+
     @property
     def _aggregate(self) -> bool:
         """Whether it adds rows up, such as count_rows() or a sum inside a calculation."""
@@ -493,6 +501,15 @@ class Table:
     You never type backticks: the Hive puts a name in them where it needs them, such
     as `from`, `any` or `two words`, and leaves a plain name, such as dt, as it is.
 
+    A table's text, in an f-string or from str(...), is the table as FROM writes it, and a
+    column's is the column as SELECT writes it, so both drop into Hive you write by hand, as
+    help(unchecked_hive) shows. A format spec works on them as on a str:
+
+    >>> f"SELECT {jobs.job_id} FROM {jobs}"
+    'SELECT jobs.job_id FROM ops.jobs AS jobs'
+    >>> f"[{jobs.team:>12}]"
+    '[   jobs.team]'
+
     >>> job_runs
     Table('ops.job_runs', columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt)
     >>> job_runs.status
@@ -609,6 +626,15 @@ class Table:
     def __repr__(self) -> str:
         kind = "derived" if self._statement is not None else "Table"
         return f"{kind}({self._name!r}, columns: {', '.join(self._columns)})"
+
+    def __str__(self) -> str:
+        """Its Hive text as FROM writes it, such as ops.jobs AS jobs, for an f-string of Hive
+        written by hand."""
+        return hive_text(source(self))
+
+    def __format__(self, spec: str) -> str:
+        """Its Hive text, formatted as a str is, so f"{jobs:>20}" pads it."""
+        return format(str(self), spec)
 
 
 def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:

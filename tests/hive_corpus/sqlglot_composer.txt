@@ -3602,6 +3602,43 @@ SET hive.exec.dynamic.partition.mode=nonstrict
 SET hive.exec.dynamic.partition=true;
 SET hive.exec.dynamic.partition.mode=nonstrict;
 
+== doc:unchecked_hive
+-- Statement 1: to_hive
+SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs
+-- Statement 1: show_hive
+-- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["statement"]
+    n0["⚠ Unchecked statement<br/><small>SELECT jobs.job_id, jobs.job_name FROM ops.…</small>"]
+  end
+  subgraph g1["ops.jobs"]
+    n1["ops.jobs<br/><small>(the whole table)</small>"]
+  end
+  n1 --> n0
+```
+
+## statement
+
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It reads ops.jobs.
+
+### Hive as submitted
+
+```sql
+SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs
+```
+
+---
+
+
 == doc:repair_partitions
 -- Statement 1: to_hive
 MSCK REPAIR TABLE mart.daily_runs
