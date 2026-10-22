@@ -26,7 +26,8 @@ hints on every function, and Statement, Column and Condition made public) is cha
 tickets. Toolbox 7.0 (query and execute in place of send, tables with no days, Databases, Python
 steps, and the docs reworked into one story) is charted through `.scratch/toolbox-7/map.md`; read
 its Notes before working one of its tickets. Toolbox 7.1 (`run_query` and `run_execute` in place
-of `run`, so the user picks the call) is that map's tickets 09 to 11.
+of `run`, so the user picks the call, and the cleanup after it) is that map's tickets
+09 to 18.
 
 ## Checks
 
