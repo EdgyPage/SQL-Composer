@@ -547,10 +547,10 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     statement, hive_settings(...), each of whose SET lines it sends in a call of its own, and
     an Unchecked statement, sent as you wrote it. An Admin or Unchecked statement adds an entry
     to the Admin log: inside a Project, its admin/admin_log.md; outside one, admin_log.md
-    beside the notebook that sends it (help(set_admin_log)). It gives back None. A write that
-    fills Partitions from its rows needs the Session setting "dynamic_partitions" sent first,
-    as above, as show_hive prints and help(INSERT_OVERWRITE) explains: run_execute sends the
-    write alone. It refuses a read and explain(s), whose rows come back only through
+    beside the script or notebook that sends it (help(set_admin_log)). It gives back None. A
+    write that fills Partitions from its rows needs the Session setting "dynamic_partitions"
+    sent first, as above, as show_hive prints and help(INSERT_OVERWRITE) explains: run_execute
+    sends the write alone. It refuses a read and explain(s), whose rows come back only through
     run_query; a Python step, which sends nothing; and your query in execute's place, which it
     knows by its name, before anything is sent.
     """

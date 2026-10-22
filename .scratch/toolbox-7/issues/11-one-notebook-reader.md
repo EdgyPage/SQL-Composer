@@ -32,7 +32,8 @@ JSONDecodeError instead of the Toolbox's refusal.
 
 ## Answer
 
-Built 2026-10-22 in a worktree (e5e43a0), merged into dev as 98b3723; drift fixes 2f27ee6; review fixes efcb9d6.
+Built 2026-10-22 in a worktree (e5e43a0), merged into dev as 98b3723; drift fixes 2f27ee6;
+review fixes efcb9d6.
 `sqlglot_composer/notebooks.py`: `read_cells`, `logic_cell`, `template_cells`,
 `write_notebook`, `LOGIC`. project.load refuses a notebook that isn't JSON or has no list of
 cells Jupyter can read, naming it; `_importers` still passes over a broken notebook, so
