@@ -11090,7 +11090,7 @@ GROUP BY
 <h4>When you&#x27;d use it</h4>
 <p>When a step is easier in pandas than in a Statement. Here it is how many minutes longer each run took than its job&#x27;s usual run, the median, which pandas works out in one line. The Toolbox never moves the rows: you pull them with a Statement, change them with your function, and save them with your work&#x27;s own call. <code>python_step</code> only tells the Toolbox which columns the change read, which table it wrote, and which function made it, so whoever reads the Lineage can open that function and see what it does.</p>
 <h4>Steps</h4>
-<h5>Start a Project and write the change in a Building block</h5>
+<h5>Start a Project and write the change in a file of building_blocks/</h5>
 <p>Keep the function in a file of the Project&#x27;s building_blocks/ folder, where its line stays put and any notebook can import it. This page writes the file for you; in your own Project, which is started already, leave out <code>project.start()</code> and make the file in your editor.</p>
 <pre class="python">import sys
 from pathlib import Path
