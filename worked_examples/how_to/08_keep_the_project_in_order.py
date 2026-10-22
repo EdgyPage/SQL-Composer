@@ -237,9 +237,10 @@ refreshes its rows alone, as a Table notebook's last cell does for its own table
 ### Check each Table reference against its table
 
 admin/check_references.ipynb compares every table the Reference sheet lists with the table in
-the warehouse, through your query: DESCRIBE lists the table's columns, their types and its
-partition columns, and never its rows. It prints what differs, with the line to change, then
-checks each Key it can. Run it in Jupyter, top to bottom. At its heart is
+the warehouse, through your query: DESCRIBE FORMATTED, Hive's fuller DESCRIBE, lists the
+table's columns, their types and its partition columns, and never its rows. It prints what
+differs, with the line to change, then checks each Key it can. Run it in Jupyter, top to
+bottom. At its heart is
 `check_table_reference`, which gives back a Verdict; here, on each Table reference, with the
 Project's query from warehouse.py:
 
@@ -256,16 +257,16 @@ mart.alerts_per_severity: DESCRIBE FORMATTED failed, so nothing was compared. Ch
     Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
     Opt-out:        none - this one can't be switched off.
 
-The Saved table reports that DESCRIBE failed: it exists only once its notebook's create() has
-made it in your warehouse, and the Example database holds none, so that is expected here, as
-the notebook reports for each Saved table of the Starter Example project. At work, a Saved
-table you have created is compared like the others.
+The Saved table reports that DESCRIBE FORMATTED failed: it exists only once its notebook's
+create() has made it in your warehouse, and the Example database holds none, so that is
+expected here, as the notebook reports for each Saved table of the Starter Example project. At
+work, a Saved table you have created is compared like the others.
 
 When a table changes under its Table reference, the check says how. Say the team that owns
 `ops.jobs` adds a column, `"owner"`. A stand-in query plays the warehouse after that change: it
-answers DESCRIBE with the new columns, and passes every other query on:
+answers DESCRIBE FORMATTED with the new columns, and passes every other query on:
 
->>> def query_after_the_change(hive: str) -> pd.DataFrame:  # -> DataFrame
+>>> def query_after_the_change(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("DESCRIBE"):
 ...         return pd.DataFrame(
 ...             [("job_id", "bigint", ""), ("job_name", "string", ""), ("team", "string", ""),

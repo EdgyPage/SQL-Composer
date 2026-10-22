@@ -150,6 +150,11 @@ def execute(hive: str) -> None:
     example_database.execute(hive)  # at work: your warehouse's execute call
 <BLANKLINE>
 
+Among the lines the `...` above leaves out, warehouse.py imports the Example database from the
+Toolbox:
+
+    from sqlglot_composer import example_database
+
 `example_database.query` runs Hive on the Example database's nine tables, and
 `example_database.execute` prints the first line of the Hive and changes nothing, since the
 Example database can't be written to. The Getting started how-tos keep warehouse.py just so.
@@ -220,16 +225,18 @@ and `run` hands it to your query.
 
 Python looks for what a notebook imports in the folder the notebook runs in, so a notebook in
 the Project's folder finds `sqlglot_composer`, warehouse.py and `references/` there. A Table
-notebook sits two folders down, in `tables/<db>__<table>/`, so its first cell starts with three
-lines, two imports and one that puts the Project's folder on Python's list of places to look,
-before its own imports:
+notebook sits two folders down, in `tables/<db>__<table>/`, so its first code cell, under a
+comment line, starts with three lines, two imports and one that puts the Project's folder on
+Python's list of places to look, before its own imports. This is the cell as the saved_table
+Template writes it:
 
+    # 1. The Project and your query
     import pathlib
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import *
-    from warehouse import query, execute
+    from sqlglot_composer import export_lineage, project, run, show_hive
+    from warehouse import query
 
 `pathlib.Path.cwd()` is the folder the notebook runs in, and `.parents[1]` the folder two above
 it: the Project's. An admin notebook, one folder down, starts with `.parent` in its place.

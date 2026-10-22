@@ -534,8 +534,9 @@ sqlglot_composer.refusals.GuardRefused:
   What happened:  WHERE has region_budgets.region = 'eu', a condition on region_budgets, which LEFT_JOIN brought in.
 ...
 
-It warns at the `LEFT_JOIN` too: matched on `budgets.job_id` alone, a job meets its budget in every
-region, and the region is the other column of the Key. The Guard's usual fix mends both: move
+Before the Guard refused it, it also warned at the `LEFT_JOIN`, since a Statement can get a
+Warning and a refusal both: matched on `budgets.job_id` alone, a job meets its budget in
+every region, and the region is the other column of the Key. The Guard's usual fix mends both: move
 the Condition into `ON=`, beside the join's own, with `all_of`. It filters the partition column
 there too, and the join now matches on the whole Key:
 
@@ -552,7 +553,8 @@ there too, and the join now matches on the whole Key:
 2  nightly_load         150.0
 3  report_build           NaN
 
-report_build is billed in us, so it has no eu budget, and is kept, with NaN. The opt-out,
+report_build is billed in us, so it has no eu budget, and is kept, with NaN, pandas' empty
+value; a column of whole numbers holding a NaN is made floats, so the budgets show as 50.0. The opt-out,
 `keeps_only_matches=True`, is almost never right: if you want only the jobs that have a match,
 `JOIN` says so plainly.
 

@@ -128,7 +128,9 @@ WHERE
 
 In a notebook you can also write `show_hive(failed)` on a line of its own: it prints the Hive
 once, and the text it gives back isn't shown a second time. Given several Statements, it prints
-them all, each headed by a `--` comment line naming it, ready to paste as one script.
+them all, ready to paste as one script, each headed by a `--` comment line: its number, such
+as `-- 1 of 2`, then the name of the variable it is in, when it is in one, such as
+`-- 1 of 2: failed`.
 
 ### Run it
 

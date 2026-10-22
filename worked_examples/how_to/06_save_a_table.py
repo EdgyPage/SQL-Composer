@@ -329,7 +329,57 @@ The notebook has five code cells, run top to bottom:
 ### Fill in its Table reference, beside it
 
 Open references/mart__alerts_per_severity.py in your editor and fill it in beside the
-notebook: it describes the table the notebook's write() fills.
+notebook: it describes the table the notebook's write() fills. This is it as
+`project.new_table` wrote it, from the saved_table_reference Template:
+
+The file `references/mart__alerts_per_severity.py`, as project.new_table wrote it:
+
+    \"\"\"mart.alerts_per_severity - TODO: say in one line what one row is.
+
+    Fill in every <...> below, brackets and all: Python stops at one left in. They are:
+        <COLUMN> and <COLUMN_TYPE>: a column write() saves and its Hive type, each in quotes,
+            such as "job_id" and "bigint". Copy the line for each column, in the order write()
+            saves them, its partition columns last.
+        <LOCATION>: the table's own folder, in quotes, such as "/data/your_team/mart.db/alerts_per_severity".
+    Then partitioned_by= and key=, and the TODO lines.
+
+    Why: TODO: who reads this table, and why it is saved rather than worked out each time.
+
+    project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
+    table's Table reference is filled in by hand, since the table doesn't exist until its
+    notebook's create() makes it from this file. Its notebook's text cell says which columns it
+    lists, and its Key.
+    \"\"\"
+
+    from sqlglot_composer import Table
+
+    alerts_per_severity = Table(
+        "mart.alerts_per_severity",
+        columns={
+            <COLUMN>: <COLUMN_TYPE>,  # a line per column write() saves, its partition columns last
+        },
+        partitioned_by=[],  # its partition columns, in order, such as ["region"]: [] for none
+        key=None,  # the columns whose values name one row, such as ["job_id"]: None if none do
+        location=<LOCATION>,  # its own folder, in quotes
+        descriptions={},  # optional: {"column": "what it holds"}, for the Reference sheet
+    )
+
+    # --- Aliases ------------------------------------------------------------------------------
+    # Your own names for this table's columns and conditions, written by hand below.
+    # Import one beside the table: from references.mart__alerts_per_severity import alerts_per_severity, <alias>
+    #
+    # A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
+    # gives back, still call the column by its own name. To rename an output, use AS(...).
+    #     <alias> = alerts_per_severity.<column>
+    # A condition Alias names a condition on this table alone, for WHERE or
+    # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+    #     <alias> = equals(alerts_per_severity.<column>, <value>)
+
+It has no `does_not_add_up=`, which the Table references `project.add_references` writes have:
+the Template's table saves counts, which add up, so it is left out and taken as empty. Add
+`does_not_add_up=[...]` yourself if your table saves an average, a ratio or a distinct count.
+Type over each `<...>`, and fill in the TODO lines, as here, the file as it is in the Starter
+Example project:
 
 The file `references/mart__alerts_per_severity.py`, after you fill it in:
 
@@ -393,9 +443,9 @@ The file `references/mart__alerts_per_severity.py`, after you fill it in:
 ### Reach it from references
 
 A Saved table joins its Database module, references/mart.py, once its Table reference has no
-`<...>` left: the next Project action that writes the Database modules adds it, as
-`project.refresh_reference_sheet` does too. The notebook's cell 5 runs that, for its own
-table; run here, it writes mart.py:
+`<...>` left: the next Project action that writes the Database modules adds it, for example
+`project.refresh_reference_sheet`, which cell 5 runs, for its own table. Run here, it writes
+mart.py:
 
 >>> project.refresh_reference_sheet("mart.alerts_per_severity")
 Wrote references/reference_sheet.csv: 3 rows, 1 table.
@@ -411,7 +461,8 @@ Table('mart.alerts_per_severity', columns: severity, alerts, dt)
 ### Try its steps
 
 In Jupyter, run the notebook's cells top to bottom. Here, `project.load` runs its logic cell
-and gives back its functions by name, as any notebook of the Project can:
+and gives back its functions by name, as any notebook of the Project can: an object with one
+attribute per function of the logic cell, such as `logic.write`:
 
 >>> logic = project.load("mart.alerts_per_severity")  # -> the notebook's functions
 >>> logic
@@ -461,12 +512,12 @@ GROUP BY
 - `logic.write()` gives INSERT OVERWRITE: it replaces whatever the Partitions it fills held,
   and no other, so sending it twice leaves the same rows, not twice as many.
 
-At work, create the table once, before its first write. From any notebook of the Project,
-with `logic` from `project.load` as here, that is `run(logic.create(), execute=execute)`; in
-the table's own notebook, add a cell after cell 3 that runs its create() the same way, and
-import execute beside query in cell 1. `project.run_tables`, below, sends each table's write()
-and never its create(), so it can't write a table that isn't created yet. The Example database
-can be read but not written, so this page creates nothing.
+At work, `project.run_tables`, below, sends each table's write() and never its create(), so
+create each table once, before its first `project.run_tables`. From any notebook of the
+Project, with `logic` from `project.load` as here, that is
+`run(logic.create(), execute=execute)`; in the table's own notebook, add a cell after cell 3
+that runs its create() the same way, and import execute beside query in cell 1. The Example
+database can be read but not written, so this page creates nothing.
 
 ### How a write fills its Partitions
 
@@ -533,8 +584,9 @@ Printed 1 write in order, and sent nothing. Pass execute= to run them.
 
 With your query and execute, from warehouse.py, it sends them. The Project's warehouse.py
 holds the Example database's two calls until you write your own, so here its execute prints
-the first line of each thing sent. A write fills dt from its rows, so the Session setting
-`"dynamic_partitions"` goes first:
+the first line of each thing sent. It takes query= as well as execute=, since a write() may
+give an Admin statement or an Unchecked statement, and one that reads rows goes to your query.
+A write fills dt from its rows, so the Session setting `"dynamic_partitions"` goes first:
 
 >>> project.run_tables(query=query, execute=execute)
 execute: SET hive.exec.dynamic.partition=true

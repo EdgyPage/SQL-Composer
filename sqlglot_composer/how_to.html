@@ -187,6 +187,8 @@ def query(hive: str) -&gt; pd.DataFrame:
 def execute(hive: str) -&gt; None:
     &quot;&quot;&quot;Run a Hive string that changes something, such as a write, and give back nothing.&quot;&quot;&quot;
     example_database.execute(hive)  # at work: your warehouse&#x27;s execute call</pre>
+<p>Among the lines the <code>...</code> above leaves out, warehouse.py imports the Example database from the Toolbox:</p>
+<pre class="python">from sqlglot_composer import example_database</pre>
 <p><code>example_database.query</code> runs Hive on the Example database&#x27;s nine tables, and <code>example_database.execute</code> prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to. The Getting started how-tos keep warehouse.py just so.</p>
 <h5>Write your query and execute</h5>
 <p>At work, open warehouse.py in your editor and replace the two calls with your team&#x27;s. Each calls your team&#x27;s API, whatever it uses to run a Hive string: <code>query</code> its call that gives back rows, turning them into a pandas DataFrame, each column named, and <code>execute</code> its call that gives back nothing. When your API gives each row as a dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, <code>pd.DataFrame(rows)</code> takes the column names from its keys:</p>
@@ -222,13 +224,14 @@ one</pre>
 </table></div>
 <p>You won&#x27;t write Hive by hand like this again: from <a href="#build_and_run_a_first_statement">Build and run a first statement</a> on, the Toolbox writes it, and <code>run</code> hands it to your query.</p>
 <h5>See how a notebook deeper in the Project finds the Toolbox</h5>
-<p>Python looks for what a notebook imports in the folder the notebook runs in, so a notebook in the Project&#x27;s folder finds <code>sqlglot_composer</code>, warehouse.py and <code>references/</code> there. A Table notebook sits two folders down, in <code>tables/&lt;db&gt;__&lt;table&gt;/</code>, so its first cell starts with three lines, two imports and one that puts the Project&#x27;s folder on Python&#x27;s list of places to look, before its own imports:</p>
-<pre class="python">import pathlib
+<p>Python looks for what a notebook imports in the folder the notebook runs in, so a notebook in the Project&#x27;s folder finds <code>sqlglot_composer</code>, warehouse.py and <code>references/</code> there. A Table notebook sits two folders down, in <code>tables/&lt;db&gt;__&lt;table&gt;/</code>, so its first code cell, under a comment line, starts with three lines, two imports and one that puts the Project&#x27;s folder on Python&#x27;s list of places to look, before its own imports. This is the cell as the saved_table Template writes it:</p>
+<pre class="python"># 1. The Project and your query
+import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import *
-from warehouse import query, execute</pre>
+from sqlglot_composer import export_lineage, project, run, show_hive
+from warehouse import query</pre>
 <p><code>pathlib.Path.cwd()</code> is the folder the notebook runs in, and <code>.parents[1]</code> the folder two above it: the Project&#x27;s. An admin notebook, one folder down, starts with <code>.parent</code> in its place. <code>project.new_table</code> and <code>project.start</code> write these lines into each notebook they make.</p>
 <h4>Check it worked</h4>
 <p>The Project&#x27;s folders are there, and <code>project.check()</code> finds nothing wrong with them: every Table folder, Table reference and Building block the registry lists is there, and none is there that it doesn&#x27;t list.</p>
@@ -913,7 +916,7 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
-<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own: it prints the Hive once, and the text it gives back isn&#x27;t shown a second time. Given several Statements, it prints them all, each headed by a <code>--</code> comment line naming it, ready to paste as one script.</p>
+<p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own: it prints the Hive once, and the text it gives back isn&#x27;t shown a second time. Given several Statements, it prints them all, ready to paste as one script, each headed by a <code>--</code> comment line: its number, such as <code>-- 1 of 2</code>, then the name of the variable it is in, when it is in one, such as <code>-- 1 of 2: failed</code>.</p>
 <h5>Run it</h5>
 <p><code>run</code> turns the Statement into Hive, hands it to your <code>query</code>, since it reads rows, and gives back the DataFrame <code>query</code> returns:</p>
 <pre class="python">result = run(failed, query=query)  # -&gt; DataFrame
@@ -1844,7 +1847,7 @@ run(every_budget, query=query)</pre>
   Why it matters: LEFT_JOIN keeps rows with no match in region_budgets, but those rows have NULL there, so this WHERE throws them away again. The result is an ordinary JOIN.
   Usual fix:      Move the condition into LEFT_JOIN(region_budgets, ON=...), next to the join condition, so it only decides which rows match.
   Opt-out:        LEFT_JOIN(region_budgets, ON=..., keeps_only_matches=True)</pre>
-<p>It warns at the <code>LEFT_JOIN</code> too: matched on <code>budgets.job_id</code> alone, a job meets its budget in every region, and the region is the other column of the Key. The Guard&#x27;s usual fix mends both: move the Condition into <code>ON=</code>, beside the join&#x27;s own, with <code>all_of</code>. It filters the partition column there too, and the join now matches on the whole Key:</p>
+<p>Before the Guard refused it, it also warned at the <code>LEFT_JOIN</code>, since a Statement can get a Warning and a refusal both: matched on <code>budgets.job_id</code> alone, a job meets its budget in every region, and the region is the other column of the Key. The Guard&#x27;s usual fix mends both: move the Condition into <code>ON=</code>, beside the join&#x27;s own, with <code>all_of</code>. It filters the partition column there too, and the join now matches on the whole Key:</p>
 <pre class="python">eu_budgets = statement(  # -&gt; Statement
     SELECT(jobs.job_name, budgets.budget_cents),
     FROM(jobs),
@@ -1859,7 +1862,7 @@ run(eu_budgets, query=query)</pre>
 <tr><td>nightly_load</td><td>150.0</td></tr>
 <tr><td>report_build</td><td><i>NULL</i></td></tr>
 </table></div>
-<p>report_build is billed in us, so it has no eu budget, and is kept, with NaN. The opt-out, <code>keeps_only_matches=True</code>, is almost never right: if you want only the jobs that have a match, <code>JOIN</code> says so plainly.</p>
+<p>report_build is billed in us, so it has no eu budget, and is kept, with NaN, pandas&#x27; empty value; a column of whole numbers holding a NaN is made floats, so the budgets show as 50.0. The opt-out, <code>keeps_only_matches=True</code>, is almost never right: if you want only the jobs that have a match, <code>JOIN</code> says so plainly.</p>
 <h5>A Warning: a table with no Key</h5>
 <p>ops.team_notes has no Key, so the Toolbox can&#x27;t know how many notes a team has, and warns at any join onto it. Each job, beside its team&#x27;s notes:</p>
 <pre class="python">notes = ops.team_notes  # -&gt; Table
@@ -3008,7 +3011,49 @@ project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p>The notebook has five code cells, run top to bottom:</p>
 <p>1. the path lines and imports, as in <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, READS, and four functions, each giving a Statement and running nothing: create, rows, preview and write. <code>rows()</code> holds the clauses preview and write share, so the rows you check are the rows you save; 3. try it: each step&#x27;s Hive, then the rows; 4. its Lineage, as <a href="#follow_lineage">Follow lineage</a> shows; 5. its rows in the Reference sheet, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h5>Fill in its Table reference, beside it</h5>
-<p>Open references/mart__alerts_per_severity.py in your editor and fill it in beside the notebook: it describes the table the notebook&#x27;s write() fills.</p>
+<p>Open references/mart__alerts_per_severity.py in your editor and fill it in beside the notebook: it describes the table the notebook&#x27;s write() fills. This is it as <code>project.new_table</code> wrote it, from the saved_table_reference Template:</p>
+<p class="label">The file <code>references/mart__alerts_per_severity.py</code>, as <code>project.new_table</code> wrote it</p>
+<pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - TODO: say in one line what one row is.
+
+Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
+    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
+        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
+        saves them, its partition columns last.
+    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;.
+Then partitioned_by= and key=, and the TODO lines.
+
+Why: TODO: who reads this table, and why it is saved rather than worked out each time.
+
+project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
+table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
+notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
+lists, and its Key.
+&quot;&quot;&quot;
+
+from sqlglot_composer import Table
+
+alerts_per_severity = Table(
+    &quot;mart.alerts_per_severity&quot;,
+    columns={
+        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
+    },
+    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
+    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
+    location=&lt;LOCATION&gt;,  # its own folder, in quotes
+    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__alerts_per_severity import alerts_per_severity, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
+# gives back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = alerts_per_severity.&lt;column&gt;
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
+<p>It has no <code>does_not_add_up=</code>, which the Table references <code>project.add_references</code> writes have: the Template&#x27;s table saves counts, which add up, so it is left out and taken as empty. Add <code>does_not_add_up=[...]</code> yourself if your table saves an average, a ratio or a distinct count. Type over each <code>&lt;...&gt;</code>, and fill in the TODO lines, as here, the file as it is in the Starter Example project:</p>
 <p class="label">The file <code>references/mart__alerts_per_severity.py</code>, after you fill it in</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - one row per severity and day: the alerts raised.
 
@@ -3052,7 +3097,7 @@ alerts_per_severity = Table(
 #     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
 <ul><li><code>columns={...}</code> lists each column write() saves, in the order its SELECT gives them, each with its Hive type as DESCRIBE prints it: <code>&quot;severity&quot;</code> is a <code>&quot;string&quot;</code>, as in <code>ops.run_alerts</code>, the count <code>&quot;alerts&quot;</code> is a <code>&quot;bigint&quot;</code>, and the partition column <code>&quot;dt&quot;</code> comes last.</li><li><code>partitioned_by=[&quot;dt&quot;]</code> makes the table kept a Partition at a time, here a day: a write replaces the Partitions it fills, and every Statement that reads the table must filter dt.</li><li><code>key=[&quot;severity&quot;, &quot;dt&quot;]</code> is its Key, the columns whose values name one row of the table: each row is one severity on one day, so a severity alone repeats, once a day. The warehouse never checks a Key, so the Toolbox does: a write whose rows could share one is refused as it is built. Here GROUP_BY makes one row per severity and dt.</li><li><code>location=</code> is what <code>&lt;LOCATION&gt;</code> became: the table&#x27;s own folder in the warehouse, where its files go, in quotes and used exactly as written. Ask whoever looks after your warehouse where your team may write, such as <code>&quot;/data/your_team/mart.db/alerts_per_severity&quot;</code>. No two Saved tables may share a folder, or have one inside the other: the Toolbox refuses two that do.</li><li><code>descriptions={...}</code> says what each column holds, for the Reference sheet.</li></ul>
 <h5>Reach it from references</h5>
-<p>A Saved table joins its Database module, references/mart.py, once its Table reference has no <code>&lt;...&gt;</code> left: the next Project action that writes the Database modules adds it, as <code>project.refresh_reference_sheet</code> does too. The notebook&#x27;s cell 5 runs that, for its own table; run here, it writes mart.py:</p>
+<p>A Saved table joins its Database module, references/mart.py, once its Table reference has no <code>&lt;...&gt;</code> left: the next Project action that writes the Database modules adds it, for example <code>project.refresh_reference_sheet</code>, which cell 5 runs, for its own table. Run here, it writes mart.py:</p>
 <pre class="python">project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 3 rows, 1 table.
 Wrote references/mart.py: from references import mart gives mart.alerts_per_severity.
@@ -3100,7 +3145,7 @@ def __dir__() -&gt; list[str]:
 mart.alerts_per_severity  # -&gt; Table</pre>
 <p class="label">Python shows</p><pre class="output">Table(&#x27;mart.alerts_per_severity&#x27;, columns: severity, alerts, dt)</pre>
 <h5>Try its steps</h5>
-<p>In Jupyter, run the notebook&#x27;s cells top to bottom. Here, <code>project.load</code> runs its logic cell and gives back its functions by name, as any notebook of the Project can:</p>
+<p>In Jupyter, run the notebook&#x27;s cells top to bottom. Here, <code>project.load</code> runs its logic cell and gives back its functions by name, as any notebook of the Project can: an object with one attribute per function of the logic cell, such as <code>logic.write</code>:</p>
 <pre class="python">logic = project.load(&quot;mart.alerts_per_severity&quot;)  # -&gt; the notebook&#x27;s functions
 logic</pre>
 <p class="label">Python shows</p><pre class="output">The logic of mart.alerts_per_severity: create, rows, preview, write.</pre>
@@ -3140,7 +3185,7 @@ GROUP BY
 <tr><td>low</td><td>5</td><td>2026-09-24</td></tr>
 </table></div>
 <ul><li><code>logic.create()</code> gives CREATE EXTERNAL TABLE IF NOT EXISTS, from the Table reference: EXTERNAL and LOCATION make it a table whose files are yours, in its own folder, and IF NOT EXISTS, <code>may_exist=True</code> in the notebook, skips a table that is there already and never changes it, so the cell can run every day. <code>PRIMARY KEY ... DISABLE NOVALIDATE</code> writes the Key for whoever reads the table&#x27;s description: Hive keeps it and never checks it.</li><li><code>logic.write()</code> gives INSERT OVERWRITE: it replaces whatever the Partitions it fills held, and no other, so sending it twice leaves the same rows, not twice as many.</li></ul>
-<p>At work, create the table once, before its first write. From any notebook of the Project, with <code>logic</code> from <code>project.load</code> as here, that is <code>run(logic.create(), execute=execute)</code>; in the table&#x27;s own notebook, add a cell after cell 3 that runs its create() the same way, and import execute beside query in cell 1. <code>project.run_tables</code>, below, sends each table&#x27;s write() and never its create(), so it can&#x27;t write a table that isn&#x27;t created yet. The Example database can be read but not written, so this page creates nothing.</p>
+<p>At work, <code>project.run_tables</code>, below, sends each table&#x27;s write() and never its create(), so create each table once, before its first <code>project.run_tables</code>. From any notebook of the Project, with <code>logic</code> from <code>project.load</code> as here, that is <code>run(logic.create(), execute=execute)</code>; in the table&#x27;s own notebook, add a cell after cell 3 that runs its create() the same way, and import execute beside query in cell 1. The Example database can be read but not written, so this page creates nothing.</p>
 <h5>How a write fills its Partitions</h5>
 <p>The Template&#x27;s write selects the partition column, <code>run_alerts.dt</code>, and its Hive says PARTITION(dt) with no value: each row goes to the Partition its own dt names, so a write whose READS picks several days fills each of them. The Toolbox puts the partition columns last in SELECT, where Hive looks for them, wherever you list them. Filling Partitions from the rows needs Hive&#x27;s dynamic partitioning switched on first: show_hive prints the two SET lines that do it, the Session setting <code>&quot;dynamic_partitions&quot;</code>, ahead of the write, and <code>project.run_tables</code> sends them first.</p>
 <p>A write can name its Partition instead, with <code>partition={...}</code>. Its SELECT then leaves the partition column out, and its Hive names the day, with no SET lines:</p>
@@ -3184,7 +3229,7 @@ GROUP BY
   run_alerts.severity,
   run_alerts.dt;</pre>
 <p class="label">Python shows</p><pre class="output">Printed 1 write in order, and sent nothing. Pass execute= to run them.</pre>
-<p>With your query and execute, from warehouse.py, it sends them. The Project&#x27;s warehouse.py holds the Example database&#x27;s two calls until you write your own, so here its execute prints the first line of each thing sent. A write fills dt from its rows, so the Session setting <code>&quot;dynamic_partitions&quot;</code> goes first:</p>
+<p>With your query and execute, from warehouse.py, it sends them. The Project&#x27;s warehouse.py holds the Example database&#x27;s two calls until you write your own, so here its execute prints the first line of each thing sent. It takes query= as well as execute=, since a write() may give an Admin statement or an Unchecked statement, and one that reads rows goes to your query. A write fills dt from its rows, so the Session setting <code>&quot;dynamic_partitions&quot;</code> goes first:</p>
 <pre class="python">project.run_tables(query=query, execute=execute)</pre>
 <p class="label">Python prints</p><pre class="output">execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
@@ -3569,8 +3614,8 @@ run(team_runs, query=query)  # -&gt; DataFrame</pre>
 <tr><td>finance</td><td>5</td><td>2</td></tr>
 </table></div>
 <p><code>export_lineage</code> takes the Statement itself, not its Hive or its result. It writes the two files and gives back their paths, the HTML page first. Nothing is sent to the warehouse: the Lineage is worked out from the Statement alone.</p>
-<p>Where the files go, and their names, take one of two forms, each starting with the time it ran, such as <code>20260925-090000</code> for 09:00:00 on 2026-09-25, so each export gets a name of its own and the ones before stay as they were:</p>
-<ul><li>a Statement exported outside a Table notebook, as here, goes in a folder named lineage beside the notebook you run it from, at the Project&#x27;s top for a notebook there. Its name goes on with the git commit of your scripts, here pinned to <code>1a2b3c4</code> (<code>&quot;nogit&quot;</code> outside a git repository), then &quot;lineage&quot;, the notebook&#x27;s name, <code>&quot;notebook&quot;</code> where the steps don&#x27;t run in a saved one, and the name of the variable that holds the Statement, here <code>team_runs</code>. So put a Statement in a variable with a meaningful name before you export it;</li><li>a write of a Saved table goes in its Table folder&#x27;s lineage/, wherever you run it, and its name goes on with the table alone, such as <code>20260925-090000-mart__daily_job_runs.md</code>, as the next step shows.</li></ul>
+<p>Where the files go, and their names, take one of two forms. Each name starts with <code>&lt;time&gt;</code>, the time it ran, such as <code>20260925-090000</code> for 09:00:00 on 2026-09-25, so each export gets a name of its own and the ones before stay as they were. The HTML page and the Markdown file share the name, ending <code>.html</code> and <code>.md</code>:</p>
+<ul><li>a Statement exported outside a Table notebook, as here, goes in a folder named lineage beside the notebook you run it from, at the Project&#x27;s top for a notebook there, named <code>&lt;time&gt;_&lt;commit&gt;_lineage_&lt;notebook&gt;_&lt;variable&gt;.md</code>: <code>&lt;commit&gt;</code> is the git commit of your scripts, here pinned to <code>1a2b3c4</code> (<code>&quot;nogit&quot;</code> outside a git repository), <code>&lt;notebook&gt;</code> the notebook&#x27;s name (<code>&quot;notebook&quot;</code> where the steps don&#x27;t run in a saved one), and <code>&lt;variable&gt;</code> the name of the variable that holds the Statement, here <code>team_runs</code>. So put a Statement in a variable with a meaningful name before you export it;</li><li>a write of a Saved table goes in its Table folder&#x27;s lineage/, wherever you run it, named <code>&lt;time&gt;-&lt;database&gt;__&lt;table&gt;.md</code>, such as <code>20260925-090000-mart__daily_job_runs.md</code>, as the next step shows.</li></ul>
 <p><code>to=</code>, such as <code>to=&quot;lineage/team_runs.html&quot;</code>, names the files instead, replacing the last.</p>
 <pre class="python">html_file, markdown_file = export_lineage(team_runs)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes lineage/20260925-090000_1a2b3c4_lineage_notebook_team_runs.md</p>
@@ -3851,7 +3896,7 @@ export_lineage(write())
 # %%
 # 5. The Reference sheet: this table&#x27;s rows, from references/mart__daily_job_runs.py
 project.refresh_reference_sheet(&quot;mart.daily_job_runs&quot;)</pre>
-<p>Cell 4 exports the table&#x27;s Lineage. Here, <code>project.load</code> gives the notebook&#x27;s logic, as its cell 2 does when it runs; the write goes in a variable with a meaningful name first:</p>
+<p>Cell 4 exports the table&#x27;s Lineage. Here, <code>project.load</code> gives the notebook&#x27;s logic, as its cell 2 does when it runs: an object with one attribute per function of the logic cell, such as <code>daily.write</code>. The write goes in a variable with a meaningful name first:</p>
 <pre class="python">daily = project.load(&quot;mart.daily_job_runs&quot;)  # -&gt; the notebook&#x27;s functions
 write_daily_job_runs = daily.write()  # -&gt; Statement
 html_file, markdown_file = export_lineage(write_daily_job_runs)  # -&gt; tuple[Path, Path]</pre>
@@ -4017,7 +4062,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p class="label">Python shows</p><pre class="output">&#x27;tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.md&#x27;</pre>
 <p>The write fills a table with a Table folder, so the pair goes in that folder&#x27;s lineage/, named by the time and the table alone, the second form above. Each export adds a pair, so lineage/ keeps every one before: the table&#x27;s history, oldest first, to compare when its logic changes. Its Graph draws the Building block as a group of its own, named <code>&quot;runs_per_job&quot;</code> as the block names it: <code>&quot;failed_runs&quot;</code> is counted there, from <code>ops.job_runs.status</code>, and copied into the table.</p>
 <h5>Draw a table that reads another Saved table</h5>
-<p>mart.team_day adds up each team&#x27;s day from what mart.daily_job_runs saved. It reads the Saved table through its Table reference, like any other table:</p>
+<p>mart.team_day adds up each team&#x27;s day from what mart.daily_job_runs saved. It reads the Saved table through its Table reference, like any other table. Its notebook below is shortened from the Starter Example project&#x27;s, whose cell 3 also runs a function of its logic, team_runs_from_job_runs, each team&#x27;s day worked out from ops.job_runs itself, so that it runs on the Example database:</p>
 <pre class="python">project.new_table(&quot;mart.team_day&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__team_day/: mart__team_day.ipynb and lineage/, from
 admin/templates/saved_table.py.
@@ -4241,7 +4286,7 @@ export_lineage(write_daily_job_runs, write_team_day)
 # %%
 # 5. The Reference sheet: this table&#x27;s rows, from references/mart__team_day.py
 project.refresh_reference_sheet(&quot;mart.team_day&quot;)</pre>
-<p>Its Lineage alone would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads the logic of the table it reads, and passes both writes. Jupyter runs a notebook in its own folder, so the steps move there first, as opening the notebook would, then do what cell 4 does:</p>
+<p>Its Lineage alone would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads the logic of the table it reads, and passes both writes. One write goes in its own Table folder&#x27;s lineage/ wherever you run it, but with several writes the folder you run from decides where they go: the lineage/ of the Table folder you run them from, when one of them fills its table, or else beside your notebook. Jupyter runs a notebook in its own folder, so the steps move there first, as opening the notebook would, then do what cell 4 does:</p>
 <pre class="python">os.chdir(&quot;tables/mart__team_day&quot;)
 team = project.load(&quot;mart.team_day&quot;)  # -&gt; the notebook&#x27;s functions
 write_team_day = team.write()  # -&gt; Statement
@@ -4542,9 +4587,9 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <p class="note">It writes <code>tables/mart__team_day/lineage/20260925-090000-mart__team_day.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.name  # -&gt; str</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;20260925-090000-mart__team_day.md&#x27;</pre>
-<p>The files go in this Table folder&#x27;s lineage/, named for its own table: writes of several tables go in the lineage/ of the Table folder you run them from, when one of them fills its table. The order you pass them in doesn&#x27;t matter: <code>export_lineage</code> puts each write before the ones that read the Saved table it fills. The Markdown file has a section for each write. The second&#x27;s first line says it reads mart.daily_job_runs, written by write_daily_job_runs above, so the tree of the team&#x27;s <code>&quot;failed_runs&quot;</code> goes on through the Saved table, and the Building block, back to <code>ops.job_runs.status</code>: the file answers &quot;what counts as a failed run here?&quot; in one place.</p>
+<p>The files go in this Table folder&#x27;s lineage/, named for its own table. The order you pass them in doesn&#x27;t matter: <code>export_lineage</code> puts each write before the ones that read the Saved table it fills. The Markdown file has a section for each write. The second&#x27;s first line says it reads mart.daily_job_runs, written by write_daily_job_runs above, so the tree of the team&#x27;s <code>&quot;failed_runs&quot;</code> goes on through the Saved table, and the Building block, back to <code>ops.job_runs.status</code>: the file answers &quot;what counts as a failed run here?&quot; in one place.</p>
 <h5>Write them in that order</h5>
-<p><code>project.run_tables</code> writes every table in the order the Lineage draws them: a table before any table that reads it, found from each write&#x27;s Hive. With your query and execute, from warehouse.py, which here hold the Example database&#x27;s, it sends each in turn, and the Example database&#x27;s execute prints the first line of each:</p>
+<p><code>project.run_tables</code> writes every table in the order the Lineage draws them: a table before any table that reads it, found from each write&#x27;s Hive. With your query and execute, from warehouse.py, which here hold the Example database&#x27;s, it sends each in turn, and the Example database&#x27;s execute prints the first line of each. It takes query= as well as execute=, since a write() may give an Admin statement or an Unchecked statement, and one that reads rows goes to your query:</p>
 <pre class="python">os.chdir(&quot;../..&quot;)
 project.run_tables(query=query, execute=execute)</pre>
 <p class="label">Python prints</p><pre class="output">execute: SET hive.exec.dynamic.partition=true
@@ -4554,7 +4599,7 @@ execute: WITH runs_per_job AS (
 execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt)
 2 of 2: mart.team_day        worked</pre>
 <p class="label">Python shows</p><pre class="output">Wrote 2 tables, in order.</pre>
-<p>mart.team_day goes after mart.daily_job_runs, so it reads the rows that were just written.</p>
+<p>mart.team_day goes after mart.daily_job_runs, so it reads the rows that were just written. mart.daily_job_runs&#x27;s write starts <code>WITH runs_per_job AS (</code>, not INSERT: its rows come from the Building block, a Derived table, which the Hive writes at its top, ahead of the INSERT OVERWRITE that reads it.</p>
 <h5>Declare a change made in pandas, in a Table notebook</h5>
 <p>Some steps are easier in pandas than in a Statement, such as how many minutes longer each run took than its job&#x27;s usual run, the median. The Toolbox never moves the rows: you pull them with a Statement, change them with your own function, and save them with your work&#x27;s own call. <code>python_step</code> declares the change, so the Lineage shows where it lives rather than stopping at the gap. In a Table notebook, write() gives the Python step, and the notebook&#x27;s cell 3 pulls, changes and saves. Make the Table folder as usual, then write over the Template&#x27;s logic:</p>
 <pre class="python">project.new_table(&quot;mart.run_speed&quot;)</pre>
@@ -5614,7 +5659,7 @@ def __dir__() -&gt; list[str]:
 </table></div>
 <p>After you change one Table reference, <code>project.refresh_reference_sheet(&quot;ops.job_runs&quot;)</code> refreshes its rows alone, as a Table notebook&#x27;s last cell does for its own table.</p>
 <h5>Check each Table reference against its table</h5>
-<p>admin/check_references.ipynb compares every table the Reference sheet lists with the table in the warehouse, through your query: DESCRIBE lists the table&#x27;s columns, their types and its partition columns, and never its rows. It prints what differs, with the line to change, then checks each Key it can. Run it in Jupyter, top to bottom. At its heart is <code>check_table_reference</code>, which gives back a Verdict; here, on each Table reference, with the Project&#x27;s query from warehouse.py:</p>
+<p>admin/check_references.ipynb compares every table the Reference sheet lists with the table in the warehouse, through your query: DESCRIBE FORMATTED, Hive&#x27;s fuller DESCRIBE, lists the table&#x27;s columns, their types and its partition columns, and never its rows. It prints what differs, with the line to change, then checks each Key it can. Run it in Jupyter, top to bottom. At its heart is <code>check_table_reference</code>, which gives back a Verdict; here, on each Table reference, with the Project&#x27;s query from warehouse.py:</p>
 <pre class="python">from references import mart, ops
 for table in [ops.jobs, ops.job_runs, ops.run_alerts, mart.alerts_per_severity]:
     print(check_table_reference(table, query=query))</pre>
@@ -5627,9 +5672,9 @@ mart.alerts_per_severity: DESCRIBE FORMATTED failed, so nothing was compared. Ch
     Why it matters: It holds nine made-up tables, all in the database ops.
     Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
     Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>The Saved table reports that DESCRIBE failed: it exists only once its notebook&#x27;s create() has made it in your warehouse, and the Example database holds none, so that is expected here, as the notebook reports for each Saved table of the Starter Example project. At work, a Saved table you have created is compared like the others.</p>
-<p>When a table changes under its Table reference, the check says how. Say the team that owns <code>ops.jobs</code> adds a column, <code>&quot;owner&quot;</code>. A stand-in query plays the warehouse after that change: it answers DESCRIBE with the new columns, and passes every other query on:</p>
-<pre class="python">def query_after_the_change(hive: str) -&gt; pd.DataFrame:  # -&gt; DataFrame
+<p>The Saved table reports that DESCRIBE FORMATTED failed: it exists only once its notebook&#x27;s create() has made it in your warehouse, and the Example database holds none, so that is expected here, as the notebook reports for each Saved table of the Starter Example project. At work, a Saved table you have created is compared like the others.</p>
+<p>When a table changes under its Table reference, the check says how. Say the team that owns <code>ops.jobs</code> adds a column, <code>&quot;owner&quot;</code>. A stand-in query plays the warehouse after that change: it answers DESCRIBE FORMATTED with the new columns, and passes every other query on:</p>
+<pre class="python">def query_after_the_change(hive: str) -&gt; pd.DataFrame:
     if hive.startswith(&quot;DESCRIBE&quot;):
         return pd.DataFrame(
             [(&quot;job_id&quot;, &quot;bigint&quot;, &quot;&quot;), (&quot;job_name&quot;, &quot;string&quot;, &quot;&quot;), (&quot;team&quot;, &quot;string&quot;, &quot;&quot;),
