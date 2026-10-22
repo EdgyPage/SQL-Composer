@@ -1048,7 +1048,7 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     """
     call = f"project.refresh_reference_sheet({_quoted(name) if name is not None else ''})"
     root = _project(call)
-    now = f"{unchecked.now():{unchecked.TIME_SHOWN}}"
+    now = unchecked.now().strftime(unchecked.TIME_SHOWN)
     if name is None:
         paths = table_references(root)
         kept = []
@@ -1547,7 +1547,7 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     else. Everything a write() gives is sent through your execute, so one that gives a read is
     refused before anything is sent.
     """
-    refuse_removed_arguments("run_tables", removed, run_tables)
+    refuse_removed_arguments("project.run_tables", removed, run_tables)
     from .lineage import in_order  # lineage imports what imports this
     from .running import run_execute, settings_needed
 
@@ -1673,7 +1673,8 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame: F
     add_references logs what it wrote and skipped, then refuses."""
     from .lineage import calling_file  # lineage imports what imports this
 
-    lines = ["", f"## {unchecked.now():{unchecked.TIME_SHOWN}}, Project action", "", f"- Call: {inline_code(call)}"]
+    when = unchecked.now().strftime(unchecked.TIME_SHOWN)
+    lines = ["", f"## {when}, Project action", "", f"- Call: {inline_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines.append(f"- Files: {'; '.join(files) or 'none changed'}")
