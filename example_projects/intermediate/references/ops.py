@@ -4,7 +4,8 @@ Why: `from references import ops` gives each of its Table references by its name
 is reached as ops.job_events.event_id.
 
 Its tables: job_events (references/ops__job_events.py), job_owners
-(references/ops__job_owners.py), region_costs (references/ops__region_costs.py).
+(references/ops__job_owners.py), region_budgets (references/ops__region_budgets.py),
+region_costs (references/ops__region_costs.py), team_notes (references/ops__team_notes.py).
 
 add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
 actions, write this file again from the Table references in references/, so a change made here
@@ -17,10 +18,12 @@ from typing import NoReturn
 
 from references.ops__job_events import job_events
 from references.ops__job_owners import job_owners
+from references.ops__region_budgets import region_budgets
 from references.ops__region_costs import region_costs
+from references.ops__team_notes import team_notes
 
 # Its tables, by the names tab completion lists and a wrong name's message gives.
-_TABLES = ["job_events", "job_owners", "region_costs"]
+_TABLES = ["job_events", "job_owners", "region_budgets", "region_costs", "team_notes"]
 
 
 def __getattr__(name: str) -> NoReturn:

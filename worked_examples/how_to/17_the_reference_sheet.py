@@ -118,7 +118,7 @@ it isn't Python yet and the sheet can't read it. The sheet leaves it out, and sa
 
 >>> project.new_table("mart.daily_job_runs")
 Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
 >>> project.refresh_reference_sheet()
 Wrote references/reference_sheet.csv: 14 rows, 3 tables.

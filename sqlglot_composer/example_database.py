@@ -1,11 +1,16 @@
-"""The Example database: seven made-up tables, and a query and execute to try them.
+"""The Example database: nine made-up tables, and a query and execute to try them.
 
-Four of its Table references have rows on two days, 2026-09-23 and 2026-09-24: `jobs`,
-`job_runs`, `run_alerts`, and `scheduler_runs`, the scheduler's own record of the runs it
-started on those days, to compare with job_runs. It should match job_runs run for run, but
-lacks run 99, a TEST run started by hand, and holds run 100, which never reached job_runs.
+Its tables are of the three kinds you meet at work: `jobs` and `team_notes` aren't
+partitioned, `region_budgets` is partitioned by region alone, and the other six are
+partitioned by a day, `region_costs` by region and then a day. Every table but `team_notes`
+has a Key.
 
-The other three have rows on 14 days, 2026-09-11 to 2026-09-24:
+`jobs`, `job_runs`, `run_alerts` and `scheduler_runs` have rows on two days, 2026-09-23 and
+2026-09-24. `scheduler_runs` is the scheduler's own record of the runs it started on those
+days, to compare with job_runs. It should match job_runs run for run, but lacks run 99, a TEST
+run started by hand, and holds run 100, which never reached job_runs.
+
+Three have rows on 14 days, 2026-09-11 to 2026-09-24:
 
 - `job_events`: each run's events, start, finish, retry and fail;
 - `job_owners`: one row per job per day, with its team and owner, so you can see report_build
@@ -14,8 +19,15 @@ The other three have rows on 14 days, 2026-09-11 to 2026-09-24:
   the job is billed, not the jobs table's LON, PAR or NYC), then by day, with days written like
   20260911 rather than 2026-09-11.
 
-These three 14-day tables keep a record of their own: they have no run_id, and don't match job_runs run for
-run.
+These three 14-day tables keep a record of their own: they have no run_id, and don't match
+job_runs run for run.
+
+The last two aren't partitioned by a day:
+
+- `region_budgets`: each job's budget in cents for a day's cost, in the region it is billed
+  in, partitioned by that region, so a read names the region it wants;
+- `team_notes`: the notes each team wrote about its jobs, with no Key: nothing names one note,
+  so a join onto it is warned about, since each row may match several notes.
 
 `query` runs a Statement's Hive on a small database of the Toolbox's own and gives back a
 DataFrame, just like your own query at work. `execute` stands in for your execute: the Example
@@ -39,6 +51,30 @@ At work, rows come back in no fixed order: sort the DataFrame in pandas when the
 2      97   FAILED             30
 3      98      NaN             15
 4      99     TEST              5
+
+`region_budgets` is partitioned by region, so a read names the regions it reads; `team_notes`
+isn't partitioned, so a read of it is never limited:
+
+>>> budgets = example_database.region_budgets
+>>> run(statement(
+...     SELECT(budgets.job_id, budgets.budget_cents),
+...     FROM(budgets),
+...     WHERE(equals(budgets.region, "eu")),
+... ), query=example_database.query)
+   job_id  budget_cents
+0       1           150
+1       2           200
+2       4            50
+>>> notes = example_database.team_notes
+>>> run(statement(
+...     SELECT(notes.team, AS(count_rows(), "notes")),
+...     FROM(notes),
+...     GROUP_BY(notes.team),
+... ), query=example_database.query)
+      team  notes
+0     data      2
+1  finance      2
+2      web      1
 """
 
 from __future__ import annotations
@@ -134,8 +170,32 @@ region_costs = Table(
     key=["job_id", "region", "dt"],
 )
 
+# Two more, not partitioned by a day: one partitioned by region alone, one not at all.
+
+region_budgets = Table(
+    "ops.region_budgets",
+    columns={
+        "job_id": "bigint",
+        "budget_cents": "bigint",  # the most a day of the job should cost there
+        "region": "string",
+    },
+    partitioned_by=["region"],
+    key=["job_id", "region"],
+)
+
+team_notes = Table(
+    "ops.team_notes",
+    columns={
+        "team": "string",
+        "note": "string",
+        "written_on": "string",  # the day the note was written, as yyyy-MM-dd
+    },
+)
+
 # The column comments DESCRIBE returns.
 _COMMENTS = {
+    ("region_budgets", "budget_cents"): "the most a day of the job should cost there",
+    ("team_notes", "written_on"): "the day the note was written, as yyyy-MM-dd",
     ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
     ("run_alerts", "severity"): "low / high",
     ("job_events", "event_type"): "start / finish / retry / fail",
@@ -347,12 +407,31 @@ _REGION_COSTS = [
     (3, 330, "us", "20260921"),
 ]
 
+_REGION_BUDGETS = [
+    # job_id, budget_cents, region: each job is billed in one region, as region_costs bills it
+    (1, 150, "eu"),
+    (2, 200, "eu"),
+    (4, 50, "eu"),  # cache_warm never runs, so it never costs anything
+    (3, 350, "us"),
+]
+
+_TEAM_NOTES = [
+    # team, note, written_on: no Key, since nothing names one note
+    ("web", "cache_warm is paused until October", "2026-09-11"),
+    ("data", "nightly_load runs long at the end of a month", "2026-09-15"),
+    ("data", "ask ana before changing nightly_load", "2026-09-18"),
+    ("finance", "report_build came over from data today", "2026-09-18"),
+    ("finance", "invoice_sync's bill comes in a day late", "2026-09-21"),
+]
+
 _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "run_alerts": (run_alerts, _RUN_ALERTS),
           "scheduler_runs": (scheduler_runs, _SCHEDULER_RUNS),
           "job_events": (job_events, _JOB_EVENTS),
           "job_owners": (job_owners, _JOB_OWNERS),
-          "region_costs": (region_costs, _REGION_COSTS)}
+          "region_costs": (region_costs, _REGION_COSTS),
+          "region_budgets": (region_budgets, _REGION_BUDGETS),
+          "team_notes": (team_notes, _TEAM_NOTES)}
 
 def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
     # Hive reads a table's name whatever its case.
@@ -361,7 +440,7 @@ def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
         names = [f"ops.{table}" for table in _TABLES]
         refuse(
             what=f"The Example database has no table {name!r}.",
-            why="It holds seven made-up tables, all in the database ops.",
+            why="It holds nine made-up tables, all in the database ops.",
             fix=f"Use {', '.join(names[:-1])} or {names[-1]}.",
             error=ValueError,
         )

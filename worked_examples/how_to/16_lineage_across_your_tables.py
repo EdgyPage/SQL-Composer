@@ -28,8 +28,8 @@ step; this page does its steps for both in one function, `add_table`, so the ste
 from two notebooks ready to run. In your own Project, which is started already, leave out
 `project.start()`: it refuses a folder that is a Project.
 
-mart.jobs_by_runs fills the Template's `<KEY_COLUMN>` with runs and its `<COUNT_NAME>` with
-`"jobs"`: one row per number of runs a day, counting the jobs that ran that many times.
+mart.jobs_by_runs fills the Template's `<GROUP_COLUMN>` with runs and its `<COUNT_NAME>`
+with `"jobs"`: one row per number of runs a day, counting the jobs that ran that many times.
 
 >>> import json
 >>> from pathlib import Path
@@ -62,13 +62,13 @@ Wrote references/ops.py: from references import ops gives ops.job_runs.
 >>> add_table("mart.daily_job_runs", {"job_id": "bigint", "runs": "bigint", "dt": "string"},
 ...           ["job_id", "dt"],
 ...           {"<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
-...            "<DATE_PARTITION>": "dt", "<KEY_COLUMN>": "job_id", "<COUNT_NAME>": '"runs"',
-...            "<DAY>": '"2026-09-24"'})
+...            "<READS>": 'equals(job_runs.dt, "2026-09-24")', "<GROUP_COLUMN>": "job_id",
+...            "<COUNT_NAME>": '"runs"', "<PARTITION_COLUMN>": "dt"})
 >>> add_table("mart.jobs_by_runs", {"runs": "bigint", "jobs": "bigint", "dt": "string"},
 ...           ["runs", "dt"],
 ...           {"<SOURCE_NAME>": "mart__daily_job_runs", "<SOURCE_TABLE>": "daily_job_runs",
-...            "<DATE_PARTITION>": "dt", "<KEY_COLUMN>": "runs", "<COUNT_NAME>": '"jobs"',
-...            "<DAY>": '"2026-09-24"'})
+...            "<READS>": 'equals(daily_job_runs.dt, "2026-09-24")', "<GROUP_COLUMN>": "runs",
+...            "<COUNT_NAME>": '"jobs"', "<PARTITION_COLUMN>": "dt"})
 
 ### Export one table's Lineage
 
@@ -113,7 +113,7 @@ has a section for each write. The second's first line says it reads mart.daily_j
 written by write_daily_job_runs above, so the tree of its `"jobs"` count goes on through the
 Saved table, back to `ops.job_runs`.
 
-In the notebook itself, cell 2 has already set DAY and defined the table's own write(), so
+In the notebook itself, cell 2 has already set READS and defined the table's own write(), so
 cell 4 only loads the tables it reads. The starter Example project's
 mart.team_day notebook draws three tables this way.
 

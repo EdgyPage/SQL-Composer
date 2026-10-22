@@ -1,11 +1,12 @@
 """mart - a Database: written by the Project actions, never by hand.
 
 Why: `from references import mart` gives each of its Table references by its name, so a column
-is reached as mart.job_day_costs.job_id.
+is reached as mart.budget_overruns.job_id.
 
-Its tables: job_day_costs (references/mart__job_day_costs.py), job_day_facts
-(references/mart__job_day_facts.py), job_events_checks (references/mart__job_events_checks.py),
-team_days (references/mart__team_days.py).
+Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
+(references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
+job_events_checks (references/mart__job_events_checks.py), job_notes
+(references/mart__job_notes.py), team_days (references/mart__team_days.py).
 
 add_references, new_table, register, remove_reference and refresh_reference_sheet, the Project
 actions, write this file again from the Table references in references/, so a change made here
@@ -16,13 +17,15 @@ until it is filled in.
 import difflib
 from typing import NoReturn
 
+from references.mart__budget_overruns import budget_overruns
 from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
+from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
 
 # Its tables, by the names tab completion lists and a wrong name's message gives.
-_TABLES = ["job_day_costs", "job_day_facts", "job_events_checks", "team_days"]
+_TABLES = ["budget_overruns", "job_day_costs", "job_day_facts", "job_events_checks", "job_notes", "team_days"]
 
 
 def __getattr__(name: str) -> NoReturn:

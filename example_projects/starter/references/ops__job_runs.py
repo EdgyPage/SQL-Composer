@@ -1,11 +1,11 @@
 """ops.job_runs - one row per run of a job, on the day it ran.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the
-key each join and count relies on, is checked as the Statement is built.
+key each join and count relies on, where it has one, is checked as the Statement is built.
 
-project.add_references wrote this file from the table's DESCRIBE, its partition columns among
-it. Its three TODO lines were then filled in by hand: this docstring's first line, the key, and
-does_not_add_up.
+project.add_references wrote this file from the table's DESCRIBE, its partition columns, if any,
+among it. Its three TODO lines were then filled in by hand: this docstring's first line, the
+key, and does_not_add_up.
 """
 from sqlglot_composer import Table, equals
 

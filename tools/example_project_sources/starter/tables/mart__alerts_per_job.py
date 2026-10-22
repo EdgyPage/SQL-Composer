@@ -7,7 +7,7 @@
 # ops.job_runs, which is worth doing once a day and saving, rather than in every Statement that
 # counts alerts.
 #
-# Made by `project.new_table("mart.alerts_per_job")` from `admin/templates/daily_table.py`, then
+# Made by `project.new_table("mart.alerts_per_job")` from `admin/templates/saved_table.py`, then
 # filled in. A run can raise an alert after midnight, so ops.job_runs is read from the day
 # before as well: an alert counts on the day it was raised, whichever of the two days its run
 # is in. Each alert joins its run on run_id, ops.job_runs' Key, so it is counted once.
@@ -30,14 +30,14 @@ from warehouse import query
 import datetime
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, Clause, Statement, between,
-    count_rows, create_table, equals, statement,
+    AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, Clause, Statement, count_rows,
+    create_table, equals, is_in, statement,
 )
 from references.mart__alerts_per_job import alerts_per_job
 from references.ops__job_runs import job_runs
 from references.ops__run_alerts import high, run_alerts  # high: an Alias, severity is "high"
 
-DAY = "2026-09-24"  # the day write() writes, the Example database's last day
+DAY = "2026-09-24"  # the dt write() writes: change it to write another
 
 
 def day_before(day: str) -> str:
@@ -50,36 +50,29 @@ def create() -> Statement:
     return create_table(alerts_per_job, may_exist=True)
 
 
-def rows(first_day: str, last_day: str) -> list[Clause]:
-    """The clauses every step below shares: each job's alerts per day. The day comes last in
-    SELECT, as run_alerts.dt, the day each alert was raised: INSERT_OVERWRITE writes each
-    day's rows into that day's Partition. job_runs is joined from the day before first_day
-    too, since an alert can come the day after its run."""
+def rows() -> list[Clause]:
+    """The clauses preview and write share: each job's alerts raised on DAY. dt comes last in
+    SELECT, as run_alerts.dt, the day each alert was raised: INSERT_OVERWRITE writes the rows
+    into the Partition their dt names. job_runs is read on the day before DAY too, since an
+    alert can come the day after its run."""
     return [
         SELECT(job_runs.job_id, AS(count_rows(), "alerts"),
                AS(count_rows(where=high), "high_alerts"), run_alerts.dt),
         FROM(run_alerts),
         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
-        WHERE(between(run_alerts.dt, first_day, last_day),
-              between(job_runs.dt, day_before(first_day), last_day)),
+        WHERE(equals(run_alerts.dt, DAY), is_in(job_runs.dt, [day_before(DAY), DAY])),
         GROUP_BY(run_alerts.dt, job_runs.job_id),
     ]
 
 
 def preview() -> Statement:
     """Step 2: the rows write() would save, as a SELECT to run and check first."""
-    return statement(*rows(DAY, DAY))
+    return statement(*rows())
 
 
 def write() -> Statement:
-    """Step 3: save DAY's rows, replacing whatever DAY held."""
-    return statement(INSERT_OVERWRITE(alerts_per_job), *rows(DAY, DAY))
-
-
-def backfill(first_day: str, last_day: str) -> Statement:
-    """Step 4, when needed: save every day from first_day to last_day in one write, replacing
-    those days."""
-    return statement(INSERT_OVERWRITE(alerts_per_job), *rows(first_day, last_day))
+    """Step 3: save DAY's rows, replacing whatever DAY's Partition held."""
+    return statement(INSERT_OVERWRITE(alerts_per_job), *rows())
 
 # %%
 # 3. Try it: the Hive of each step, then the day's rows

@@ -50,16 +50,16 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <p>It writes the Saved table mart.job_events_checks, replacing each partition its rows fill.</p>
 <h3>Calculated columns</h3>
 <details open><summary><code>row_count</code> <span class="muted">in written</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>written.row_count = count_rows()
-└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in written: <code>between(job_events.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)</code>, which is <code>job_events.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.dt</code>.</p></details>
+└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in written: <code>equals(job_events.dt, &quot;2026-09-24&quot;)</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.dt</code>.</p></details>
 <h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>dt</code></td><td>ops.job_events.dt</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>written: Key (dt), since GROUP_BY makes one row for each dt.</li><li>mart.job_events_checks&#x27; Key (dt) holds: each row written has its own.</li></ul>
+<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>written: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.</li><li>mart.job_events_checks&#x27; Key (dt) holds: each row written has its own.</li></ul>
 <h3>Hive as submitted</h3><pre>INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt)
 SELECT
   COUNT(*) AS row_count,
   job_events.dt
 FROM ops.job_events AS job_events
 WHERE
-  job_events.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
+  job_events.dt = &#x27;2026-09-24&#x27;
 GROUP BY
   job_events.dt</pre></section>
 </main>
@@ -70,7 +70,7 @@ GROUP BY
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
-const graph = {"boxes": [{"id": "n0", "kind": "output", "group": "written", "lines": ["row_count", "count_rows()"], "title": "written.row_count\nCOUNT(*)"}, {"id": "n1", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n2", "kind": "output", "group": "written", "lines": ["dt", "job_events.dt", "in the Key"], "title": "written.dt\njob_events.dt"}, {"id": "n3", "kind": "condition", "group": "written", "lines": ["WHERE in written", "between(job_events.dt, \"2026-09-24\", \"2026-09-24\")"], "title": "WHERE in written\njob_events.dt BETWEEN '2026-09-24' AND '2026-09-24'"}, {"id": "n4", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.row_count", "bigint"], "title": "mart.job_events_checks.row_count\nbigint"}, {"id": "n5", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.dt", "string", "in the Key"], "title": "mart.job_events_checks.dt\nstring"}], "arrows": [["n1", "n2", "value"], ["n1", "n3", "rows"], ["n3", "n0", "rows"], ["n3", "n2", "rows"], ["n0", "n4", "value"], ["n2", "n5", "value"]], "groups": [{"name": "written", "kind": "output"}, {"name": "ops.job_events", "kind": "table"}, {"name": "mart.job_events_checks", "kind": "table"}]};
+const graph = {"boxes": [{"id": "n0", "kind": "output", "group": "written", "lines": ["row_count", "count_rows()"], "title": "written.row_count\nCOUNT(*)"}, {"id": "n1", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n2", "kind": "output", "group": "written", "lines": ["dt", "job_events.dt"], "title": "written.dt\njob_events.dt"}, {"id": "n3", "kind": "condition", "group": "written", "lines": ["WHERE in written", "equals(job_events.dt, \"2026-09-24\")"], "title": "WHERE in written\njob_events.dt = '2026-09-24'"}, {"id": "n4", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.row_count", "bigint"], "title": "mart.job_events_checks.row_count\nbigint"}, {"id": "n5", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.dt", "string", "in the Key"], "title": "mart.job_events_checks.dt\nstring"}], "arrows": [["n1", "n2", "value"], ["n1", "n3", "rows"], ["n3", "n0", "rows"], ["n3", "n2", "rows"], ["n0", "n4", "value"], ["n2", "n5", "value"]], "groups": [{"name": "written", "kind": "output"}, {"name": "ops.job_events", "kind": "table"}, {"name": "mart.job_events_checks", "kind": "table"}]};
 
 // Sizes in the drawing, in pixels.
 const BOX_WIDTH = 250;
