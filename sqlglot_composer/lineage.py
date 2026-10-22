@@ -1043,7 +1043,7 @@ def default_path(caller: Path | None, commit: str, names: list[str],
                  when: datetime.datetime) -> Path:
     """lineage/{time}_{commit}_lineage_{file}_{names}.html, beside the calling file."""
     stem = caller.stem if caller is not None else "notebook"
-    name = (f"{when:{unchecked.TIME_IN_A_NAME}}_{commit}_lineage_{_plain(stem)}_"
+    name = (f"{when.strftime(unchecked.TIME_IN_A_NAME)}_{commit}_lineage_{_plain(stem)}_"
             f"{'__'.join(_plain(n) for n in names)}.html")
     return caller_folder(caller) / "lineage" / name
 
@@ -1074,7 +1074,7 @@ def _table_folder_path(statements: list[Statement | UncheckedStatement | PythonS
     folder = project / "tables" / stem
     if not folder.is_dir():
         return None
-    return folder / "lineage" / f"{when:{unchecked.TIME_IN_A_NAME}}-{stem}.html"
+    return folder / "lineage" / f"{when.strftime(unchecked.TIME_IN_A_NAME)}-{stem}.html"
 
 
 def caller_folder(caller: Path | None) -> Path:

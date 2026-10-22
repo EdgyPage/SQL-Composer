@@ -194,6 +194,16 @@ def usual_fix(refused: pytest.ExceptionInfo) -> str:
     return str(refused.value).split("Usual fix:")[1].split("\n")[0].strip()
 
 
+def test_where_passes_over_an_empty_list_that_any_of_refuses() -> None:
+    """WHERE and any_of check their conditions with one helper, but WHERE flattens first: an
+    empty list beside a condition is nothing to WHERE, and no conditions to any_of."""
+    failed = equals(jobs.team, "data")
+    hive = to_hive(statement(SELECT(jobs.job_id), FROM(jobs), WHERE([], failed)))
+    assert "WHERE\n  jobs.team = 'data'" in hive
+    with pytest.raises(TypeError, match=r"any_of\(\.\.\.\) was given no conditions"):
+        any_of([], failed)
+
+
 def test_run_query_given_a_derived_table_says_to_wrap_it_in_a_statement() -> None:
     per_team = derived("per_team", teams())
     with pytest.raises(TypeError) as refused:

@@ -5,7 +5,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 ## 7.1
 
 7.1 stops choosing between your two calls: you send each Statement through `query` or
-`execute` yourself, by the function you call. From 6.x, update as 7.0 says below, then as here.
+`execute` yourself, by the function you call. From 6.x, update as 7.0 says below, then as here,
+leaving out the two 7.0 steps 7.1 takes back: `unchecked_hive(..., returns_rows=...)` and
+`project.run_tables(query=...)`.
 
 ### To update from 7.0
 
